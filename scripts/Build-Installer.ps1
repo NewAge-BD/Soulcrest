@@ -32,9 +32,19 @@ foreach ($file in 'Soulcrest.exe','wwwroot\index.html','mapdata\manifest.json','
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath "$payload\BUILD-INFO.json" -Encoding utf8
 & $Compiler "/DPayloadDir=$payload" "/DOutputDir=$output" "/DAppVersion=$Version" "$PSScriptRoot\installer\Soulcrest.iss"
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
+# Update setup without the map data (about 100 MB instead of 420 MB) for installations whose map data
+# matches this build (user request 2026-10-07).
+$updatePayload = Join-Path $repoRoot "artifacts\installer-build\$stamp\update-payload"
+& robocopy $payload $updatePayload /E /XD (Join-Path $payload 'mapdata') /COPY:DAT /DCOPY:T /MT:8 /R:1 /W:1 /NFL /NDL /NJH /NJS /NP
+if ($LASTEXITCODE -ge 8) { throw 'Copying the update payload failed.' }
+$mapSha = (Get-FileHash -LiteralPath "$payload\mapdata\manifest.json" -Algorithm SHA256).Hash
+& $Compiler "/DPayloadDir=$updatePayload" "/DOutputDir=$output" "/DAppVersion=$Version" '/DUpdateOnly=1' "/DMapManifestSha256=$mapSha" "$PSScriptRoot\installer\Soulcrest.iss"
+if ($LASTEXITCODE -ne 0) { throw 'Update installer compilation failed.' }
 $setup = Join-Path $output "Soulcrest-$Version-Setup-win-x64.exe"
-$hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
-"$hash  $([IO.Path]::GetFileName($setup))" | Set-Content -LiteralPath "$setup.sha256" -Encoding ascii
+foreach ($file in $setup, (Join-Path $output "Soulcrest-$Version-Update-win-x64.exe")) {
+    $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$hash  $([IO.Path]::GetFileName($file))" | Set-Content -LiteralPath "$file.sha256" -Encoding ascii
+}
 Copy-Item -LiteralPath "$payload\BUILD-INFO.json" -Destination "$output\BUILD-INFO.json" -Force
 Write-Host "Installer: $setup"
 Write-Host "Payload:   $payload"

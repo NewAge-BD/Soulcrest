@@ -91,6 +91,42 @@ public sealed class MapTargetsTests
         }
     }
 
+    /// <summary>User request 2026-10-07: a route has one adjustable colour instead of one per stop.</summary>
+    [Fact]
+    public void RouteStopsShareTheRouteColour()
+    {
+        File.Delete(AppPaths.TargetsFile);
+        // A route saved before route colours: no "color" in routes.json.
+        File.WriteAllText(AppPaths.RoutesFile, """[{"id":"old","name":"Alt","stops":[{"map":"altgard","x":1,"y":1,"name":"X","kind":"Locations","icon":null},{"map":"altgard","x":2,"y":2,"name":"Y","kind":"Locations","icon":null}]}]""");
+        try
+        {
+            var targets = new MapTargetsService();
+            Assert.Equal(MapTargetsService.Colors[0], Assert.Single(targets.Routes).Color); // old routes load with a palette colour
+
+            targets.Toggle("altgard", 100, 100, "A", "Locations", null);
+            targets.Toggle("altgard", 200, 200, "B", "Locations", null, chain: true);
+            var route = targets.SaveRoute("altgard", "Neu")!;
+            Assert.Equal(MapTargetsService.Colors[1], route.Color); // the next unused colour
+            Assert.All(targets.Targets, t => Assert.Equal(route.Color, MapTargetsService.ColorOf(t, 0)));
+
+            targets.SetRouteColor(route.Id, "#4ade80");
+            targets.SetRouteColor(route.Id, "red"); // not a palette colour: ignored
+            var reloaded = new MapTargetsService();
+            Assert.Equal("#4ade80", reloaded.Routes.Single(r => r.Id == route.Id).Color);
+            Assert.All(reloaded.Targets, t => Assert.Equal("#4ade80", t.Color));
+
+            reloaded.StartRoute("old");
+            Assert.All(reloaded.Targets, t => Assert.Equal(MapTargetsService.Colors[0], t.Color));
+            reloaded.DeleteRoute("old"); // the marks stay as a plain sequence with the colours of their order
+            Assert.Equal([MapTargetsService.Colors[0], MapTargetsService.Colors[1]], reloaded.Targets.Select((t, i) => MapTargetsService.ColorOf(t, i)));
+        }
+        finally
+        {
+            File.Delete(AppPaths.TargetsFile);
+            File.Delete(AppPaths.RoutesFile);
+        }
+    }
+
     [Fact]
     public void ASingleTargetIsNoRoute()
     {

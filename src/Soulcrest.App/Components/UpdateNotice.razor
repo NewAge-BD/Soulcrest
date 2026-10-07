@@ -41,12 +41,16 @@
             <div class="row tutorial-actions">
                 <a class="btn link" href="@Updates.Available[0].Page" target="_blank" rel="noopener">@UiText.T("Auf GitHub ansehen")</a>
                 <button type="button" class="btn" disabled="@Busy" @onclick="Updates.Dismiss">@UiText.T("Später")</button>
-                <button type="button" class="btn primary" disabled="@(Busy || Updates.Available[0].Installer is null)" @onclick="Install">
+                <button type="button" class="btn primary" disabled="@(Busy || Updates.Planned is null)" @onclick="Install">
                     @(Updates.State == UpdateState.Downloading ? UiText.F("Lädt … {0:0} %", Updates.Progress * 100)
-                      : Updates.State == UpdateState.Starting ? UiText.T("Installer startet …") : UiText.T("Jetzt aktualisieren"))
+                      : Updates.State == UpdateState.Starting ? UiText.T("Installer startet …") : UiText.F("Jetzt aktualisieren ({0})", Size))
                 </button>
             </div>
-            @if (Updates.Available[0].Installer is null)
+            @if (Updates.Planned is not null && Updates.PlannedIsFull && Updates.Available[0].Update is not null)
+            {
+                <p class="sv-hint">@UiText.T("Diese Version bringt neue Kartendaten mit, deshalb wird der vollständige Installer geladen.")</p>
+            }
+            @if (Updates.Planned is null)
             {
                 <p class="sv-hint">@UiText.T("Der Installer dieser Version wird auf GitHub noch gebaut. Bitte später erneut suchen.")</p>
             }
@@ -57,6 +61,9 @@
 @code {
     private bool Visible => Updates.Available.Count > 0 && !Updates.Dismissed
         && Updates.State is UpdateState.Available or UpdateState.Downloading or UpdateState.Starting or UpdateState.Failed;
+
+    // "101 MB" of the planned setup
+    private string Size => Updates.Planned is { Size: > 0 } setup ? $"{setup.Size / 1_000_000.0:0} MB" : "?";
 
     private bool Busy => Updates.State is UpdateState.Downloading or UpdateState.Starting;
 

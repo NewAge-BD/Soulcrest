@@ -2,6 +2,19 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.1.31 – 2026-10-07
+
+- **Neu:** HDR-Aufnahme. Läuft der Monitor in HDR, nimmt Soulcrest das Spiel in voller HDR-Tiefe auf und
+  rechnet es für die Erkennung um. Bisher kam das Bild auf HDR-Monitoren stark überstrahlt an.
+- **Neu:** Routen haben eine einheitliche Farbe. Ein Klick auf den Farbpunkt vor der Route wählt sie;
+  Stopps und Linien auf der Karte und im Spiel nehmen sie an. Neue Routen bekommen die nächste freie Farbe.
+- **Verbessert:** Updates laden nur noch rund 100 MB statt 400 MB, solange sich die Kartendaten nicht
+  ändern. Das Update läuft still durch und startet Soulcrest danach neu.
+- **Verbessert:** Markierte Ziele und Routenstopps zeigen ihr Symbol, auch wenn ihre Ebene ausgeblendet ist.
+- **Geändert:** Kartenseite aufgeräumt: Tracking sowie Ziele und Routen stehen je in einer Kachel,
+  Erklärungen hinter „Hilfe“. Die Pet-Filter (Stufen, nur kartenexklusive) stehen jetzt unter „Pets“ in
+  den Ebenen, „Gebiete“ in deren Kopfzeile.
+
 ## 0.1.30 – 2026-10-07
 
 - **Neu:** Soulcrest ist öffentlich auf GitHub: <https://github.com/NewAge-BD/Soulcrest>. Jede Version

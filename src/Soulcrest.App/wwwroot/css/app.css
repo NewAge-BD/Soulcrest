@@ -133,6 +133,14 @@ input[type=checkbox] { accent-color: var(--accent); }
 .tile-state.on { color: var(--accent); }
 .tile-state.warn { color: var(--warn); }
 .tile-state.rest { color: var(--muted); }
+/* Mehrteilige Kachel (Tracking; Ziele und Routen): Teile durch eine feine Linie getrennt. */
+.tile-part { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
+.tile-part + .tile-part { border-top: 1px solid var(--line); padding-top: .4rem; }
+/* Ausführliche Erklärungen klappen weg, damit die Kachel kurz bleibt. */
+.tile-help > summary { width: max-content; font-size: .78rem; color: var(--muted); cursor: pointer; user-select: none; }
+.tile-help > summary:hover { color: var(--accent); }
+.tile-help > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
+.tile-help[open] > summary { margin-bottom: .25rem; }
 .tile-line { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .seg { display: inline-flex; align-self: flex-start; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .seg button { background: none; border: 0; padding: .2rem .6rem; font-family: inherit; font-size: .78rem; color: var(--muted); cursor: pointer; }
@@ -147,6 +155,7 @@ input[type=checkbox] { accent-color: var(--accent); }
 .mapside .tile-field:has(.chips) { align-items: flex-start; }
 .mapside .tile-field:has(.chips) .field-label { padding-top: .3rem; }
 .mapside .field-label { flex: none; width: 4.7rem; font-size: .8rem; color: var(--muted); }
+.mapside .field-label.wide { flex: 1; width: auto; min-width: 0; }
 .mapside .tile-field > select { flex: 1; min-width: 0; padding: .3rem .4rem; font-size: .85rem; }
 .mapside .tile-field .seg { align-self: auto; }
 .mapside .seg button { padding: .25rem .7rem; }
@@ -183,13 +192,28 @@ input[type=checkbox] { accent-color: var(--accent); }
 .targetlist .target small { color: var(--muted); }
 .targetlist .target .remove { flex: none; background: none; border: none; border-radius: 4px; color: var(--muted); cursor: pointer; padding: .1rem .35rem; font: inherit; }
 .targetlist .target .remove:hover { color: var(--error); background: var(--panel); }
+.route-save { gap: .4rem; }
+.route-save .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
 .route-save input[type=text] { flex: 1; min-width: 0; padding: .3rem .45rem; font-size: .85rem; }
 .route-save .btn { flex: none; }
+/* Routen: Farbpunkt (öffnet die Palette), Name, ▶ ⟳ ✕. Eine laufende Route trägt links einen Balken in ihrer Farbe. */
+.routelist .target { margin: 0 -.3rem; padding: 0 .1rem 0 .3rem; border-radius: 5px; }
+.routelist .target.running { background: var(--panel); box-shadow: inset 3px 0 0 var(--route-color, var(--accent)); }
+/* Zweizeilig: Name oben, Zielanzahl, Karte und „läuft“ darunter, damit nichts abgeschnitten wird. */
+.routelist .target .name { display: flex; flex-direction: column; padding: .15rem 0; line-height: 1.25; }
+.routelist .target .name .line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.routelist .target.running .name > .line:first-child { font-weight: 600; }
+.routelist .route-color { flex: none; width: 14px; height: 14px; padding: 0; border: 0; border-radius: 50%; background: var(--route-color, var(--accent)); box-shadow: 0 0 0 1px rgba(0,0,0,.6); cursor: pointer; }
+.routelist .route-color:hover, .routelist .route-color.open { box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 0 0 3px var(--text); }
 .routelist .route-start, .routelist .route-repeat { flex: none; background: none; border: 1px solid transparent; border-radius: 4px; color: var(--muted); cursor: pointer; padding: .05rem .35rem; font: inherit; line-height: 1.2; }
 .routelist .route-start:hover, .routelist .route-repeat:hover { color: var(--accent); background: var(--panel); }
 .routelist .route-repeat.on { color: var(--accent); border-color: var(--accent); background: rgba(94, 234, 212, .1); }
-.routelist .target.running .name { color: var(--accent); }
-.routelist .route-start:focus-visible, .routelist .route-repeat:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.routelist .route-color:focus-visible, .routelist .route-start:focus-visible, .routelist .route-repeat:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.route-palette { display: flex; flex-wrap: wrap; gap: .4rem; padding: .3rem .4rem .4rem 1.3rem; }
+.route-palette button { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.6); cursor: pointer; }
+.route-palette button:hover { transform: scale(1.15); }
+.route-palette button.on { box-shadow: 0 0 0 2px var(--panel-2), 0 0 0 4px var(--text); }
+.route-palette button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* Suche und Hervorhebung */
 .searchresults { display: flex; flex-direction: column; max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: .2rem; background: var(--panel-2); scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
@@ -587,3 +611,8 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
 .update-notes { overflow: auto; min-height: 0; flex: 1; display: flex; flex-direction: column; gap: .8rem; padding-right: .25rem; }
 .update-version h3 { margin: 0 0 .2rem; }
 .update-progress { width: 100%; accent-color: var(--accent); }
+
+/* Pet filters inside the Pets layer group, "Gebiete" in the layers head (former "Anzeige" tile, 2026-10-07). */
+.mapside .pet-filters { display: flex; align-items: flex-start; gap: .5rem; padding: .3rem .4rem .45rem 1.6rem; }
+.mapside .pet-filters .field-label { width: auto; padding-top: .3rem; }
+.mapside h3.layers-head .regions-chip { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: .75rem; }

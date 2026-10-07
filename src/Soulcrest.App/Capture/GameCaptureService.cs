@@ -33,7 +33,10 @@ public sealed class GameCaptureService : IDisposable
         Volatile.Write(ref _snapshot, new CaptureDiagnostics(
             capture is null ? "GDI" : capture.IsWindow ? "Spielfenster (WGC)" : "Monitor (WGC)",
             capture?.Bounds, capture?.FramesArrived ?? 0, capture?.LastFrameAt,
-            Interlocked.Read(ref _grabs), Interlocked.Read(ref _gdiFallbacks), _lastFailure ?? MonitorCapture.LastProblem));
+            Interlocked.Read(ref _grabs), Interlocked.Read(ref _gdiFallbacks), _lastFailure ?? MonitorCapture.LastProblem)
+        {
+            Hdr = capture is { IsHdr: true } ? $"HDR, SDR-Weiß {capture.SdrWhite * 80:0} nits" : null,
+        });
     }
 
     /// <summary>Capture state for the diagnosis report.</summary>
@@ -42,6 +45,9 @@ public sealed class GameCaptureService : IDisposable
         public string Stage { get; init; } = "Bereit";
         public DateTime StageSince { get; init; }
         public long BusyFrames { get; init; }
+
+        /// <summary>"HDR, SDR-Weiß 200 nits" while the monitor runs in HDR (FP16 capture), else null.</summary>
+        public string? Hdr { get; init; }
     }
 
     public CaptureDiagnostics Diagnostics
@@ -61,6 +67,16 @@ public sealed class GameCaptureService : IDisposable
 
     /// <summary>"Spielfenster (WGC)", "Monitor (WGC)" or "GDI".</summary>
     public string Method => Volatile.Read(ref _snapshot).Method;
+
+    /// <summary>Method plus the HDR state, for logs and status texts ("Spielfenster (WGC) · HDR, SDR-Weiß 200 nits").</summary>
+    public string MethodText
+    {
+        get
+        {
+            var snapshot = Volatile.Read(ref _snapshot);
+            return snapshot.Hdr is { } hdr ? $"{snapshot.Method} · {hdr}" : snapshot.Method;
+        }
+    }
 
     /// <summary>Screen rectangle of the game window (or monitor) while it is captured; null with GDI.</summary>
     public Rectangle? GameBounds

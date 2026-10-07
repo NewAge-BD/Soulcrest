@@ -1,4 +1,4 @@
-# Privater Windows-Installer
+# Windows-Installer
 
 Der Installer enthält den lokalen Soulcrest-Stand, die .NET-Laufzeit und das bereits
 generierte Offline-Kartendatenpaket. Er installiert pro Benutzer nach
@@ -14,10 +14,21 @@ Voraussetzungen zum Bauen: .NET SDK 9, Windows PowerShell 5.1 oder PowerShell 7,
 ./scripts/Build-Installer.ps1 -Compiler './artifacts/tools/inno-7.1.0/ISCC.exe'
 ```
 
-Ausgabe: `artifacts/installer/Soulcrest-<Version>-Setup-win-x64.exe`, SHA256-Datei und
+Ausgabe: `artifacts/installer/Soulcrest-<Version>-Setup-win-x64.exe` (vollständig, rund 400 MB),
+`Soulcrest-<Version>-Update-win-x64.exe` (ohne Kartendaten, rund 100 MB), je eine SHA256-Datei und
 `BUILD-INFO.json` mit Quellrevision und Kartendaten-Prüfsumme. Das frische Publish-Verzeichnis
 liegt unter `artifacts/installer-build/<Zeitstempel>/payload`.
 Ohne `-Version` verwenden Build und Installationstest die Version aus `Directory.Build.props`.
+
+## Update-Installer
+
+Derselbe Setup ohne `mapdata` (`/DUpdateOnly=1`). Er startet nur über einer bestehenden Installation
+(Uninstall-Eintrag der AppId) und nur, wenn deren `mapdata\manifest.json` die SHA-256 hat, mit der die
+Version gebaut wurde (`/DMapManifestSha256`); sonst verweist er auf den vollständigen Installer. Die
+Update-Suche in Soulcrest wählt ihn, wenn `mapManifestSha256` in `BUILD-INFO.json` des Releases zur
+installierten Datei passt, und startet ihn mit `/SILENT /RESTARTAPP` (Fortschrittsfenster, danach
+öffnet sich Soulcrest wieder). Ändern sich die Kartendaten, lädt sie den vollständigen Installer.
+Releases baut GitHub Actions (`.github/workflows/release.yml`) bei jedem Tag `v<Version>`.
 
 Geprüft mit Inno Setup 7.1.0, offiziell von
 <https://github.com/jrsoftware/issrc/releases/tag/is-7_1_0>. Der signierte Tool-Installer

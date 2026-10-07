@@ -5,9 +5,9 @@ using System.Runtime.InteropServices;
 namespace Soulcrest.App.Capture;
 
 /// <summary>
-/// Desktop capture of a screen rectangle (GDI). Simple and passive; the game window must be
-/// borderless/windowed. On HDR desktops Windows delivers a tone-mapped SDR image, which the
-/// OCR handles. Windows Graphics Capture with FP16 (Grindcrest) is the planned upgrade.
+/// Desktop capture of a screen rectangle (GDI), the fallback when Windows Graphics Capture is not
+/// available (MonitorCapture, with FP16 on HDR monitors). Simple and passive; the game window must be
+/// borderless/windowed. On HDR desktops GDI delivers a clipped SDR image.
 /// Soulcrest's own overlay is excluded from capture via display affinity.
 /// </summary>
 public static class ScreenCapture

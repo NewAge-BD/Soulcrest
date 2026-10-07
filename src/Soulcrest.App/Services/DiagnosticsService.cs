@@ -223,7 +223,7 @@ public sealed class DiagnosticsService : IDisposable
         // ---- Capture
         var capture = _capture.Diagnostics;
         Line("[Aufnahme]");
-        Line($"Methode: {capture.Method}, Bereich der Aufnahme: {capture.Bounds?.ToString() ?? "–"}");
+        Line($"Methode: {capture.Method}, Bereich der Aufnahme: {capture.Bounds?.ToString() ?? "–"}, {capture.Hdr ?? "SDR"}");
         Line($"Bilder von Windows: {capture.FramesArrived}, letztes: {(capture.LastFrameAt is { } at ? $"vor {(DateTime.UtcNow - at).TotalSeconds:0.0} s" : "noch keines")}");
         Line($"Abrufe: {capture.Grabs}, davon per GDI: {capture.GdiFallbacks}, GPU-bedingt übersprungen: {capture.BusyFrames}");
         Line($"Gelber Aufnahmerand: {(_capture.BorderSuppressed switch { true => "entfernt", false => "sichtbar", null => "–" })}, Windows-Freigabe: {(Capture.MonitorCapture.SupportsBorderSuppression ? Capture.MonitorCapture.CheckBorderlessAccess()?.ToString() ?? "unbekannt" : "nicht unterstützt")}");

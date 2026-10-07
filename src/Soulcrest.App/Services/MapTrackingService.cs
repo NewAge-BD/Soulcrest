@@ -116,7 +116,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     // Screen capture via Windows Graphics Capture of the game window (small map 0.5 ms, quarter-size
     // world map 5.6 ms; GDI: ~85 ms with the game running), shared with the other trackers.
     /// <summary>"Spielfenster (WGC)", "Monitor (WGC)" or "GDI": which capture the tracking uses.</summary>
-    public string CaptureMethod => capture.Method;
+    public string CaptureMethod => capture.MethodText;
 
     private Mat Grab(Rectangle area, double scale) => capture.Grab(area, scale);
     private readonly object _flowGate = new();

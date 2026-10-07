@@ -51,6 +51,9 @@ public sealed unsafe class MonitorCapture : IDisposable
 
     private readonly nint _window;
     private readonly Rectangle _monitorBounds;
+    // HDR (user request 2026-10-07): frames come as FP16 scRGB and are converted with the monitor's SDR white.
+    private readonly DirectXPixelFormat _format;
+    private readonly byte[]? _hdrLookup;
     private Windows.Graphics.SizeInt32 _poolSize;
 
     private MonitorCapture(Rectangle bounds, nint monitor, nint window)
@@ -81,7 +84,10 @@ public sealed unsafe class MonitorCapture : IDisposable
         }
         _item = window != 0 ? CreateItem(window, 3) : CreateItem(monitor, 4);
         _poolSize = _item.Size;
-        _pool = Direct3D11CaptureFramePool.CreateFreeThreaded(_projected, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, _poolSize);
+        (IsHdr, SdrWhite) = HdrDisplay.Read(window != 0 ? MonitorFromWindow(window, 2 /* MONITOR_DEFAULTTONEAREST */) : monitor);
+        _hdrLookup = IsHdr ? HdrDisplay.Lookup(SdrWhite) : null;
+        _format = IsHdr ? DirectXPixelFormat.R16G16B16A16Float : DirectXPixelFormat.B8G8R8A8UIntNormalized;
+        _pool = Direct3D11CaptureFramePool.CreateFreeThreaded(_projected, _format, 2, _poolSize);
         _session = _pool.CreateCaptureSession(_item);
         _session.IsCursorCaptureEnabled = false;
         // Like Grindcrest: the border can only be dropped before StartCapture; the permission was
@@ -106,6 +112,12 @@ public sealed unsafe class MonitorCapture : IDisposable
     }
 
     public bool IsWindow => _window != 0;
+
+    /// <summary>The monitor runs in HDR: frames are FP16 and converted (a change needs a new capture).</summary>
+    public bool IsHdr { get; }
+
+    /// <summary>SDR white of the HDR monitor in scRGB units (1.0 = 80 nits); 1 without HDR.</summary>
+    public double SdrWhite { get; }
 
     /// <summary>Windows confirmed this session runs without the yellow border (permission allowed, no other demand).</summary>
     public bool IsBorderSuppressed { get; }
@@ -238,7 +250,7 @@ public sealed unsafe class MonitorCapture : IDisposable
                 _latest = null;
                 Array.Clear(_pending);
                 if (size.Width <= 0 || size.Height <= 0) return; // minimized/transitional
-                sender.Recreate(_projected, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, size);
+                sender.Recreate(_projected, _format, 2, size);
                 _poolSize = size;
                 return; // wait for a frame from the new pool
             }
@@ -440,6 +452,18 @@ public sealed unsafe class MonitorCapture : IDisposable
             // Straight out of the mapped texture (its row pitch is wider than the picture): scale first,
             // then drop alpha, so a quarter-size world map never copies the full screen.
             stage?.Invoke("OpenCV: Bild konvertieren");
+            if (_hdrLookup is not null)
+            {
+                var converted = HdrDisplay.ToBgr(data.Data, data.RowPitch, size.Width, size.Height, _hdrLookup);
+                if (Math.Abs(scale - 1) < 1e-6)
+                    return converted;
+                using (converted)
+                {
+                    var scaled = new OpenCvSharp.Mat();
+                    OpenCvSharp.Cv2.Resize(converted, scaled, new OpenCvSharp.Size(), scale, scale, OpenCvSharp.InterpolationFlags.Area);
+                    return scaled;
+                }
+            }
             using var mapped = OpenCvSharp.Mat.FromPixelData(size.Height, size.Width, OpenCvSharp.MatType.CV_8UC4, data.Data, data.RowPitch);
             var bgr = new OpenCvSharp.Mat();
             if (Math.Abs(scale - 1) < 1e-6)
@@ -634,6 +658,9 @@ public sealed unsafe class MonitorCapture : IDisposable
 
     [DllImport("user32.dll")]
     private static extern nint MonitorFromPoint(NativePoint point, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern nint MonitorFromWindow(nint window, uint flags);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct NativeRect

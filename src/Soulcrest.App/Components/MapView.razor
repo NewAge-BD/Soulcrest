@@ -49,7 +49,8 @@
             <div class="status error">@UiText.T(_error)</div>
         }
 
-        <h3 class="layers-head"><span>@UiText.T("Ebenen")</span> <small>@_markerCount Marker</small></h3>
+        <h3 class="layers-head"><span>@UiText.T("Ebenen")</span> <small>@_markerCount Marker</small>
+            <label class="chip regions-chip" title="@UiText.T("Gebietsgrenzen und -namen auf der Karte")"><input type="checkbox" checked="@_regions" @onchange="ToggleRegions" /> @UiText.T("Gebiete")</label></h3>
         <div class="layers">
             @foreach (var group in _groups)
             {
@@ -60,6 +61,18 @@
                         <span class="name">@group.Name</span>
                         <span class="count">@group.Categories.Sum(c => c.Count)</span>
                     </div>
+                    @if (group.Name == "Pets")
+                    {
+                        <div class="pet-filters">
+                            <span class="field-label">@UiText.T("Ausblenden")</span>
+                            <div class="chips">
+                                <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel1" @onchange="@(e => SetHidden(1, (bool)e.Value!))" /> @UiText.T("Stufe 1")</label>
+                                <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel2" @onchange="@(e => SetHidden(2, (bool)e.Value!))" /> @UiText.T("Stufe 2")</label>
+                                <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel3" @onchange="@(e => SetHidden(3, (bool)e.Value!))" /> @UiText.T("Stufe 3 (fertig)")</label>
+                                <label class="chip" title="@UiText.F("Nur Pets, deren Spawns und Quellmonster ausschließlich auf {0} vorkommen", MapLabel)"><input type="checkbox" checked="@Settings.Current.ExclusivePetsOnly" @onchange="@(e => SetExclusiveOnly((bool)e.Value!))" /> @UiText.T("Nur kartenexklusive")</label>
+                            </div>
+                        </div>
+                    }
                     @if (_open.Contains(group.Name))
                     {
                         <div class="cats">
@@ -105,7 +118,9 @@
     </div>
     <aside class="sidebar mapside mapside-right">
         <h3>Tracking</h3>
+        @* Player and loot tracker share one tile: two short parts instead of two framed cards. *@
         <div class="tile">
+            <div class="tile-part">
             <div class="tile-head">
                 <span class="tile-title">Player-Tracker</span>
                 <span class="tile-state @(Tracking.Running ? (Tracking.Found ? "on" : Tracking.Paused ? "rest" : "warn") : "")" title="@UiText.T(Tracking.Status)">
@@ -136,8 +151,8 @@
             {
                 <div class="status error">@UiText.T(Tracking.Status)</div>
             }
-        </div>
-        <div class="tile">
+            </div>
+            <div class="tile-part">
             <div class="tile-head">
                 <span class="tile-title">Loot-Tracker</span>
                 <span class="tile-state @(Loot.Running ? "on" : "")" title="@UiText.T(Loot.Status)">@(Loot.Running ? UiText.T("● Netzwerk") : UiText.T("○ aus"))</span>
@@ -168,6 +183,7 @@
             {
                 <div class="status error">@UiText.T(Loot.Status)</div>
             }
+            </div>
         </div>
 
         <h3>@UiText.T("Wegführung")</h3>
@@ -186,10 +202,7 @@
             </div>
             @if (!PetMode) {
                 <CharacterPicker />
-                <label>@UiText.T("Abschlussradius (Kartenpixel)")
-                    <input type="number" min="0" max="500" step="5" value="@Settings.Current.ExplorationCompletionRadius" @onchange="SetCompletionRadius" />
-                </label>
-                <div class="note">@UiText.T("Bei Ankunft wird das Ziel für diesen Charakter abgeschlossen. 0 deaktiviert den automatischen Abschluss.")</div>
+                <div class="note">@UiText.T("Bei Ankunft wird das Ziel für diesen Charakter abgeschlossen (Abschlussradius unter „Ziele“).")</div>
             }
             @if (Settings.Current.ProgressionMode == "closest") {
                 <div class="note">@UiText.T("Führt zum Pet, dem die wenigsten Souls zur vollen Stufe fehlen; bei Gleichstand zum nächstgelegenen.")</div>
@@ -233,101 +246,107 @@
                 <div class="note">@UiText.T("Führt zum nächsten offenen Ziel auf dieser Karte. Ohne Spielerposition zählt die Kartenmitte.")</div>
             }
         </div>
+        @* Marked targets and saved routes in one tile: a route is saved from the marked sequence and
+           starting it replaces the marks, so both parts stay visible together. *@
         <div class="tile">
-            <div class="tile-head">
-                <span class="tile-title">@UiText.T("Ziele")</span>
-                <span class="tile-state">@Targets.Targets.Count</span>
-                @if (Targets.Targets.Count > 0)
+            <div class="tile-part">
+                <div class="tile-head">
+                    <span class="tile-title">@UiText.T("Ziele")</span>
+                    <span class="tile-state">@Targets.Targets.Count</span>
+                    @if (Targets.Targets.Count > 0)
+                    {
+                        <button type="button" class="btn small" @onclick="Targets.Clear">@UiText.T("Alle entfernen")</button>
+                    }
+                </div>
+                @if (Targets.Targets.Count == 0)
                 {
-                    <button type="button" class="btn small" @onclick="Targets.Clear">@UiText.T("Alle entfernen")</button>
+                    <div class="note">@UiText.T("Rechtsklick auf ein Symbol markiert es als Ziel: eine Linie mit Pfeilen führt vom Spieler dorthin, hier und auf der Spielkarte.") <b>@UiText.T("Shift+Rechtsklick")</b> @UiText.T("hängt das Ziel an das zuletzt markierte an (Spieler → A → B).")</div>
+                }
+                else
+                {
+                    <div class="targetlist">
+                        @foreach (var (target, index) in Targets.Targets.Select((t, i) => (t, i)))
+                        {
+                            <div class="target">
+                                <span class="swatch" style="background:@MapTargetsService.ColorOf(target, index)"></span>
+                                <span class="name" title="@target.Kind" @onclick="@(() => FlyToTarget(target))">@(target.After is { } after && Targets.Targets.FirstOrDefault(t => t.Id == after) is { } before ? $"{before.Name} → " : "")@target.Name <small>· @MapLabelOf(target.MapId)</small></span>
+                                <button type="button" class="remove" title="@UiText.T("Ziel entfernen")" @onclick="@(() => Targets.Remove(target.Id))">✕</button>
+                            </div>
+                        }
+                    </div>
+                }
+                @if (Targets.ChainOn(_mapId) is { Count: >= 2 } chain)
+                {
+                    <div class="tile-field route-save">
+                        <span class="swatch" style="background:@Targets.NextRouteColor" title="@UiText.T("Farbe der neuen Route; danach in der Liste änderbar")"></span>
+                        <input type="text" maxlength="60" autocomplete="off" spellcheck="false" aria-label="@UiText.T("Name der Route")" placeholder="@($"{chain[0].Name} → {chain[^1].Name}")" @bind="_routeName" />
+                        <button type="button" class="btn small" @onclick="SaveRoute">@UiText.F("Folge speichern ({0})", chain.Count)</button>
+                    </div>
+                }
+                <label class="tile-field">
+                    <span class="field-label wide">@UiText.T("Abschlussradius (Kartenpixel)")</span>
+                    <input type="number" min="0" max="500" step="5" value="@Settings.Current.ExplorationCompletionRadius" @onchange="SetCompletionRadius" />
+                </label>
+                <details class="tile-help">
+                    <summary>@UiText.T("Hilfe")</summary>
+                    <div class="note">@UiText.T("Erreichte Ziele verschwinden wie im Progressionsmodus; eine Kette läuft dann vom Spieler zum nächsten Ziel. Markierte Pets bleiben, bis sie die nächste Stufe erreichen, und zeigen alle Spawns und Quellmonster. 0 schaltet das Verschwinden aus.")</div>
+                </details>
+            </div>
+            <div class="tile-part">
+                <div class="tile-head">
+                    <span class="tile-title">@UiText.T("Routen")</span>
+                    <span class="tile-state">@Targets.Routes.Count</span>
+                </div>
+                @if (Targets.Routes.Count == 0)
+                {
+                    <div class="note">@UiText.T("Markiere mit Shift+Rechtsklick eine Folge aus mindestens zwei Zielen, dann kannst du sie hier als Route speichern.")</div>
+                }
+                else
+                {
+                    var active = Targets.ActiveRoutes;
+                    <div class="targetlist routelist">
+                        @foreach (var route in Targets.Routes)
+                        {
+                            var color = route.Color ?? MapTargetsService.ColorOf(0);
+                            var running = active.Contains(route.Id);
+                            var picking = _paletteFor == route.Id;
+                            <div class="target @(running ? "running" : "")" style="--route-color:@color">
+                                <button type="button" class="route-color @(picking ? "open" : "")" aria-expanded="@(picking ? "true" : "false")"
+                                        title="@UiText.T("Routenfarbe ändern")" @onclick="@(() => TogglePalette(route.Id))"></button>
+                                <span class="name" title="@string.Join(" → ", route.Stops.Select(s => s.Name))" @onclick="@(() => StartRoute(route))"><span class="line">@route.Name</span><small class="line">@UiText.F("{0} Ziele", route.Stops.Count) · @MapLabelOf(route.Stops[0].MapId)@(running ? UiText.T(" · läuft") : "")</small></span>
+                                <button type="button" class="route-start" title="@UiText.T("Route starten (ersetzt die markierten Ziele)")" @onclick="@(() => StartRoute(route))">▶</button>
+                                <button type="button" class="route-repeat @(route.Repeat ? "on" : "")" aria-pressed="@(route.Repeat ? "true" : "false")"
+                                        title="@(route.Repeat ? UiText.T("Wiederholen an: nach dem letzten Ziel beginnt die Route von vorn") : UiText.T("Wiederholen aus"))"
+                                        @onclick="@(() => Targets.SetRouteRepeat(route.Id, !route.Repeat))">⟳</button>
+                                <button type="button" class="remove" title="@UiText.T("Route löschen")" @onclick="@(() => DeleteRoute(route))">✕</button>
+                            </div>
+                            @if (picking)
+                            {
+                                <div class="route-palette" role="radiogroup" aria-label="@UiText.T("Routenfarbe ändern")">
+                                    @foreach (var (option, name) in MapTargetsService.Colors.Zip(ColorNames))
+                                    {
+                                        <button type="button" role="radio" class="@(option == color ? "on" : "")" aria-checked="@(option == color ? "true" : "false")"
+                                                style="background:@option" title="@UiText.T(name)" aria-label="@UiText.T(name)" @onclick="@(() => SetRouteColor(route, option, name))"></button>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+                @if (_routeStatus is not null)
+                {
+                    <div class="status">@_routeStatus</div>
+                }
+                @if (Targets.Routes.Count > 0)
+                {
+                    <details class="tile-help">
+                        <summary>@UiText.T("Hilfe")</summary>
+                        <div class="note">@UiText.T("▶ startet die Route und ersetzt die markierten Ziele. ⟳ wiederholt sie: Nach dem letzten Ziel beginnt sie von vorn. Der Farbpunkt wählt die eine Farbe ihrer Linien und Ringe auf der Karte und im Spiel.")</div>
+                    </details>
                 }
             </div>
-            @if (Targets.Targets.Count == 0)
-            {
-                <div class="note">@UiText.T("Rechtsklick auf ein Symbol markiert es als Ziel: eine Linie mit Pfeilen führt vom Spieler dorthin, hier und auf der Spielkarte.") <b>@UiText.T("Shift+Rechtsklick")</b> @UiText.T("hängt das Ziel an das zuletzt markierte an (Spieler → A → B).")</div>
-            }
-            else
-            {
-                <div class="targetlist">
-                    @foreach (var (target, index) in Targets.Targets.Select((t, i) => (t, i)))
-                    {
-                        <div class="target">
-                            <span class="swatch" style="background:@MapTargetsService.ColorOf(index)"></span>
-                            <span class="name" title="@target.Kind" @onclick="@(() => FlyToTarget(target))">@(target.After is { } after && Targets.Targets.FirstOrDefault(t => t.Id == after) is { } before ? $"{before.Name} → " : "")@target.Name <small>· @MapLabelOf(target.MapId)</small></span>
-                            <button type="button" class="remove" title="@UiText.T("Ziel entfernen")" @onclick="@(() => Targets.Remove(target.Id))">✕</button>
-                        </div>
-                    }
-                </div>
-            }
-            <label class="tile-field">
-                <span class="field-label">@UiText.T("Abschlussradius (Kartenpixel)")</span>
-                <input type="number" min="0" max="500" step="5" value="@Settings.Current.ExplorationCompletionRadius" @onchange="SetCompletionRadius" />
-            </label>
-            <div class="note">@UiText.T("Erreichte Ziele verschwinden wie im Progressionsmodus; eine Kette läuft dann vom Spieler zum nächsten Ziel. Markierte Pets bleiben, bis sie die nächste Stufe erreichen, und zeigen alle Spawns und Quellmonster. 0 schaltet das Verschwinden aus.")</div>
-        </div>
-        <div class="tile">
-            <div class="tile-head">
-                <span class="tile-title">@UiText.T("Routen")</span>
-                <span class="tile-state">@Targets.Routes.Count</span>
-            </div>
-            @if (Targets.ChainOn(_mapId) is { Count: >= 2 } chain)
-            {
-                <div class="tile-field route-save">
-                    <input type="text" maxlength="60" autocomplete="off" spellcheck="false" aria-label="@UiText.T("Name der Route")" placeholder="@($"{chain[0].Name} → {chain[^1].Name}")" @bind="_routeName" />
-                    <button type="button" class="btn small" @onclick="SaveRoute">@UiText.F("Folge speichern ({0})", chain.Count)</button>
-                </div>
-            }
-            else
-            {
-                <div class="note">@UiText.T("Markiere mit Shift+Rechtsklick eine Folge aus mindestens zwei Zielen, dann kannst du sie hier als Route speichern.")</div>
-            }
-            @if (_routeStatus is not null)
-            {
-                <div class="status">@_routeStatus</div>
-            }
-            @if (Targets.Routes.Count > 0)
-            {
-                var active = Targets.ActiveRoutes;
-                <div class="targetlist routelist">
-                    @foreach (var route in Targets.Routes)
-                    {
-                        <div class="target @(active.Contains(route.Id) ? "running" : "")">
-                            <button type="button" class="route-start" title="@UiText.T("Route starten (ersetzt die markierten Ziele)")" @onclick="@(() => StartRoute(route))">▶</button>
-                            <span class="name" title="@string.Join(" → ", route.Stops.Select(s => s.Name))" @onclick="@(() => StartRoute(route))">@route.Name <small>· @UiText.F("{0} Ziele", route.Stops.Count) · @MapLabelOf(route.Stops[0].MapId)@(active.Contains(route.Id) ? UiText.T(" · läuft") : "")</small></span>
-                            <button type="button" class="route-repeat @(route.Repeat ? "on" : "")" aria-pressed="@(route.Repeat ? "true" : "false")"
-                                    title="@(route.Repeat ? UiText.T("Wiederholen an: nach dem letzten Ziel beginnt die Route von vorn") : UiText.T("Wiederholen aus"))"
-                                    @onclick="@(() => Targets.SetRouteRepeat(route.Id, !route.Repeat))">⟳</button>
-                            <button type="button" class="remove" title="@UiText.T("Route löschen")" @onclick="@(() => DeleteRoute(route))">✕</button>
-                        </div>
-                    }
-                </div>
-                <div class="note">@UiText.T("▶ startet die Route und ersetzt die markierten Ziele. ⟳ wiederholt sie: Nach dem letzten Ziel beginnt sie von vorn.")</div>
-            }
         </div>
 
-        <h3>@UiText.T("Anzeige")</h3>
-        <div class="tile">
-            <div class="tile-field">
-                <span class="field-label">@UiText.T("Ausblenden")</span>
-                <div class="chips">
-                    <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel1" @onchange="@(e => SetHidden(1, (bool)e.Value!))" /> @UiText.T("Stufe 1")</label>
-                    <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel2" @onchange="@(e => SetHidden(2, (bool)e.Value!))" /> @UiText.T("Stufe 2")</label>
-                    <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel3" @onchange="@(e => SetHidden(3, (bool)e.Value!))" /> @UiText.T("Stufe 3 (fertig)")</label>
-                </div>
-            </div>
-            <div class="tile-field">
-                <span class="field-label">Pets</span>
-                <div class="chips">
-                    <label class="chip" title="@UiText.F("Nur Pets, deren Spawns und Quellmonster ausschließlich auf {0} vorkommen", MapLabel)"><input type="checkbox" checked="@Settings.Current.ExclusivePetsOnly" @onchange="@(e => SetExclusiveOnly((bool)e.Value!))" /> @UiText.T("Nur kartenexklusive")</label>
-                </div>
-            </div>
-            <div class="tile-field">
-                <span class="field-label">@UiText.T("Karte")</span>
-                <div class="chips">
-                    <label class="chip"><input type="checkbox" checked="@_regions" @onchange="ToggleRegions" /> @UiText.T("Gebiete")</label>
-                </div>
-            </div>
-        </div>
 
     </aside>
 </div>
@@ -504,6 +523,19 @@
         _routeStatus = UiText.F("Route „{0}“ gestartet.", route.Name);
     }
 
+    // Palette entries of MapTargetsService.Colors, same order (UI names only).
+    private static readonly string[] ColorNames = ["Gelb", "Hellblau", "Pink", "Grün", "Orange", "Violett", "Rot", "Türkis"];
+    private string? _paletteFor; // view-only: the route whose colour palette is open
+
+    private void TogglePalette(string routeId) => _paletteFor = _paletteFor == routeId ? null : routeId;
+
+    private void SetRouteColor(SavedRoute route, string color, string name)
+    {
+        Targets.SetRouteColor(route.Id, color);
+        _paletteFor = null;
+        _routeStatus = UiText.F("Route „{0}“ hat jetzt die Farbe {1}.", route.Name, UiText.T(name));
+    }
+
     private void DeleteRoute(SavedRoute route)
     {
         Targets.DeleteRoute(route.Id);
@@ -520,7 +552,7 @@
     private async Task PushTargets()
     {
         // petId: the map shows all spawns and soul monsters of a marked pet (user request 2026-10-06).
-        var payload = Targets.Targets.Select((t, i) => new { id = t.Id, map = t.MapId, x = t.X, y = t.Y, name = t.Name, kind = t.Kind, color = MapTargetsService.ColorOf(i), after = t.After,
+        var payload = Targets.Targets.Select((t, i) => new { id = t.Id, map = t.MapId, x = t.X, y = t.Y, name = t.Name, kind = t.Kind, color = MapTargetsService.ColorOf(t, i), after = t.After,
             petId = t.PetId ?? (t.Kind.StartsWith("Pets", StringComparison.Ordinal) ? Progress.FindByName(t.Name)?.Id : null) });
         await JS.InvokeVoidAsync("soulcrestMap.setTargets", JsonSerializer.Serialize(payload));
     }

@@ -7,6 +7,17 @@
 #ifndef AppVersion
   #define AppVersion "0.1.0"
 #endif
+; UpdateOnly (user request 2026-10-07): the same setup without the map data (about 100 MB instead of
+; 420 MB) for an existing installation whose map data matches MapManifestSha256. The update search in
+; Soulcrest takes it when the map data did not change.
+#ifdef UpdateOnly
+  #ifndef MapManifestSha256
+    #error UpdateOnly needs MapManifestSha256 (SHA-256 of mapdata\manifest.json).
+  #endif
+  #define SetupName "Update"
+#else
+  #define SetupName "Setup"
+#endif
 
 [Setup]
 AppId={{2946C774-E30B-4C98-A366-108062322891}
@@ -20,7 +31,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.19041
 OutputDir={#OutputDir}
-OutputBaseFilename=Soulcrest-{#AppVersion}-Setup-win-x64
+OutputBaseFilename=Soulcrest-{#AppVersion}-{#SetupName}-win-x64
 Compression=lzma2/normal
 SolidCompression=yes
 WizardStyle=modern
@@ -49,11 +60,15 @@ Name: "{autodesktop}\Soulcrest"; Filename: "{app}\Soulcrest.exe"; WorkingDir: "{
 
 [Run]
 Filename: "{app}\Soulcrest.exe"; Description: "{cm:LaunchProgram,Soulcrest}"; Flags: nowait postinstall skipifsilent unchecked
+; Started by the update search in Soulcrest ("/SILENT /RESTARTAPP"): open Soulcrest again afterwards.
+Filename: "{app}\Soulcrest.exe"; Flags: nowait; Check: RestartRequested
 
 ; User progress/settings in LOCALAPPDATA\Soulcrest are deliberately not installer files.
 ; Uninstall removes only the installed payload and shortcuts, never the user's data.
 
 [CustomMessages]
+german.UpdateNeedsInstall=Dieses Update setzt eine installierte Soulcrest-Version voraus. Bitte den vollständigen Installer (Soulcrest-{#AppVersion}-Setup-win-x64.exe) verwenden.
+german.UpdateNeedsMapData=Dieses Update enthält keine Kartendaten, und die installierten passen nicht dazu. Bitte den vollständigen Installer (Soulcrest-{#AppVersion}-Setup-win-x64.exe) verwenden.
 german.PrereqCaption=Voraussetzungen
 german.PrereqDescription=Npcap und Windows-OCR
 german.PrereqSub=Soulcrest braucht Npcap fürs Loot-Tracking und das Windows-OCR-Paket für die Sprache deines Spielclients. Angehakte Teile installiert das Setup jetzt; Windows fragt dafür einmal nach Administratorrechten.
@@ -68,6 +83,8 @@ german.PrereqNpcapOk=Npcap: installiert
 german.PrereqNpcapMissing=Npcap: fehlt noch (https://npcap.com); ohne Npcap kein Loot-Tracking
 german.PrereqOcrOk=OCR %1: installiert
 german.PrereqOcrMissing=OCR %1: noch nicht verfügbar; nach einem Windows-Neustart erneut in Soulcrest unter Optionen prüfen
+english.UpdateNeedsInstall=This update needs an installed Soulcrest. Please use the full installer (Soulcrest-{#AppVersion}-Setup-win-x64.exe).
+english.UpdateNeedsMapData=This update contains no map data, and the installed map data does not match. Please use the full installer (Soulcrest-{#AppVersion}-Setup-win-x64.exe).
 english.PrereqCaption=Requirements
 english.PrereqDescription=Npcap and Windows OCR
 english.PrereqSub=Soulcrest needs Npcap for loot tracking and the Windows OCR package for your game client's language. Setup installs the ticked parts now; Windows asks for administrator rights once.
@@ -100,6 +117,34 @@ var
   OcrLanguages: String;
   NpcapIndex, OcrEnIndex, OcrDeIndex: Integer;
   NpcapDownloaded: Boolean;
+
+function RestartRequested: Boolean;
+begin
+  Result := Pos('/RESTARTAPP', Uppercase(GetCmdTail)) > 0;
+end;
+
+#ifdef UpdateOnly
+// The update keeps the installed map data: it must be there and be the one this version was built with.
+function InitializeSetup: Boolean;
+var
+  Location, Manifest: String;
+begin
+  Result := False;
+  if not RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{2946C774-E30B-4C98-A366-108062322891}_is1',
+    'InstallLocation', Location) then
+  begin
+    SuppressibleMsgBox(CustomMessage('UpdateNeedsInstall'), mbError, MB_OK, IDOK);
+    Exit;
+  end;
+  Manifest := AddBackslash(Location) + 'mapdata\manifest.json';
+  if not FileExists(Manifest) or (CompareText(GetSHA256OfFile(Manifest), '{#MapManifestSha256}') <> 0) then
+  begin
+    SuppressibleMsgBox(CustomMessage('UpdateNeedsMapData'), mbError, MB_OK, IDOK);
+    Exit;
+  end;
+  Result := True;
+end;
+#endif
 
 function NpcapInstalled: Boolean;
 begin

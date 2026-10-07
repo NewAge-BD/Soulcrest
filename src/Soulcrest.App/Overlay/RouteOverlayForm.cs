@@ -146,6 +146,16 @@ public sealed class RouteOverlayForm : Form
         var pets = placement is not null && (showPets || marked.Count > 0) ? VisiblePets(placement, marked, showPets) : [];
         var souls = placement is not null && marked.Count > 0 ? VisibleSoulMonsters(placement, marked) : [];
         var resources = placement is not null && _settings.Current.ShowResourcesInGame ? VisibleResources(placement) : [];
+        // Marked targets keep their symbol when its category is hidden (user request 2026-10-07); pets are
+        // drawn above anyway (marked pets always show).
+        if (placement is not null && _progress.MapDataDirectory is { } mapdata)
+        {
+            foreach (var (target, _) in onMap)
+            {
+                if (PetOf(target) is null && target.Icon is { } icon && !resources.Any(r => r.X == target.X && r.Y == target.Y))
+                    resources.Add(new ResourceSymbol(target.X, target.Y, ResourceIcon(icon, mapdata)));
+            }
+        }
         if (placement is null || (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0))
             return null;
         return RenderFrame(placement, onMap, pets, resources, souls);
@@ -237,7 +247,7 @@ public sealed class RouteOverlayForm : Form
             DrawPet(graphics, Offset(placement.WorldToScreen(pet.X, pet.Y), origin), pet);
         foreach (var (target, index) in targets)
         {
-            var color = index < 0 ? Color.White : ColorTranslator.FromHtml(MapTargetsService.ColorOf(index));
+            var color = index < 0 ? Color.White : ColorTranslator.FromHtml(MapTargetsService.ColorOf(target, index)); // a route's stops share its colour
             var at = Offset(placement.WorldToScreen(target.X, target.Y), origin);
             // A chained target (Shift + right click) starts at its predecessor, all others at the player.
             var before = target.After is { } after ? targets.FirstOrDefault(t => t.Target.Id == after).Target : null;

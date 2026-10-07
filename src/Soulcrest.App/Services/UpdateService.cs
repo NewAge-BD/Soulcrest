@@ -5,8 +5,15 @@ using System.Text.Json;
 
 namespace Soulcrest.App.Services;
 
-/// <summary>A published version newer than the running one, with its patch notes (GitHub release text).</summary>
-public sealed record AvailableUpdate(Version Version, string Notes, string Page, string? Installer, string? Checksum);
+/// <summary>A downloadable setup of a release with its published checksum file.</summary>
+public sealed record SetupAsset(string Url, string? Checksum, long Size);
+
+/// <summary>
+/// A published version newer than the running one, with its patch notes (GitHub release text). Full: setup
+/// with the map data; Update: the same without them, for installations whose map data matches BUILD-INFO.
+/// </summary>
+public sealed record AvailableUpdate(Version Version, string Notes, string Page, SetupAsset? Full, SetupAsset? Update = null,
+    string? BuildInfo = null);
 
 public enum UpdateState { Idle, Checking, UpToDate, Available, Downloading, Starting, Failed }
 
@@ -45,6 +52,13 @@ public sealed class UpdateService : IDisposable
     /// <summary>Newer versions, newest first; the first one is installed.</summary>
     public IReadOnlyList<AvailableUpdate> Available { get; private set; } = [];
 
+    /// <summary>
+    /// What "Jetzt aktualisieren" downloads: the small update setup when the installed map data matches the
+    /// new version (user request 2026-10-07: not 420 MB every time), else the full setup.
+    /// </summary>
+    public SetupAsset? Planned { get; private set; }
+    public bool PlannedIsFull { get; private set; }
+
     /// <summary>The notice was closed with "Später" (until the next start or check).</summary>
     public bool Dismissed { get; private set; }
 
@@ -82,6 +96,7 @@ public sealed class UpdateService : IDisposable
             response.EnsureSuccessStatusCode();
             var json = await response.Content.ReadAsStringAsync(_stop.Token);
             Available = Newer(json, Installed);
+            (Planned, PlannedIsFull) = Available.Count == 0 ? (null, false) : await PlanAsync(Available[0]);
             Dismissed = false;
             CheckedAt = DateTime.Now;
             if (Available.Count == 0)
@@ -119,8 +134,9 @@ public sealed class UpdateService : IDisposable
     /// <summary>Downloads the installer of the newest version, checks it and starts it; Soulcrest then closes.</summary>
     public async Task InstallAsync()
     {
-        if (Available.FirstOrDefault() is not { Installer: { } installerUrl } update)
+        if (Available.FirstOrDefault() is not { } update || Planned is not { } setup)
             return;
+        var installerUrl = setup.Url;
         if (Interlocked.CompareExchange(ref _busy, 1, 0) != 0)
             return;
         try
@@ -131,7 +147,7 @@ public sealed class UpdateService : IDisposable
             Directory.CreateDirectory(folder);
             var file = Path.Combine(folder, Path.GetFileName(new Uri(installerUrl).LocalPath));
             string? expected = null;
-            if (update.Checksum is { } checksumUrl)
+            if (setup.Checksum is { } checksumUrl)
                 expected = ChecksumOf(await _http.GetStringAsync(checksumUrl, _stop.Token));
             if (expected is null)
                 throw new InvalidDataException("Keine Prüfsumme zum Installer veröffentlicht.");
@@ -169,7 +185,8 @@ public sealed class UpdateService : IDisposable
             }
             Progress = 1;
             Set(UpdateState.Starting, "Installer startet, Soulcrest wird beendet …");
-            Process.Start(new ProcessStartInfo(file) { UseShellExecute = true });
+            // Quiet with a progress window; the setup opens Soulcrest again afterwards (/RESTARTAPP).
+            Process.Start(new ProcessStartInfo(file, "/SILENT /RESTARTAPP") { UseShellExecute = true });
             ExitRequested?.Invoke();
         }
         catch (OperationCanceledException) when (_stop.IsCancellationRequested)
@@ -201,25 +218,66 @@ public sealed class UpdateService : IDisposable
                 continue;
             if (installed is not null && version <= installed)
                 continue;
-            string? installer = null, checksum = null;
+            var files = new Dictionary<string, (string Url, long Size)>(StringComparer.OrdinalIgnoreCase);
             if (release.TryGetProperty("assets", out var assets))
             {
                 foreach (var asset in assets.EnumerateArray())
                 {
                     var name = asset.GetProperty("name").GetString() ?? "";
                     var url = asset.GetProperty("browser_download_url").GetString();
-                    if (name.EndsWith("-Setup-win-x64.exe", StringComparison.OrdinalIgnoreCase))
-                        installer = url;
-                    else if (name.EndsWith("-Setup-win-x64.exe.sha256", StringComparison.OrdinalIgnoreCase))
-                        checksum = url;
+                    if (url is not null)
+                        files[name] = (url, asset.TryGetProperty("size", out var size) && size.TryGetInt64(out var bytes) ? bytes : 0);
                 }
+            }
+            SetupAsset? Setup(string kind)
+            {
+                var name = files.Keys.FirstOrDefault(n => n.EndsWith($"-{kind}-win-x64.exe", StringComparison.OrdinalIgnoreCase));
+                if (name is null)
+                    return null;
+                return new SetupAsset(files[name].Url, files.TryGetValue(name + ".sha256", out var sum) ? sum.Url : null, files[name].Size);
             }
             list.Add(new AvailableUpdate(version,
                 release.TryGetProperty("body", out var body) ? body.GetString() ?? "" : "",
                 release.TryGetProperty("html_url", out var page) ? page.GetString() ?? "" : "",
-                installer, checksum));
+                Setup("Setup"), Setup("Update"),
+                files.TryGetValue("BUILD-INFO.json", out var info) ? info.Url : null));
         }
         return [.. list.OrderByDescending(u => u.Version)];
+    }
+
+    /// <summary>
+    /// The update setup only when the installed map data (next to Soulcrest.exe) is the one the new version
+    /// was built with; it would refuse to run otherwise. Any doubt takes the full setup.
+    /// </summary>
+    private async Task<(SetupAsset?, bool)> PlanAsync(AvailableUpdate update)
+    {
+        if (update.Update is not null && update.BuildInfo is { } infoUrl)
+        {
+            try
+            {
+                var wanted = MapManifestOf(await _http.GetStringAsync(infoUrl, _stop.Token));
+                var manifest = Path.Combine(AppContext.BaseDirectory, "mapdata", "manifest.json");
+                if (wanted is not null && File.Exists(manifest))
+                {
+                    await using var stream = File.OpenRead(manifest);
+                    var installed = Convert.ToHexString(await SHA256.HashDataAsync(stream, _stop.Token));
+                    if (string.Equals(installed, wanted, StringComparison.OrdinalIgnoreCase))
+                        return (update.Update, false);
+                }
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException or IOException)
+            {
+                LogFile.Error("Update-Planung", e);
+            }
+        }
+        return (update.Full, true);
+    }
+
+    /// <summary>mapManifestSha256 of a BUILD-INFO.json (Build-Installer.ps1).</summary>
+    internal static string? MapManifestOf(string buildInfo)
+    {
+        using var document = JsonDocument.Parse(buildInfo.TrimStart('\uFEFF'));
+        return document.RootElement.TryGetProperty("mapManifestSha256", out var value) ? value.GetString() : null;
     }
 
     /// <summary>"&lt;sha256&gt;  file.exe" (Build-Installer.ps1) → the hash; null when it is not one.</summary>

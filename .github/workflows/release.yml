@@ -82,5 +82,15 @@ jobs:
         run: |
           $version = '${{ steps.version.outputs.version }}'
           $setup = "artifacts/installer/Soulcrest-$version-Setup-win-x64.exe"
-          gh release create $env:TAG $setup "$setup.sha256" artifacts/installer/BUILD-INFO.json `
-            --title "Soulcrest $version" --notes-file (Join-Path $env:RUNNER_TEMP 'notes.md')
+          $update = "artifacts/installer/Soulcrest-$version-Update-win-x64.exe"
+          $assets = $setup, "$setup.sha256", $update, "$update.sha256", 'artifacts/installer/BUILD-INFO.json'
+          $notes = Join-Path $env:RUNNER_TEMP 'notes.md'
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            # A rerun (tag pushed again, or started by hand) replaces the files of the existing release.
+            gh release upload $env:TAG @assets --clobber
+            gh release edit $env:TAG --title "Soulcrest $version" --notes-file $notes
+          } else {
+            gh release create $env:TAG @assets --title "Soulcrest $version" --notes-file $notes
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing the release failed.' }

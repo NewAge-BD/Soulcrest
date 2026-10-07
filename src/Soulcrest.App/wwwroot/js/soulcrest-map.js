@@ -27,6 +27,7 @@ window.soulcrestMap = (() => {
     let kindLayers = [];
     let petRefs = [];
     let markerRefs = [];         // per marker index -> leaflet layer
+    let markerByPos = new Map(); // "x,y" -> marker index (marked targets find their symbol)
     let regionLayer = null, focusLayer = null;
     let doneSet = new Set();
     let hiddenSet = new Set();
@@ -217,6 +218,7 @@ window.soulcrestMap = (() => {
         kindLayers = current.categories.map(() => null);
         catVisible = current.categories.map(c => !c.hidden && DEFAULT_VISIBLE_GROUPS.has(c.group));
         markerRefs = new Array(current.markers.length);
+        markerByPos = new Map();
         petRefs = [];
         current.markers.forEach((m, i) => {
             const cat = current.categories[m[0]];
@@ -246,6 +248,7 @@ window.soulcrestMap = (() => {
             });
             layer.markerIndex = i;
             markerRefs[i] = layer;
+            markerByPos.set(m[1] + ',' + m[2], i);
             if (cat.group === 'Pets') {
                 layer.petLabel = petLabels[m[6]];
                 petRefs.push({ m, layer });
@@ -416,6 +419,7 @@ window.soulcrestMap = (() => {
                 L.tooltip({ permanent: true, direction: 'top', offset: [0, -radius - 2], className: 'progression-label', pane: 'targets' })
                     .setLatLng(ll).setContent(`${esc(t.name)} → ${esc(petName(t.petId))}`).addTo(targetLayer);
             }
+            targetSymbol(t);
             L.circleMarker(ll, { pane: 'targets', radius, color: '#000', weight: 6, opacity: 0.5, fill: false, interactive: false }).addTo(targetLayer);
             L.circleMarker(ll, { pane: 'targets', radius, color: t.color, weight: 3.5, fill: false, interactive: false }).addTo(targetLayer);
             if (!from) continue;
@@ -436,6 +440,18 @@ window.soulcrestMap = (() => {
                 }).addTo(targetLayer);
             }
         }
+    }
+
+    // A marked target keeps its symbol when its layer is hidden or filtered (user request 2026-10-07:
+    // stops of a route show their icons although the category is switched off).
+    function targetSymbol(t) {
+        const i = markerByPos.get(t.x + ',' + t.y);
+        if (i === undefined) return;
+        const layer = markerRefs[i];
+        if (layer.iconIndex === undefined || (map.hasLayer(layer) && !layer.petHidden)) return;
+        const m = current.markers[i];
+        L.marker(toLatLng(m[1], m[2]), { icon: iconFor(current.categories[m[0]], layer.iconIndex, m), interactive: false, keyboard: false })
+            .addTo(targetLayer);
     }
 
     // Display name of a pet from its spawn markers on this map (the soul monster's own name differs).
