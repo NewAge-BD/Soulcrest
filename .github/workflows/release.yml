@@ -91,12 +91,13 @@ jobs:
           $assets = $setup, "$setup.sha256", $update, "$update.sha256", 'artifacts/installer/BUILD-INFO.json'
           $notes = Join-Path $env:RUNNER_TEMP 'notes.md'
           # Every gh call is checked on its own: a failed upload must not end green with old files attached.
-          function Gh { & gh @args; if ($LASTEXITCODE -ne 0) { throw "gh $($args[0]) $($args[1]) failed ($LASTEXITCODE)" } }
-          gh release view $env:TAG *> $null
+          # Not named "Gh": PowerShell names are case-insensitive, so "gh" inside it would call itself.
+          function Invoke-Gh { & gh.exe @args; if ($LASTEXITCODE -ne 0) { throw "gh $($args[0]) $($args[1]) failed ($LASTEXITCODE)" } }
+          gh.exe release view $env:TAG *> $null
           if ($LASTEXITCODE -eq 0) {
             # A rerun (tag pushed again, or started by hand) replaces the files of the existing release.
-            Gh release upload $env:TAG @assets --clobber
-            Gh release edit $env:TAG --title "Soulcrest $version" --notes-file $notes
+            Invoke-Gh release upload $env:TAG @assets --clobber
+            Invoke-Gh release edit $env:TAG --title "Soulcrest $version" --notes-file $notes
           } else {
-            Gh release create $env:TAG @assets --title "Soulcrest $version" --notes-file $notes
+            Invoke-Gh release create $env:TAG @assets --title "Soulcrest $version" --notes-file $notes
           }
