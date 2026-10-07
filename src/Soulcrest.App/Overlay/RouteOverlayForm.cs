@@ -20,7 +20,6 @@ public sealed class RouteOverlayForm : Form
     private int _pending;
     private bool _inRecordings;
     private readonly object _composeGate = new();
-    private readonly System.Diagnostics.Stopwatch _sinceRender = System.Diagnostics.Stopwatch.StartNew();
 
     private readonly ProgressService _progress;
     private readonly Dictionary<string, Bitmap?> _icons = [];
@@ -71,14 +70,10 @@ public sealed class RouteOverlayForm : Form
     {
         if (IsDisposed || !IsHandleCreated || Interlocked.Exchange(ref _pending, 1) == 1)
             return;
-        _ = Task.Run(async () =>
+        // No extra cap on the world map: 20 pictures per second let the overlay trail behind a moving map
+        // (user report 2026-10-07); the tracking itself delivers at most 60 per second.
+        _ = Task.Run(() =>
         {
-            // A full-screen picture (world map): at most 20 per second.
-            var minimum = _tracking.Placement is { WorldMap: true } ? 50.0 : 0.0;
-            var since = _sinceRender.Elapsed.TotalMilliseconds;
-            if (since < minimum)
-                await Task.Delay(TimeSpan.FromMilliseconds(minimum - since));
-            _sinceRender.Restart();
             Volatile.Write(ref _pending, 0); // events from now on ask for the next picture
             Frame? frame;
             try

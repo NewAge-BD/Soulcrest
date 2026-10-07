@@ -2,6 +2,11 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.2.2 – 2026-10-07
+
+- **Verbessert:** Bei offener Weltkarte folgt das Ingame-Overlay der Karte flüssig und hängt beim
+  Verschieben nicht mehr nach.
+
 ## 0.2.1 – 2026-10-07
 
 - **Neu:** Patchnotes gibt es jetzt auch auf Englisch; Soulcrest zeigt sie in der Sprache der Oberfläche,
