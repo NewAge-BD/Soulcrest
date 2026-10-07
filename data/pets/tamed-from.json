@@ -1,0 +1,2050 @@
+{
+  "pets": [
+    {
+      "petId": "1001",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1001"
+      ]
+    },
+    {
+      "petId": "1002",
+      "npcIds": [
+        "2100075",
+        "2100480",
+        "2100914"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1002"
+      ]
+    },
+    {
+      "petId": "1003",
+      "npcIds": [
+        "2100601",
+        "2100662"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1003"
+      ]
+    },
+    {
+      "petId": "1004",
+      "npcIds": [
+        "2100163",
+        "2400254",
+        "2400414"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1004"
+      ]
+    },
+    {
+      "petId": "1005",
+      "npcIds": [
+        "2100078"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1005"
+      ]
+    },
+    {
+      "petId": "1006",
+      "npcIds": [
+        "2100273",
+        "2100305",
+        "2100753",
+        "2100795",
+        "2100986",
+        "2100992"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1006"
+      ]
+    },
+    {
+      "petId": "1007",
+      "npcIds": [
+        "2100032",
+        "2100610",
+        "2101098",
+        "2400363",
+        "2400755",
+        "2400812"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1007"
+      ]
+    },
+    {
+      "petId": "1008",
+      "npcIds": [
+        "2100034"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1008"
+      ]
+    },
+    {
+      "petId": "1009",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1009"
+      ]
+    },
+    {
+      "petId": "1010",
+      "npcIds": [
+        "2110506",
+        "2400617"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1010"
+      ]
+    },
+    {
+      "petId": "1011",
+      "npcIds": [
+        "2100047",
+        "2100048",
+        "2100182",
+        "2100556",
+        "2100607",
+        "2100613",
+        "2100832",
+        "2101123",
+        "2101124",
+        "2101132",
+        "2400163",
+        "2400945"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1011"
+      ]
+    },
+    {
+      "petId": "1012",
+      "npcIds": [
+        "2100041"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1012"
+      ]
+    },
+    {
+      "petId": "1013",
+      "npcIds": [
+        "2400080",
+        "2400456"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1013"
+      ]
+    },
+    {
+      "petId": "1014",
+      "npcIds": [
+        "2101002",
+        "2101009",
+        "2400359",
+        "2400587",
+        "2400655"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1014"
+      ]
+    },
+    {
+      "petId": "1015",
+      "npcIds": [
+        "2101021",
+        "2400736",
+        "2400905",
+        "2400934"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1015"
+      ]
+    },
+    {
+      "petId": "1016",
+      "npcIds": [
+        "2100165",
+        "2100188",
+        "2101097",
+        "2400520",
+        "2400819",
+        "2400909",
+        "2400943"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1016"
+      ]
+    },
+    {
+      "petId": "1017",
+      "npcIds": [
+        "2100074",
+        "2100855"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1017"
+      ]
+    },
+    {
+      "petId": "1018",
+      "npcIds": [
+        "2400385",
+        "2400609"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1018"
+      ]
+    },
+    {
+      "petId": "1021",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1021"
+      ]
+    },
+    {
+      "petId": "1022",
+      "npcIds": [
+        "2100215",
+        "2100608",
+        "2101083",
+        "2400327",
+        "2400809"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1022"
+      ]
+    },
+    {
+      "petId": "1025",
+      "npcIds": [
+        "2100030",
+        "2100663",
+        "2100745",
+        "2400744"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1025"
+      ]
+    },
+    {
+      "petId": "1026",
+      "npcIds": [
+        "2100073",
+        "2100910",
+        "2101005"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1026"
+      ]
+    },
+    {
+      "petId": "1027",
+      "npcIds": [
+        "2100612",
+        "2100652"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1027"
+      ]
+    },
+    {
+      "petId": "1028",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1028"
+      ]
+    },
+    {
+      "petId": "1029",
+      "npcIds": [
+        "2400313"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1029"
+      ]
+    },
+    {
+      "petId": "1030",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1030"
+      ]
+    },
+    {
+      "petId": "1031",
+      "npcIds": [
+        "2100157"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1031"
+      ]
+    },
+    {
+      "petId": "1032",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1032"
+      ]
+    },
+    {
+      "petId": "1033",
+      "npcIds": [
+        "2100557",
+        "2100569",
+        "2400605"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1033"
+      ]
+    },
+    {
+      "petId": "1034",
+      "npcIds": [
+        "2100015",
+        "2100796",
+        "2100987",
+        "2100993",
+        "2400341",
+        "2400466"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1034"
+      ]
+    },
+    {
+      "petId": "1035",
+      "npcIds": [
+        "2100031",
+        "2100376",
+        "2100907"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1035"
+      ]
+    },
+    {
+      "petId": "1036",
+      "npcIds": [
+        "2100746"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1036"
+      ]
+    },
+    {
+      "petId": "1037",
+      "npcIds": [
+        "2100151",
+        "2100750"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1037"
+      ]
+    },
+    {
+      "petId": "1038",
+      "npcIds": [
+        "2100144",
+        "2100216",
+        "2100609",
+        "2100741",
+        "2400567",
+        "2400568"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1038"
+      ]
+    },
+    {
+      "petId": "1039",
+      "npcIds": [
+        "2100037",
+        "2100150",
+        "2100799"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1039"
+      ]
+    },
+    {
+      "petId": "1040",
+      "npcIds": [
+        "2100950"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1040"
+      ]
+    },
+    {
+      "petId": "1041",
+      "npcIds": [
+        "2100911"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1041"
+      ]
+    },
+    {
+      "petId": "1042",
+      "npcIds": [
+        "2100172",
+        "2100552",
+        "2100560",
+        "2100655",
+        "2100817",
+        "2400376",
+        "2400916"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1042"
+      ]
+    },
+    {
+      "petId": "1043",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1043"
+      ]
+    },
+    {
+      "petId": "1044",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1044"
+      ]
+    },
+    {
+      "petId": "1045",
+      "npcIds": [
+        "2100004",
+        "2100023",
+        "2100219",
+        "2100472",
+        "2100565",
+        "2100743",
+        "2400362"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1045"
+      ]
+    },
+    {
+      "petId": "1046",
+      "npcIds": [
+        "2400002",
+        "2400249"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1046"
+      ]
+    },
+    {
+      "petId": "1047",
+      "npcIds": [
+        "2100453",
+        "2100751"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1047"
+      ]
+    },
+    {
+      "petId": "1048",
+      "npcIds": [
+        "2100022",
+        "2100142",
+        "2100555",
+        "2100611",
+        "2400337"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1048"
+      ]
+    },
+    {
+      "petId": "1049",
+      "npcIds": [
+        "2100711",
+        "2100715",
+        "2400061"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1049"
+      ]
+    },
+    {
+      "petId": "1050",
+      "npcIds": [
+        "2100650",
+        "2101125",
+        "2400307"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1050"
+      ]
+    },
+    {
+      "petId": "1051",
+      "npcIds": [
+        "2100659",
+        "2101126",
+        "2400329",
+        "2400731"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1051"
+      ]
+    },
+    {
+      "petId": "1052",
+      "npcIds": [
+        "2100285",
+        "2100651",
+        "2400342"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1052"
+      ]
+    },
+    {
+      "petId": "1053",
+      "npcIds": [
+        "2100908",
+        "2110512"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1053"
+      ]
+    },
+    {
+      "petId": "1054",
+      "npcIds": [
+        "2400350",
+        "2400570",
+        "2400606"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1054"
+      ]
+    },
+    {
+      "petId": "1055",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1055"
+      ]
+    },
+    {
+      "petId": "1056",
+      "npcIds": [
+        "2100866",
+        "2101014",
+        "2400143",
+        "2400162",
+        "2400382",
+        "2400658"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1056"
+      ]
+    },
+    {
+      "petId": "1057",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1057"
+      ]
+    },
+    {
+      "petId": "1058",
+      "npcIds": [
+        "2300312",
+        "2310312",
+        "2320312"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1058"
+      ]
+    },
+    {
+      "petId": "1059",
+      "npcIds": [
+        "2100551"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1059"
+      ]
+    },
+    {
+      "petId": "1060",
+      "npcIds": [
+        "2100033",
+        "2100808",
+        "2101082",
+        "2400374",
+        "2400519",
+        "2400808"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1060"
+      ]
+    },
+    {
+      "petId": "1061",
+      "npcIds": [
+        "2400320"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1061"
+      ]
+    },
+    {
+      "petId": "1062",
+      "npcIds": [
+        "2100025",
+        "2100717"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1062"
+      ]
+    },
+    {
+      "petId": "1063",
+      "npcIds": [
+        "2400364"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1063"
+      ]
+    },
+    {
+      "petId": "1064",
+      "npcIds": [
+        "2100854",
+        "2400711"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1064"
+      ]
+    },
+    {
+      "petId": "1065",
+      "npcIds": [
+        "2100183",
+        "2400920"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1065"
+      ]
+    },
+    {
+      "petId": "1066",
+      "npcIds": [
+        "2000926",
+        "2000927",
+        "2000928",
+        "2000929",
+        "2000951",
+        "2100009",
+        "2100220",
+        "2100654",
+        "2400594",
+        "2400903",
+        "2400938",
+        "2400940",
+        "2400947"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1066"
+      ]
+    },
+    {
+      "petId": "1067",
+      "npcIds": [
+        "2100709",
+        "2400470"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1067"
+      ]
+    },
+    {
+      "petId": "1068",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1068"
+      ]
+    },
+    {
+      "petId": "1069",
+      "npcIds": [
+        "2100812",
+        "2400301"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1069"
+      ]
+    },
+    {
+      "petId": "1071",
+      "npcIds": [
+        "2400018"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1071"
+      ]
+    },
+    {
+      "petId": "1072",
+      "npcIds": [
+        "2400912"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1072"
+      ]
+    },
+    {
+      "petId": "1073",
+      "npcIds": [
+        "2100160",
+        "2100744"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1073"
+      ]
+    },
+    {
+      "petId": "1074",
+      "npcIds": [
+        "2100180",
+        "2100964",
+        "2101133",
+        "2101136",
+        "2400831"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1074"
+      ]
+    },
+    {
+      "petId": "1075",
+      "npcIds": [
+        "2100181",
+        "2101134",
+        "2101137",
+        "2400832"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1075"
+      ]
+    },
+    {
+      "petId": "1077",
+      "npcIds": [
+        "2300104",
+        "2310104",
+        "2320104"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1077"
+      ]
+    },
+    {
+      "petId": "1078",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1078"
+      ]
+    },
+    {
+      "petId": "1079",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1079"
+      ]
+    },
+    {
+      "petId": "1080",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1080"
+      ]
+    },
+    {
+      "petId": "1081",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1081"
+      ]
+    },
+    {
+      "petId": "1082",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1082"
+      ]
+    },
+    {
+      "petId": "1083",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1083"
+      ]
+    },
+    {
+      "petId": "1084",
+      "npcIds": [
+        "2100002",
+        "2100700",
+        "2400328"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1084"
+      ]
+    },
+    {
+      "petId": "1086",
+      "npcIds": [
+        "2100456"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1086"
+      ]
+    },
+    {
+      "petId": "1087",
+      "npcIds": [
+        "2100953",
+        "2100954"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1087"
+      ]
+    },
+    {
+      "petId": "1088",
+      "npcIds": [
+        "2100955"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1088"
+      ]
+    },
+    {
+      "petId": "1089",
+      "npcIds": [
+        "2100710"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1089"
+      ]
+    },
+    {
+      "petId": "1090",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1090"
+      ]
+    },
+    {
+      "petId": "1091",
+      "npcIds": [
+        "2300311",
+        "2310311",
+        "2320311"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1091"
+      ]
+    },
+    {
+      "petId": "1092",
+      "npcIds": [
+        "2100605",
+        "2101096",
+        "2400324"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1092"
+      ]
+    },
+    {
+      "petId": "1093",
+      "npcIds": [
+        "2300401",
+        "2310401",
+        "2320401"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1093"
+      ]
+    },
+    {
+      "petId": "1094",
+      "npcIds": [
+        "2100658",
+        "2101103",
+        "2400824"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1094"
+      ]
+    },
+    {
+      "petId": "1095",
+      "npcIds": [
+        "2100666",
+        "2400302",
+        "2400818"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1095"
+      ]
+    },
+    {
+      "petId": "1096",
+      "npcIds": [
+        "2100664",
+        "2400303",
+        "2400749",
+        "2400815"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1096"
+      ]
+    },
+    {
+      "petId": "1097",
+      "npcIds": [
+        "2100174",
+        "2100348",
+        "2100349",
+        "2100742",
+        "2100752",
+        "2100802",
+        "2100805"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1097"
+      ]
+    },
+    {
+      "petId": "1098",
+      "npcIds": [
+        "2100070",
+        "2100096",
+        "2100130",
+        "2100481"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1098"
+      ]
+    },
+    {
+      "petId": "1099",
+      "npcIds": [
+        "2406071"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1099"
+      ]
+    },
+    {
+      "petId": "1100",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1100"
+      ]
+    },
+    {
+      "petId": "1101",
+      "npcIds": [
+        "2100660"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1101"
+      ]
+    },
+    {
+      "petId": "1102",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1102"
+      ]
+    },
+    {
+      "petId": "1103",
+      "npcIds": [
+        "2101278"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1103"
+      ]
+    },
+    {
+      "petId": "1104",
+      "npcIds": [
+        "2100816",
+        "2110507",
+        "2400615"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1104"
+      ]
+    },
+    {
+      "petId": "1105",
+      "npcIds": [
+        "2400919"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1105"
+      ]
+    },
+    {
+      "petId": "1106",
+      "npcIds": [
+        "2400564",
+        "2400583",
+        "2400611"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1106"
+      ]
+    },
+    {
+      "petId": "1107",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1107"
+      ]
+    },
+    {
+      "petId": "1108",
+      "npcIds": [
+        "2100097"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1108"
+      ]
+    },
+    {
+      "petId": "1109",
+      "npcIds": [
+        "2100072"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1109"
+      ]
+    },
+    {
+      "petId": "1110",
+      "npcIds": [
+        "2100454",
+        "2400471"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1110"
+      ]
+    },
+    {
+      "petId": "1111",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1111"
+      ]
+    },
+    {
+      "petId": "1112",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1112"
+      ]
+    },
+    {
+      "petId": "1114",
+      "npcIds": [
+        "2100283",
+        "2400230"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1114"
+      ]
+    },
+    {
+      "petId": "1115",
+      "npcIds": [
+        "2101139",
+        "2400833"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1115"
+      ]
+    },
+    {
+      "petId": "1116",
+      "npcIds": [
+        "2000956",
+        "2000957",
+        "2400902",
+        "2400933",
+        "2400939",
+        "2400946",
+        "2400948"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1116"
+      ]
+    },
+    {
+      "petId": "1117",
+      "npcIds": [
+        "2101023",
+        "2110509",
+        "2400319",
+        "2400745"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1117"
+      ]
+    },
+    {
+      "petId": "1118",
+      "npcIds": [
+        "2000955",
+        "2100286",
+        "2100550",
+        "2400900",
+        "2400930"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1118"
+      ]
+    },
+    {
+      "petId": "1119",
+      "npcIds": [
+        "2000952",
+        "2100699",
+        "2100821",
+        "2100828",
+        "2400907"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1119"
+      ]
+    },
+    {
+      "petId": "1120",
+      "npcIds": [
+        "2101022",
+        "2400737",
+        "2400906",
+        "2400935"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1120"
+      ]
+    },
+    {
+      "petId": "1121",
+      "npcIds": [
+        "2100189",
+        "2100473",
+        "2400910",
+        "2400950"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1121"
+      ]
+    },
+    {
+      "petId": "1122",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1122"
+      ]
+    },
+    {
+      "petId": "1123",
+      "npcIds": [
+        "2100173",
+        "2100818",
+        "2400377",
+        "2400917"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1123"
+      ]
+    },
+    {
+      "petId": "1124",
+      "npcIds": [
+        "2100573",
+        "2100748",
+        "2100797",
+        "2100813"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1124"
+      ]
+    },
+    {
+      "petId": "1125",
+      "npcIds": [
+        "2100558",
+        "2400578"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1125"
+      ]
+    },
+    {
+      "petId": "1126",
+      "npcIds": [
+        "2100006",
+        "2100145",
+        "2100288",
+        "2100793",
+        "2100819",
+        "2400936"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1126"
+      ]
+    },
+    {
+      "petId": "1127",
+      "npcIds": [
+        "2400734"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1127"
+      ]
+    },
+    {
+      "petId": "1128",
+      "npcIds": [
+        "2400015"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1128"
+      ]
+    },
+    {
+      "petId": "1129",
+      "npcIds": [
+        "2110501"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1129"
+      ]
+    },
+    {
+      "petId": "1130",
+      "npcIds": [
+        "2100554"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1130"
+      ]
+    },
+    {
+      "petId": "1131",
+      "npcIds": [
+        "2110502"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1131"
+      ]
+    },
+    {
+      "petId": "1132",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1132"
+      ]
+    },
+    {
+      "petId": "1133",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1133"
+      ]
+    },
+    {
+      "petId": "1134",
+      "npcIds": [
+        "2400941"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1134"
+      ]
+    },
+    {
+      "petId": "1135",
+      "npcIds": [
+        "2400248"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1135"
+      ]
+    },
+    {
+      "petId": "1136",
+      "npcIds": [
+        "2000925",
+        "2110513",
+        "2400056",
+        "2400735",
+        "2400813",
+        "2400949"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1136"
+      ]
+    },
+    {
+      "petId": "1137",
+      "npcIds": [
+        "2400351",
+        "2400390"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1137"
+      ]
+    },
+    {
+      "petId": "1138",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1138"
+      ]
+    },
+    {
+      "petId": "1139",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1139"
+      ]
+    },
+    {
+      "petId": "1140",
+      "npcIds": [
+        "2100350",
+        "2400225"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1140"
+      ]
+    },
+    {
+      "petId": "1141",
+      "npcIds": [
+        "2100021"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1141"
+      ]
+    },
+    {
+      "petId": "1142",
+      "npcIds": [
+        "2400312"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1142"
+      ]
+    },
+    {
+      "petId": "1143",
+      "npcIds": [
+        "2400217"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1143"
+      ]
+    },
+    {
+      "petId": "1144",
+      "npcIds": [
+        "2400214",
+        "2400751"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1144"
+      ]
+    },
+    {
+      "petId": "1145",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1145"
+      ]
+    },
+    {
+      "petId": "1146",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1146"
+      ]
+    },
+    {
+      "petId": "1147",
+      "npcIds": [
+        "2100901",
+        "2400116",
+        "2400161",
+        "2400380"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1147"
+      ]
+    },
+    {
+      "petId": "1148",
+      "npcIds": [
+        "2400014"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1148"
+      ]
+    },
+    {
+      "petId": "1153",
+      "npcIds": [
+        "2101135",
+        "2110503",
+        "2400834"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1153"
+      ]
+    },
+    {
+      "petId": "1154",
+      "npcIds": [
+        "2400476"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1154"
+      ]
+    },
+    {
+      "petId": "1155",
+      "npcIds": [
+        "2100665",
+        "2400306",
+        "2400739",
+        "2400816"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1155"
+      ]
+    },
+    {
+      "petId": "1156",
+      "npcIds": [
+        "2100079"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1156"
+      ]
+    },
+    {
+      "petId": "1157",
+      "npcIds": [
+        "2400275",
+        "2400412",
+        "2400418"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1157"
+      ]
+    },
+    {
+      "petId": "1158",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1158"
+      ]
+    },
+    {
+      "petId": "1159",
+      "npcIds": [
+        "2400473"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1159"
+      ]
+    },
+    {
+      "petId": "1160",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1160"
+      ]
+    },
+    {
+      "petId": "1161",
+      "npcIds": [
+        "2400479"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1161"
+      ]
+    },
+    {
+      "petId": "1162",
+      "npcIds": [
+        "2101075",
+        "2101079",
+        "2400801"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1162"
+      ]
+    },
+    {
+      "petId": "1163",
+      "npcIds": [
+        "2400240"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1163"
+      ]
+    },
+    {
+      "petId": "1164",
+      "npcIds": [
+        "2101089"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1164"
+      ]
+    },
+    {
+      "petId": "1165",
+      "npcIds": [
+        "2100653",
+        "2101102",
+        "2400823"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1165"
+      ]
+    },
+    {
+      "petId": "1166",
+      "npcIds": [
+        "2100667",
+        "2400310",
+        "2400817"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1166"
+      ]
+    },
+    {
+      "petId": "1167",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1167"
+      ]
+    },
+    {
+      "petId": "1168",
+      "npcIds": [
+        "2100231",
+        "2101088"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1168"
+      ]
+    },
+    {
+      "petId": "1169",
+      "npcIds": [
+        "2100657",
+        "2101101",
+        "2400738",
+        "2400822"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1169"
+      ]
+    },
+    {
+      "petId": "1170",
+      "npcIds": [
+        "2101076",
+        "2101080",
+        "2400802"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1170"
+      ]
+    },
+    {
+      "petId": "1171",
+      "npcIds": [
+        "2101077",
+        "2400803"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1171"
+      ]
+    },
+    {
+      "petId": "1172",
+      "npcIds": [
+        "2400612"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1172"
+      ]
+    },
+    {
+      "petId": "1173",
+      "npcIds": [
+        "2400613"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1173"
+      ]
+    },
+    {
+      "petId": "1174",
+      "npcIds": [
+        "2110505",
+        "2400010"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1174"
+      ]
+    },
+    {
+      "petId": "1175",
+      "npcIds": [
+        "2400480"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1175"
+      ]
+    },
+    {
+      "petId": "1176",
+      "npcIds": [
+        "2400481",
+        "2400707"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1176"
+      ]
+    },
+    {
+      "petId": "1177",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1177"
+      ]
+    },
+    {
+      "petId": "1178",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1178"
+      ]
+    },
+    {
+      "petId": "1179",
+      "npcIds": [
+        "2400001"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1179"
+      ]
+    },
+    {
+      "petId": "1180",
+      "npcIds": [
+        "2400477"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1180"
+      ]
+    },
+    {
+      "petId": "1181",
+      "npcIds": [
+        "2000954",
+        "2100217",
+        "2100303",
+        "2100740",
+        "2400375",
+        "2400914"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1181"
+      ]
+    },
+    {
+      "petId": "1182",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1182"
+      ]
+    },
+    {
+      "petId": "1183",
+      "npcIds": [
+        "2400413"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1183"
+      ]
+    },
+    {
+      "petId": "1184",
+      "npcIds": [
+        "2100872",
+        "2400384",
+        "2400591"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1184"
+      ]
+    },
+    {
+      "petId": "1185",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1185"
+      ]
+    },
+    {
+      "petId": "1186",
+      "npcIds": [
+        "2400311",
+        "2400743"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1186"
+      ]
+    },
+    {
+      "petId": "1187",
+      "npcIds": [
+        "2101100",
+        "2400748",
+        "2400821"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1187"
+      ]
+    },
+    {
+      "petId": "1188",
+      "npcIds": [
+        "2100583",
+        "2400057"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1188"
+      ]
+    },
+    {
+      "petId": "1189",
+      "npcIds": [
+        "2100566"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1189"
+      ]
+    },
+    {
+      "petId": "1190",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1190"
+      ]
+    },
+    {
+      "petId": "1191",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1191"
+      ]
+    },
+    {
+      "petId": "1192",
+      "npcIds": [
+        "2300310",
+        "2310310",
+        "2320310"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1192"
+      ]
+    },
+    {
+      "petId": "1193",
+      "npcIds": [
+        "2400455"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1193"
+      ]
+    },
+    {
+      "petId": "1194",
+      "npcIds": [
+        "2100712"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1194"
+      ]
+    },
+    {
+      "petId": "1195",
+      "npcIds": [
+        "2100867",
+        "2400746"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1195"
+      ]
+    },
+    {
+      "petId": "1196",
+      "npcIds": [
+        "2406035"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1196"
+      ]
+    },
+    {
+      "petId": "1197",
+      "npcIds": [
+        "2100716"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1197"
+      ]
+    },
+    {
+      "petId": "1198",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1198"
+      ]
+    },
+    {
+      "petId": "1199",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1199"
+      ]
+    },
+    {
+      "petId": "1200",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1200"
+      ]
+    },
+    {
+      "petId": "1201",
+      "npcIds": [
+        "2100815",
+        "2101086",
+        "2400814"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1201"
+      ]
+    },
+    {
+      "petId": "1202",
+      "npcIds": [
+        "2100747",
+        "2400004",
+        "2400378",
+        "2400391",
+        "2400911"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1202"
+      ]
+    },
+    {
+      "petId": "1203",
+      "npcIds": [
+        "2400257",
+        "2400503"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1203"
+      ]
+    },
+    {
+      "petId": "1204",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1204"
+      ]
+    },
+    {
+      "petId": "1206",
+      "npcIds": [
+        "2100718"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1206"
+      ]
+    },
+    {
+      "petId": "1207",
+      "npcIds": [
+        "2100143",
+        "2100698",
+        "2100714",
+        "2101099",
+        "2400221",
+        "2400415",
+        "2400825"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1207"
+      ]
+    },
+    {
+      "petId": "1208",
+      "npcIds": [
+        "2400750"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1208"
+      ]
+    },
+    {
+      "petId": "1209",
+      "npcIds": [
+        "2110508",
+        "2400054"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1209"
+      ]
+    },
+    {
+      "petId": "1210",
+      "npcIds": [
+        "2100179"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1210"
+      ]
+    },
+    {
+      "petId": "1213",
+      "npcIds": [
+        "2101087",
+        "2400325"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1213"
+      ]
+    },
+    {
+      "petId": "1214",
+      "npcIds": [
+        "2100460",
+        "2100807",
+        "2400708"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1214"
+      ]
+    },
+    {
+      "petId": "1215",
+      "npcIds": [
+        "2300403",
+        "2310403",
+        "2320403"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1215"
+      ]
+    },
+    {
+      "petId": "1216",
+      "npcIds": [
+        "2100600",
+        "2100656"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1216"
+      ]
+    },
+    {
+      "petId": "1217",
+      "npcIds": [
+        "2400009"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1217"
+      ]
+    },
+    {
+      "petId": "1218",
+      "npcIds": [
+        "2400478"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1218"
+      ]
+    },
+    {
+      "petId": "1219",
+      "npcIds": [
+        "2100458",
+        "2101085",
+        "2400811"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1219"
+      ]
+    },
+    {
+      "petId": "1240",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1240"
+      ]
+    },
+    {
+      "petId": "1278",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1278"
+      ]
+    },
+    {
+      "petId": "1299",
+      "npcIds": [],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/pets/1299"
+      ]
+    }
+  ]
+}

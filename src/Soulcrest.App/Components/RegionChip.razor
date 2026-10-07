@@ -1,0 +1,14 @@
+@* A marked screen area as a chip: green "gespeichert" for a moment after a new selection, amber while missing. *@
+@if (Region is { } r)
+{
+    <span class="sv-chip @(JustSaved ? "ok flash" : "")">@(JustSaved ? UiText.T("✓ gespeichert · ") : "")@r.Width × @r.Height px @UiText.T("bei") @r.X, @r.Y</span>
+}
+else
+{
+    <span class="sv-chip warn">@UiText.T("noch nicht markiert")</span>
+}
+
+@code {
+    [Parameter] public System.Drawing.Rectangle? Region { get; set; }
+    [Parameter] public bool JustSaved { get; set; }
+}

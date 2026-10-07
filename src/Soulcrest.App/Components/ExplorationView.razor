@@ -1,0 +1,98 @@
+@implements IDisposable
+@inject ExplorationService Exploration
+@inject ExplorationScanService Scan
+@inject ProgressService Progress
+@inject SettingsService Settings
+
+<div class="page">
+    <h2>@UiText.T(Title(Kind))</h2>
+    <CharacterPicker />
+    <p>@UiText.T("Fortschritt gilt nur für diesen Charakter. Sealed Dungeons und Strongholds: Erkannte Namen werden abgehakt, fehlende nicht zurückgesetzt. Kibelisks: „Bind Complete“ hakt ab, „Binding Incomplete“ nimmt den Haken zurück; was in der vollständig gelesenen Liste fehlt, ist noch nicht entdeckt.")</p>
+    <OcrLanguageSetup />
+    <section class="card sv-card">
+        <select aria-label="@UiText.T("Karte wählen")" @bind="_map" @bind:after="BuildLists" disabled="@Scan.Running">
+            @foreach (var m in Progress.Maps) { <option value="@m.Id">@m.Label</option> }
+        </select>
+        <p>@UiText.T("Im Spiel die Weltkarte der gewählten Karte öffnen und nacheinander die Listen durchscrollen: Reiter Exploration (Sealed Dungeons, Strongholds) und Reiter Kibelisk. Der Scan erkennt selbst, welche Liste offen ist, und läuft, bis du ihn stoppst. Die linke Liste wird mit einer festen Scanmaske gelesen; auf die Hinweise im Overlay achten.")</p>
+        <button class="btn" disabled="@(Scan.Running || _lists.All(l => l.Places.Length == 0))" @onclick="@(() => Scan.Start(_map, Kind))">@UiText.T("Scan starten")</button>
+        <button class="btn" disabled="@(!Scan.Running)" @onclick="Scan.Stop">@UiText.T("Scan stoppen")</button>
+        @if (Scan.Running) { <p>@Scan.ScanMap · @UiText.T(Title(Scan.ScanKind ?? Kind))</p> }
+        <p role="status">@UiText.T(Scan.Status) · @Scan.Recognized @UiText.T("erkannt")</p>
+        @if (Scan.Preview is not null) { <img src="@Scan.Preview" alt="@UiText.T("Scan-Vorschau")" style="max-width:320px;max-height:420px;object-fit:contain" /> }
+        @if (Scan.Unmatched.Length > 0) { <p>@UiText.T("Nicht eindeutig erkannt:") @string.Join(" · ", Scan.Unmatched)</p> }
+    </section>
+    <div class="sv-grid">
+        @foreach (var (kind, places) in _lists)
+        {
+            <section class="card sv-card">
+                <h3>@UiText.T(Title(kind)) <small>@places.Count(p => Done.Contains(p.Id)) / @places.Length @UiText.T("fertig")</small></h3>
+                <details>
+                    <summary>@UiText.T("Einträge anzeigen und manuell korrigieren")</summary>
+                    @foreach (var p in places)
+                    {
+                        <label style="display:block;padding:6px"><input type="checkbox" checked="@Done.Contains(p.Id)" disabled="@Scan.Running" @onchange="@(e => Exploration.SetDone(Exploration.ActiveId, [p.Id], (bool)e.Value!))" /> @p.Name(Settings.Current.NameLanguage)</label>
+                    }
+                </details>
+            </section>
+        }
+    </div>
+</div>
+@code {
+    /// <summary>"all" (tab "Scan Exploration Progress"): sealed dungeons, strongholds and Kibelisks together.</summary>
+    [Parameter] public string Kind { get; set; } = "all";
+    internal static string Title(string kind) => kind switch
+    {
+        "dungeon" => "Sealed Dungeons",
+        "stronghold" => "Stronghold",
+        "kibelisk" => "Kibelisk",
+        _ => "Erkundungsfortschritt scannen",
+    };
+    private string _map = "altgard";
+    // The lists are built when map, kind or name language change, not on every render: they were
+    // filtered and sorted again for each row and each refresh (tab felt slow, user report 2026-10-05).
+    private (string Kind, ExplorationPlace[] Places)[] _lists = [];
+    private string? _builtFor;
+    private HashSet<string> Done = [];
+    private DateTime _lastScanRender;
+
+    protected override void OnInitialized()
+    {
+        _map = Settings.Current.LastMap;
+        Done = Exploration.Completed;
+        Exploration.Changed += Refresh;
+        Scan.Changed += RefreshScan;
+        Settings.Changed += RefreshLanguage;
+    }
+
+    protected override void OnParametersSet() => BuildLists();
+
+    private void BuildLists()
+    {
+        var language = Settings.Current.NameLanguage;
+        var key = $"{_map}|{Kind}|{language}";
+        if (key == _builtFor) return;
+        _builtFor = key;
+        string[] kinds = Kind == "all" ? ["dungeon", "stronghold", "kibelisk"] : [Kind];
+        _lists = kinds.Select(kind => (kind, Exploration.Places.Where(p => p.Map == _map && p.Kind == kind).DistinctBy(p => p.Id)
+            .OrderBy(p => p.Name(language), StringComparer.CurrentCulture).ToArray())).ToArray();
+    }
+
+    private void Refresh() => InvokeAsync(() => { Done = Exploration.Completed; StateHasChanged(); });
+
+    // The scan reports several times per second; the page needs a few updates (state changes at once).
+    private void RefreshScan() => InvokeAsync(() =>
+    {
+        if (Scan.Running && DateTime.UtcNow - _lastScanRender < TimeSpan.FromMilliseconds(300)) return;
+        _lastScanRender = DateTime.UtcNow;
+        StateHasChanged();
+    });
+
+    private void RefreshLanguage() => InvokeAsync(() =>
+    {
+        var before = _builtFor;
+        BuildLists();
+        if (before != _builtFor) StateHasChanged();
+    });
+
+    public void Dispose() { Exploration.Changed -= Refresh; Scan.Changed -= RefreshScan; Settings.Changed -= RefreshLanguage; }
+}

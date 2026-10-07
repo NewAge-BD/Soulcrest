@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Soulcrest.Core.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\data\pets\name-overrides.json" LogicalName="Soulcrest.PetNameOverrides.json" />
+    <EmbeddedResource Include="..\..\data\pets\pet-ids.json" LogicalName="Soulcrest.PetIds.json" />
+  </ItemGroup>
+</Project>

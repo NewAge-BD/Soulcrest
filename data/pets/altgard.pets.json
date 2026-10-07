@@ -1,0 +1,10 @@
+{
+  "$comment": "Wird in Phase 2 recherchiert (siehe docs/ROADMAP.md). Nur Einträge mit sourceRefs. Bis dahin enthält die Datei nur die im Beispielvideo beobachteten Monster als unbestätigte Platzhalter ohne Gattung.",
+  "map": "World_D_A",
+  "pets": [],
+  "observedMonsters": [
+    { "monster": "Magic Gravi", "regionId": "PurifyingForest", "sourceRef": "video:hdr-en-2026-10-02", "nameplateSeen": "Purifying Forest Magic Gravi" },
+    { "monster": "Crasaur", "regionId": "PurifyingForest", "sourceRef": "video:hdr-en-2026-10-02" },
+    { "monster": "Superior Water Spirit", "regionId": "PurifyingForest", "sourceRef": "video:hdr-en-2026-10-02" }
+  ]
+}

@@ -1,0 +1,163 @@
+@implements IDisposable
+@inject ProgressService Progress
+@inject DiagnosticsService Diagnostics
+
+<div class="page info">
+    <header class="sv-head">
+        <h2>Soulcrest – Tester 0.1</h2>
+        <p class="sv-lead">@UiText.T("Privater Aion-2-Pet-Begleiter: Offline-Karte, Netzwerk-Loot-Tracker, Pet-Fenster-Scan, Spieler-Tracking und Overlays. Loot-Tracking startet automatisch und ist dauerhaft ausschaltbar.")</p>
+    </header>
+    <OcrLanguageSetup />
+
+    <section class="card sv-card">
+        <div class="sv-card-head">
+            <h3>@UiText.T("Diagnose")</h3>
+            @{ var severe = Diagnostics.Hints.Count(h => h.Severe); }
+            <span class="sv-badge @(Diagnostics.CheckedAt is null ? "" : severe > 0 ? "error" : Diagnostics.Hints.Count > 0 ? "warn" : "ok")">
+                @(Diagnostics.CheckedAt is null ? UiText.T("noch nicht geprüft") : severe > 0 ? UiText.F("Probleme: {0}", severe) : Diagnostics.Hints.Count > 0 ? UiText.T("Hinweise") : UiText.T("alles in Ordnung"))
+            </span>
+        </div>
+        <p class="sv-hint">@UiText.T("Läuft automatisch alle 30 Sekunden mit und schreibt einen Bericht (Windows, Monitore, Spielfenster und Rechte, Aufnahme, Tracker). Nichts wird versendet: das Diagnose-Paket landet als ZIP auf dem Desktop und kann von Hand weitergegeben werden.")</p>
+        @if (Diagnostics.Hints.Count > 0)
+        {
+            @foreach (var hint in Diagnostics.Hints)
+            {
+                <div class="status @(hint.Severe ? "error" : "")">@UiText.T(hint.Text)</div>
+            }
+        }
+        else if (Diagnostics.CheckedAt is not null)
+        {
+            <div class="note">@UiText.T("Keine Auffälligkeiten bei der letzten Prüfung.")</div>
+        }
+        <div class="row">
+            <button type="button" class="btn" disabled="@_busy" @onclick="CheckNow">@(_busy && _action == "check" ? UiText.T("Prüfe …") : UiText.T("Jetzt prüfen"))</button>
+            <button type="button" class="btn primary @(_packaged is not null ? "done" : "")" disabled="@_busy" @onclick="CreatePackage">@(_busy && _action == "zip" ? UiText.T("Paket wird erstellt …") : _packaged is not null ? UiText.T("✓ Paket erstellt") : UiText.T("Diagnose-Paket erstellen"))</button>
+            <button type="button" class="btn link" @onclick="OpenReport">@UiText.T("Bericht öffnen")</button>
+            <span class="note">@(Diagnostics.CheckedAt is { } at ? UiText.F("zuletzt geprüft {0}", at.ToString("HH:mm:ss")) : "")</span>
+        </div>
+        @if (_packaged is not null)
+        {
+            <div class="note applied">@UiText.T("Gespeichert:") <code class="sv-path">@_packaged</code></div>
+        }
+        @if (_error is not null)
+        {
+            <div class="status error">@UiText.T(_error)</div>
+        }
+    </section>
+
+    <section class="card sv-card">
+        <h3>@UiText.T("So testest du")</h3>
+        <ol class="sv-steps">
+            <li><b>@UiText.T("Pet-Fenster:")</b> @UiText.T("Startstand übernehmen – im Spiel das Pet-Fenster öffnen, „Scan starten“, langsam durchscrollen, unbekannte Pets einmal anklicken, prüfen, übernehmen. Alternativ „Bild einlesen“ mit einem Screenshot.")</li>
+            <li><b>Pets:</b> @UiText.T("Fortschritt eintragen, Fokus-Pets mit ★ markieren (erscheinen im Overlay). „Karte“ zeigt Spawns und Quellmonster.")</li>
+            <li><b>Loot-Tracker:</b> @UiText.T("Startet automatisch über Npcap. In den Optionen oder auf der Karte ausschaltbar; Ausschalten bleibt gespeichert.")</li>
+        </ol>
+    </section>
+
+    <section class="card sv-card">
+        <h3>@UiText.T("Tastenkürzel (global)")</h3>
+        <dl class="info-keys">
+            <dt><kbd>@UiText.T("Strg")</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd></dt><dd>@UiText.T("Overlay ein/aus")</dd>
+            <dt><kbd>@UiText.T("Strg")</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd></dt><dd>@UiText.T("Overlay entsperren (verschieben) / sperren (klickdurchlässig)")</dd>
+        </dl>
+    </section>
+
+    <section class="card sv-card">
+        <h3>@UiText.T("Bekannte Grenzen dieses Testers")</h3>
+        <ul>
+            <li>@UiText.T("Aufnahme des Spielfensters per Windows Graphics Capture (Rückfall GDI). HDR-Aufnahme (FP16) ist noch nicht umgesetzt.")</li>
+            <li>@UiText.T("Loot-Quelle „Netzwerk“ braucht Npcap und liest nur Soul-Meldungen des Servers; Pets auf MAX melden keine Souls.")</li>
+            <li>@UiText.T("Pet-Stufen: 5 Souls (Stufe 1), dann 25 neue (Stufe 2), dann 75 neue (Stufe 3, max) – vom Nutzer bestätigt. Überzählige Souls gehen in die nächste Stufe über.")</li>
+
+        </ul>
+    </section>
+
+    <section class="card sv-card">
+        <h3>@UiText.T("Daten und Speicherorte")</h3>
+        <dl class="info-paths">
+            <dt>@UiText.T("Kartendaten")</dt><dd><code class="sv-path">@(Progress.MapDataDirectory ?? UiText.T("nicht gefunden"))</code></dd>
+            <dt>@UiText.T("Fortschritt, Einstellungen, Pins, Ereignisprotokoll")</dt><dd><code class="sv-path">@AppPaths.DataDirectory</code></dd>
+        </dl>
+    </section>
+
+    <section class="card sv-card info-support">
+        <h3>@UiText.T("Soulcrest unterstützen")</h3>
+        <p class="sv-hint">@UiText.T("Soulcrest ist kostenlos und bleibt es. Wer die Entwicklung unterstützen möchte, kann freiwillig über Ko-fi spenden.")</p>
+        <div class="row">
+            <a class="btn primary" href="https://ko-fi.com/newage57976" target="_blank" rel="noopener">☕ @UiText.T("Auf Ko-fi unterstützen")</a>
+            <span class="note">ko-fi.com/newage57976</span>
+        </div>
+    </section>
+
+    <section class="card sv-card">
+        <h3>@UiText.T("Quellen und Lizenzen")</h3>
+        <ul>
+            @* Visible, clickable credit: condition of the data permission by gaming.tools (2026-10-06). *@
+            <li>@UiText.T("Karten, Marker, Pet-Porträts und EN/DE-Namen:") <a href="https://aion2.gaming.tools/" target="_blank" rel="noopener">aion2.gaming.tools</a> @UiText.T("(mit Erlaubnis). Grafiken © NCSOFT.")</li>
+            <li>@UiText.T("Soulcrest-Code: PolyForm Noncommercial 1.0.0 (nicht kommerziell nutzbar, siehe LICENSE.md).")</li>
+            <li>Leaflet 1.9.4 (BSD-2-Clause).</li>
+            <li>@UiText.T("Aion, Aion 2 und alle Spielinhalte © NCSOFT. Inoffizielles, privates Fanprojekt.")</li>
+        </ul>
+    </section>
+</div>
+
+@code {
+    private bool _busy;
+    private string? _action, _packaged, _error;
+
+    protected override void OnInitialized() => Diagnostics.Changed += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private async Task CheckNow()
+    {
+        _busy = true;
+        _action = "check";
+        await Task.Run(Diagnostics.Check);
+        _busy = false;
+    }
+
+    private async Task CreatePackage()
+    {
+        _busy = true;
+        _action = "zip";
+        _error = null;
+        try
+        {
+            _packaged = await Task.Run(Diagnostics.CreatePackage);
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_packaged}\"");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            _error = UiText.T("Diagnose-Paket konnte nicht erstellt werden: ") + exception.Message;
+        }
+        _busy = false;
+    }
+
+    // The report may not exist yet (first check still running or hanging): say so instead of crashing
+    // (colleague 2026-10-04: unhandled "file not found" when opening it).
+    private async Task OpenReport()
+    {
+        _error = null;
+        if (!File.Exists(Diagnostics.ReportPath))
+        {
+            var check = Task.Run(Diagnostics.Check);
+            await Task.WhenAny(check, Task.Delay(TimeSpan.FromSeconds(5)));
+        }
+        if (!File.Exists(Diagnostics.ReportPath))
+        {
+            _error = UiText.T("Der Bericht ist noch nicht geschrieben – die Prüfung läuft noch oder hängt. Bitte „Diagnose-Paket erstellen“ verwenden oder in einer Minute erneut versuchen.");
+            return;
+        }
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Diagnostics.ReportPath) { UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            _error = UiText.T("Bericht konnte nicht geöffnet werden: ") + exception.Message + UiText.T(" – Pfad: ") + Diagnostics.ReportPath;
+        }
+    }
+
+    public void Dispose() => Diagnostics.Changed -= Refresh;
+}

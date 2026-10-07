@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>Soulcrest</AssemblyName>
+    <RootNamespace>Soulcrest.App</RootNamespace>
+    <Product>Soulcrest</Product>
+    <Title>Soulcrest</Title>
+    <ApplicationIcon>wwwroot\soulcrest.ico</ApplicationIcon>
+    <Description>Aion 2 Pet-Begleiter: Karte, Netzwerk-Loot-Tracker und Overlays</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.WindowsForms" Version="9.0.120" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <PackageReference Include="SharpPcap" Version="6.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\en.json" />
+    <EmbeddedResource Include="..\..\docs\PATCHNOTES.md" LogicalName="Soulcrest.PATCHNOTES.md" Link="PATCHNOTES.md" />
+    <EmbeddedResource Include="Assets\map-window-emblem.png" LogicalName="Soulcrest.MapWindowEmblem.png" />
+    <InternalsVisibleTo Include="Soulcrest.App.Tests" />
+    <ProjectReference Include="..\Soulcrest.Core\Soulcrest.Core.csproj" />
+    <ProjectReference Include="..\Soulcrest.Ocr\Soulcrest.Ocr.csproj" />
+  </ItemGroup>
+
+  <Target Name="ExcludeUnusedOpenCvVideoPlugin" AfterTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <!-- OpenCV is used for still images only (pet window); the FFmpeg plugin is ~25 MB of nothing (as Grindcrest). -->
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(ResolvedFileToPublish.Filename)', '^opencv_videoio_ffmpeg[0-9]+_64$'))" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <Content Include="..\..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

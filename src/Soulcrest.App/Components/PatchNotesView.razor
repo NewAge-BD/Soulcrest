@@ -1,0 +1,74 @@
+<div class="page info patchnotes">
+    <header class="sv-head">
+        <h2>@UiText.T("Patchnotes")</h2>
+        <p class="sv-lead">@UiText.T("Was sich in jeder Version geändert hat, die neueste oben.")</p>
+        @if (UiText.Language != "de")
+        {
+            <p class="sv-hint">The patch notes are written in German.</p>
+        }
+    </header>
+
+    @if (PatchNotes.Shown.Count == 0)
+    {
+        <div class="status error">@UiText.T("Patchnotes nicht gefunden.")</div>
+    }
+    @foreach (var release in PatchNotes.Shown)
+    {
+        var installed = release.Version == InstalledVersion;
+        <section class="card sv-card pn-release @(installed ? "current" : "")">
+            <div class="sv-card-head">
+                <h3>@release.Version</h3>
+                <span class="note">@release.Date</span>
+                @if (installed)
+                {
+                    <span class="sv-badge on">@UiText.T("installiert")</span>
+                }
+            </div>
+            <ul class="pn-list">
+                @foreach (var entry in release.Entries)
+                {
+                    <li>
+                        @if (entry.Kind.Length > 0)
+                        {
+                            <span class="pn-kind @KindClass(entry.Kind)">@UiText.T(entry.Kind)</span>
+                        }
+                        else
+                        {
+                            <span aria-hidden="true"></span>
+                        }
+                        <span class="pn-text">
+                            @foreach (var span in PatchNotes.Spans(entry.Text))
+                            {
+                                if (span.Code)
+                                {
+                                    <code>@span.Text</code>
+                                }
+                                else if (span.Bold)
+                                {
+                                    <b>@span.Text</b>
+                                }
+                                else
+                                {
+                                    @span.Text
+                                }
+                            }
+                        </span>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+</div>
+
+@code {
+    // "0.1.28+a4b8137.tester…" -> "0.1.28"
+    private static string InstalledVersion => AppPaths.Version.Split('+', 2)[0];
+
+    private static string KindClass(string kind) => kind switch
+    {
+        "Neu" => "new",
+        "Behoben" => "fixed",
+        "Verbessert" => "improved",
+        _ => "changed",
+    };
+}

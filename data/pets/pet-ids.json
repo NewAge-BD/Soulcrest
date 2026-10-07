@@ -1,0 +1,1248 @@
+{
+ "description": "All 207 pets of AION 2 (global) with their numeric pet id. The id is the one in the server loot message 0d90 (docs/NETWORK_LOOT.md); 16 ids were checked against own captures, all equal. catalogId: matching Soulcrest pet id by English name (null = not in the current map data).",
+ "source": "https://aion2.gaming.tools/pets (category lists Cogni/Fera/Natura/Varian/Special), read 2026-10-04 in the browser, 5 page views",
+ "pets": [
+  {
+   "id": 1001,
+   "en": "Black Dragon",
+   "genus": "Special",
+   "catalogId": "black-dragon"
+  },
+  {
+   "id": 1002,
+   "en": "Krall Laborer",
+   "genus": "Cogni",
+   "catalogId": "krallreg-01"
+  },
+  {
+   "id": 1003,
+   "en": "Forest Specter",
+   "genus": "Natura",
+   "catalogId": "forestwisp-01"
+  },
+  {
+   "id": 1004,
+   "en": "Fossa",
+   "genus": "Fera",
+   "catalogId": "fossa"
+  },
+  {
+   "id": 1005,
+   "en": "Klaw",
+   "genus": "Cogni",
+   "catalogId": "klaw"
+  },
+  {
+   "id": 1006,
+   "en": "Sparkie",
+   "genus": "Fera",
+   "catalogId": "sparkyod-01"
+  },
+  {
+   "id": 1007,
+   "en": "Potcrab",
+   "genus": "Fera",
+   "catalogId": "potcrab"
+  },
+  {
+   "id": 1008,
+   "en": "Baby Odyle Spider",
+   "genus": "Fera",
+   "catalogId": "baby-odyle-spider"
+  },
+  {
+   "id": 1009,
+   "en": "Kernon",
+   "genus": "Fera",
+   "catalogId": "kernon"
+  },
+  {
+   "id": 1010,
+   "en": "Manduri Fighter",
+   "genus": "Cogni",
+   "catalogId": "manduri-fighter"
+  },
+  {
+   "id": 1011,
+   "en": "Skyray",
+   "genus": "Fera",
+   "catalogId": "skyray"
+  },
+  {
+   "id": 1012,
+   "en": "Fungie",
+   "genus": "Natura",
+   "catalogId": "fungy-01"
+  },
+  {
+   "id": 1013,
+   "en": "Swarm",
+   "genus": "Varian",
+   "catalogId": "swarm"
+  },
+  {
+   "id": 1014,
+   "en": "Drakan Guard Dog",
+   "genus": "Fera",
+   "catalogId": "drakan-guard-dog"
+  },
+  {
+   "id": 1015,
+   "en": "Kailin",
+   "genus": "Fera",
+   "catalogId": "kailin"
+  },
+  {
+   "id": 1016,
+   "en": "Slink",
+   "genus": "Fera",
+   "catalogId": "slink"
+  },
+  {
+   "id": 1017,
+   "en": "Krall Warshaman",
+   "genus": "Cogni",
+   "catalogId": "krallprst-01"
+  },
+  {
+   "id": 1018,
+   "en": "Varg Berserker",
+   "genus": "Cogni",
+   "catalogId": "varg-berserker"
+  },
+  {
+   "id": 1021,
+   "en": "Aberrant Odyle Spider",
+   "genus": "Fera",
+   "catalogId": "aberrant-odyle-spider"
+  },
+  {
+   "id": 1022,
+   "en": "Crasaur",
+   "genus": "Fera",
+   "catalogId": "crasaur"
+  },
+  {
+   "id": 1025,
+   "en": "Mutated Aberrant Odyle Spider",
+   "genus": "Fera",
+   "catalogId": "mutated-aberrant-odyle-spider"
+  },
+  {
+   "id": 1026,
+   "en": "Krall Warrior",
+   "genus": "Cogni",
+   "catalogId": "krallwar-01"
+  },
+  {
+   "id": 1027,
+   "en": "Withered Agrint",
+   "genus": "Natura",
+   "catalogId": "withered-agrint"
+  },
+  {
+   "id": 1028,
+   "en": "Krao Mutant",
+   "genus": "Varian",
+   "catalogId": "krao-mutant"
+  },
+  {
+   "id": 1029,
+   "en": "Klaw Scout",
+   "genus": "Cogni",
+   "catalogId": "klaw-scout"
+  },
+  {
+   "id": 1030,
+   "en": "Nagarant Guardian Warrior",
+   "genus": "Cogni",
+   "catalogId": "nagarant-guardian-warrior"
+  },
+  {
+   "id": 1031,
+   "en": "Konutin Worker",
+   "genus": "Natura",
+   "catalogId": "conuti-02"
+  },
+  {
+   "id": 1032,
+   "en": "Elite Keneire",
+   "genus": "Fera",
+   "catalogId": "elite-keneire"
+  },
+  {
+   "id": 1033,
+   "en": "Elite Manduri Fighter",
+   "genus": "Cogni",
+   "catalogId": "elite-manduri-fighter"
+  },
+  {
+   "id": 1034,
+   "en": "Giant Sparkie",
+   "genus": "Fera",
+   "catalogId": "giant-sparkie"
+  },
+  {
+   "id": 1035,
+   "en": "Skama",
+   "genus": "Fera",
+   "catalogId": "fish-01"
+  },
+  {
+   "id": 1036,
+   "en": "Lupyllini",
+   "genus": "Fera",
+   "catalogId": "lufilini-02"
+  },
+  {
+   "id": 1037,
+   "en": "Male Crestlich",
+   "genus": "Fera",
+   "catalogId": "crestlich-02"
+  },
+  {
+   "id": 1038,
+   "en": "Airon",
+   "genus": "Fera",
+   "catalogId": "airon"
+  },
+  {
+   "id": 1039,
+   "en": "Crestlich",
+   "genus": "Fera",
+   "catalogId": "crestlich-01"
+  },
+  {
+   "id": 1040,
+   "en": "Aullaeu Shaman",
+   "genus": "Cogni",
+   "catalogId": "owlmag-01"
+  },
+  {
+   "id": 1041,
+   "en": "Cave Bat",
+   "genus": "Fera",
+   "catalogId": "cavebat-01"
+  },
+  {
+   "id": 1042,
+   "en": "Ursus",
+   "genus": "Fera",
+   "catalogId": "ursus"
+  },
+  {
+   "id": 1043,
+   "en": "Elite Ursus",
+   "genus": "Fera",
+   "catalogId": "elite-ursus"
+  },
+  {
+   "id": 1044,
+   "en": "Aultross's Doppelganger",
+   "genus": "Cogni",
+   "catalogId": "aultross-s-doppelganger"
+  },
+  {
+   "id": 1045,
+   "en": "Sylphen",
+   "genus": "Fera",
+   "catalogId": "sylphen"
+  },
+  {
+   "id": 1046,
+   "en": "Armadon",
+   "genus": "Fera",
+   "catalogId": "armadon"
+  },
+  {
+   "id": 1047,
+   "en": "Aberrant Armadon",
+   "genus": "Fera",
+   "catalogId": "mole-01-v01"
+  },
+  {
+   "id": 1048,
+   "en": "Forest Spirit",
+   "genus": "Natura",
+   "catalogId": "forest-spirit"
+  },
+  {
+   "id": 1049,
+   "en": "Mutated Forest Spirit",
+   "genus": "Natura",
+   "catalogId": "mutated-forest-spirit"
+  },
+  {
+   "id": 1050,
+   "en": "Gravi",
+   "genus": "Natura",
+   "catalogId": "gravi"
+  },
+  {
+   "id": 1051,
+   "en": "Magic Gravi",
+   "genus": "Natura",
+   "catalogId": "magic-gravi"
+  },
+  {
+   "id": 1052,
+   "en": "Large Leaf Gravi",
+   "genus": "Natura",
+   "catalogId": "large-leaf-gravi"
+  },
+  {
+   "id": 1053,
+   "en": "Aberrant Potcrab",
+   "genus": "Fera",
+   "catalogId": "crab-01-v01"
+  },
+  {
+   "id": 1054,
+   "en": "Mumu Warrior",
+   "genus": "Cogni",
+   "catalogId": "mumu-warrior"
+  },
+  {
+   "id": 1055,
+   "en": "Grave Rat",
+   "genus": "Fera",
+   "catalogId": "grave-rat"
+  },
+  {
+   "id": 1056,
+   "en": "Drakan Probe",
+   "genus": "Varian",
+   "catalogId": "drakan-probe"
+  },
+  {
+   "id": 1057,
+   "en": "Coradon",
+   "genus": "Fera",
+   "catalogId": "coradon"
+  },
+  {
+   "id": 1058,
+   "en": "Black Smoke Murute",
+   "genus": "Natura",
+   "catalogId": "black-smoke-murute"
+  },
+  {
+   "id": 1059,
+   "en": "Giant Bee",
+   "genus": "Fera",
+   "catalogId": "bee-01"
+  },
+  {
+   "id": 1060,
+   "en": "Starturtle",
+   "genus": "Fera",
+   "catalogId": "starturtle"
+  },
+  {
+   "id": 1061,
+   "en": "Slime",
+   "genus": "Varian",
+   "catalogId": "slime"
+  },
+  {
+   "id": 1062,
+   "en": "Contaminated Slime",
+   "genus": "Varian",
+   "catalogId": "contaminated-slime"
+  },
+  {
+   "id": 1063,
+   "en": "Vigilant Oculazen",
+   "genus": "Varian",
+   "catalogId": "vigilant-oculazen"
+  },
+  {
+   "id": 1064,
+   "en": "Oculazen",
+   "genus": "Varian",
+   "catalogId": "oculazen"
+  },
+  {
+   "id": 1065,
+   "en": "Biruta",
+   "genus": "Cogni",
+   "catalogId": "biruta"
+  },
+  {
+   "id": 1066,
+   "en": "Papis",
+   "genus": "Fera",
+   "catalogId": "papis"
+  },
+  {
+   "id": 1067,
+   "en": "Scorpion",
+   "genus": "Fera",
+   "catalogId": "scorpion"
+  },
+  {
+   "id": 1068,
+   "en": "Krao Test Subject",
+   "genus": "Varian",
+   "catalogId": "krao-test-subject"
+  },
+  {
+   "id": 1069,
+   "en": "Stone Spirit",
+   "genus": "Natura",
+   "catalogId": "stone-spirit"
+  },
+  {
+   "id": 1071,
+   "en": "Cadaver Insectoid",
+   "genus": "Fera",
+   "catalogId": "cadaver-insectoid"
+  },
+  {
+   "id": 1072,
+   "en": "Tog",
+   "genus": "Fera",
+   "catalogId": "tog"
+  },
+  {
+   "id": 1073,
+   "en": "Nepenthes",
+   "genus": "Natura",
+   "catalogId": "nepenthes"
+  },
+  {
+   "id": 1074,
+   "en": "Kuru Worker",
+   "genus": "Cogni",
+   "catalogId": "kuru-worker"
+  },
+  {
+   "id": 1075,
+   "en": "Kuru Tinkerer",
+   "genus": "Cogni",
+   "catalogId": "kuru-tinkerer"
+  },
+  {
+   "id": 1077,
+   "en": "Harcon",
+   "genus": "Varian",
+   "catalogId": "harcon"
+  },
+  {
+   "id": 1078,
+   "en": "Urugugu Brawler",
+   "genus": "Cogni",
+   "catalogId": "urugugu-brawler"
+  },
+  {
+   "id": 1079,
+   "en": "Ultimate Wind Spirit",
+   "genus": "Natura",
+   "catalogId": "ultimate-wind-spirit"
+  },
+  {
+   "id": 1080,
+   "en": "Sentinel K'nash",
+   "genus": "Cogni",
+   "catalogId": "sentinel-k-nash"
+  },
+  {
+   "id": 1081,
+   "en": "Dionae",
+   "genus": "Natura",
+   "catalogId": "dionae"
+  },
+  {
+   "id": 1082,
+   "en": "Ultimate Fire Spirit",
+   "genus": "Natura",
+   "catalogId": "ultimate-fire-spirit"
+  },
+  {
+   "id": 1083,
+   "en": "Spider",
+   "genus": "Fera",
+   "catalogId": "spider"
+  },
+  {
+   "id": 1084,
+   "en": "Kalgolem",
+   "genus": "Varian",
+   "catalogId": "kalgolem"
+  },
+  {
+   "id": 1086,
+   "en": "Fungen",
+   "genus": "Natura",
+   "catalogId": "fungus-01"
+  },
+  {
+   "id": 1087,
+   "en": "Pino",
+   "genus": "Varian",
+   "catalogId": "pino-01"
+  },
+  {
+   "id": 1088,
+   "en": "Pino Worker",
+   "genus": "Varian",
+   "catalogId": "pino-02"
+  },
+  {
+   "id": 1089,
+   "en": "Aberrant Skama",
+   "genus": "Fera",
+   "catalogId": "aberrant-skama"
+  },
+  {
+   "id": 1090,
+   "en": "Ultimate Water Spirit",
+   "genus": "Natura",
+   "catalogId": "ultimate-water-spirit"
+  },
+  {
+   "id": 1091,
+   "en": "Red Spark Ignus",
+   "genus": "Natura",
+   "catalogId": "red-spark-ignus"
+  },
+  {
+   "id": 1092,
+   "en": "Lesser Wind Spirit",
+   "genus": "Natura",
+   "catalogId": "lesser-wind-spirit"
+  },
+  {
+   "id": 1093,
+   "en": "Phantasmal Lakshmi",
+   "genus": "Cogni",
+   "catalogId": "phantasmal-lakshmi"
+  },
+  {
+   "id": 1094,
+   "en": "Intermediate Wind Spirit",
+   "genus": "Natura",
+   "catalogId": "intermediate-wind-spirit"
+  },
+  {
+   "id": 1095,
+   "en": "Superior Wind Spirit",
+   "genus": "Natura",
+   "catalogId": "superior-wind-spirit"
+  },
+  {
+   "id": 1096,
+   "en": "Superior Fire Spirit",
+   "genus": "Natura",
+   "catalogId": "superior-fire-spirit"
+  },
+  {
+   "id": 1097,
+   "en": "Karnif",
+   "genus": "Fera",
+   "catalogId": "kalnif-01"
+  },
+  {
+   "id": 1098,
+   "en": "Modified Karnif",
+   "genus": "Fera",
+   "catalogId": "modified-karnif"
+  },
+  {
+   "id": 1099,
+   "en": "Elite Karnif",
+   "genus": "Fera",
+   "catalogId": "elite-karnif"
+  },
+  {
+   "id": 1100,
+   "en": "Ultimate Earth Spirit",
+   "genus": "Natura",
+   "catalogId": "ultimate-earth-spirit"
+  },
+  {
+   "id": 1101,
+   "en": "Forest Guardian",
+   "genus": "Natura",
+   "catalogId": "forest-guardian"
+  },
+  {
+   "id": 1102,
+   "en": "Dried Up Forest Guardian",
+   "genus": "Natura",
+   "catalogId": "dried-up-forest-guardian"
+  },
+  {
+   "id": 1103,
+   "en": "Pretor Veil Administrator",
+   "genus": "Cogni",
+   "catalogId": "pretor-veil-administrator"
+  },
+  {
+   "id": 1104,
+   "en": "Manduri Trebuchet Worker",
+   "genus": "Cogni",
+   "catalogId": "manduri-trebuchet-worker"
+  },
+  {
+   "id": 1105,
+   "en": "Biruta Herbalist",
+   "genus": "Cogni",
+   "catalogId": "biruta-herbalist"
+  },
+  {
+   "id": 1106,
+   "en": "Tayga",
+   "genus": "Fera",
+   "catalogId": "tayga"
+  },
+  {
+   "id": 1107,
+   "en": "Krao Seal Guardian",
+   "genus": "Varian",
+   "catalogId": "krao-seal-guardian"
+  },
+  {
+   "id": 1108,
+   "en": "Enhanced Krall Combatant",
+   "genus": "Cogni",
+   "catalogId": "krallwar-01-v01"
+  },
+  {
+   "id": 1109,
+   "en": "Enhanced Krall Sentry",
+   "genus": "Cogni",
+   "catalogId": "krallwar-01-v02"
+  },
+  {
+   "id": 1110,
+   "en": "Blue Kalgolem",
+   "genus": "Varian",
+   "catalogId": "blue-kalgolem"
+  },
+  {
+   "id": 1111,
+   "en": "Swift Lugi",
+   "genus": "Special",
+   "catalogId": "swift-lugi"
+  },
+  {
+   "id": 1112,
+   "en": "Wandering Merchant Lugi",
+   "genus": "Special",
+   "catalogId": "wandering-merchant-lugi"
+  },
+  {
+   "id": 1114,
+   "en": "Ashen Spider",
+   "genus": "Fera",
+   "catalogId": "ashen-spider"
+  },
+  {
+   "id": 1115,
+   "en": "Kuru Overseer",
+   "genus": "Cogni",
+   "catalogId": "kuru-overseer"
+  },
+  {
+   "id": 1116,
+   "en": "Withered Branch Spider",
+   "genus": "Fera",
+   "catalogId": "withered-branch-spider"
+  },
+  {
+   "id": 1117,
+   "en": "Unstable Spider",
+   "genus": "Fera",
+   "catalogId": "unstable-spider"
+  },
+  {
+   "id": 1118,
+   "en": "Aberrant Bee",
+   "genus": "Fera",
+   "catalogId": "aberrant-bee"
+  },
+  {
+   "id": 1119,
+   "en": "Aberrant Coradon",
+   "genus": "Fera",
+   "catalogId": "aberrant-coradon"
+  },
+  {
+   "id": 1120,
+   "en": "Young Kailin",
+   "genus": "Fera",
+   "catalogId": "young-kailin"
+  },
+  {
+   "id": 1121,
+   "en": "Young Slink",
+   "genus": "Fera",
+   "catalogId": "young-slink"
+  },
+  {
+   "id": 1122,
+   "en": "Young Tog",
+   "genus": "Fera",
+   "catalogId": "young-tog"
+  },
+  {
+   "id": 1123,
+   "en": "Young Ursus",
+   "genus": "Fera",
+   "catalogId": "young-ursus"
+  },
+  {
+   "id": 1124,
+   "en": "Zaif",
+   "genus": "Fera",
+   "catalogId": "zaif-01"
+  },
+  {
+   "id": 1125,
+   "en": "Aberrant Zaif",
+   "genus": "Fera",
+   "catalogId": "aberrant-zaif"
+  },
+  {
+   "id": 1126,
+   "en": "Aberrant Tog",
+   "genus": "Fera",
+   "catalogId": "aberrant-tog"
+  },
+  {
+   "id": 1127,
+   "en": "Odyle Stone Spirit",
+   "genus": "Natura",
+   "catalogId": "odyle-stone-spirit"
+  },
+  {
+   "id": 1128,
+   "en": "Drana Slime",
+   "genus": "Varian",
+   "catalogId": "drana-slime"
+  },
+  {
+   "id": 1129,
+   "en": "Drana Swarm",
+   "genus": "Varian",
+   "catalogId": "abyssswarm-01-cv01"
+  },
+  {
+   "id": 1130,
+   "en": "Mutated Cadaver Insectoid",
+   "genus": "Fera",
+   "catalogId": "altbug-01-cv02"
+  },
+  {
+   "id": 1131,
+   "en": "Drana Spore",
+   "genus": "Natura",
+   "catalogId": "forestele-01-cv01"
+  },
+  {
+   "id": 1132,
+   "en": "Ashen Lupyllini",
+   "genus": "Fera",
+   "catalogId": "ashen-lupyllini"
+  },
+  {
+   "id": 1133,
+   "en": "Forest Dionae",
+   "genus": "Natura",
+   "catalogId": "forest-dionae"
+  },
+  {
+   "id": 1134,
+   "en": "Eternal Coradon",
+   "genus": "Fera",
+   "catalogId": "eternal-coradon"
+  },
+  {
+   "id": 1135,
+   "en": "Ashen Dionae",
+   "genus": "Natura",
+   "catalogId": "ashen-dionae"
+  },
+  {
+   "id": 1136,
+   "en": "Rafflesia",
+   "genus": "Natura",
+   "catalogId": "rafflesia"
+  },
+  {
+   "id": 1137,
+   "en": "Mumu Worker",
+   "genus": "Cogni",
+   "catalogId": "mumu-worker"
+  },
+  {
+   "id": 1138,
+   "en": "Mumu Overseer",
+   "genus": "Cogni",
+   "catalogId": "mumu-overseer"
+  },
+  {
+   "id": 1139,
+   "en": "Swamp Monster",
+   "genus": "Varian",
+   "catalogId": "swamp-monster"
+  },
+  {
+   "id": 1140,
+   "en": "Forest Monster",
+   "genus": "Varian",
+   "catalogId": "forest-monster"
+  },
+  {
+   "id": 1141,
+   "en": "Marsh Targon",
+   "genus": "Varian",
+   "catalogId": "marsh-targon"
+  },
+  {
+   "id": 1142,
+   "en": "Distorted Mutant",
+   "genus": "Varian",
+   "catalogId": "distorted-mutant"
+  },
+  {
+   "id": 1143,
+   "en": "Mutated Ursus",
+   "genus": "Fera",
+   "catalogId": "mutated-ursus"
+  },
+  {
+   "id": 1144,
+   "en": "Mutated Forest Guardian",
+   "genus": "Natura",
+   "catalogId": "mutated-forest-guardian"
+  },
+  {
+   "id": 1145,
+   "en": "Mutated Insectoid Valka",
+   "genus": "Fera",
+   "catalogId": "mutated-insectoid-valka"
+  },
+  {
+   "id": 1146,
+   "en": "Gatekeeper Pinopi",
+   "genus": "Varian",
+   "catalogId": "gatekeeper-pinopi"
+  },
+  {
+   "id": 1147,
+   "en": "Dratona",
+   "genus": "Cogni",
+   "catalogId": "dratona"
+  },
+  {
+   "id": 1148,
+   "en": "Drakana Kalgolem",
+   "genus": "Varian",
+   "catalogId": "drakana-kalgolem"
+  },
+  {
+   "id": 1153,
+   "en": "Drana Mutant Brute",
+   "genus": "Varian",
+   "catalogId": "drana-mutant-brute"
+  },
+  {
+   "id": 1154,
+   "en": "Faded Mutant Brute",
+   "genus": "Varian",
+   "catalogId": "faded-mutant-brute"
+  },
+  {
+   "id": 1155,
+   "en": "Superior Water Spirit",
+   "genus": "Natura",
+   "catalogId": "superior-water-spirit"
+  },
+  {
+   "id": 1156,
+   "en": "Elite Klaw",
+   "genus": "Cogni",
+   "catalogId": "elite-klaw"
+  },
+  {
+   "id": 1157,
+   "en": "Cadaver Cleaner",
+   "genus": "Varian",
+   "catalogId": "cadaver-cleaner"
+  },
+  {
+   "id": 1158,
+   "en": "Venomous Insect Sram",
+   "genus": "Fera",
+   "catalogId": "venomous-insect-sram"
+  },
+  {
+   "id": 1159,
+   "en": "Parasite Swarm",
+   "genus": "Varian",
+   "catalogId": "parasite-swarm"
+  },
+  {
+   "id": 1160,
+   "en": "Drana Contaminant",
+   "genus": "Varian",
+   "catalogId": "drana-contaminant"
+  },
+  {
+   "id": 1161,
+   "en": "Faded Floater",
+   "genus": "Varian",
+   "catalogId": "faded-floater"
+  },
+  {
+   "id": 1162,
+   "en": "Kerubar",
+   "genus": "Cogni",
+   "catalogId": "kerubar"
+  },
+  {
+   "id": 1163,
+   "en": "Basilisk",
+   "genus": "Fera",
+   "catalogId": "basilisk"
+  },
+  {
+   "id": 1164,
+   "en": "Lesser Earth Spirit",
+   "genus": "Natura",
+   "catalogId": "earthele-01"
+  },
+  {
+   "id": 1165,
+   "en": "Intermediate Earth Spirit",
+   "genus": "Natura",
+   "catalogId": "intermediate-earth-spirit"
+  },
+  {
+   "id": 1166,
+   "en": "Superior Earth Spirit",
+   "genus": "Natura",
+   "catalogId": "superior-earth-spirit"
+  },
+  {
+   "id": 1167,
+   "en": "Flame Stone Guardian Statue",
+   "genus": "Varian",
+   "catalogId": "flame-stone-guardian-statue"
+  },
+  {
+   "id": 1168,
+   "en": "Lesser Water Spirit",
+   "genus": "Natura",
+   "catalogId": "waterele-01"
+  },
+  {
+   "id": 1169,
+   "en": "Intermediate Water Spirit",
+   "genus": "Natura",
+   "catalogId": "intermediate-water-spirit"
+  },
+  {
+   "id": 1170,
+   "en": "Kerubian",
+   "genus": "Cogni",
+   "catalogId": "kerubian"
+  },
+  {
+   "id": 1171,
+   "en": "Kerubiel",
+   "genus": "Cogni",
+   "catalogId": "kerubiel"
+  },
+  {
+   "id": 1172,
+   "en": "Duduka Worker",
+   "genus": "Varian",
+   "catalogId": "duduka-worker"
+  },
+  {
+   "id": 1173,
+   "en": "Duduka Trebuchet Worker",
+   "genus": "Varian",
+   "catalogId": "duduka-trebuchet-worker"
+  },
+  {
+   "id": 1174,
+   "en": "Drana Predator",
+   "genus": "Varian",
+   "catalogId": "drana-predator"
+  },
+  {
+   "id": 1175,
+   "en": "Faded Predator",
+   "genus": "Varian",
+   "catalogId": "faded-predator"
+  },
+  {
+   "id": 1176,
+   "en": "Mudthorn",
+   "genus": "Varian",
+   "catalogId": "mudthorn"
+  },
+  {
+   "id": 1177,
+   "en": "Ancient Spirit",
+   "genus": "Natura",
+   "catalogId": "ancient-spirit"
+  },
+  {
+   "id": 1178,
+   "en": "Spirit King's Bodyguard Warrior",
+   "genus": "Natura",
+   "catalogId": "spirit-king-s-bodyguard-warrior"
+  },
+  {
+   "id": 1179,
+   "en": "Drana Mutant",
+   "genus": "Varian",
+   "catalogId": "drana-mutant"
+  },
+  {
+   "id": 1180,
+   "en": "Faded Mutant",
+   "genus": "Varian",
+   "catalogId": "faded-mutant"
+  },
+  {
+   "id": 1181,
+   "en": "Brax",
+   "genus": "Fera",
+   "catalogId": "brax"
+  },
+  {
+   "id": 1182,
+   "en": "Elite Soulless Corpse Gnat",
+   "genus": "Varian",
+   "catalogId": "elite-soulless-corpse-gnat"
+  },
+  {
+   "id": 1183,
+   "en": "Soulless Corpse Gnat",
+   "genus": "Varian",
+   "catalogId": "soulless-corpse-gnat"
+  },
+  {
+   "id": 1184,
+   "en": "Drakan Watcher",
+   "genus": "Cogni",
+   "catalogId": "drakan-watcher"
+  },
+  {
+   "id": 1185,
+   "en": "Dratona Tinkerer",
+   "genus": "Cogni",
+   "catalogId": "dratona-tinkerer"
+  },
+  {
+   "id": 1186,
+   "en": "Poison Blood",
+   "genus": "Varian",
+   "catalogId": "poison-blood"
+  },
+  {
+   "id": 1187,
+   "en": "Intermediate Fire Spirit",
+   "genus": "Natura",
+   "catalogId": "intermediate-fire-spirit"
+  },
+  {
+   "id": 1188,
+   "en": "Vivel",
+   "genus": "Fera",
+   "catalogId": "vivel"
+  },
+  {
+   "id": 1189,
+   "en": "Tamed Zaif",
+   "genus": "Fera",
+   "catalogId": "tamed-zaif"
+  },
+  {
+   "id": 1190,
+   "en": "Elite Poisonous Spore Fungen",
+   "genus": "Natura",
+   "catalogId": "elite-poisonous-spore-fungen"
+  },
+  {
+   "id": 1191,
+   "en": "Furious Feruk",
+   "genus": "Cogni",
+   "catalogId": "furious-feruk"
+  },
+  {
+   "id": 1192,
+   "en": "Silver Blade Rotan",
+   "genus": "Varian",
+   "catalogId": "silver-blade-rotan"
+  },
+  {
+   "id": 1193,
+   "en": "Addicted Shulak Cart Worker",
+   "genus": "Cogni",
+   "catalogId": "addicted-shulak-cart-worker"
+  },
+  {
+   "id": 1194,
+   "en": "Guardite",
+   "genus": "Varian",
+   "catalogId": "guardit-01"
+  },
+  {
+   "id": 1195,
+   "en": "Dracuni Herbalist",
+   "genus": "Cogni",
+   "catalogId": "dracuni-herbalist"
+  },
+  {
+   "id": 1196,
+   "en": "Elite Dratona",
+   "genus": "Cogni",
+   "catalogId": "elite-dratona"
+  },
+  {
+   "id": 1197,
+   "en": "Watcher Guardite",
+   "genus": "Varian",
+   "catalogId": "guardit-02"
+  },
+  {
+   "id": 1198,
+   "en": "Ashen Basilisk",
+   "genus": "Fera",
+   "catalogId": "ashen-basilisk"
+  },
+  {
+   "id": 1199,
+   "en": "Flame Barghest",
+   "genus": "Fera",
+   "catalogId": "flame-barghest"
+  },
+  {
+   "id": 1200,
+   "en": "Naga Elite Priest",
+   "genus": "Cogni",
+   "catalogId": "naga-elite-priest"
+  },
+  {
+   "id": 1201,
+   "en": "Modified Lupyllini",
+   "genus": "Cogni",
+   "catalogId": "modified-lupyllini"
+  },
+  {
+   "id": 1202,
+   "en": "Decomposed Lupyllini",
+   "genus": "Cogni",
+   "catalogId": "decomposed-lupyllini"
+  },
+  {
+   "id": 1203,
+   "en": "Tamed Karnif",
+   "genus": "Fera",
+   "catalogId": "tamed-karnif"
+  },
+  {
+   "id": 1204,
+   "en": "Pagati",
+   "genus": "Special",
+   "catalogId": "pagati"
+  },
+  {
+   "id": 1206,
+   "en": "Elite Guardite",
+   "genus": "Varian",
+   "catalogId": "elite-guardite"
+  },
+  {
+   "id": 1207,
+   "en": "Agrint",
+   "genus": "Natura",
+   "catalogId": "agrint"
+  },
+  {
+   "id": 1208,
+   "en": "Ashen Agrint",
+   "genus": "Natura",
+   "catalogId": "ashen-agrint"
+  },
+  {
+   "id": 1209,
+   "en": "Thin Agrint",
+   "genus": "Natura",
+   "catalogId": "thin-agrint"
+  },
+  {
+   "id": 1210,
+   "en": "Dry Leaf Agrint",
+   "genus": "Natura",
+   "catalogId": "agrint-01-v02"
+  },
+  {
+   "id": 1213,
+   "en": "Lesser Fire Spirit",
+   "genus": "Natura",
+   "catalogId": "lesser-fire-spirit"
+  },
+  {
+   "id": 1214,
+   "en": "Black Spirit",
+   "genus": "Natura",
+   "catalogId": "black-spirit"
+  },
+  {
+   "id": 1215,
+   "en": "Predator Saraswati",
+   "genus": "Cogni",
+   "catalogId": "predator-saraswati"
+  },
+  {
+   "id": 1216,
+   "en": "Dark Spirit",
+   "genus": "Varian",
+   "catalogId": "specter-01"
+  },
+  {
+   "id": 1217,
+   "en": "Congealed Drana",
+   "genus": "Varian",
+   "catalogId": "congealed-drana"
+  },
+  {
+   "id": 1218,
+   "en": "Faded Drana",
+   "genus": "Varian",
+   "catalogId": "faded-drana"
+  },
+  {
+   "id": 1219,
+   "en": "Zelophi",
+   "genus": "Natura",
+   "catalogId": "zelophi"
+  },
+  {
+   "id": 1240,
+   "en": "White Bunny",
+   "genus": "Special",
+   "catalogId": "white-bunny"
+  },
+  {
+   "id": 1278,
+   "en": "Chonky Hamster",
+   "genus": "Special",
+   "catalogId": "chonky-hamster"
+  },
+  {
+   "id": 1299,
+   "en": "Two",
+   "genus": "Special",
+   "catalogId": "two"
+  }
+ ]
+}

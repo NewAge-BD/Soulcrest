@@ -1,0 +1,28 @@
+# Build
+bin/
+obj/
+artifacts/
+.artifacts/
+*.user
+.vs/
+
+# Große Rohdaten: Videos bleiben lokal, Ausschnitte liegen in tests/fixtures
+Beispieldaten/*.mp4
+Beispieldaten/*.mkv
+Beispieldaten/*.gif
+Beispieldaten/frames/
+
+# Generierte Kartendaten (per scripts/Import-OpenMapData.ps1 reproduzierbar)
+data/maps/*/tiles/
+data/maps/*/reference.webp
+data/maps/*/*.features.bin
+
+# Selbst beschaffte Importe (nie einchecken)
+imports/
+
+# Python
+__pycache__/
+.venv/
+
+# Agent-Arbeitskopien
+.claude/worktrees/

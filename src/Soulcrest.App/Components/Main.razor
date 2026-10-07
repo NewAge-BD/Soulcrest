@@ -1,0 +1,135 @@
+@implements IDisposable
+@inject SettingsService Settings
+@inject UiState Ui
+@inject TrackerService Tracker
+@inject MapTrackingService Tracking
+@inject ProgressService Progress
+
+<div class="shell">
+    <header class="topbar">
+        <div class="brand">Soulcrest <small title="@AppPaths.Version">Tester @ShortVersion</small></div>
+        <nav class="tabs" aria-label="@UiText.T("Hauptnavigation")">
+            <button type="button" class="@Active("map")" aria-current="@Current("map")" @onclick="@(() => Ui.Navigate("map"))">@UiText.T("Karte")</button>
+            <button type="button" class="@Active("pets")" aria-current="@Current("pets")" @onclick="@(() => Ui.Navigate("pets"))">Pets</button>
+            <button type="button" class="@Active("petscan")" aria-current="@Current("petscan")" title="@UiText.T("Fortschritt aus dem Pet-Fenster des Spiels übernehmen")" @onclick="@(() => Ui.Navigate("petscan"))">@UiText.T("Pet-Fenster")</button>
+            <button type="button" class="@Active("exploration")" aria-current="@Current("exploration")" title="@UiText.T("Sealed Dungeons, Strongholds und Kibelisks aus dem Spiel einlesen")" @onclick="@(() => Ui.Navigate("exploration"))">@UiText.T("Erkundungsfortschritt scannen")</button>
+            <span class="tabs-sep" aria-hidden="true"></span>
+            <button type="button" class="@Active("options")" aria-current="@Current("options")" @onclick="@(() => Ui.Navigate("options"))">@UiText.T("Optionen")</button>
+            <button type="button" class="@Active("patchnotes")" aria-current="@Current("patchnotes")" @onclick="@(() => Ui.Navigate("patchnotes"))">@UiText.T("Patchnotes")</button>
+            <button type="button" class="@Active("info")" aria-current="@Current("info")" @onclick="@(() => Ui.Navigate("info"))">Info</button>
+        </nav>
+        <div class="spacer"></div>
+        <div class="topstatus">
+            <button type="button" class="pill @(Tracking.Running ? (Tracking.Found ? "live" : Tracking.Paused ? "rest" : "warn") : "")" title="Player-Tracker: @UiText.T(Tracking.Status)" @onclick="@(() => Ui.Navigate("map"))">
+                <span class="dot" aria-hidden="true"></span><span class="pill-label">@UiText.T("Spieler")</span>
+                <span class="pill-value">@(Tracking.Running ? (Tracking.Found ? $"{Tracking.Fps} fps" : Tracking.Paused ? UiText.T("ruht") : UiText.T("sucht …")) : UiText.T("aus"))</span>
+            </button>
+            <button type="button" class="pill @(Tracker.Running ? "live" : "") @(Tracker.StatusIsError ? "error" : "")" title="Loot-Tracker: @UiText.T(Tracker.Status)" @onclick="@(() => Ui.Navigate("options"))">
+                <span class="dot" aria-hidden="true"></span><span class="pill-label">Loot</span>
+                <span class="pill-value">@(Tracker.Running ? UiText.T("Netzwerk") : UiText.T("aus"))</span>
+            </button>
+            <span class="pill pill-count" title="@UiText.T("Pets im Katalog")">@Progress.Catalog.Pets.Count Pets</span>
+        </div>
+    </header>
+    <main class="content">
+        @if (Progress.MapDataDirectory is null)
+        {
+            @if (Ui.Tab == "map")
+            {
+                <div class="page"><div class="status error">@UiText.T("Kein Kartendatenpaket gefunden. Erwartet wird ein Ordner") <code>mapdata</code> @UiText.T("neben der EXE (siehe Info).")</div></div>
+            }
+        }
+        else
+        {
+            <div class="maptab @(Ui.Tab == "map" ? "" : "off")"><MapView Active="@(Ui.Tab == "map")" /></div>
+        }
+        @if (Ui.Tab == "pets")
+        {
+            <PetsView />
+        }
+        else if (Ui.Tab == "petscan")
+        {
+            <PetScanView />
+        }
+        else if (Ui.Tab == "exploration")
+        {
+            <ExplorationView Kind="all" />
+        }
+        else if (Ui.Tab == "options")
+        {
+            <OptionsView />
+        }
+        else if (Ui.Tab == "patchnotes")
+        {
+            <PatchNotesView />
+        }
+        else if (Ui.Tab == "info")
+        {
+            <InfoView />
+        }
+    </main>
+    @if (Ui.TutorialOpen)
+    {
+        <TutorialView />
+    }
+</div>
+
+@code {
+    private string Active(string tab) => Ui.Tab == tab ? "active" : "";
+    private string? Current(string tab) => Ui.Tab == tab ? "page" : null;
+
+    // "0.1.0+abc1234.tester20261002233000" -> "0.1.0 · abc1234"
+    private static string ShortVersion
+    {
+        get
+        {
+            var parts = AppPaths.Version.Split('+', 2);
+            if (parts.Length < 2)
+                return parts[0];
+            var revision = parts[1].Split('.')[0];
+            return $"{parts[0]} · {revision[..Math.Min(7, revision.Length)]}";
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        // First start after a fresh installation: enlarge and mark the minimap (user request 2026-10-07).
+        if (!Settings.Current.TutorialDone && !SmokeTest.Enabled)
+            Ui.OpenTutorial();
+        Settings.Changed += Refresh;
+        Ui.Changed += Refresh;
+        Tracker.Changed += Refresh;
+        Tracking.Changed += RefreshTracking;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+            SmokeTest.UiRendered = true;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    // Player positions arrive up to 10 times per second; the status pill only needs a few updates,
+    // but a change of state (started, stopped, found, lost) shows at once.
+    private DateTime _lastTrackingRender;
+    private (bool Running, bool Found, bool Paused) _shownTracking;
+
+    private void RefreshTracking()
+    {
+        var state = (Tracking.Running, Tracking.Found, Tracking.Paused);
+        if (state == _shownTracking && DateTime.Now - _lastTrackingRender < TimeSpan.FromMilliseconds(500))
+            return;
+        _shownTracking = state;
+        _lastTrackingRender = DateTime.Now;
+        Refresh();
+    }
+
+    public void Dispose()
+    {
+        Settings.Changed -= Refresh;
+        Ui.Changed -= Refresh;
+        Tracker.Changed -= Refresh;
+        Tracking.Changed -= RefreshTracking;
+    }
+}

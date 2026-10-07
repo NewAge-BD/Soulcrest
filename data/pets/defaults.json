@@ -1,0 +1,18 @@
+{
+  "$comment": "Pet-Stufen vom Nutzer bestätigt (2026-10-03): Stufe 1 = 5 Souls, dann 25 neue, dann 75 neue; jede Stufe zählt von 0 (nicht kumulativ). Gesamt 105. Überzählige Souls gehen in die nächste Stufe über (bestätigt). Gilt für alle Pets gleich (bestätigt).",
+  "confirmed": true,
+  "thresholds": {
+    "steps": [5, 25, 75],
+    "cumulative": false,
+    "excessCarriesOver": true,
+    "samePerPet": true,
+    "maxLevel": 3
+  },
+  "genera": [
+    { "id": "cogni",   "names": { "en": "Cogni",   "de": "Cognia" }, "upstreamSubtype": "creatureIntellect", "color": "#3b82f6", "crystal": "blue" },
+    { "id": "fera",    "names": { "en": "Fera",    "de": "Fera" },   "upstreamSubtype": "creatureFeral",     "color": "#ef4444", "crystal": "red" },
+    { "id": "natura",  "names": { "en": "Natura",  "de": "Natura" }, "upstreamSubtype": "creatureNature",    "color": "#22c55e", "crystal": "green" },
+    { "id": "varian",  "names": { "en": "Varian",  "de": null },     "upstreamSubtype": "creatureTrans",     "color": "#eab308", "crystal": "yellow" },
+    { "id": "special", "names": { "en": "Special", "de": "Specia" }, "upstreamSubtype": "creatureSpecial",   "color": "#67e8f9", "crystal": "light-blue" }
+  ]
+}

@@ -1,0 +1,931 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject ProgressService Progress
+@inject SettingsService Settings
+@inject UiState Ui
+@inject MapTrackingService Tracking
+@inject MapTargetsService Targets
+@inject TrackerService Loot
+@inject ExplorationService Exploration
+
+@* Layers on the left, everything else on the right; both fold away (user request 2026-10-06). *@
+<div class="mapview @(_sideCollapsed ? "left-collapsed" : "") @(_rightCollapsed ? "right-collapsed" : "")">
+    <aside class="sidebar mapside mapside-left">
+        <div class="side-top">
+            <select class="mapselect" title="@UiText.T("Karte wählen")" value="@_mapId" @onchange="@(e => SwitchMap(e.Value!.ToString()!))">
+                @foreach (var group in _maps.GroupBy(m => m.Group))
+                {
+                    <optgroup label="@UiText.T(group.Key)">
+                        @foreach (var map in group)
+                        {
+                            <option value="@map.Id">@UiText.T(map.Label)</option>
+                        }
+                    </optgroup>
+                }
+            </select>
+            <input class="search" type="text" autocomplete="off" spellcheck="false" placeholder="@UiText.T("Suchen: Pet, Monster, Ort …")" @bind="_query" @bind:event="oninput" @bind:after="Search" />
+        </div>
+        @if (_results.Count > 0)
+        {
+            <div class="searchresults">
+                @foreach (var r in _results)
+                {
+                    <button type="button" @onclick="@(() => FlyTo(r.I))">@r.Name <small>· @r.Cat</small></button>
+                }
+            </div>
+        }
+        @if (_focus is not null)
+        {
+            <div class="focusbox">
+                <div class="box-head">
+                    <span class="box-title" title="@_focus">@_focus</span>
+                    <button type="button" class="btn small" title="@UiText.T("Hervorhebung aufheben")" @onclick="ClearFocus">@UiText.T("Aufheben")</button>
+                </div>
+                <div class="note">@(_focusNote ?? UiText.F("{0} Pet-Spawns · {1} Quellmonster auf {2}", _focusPets, _focusMonsters, MapLabel))</div>
+            </div>
+        }
+        @if (_error is not null)
+        {
+            <div class="status error">@UiText.T(_error)</div>
+        }
+
+        <h3 class="layers-head"><span>@UiText.T("Ebenen")</span> <small>@_markerCount Marker</small></h3>
+        <div class="layers">
+            @foreach (var group in _groups)
+            {
+                <div class="group">
+                    <div class="group-head" title="@group.Name" @onclick="@(() => ToggleGroupOpen(group.Name))">
+                        <span class="caret">@(_open.Contains(group.Name) ? "▾" : "▸")</span>
+                        <input type="checkbox" title="@UiText.T("Alle Ebenen der Gruppe ein- oder ausblenden")" checked="@group.Categories.All(c => _visible.Contains(c.Index))" @onclick:stopPropagation="true" @onchange="@(e => SetGroup(group, (bool)e.Value!))" />
+                        <span class="name">@group.Name</span>
+                        <span class="count">@group.Categories.Sum(c => c.Count)</span>
+                    </div>
+                    @if (_open.Contains(group.Name))
+                    {
+                        <div class="cats">
+                            @foreach (var cat in group.Categories)
+                            {
+                                <div class="cat @(_visible.Contains(cat.Index) ? "" : "off")" title="@CategoryLabel(cat)" @onclick="@(() => SetCategory(cat.Index, !_visible.Contains(cat.Index)))">
+                                    @if (cat.Icon is not null)
+                                    {
+                                        <img src="@cat.Icon" alt="" />
+                                    }
+                                    else
+                                    {
+                                        <span class="dot" style="background:@cat.Color"></span>
+                                    }
+                                    <span class="label">@CategoryLabel(cat)</span>
+                                    <span class="count">@cat.Count</span>
+                                </div>
+                                @foreach (var kind in cat.Kinds ?? [])
+                                {
+                                    var key = KindKey(group, cat, kind.Name);
+                                    var label = Settings.Current.NameLanguage == "de" ? kind.De ?? kind.Name : kind.Name;
+                                    <div class="cat kind @(_visible.Contains(cat.Index) && !_hiddenKinds.Contains(key) ? "" : "off")" title="@label" @onclick="@(() => SetKind(group, cat, kind.Name, _hiddenKinds.Contains(key) || !_visible.Contains(cat.Index)))">
+                                        @if (kind.Icon is not null)
+                                        {
+                                            <img src="@kind.Icon" alt="" />
+                                        }
+                                        <span class="label">@label</span>
+                                        <span class="count">@kind.Count</span>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <p class="note">@UiText.T("Monster-Ebenen sind anfangs ausgeblendet. Ein Pet aus der Pet-Liste („Karte“) hebt seine Spawns und Quellmonster hervor.")</p>
+    </aside>
+    <div class="mapwrap">
+        <div id="map"></div>
+        <button type="button" class="side-toggle" title="@(_sideCollapsed ? UiText.T("Ebenen einblenden") : UiText.T("Ebenen ausblenden"))" aria-expanded="@(_sideCollapsed ? "false" : "true")" @onclick="ToggleSidebar">@(_sideCollapsed ? "›" : "‹")</button>
+        <button type="button" class="side-toggle right" title="@(_rightCollapsed ? UiText.T("Tracking, Wegführung und Ziele einblenden") : UiText.T("Tracking, Wegführung und Ziele ausblenden"))" aria-expanded="@(_rightCollapsed ? "false" : "true")" @onclick="ToggleRightSidebar">@(_rightCollapsed ? "‹" : "›")</button>
+    </div>
+    <aside class="sidebar mapside mapside-right">
+        <h3>Tracking</h3>
+        <div class="tile">
+            <div class="tile-head">
+                <span class="tile-title">Player-Tracker</span>
+                <span class="tile-state @(Tracking.Running ? (Tracking.Found ? "on" : Tracking.Paused ? "rest" : "warn") : "")" title="@UiText.T(Tracking.Status)">
+                    @(Tracking.Running ? (Tracking.Found ? $"● {MapLabelOf(Tracking.Position?.MapId ?? _mapId)} · {Tracking.Fps} fps" : Tracking.Paused ? UiText.T("◐ ruht (Instanz)") : UiText.T("● sucht …")) : UiText.T("○ aus"))
+                </span>
+                @if (Tracking.Running)
+                {
+                    <button type="button" class="mapbtn stop" title="@UiText.T("Player-Tracker stoppen")" @onclick="Tracking.Stop">■</button>
+                }
+                else
+                {
+                    <button type="button" class="mapbtn play" title="@(Tracking.Region is null ? UiText.T("Zuerst unter Optionen den Kartenbereich markieren") : UiText.T("Player-Tracker starten"))" disabled="@(Tracking.Region is null)" @onclick="Tracking.Start">▶</button>
+                }
+            </div>
+            @if (!Tracking.Running && Tracking.Region is null)
+            {
+                <div class="tile-hint">@UiText.T("Zuerst unter Optionen den Kartenbereich markieren.") <button type="button" class="btn link" @onclick="@(() => Ui.Navigate("options"))">@UiText.T("Optionen öffnen")</button></div>
+            }
+            <div class="row">
+                <label class="check"><input type="checkbox" checked="@Settings.Current.FollowPlayer" @onchange="ToggleFollow" /> @UiText.T("Spieler verfolgen")</label>
+                <label class="check" title="@UiText.T("Ohne Weltkarte (Instanz) ruht das Tracking und prüft nur alle paar Sekunden; nach dem Ladebildschirm läuft es sofort wieder.")"><input type="checkbox" checked="@Settings.Current.PauseTrackingInInstances" @onchange="@(e => Settings.Update(s => s.PauseTrackingInInstances = (bool)e.Value!))" /> @UiText.T("In Instanzen ruhen")</label>
+                @if (Tracking.Position is not null)
+                {
+                    <button type="button" class="btn link push" @onclick="CenterOnPlayer">@UiText.T("⌖ Zum Spieler")</button>
+                }
+            </div>
+            @if (Tracking.StatusIsError)
+            {
+                <div class="status error">@UiText.T(Tracking.Status)</div>
+            }
+        </div>
+        <div class="tile">
+            <div class="tile-head">
+                <span class="tile-title">Loot-Tracker</span>
+                <span class="tile-state @(Loot.Running ? "on" : "")" title="@UiText.T(Loot.Status)">@(Loot.Running ? UiText.T("● Netzwerk") : UiText.T("○ aus"))</span>
+                @if (Loot.Running)
+                {
+                    <button type="button" class="mapbtn stop" title="@UiText.T("Loot-Tracker stoppen")" @onclick="Loot.Stop">■</button>
+                }
+                else
+                {
+                    <button type="button" class="mapbtn play" title="@UiText.T("Loot-Tracker starten")" @onclick="@(() => Loot.Start())">▶</button>
+                }
+            </div>
+            @{ var recent = Progress.Recent().Take(3).ToList(); }
+            @if (recent.Count > 0)
+            {
+                <div class="tile-lines">
+                    @foreach (var soul in recent)
+                    {
+                        <div class="tile-line">+@soul.Quantity <b>@(Progress.Catalog.Find(soul.PetId)?.DisplayName(Settings.Current.NameLanguage) ?? soul.PetId)</b> <small>@soul.At.ToLocalTime().ToString("HH:mm")</small></div>
+                    }
+                </div>
+            }
+            else if (Loot.Running)
+            {
+                <div class="tile-line empty">@UiText.T("Noch keine Souls in dieser Sitzung.")</div>
+            }
+            @if (Loot.StatusIsError)
+            {
+                <div class="status error">@UiText.T(Loot.Status)</div>
+            }
+        </div>
+
+        <h3>@UiText.T("Wegführung")</h3>
+        <div class="tile">
+            <div class="tile-head">
+                <label class="tile-title switch" title="@UiText.T("Progressionsmodus ein- oder ausschalten")">
+                    <input type="checkbox" role="switch" checked="@Settings.Current.ProgressionEnabled" @onchange="ToggleProgression" />
+                    <span class="switch-track" aria-hidden="true"></span>
+                    @UiText.T("Progressionsmodus")
+                </label>
+            </div>
+            <div class="tile-field">
+                <select aria-label="@UiText.T("Progressionsziel")" value="@Settings.Current.ProgressionMode" @onchange="SetProgressionMode">
+                    <option value="pets">Pets</option><option value="closest">@UiText.T("Pets · Closest to completion")</option><option value="dungeon">Sealed Dungeons</option><option value="stronghold">Stronghold</option><option value="exploration">Sealed Dungeons + Stronghold</option>
+                </select>
+            </div>
+            @if (!PetMode) {
+                <CharacterPicker />
+                <label>@UiText.T("Abschlussradius (Kartenpixel)")
+                    <input type="number" min="0" max="500" step="5" value="@Settings.Current.ExplorationCompletionRadius" @onchange="SetCompletionRadius" />
+                </label>
+                <div class="note">@UiText.T("Bei Ankunft wird das Ziel für diesen Charakter abgeschlossen. 0 deaktiviert den automatischen Abschluss.")</div>
+            }
+            @if (Settings.Current.ProgressionMode == "closest") {
+                <div class="note">@UiText.T("Führt zum Pet, dem die wenigsten Souls zur vollen Stufe fehlen; bei Gleichstand zum nächstgelegenen.")</div>
+            }
+            @if (Settings.Current.ProgressionMode == "pets") {
+            <div class="tile-field">
+                <span class="field-label">@UiText.T("Ziel je Pet")</span>
+                <select value="@Settings.Current.ProgressionGoal" @onchange="SetProgressionGoal">
+                    <option value="5">@UiText.T("5 Souls · freigeschaltet")</option>
+                    <option value="30">@UiText.T("30 Souls · Stufe 2")</option>
+                    <option value="105">@UiText.T("105 Souls · max")</option>
+                </select>
+            </div>
+            }
+            @if (Settings.Current.ProgressionEnabled)
+            {
+                @if (Targets.Progression is { } next)
+                {
+                    @if (_explorationTarget is not null && !PetMode)
+                    {
+                        <button class="btn" @onclick="CompleteExplorationTarget">@UiText.T("Ziel als fertig markieren")</button>
+                    }
+                    <div class="targetlist">
+                        <div class="target"><span class="swatch" style="background:#fff"></span>
+                            <span class="name" title="@next.Kind" @onclick="FlyToProgression">@UiText.T("Nächstes:") <b>@next.Name</b> <small>· @next.Kind</small></span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="note">@(Settings.Current.ProgressionMode switch
+                    {
+                        "pets" => UiText.F("Auf {0} hat jedes Pet mit Spawns schon {1} Souls.", MapLabel, Settings.Current.ProgressionGoal),
+                        "closest" => UiText.F("Auf {0} sind alle Pets mit Spawns auf max.", MapLabel),
+                        _ => UiText.T("Keine offenen Ziele auf dieser Karte."),
+                    })</div>
+                }
+            }
+            else
+            {
+                <div class="note">@UiText.T("Führt zum nächsten offenen Ziel auf dieser Karte. Ohne Spielerposition zählt die Kartenmitte.")</div>
+            }
+        </div>
+        <div class="tile">
+            <div class="tile-head">
+                <span class="tile-title">@UiText.T("Ziele")</span>
+                <span class="tile-state">@Targets.Targets.Count</span>
+                @if (Targets.Targets.Count > 0)
+                {
+                    <button type="button" class="btn small" @onclick="Targets.Clear">@UiText.T("Alle entfernen")</button>
+                }
+            </div>
+            @if (Targets.Targets.Count == 0)
+            {
+                <div class="note">@UiText.T("Rechtsklick auf ein Symbol markiert es als Ziel: eine Linie mit Pfeilen führt vom Spieler dorthin, hier und auf der Spielkarte.") <b>@UiText.T("Shift+Rechtsklick")</b> @UiText.T("hängt das Ziel an das zuletzt markierte an (Spieler → A → B).")</div>
+            }
+            else
+            {
+                <div class="targetlist">
+                    @foreach (var (target, index) in Targets.Targets.Select((t, i) => (t, i)))
+                    {
+                        <div class="target">
+                            <span class="swatch" style="background:@MapTargetsService.ColorOf(index)"></span>
+                            <span class="name" title="@target.Kind" @onclick="@(() => FlyToTarget(target))">@(target.After is { } after && Targets.Targets.FirstOrDefault(t => t.Id == after) is { } before ? $"{before.Name} → " : "")@target.Name <small>· @MapLabelOf(target.MapId)</small></span>
+                            <button type="button" class="remove" title="@UiText.T("Ziel entfernen")" @onclick="@(() => Targets.Remove(target.Id))">✕</button>
+                        </div>
+                    }
+                </div>
+            }
+            <label class="tile-field">
+                <span class="field-label">@UiText.T("Abschlussradius (Kartenpixel)")</span>
+                <input type="number" min="0" max="500" step="5" value="@Settings.Current.ExplorationCompletionRadius" @onchange="SetCompletionRadius" />
+            </label>
+            <div class="note">@UiText.T("Erreichte Ziele verschwinden wie im Progressionsmodus; eine Kette läuft dann vom Spieler zum nächsten Ziel. Markierte Pets bleiben, bis sie die nächste Stufe erreichen, und zeigen alle Spawns und Quellmonster. 0 schaltet das Verschwinden aus.")</div>
+        </div>
+        <div class="tile">
+            <div class="tile-head">
+                <span class="tile-title">@UiText.T("Routen")</span>
+                <span class="tile-state">@Targets.Routes.Count</span>
+            </div>
+            @if (Targets.ChainOn(_mapId) is { Count: >= 2 } chain)
+            {
+                <div class="tile-field route-save">
+                    <input type="text" maxlength="60" autocomplete="off" spellcheck="false" aria-label="@UiText.T("Name der Route")" placeholder="@($"{chain[0].Name} → {chain[^1].Name}")" @bind="_routeName" />
+                    <button type="button" class="btn small" @onclick="SaveRoute">@UiText.F("Folge speichern ({0})", chain.Count)</button>
+                </div>
+            }
+            else
+            {
+                <div class="note">@UiText.T("Markiere mit Shift+Rechtsklick eine Folge aus mindestens zwei Zielen, dann kannst du sie hier als Route speichern.")</div>
+            }
+            @if (_routeStatus is not null)
+            {
+                <div class="status">@_routeStatus</div>
+            }
+            @if (Targets.Routes.Count > 0)
+            {
+                var active = Targets.ActiveRoutes;
+                <div class="targetlist routelist">
+                    @foreach (var route in Targets.Routes)
+                    {
+                        <div class="target @(active.Contains(route.Id) ? "running" : "")">
+                            <button type="button" class="route-start" title="@UiText.T("Route starten (ersetzt die markierten Ziele)")" @onclick="@(() => StartRoute(route))">▶</button>
+                            <span class="name" title="@string.Join(" → ", route.Stops.Select(s => s.Name))" @onclick="@(() => StartRoute(route))">@route.Name <small>· @UiText.F("{0} Ziele", route.Stops.Count) · @MapLabelOf(route.Stops[0].MapId)@(active.Contains(route.Id) ? UiText.T(" · läuft") : "")</small></span>
+                            <button type="button" class="route-repeat @(route.Repeat ? "on" : "")" aria-pressed="@(route.Repeat ? "true" : "false")"
+                                    title="@(route.Repeat ? UiText.T("Wiederholen an: nach dem letzten Ziel beginnt die Route von vorn") : UiText.T("Wiederholen aus"))"
+                                    @onclick="@(() => Targets.SetRouteRepeat(route.Id, !route.Repeat))">⟳</button>
+                            <button type="button" class="remove" title="@UiText.T("Route löschen")" @onclick="@(() => DeleteRoute(route))">✕</button>
+                        </div>
+                    }
+                </div>
+                <div class="note">@UiText.T("▶ startet die Route und ersetzt die markierten Ziele. ⟳ wiederholt sie: Nach dem letzten Ziel beginnt sie von vorn.")</div>
+            }
+        </div>
+
+        <h3>@UiText.T("Anzeige")</h3>
+        <div class="tile">
+            <div class="tile-field">
+                <span class="field-label">@UiText.T("Ausblenden")</span>
+                <div class="chips">
+                    <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel1" @onchange="@(e => SetHidden(1, (bool)e.Value!))" /> @UiText.T("Stufe 1")</label>
+                    <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel2" @onchange="@(e => SetHidden(2, (bool)e.Value!))" /> @UiText.T("Stufe 2")</label>
+                    <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel3" @onchange="@(e => SetHidden(3, (bool)e.Value!))" /> @UiText.T("Stufe 3 (fertig)")</label>
+                </div>
+            </div>
+            <div class="tile-field">
+                <span class="field-label">Pets</span>
+                <div class="chips">
+                    <label class="chip" title="@UiText.F("Nur Pets, deren Spawns und Quellmonster ausschließlich auf {0} vorkommen", MapLabel)"><input type="checkbox" checked="@Settings.Current.ExclusivePetsOnly" @onchange="@(e => SetExclusiveOnly((bool)e.Value!))" /> @UiText.T("Nur kartenexklusive")</label>
+                </div>
+            </div>
+            <div class="tile-field">
+                <span class="field-label">@UiText.T("Karte")</span>
+                <div class="chips">
+                    <label class="chip"><input type="checkbox" checked="@_regions" @onchange="ToggleRegions" /> @UiText.T("Gebiete")</label>
+                </div>
+            </div>
+        </div>
+
+    </aside>
+</div>
+
+@code {
+    private const string BaseUrl = "https://" + MainForm.MapDataHost + "/";
+    [Parameter] public bool Active { get; set; }
+
+    private sealed record MapDef(string Id, string Label, string Group);
+    private string CategoryLabel(Category category) => Settings.Current.NameLanguage == "de" ? category.De ?? category.Name : category.Name;
+    private sealed record Category(int Index, string Name, int Count, bool Hidden, string Color, string? Icon, string? De = null, List<Kind>? Kinds = null);
+    /// <summary>Resource kind of a category (Gem: Sapphire, Diamond, Ruby), with its item icon.</summary>
+    private sealed record Kind(string Name, string? De, string? Icon, int Count);
+    // Hidden resource kinds of the shown map, keys as MapPetMarkers.KindKey.
+    private readonly HashSet<string> _hiddenKinds = [];
+    private static string KindKey(Group group, Category cat, string kind) => MapPetMarkers.KindKey(MapPetMarkers.CategoryKey(group.Name, cat.Name), kind);
+    private sealed record Group(string Name, List<Category> Categories);
+    private sealed record ShowResult(List<Group> Groups, int Regions, int Markers);
+    private sealed record SearchHit(int I, string Name, string Cat);
+
+    private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
+    private readonly List<MapDef> _maps = [];
+    private List<Group> _groups = [];
+    private readonly HashSet<int> _visible = [];
+    private readonly HashSet<string> _open = ["Pets", "Locations"];
+    private List<SearchHit> _results = [];
+    private DotNetObjectReference<MapView>? _self;
+    private string _mapId = "altgard";
+    private string _query = "";
+    private string? _focus;
+    private int _focusPets, _focusMonsters, _markerCount;
+    private bool _regions = true, _ready, _wasActive;
+    private bool _sideCollapsed, _rightCollapsed, _relayout; // view-only: sidebars hidden for small windows
+    private string? _error;
+
+    private string MapLabel => UiText.T(_maps.FirstOrDefault(m => m.Id == _mapId)?.Label ?? _mapId);
+
+    protected override void OnInitialized()
+    {
+        _maps.AddRange(Progress.Maps.Select(m => new MapDef(m.Id, m.Label, m.Group)));
+        _mapId = _maps.Any(m => m.Id == Settings.Current.LastMap) ? Settings.Current.LastMap : _maps.First().Id;
+        Progress.Changed += OnProgressChanged;
+        Exploration.Changed += OnExplorationChanged;
+        Tracking.Changed += OnTrackingChanged;
+        Targets.Changed += OnTargetsChanged;
+        Loot.Changed += OnLootChanged;
+        _language = Settings.Current.UiLanguage;
+        Settings.Changed += OnSettingsChanged;
+    }
+
+    private string? _language;
+    private void OnSettingsChanged()
+    {
+        if (_language == Settings.Current.UiLanguage) return;
+        _language = Settings.Current.UiLanguage;
+        _ = InvokeAsync(async () =>
+        {
+            if (_ready)
+            {
+                await PushDone();
+                await JS.InvokeVoidAsync("soulcrestMap.setLanguage", Settings.Current.NameLanguage);
+                await Search();
+            }
+            StateHasChanged();
+        });
+    }
+
+    private DateTime _lastLootRender;
+
+    private void OnLootChanged()
+    {
+        if (DateTime.Now - _lastLootRender < TimeSpan.FromMilliseconds(500))
+            return;
+        _lastLootRender = DateTime.Now;
+        InvokeAsync(StateHasChanged);
+    }
+
+
+    private async Task ToggleProgression(ChangeEventArgs e)
+    {
+        Settings.Update(s => s.ProgressionEnabled = (bool)e.Value!);
+        await PushProgression();
+    }
+
+    private async Task SetProgressionGoal(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var goal))
+            Settings.Update(s => s.ProgressionGoal = goal);
+        await PushProgression();
+    }
+
+    private async Task SetProgressionMode(ChangeEventArgs e)
+    {
+        Settings.Update(s => s.ProgressionMode = e.Value?.ToString() ?? "pets");
+        await PushProgression();
+    }
+
+    private async Task SetCompletionRadius(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value)) Settings.Update(s => s.ExplorationCompletionRadius = Math.Clamp(value, 0, 500));
+        await PushProgression();
+    }
+
+    private bool PetMode => Settings.Current.ProgressionMode is "pets" or "closest";
+
+    private async Task PushProgression()
+    {
+        var souls = Progress.Catalog.Pets.ToDictionary(p => p.Id, p => Progress.Souls(p.Id));
+        // Souls still missing to finish each pet's current level (0 = max), for "closest to completion".
+        var missing = souls.ToDictionary(p => p.Key, p => Progress.Thresholds.NeededForNextLevel(p.Value) - Progress.Thresholds.SoulsInLevel(p.Value));
+        var done = Exploration.Completed;
+        var places = Exploration.Places.Where(p => p.Map == _mapId).Select(p => new { index = p.Marker, id = p.Id, kind = p.Kind, done = done.Contains(p.Id) });
+        await JS.InvokeVoidAsync("soulcrestMap.setExploration", JsonSerializer.Serialize(places));
+        await JS.InvokeVoidAsync("soulcrestMap.setProgression", Settings.Current.ProgressionEnabled, Settings.Current.ProgressionGoal, JsonSerializer.Serialize(souls), Settings.Current.ProgressionMode, Math.Clamp(Settings.Current.ExplorationCompletionRadius, 0, 500), Exploration.ActiveId, JsonSerializer.Serialize(missing));
+        if (!Settings.Current.ProgressionEnabled)
+            Targets.SetProgression(null);
+    }
+
+    private string? _explorationTarget;
+    private void CompleteExplorationTarget()
+    {
+        if (_explorationTarget is { } id) Exploration.SetDone(Exploration.ActiveId, [id]);
+    }
+    private async Task FlyToProgression() => await JS.InvokeVoidAsync("soulcrestMap.flyToProgression");
+
+    [JSInvokable]
+    public void OnProgressionTarget(string mapId, string? petId, double x, double y, string? name)
+    {
+        _explorationTarget = null;
+        if (petId is null || !Settings.Current.ProgressionEnabled)
+        {
+            Targets.SetProgression(null);
+            return;
+        }
+        var place = Exploration.Places.FirstOrDefault(p => p.Id == petId && p.Map == mapId);
+        if (place is not null)
+        {
+            _explorationTarget = place.Id;
+            Targets.SetProgression(new MapTarget("progression", mapId, x, y, place.Name(Settings.Current.NameLanguage), place.Kind == "dungeon" ? "Sealed Dungeon" : "Stronghold", null, ExplorationId: place.Id, CharacterId: Exploration.ActiveId));
+            return;
+        }
+        var pet = Progress.Catalog.Find(petId);
+        var label = pet is null ? petId : $"{pet.DisplayName(Settings.Current.NameLanguage)} ({PetLabel(petId)})";
+        Targets.SetProgression(new MapTarget("progression", mapId, x, y, name ?? label, label, null, PetId: petId));
+    }
+
+    private string MapLabelOf(string id) => UiText.T(_maps.FirstOrDefault(m => m.Id == id)?.Label ?? id);
+
+
+
+    private async Task FlyToTarget(MapTarget target)
+    {
+        if (target.MapId != _mapId)
+            await SwitchMap(target.MapId);
+        await JS.InvokeVoidAsync("soulcrestMap.flyToTarget", target.Id);
+    }
+
+    private string? _routeName, _routeStatus;
+
+    private void SaveRoute()
+    {
+        var route = Targets.SaveRoute(_mapId, _routeName);
+        _routeName = null;
+        _routeStatus = route is null ? UiText.T("Keine Folge zum Speichern.") : UiText.F("Route „{0}“ gespeichert.", route.Name);
+    }
+
+    private async Task StartRoute(SavedRoute route)
+    {
+        if (route.Stops.Count == 0)
+            return;
+        if (route.Stops[0].MapId != _mapId)
+            await SwitchMap(route.Stops[0].MapId);
+        Targets.StartRoute(route.Id);
+        _routeStatus = UiText.F("Route „{0}“ gestartet.", route.Name);
+    }
+
+    private void DeleteRoute(SavedRoute route)
+    {
+        Targets.DeleteRoute(route.Id);
+        _routeStatus = UiText.F("Route „{0}“ gelöscht.", route.Name);
+    }
+
+    private void OnTargetsChanged() => InvokeAsync(async () =>
+    {
+        if (_ready)
+            await PushTargets();
+        StateHasChanged();
+    });
+
+    private async Task PushTargets()
+    {
+        // petId: the map shows all spawns and soul monsters of a marked pet (user request 2026-10-06).
+        var payload = Targets.Targets.Select((t, i) => new { id = t.Id, map = t.MapId, x = t.X, y = t.Y, name = t.Name, kind = t.Kind, color = MapTargetsService.ColorOf(i), after = t.After,
+            petId = t.PetId ?? (t.Kind.StartsWith("Pets", StringComparison.Ordinal) ? Progress.FindByName(t.Name)?.Id : null) });
+        await JS.InvokeVoidAsync("soulcrestMap.setTargets", JsonSerializer.Serialize(payload));
+    }
+
+    [JSInvokable]
+    public void OnToggleTarget(string mapId, double x, double y, string name, string kind, string? icon, bool chain, string? petId) =>
+        Targets.Toggle(mapId, x, y, name, kind, icon, chain, petId);
+
+    /// <summary>Right-click menu of a sealed dungeon or stronghold: set or take back its done mark.</summary>
+    [JSInvokable]
+    public void OnExplorationDone(string placeId, bool done) => Exploration.SetDone(Exploration.ActiveId, [placeId], done);
+
+    private string PetLabel(string petId) => Progress.PetMapLabel(petId);
+
+    private PlayerPosition? _shownPosition;
+    private bool _shownFound;
+
+
+    private async Task ToggleFollow(ChangeEventArgs e)
+    {
+        Settings.Update(s => s.FollowPlayer = (bool)e.Value!);
+        if (Settings.Current.FollowPlayer)
+            await CenterOnPlayer();
+    }
+
+    private async Task CenterOnPlayer()
+    {
+        if (Tracking.Position is { } position && position.MapId != _mapId)
+            await SwitchMap(position.MapId);
+        await PushPlayer(force: true);
+        await JS.InvokeVoidAsync("soulcrestMap.centerOnPlayer");
+    }
+
+
+    private DateTime _lastTrackingRender;
+
+    // Positions arrive after full-frame validation: the marker follows each one, the sidebar and the
+    // map controls re-render at most 4 times per second.
+    // Positions arrive up to 10 times per second from the tracking thread. At most one push waits in the
+    // queue: each one awaits the WebView, and while the game had the focus the calls piled up and Soulcrest
+    // froze when clicked (user report 2026-10-05). The queued push always sends the latest position.
+    private int _trackingQueued;
+
+    private void OnTrackingChanged()
+    {
+        if (Interlocked.Exchange(ref _trackingQueued, 1) == 1)
+            return;
+        _ = InvokeAsync(async () =>
+        {
+            Volatile.Write(ref _trackingQueued, 0);
+            if (_ready)
+                await PushPlayer(force: false);
+            if (DateTime.Now - _lastTrackingRender < TimeSpan.FromMilliseconds(250))
+                return;
+            _lastTrackingRender = DateTime.Now;
+            StateHasChanged();
+        });
+    }
+
+    private string? _trackedMap;
+
+    private async Task PushPlayer(bool force)
+    {
+        if (Tracking.Position is not { } position)
+            return;
+        if (!force && position == _shownPosition && Tracking.Found == _shownFound)
+            return;
+        _shownPosition = position;
+        _shownFound = Tracking.Found;
+        // Follow the player onto another map only when the player changed maps; a map the user picked
+        // by hand stays until then.
+        var changedMap = _trackedMap != position.MapId;
+        _trackedMap = position.MapId;
+        if (Settings.Current.FollowPlayer && Tracking.Found && changedMap && position.MapId != _mapId && _maps.Any(m => m.Id == position.MapId))
+        {
+            await SwitchMap(position.MapId, keepAt: position);
+            return; // ShowMap draws the player
+        }
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        await JS.InvokeVoidAsync("soulcrestMap.setPlayer", position.MapId, position.X, position.Y, Settings.Current.FollowPlayer && Active, Tracking.Found);
+        var took = System.Diagnostics.Stopwatch.GetElapsedTime(started);
+        if (took > TimeSpan.FromMilliseconds(500))
+            UiResponsiveness.Record("Kartenseite", took, $"Spielerposition, Karte {_mapId}, Tab {(Active ? "Karte" : "anderer")}, Vordergrund: {UiResponsiveness.ForegroundProcess()}");
+    }
+
+    private static bool LivesOn(PetDefinition pet, string mapId) =>
+        pet.Spawns.GetValueOrDefault(mapId) + pet.Monsters.GetValueOrDefault(mapId) > 0;
+
+    private string ReadManifest() => File.ReadAllText(Path.Combine(Progress.MapDataDirectory!, "manifest.json"));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _self = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("soulcrestMap.init", "map", ReadManifest(), BaseUrl, _self);
+            await ShowMap();
+            _ready = true;
+        }
+        if (_relayout && _ready)
+        {
+            _relayout = false;
+            await JS.InvokeVoidAsync("soulcrestMap.invalidate");
+        }
+        if (Active && !_wasActive && _ready)
+        {
+            await JS.InvokeVoidAsync("soulcrestMap.invalidate");
+            if (Ui.TakePendingPetFocus() is { } pet)
+            {
+                // Switch to a map where the pet actually lives.
+                var definition = Progress.Catalog.Find(pet);
+                if (definition is not null && !LivesOn(definition, _mapId) && _maps.FirstOrDefault(m => LivesOn(definition, m.Id)) is { } other)
+                    await SwitchMap(other.Id);
+                await FocusPet(pet);
+            }
+        }
+        _wasActive = Active;
+    }
+
+    private async Task ShowMap(PlayerPosition? keepAt = null)
+    {
+        try
+        {
+            _error = null;
+            await PushDone();
+            var json = await JS.InvokeAsync<string>("soulcrestMap.show", _mapId, Settings.Current.NameLanguage,
+                keepAt is null ? null : new { x = keepAt.X, y = keepAt.Y });
+            var result = JsonSerializer.Deserialize<ShowResult>(json, Json)!;
+            _groups = result.Groups;
+            _markerCount = result.Markers;
+            _visible.Clear();
+            foreach (var cat in _groups.SelectMany(g => g.Categories).Where(c => !c.Hidden))
+                _visible.Add(cat.Index);
+            await RestoreCategories();
+            _focus = null;
+            _results = [];
+            SmokeTest.MapShown = _markerCount > 0;
+            _shownPosition = null;
+            await PushTargets();
+            await PushProgression();
+            await PushPlayer(force: true);
+        }
+        catch (JSException exception)
+        {
+            _error = exception.Message;
+            SmokeTest.Error = exception.Message;
+        }
+        StateHasChanged();
+    }
+
+    /// <param name="keepAt">Player position when the tracking changed maps: the zoom is kept.</param>
+    private async Task SwitchMap(string id, PlayerPosition? keepAt = null)
+    {
+        if (id == _mapId)
+            return;
+        _mapId = id;
+        Settings.Update(s => s.LastMap = id);
+        await ShowMap(keepAt);
+    }
+
+    private async Task SetCategory(int index, bool visible)
+    {
+        await ShowCategory(index, visible);
+        SaveCategories();
+    }
+
+    private async Task SetGroup(Group group, bool visible)
+    {
+        foreach (var cat in group.Categories)
+            await ShowCategory(cat.Index, visible);
+        SaveCategories();
+    }
+
+    private async Task ShowCategory(int index, bool visible)
+    {
+        if (visible) _visible.Add(index); else _visible.Remove(index);
+        await JS.InvokeVoidAsync("soulcrestMap.setCategoryVisible", index, visible);
+    }
+
+    /// <summary>
+    /// The legend selection is kept per map: it survives restarts and tells the in-game overlay which
+    /// resources and hidden cubes to draw (RouteOverlayForm.VisibleResources).
+    /// </summary>
+    private void SaveCategories()
+    {
+        var shown = _groups.SelectMany(g => g.Categories.Where(c => _visible.Contains(c.Index)).Select(c => MapPetMarkers.CategoryKey(g.Name, c.Name)))
+            .Distinct().ToArray();
+        var map = _mapId;
+        Settings.Update(s => s.MapCategories = new Dictionary<string, string[]>(s.MapCategories) { [map] = shown });
+    }
+
+    /// <summary>Shows or hides one resource kind; showing it also shows its category.</summary>
+    private async Task SetKind(Group group, Category cat, string kind, bool visible)
+    {
+        var key = KindKey(group, cat, kind);
+        if (visible) _hiddenKinds.Remove(key); else _hiddenKinds.Add(key);
+        await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, kind, visible);
+        if (visible && !_visible.Contains(cat.Index))
+        {
+            // Category was off: show just this kind, as a click on a single entry means.
+            foreach (var other in cat.Kinds ?? [])
+            {
+                if (other.Name == kind) continue;
+                _hiddenKinds.Add(KindKey(group, cat, other.Name));
+                await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, other.Name, false);
+            }
+            await ShowCategory(cat.Index, true);
+            SaveCategories();
+        }
+        SaveKinds();
+    }
+
+    private void SaveKinds()
+    {
+        var hidden = _hiddenKinds.Order(StringComparer.Ordinal).ToArray();
+        var map = _mapId;
+        Settings.Update(s => s.MapHiddenKinds = new Dictionary<string, string[]>(s.MapHiddenKinds) { [map] = hidden });
+    }
+
+    [JSInvokable]
+    public void OnKindShown(int index, string kind)
+    {
+        foreach (var group in _groups)
+            foreach (var cat in group.Categories.Where(c => c.Index == index))
+                _hiddenKinds.Remove(KindKey(group, cat, kind));
+        SaveKinds();
+        StateHasChanged();
+    }
+
+    private async Task RestoreCategories()
+    {
+        _hiddenKinds.Clear();
+        if (Settings.Current.MapHiddenKinds.TryGetValue(_mapId, out var hiddenKinds))
+        {
+            foreach (var group in _groups)
+                foreach (var cat in group.Categories)
+                    foreach (var kind in cat.Kinds ?? [])
+                    {
+                        var key = KindKey(group, cat, kind.Name);
+                        if (!hiddenKinds.Contains(key)) continue;
+                        _hiddenKinds.Add(key);
+                        await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, kind.Name, false);
+                    }
+        }
+        if (!Settings.Current.MapCategories.TryGetValue(_mapId, out var saved))
+            return; // never changed on this map: the data package's defaults
+        var shown = saved.ToHashSet();
+        foreach (var group in _groups)
+            foreach (var cat in group.Categories)
+            {
+                var visible = shown.Contains(MapPetMarkers.CategoryKey(group.Name, cat.Name));
+                if (visible != _visible.Contains(cat.Index))
+                    await ShowCategory(cat.Index, visible);
+            }
+    }
+
+    private void ToggleGroupOpen(string name)
+    {
+        if (!_open.Remove(name))
+            _open.Add(name);
+    }
+
+    private async Task Search()
+    {
+        var json = await JS.InvokeAsync<string>("soulcrestMap.search", _query);
+        _results = JsonSerializer.Deserialize<List<SearchHit>>(json, Json) ?? [];
+    }
+
+    private async Task FlyTo(int index) => await JS.InvokeAsync<string>("soulcrestMap.flyToMarker", index);
+
+    private async Task FocusPet(string petId)
+    {
+        await JS.InvokeAsync<string>("soulcrestMap.focusPet", petId);
+    }
+
+    private async Task ClearFocus()
+    {
+        _focus = null;
+        _focusNote = null;
+        await JS.InvokeVoidAsync("soulcrestMap.clearFocus");
+    }
+
+    /// <summary>Shows only pets found on no other map (saved; also for the in-game map overlay).</summary>
+    private async Task SetExclusiveOnly(bool only)
+    {
+        Settings.Update(s => s.ExclusivePetsOnly = only);
+        await PushDone(includeLabels: false);
+    }
+
+    /// <summary>Hides the pets of one level on the map and in the in-game map overlay (saved).</summary>
+    private async Task SetHidden(int level, bool hide)
+    {
+        Settings.Update(s =>
+        {
+            if (level == 1)
+                s.HideLevel1 = hide;
+            else if (level == 2)
+                s.HideLevel2 = hide;
+            else
+                s.HideLevel3 = hide;
+        });
+        await PushDone(includeLabels: false);
+    }
+
+    private async Task ToggleRegions(ChangeEventArgs e)
+    {
+        _regions = (bool)e.Value!;
+        await JS.InvokeVoidAsync("soulcrestMap.setRegionsVisible", _regions);
+    }
+
+    private void ToggleSidebar()
+    {
+        _sideCollapsed = !_sideCollapsed;
+        _relayout = true; // Leaflet measures the new map size after this render
+    }
+
+    private void ToggleRightSidebar()
+    {
+        _rightCollapsed = !_rightCollapsed;
+        _relayout = true;
+    }
+
+    private async Task PushDone(bool includeLabels = true)
+    {
+        var done = Progress.Catalog.Pets.Where(p => Progress.Thresholds.IsMax(Progress.Souls(p.Id))).Select(p => p.Id).ToList();
+        var hidden = Progress.Catalog.Pets
+            .Where(p => Settings.Current.HidesLevel(Progress.Thresholds.Level(Progress.Souls(p.Id)))
+                || Settings.Current.ExclusivePetsOnly && !p.IsExclusiveTo(_mapId))
+            .Select(p => p.Id).ToList();
+        var labels = includeLabels ? JsonSerializer.Serialize(Progress.Catalog.Pets.ToDictionary(p => p.Id, p => PetLabel(p.Id))) : null;
+        await JS.InvokeVoidAsync("soulcrestMap.setDone", JsonSerializer.Serialize(done), JsonSerializer.Serialize(hidden), labels);
+    }
+
+    // Bundled like the player position: several soul or exploration changes in a row cost one push.
+    private int _progressQueued, _explorationQueued;
+
+    private void OnProgressChanged()
+    {
+        if (Interlocked.Exchange(ref _progressQueued, 1) == 1)
+            return;
+        _ = InvokeAsync(async () =>
+        {
+            Volatile.Write(ref _progressQueued, 0);
+            if (_ready)
+            {
+                await PushDone();
+                await PushProgression();
+            }
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>A done mark of a dungeon or stronghold changed: only the exploration data, not every pet symbol.</summary>
+    private void OnExplorationChanged()
+    {
+        if (Interlocked.Exchange(ref _explorationQueued, 1) == 1)
+            return;
+        _ = InvokeAsync(async () =>
+        {
+            Volatile.Write(ref _explorationQueued, 0);
+            if (_ready)
+                await PushProgression();
+            StateHasChanged();
+        });
+    }
+
+    [JSInvokable]
+    public void OnCategoryShown(int index)
+    {
+        _visible.Add(index);
+        SaveCategories();
+        StateHasChanged();
+    }
+
+    /// <summary>A search hit: every place of that name is highlighted, no layer is switched on.</summary>
+    [JSInvokable]
+    public void OnNameFocused(string name, int count)
+    {
+        _focus = name;
+        _focusNote = UiText.F("{0} Fundorte auf {1} hervorgehoben", count, MapLabel);
+        StateHasChanged();
+    }
+
+    private string? _focusNote;
+
+    [JSInvokable]
+    public void OnPetFocused(string petId, int pets, int monsters)
+    {
+        _focusNote = null;
+        var pet = Progress.Catalog.Find(petId);
+        _focus = pet?.DisplayName(Settings.Current.NameLanguage) ?? petId;
+        _focusPets = pets;
+        _focusMonsters = monsters;
+        StateHasChanged();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Progress.Changed -= OnProgressChanged;
+        Exploration.Changed -= OnExplorationChanged;
+        Tracking.Changed -= OnTrackingChanged;
+        Targets.Changed -= OnTargetsChanged;
+        Loot.Changed -= OnLootChanged;
+        Settings.Changed -= OnSettingsChanged;
+        _self?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

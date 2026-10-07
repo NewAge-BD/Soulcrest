@@ -1,0 +1,7857 @@
+{
+ "description": "Explicit Soul loot; exact-name derivations are marked. No NPC-name suffix inference.",
+ "sources": [
+  {
+   "npcId": "2600001",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600001 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600002",
+   "npc": "Abyss Klaw",
+   "level": 45,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": "1029",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600002 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600003",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600003 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600004",
+   "npc": "Abyss Karnif",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": "1098",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600004 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600011",
+   "npc": "Abyss Aberrant Swarn",
+   "level": 45,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600011 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600012",
+   "npc": "Abyss Aberrant Klaw",
+   "level": 45,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": "1029",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600012 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600013",
+   "npc": "Abyss Old Blade Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600013 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600014",
+   "npc": "Abyss Search Party Karnif",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": "1098",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600014 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600021",
+   "npc": "Abyss Swarm Mutant",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600021 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600023",
+   "npc": "Abyss Sulfur Slime",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Contaminated Slime",
+   "petId": "1062",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_slime_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600023 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600024",
+   "npc": "Abyss Sulfur Skama",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Aberrant Skama",
+   "petId": "1089",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_fish_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600024 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600026",
+   "npc": "Withered Sulfur Agrint",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Withered Agrint",
+   "petId": "1027",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600026 (loot: Soul: Withered Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600027",
+   "npc": "Sulfur Agrint",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": "1207",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600027 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600028",
+   "npc": "Thin Sulfur Agrint",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": "1209",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600028 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600029",
+   "npc": "Abyss Klaw Mutant",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": "1005",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600029 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600036",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": "1030",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600036 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600041",
+   "npc": "Abyss Nagarant Warrior",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": "1030",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600041 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600042",
+   "npc": "Abyss Naga Dark Mage",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Naga Elite Priest",
+   "petId": "1200",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600042 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600045",
+   "npc": "Abyss Red Mutated Insectoid",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Unstable Spider",
+   "petId": "1117",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600045 (loot: Soul: Unstable Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600046",
+   "npc": "Abyss Odyle Mutated Insectoid",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Spider",
+   "petId": "1083",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600046 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600047",
+   "npc": "Abyss Young Slink",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Young Slink",
+   "petId": "1121",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600047 (loot: Soul: Young Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600048",
+   "npc": "Abyss Slink",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Slink",
+   "petId": "1016",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600048 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600049",
+   "npc": "Abyss Nasty Nepenthes",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Nepenthes",
+   "petId": "1073",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rafflesia_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600049 (loot: Soul: Nepenthes (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600050",
+   "npc": "Abyss Zelophi",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": "1219",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600050 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600051",
+   "npc": "Abyssal Kalgolem",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": "1110",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600051 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600052",
+   "npc": "Abyss Drakan Scout Beast",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Drakan Guard Dog",
+   "petId": "1014",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_beritrac_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600052 (loot: Soul: Drakan Guard Dog (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600056",
+   "npc": "Abyss Rock Spirit",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Stone Spirit",
+   "petId": "1069",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_eartheleod_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600056 (loot: Soul: Stone Spirit (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600061",
+   "npc": "Abyss Coradon",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Eternal Coradon",
+   "petId": "1134",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_coradon_01_v04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600061 (loot: Soul: Eternal Coradon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600066",
+   "npc": "Old Tree Spirit Warrior",
+   "level": 49,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Spirit King's Bodyguard Warrior",
+   "petId": "1178",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_eleguard_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600066 (loot: Soul: Spirit King's Bodyguard Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600069",
+   "npc": "Abyss Corrupted Spirit",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Black Spirit",
+   "petId": "1214",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_darkele_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600069 (loot: Soul: Black Spirit (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600070",
+   "npc": "Root Kalgolem",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Kalgolem",
+   "petId": "1084",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600070 (loot: Soul: Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600071",
+   "npc": "Root Agrint",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": "1207",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600071 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600401",
+   "npc": "Abyss Swarm",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600401 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600402",
+   "npc": "Abyss Klaw",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": "1029",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600402 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600403",
+   "npc": "Abyss Silver Blade Rotan",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600403 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600404",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": "1098",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600404 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600411",
+   "npc": "Abyss Swarm",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600411 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600412",
+   "npc": "Abyss Klaw",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": "1029",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600412 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600413",
+   "npc": "Abyss Silver Blade Rotan",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600413 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600414",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": "1098",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600414 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600421",
+   "npc": "Abyss Swarm",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600421 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600423",
+   "npc": "Abyss Sulfur Slime",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Contaminated Slime",
+   "petId": "1062",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_slime_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600423 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600424",
+   "npc": "Abyss Sulfur Skama",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Aberrant Skama",
+   "petId": "1089",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_fish_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600424 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600426",
+   "npc": "Abyss Marsh Targon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Marsh Targon",
+   "petId": "1141",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_bigman_01_v02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600426 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600427",
+   "npc": "Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": "1207",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600427 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600428",
+   "npc": "Thin Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": "1209",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600428 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600429",
+   "npc": "Abyss Mutated Klaw",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": "1005",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600429 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600430",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": "1180",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600430 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600432",
+   "npc": "Abyss Giant Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant Brute",
+   "petId": "1154",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_02_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600432 (loot: Soul: Faded Mutant Brute (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600436",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": "1030",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600436 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600441",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": "1030",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600441 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600442",
+   "npc": "Abyss Naga Dark Mage",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Naga Elite Priest",
+   "petId": "1200",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600442 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600446",
+   "npc": "Abyss Odyle Mutated Insectoid",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Spider",
+   "petId": "1083",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600446 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600447",
+   "npc": "Abyss Young Slink",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Young Slink",
+   "petId": "1121",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600447 (loot: Soul: Young Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600448",
+   "npc": "Abyss Slink",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Slink",
+   "petId": "1016",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600448 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600449",
+   "npc": "Abyss Nasty Nepenthes",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nepenthes",
+   "petId": "1073",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rafflesia_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600449 (loot: Soul: Nepenthes (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600450",
+   "npc": "Abyss Zelophi",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": "1219",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600450 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600451",
+   "npc": "Abyss Blue Kalgolem",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": "1110",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600451 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600452",
+   "npc": "Tamed Zaif",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Tamed Zaif",
+   "petId": "1189",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_zaif_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600452 (loot: Soul: Tamed Zaif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600454",
+   "npc": "Enraged Forest Guardian",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Forest Guardian",
+   "petId": "1101",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_forestarc_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600454 (loot: Soul: Forest Guardian (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600455",
+   "npc": "Varg Berserker",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Varg Berserker",
+   "petId": "1018",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_varg_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600455 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600461",
+   "npc": "Abyss Eternal Coradon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Eternal Coradon",
+   "petId": "1134",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_coradon_01_v04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600461 (loot: Soul: Eternal Coradon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600466",
+   "npc": "Spirit King's Bodyguard Warrior",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Spirit King's Bodyguard Warrior",
+   "petId": "1178",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_eleguard_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600466 (loot: Soul: Spirit King's Bodyguard Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600469",
+   "npc": "Abyss Corrupted Spirit",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Black Spirit",
+   "petId": "1214",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_darkele_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600469 (loot: Soul: Black Spirit (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600470",
+   "npc": "Abyss Kalgolem",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Kalgolem",
+   "petId": "1084",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600470 (loot: Soul: Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600471",
+   "npc": "Abyss Agrint",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": "1207",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600471 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600481",
+   "npc": "Abyss Silver Blade Rotan",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600481 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600482",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": "1098",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600482 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600483",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": "1098",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600483 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600491",
+   "npc": "Abyss Silver Blade Rotan",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600491 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600492",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": "1098",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600492 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600493",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": "1098",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600493 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600502",
+   "npc": "Abyss Marsh Targon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Marsh Targon",
+   "petId": "1141",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_bigman_01_v02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600502 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600503",
+   "npc": "Thin Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": "1209",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600503 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600504",
+   "npc": "Abyss Mutated Klaw",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": "1005",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600504 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600505",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": "1180",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600505 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600511",
+   "npc": "Abyss Nasty Nepenthes",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nepenthes",
+   "petId": "1073",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rafflesia_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600511 (loot: Soul: Nepenthes (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600512",
+   "npc": "Abyss Zelophi",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": "1219",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600512 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600513",
+   "npc": "Abyss Blue Kalgolem",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": "1110",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600513 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600515",
+   "npc": "Varg Berserker",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Varg Berserker",
+   "petId": "1018",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_varg_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600515 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600531",
+   "npc": "Thin Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": "1209",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600531 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600532",
+   "npc": "Abyss Marsh Targon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Marsh Targon",
+   "petId": "1141",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_bigman_01_v02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600532 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600534",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": "1180",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600534 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600535",
+   "npc": "Abyss Sulfur Skama",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Aberrant Skama",
+   "petId": "1089",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_fish_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600535 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600536",
+   "npc": "Abyss Naga Dark Mage",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Naga Elite Priest",
+   "petId": "1200",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600536 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600537",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": "1030",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600537 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600538",
+   "npc": "Abyss Mutated Klaw",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": "1005",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600538 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600539",
+   "npc": "Abyss Sulfur Slime",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Contaminated Slime",
+   "petId": "1062",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_slime_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600539 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600540",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": "1180",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600540 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600541",
+   "npc": "Abyss Giant Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant Brute",
+   "petId": "1154",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_02_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600541 (loot: Soul: Faded Mutant Brute (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600551",
+   "npc": "Thin Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": "1209",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600551 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600552",
+   "npc": "Abyss Marsh Targon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Marsh Targon",
+   "petId": "1141",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_bigman_01_v02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600552 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600554",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": "1180",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600554 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600555",
+   "npc": "Abyss Sulfur Skama",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Aberrant Skama",
+   "petId": "1089",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_fish_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600555 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600556",
+   "npc": "Abyss Naga Dark Mage",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Naga Elite Priest",
+   "petId": "1200",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600556 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600557",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": "1030",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600557 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600558",
+   "npc": "Abyss Mutated Klaw",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": "1005",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600558 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600559",
+   "npc": "Abyss Sulfur Slime",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Contaminated Slime",
+   "petId": "1062",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_slime_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600559 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600560",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": "1180",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600560 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600561",
+   "npc": "Abyss Giant Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant Brute",
+   "petId": "1154",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_02_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600561 (loot: Soul: Faded Mutant Brute (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600571",
+   "npc": "Abyss Agrint",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": "1207",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600571 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600574",
+   "npc": "Abyss Zelophi",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": "1219",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600574 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600575",
+   "npc": "Abyss Blue Kalgolem",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": "1110",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600575 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600576",
+   "npc": "Abyss Slink",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Slink",
+   "petId": "1016",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600576 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600578",
+   "npc": "Abyss Odyle Mutated Insectoid",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Spider",
+   "petId": "1083",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600578 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600579",
+   "npc": "Tamed Zaif",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Tamed Zaif",
+   "petId": "1189",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_zaif_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600579 (loot: Soul: Tamed Zaif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600580",
+   "npc": "Varg Berserker",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Varg Berserker",
+   "petId": "1018",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_varg_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600580 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600581",
+   "npc": "Abyss Agrint",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": "1207",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600581 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600584",
+   "npc": "Abyss Zelophi",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": "1219",
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600584 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600585",
+   "npc": "Abyss Blue Kalgolem",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": "1110",
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600585 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600586",
+   "npc": "Abyss Slink",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Slink",
+   "petId": "1016",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600586 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600588",
+   "npc": "Abyss Odyle Mutated Insectoid",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Spider",
+   "petId": "1083",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600588 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600589",
+   "npc": "Tamed Zaif",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Tamed Zaif",
+   "petId": "1189",
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_zaif_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600589 (loot: Soul: Tamed Zaif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600590",
+   "npc": "Varg Berserker",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Varg Berserker",
+   "petId": "1018",
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_varg_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600590 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600601",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600601: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600602",
+   "npc": "Abyss Klaw",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": "1029",
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "derivedFrom": "2600002",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600602: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600002 gives Klaw Scout; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600603",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600603: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600604",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600604: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600621",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600621: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600622",
+   "npc": "Abyss Klaw",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": "1029",
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "derivedFrom": "2600002",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600622: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600002 gives Klaw Scout; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600623",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600623: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600624",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600624: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600641",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600641: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600642",
+   "npc": "Abyss Klaw",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": "1029",
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "derivedFrom": "2600002",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600642: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600002 gives Klaw Scout; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600643",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600643: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600644",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600644: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600661",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600661: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600662",
+   "npc": "Abyss Klaw",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": "1029",
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "derivedFrom": "2600002",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600662: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600002 gives Klaw Scout; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600663",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600663: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600664",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": "1192",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600664: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600681",
+   "npc": "Abyss Swarm",
+   "level": 43,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": "1013",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600681: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600686",
+   "npc": "Abyss Drana Mutant",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": "1180",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "derivedFrom": "2600430",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600686: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600430 gives Faded Mutant; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600688",
+   "npc": "Abyss Mutated Klaw",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": "1005",
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "derivedFrom": "2600429",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600688: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600429 gives Klaw; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600689",
+   "npc": "Abyss Drana Mutant",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": "1180",
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "derivedFrom": "2600430",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600689: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600430 gives Faded Mutant; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2100075",
+   "npc": "Krall Armed Soldier",
+   "petId": "1002",
+   "pet": "Krall Laborer",
+   "itemId": "534660001",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100075"
+   ]
+  },
+  {
+   "npcId": "2100480",
+   "npc": "Krall Sentinel",
+   "petId": "1002",
+   "pet": "Krall Laborer",
+   "itemId": "534660001",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100480"
+   ]
+  },
+  {
+   "npcId": "2100914",
+   "npc": "Mutated Krall Laborer",
+   "petId": "1002",
+   "pet": "Krall Laborer",
+   "itemId": "534660001",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100914"
+   ]
+  },
+  {
+   "npcId": "2100601",
+   "npc": "Canyon Vine Spirit",
+   "petId": "1003",
+   "pet": "Forest Specter",
+   "itemId": "534660002",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100601"
+   ]
+  },
+  {
+   "npcId": "2100662",
+   "npc": "Tainted Vine Specter",
+   "petId": "1003",
+   "pet": "Forest Specter",
+   "itemId": "534660002",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100662"
+   ]
+  },
+  {
+   "npcId": "2100163",
+   "npc": "Patrolling Fossa",
+   "petId": "1004",
+   "pet": "Fossa",
+   "itemId": "534660003",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100163"
+   ]
+  },
+  {
+   "npcId": "2400254",
+   "npc": "Daeva Renegade Fossa",
+   "petId": "1004",
+   "pet": "Fossa",
+   "itemId": "534660003",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400254"
+   ]
+  },
+  {
+   "npcId": "2400414",
+   "npc": "Tamed Beast",
+   "petId": "1004",
+   "pet": "Fossa",
+   "itemId": "534660003",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400414"
+   ]
+  },
+  {
+   "npcId": "2100078",
+   "npc": "Wandering Klaw",
+   "petId": "1005",
+   "pet": "Klaw",
+   "itemId": "534660004",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100078"
+   ]
+  },
+  {
+   "npcId": "2100273",
+   "npc": "Wild Sparkie",
+   "petId": "1006",
+   "pet": "Sparkie",
+   "itemId": "534660005",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100273"
+   ]
+  },
+  {
+   "npcId": "2100305",
+   "npc": "Meadow Sparkie",
+   "petId": "1006",
+   "pet": "Sparkie",
+   "itemId": "534660005",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100305"
+   ]
+  },
+  {
+   "npcId": "2100753",
+   "npc": "Highland Odyle Sparkie",
+   "petId": "1006",
+   "pet": "Sparkie",
+   "itemId": "534660005",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100753"
+   ]
+  },
+  {
+   "npcId": "2100795",
+   "npc": "Highland Odyle Sparkie",
+   "petId": "1006",
+   "pet": "Sparkie",
+   "itemId": "534660005",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100795"
+   ]
+  },
+  {
+   "npcId": "2100986",
+   "npc": "Aullaeu Forest Sparkie",
+   "petId": "1006",
+   "pet": "Sparkie",
+   "itemId": "534660005",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100986"
+   ]
+  },
+  {
+   "npcId": "2100992",
+   "npc": "Highland Sparkie",
+   "petId": "1006",
+   "pet": "Sparkie",
+   "itemId": "534660005",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100992"
+   ]
+  },
+  {
+   "npcId": "2100032",
+   "npc": "Marsh Moss Potcrab",
+   "petId": "1007",
+   "pet": "Potcrab",
+   "itemId": "534660006",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100032"
+   ]
+  },
+  {
+   "npcId": "2100610",
+   "npc": "Flat Potcrab",
+   "petId": "1007",
+   "pet": "Potcrab",
+   "itemId": "534660006",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100610"
+   ]
+  },
+  {
+   "npcId": "2101098",
+   "npc": "Eternal Moss Crab",
+   "petId": "1007",
+   "pet": "Potcrab",
+   "itemId": "534660006",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101098"
+   ]
+  },
+  {
+   "npcId": "2400363",
+   "npc": "Moss Crab",
+   "petId": "1007",
+   "pet": "Potcrab",
+   "itemId": "534660006",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400363"
+   ]
+  },
+  {
+   "npcId": "2400755",
+   "npc": "Coastal Moss Crab",
+   "petId": "1007",
+   "pet": "Potcrab",
+   "itemId": "534660006",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400755"
+   ]
+  },
+  {
+   "npcId": "2400812",
+   "npc": "Coastal Moss Crab",
+   "petId": "1007",
+   "pet": "Potcrab",
+   "itemId": "534660006",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400812"
+   ]
+  },
+  {
+   "npcId": "2100034",
+   "npc": "Coastal Odyle Spider",
+   "petId": "1008",
+   "pet": "Baby Odyle Spider",
+   "itemId": "534660007",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100034"
+   ]
+  },
+  {
+   "npcId": "2110506",
+   "npc": "Crimson Manduri Fighter",
+   "petId": "1010",
+   "pet": "Manduri Fighter",
+   "itemId": "534660009",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110506"
+   ]
+  },
+  {
+   "npcId": "2400617",
+   "npc": "Black Claw Manduri Combatant",
+   "petId": "1010",
+   "pet": "Manduri Fighter",
+   "itemId": "534660009",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400617"
+   ]
+  },
+  {
+   "npcId": "2100047",
+   "npc": "Small Forest Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100047"
+   ]
+  },
+  {
+   "npcId": "2100048",
+   "npc": "Ellun River Falls Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100048"
+   ]
+  },
+  {
+   "npcId": "2100182",
+   "npc": "Tolbas Forest Lake Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100182"
+   ]
+  },
+  {
+   "npcId": "2100556",
+   "npc": "Ridge Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100556"
+   ]
+  },
+  {
+   "npcId": "2100607",
+   "npc": "Canyon Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100607"
+   ]
+  },
+  {
+   "npcId": "2100613",
+   "npc": "Canyon Lake Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100613"
+   ]
+  },
+  {
+   "npcId": "2100832",
+   "npc": "Pond Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100832"
+   ]
+  },
+  {
+   "npcId": "2101123",
+   "npc": "Ellun River Lake Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101123"
+   ]
+  },
+  {
+   "npcId": "2101124",
+   "npc": "Cantas Valley Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101124"
+   ]
+  },
+  {
+   "npcId": "2101132",
+   "npc": "Lake Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101132"
+   ]
+  },
+  {
+   "npcId": "2400163",
+   "npc": "Tranein Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400163"
+   ]
+  },
+  {
+   "npcId": "2400945",
+   "npc": "Lake Skyray",
+   "petId": "1011",
+   "pet": "Skyray",
+   "itemId": "534660010",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400945"
+   ]
+  },
+  {
+   "npcId": "2100041",
+   "npc": "Red Cap Fungie",
+   "petId": "1012",
+   "pet": "Fungie",
+   "itemId": "534660011",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100041"
+   ]
+  },
+  {
+   "npcId": "2400080",
+   "npc": "Contaminated Swarm",
+   "petId": "1013",
+   "pet": "Swarm",
+   "itemId": "534660012",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400080"
+   ]
+  },
+  {
+   "npcId": "2400456",
+   "npc": "Giant Ore Insectoid",
+   "petId": "1013",
+   "pet": "Swarm",
+   "itemId": "534660012",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400456"
+   ]
+  },
+  {
+   "npcId": "2101002",
+   "npc": "Drakan Guard Dog",
+   "petId": "1014",
+   "pet": "Drakan Guard Dog",
+   "itemId": "534660013",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101002"
+   ]
+  },
+  {
+   "npcId": "2101009",
+   "npc": "Nahid Drakan Guard Dog",
+   "petId": "1014",
+   "pet": "Drakan Guard Dog",
+   "itemId": "534660013",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101009"
+   ]
+  },
+  {
+   "npcId": "2400359",
+   "npc": "Drakan Guard Dog",
+   "petId": "1014",
+   "pet": "Drakan Guard Dog",
+   "itemId": "534660013",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400359"
+   ]
+  },
+  {
+   "npcId": "2400587",
+   "npc": "Drakan Patrol Armed Beast",
+   "petId": "1014",
+   "pet": "Drakan Guard Dog",
+   "itemId": "534660013",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400587"
+   ]
+  },
+  {
+   "npcId": "2400655",
+   "npc": "Lagta Brigade Guard Dog",
+   "petId": "1014",
+   "pet": "Drakan Guard Dog",
+   "itemId": "534660013",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400655"
+   ]
+  },
+  {
+   "npcId": "2101021",
+   "npc": "Ellun River Kailin",
+   "petId": "1015",
+   "pet": "Kailin",
+   "itemId": "534660014",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101021"
+   ]
+  },
+  {
+   "npcId": "2400736",
+   "npc": "Unstable Kailin",
+   "petId": "1015",
+   "pet": "Kailin",
+   "itemId": "534660014",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400736"
+   ]
+  },
+  {
+   "npcId": "2400905",
+   "npc": "Kailin",
+   "petId": "1015",
+   "pet": "Kailin",
+   "itemId": "534660014",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400905"
+   ]
+  },
+  {
+   "npcId": "2400934",
+   "npc": "Kailin",
+   "petId": "1015",
+   "pet": "Kailin",
+   "itemId": "534660014",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400934"
+   ]
+  },
+  {
+   "npcId": "2100165",
+   "npc": "Tolbas Slink",
+   "petId": "1016",
+   "pet": "Slink",
+   "itemId": "534660015",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100165"
+   ]
+  },
+  {
+   "npcId": "2100188",
+   "npc": "Wetland Slink",
+   "petId": "1016",
+   "pet": "Slink",
+   "itemId": "534660015",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100188"
+   ]
+  },
+  {
+   "npcId": "2101097",
+   "npc": "Eternal Slink",
+   "petId": "1016",
+   "pet": "Slink",
+   "itemId": "534660015",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101097"
+   ]
+  },
+  {
+   "npcId": "2400520",
+   "npc": "Coastal Slink",
+   "petId": "1016",
+   "pet": "Slink",
+   "itemId": "534660015",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400520"
+   ]
+  },
+  {
+   "npcId": "2400819",
+   "npc": "Coastal Slink",
+   "petId": "1016",
+   "pet": "Slink",
+   "itemId": "534660015",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400819"
+   ]
+  },
+  {
+   "npcId": "2400909",
+   "npc": "Slink",
+   "petId": "1016",
+   "pet": "Slink",
+   "itemId": "534660015",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400909"
+   ]
+  },
+  {
+   "npcId": "2400943",
+   "npc": "Slink",
+   "petId": "1016",
+   "pet": "Slink",
+   "itemId": "534660015",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400943"
+   ]
+  },
+  {
+   "npcId": "2100074",
+   "npc": "Krall Warshaman",
+   "petId": "1017",
+   "pet": "Krall Warshaman",
+   "itemId": "534660016",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100074"
+   ]
+  },
+  {
+   "npcId": "2100855",
+   "npc": "Modified Krall Healer",
+   "petId": "1017",
+   "pet": "Krall Warshaman",
+   "itemId": "534660016",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100855"
+   ]
+  },
+  {
+   "npcId": "2400385",
+   "npc": "Varg Berserker",
+   "petId": "1018",
+   "pet": "Varg Berserker",
+   "itemId": "534660017",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400385"
+   ]
+  },
+  {
+   "npcId": "2400609",
+   "npc": "Chief's Bodyguard",
+   "petId": "1018",
+   "pet": "Varg Berserker",
+   "itemId": "534660017",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400609"
+   ]
+  },
+  {
+   "npcId": "2100215",
+   "npc": "Aquascale Crasaur",
+   "petId": "1022",
+   "pet": "Crasaur",
+   "itemId": "534660021",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100215"
+   ]
+  },
+  {
+   "npcId": "2100608",
+   "npc": "Docile Crasaur",
+   "petId": "1022",
+   "pet": "Crasaur",
+   "itemId": "534660021",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100608"
+   ]
+  },
+  {
+   "npcId": "2101083",
+   "npc": "Eternal Crasaur",
+   "petId": "1022",
+   "pet": "Crasaur",
+   "itemId": "534660021",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101083"
+   ]
+  },
+  {
+   "npcId": "2400327",
+   "npc": "Sensitive Crasaur",
+   "petId": "1022",
+   "pet": "Crasaur",
+   "itemId": "534660021",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400327"
+   ]
+  },
+  {
+   "npcId": "2400809",
+   "npc": "Crasaur",
+   "petId": "1022",
+   "pet": "Crasaur",
+   "itemId": "534660021",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400809"
+   ]
+  },
+  {
+   "npcId": "2100030",
+   "npc": "Marsh Odyle Spider",
+   "petId": "1025",
+   "pet": "Mutated Aberrant Odyle Spider",
+   "itemId": "534660020",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100030"
+   ]
+  },
+  {
+   "npcId": "2100663",
+   "npc": "Garden Spider",
+   "petId": "1025",
+   "pet": "Mutated Aberrant Odyle Spider",
+   "itemId": "534660020",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100663"
+   ]
+  },
+  {
+   "npcId": "2100745",
+   "npc": "Highland Odyle Spider",
+   "petId": "1025",
+   "pet": "Mutated Aberrant Odyle Spider",
+   "itemId": "534660020",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100745"
+   ]
+  },
+  {
+   "npcId": "2400744",
+   "npc": "Unstable Ashen Spider",
+   "petId": "1025",
+   "pet": "Mutated Aberrant Odyle Spider",
+   "itemId": "534660020",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400744"
+   ]
+  },
+  {
+   "npcId": "2100073",
+   "npc": "Krall Assault Trooper",
+   "petId": "1026",
+   "pet": "Krall Warrior",
+   "itemId": "534660025",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100073"
+   ]
+  },
+  {
+   "npcId": "2100910",
+   "npc": "Modified Krall Warrior",
+   "petId": "1026",
+   "pet": "Krall Warrior",
+   "itemId": "534660025",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100910"
+   ]
+  },
+  {
+   "npcId": "2101005",
+   "npc": "Krall Test Subject",
+   "petId": "1026",
+   "pet": "Krall Warrior",
+   "itemId": "534660025",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101005"
+   ]
+  },
+  {
+   "npcId": "2100612",
+   "npc": "Withered Canyon Agrint",
+   "petId": "1027",
+   "pet": "Withered Agrint",
+   "itemId": "534660026",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100612"
+   ]
+  },
+  {
+   "npcId": "2100652",
+   "npc": "Thin Agrint",
+   "petId": "1027",
+   "pet": "Withered Agrint",
+   "itemId": "534660026",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100652"
+   ]
+  },
+  {
+   "npcId": "2400313",
+   "npc": "Consumed Klaw",
+   "petId": "1029",
+   "pet": "Klaw Scout",
+   "itemId": "534660029",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400313"
+   ]
+  },
+  {
+   "npcId": "2100157",
+   "npc": "Tolbas Konutin Worker",
+   "petId": "1031",
+   "pet": "Konutin Worker",
+   "itemId": "534660031",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100157"
+   ]
+  },
+  {
+   "npcId": "2100557",
+   "npc": "Wandering Manduri Fighter",
+   "petId": "1033",
+   "pet": "Elite Manduri Fighter",
+   "itemId": "534660033",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100557"
+   ]
+  },
+  {
+   "npcId": "2100569",
+   "npc": "Wandering Manduri Fighter",
+   "petId": "1033",
+   "pet": "Elite Manduri Fighter",
+   "itemId": "534660033",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100569"
+   ]
+  },
+  {
+   "npcId": "2400605",
+   "npc": "Black Claw Manduri Fighter",
+   "petId": "1033",
+   "pet": "Elite Manduri Fighter",
+   "itemId": "534660033",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400605"
+   ]
+  },
+  {
+   "npcId": "2100015",
+   "npc": "Splendent Hill Sparkie",
+   "petId": "1034",
+   "pet": "Giant Sparkie",
+   "itemId": "534660034",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100015"
+   ]
+  },
+  {
+   "npcId": "2100796",
+   "npc": "Highland Giant Odyle Sparkie",
+   "petId": "1034",
+   "pet": "Giant Sparkie",
+   "itemId": "534660034",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100796"
+   ]
+  },
+  {
+   "npcId": "2100987",
+   "npc": "Aullaeu Forest Giant Sparkie",
+   "petId": "1034",
+   "pet": "Giant Sparkie",
+   "itemId": "534660034",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100987"
+   ]
+  },
+  {
+   "npcId": "2100993",
+   "npc": "Highland Giant Sparkie",
+   "petId": "1034",
+   "pet": "Giant Sparkie",
+   "itemId": "534660034",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100993"
+   ]
+  },
+  {
+   "npcId": "2400341",
+   "npc": "Withered Branch Odyle Sparkie",
+   "petId": "1034",
+   "pet": "Giant Sparkie",
+   "itemId": "534660034",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400341"
+   ]
+  },
+  {
+   "npcId": "2400466",
+   "npc": "Fafnite Luminous Sparkie",
+   "petId": "1034",
+   "pet": "Giant Sparkie",
+   "itemId": "534660034",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400466"
+   ]
+  },
+  {
+   "npcId": "2100031",
+   "npc": "Foul Skama",
+   "petId": "1035",
+   "pet": "Skama",
+   "itemId": "534660035",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100031"
+   ]
+  },
+  {
+   "npcId": "2100376",
+   "npc": "Lake Skama",
+   "petId": "1035",
+   "pet": "Skama",
+   "itemId": "534660035",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100376"
+   ]
+  },
+  {
+   "npcId": "2100907",
+   "npc": "Drana Mutated Skama",
+   "petId": "1035",
+   "pet": "Skama",
+   "itemId": "534660035",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100907"
+   ]
+  },
+  {
+   "npcId": "2100746",
+   "npc": "Tail Feather Lupyllini",
+   "petId": "1036",
+   "pet": "Lupyllini",
+   "itemId": "534660037",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100746"
+   ]
+  },
+  {
+   "npcId": "2100151",
+   "npc": "Ellun River Crestlich Male",
+   "petId": "1037",
+   "pet": "Male Crestlich",
+   "itemId": "534660038",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100151"
+   ]
+  },
+  {
+   "npcId": "2100750",
+   "npc": "Highland Crestlich Male",
+   "petId": "1037",
+   "pet": "Male Crestlich",
+   "itemId": "534660038",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100750"
+   ]
+  },
+  {
+   "npcId": "2100144",
+   "npc": "Smallbeak Airon",
+   "petId": "1038",
+   "pet": "Airon",
+   "itemId": "534660039",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100144"
+   ]
+  },
+  {
+   "npcId": "2100216",
+   "npc": "Pointbeak Airon",
+   "petId": "1038",
+   "pet": "Airon",
+   "itemId": "534660039",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100216"
+   ]
+  },
+  {
+   "npcId": "2100609",
+   "npc": "Hardbeak Airon",
+   "petId": "1038",
+   "pet": "Airon",
+   "itemId": "534660039",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100609"
+   ]
+  },
+  {
+   "npcId": "2100741",
+   "npc": "Longbeak Highland Airon",
+   "petId": "1038",
+   "pet": "Airon",
+   "itemId": "534660039",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100741"
+   ]
+  },
+  {
+   "npcId": "2400567",
+   "npc": "Canyon Airon",
+   "petId": "1038",
+   "pet": "Airon",
+   "itemId": "534660039",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400567"
+   ]
+  },
+  {
+   "npcId": "2400568",
+   "npc": "Baby Canyon Airon",
+   "petId": "1038",
+   "pet": "Airon",
+   "itemId": "534660039",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400568"
+   ]
+  },
+  {
+   "npcId": "2100037",
+   "npc": "Stonebeak Crestlich",
+   "petId": "1039",
+   "pet": "Crestlich",
+   "itemId": "534660040",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100037"
+   ]
+  },
+  {
+   "npcId": "2100150",
+   "npc": "Ellun River Crestlich Female",
+   "petId": "1039",
+   "pet": "Crestlich",
+   "itemId": "534660040",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100150"
+   ]
+  },
+  {
+   "npcId": "2100799",
+   "npc": "Highland Crestlich Female",
+   "petId": "1039",
+   "pet": "Crestlich",
+   "itemId": "534660040",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100799"
+   ]
+  },
+  {
+   "npcId": "2100950",
+   "npc": "Aullaeu Apprentice Shaman",
+   "petId": "1040",
+   "pet": "Aullaeu Shaman",
+   "itemId": "534660041",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100950"
+   ]
+  },
+  {
+   "npcId": "2100911",
+   "npc": "Drana Mutated Bat",
+   "petId": "1041",
+   "pet": "Cave Bat",
+   "itemId": "534660042",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100911"
+   ]
+  },
+  {
+   "npcId": "2100172",
+   "npc": "Hardhorn Ursus",
+   "petId": "1042",
+   "pet": "Ursus",
+   "itemId": "534660043",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100172"
+   ]
+  },
+  {
+   "npcId": "2100552",
+   "npc": "Ridge Ursus",
+   "petId": "1042",
+   "pet": "Ursus",
+   "itemId": "534660043",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100552"
+   ]
+  },
+  {
+   "npcId": "2100560",
+   "npc": "Ridge Violent Ursus",
+   "petId": "1042",
+   "pet": "Ursus",
+   "itemId": "534660043",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100560"
+   ]
+  },
+  {
+   "npcId": "2100655",
+   "npc": "Confused Ursus",
+   "petId": "1042",
+   "pet": "Ursus",
+   "itemId": "534660043",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100655"
+   ]
+  },
+  {
+   "npcId": "2100817",
+   "npc": "Hill Ursus",
+   "petId": "1042",
+   "pet": "Ursus",
+   "itemId": "534660043",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100817"
+   ]
+  },
+  {
+   "npcId": "2400376",
+   "npc": "Ursus",
+   "petId": "1042",
+   "pet": "Ursus",
+   "itemId": "534660043",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400376"
+   ]
+  },
+  {
+   "npcId": "2400916",
+   "npc": "Ursus",
+   "petId": "1042",
+   "pet": "Ursus",
+   "itemId": "534660043",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400916"
+   ]
+  },
+  {
+   "npcId": "2100004",
+   "npc": "Highland Sylphen",
+   "petId": "1045",
+   "pet": "Sylphen",
+   "itemId": "534660046",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100004"
+   ]
+  },
+  {
+   "npcId": "2100023",
+   "npc": "Ellun River Sylphen",
+   "petId": "1045",
+   "pet": "Sylphen",
+   "itemId": "534660046",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100023"
+   ]
+  },
+  {
+   "npcId": "2100219",
+   "npc": "Ellun River Sylphen",
+   "petId": "1045",
+   "pet": "Sylphen",
+   "itemId": "534660046",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100219"
+   ]
+  },
+  {
+   "npcId": "2100472",
+   "npc": "Aberrant Sylphen",
+   "petId": "1045",
+   "pet": "Sylphen",
+   "itemId": "534660046",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100472"
+   ]
+  },
+  {
+   "npcId": "2100565",
+   "npc": "Ridge Sylphen",
+   "petId": "1045",
+   "pet": "Sylphen",
+   "itemId": "534660046",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100565"
+   ]
+  },
+  {
+   "npcId": "2100743",
+   "npc": "Highland Sylphen",
+   "petId": "1045",
+   "pet": "Sylphen",
+   "itemId": "534660046",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100743"
+   ]
+  },
+  {
+   "npcId": "2400362",
+   "npc": "Sylphen",
+   "petId": "1045",
+   "pet": "Sylphen",
+   "itemId": "534660046",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400362"
+   ]
+  },
+  {
+   "npcId": "2400002",
+   "npc": "Red Shell Mole",
+   "petId": "1046",
+   "pet": "Armadon",
+   "itemId": "534660047",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400002"
+   ]
+  },
+  {
+   "npcId": "2400249",
+   "npc": "Withered Armadon",
+   "petId": "1046",
+   "pet": "Armadon",
+   "itemId": "534660047",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400249"
+   ]
+  },
+  {
+   "npcId": "2100453",
+   "npc": "Splendent Armadon",
+   "petId": "1047",
+   "pet": "Aberrant Armadon",
+   "itemId": "534660048",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100453"
+   ]
+  },
+  {
+   "npcId": "2100751",
+   "npc": "Highland Wild Armadon",
+   "petId": "1047",
+   "pet": "Aberrant Armadon",
+   "itemId": "534660048",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100751"
+   ]
+  },
+  {
+   "npcId": "2100022",
+   "npc": "Marsh Vine Spirit",
+   "petId": "1048",
+   "pet": "Forest Spirit",
+   "itemId": "534660049",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100022"
+   ]
+  },
+  {
+   "npcId": "2100142",
+   "npc": "Contaminated Vine Spirit",
+   "petId": "1048",
+   "pet": "Forest Spirit",
+   "itemId": "534660049",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100142"
+   ]
+  },
+  {
+   "npcId": "2100555",
+   "npc": "Ridge Forest Spirit",
+   "petId": "1048",
+   "pet": "Forest Spirit",
+   "itemId": "534660049",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100555"
+   ]
+  },
+  {
+   "npcId": "2100611",
+   "npc": "Deep Canyon Forest Spirit",
+   "petId": "1048",
+   "pet": "Forest Spirit",
+   "itemId": "534660049",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100611"
+   ]
+  },
+  {
+   "npcId": "2400337",
+   "npc": "Forest Spirit",
+   "petId": "1048",
+   "pet": "Forest Spirit",
+   "itemId": "534660049",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400337"
+   ]
+  },
+  {
+   "npcId": "2100711",
+   "npc": "Mutated Vine Bundle",
+   "petId": "1049",
+   "pet": "Mutated Forest Spirit",
+   "itemId": "534660050",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100711"
+   ]
+  },
+  {
+   "npcId": "2100715",
+   "npc": "Contaminated Vine Bundle",
+   "petId": "1049",
+   "pet": "Mutated Forest Spirit",
+   "itemId": "534660050",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100715"
+   ]
+  },
+  {
+   "npcId": "2400061",
+   "npc": "Condensed Specter",
+   "petId": "1049",
+   "pet": "Mutated Forest Spirit",
+   "itemId": "534660050",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400061"
+   ]
+  },
+  {
+   "npcId": "2100650",
+   "npc": "Red Stalk Gravi",
+   "petId": "1050",
+   "pet": "Gravi",
+   "itemId": "534660051",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100650"
+   ]
+  },
+  {
+   "npcId": "2101125",
+   "npc": "Tolbas Gravi",
+   "petId": "1050",
+   "pet": "Gravi",
+   "itemId": "534660051",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101125"
+   ]
+  },
+  {
+   "npcId": "2400307",
+   "npc": "Pink Gravi",
+   "petId": "1050",
+   "pet": "Gravi",
+   "itemId": "534660051",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400307"
+   ]
+  },
+  {
+   "npcId": "2100659",
+   "npc": "Illusion Magic Gravi",
+   "petId": "1051",
+   "pet": "Magic Gravi",
+   "itemId": "534660052",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100659"
+   ]
+  },
+  {
+   "npcId": "2101126",
+   "npc": "Tolbas Magic Gravi",
+   "petId": "1051",
+   "pet": "Magic Gravi",
+   "itemId": "534660052",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101126"
+   ]
+  },
+  {
+   "npcId": "2400329",
+   "npc": "Purifying Forest Magic Gravi",
+   "petId": "1051",
+   "pet": "Magic Gravi",
+   "itemId": "534660052",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400329"
+   ]
+  },
+  {
+   "npcId": "2400731",
+   "npc": "Unstable Gravi",
+   "petId": "1051",
+   "pet": "Magic Gravi",
+   "itemId": "534660052",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400731"
+   ]
+  },
+  {
+   "npcId": "2100285",
+   "npc": "Ellun River Hill Gravi",
+   "petId": "1052",
+   "pet": "Large Leaf Gravi",
+   "itemId": "534660053",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100285"
+   ]
+  },
+  {
+   "npcId": "2100651",
+   "npc": "Large Leaf Gravi",
+   "petId": "1052",
+   "pet": "Large Leaf Gravi",
+   "itemId": "534660053",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100651"
+   ]
+  },
+  {
+   "npcId": "2400342",
+   "npc": "Large Leaf Gravi",
+   "petId": "1052",
+   "pet": "Large Leaf Gravi",
+   "itemId": "534660053",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400342"
+   ]
+  },
+  {
+   "npcId": "2100908",
+   "npc": "Drana Mutated Potcrab",
+   "petId": "1053",
+   "pet": "Aberrant Potcrab",
+   "itemId": "534660054",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100908"
+   ]
+  },
+  {
+   "npcId": "2110512",
+   "npc": "Eternal Moss Crab",
+   "petId": "1053",
+   "pet": "Aberrant Potcrab",
+   "itemId": "534660054",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110512"
+   ]
+  },
+  {
+   "npcId": "2400350",
+   "npc": "Mumu Watcher",
+   "petId": "1054",
+   "pet": "Mumu Warrior",
+   "itemId": "534660055",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400350"
+   ]
+  },
+  {
+   "npcId": "2400570",
+   "npc": "Gribade Mumu Warrior",
+   "petId": "1054",
+   "pet": "Mumu Warrior",
+   "itemId": "534660055",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400570"
+   ]
+  },
+  {
+   "npcId": "2400606",
+   "npc": "Mumu Watcher",
+   "petId": "1054",
+   "pet": "Mumu Warrior",
+   "itemId": "534660055",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400606"
+   ]
+  },
+  {
+   "npcId": "2100866",
+   "npc": "Drana Processing Maintenance Machine",
+   "petId": "1056",
+   "pet": "Drakan Probe",
+   "itemId": "534660057",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100866"
+   ]
+  },
+  {
+   "npcId": "2101014",
+   "npc": "Intruder Seeker",
+   "petId": "1056",
+   "pet": "Drakan Probe",
+   "itemId": "534660057",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101014"
+   ]
+  },
+  {
+   "npcId": "2400143",
+   "npc": "Outpost Probe",
+   "petId": "1056",
+   "pet": "Drakan Probe",
+   "itemId": "534660057",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400143"
+   ]
+  },
+  {
+   "npcId": "2400162",
+   "npc": "Drakan Probe",
+   "petId": "1056",
+   "pet": "Drakan Probe",
+   "itemId": "534660057",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400162"
+   ]
+  },
+  {
+   "npcId": "2400382",
+   "npc": "Drana Processing Maintenance Machine",
+   "petId": "1056",
+   "pet": "Drakan Probe",
+   "itemId": "534660057",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400382"
+   ]
+  },
+  {
+   "npcId": "2400658",
+   "npc": "Lagta Brigade Seeker",
+   "petId": "1056",
+   "pet": "Drakan Probe",
+   "itemId": "534660057",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400658"
+   ]
+  },
+  {
+   "npcId": "2300312",
+   "npc": "Black Smoke Murute",
+   "petId": "1058",
+   "pet": "Black Smoke Murute",
+   "itemId": "534660059",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2300312"
+   ]
+  },
+  {
+   "npcId": "2310312",
+   "npc": "Black Smoke Murute",
+   "petId": "1058",
+   "pet": "Black Smoke Murute",
+   "itemId": "534660059",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2310312"
+   ]
+  },
+  {
+   "npcId": "2320312",
+   "npc": "Black Smoke Murute",
+   "petId": "1058",
+   "pet": "Black Smoke Murute",
+   "itemId": "534660059",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2320312"
+   ]
+  },
+  {
+   "npcId": "2100551",
+   "npc": "Giant Stripe Bee",
+   "petId": "1059",
+   "pet": "Giant Bee",
+   "itemId": "534660060",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100551"
+   ]
+  },
+  {
+   "npcId": "2100033",
+   "npc": "Coastal Starturtle",
+   "petId": "1060",
+   "pet": "Starturtle",
+   "itemId": "534660061",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100033"
+   ]
+  },
+  {
+   "npcId": "2100808",
+   "npc": "Pond Starturtle",
+   "petId": "1060",
+   "pet": "Starturtle",
+   "itemId": "534660061",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100808"
+   ]
+  },
+  {
+   "npcId": "2101082",
+   "npc": "Eternal Starturtle",
+   "petId": "1060",
+   "pet": "Starturtle",
+   "itemId": "534660061",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101082"
+   ]
+  },
+  {
+   "npcId": "2400374",
+   "npc": "Beach Starturtle",
+   "petId": "1060",
+   "pet": "Starturtle",
+   "itemId": "534660061",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400374"
+   ]
+  },
+  {
+   "npcId": "2400519",
+   "npc": "Starturtle",
+   "petId": "1060",
+   "pet": "Starturtle",
+   "itemId": "534660061",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400519"
+   ]
+  },
+  {
+   "npcId": "2400808",
+   "npc": "Starturtle",
+   "petId": "1060",
+   "pet": "Starturtle",
+   "itemId": "534660061",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400808"
+   ]
+  },
+  {
+   "npcId": "2400320",
+   "npc": "Unruly Slime",
+   "petId": "1061",
+   "pet": "Slime",
+   "itemId": "534660062",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400320"
+   ]
+  },
+  {
+   "npcId": "2100025",
+   "npc": "Marsh Slime",
+   "petId": "1062",
+   "pet": "Contaminated Slime",
+   "itemId": "534660063",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100025"
+   ]
+  },
+  {
+   "npcId": "2100717",
+   "npc": "Contaminated Poison Slime",
+   "petId": "1062",
+   "pet": "Contaminated Slime",
+   "itemId": "534660063",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100717"
+   ]
+  },
+  {
+   "npcId": "2400364",
+   "npc": "Vigilant Oculazen",
+   "petId": "1063",
+   "pet": "Vigilant Oculazen",
+   "itemId": "534660064",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400364"
+   ]
+  },
+  {
+   "npcId": "2100854",
+   "npc": "Labor Manager Oculazen",
+   "petId": "1064",
+   "pet": "Oculazen",
+   "itemId": "534660065",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100854"
+   ]
+  },
+  {
+   "npcId": "2400711",
+   "npc": "Oculazen",
+   "petId": "1064",
+   "pet": "Oculazen",
+   "itemId": "534660065",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400711"
+   ]
+  },
+  {
+   "npcId": "2100183",
+   "npc": "Biruta Wanderer",
+   "petId": "1065",
+   "pet": "Biruta",
+   "itemId": "534660066",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100183"
+   ]
+  },
+  {
+   "npcId": "2400920",
+   "npc": "Biruta Wanderer",
+   "petId": "1065",
+   "pet": "Biruta",
+   "itemId": "534660066",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400920"
+   ]
+  },
+  {
+   "npcId": "2000926",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000926"
+   ]
+  },
+  {
+   "npcId": "2000927",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000927"
+   ]
+  },
+  {
+   "npcId": "2000928",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000928"
+   ]
+  },
+  {
+   "npcId": "2000929",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000929"
+   ]
+  },
+  {
+   "npcId": "2000951",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000951"
+   ]
+  },
+  {
+   "npcId": "2100009",
+   "npc": "Gentle Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100009"
+   ]
+  },
+  {
+   "npcId": "2100220",
+   "npc": "Ellun River Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100220"
+   ]
+  },
+  {
+   "npcId": "2100654",
+   "npc": "Garden Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100654"
+   ]
+  },
+  {
+   "npcId": "2400594",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400594"
+   ]
+  },
+  {
+   "npcId": "2400903",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400903"
+   ]
+  },
+  {
+   "npcId": "2400938",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400938"
+   ]
+  },
+  {
+   "npcId": "2400940",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400940"
+   ]
+  },
+  {
+   "npcId": "2400947",
+   "npc": "Faded Papis",
+   "petId": "1066",
+   "pet": "Papis",
+   "itemId": "534660067",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400947"
+   ]
+  },
+  {
+   "npcId": "2100709",
+   "npc": "Contaminated Scorpion",
+   "petId": "1067",
+   "pet": "Scorpion",
+   "itemId": "534660068",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100709"
+   ]
+  },
+  {
+   "npcId": "2400470",
+   "npc": "Ore Scorpion",
+   "petId": "1067",
+   "pet": "Scorpion",
+   "itemId": "534660068",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400470"
+   ]
+  },
+  {
+   "npcId": "2100812",
+   "npc": "Hill Stone Spirit",
+   "petId": "1069",
+   "pet": "Stone Spirit",
+   "itemId": "534660070",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100812"
+   ]
+  },
+  {
+   "npcId": "2400301",
+   "npc": "Faded Stone Spirit",
+   "petId": "1069",
+   "pet": "Stone Spirit",
+   "itemId": "534660070",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400301"
+   ]
+  },
+  {
+   "npcId": "2400018",
+   "npc": "Drana Cadaver Insectoid",
+   "petId": "1071",
+   "pet": "Cadaver Insectoid",
+   "itemId": "534660072",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400018"
+   ]
+  },
+  {
+   "npcId": "2400912",
+   "npc": "Tog",
+   "petId": "1072",
+   "pet": "Tog",
+   "itemId": "534660073",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400912"
+   ]
+  },
+  {
+   "npcId": "2100160",
+   "npc": "Tolbas Nepenthes",
+   "petId": "1073",
+   "pet": "Nepenthes",
+   "itemId": "534660074",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100160"
+   ]
+  },
+  {
+   "npcId": "2100744",
+   "npc": "Scarlet Highland Nepenthes",
+   "petId": "1073",
+   "pet": "Nepenthes",
+   "itemId": "534660074",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100744"
+   ]
+  },
+  {
+   "npcId": "2100180",
+   "npc": "Tolbas Kuru Worker",
+   "petId": "1074",
+   "pet": "Kuru Worker",
+   "itemId": "534660075",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100180"
+   ]
+  },
+  {
+   "npcId": "2100964",
+   "npc": "Harsh Kuru Tinkerer",
+   "petId": "1074",
+   "pet": "Kuru Worker",
+   "itemId": "534660075",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100964"
+   ]
+  },
+  {
+   "npcId": "2101133",
+   "npc": "Eternal Kuru Worker",
+   "petId": "1074",
+   "pet": "Kuru Worker",
+   "itemId": "534660075",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101133"
+   ]
+  },
+  {
+   "npcId": "2101136",
+   "npc": "Eternal Kuru Worker",
+   "petId": "1074",
+   "pet": "Kuru Worker",
+   "itemId": "534660075",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101136"
+   ]
+  },
+  {
+   "npcId": "2400831",
+   "npc": "Kuru Worker",
+   "petId": "1074",
+   "pet": "Kuru Worker",
+   "itemId": "534660075",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400831"
+   ]
+  },
+  {
+   "npcId": "2100181",
+   "npc": "Tolbas Kuru Tinkerer",
+   "petId": "1075",
+   "pet": "Kuru Tinkerer",
+   "itemId": "534660076",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100181"
+   ]
+  },
+  {
+   "npcId": "2101134",
+   "npc": "Eternal Kuru Tinkerer",
+   "petId": "1075",
+   "pet": "Kuru Tinkerer",
+   "itemId": "534660076",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101134"
+   ]
+  },
+  {
+   "npcId": "2101137",
+   "npc": "Eternal Kuru Tinkerer",
+   "petId": "1075",
+   "pet": "Kuru Tinkerer",
+   "itemId": "534660076",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101137"
+   ]
+  },
+  {
+   "npcId": "2400832",
+   "npc": "Kuru Tinkerer",
+   "petId": "1075",
+   "pet": "Kuru Tinkerer",
+   "itemId": "534660076",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400832"
+   ]
+  },
+  {
+   "npcId": "2300104",
+   "npc": "Enhanced Harcon",
+   "petId": "1077",
+   "pet": "Harcon",
+   "itemId": "534660078",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2300104"
+   ]
+  },
+  {
+   "npcId": "2310104",
+   "npc": "Enhanced Harcon",
+   "petId": "1077",
+   "pet": "Harcon",
+   "itemId": "534660078",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2310104"
+   ]
+  },
+  {
+   "npcId": "2320104",
+   "npc": "Enhanced Harcon",
+   "petId": "1077",
+   "pet": "Harcon",
+   "itemId": "534660078",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2320104"
+   ]
+  },
+  {
+   "npcId": "2100002",
+   "npc": "Hard Kalgolem",
+   "petId": "1084",
+   "pet": "Kalgolem",
+   "itemId": "534660085",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100002"
+   ]
+  },
+  {
+   "npcId": "2100700",
+   "npc": "Ashen Kalgolem",
+   "petId": "1084",
+   "pet": "Kalgolem",
+   "itemId": "534660085",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100700"
+   ]
+  },
+  {
+   "npcId": "2400328",
+   "npc": "Angry Kalgolem",
+   "petId": "1084",
+   "pet": "Kalgolem",
+   "itemId": "534660085",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400328"
+   ]
+  },
+  {
+   "npcId": "2100456",
+   "npc": "Red Cap Fungen",
+   "petId": "1086",
+   "pet": "Fungen",
+   "itemId": "534660087",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100456"
+   ]
+  },
+  {
+   "npcId": "2100953",
+   "npc": "Pino Worker",
+   "petId": "1087",
+   "pet": "Pino",
+   "itemId": "534660088",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100953"
+   ]
+  },
+  {
+   "npcId": "2100954",
+   "npc": "Pino Laborer",
+   "petId": "1087",
+   "pet": "Pino",
+   "itemId": "534660088",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100954"
+   ]
+  },
+  {
+   "npcId": "2100955",
+   "npc": "Harsh Pino Worker",
+   "petId": "1088",
+   "pet": "Pino Worker",
+   "itemId": "534660089",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100955"
+   ]
+  },
+  {
+   "npcId": "2100710",
+   "npc": "Yellow-Tailed Skama",
+   "petId": "1089",
+   "pet": "Aberrant Skama",
+   "itemId": "534660090",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100710"
+   ]
+  },
+  {
+   "npcId": "2300311",
+   "npc": "Red Spark Ignus",
+   "petId": "1091",
+   "pet": "Red Spark Ignus",
+   "itemId": "534660092",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2300311"
+   ]
+  },
+  {
+   "npcId": "2310311",
+   "npc": "Red Spark Ignus",
+   "petId": "1091",
+   "pet": "Red Spark Ignus",
+   "itemId": "534660092",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2310311"
+   ]
+  },
+  {
+   "npcId": "2320311",
+   "npc": "Red Spark Ignus",
+   "petId": "1091",
+   "pet": "Red Spark Ignus",
+   "itemId": "534660092",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2320311"
+   ]
+  },
+  {
+   "npcId": "2100605",
+   "npc": "Air Spirit",
+   "petId": "1092",
+   "pet": "Lesser Wind Spirit",
+   "itemId": "534660093",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100605"
+   ]
+  },
+  {
+   "npcId": "2101096",
+   "npc": "Eternal Wind Spirit",
+   "petId": "1092",
+   "pet": "Lesser Wind Spirit",
+   "itemId": "534660093",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101096"
+   ]
+  },
+  {
+   "npcId": "2400324",
+   "npc": "Soft Breeze Spirit",
+   "petId": "1092",
+   "pet": "Lesser Wind Spirit",
+   "itemId": "534660093",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400324"
+   ]
+  },
+  {
+   "npcId": "2300401",
+   "npc": "Phantasmal Lakshmi",
+   "petId": "1093",
+   "pet": "Phantasmal Lakshmi",
+   "itemId": "534660094",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2300401"
+   ]
+  },
+  {
+   "npcId": "2310401",
+   "npc": "Phantasmal Lakshmi",
+   "petId": "1093",
+   "pet": "Phantasmal Lakshmi",
+   "itemId": "534660094",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2310401"
+   ]
+  },
+  {
+   "npcId": "2320401",
+   "npc": "Phantasmal Lakshmi",
+   "petId": "1093",
+   "pet": "Phantasmal Lakshmi",
+   "itemId": "534660094",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2320401"
+   ]
+  },
+  {
+   "npcId": "2100658",
+   "npc": "Wandering Wind Spirit",
+   "petId": "1094",
+   "pet": "Intermediate Wind Spirit",
+   "itemId": "534660095",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100658"
+   ]
+  },
+  {
+   "npcId": "2101103",
+   "npc": "Violent Wind Spirit",
+   "petId": "1094",
+   "pet": "Intermediate Wind Spirit",
+   "itemId": "534660095",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101103"
+   ]
+  },
+  {
+   "npcId": "2400824",
+   "npc": "Immortal Wind Spirit",
+   "petId": "1094",
+   "pet": "Intermediate Wind Spirit",
+   "itemId": "534660095",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400824"
+   ]
+  },
+  {
+   "npcId": "2100666",
+   "npc": "Brisk Spirit",
+   "petId": "1095",
+   "pet": "Superior Wind Spirit",
+   "itemId": "534660096",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100666"
+   ]
+  },
+  {
+   "npcId": "2400302",
+   "npc": "Whirlwind Spirit",
+   "petId": "1095",
+   "pet": "Superior Wind Spirit",
+   "itemId": "534660096",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400302"
+   ]
+  },
+  {
+   "npcId": "2400818",
+   "npc": "Immortal Wind Spirit Guardian",
+   "petId": "1095",
+   "pet": "Superior Wind Spirit",
+   "itemId": "534660096",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400818"
+   ]
+  },
+  {
+   "npcId": "2100664",
+   "npc": "Hellfire Spirit",
+   "petId": "1096",
+   "pet": "Superior Fire Spirit",
+   "itemId": "534660097",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100664"
+   ]
+  },
+  {
+   "npcId": "2400303",
+   "npc": "Flame Spirit",
+   "petId": "1096",
+   "pet": "Superior Fire Spirit",
+   "itemId": "534660097",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400303"
+   ]
+  },
+  {
+   "npcId": "2400749",
+   "npc": "Unstable Superior Fire Spirit",
+   "petId": "1096",
+   "pet": "Superior Fire Spirit",
+   "itemId": "534660097",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400749"
+   ]
+  },
+  {
+   "npcId": "2400815",
+   "npc": "Immortal Fire Spirit Guardian",
+   "petId": "1096",
+   "pet": "Superior Fire Spirit",
+   "itemId": "534660097",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400815"
+   ]
+  },
+  {
+   "npcId": "2100174",
+   "npc": "Ferocious Karnif",
+   "petId": "1097",
+   "pet": "Karnif",
+   "itemId": "534660098",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100174"
+   ]
+  },
+  {
+   "npcId": "2100348",
+   "npc": "Tolbas Karnif",
+   "petId": "1097",
+   "pet": "Karnif",
+   "itemId": "534660098",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100348"
+   ]
+  },
+  {
+   "npcId": "2100349",
+   "npc": "Ferocious Tolbas Karnif",
+   "petId": "1097",
+   "pet": "Karnif",
+   "itemId": "534660098",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100349"
+   ]
+  },
+  {
+   "npcId": "2100742",
+   "npc": "Toughmane Highland Karnif",
+   "petId": "1097",
+   "pet": "Karnif",
+   "itemId": "534660098",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100742"
+   ]
+  },
+  {
+   "npcId": "2100752",
+   "npc": "Highland Karnif",
+   "petId": "1097",
+   "pet": "Karnif",
+   "itemId": "534660098",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100752"
+   ]
+  },
+  {
+   "npcId": "2100802",
+   "npc": "Tamed Karnif",
+   "petId": "1097",
+   "pet": "Karnif",
+   "itemId": "534660098",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100802"
+   ]
+  },
+  {
+   "npcId": "2100805",
+   "npc": "Tamed Karnif",
+   "petId": "1097",
+   "pet": "Karnif",
+   "itemId": "534660098",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100805"
+   ]
+  },
+  {
+   "npcId": "2100070",
+   "npc": "Scouting Karnif",
+   "petId": "1098",
+   "pet": "Modified Karnif",
+   "itemId": "534660099",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100070"
+   ]
+  },
+  {
+   "npcId": "2100096",
+   "npc": "Unruly Karnif",
+   "petId": "1098",
+   "pet": "Modified Karnif",
+   "itemId": "534660099",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100096"
+   ]
+  },
+  {
+   "npcId": "2100130",
+   "npc": "Trained Karnif",
+   "petId": "1098",
+   "pet": "Modified Karnif",
+   "itemId": "534660099",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100130"
+   ]
+  },
+  {
+   "npcId": "2100481",
+   "npc": "Sensitive Karnif",
+   "petId": "1098",
+   "pet": "Modified Karnif",
+   "itemId": "534660099",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100481"
+   ]
+  },
+  {
+   "npcId": "2406071",
+   "npc": "Crimson Blizzard Renulf",
+   "petId": "1099",
+   "pet": "Elite Karnif",
+   "itemId": "534660100",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2406071"
+   ]
+  },
+  {
+   "npcId": "2100660",
+   "npc": "Garden Guardian",
+   "petId": "1101",
+   "pet": "Forest Guardian",
+   "itemId": "534660102",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100660"
+   ]
+  },
+  {
+   "npcId": "2101278",
+   "npc": "Gluttonous Egetis",
+   "petId": "1103",
+   "pet": "Pretor Veil Administrator",
+   "itemId": "534660104",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101278"
+   ]
+  },
+  {
+   "npcId": "2100816",
+   "npc": "Hill Manduri",
+   "petId": "1104",
+   "pet": "Manduri Trebuchet Worker",
+   "itemId": "534660105",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100816"
+   ]
+  },
+  {
+   "npcId": "2110507",
+   "npc": "Crimson Manduri Slinger",
+   "petId": "1104",
+   "pet": "Manduri Trebuchet Worker",
+   "itemId": "534660105",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110507"
+   ]
+  },
+  {
+   "npcId": "2400615",
+   "npc": "Black Claw Manduri Scout",
+   "petId": "1104",
+   "pet": "Manduri Trebuchet Worker",
+   "itemId": "534660105",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400615"
+   ]
+  },
+  {
+   "npcId": "2400919",
+   "npc": "Biruta Herbalist",
+   "petId": "1105",
+   "pet": "Biruta Herbalist",
+   "itemId": "534660106",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400919"
+   ]
+  },
+  {
+   "npcId": "2400564",
+   "npc": "Search Party Tayga",
+   "petId": "1106",
+   "pet": "Tayga",
+   "itemId": "534660107",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400564"
+   ]
+  },
+  {
+   "npcId": "2400583",
+   "npc": "Guard Troopers Tayga",
+   "petId": "1106",
+   "pet": "Tayga",
+   "itemId": "534660107",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400583"
+   ]
+  },
+  {
+   "npcId": "2400611",
+   "npc": "Tamed Tayga",
+   "petId": "1106",
+   "pet": "Tayga",
+   "itemId": "534660107",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400611"
+   ]
+  },
+  {
+   "npcId": "2100097",
+   "npc": "Enhanced Krall Combatant",
+   "petId": "1108",
+   "pet": "Enhanced Krall Combatant",
+   "itemId": "534660109",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100097"
+   ]
+  },
+  {
+   "npcId": "2100072",
+   "npc": "Enhanced Krall Sentry",
+   "petId": "1109",
+   "pet": "Enhanced Krall Sentry",
+   "itemId": "534660110",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100072"
+   ]
+  },
+  {
+   "npcId": "2100454",
+   "npc": "Splendent Kalgolem",
+   "petId": "1110",
+   "pet": "Blue Kalgolem",
+   "itemId": "534660111",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100454"
+   ]
+  },
+  {
+   "npcId": "2400471",
+   "npc": "Blue Kalgolem",
+   "petId": "1110",
+   "pet": "Blue Kalgolem",
+   "itemId": "534660111",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400471"
+   ]
+  },
+  {
+   "npcId": "2100283",
+   "npc": "White Shell Octaside",
+   "petId": "1114",
+   "pet": "Ashen Spider",
+   "itemId": "534660019",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100283"
+   ]
+  },
+  {
+   "npcId": "2400230",
+   "npc": "Ashen Spider",
+   "petId": "1114",
+   "pet": "Ashen Spider",
+   "itemId": "534660019",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400230"
+   ]
+  },
+  {
+   "npcId": "2101139",
+   "npc": "Eternal Kuru Overseer",
+   "petId": "1115",
+   "pet": "Kuru Overseer",
+   "itemId": "534660077",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101139"
+   ]
+  },
+  {
+   "npcId": "2400833",
+   "npc": "Kuru Overseer",
+   "petId": "1115",
+   "pet": "Kuru Overseer",
+   "itemId": "534660077",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400833"
+   ]
+  },
+  {
+   "npcId": "2000956",
+   "npc": "Withered Branch Spider",
+   "petId": "1116",
+   "pet": "Withered Branch Spider",
+   "itemId": "534660023",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000956"
+   ]
+  },
+  {
+   "npcId": "2000957",
+   "npc": "Withered Branch Spider",
+   "petId": "1116",
+   "pet": "Withered Branch Spider",
+   "itemId": "534660023",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000957"
+   ]
+  },
+  {
+   "npcId": "2400902",
+   "npc": "Withered Branch Spider",
+   "petId": "1116",
+   "pet": "Withered Branch Spider",
+   "itemId": "534660023",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400902"
+   ]
+  },
+  {
+   "npcId": "2400933",
+   "npc": "Withered Branch Spider",
+   "petId": "1116",
+   "pet": "Withered Branch Spider",
+   "itemId": "534660023",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400933"
+   ]
+  },
+  {
+   "npcId": "2400939",
+   "npc": "Withered Branch Spider",
+   "petId": "1116",
+   "pet": "Withered Branch Spider",
+   "itemId": "534660023",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400939"
+   ]
+  },
+  {
+   "npcId": "2400946",
+   "npc": "Withered Branch Spider",
+   "petId": "1116",
+   "pet": "Withered Branch Spider",
+   "itemId": "534660023",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400946"
+   ]
+  },
+  {
+   "npcId": "2400948",
+   "npc": "Withered Branch Spider",
+   "petId": "1116",
+   "pet": "Withered Branch Spider",
+   "itemId": "534660023",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400948"
+   ]
+  },
+  {
+   "npcId": "2101023",
+   "npc": "Aullaeu Forest Odyle Spider",
+   "petId": "1117",
+   "pet": "Unstable Spider",
+   "itemId": "534660086",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101023"
+   ]
+  },
+  {
+   "npcId": "2110509",
+   "npc": "Crimson Spider",
+   "petId": "1117",
+   "pet": "Unstable Spider",
+   "itemId": "534660086",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110509"
+   ]
+  },
+  {
+   "npcId": "2400319",
+   "npc": "Flame Rock Spider",
+   "petId": "1117",
+   "pet": "Unstable Spider",
+   "itemId": "534660086",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400319"
+   ]
+  },
+  {
+   "npcId": "2400745",
+   "npc": "Unstable Poison Blood Spider",
+   "petId": "1117",
+   "pet": "Unstable Spider",
+   "itemId": "534660086",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400745"
+   ]
+  },
+  {
+   "npcId": "2000955",
+   "npc": "Black Armor Bee",
+   "petId": "1118",
+   "pet": "Aberrant Bee",
+   "itemId": "534660152",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000955"
+   ]
+  },
+  {
+   "npcId": "2100286",
+   "npc": "Black Pattern Bee",
+   "petId": "1118",
+   "pet": "Aberrant Bee",
+   "itemId": "534660152",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100286"
+   ]
+  },
+  {
+   "npcId": "2100550",
+   "npc": "Stripe Bee",
+   "petId": "1118",
+   "pet": "Aberrant Bee",
+   "itemId": "534660152",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100550"
+   ]
+  },
+  {
+   "npcId": "2400900",
+   "npc": "Black Armor Bee",
+   "petId": "1118",
+   "pet": "Aberrant Bee",
+   "itemId": "534660152",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400900"
+   ]
+  },
+  {
+   "npcId": "2400930",
+   "npc": "Black Armor Bee",
+   "petId": "1118",
+   "pet": "Aberrant Bee",
+   "itemId": "534660152",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400930"
+   ]
+  },
+  {
+   "npcId": "2000952",
+   "npc": "Aberrant Coradon",
+   "petId": "1119",
+   "pet": "Aberrant Coradon",
+   "itemId": "534660153",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000952"
+   ]
+  },
+  {
+   "npcId": "2100699",
+   "npc": "Garden Coradon",
+   "petId": "1119",
+   "pet": "Aberrant Coradon",
+   "itemId": "534660153",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100699"
+   ]
+  },
+  {
+   "npcId": "2100821",
+   "npc": "Hill Coradon",
+   "petId": "1119",
+   "pet": "Aberrant Coradon",
+   "itemId": "534660153",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100821"
+   ]
+  },
+  {
+   "npcId": "2100828",
+   "npc": "Hill Coradon",
+   "petId": "1119",
+   "pet": "Aberrant Coradon",
+   "itemId": "534660153",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100828"
+   ]
+  },
+  {
+   "npcId": "2400907",
+   "npc": "Aberrant Coradon",
+   "petId": "1119",
+   "pet": "Aberrant Coradon",
+   "itemId": "534660153",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400907"
+   ]
+  },
+  {
+   "npcId": "2101022",
+   "npc": "Ellun River Young Kailin",
+   "petId": "1120",
+   "pet": "Young Kailin",
+   "itemId": "534660154",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101022"
+   ]
+  },
+  {
+   "npcId": "2400737",
+   "npc": "Unstable Young Kailin",
+   "petId": "1120",
+   "pet": "Young Kailin",
+   "itemId": "534660154",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400737"
+   ]
+  },
+  {
+   "npcId": "2400906",
+   "npc": "Young Kailin",
+   "petId": "1120",
+   "pet": "Young Kailin",
+   "itemId": "534660154",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400906"
+   ]
+  },
+  {
+   "npcId": "2400935",
+   "npc": "Young Kailin",
+   "petId": "1120",
+   "pet": "Young Kailin",
+   "itemId": "534660154",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400935"
+   ]
+  },
+  {
+   "npcId": "2100189",
+   "npc": "Young Wetland Slink",
+   "petId": "1121",
+   "pet": "Young Slink",
+   "itemId": "534660155",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100189"
+   ]
+  },
+  {
+   "npcId": "2100473",
+   "npc": "Tolbas Young Slink",
+   "petId": "1121",
+   "pet": "Young Slink",
+   "itemId": "534660155",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100473"
+   ]
+  },
+  {
+   "npcId": "2400910",
+   "npc": "Young Slink",
+   "petId": "1121",
+   "pet": "Young Slink",
+   "itemId": "534660155",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400910"
+   ]
+  },
+  {
+   "npcId": "2400950",
+   "npc": "Young Slink",
+   "petId": "1121",
+   "pet": "Young Slink",
+   "itemId": "534660155",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400950"
+   ]
+  },
+  {
+   "npcId": "2100173",
+   "npc": "Baby Horn Ursus",
+   "petId": "1123",
+   "pet": "Young Ursus",
+   "itemId": "534660157",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100173"
+   ]
+  },
+  {
+   "npcId": "2100818",
+   "npc": "Hill Young Ursus",
+   "petId": "1123",
+   "pet": "Young Ursus",
+   "itemId": "534660157",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100818"
+   ]
+  },
+  {
+   "npcId": "2400377",
+   "npc": "Young Ursus",
+   "petId": "1123",
+   "pet": "Young Ursus",
+   "itemId": "534660157",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400377"
+   ]
+  },
+  {
+   "npcId": "2400917",
+   "npc": "Young Ursus",
+   "petId": "1123",
+   "pet": "Young Ursus",
+   "itemId": "534660157",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400917"
+   ]
+  },
+  {
+   "npcId": "2100573",
+   "npc": "Rock Hill Zaif",
+   "petId": "1124",
+   "pet": "Zaif",
+   "itemId": "534660121",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100573"
+   ]
+  },
+  {
+   "npcId": "2100748",
+   "npc": "Highland Forest Zaif",
+   "petId": "1124",
+   "pet": "Zaif",
+   "itemId": "534660121",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100748"
+   ]
+  },
+  {
+   "npcId": "2100797",
+   "npc": "Highland Zaif",
+   "petId": "1124",
+   "pet": "Zaif",
+   "itemId": "534660121",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100797"
+   ]
+  },
+  {
+   "npcId": "2100813",
+   "npc": "Hill Zaif",
+   "petId": "1124",
+   "pet": "Zaif",
+   "itemId": "534660121",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100813"
+   ]
+  },
+  {
+   "npcId": "2100558",
+   "npc": "Yellow-Maned Zaif",
+   "petId": "1125",
+   "pet": "Aberrant Zaif",
+   "itemId": "534660159",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100558"
+   ]
+  },
+  {
+   "npcId": "2400578",
+   "npc": "Golden Zaif",
+   "petId": "1125",
+   "pet": "Aberrant Zaif",
+   "itemId": "534660159",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400578"
+   ]
+  },
+  {
+   "npcId": "2100006",
+   "npc": "Cairn Tog",
+   "petId": "1126",
+   "pet": "Aberrant Tog",
+   "itemId": "534660160",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100006"
+   ]
+  },
+  {
+   "npcId": "2100145",
+   "npc": "Hungry Tog",
+   "petId": "1126",
+   "pet": "Aberrant Tog",
+   "itemId": "534660160",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100145"
+   ]
+  },
+  {
+   "npcId": "2100288",
+   "npc": "Field Tog",
+   "petId": "1126",
+   "pet": "Aberrant Tog",
+   "itemId": "534660160",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100288"
+   ]
+  },
+  {
+   "npcId": "2100793",
+   "npc": "Wild Stripe Tog",
+   "petId": "1126",
+   "pet": "Aberrant Tog",
+   "itemId": "534660160",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100793"
+   ]
+  },
+  {
+   "npcId": "2100819",
+   "npc": "Hill Tog",
+   "petId": "1126",
+   "pet": "Aberrant Tog",
+   "itemId": "534660160",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100819"
+   ]
+  },
+  {
+   "npcId": "2400936",
+   "npc": "Aberrant Tog",
+   "petId": "1126",
+   "pet": "Aberrant Tog",
+   "itemId": "534660160",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400936"
+   ]
+  },
+  {
+   "npcId": "2400734",
+   "npc": "Faded Odyle Spirit",
+   "petId": "1127",
+   "pet": "Odyle Stone Spirit",
+   "itemId": "534660161",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400734"
+   ]
+  },
+  {
+   "npcId": "2400015",
+   "npc": "Drana Slime",
+   "petId": "1128",
+   "pet": "Drana Slime",
+   "itemId": "534660162",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400015"
+   ]
+  },
+  {
+   "npcId": "2110501",
+   "npc": "Crimson Drana Swarm",
+   "petId": "1129",
+   "pet": "Drana Swarm",
+   "itemId": "534660163",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110501"
+   ]
+  },
+  {
+   "npcId": "2100554",
+   "npc": "Ridge Spider",
+   "petId": "1130",
+   "pet": "Mutated Cadaver Insectoid",
+   "itemId": "534660164",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100554"
+   ]
+  },
+  {
+   "npcId": "2110502",
+   "npc": "Crimson Mutated Spore",
+   "petId": "1131",
+   "pet": "Drana Spore",
+   "itemId": "534660165",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110502"
+   ]
+  },
+  {
+   "npcId": "2400941",
+   "npc": "Eternal Coradon",
+   "petId": "1134",
+   "pet": "Eternal Coradon",
+   "itemId": "534660168",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400941"
+   ]
+  },
+  {
+   "npcId": "2400248",
+   "npc": "Ashen Dionae",
+   "petId": "1135",
+   "pet": "Ashen Dionae",
+   "itemId": "534660169",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400248"
+   ]
+  },
+  {
+   "npcId": "2000925",
+   "npc": "Rafflesia",
+   "petId": "1136",
+   "pet": "Rafflesia",
+   "itemId": "534660170",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000925"
+   ]
+  },
+  {
+   "npcId": "2110513",
+   "npc": "Crimson Rafflesia",
+   "petId": "1136",
+   "pet": "Rafflesia",
+   "itemId": "534660170",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110513"
+   ]
+  },
+  {
+   "npcId": "2400056",
+   "npc": "Rafflesia",
+   "petId": "1136",
+   "pet": "Rafflesia",
+   "itemId": "534660170",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400056"
+   ]
+  },
+  {
+   "npcId": "2400735",
+   "npc": "Unstable Rafflesia",
+   "petId": "1136",
+   "pet": "Rafflesia",
+   "itemId": "534660170",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400735"
+   ]
+  },
+  {
+   "npcId": "2400813",
+   "npc": "Rafflesia",
+   "petId": "1136",
+   "pet": "Rafflesia",
+   "itemId": "534660170",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400813"
+   ]
+  },
+  {
+   "npcId": "2400949",
+   "npc": "Rafflesia",
+   "petId": "1136",
+   "pet": "Rafflesia",
+   "itemId": "534660170",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400949"
+   ]
+  },
+  {
+   "npcId": "2400351",
+   "npc": "Mumu Worker",
+   "petId": "1137",
+   "pet": "Mumu Worker",
+   "itemId": "534660171",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400351"
+   ]
+  },
+  {
+   "npcId": "2400390",
+   "npc": "Escaped Mumu Worker",
+   "petId": "1137",
+   "pet": "Mumu Worker",
+   "itemId": "534660171",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400390"
+   ]
+  },
+  {
+   "npcId": "2100350",
+   "npc": "Tolbas Forest Targon",
+   "petId": "1140",
+   "pet": "Forest Monster",
+   "itemId": "534660114",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100350"
+   ]
+  },
+  {
+   "npcId": "2400225",
+   "npc": "Burned Forester",
+   "petId": "1140",
+   "pet": "Forest Monster",
+   "itemId": "534660114",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400225"
+   ]
+  },
+  {
+   "npcId": "2100021",
+   "npc": "Marsh Targon",
+   "petId": "1141",
+   "pet": "Marsh Targon",
+   "itemId": "534660175",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100021"
+   ]
+  },
+  {
+   "npcId": "2400312",
+   "npc": "Consumed Spirit Guardian",
+   "petId": "1142",
+   "pet": "Distorted Mutant",
+   "itemId": "534660176",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400312"
+   ]
+  },
+  {
+   "npcId": "2400217",
+   "npc": "Ashen Ursus",
+   "petId": "1143",
+   "pet": "Mutated Ursus",
+   "itemId": "534660177",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400217"
+   ]
+  },
+  {
+   "npcId": "2400214",
+   "npc": "Mutated Forest Guardian",
+   "petId": "1144",
+   "pet": "Mutated Forest Guardian",
+   "itemId": "534660178",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400214"
+   ]
+  },
+  {
+   "npcId": "2400751",
+   "npc": "Unstable Forest Guardian",
+   "petId": "1144",
+   "pet": "Mutated Forest Guardian",
+   "itemId": "534660178",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400751"
+   ]
+  },
+  {
+   "npcId": "2100901",
+   "npc": "Scarlet Forest Dratona",
+   "petId": "1147",
+   "pet": "Dratona",
+   "itemId": "534660135",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100901"
+   ]
+  },
+  {
+   "npcId": "2400116",
+   "npc": "Dratona Tinkerer",
+   "petId": "1147",
+   "pet": "Dratona",
+   "itemId": "534660135",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400116"
+   ]
+  },
+  {
+   "npcId": "2400161",
+   "npc": "Dratona Supporter",
+   "petId": "1147",
+   "pet": "Dratona",
+   "itemId": "534660135",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400161"
+   ]
+  },
+  {
+   "npcId": "2400380",
+   "npc": "Dratona",
+   "petId": "1147",
+   "pet": "Dratona",
+   "itemId": "534660135",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400380"
+   ]
+  },
+  {
+   "npcId": "2400014",
+   "npc": "Crash Site Kalgolem",
+   "petId": "1148",
+   "pet": "Drakana Kalgolem",
+   "itemId": "534660182",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400014"
+   ]
+  },
+  {
+   "npcId": "2101135",
+   "npc": "Eternal Drana Mutant",
+   "petId": "1153",
+   "pet": "Drana Mutant Brute",
+   "itemId": "534660116",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101135"
+   ]
+  },
+  {
+   "npcId": "2110503",
+   "npc": "Crimson Drana Mutant",
+   "petId": "1153",
+   "pet": "Drana Mutant Brute",
+   "itemId": "534660116",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110503"
+   ]
+  },
+  {
+   "npcId": "2400834",
+   "npc": "Drana Mutant",
+   "petId": "1153",
+   "pet": "Drana Mutant Brute",
+   "itemId": "534660116",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400834"
+   ]
+  },
+  {
+   "npcId": "2400476",
+   "npc": "Faded Mutant Brute",
+   "petId": "1154",
+   "pet": "Faded Mutant Brute",
+   "itemId": "534660205",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400476"
+   ]
+  },
+  {
+   "npcId": "2100665",
+   "npc": "Torrent Spirit",
+   "petId": "1155",
+   "pet": "Superior Water Spirit",
+   "itemId": "534660124",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100665"
+   ]
+  },
+  {
+   "npcId": "2400306",
+   "npc": "Water Mist Spirit",
+   "petId": "1155",
+   "pet": "Superior Water Spirit",
+   "itemId": "534660124",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400306"
+   ]
+  },
+  {
+   "npcId": "2400739",
+   "npc": "Unstable Superior Water Spirit",
+   "petId": "1155",
+   "pet": "Superior Water Spirit",
+   "itemId": "534660124",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400739"
+   ]
+  },
+  {
+   "npcId": "2400816",
+   "npc": "Immortal Water Spirit Guardian",
+   "petId": "1155",
+   "pet": "Superior Water Spirit",
+   "itemId": "534660124",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400816"
+   ]
+  },
+  {
+   "npcId": "2100079",
+   "npc": "Bodyguard Teegant",
+   "petId": "1156",
+   "pet": "Elite Klaw",
+   "itemId": "534660194",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100079"
+   ]
+  },
+  {
+   "npcId": "2400275",
+   "npc": "Ruins Corpse Cleaner",
+   "petId": "1157",
+   "pet": "Cadaver Cleaner",
+   "itemId": "534660191",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400275"
+   ]
+  },
+  {
+   "npcId": "2400412",
+   "npc": "Ferocious Cadaver Cleaner",
+   "petId": "1157",
+   "pet": "Cadaver Cleaner",
+   "itemId": "534660191",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400412"
+   ]
+  },
+  {
+   "npcId": "2400418",
+   "npc": "Ferocious Cadaver Cleaner",
+   "petId": "1157",
+   "pet": "Cadaver Cleaner",
+   "itemId": "534660191",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400418"
+   ]
+  },
+  {
+   "npcId": "2400473",
+   "npc": "Giant Ore Insectoid Adult",
+   "petId": "1159",
+   "pet": "Parasite Swarm",
+   "itemId": "534660112",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400473"
+   ]
+  },
+  {
+   "npcId": "2400479",
+   "npc": "Faded Floater",
+   "petId": "1161",
+   "pet": "Faded Floater",
+   "itemId": "534660206",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400479"
+   ]
+  },
+  {
+   "npcId": "2101075",
+   "npc": "Eternal Kerubar",
+   "petId": "1162",
+   "pet": "Kerubar",
+   "itemId": "534660144",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101075"
+   ]
+  },
+  {
+   "npcId": "2101079",
+   "npc": "Eternal Kerubar",
+   "petId": "1162",
+   "pet": "Kerubar",
+   "itemId": "534660144",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101079"
+   ]
+  },
+  {
+   "npcId": "2400801",
+   "npc": "Kerubar",
+   "petId": "1162",
+   "pet": "Kerubar",
+   "itemId": "534660144",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400801"
+   ]
+  },
+  {
+   "npcId": "2400240",
+   "npc": "Black Ash Basilisk",
+   "petId": "1163",
+   "pet": "Basilisk",
+   "itemId": "534660136",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400240"
+   ]
+  },
+  {
+   "npcId": "2101089",
+   "npc": "Eternal Earth Spirit",
+   "petId": "1164",
+   "pet": "Lesser Earth Spirit",
+   "itemId": "534660125",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101089"
+   ]
+  },
+  {
+   "npcId": "2100653",
+   "npc": "Wandering Earth Spirit",
+   "petId": "1165",
+   "pet": "Intermediate Earth Spirit",
+   "itemId": "534660126",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100653"
+   ]
+  },
+  {
+   "npcId": "2101102",
+   "npc": "Violent Earth Spirit",
+   "petId": "1165",
+   "pet": "Intermediate Earth Spirit",
+   "itemId": "534660126",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101102"
+   ]
+  },
+  {
+   "npcId": "2400823",
+   "npc": "Immortal Earth Spirit",
+   "petId": "1165",
+   "pet": "Intermediate Earth Spirit",
+   "itemId": "534660126",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400823"
+   ]
+  },
+  {
+   "npcId": "2100667",
+   "npc": "Peculiar Rock Spirit",
+   "petId": "1166",
+   "pet": "Superior Earth Spirit",
+   "itemId": "534660127",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100667"
+   ]
+  },
+  {
+   "npcId": "2400310",
+   "npc": "Corroded Soil Spirit",
+   "petId": "1166",
+   "pet": "Superior Earth Spirit",
+   "itemId": "534660127",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400310"
+   ]
+  },
+  {
+   "npcId": "2400817",
+   "npc": "Immortal Earth Spirit Guardian",
+   "petId": "1166",
+   "pet": "Superior Earth Spirit",
+   "itemId": "534660127",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400817"
+   ]
+  },
+  {
+   "npcId": "2100231",
+   "npc": "Water Spirit",
+   "petId": "1168",
+   "pet": "Lesser Water Spirit",
+   "itemId": "534660122",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100231"
+   ]
+  },
+  {
+   "npcId": "2101088",
+   "npc": "Eternal Water Spirit",
+   "petId": "1168",
+   "pet": "Lesser Water Spirit",
+   "itemId": "534660122",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101088"
+   ]
+  },
+  {
+   "npcId": "2100657",
+   "npc": "Wandering Water Spirit",
+   "petId": "1169",
+   "pet": "Intermediate Water Spirit",
+   "itemId": "534660123",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100657"
+   ]
+  },
+  {
+   "npcId": "2101101",
+   "npc": "Violent Water Spirit",
+   "petId": "1169",
+   "pet": "Intermediate Water Spirit",
+   "itemId": "534660123",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101101"
+   ]
+  },
+  {
+   "npcId": "2400738",
+   "npc": "Unstable Intermediate Water Spirit",
+   "petId": "1169",
+   "pet": "Intermediate Water Spirit",
+   "itemId": "534660123",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400738"
+   ]
+  },
+  {
+   "npcId": "2400822",
+   "npc": "Immortal Water Spirit",
+   "petId": "1169",
+   "pet": "Intermediate Water Spirit",
+   "itemId": "534660123",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400822"
+   ]
+  },
+  {
+   "npcId": "2101076",
+   "npc": "Eternal Kerubian",
+   "petId": "1170",
+   "pet": "Kerubian",
+   "itemId": "534660145",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101076"
+   ]
+  },
+  {
+   "npcId": "2101080",
+   "npc": "Eternal Kerubian",
+   "petId": "1170",
+   "pet": "Kerubian",
+   "itemId": "534660145",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101080"
+   ]
+  },
+  {
+   "npcId": "2400802",
+   "npc": "Kerubian",
+   "petId": "1170",
+   "pet": "Kerubian",
+   "itemId": "534660145",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400802"
+   ]
+  },
+  {
+   "npcId": "2101077",
+   "npc": "Eternal Kerubiel",
+   "petId": "1171",
+   "pet": "Kerubiel",
+   "itemId": "534660212",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101077"
+   ]
+  },
+  {
+   "npcId": "2400803",
+   "npc": "Kerubiel",
+   "petId": "1171",
+   "pet": "Kerubiel",
+   "itemId": "534660212",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400803"
+   ]
+  },
+  {
+   "npcId": "2400612",
+   "npc": "Duduka Worker",
+   "petId": "1172",
+   "pet": "Duduka Worker",
+   "itemId": "534660139",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400612"
+   ]
+  },
+  {
+   "npcId": "2400613",
+   "npc": "Duduka Slinger",
+   "petId": "1173",
+   "pet": "Duduka Trebuchet Worker",
+   "itemId": "534660140",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400613"
+   ]
+  },
+  {
+   "npcId": "2110505",
+   "npc": "Crimson Drana Predator",
+   "petId": "1174",
+   "pet": "Drana Predator",
+   "itemId": "534660202",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110505"
+   ]
+  },
+  {
+   "npcId": "2400010",
+   "npc": "Drana Predator",
+   "petId": "1174",
+   "pet": "Drana Predator",
+   "itemId": "534660202",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400010"
+   ]
+  },
+  {
+   "npcId": "2400480",
+   "npc": "Faded Predator",
+   "petId": "1175",
+   "pet": "Faded Predator",
+   "itemId": "534660203",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400480"
+   ]
+  },
+  {
+   "npcId": "2400481",
+   "npc": "Addicted Mudthorn",
+   "petId": "1176",
+   "pet": "Mudthorn",
+   "itemId": "534660216",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400481"
+   ]
+  },
+  {
+   "npcId": "2400707",
+   "npc": "Remnant of Subspace",
+   "petId": "1176",
+   "pet": "Mudthorn",
+   "itemId": "534660216",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400707"
+   ]
+  },
+  {
+   "npcId": "2400001",
+   "npc": "Twisted Mutant",
+   "petId": "1179",
+   "pet": "Drana Mutant",
+   "itemId": "534660207",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400001"
+   ]
+  },
+  {
+   "npcId": "2400477",
+   "npc": "Faded Mutant",
+   "petId": "1180",
+   "pet": "Faded Mutant",
+   "itemId": "534660204",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400477"
+   ]
+  },
+  {
+   "npcId": "2000954",
+   "npc": "Brax",
+   "petId": "1181",
+   "pet": "Brax",
+   "itemId": "534660200",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2000954"
+   ]
+  },
+  {
+   "npcId": "2100217",
+   "npc": "Field Brax",
+   "petId": "1181",
+   "pet": "Brax",
+   "itemId": "534660200",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100217"
+   ]
+  },
+  {
+   "npcId": "2100303",
+   "npc": "Hungry Brax",
+   "petId": "1181",
+   "pet": "Brax",
+   "itemId": "534660200",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100303"
+   ]
+  },
+  {
+   "npcId": "2100740",
+   "npc": "Docile Highland Brax",
+   "petId": "1181",
+   "pet": "Brax",
+   "itemId": "534660200",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100740"
+   ]
+  },
+  {
+   "npcId": "2400375",
+   "npc": "Brax",
+   "petId": "1181",
+   "pet": "Brax",
+   "itemId": "534660200",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400375"
+   ]
+  },
+  {
+   "npcId": "2400914",
+   "npc": "Brax",
+   "petId": "1181",
+   "pet": "Brax",
+   "itemId": "534660200",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400914"
+   ]
+  },
+  {
+   "npcId": "2400413",
+   "npc": "Soulless Corpse Gnat",
+   "petId": "1183",
+   "pet": "Soulless Corpse Gnat",
+   "itemId": "534660224",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400413"
+   ]
+  },
+  {
+   "npcId": "2100872",
+   "npc": "Processing Facility Drakan Scout",
+   "petId": "1184",
+   "pet": "Drakan Watcher",
+   "itemId": "534660142",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100872"
+   ]
+  },
+  {
+   "npcId": "2400384",
+   "npc": "Drakan Manager",
+   "petId": "1184",
+   "pet": "Drakan Watcher",
+   "itemId": "534660142",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400384"
+   ]
+  },
+  {
+   "npcId": "2400591",
+   "npc": "Drakan Patrol Watcher",
+   "petId": "1184",
+   "pet": "Drakan Watcher",
+   "itemId": "534660142",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400591"
+   ]
+  },
+  {
+   "npcId": "2400311",
+   "npc": "Cursed Poison Blood",
+   "petId": "1186",
+   "pet": "Poison Blood",
+   "itemId": "534660188",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400311"
+   ]
+  },
+  {
+   "npcId": "2400743",
+   "npc": "Unstable Poison Blood",
+   "petId": "1186",
+   "pet": "Poison Blood",
+   "itemId": "534660188",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400743"
+   ]
+  },
+  {
+   "npcId": "2101100",
+   "npc": "Violent Fire Spirit",
+   "petId": "1187",
+   "pet": "Intermediate Fire Spirit",
+   "itemId": "534660129",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101100"
+   ]
+  },
+  {
+   "npcId": "2400748",
+   "npc": "Unstable Intermediate Fire Spirit",
+   "petId": "1187",
+   "pet": "Intermediate Fire Spirit",
+   "itemId": "534660129",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400748"
+   ]
+  },
+  {
+   "npcId": "2400821",
+   "npc": "Immortal Fire Spirit",
+   "petId": "1187",
+   "pet": "Intermediate Fire Spirit",
+   "itemId": "534660129",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400821"
+   ]
+  },
+  {
+   "npcId": "2100583",
+   "npc": "Highland Vivel",
+   "petId": "1188",
+   "pet": "Vivel",
+   "itemId": "534660134",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100583"
+   ]
+  },
+  {
+   "npcId": "2400057",
+   "npc": "Vampire Vivel",
+   "petId": "1188",
+   "pet": "Vivel",
+   "itemId": "534660134",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400057"
+   ]
+  },
+  {
+   "npcId": "2100566",
+   "npc": "Marauders Zaif",
+   "petId": "1189",
+   "pet": "Tamed Zaif",
+   "itemId": "534660226",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100566"
+   ]
+  },
+  {
+   "npcId": "2300310",
+   "npc": "Silver Blade Rotan",
+   "petId": "1192",
+   "pet": "Silver Blade Rotan",
+   "itemId": "534660130",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2300310"
+   ]
+  },
+  {
+   "npcId": "2310310",
+   "npc": "Silver Blade Rotan",
+   "petId": "1192",
+   "pet": "Silver Blade Rotan",
+   "itemId": "534660130",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2310310"
+   ]
+  },
+  {
+   "npcId": "2320310",
+   "npc": "Silver Blade Rotan",
+   "petId": "1192",
+   "pet": "Silver Blade Rotan",
+   "itemId": "534660130",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2320310"
+   ]
+  },
+  {
+   "npcId": "2400455",
+   "npc": "Rampaging Shulak Cart Worker",
+   "petId": "1193",
+   "pet": "Addicted Shulak Cart Worker",
+   "itemId": "534660209",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400455"
+   ]
+  },
+  {
+   "npcId": "2100712",
+   "npc": "Uncontrollable Guardite",
+   "petId": "1194",
+   "pet": "Guardite",
+   "itemId": "534660141",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100712"
+   ]
+  },
+  {
+   "npcId": "2100867",
+   "npc": "Dracuni Processing Laborer",
+   "petId": "1195",
+   "pet": "Dracuni Herbalist",
+   "itemId": "534660143",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100867"
+   ]
+  },
+  {
+   "npcId": "2400746",
+   "npc": "Poison Blood Gatherer",
+   "petId": "1195",
+   "pet": "Dracuni Herbalist",
+   "itemId": "534660143",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400746"
+   ]
+  },
+  {
+   "npcId": "2406035",
+   "npc": "Predator Colossus Balakh",
+   "petId": "1196",
+   "pet": "Elite Dratona",
+   "itemId": "534660193",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2406035"
+   ]
+  },
+  {
+   "npcId": "2100716",
+   "npc": "Contaminated Guardite",
+   "petId": "1197",
+   "pet": "Watcher Guardite",
+   "itemId": "534660211",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100716"
+   ]
+  },
+  {
+   "npcId": "2100815",
+   "npc": "Lupyllini Test Subject",
+   "petId": "1201",
+   "pet": "Modified Lupyllini",
+   "itemId": "534660201",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100815"
+   ]
+  },
+  {
+   "npcId": "2101086",
+   "npc": "Eternal Lupyllini",
+   "petId": "1201",
+   "pet": "Modified Lupyllini",
+   "itemId": "534660201",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101086"
+   ]
+  },
+  {
+   "npcId": "2400814",
+   "npc": "Modified Lupyllini",
+   "petId": "1201",
+   "pet": "Modified Lupyllini",
+   "itemId": "534660201",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400814"
+   ]
+  },
+  {
+   "npcId": "2100747",
+   "npc": "Contaminated Highland Lupyllini",
+   "petId": "1202",
+   "pet": "Decomposed Lupyllini",
+   "itemId": "534660214",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100747"
+   ]
+  },
+  {
+   "npcId": "2400004",
+   "npc": "Decomposed Lupyllini",
+   "petId": "1202",
+   "pet": "Decomposed Lupyllini",
+   "itemId": "534660214",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400004"
+   ]
+  },
+  {
+   "npcId": "2400378",
+   "npc": "Decomposed Lupyllini",
+   "petId": "1202",
+   "pet": "Decomposed Lupyllini",
+   "itemId": "534660214",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400378"
+   ]
+  },
+  {
+   "npcId": "2400391",
+   "npc": "Ferocious Lupyllini",
+   "petId": "1202",
+   "pet": "Decomposed Lupyllini",
+   "itemId": "534660214",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400391"
+   ]
+  },
+  {
+   "npcId": "2400911",
+   "npc": "Decomposed Lupyllini",
+   "petId": "1202",
+   "pet": "Decomposed Lupyllini",
+   "itemId": "534660214",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400911"
+   ]
+  },
+  {
+   "npcId": "2400257",
+   "npc": "Blades Karnif",
+   "petId": "1203",
+   "pet": "Tamed Karnif",
+   "itemId": "534660219",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400257"
+   ]
+  },
+  {
+   "npcId": "2400503",
+   "npc": "Tamed Blades Beast",
+   "petId": "1203",
+   "pet": "Tamed Karnif",
+   "itemId": "534660219",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400503"
+   ]
+  },
+  {
+   "npcId": "2100718",
+   "npc": "Divine Ansas",
+   "petId": "1206",
+   "pet": "Elite Guardite",
+   "itemId": "534660210",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100718"
+   ]
+  },
+  {
+   "npcId": "2100143",
+   "npc": "Decaying Agrint",
+   "petId": "1207",
+   "pet": "Agrint",
+   "itemId": "534660199",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100143"
+   ]
+  },
+  {
+   "npcId": "2100698",
+   "npc": "Old Agrint",
+   "petId": "1207",
+   "pet": "Agrint",
+   "itemId": "534660199",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100698"
+   ]
+  },
+  {
+   "npcId": "2100714",
+   "npc": "Contaminated Agrint",
+   "petId": "1207",
+   "pet": "Agrint",
+   "itemId": "534660199",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100714"
+   ]
+  },
+  {
+   "npcId": "2101099",
+   "npc": "Eternal Agrint",
+   "petId": "1207",
+   "pet": "Agrint",
+   "itemId": "534660199",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101099"
+   ]
+  },
+  {
+   "npcId": "2400221",
+   "npc": "Mutated Elim",
+   "petId": "1207",
+   "pet": "Agrint",
+   "itemId": "534660199",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400221"
+   ]
+  },
+  {
+   "npcId": "2400415",
+   "npc": "Ruin Agrint",
+   "petId": "1207",
+   "pet": "Agrint",
+   "itemId": "534660199",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400415"
+   ]
+  },
+  {
+   "npcId": "2400825",
+   "npc": "Island Agrint",
+   "petId": "1207",
+   "pet": "Agrint",
+   "itemId": "534660199",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400825"
+   ]
+  },
+  {
+   "npcId": "2400750",
+   "npc": "Unstable Agrint",
+   "petId": "1208",
+   "pet": "Ashen Agrint",
+   "itemId": "534660217",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400750"
+   ]
+  },
+  {
+   "npcId": "2110508",
+   "npc": "Crimson Agrint",
+   "petId": "1209",
+   "pet": "Thin Agrint",
+   "itemId": "534660113",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2110508"
+   ]
+  },
+  {
+   "npcId": "2400054",
+   "npc": "Red Eye Agrint",
+   "petId": "1209",
+   "pet": "Thin Agrint",
+   "itemId": "534660113",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400054"
+   ]
+  },
+  {
+   "npcId": "2100179",
+   "npc": "Forest Agrint",
+   "petId": "1210",
+   "pet": "Dry Leaf Agrint",
+   "itemId": "534660225",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100179"
+   ]
+  },
+  {
+   "npcId": "2101087",
+   "npc": "Eternal Fire Spirit",
+   "petId": "1213",
+   "pet": "Lesser Fire Spirit",
+   "itemId": "534660128",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101087"
+   ]
+  },
+  {
+   "npcId": "2400325",
+   "npc": "Burning Ember Spirit",
+   "petId": "1213",
+   "pet": "Lesser Fire Spirit",
+   "itemId": "534660128",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400325"
+   ]
+  },
+  {
+   "npcId": "2100460",
+   "npc": "Contaminated Spirit",
+   "petId": "1214",
+   "pet": "Black Spirit",
+   "itemId": "534660115",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100460"
+   ]
+  },
+  {
+   "npcId": "2100807",
+   "npc": "Distorted Spirit",
+   "petId": "1214",
+   "pet": "Black Spirit",
+   "itemId": "534660115",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100807"
+   ]
+  },
+  {
+   "npcId": "2400708",
+   "npc": "Black Spirit",
+   "petId": "1214",
+   "pet": "Black Spirit",
+   "itemId": "534660115",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400708"
+   ]
+  },
+  {
+   "npcId": "2300403",
+   "npc": "Predator Saraswati",
+   "petId": "1215",
+   "pet": "Predator Saraswati",
+   "itemId": "534660118",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2300403"
+   ]
+  },
+  {
+   "npcId": "2310403",
+   "npc": "Predator Saraswati",
+   "petId": "1215",
+   "pet": "Predator Saraswati",
+   "itemId": "534660118",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2310403"
+   ]
+  },
+  {
+   "npcId": "2320403",
+   "npc": "Predator Saraswati",
+   "petId": "1215",
+   "pet": "Predator Saraswati",
+   "itemId": "534660118",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2320403"
+   ]
+  },
+  {
+   "npcId": "2100600",
+   "npc": "Corrupted Spirit",
+   "petId": "1216",
+   "pet": "Dark Spirit",
+   "itemId": "534660149",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100600"
+   ]
+  },
+  {
+   "npcId": "2100656",
+   "npc": "Wandering Dark Spirit",
+   "petId": "1216",
+   "pet": "Dark Spirit",
+   "itemId": "534660149",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100656"
+   ]
+  },
+  {
+   "npcId": "2400009",
+   "npc": "Congealed Drana",
+   "petId": "1217",
+   "pet": "Congealed Drana",
+   "itemId": "534660190",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400009"
+   ]
+  },
+  {
+   "npcId": "2400478",
+   "npc": "Faded Chunk",
+   "petId": "1218",
+   "pet": "Faded Drana",
+   "itemId": "534660215",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400478"
+   ]
+  },
+  {
+   "npcId": "2100458",
+   "npc": "Coastal Zelophi",
+   "petId": "1219",
+   "pet": "Zelophi",
+   "itemId": "534660117",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2100458"
+   ]
+  },
+  {
+   "npcId": "2101085",
+   "npc": "Eternal Zelophi",
+   "petId": "1219",
+   "pet": "Zelophi",
+   "itemId": "534660117",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2101085"
+   ]
+  },
+  {
+   "npcId": "2400811",
+   "npc": "Zelophi",
+   "petId": "1219",
+   "pet": "Zelophi",
+   "itemId": "534660117",
+   "chancePercent": [
+    100
+   ],
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2400811"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+﻿<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Soulcrest.App/Soulcrest.App.csproj" />
+    <Project Path="src/Soulcrest.Core/Soulcrest.Core.csproj" />
+    <Project Path="src/Soulcrest.Ocr/Soulcrest.Ocr.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Soulcrest.App.Tests/Soulcrest.App.Tests.csproj" />
+    <Project Path="tests/Soulcrest.Core.Tests/Soulcrest.Core.Tests.csproj" />
+    <Project Path="tests/Soulcrest.Ocr.Tests/Soulcrest.Ocr.Tests.csproj" />
+  </Folder>
+</Solution>

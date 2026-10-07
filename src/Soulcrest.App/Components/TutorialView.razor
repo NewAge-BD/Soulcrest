@@ -1,0 +1,49 @@
+@* First-start tutorial (user request 2026-10-07): left the HUD video (enlarge the minimap in "Edit HUD"),
+   right the minimap marker from the options (the quest log step went to the Questrunner archive). Shown once after a fresh installation; again with "Setup starten"
+   at the top of the options. *@
+@inject SettingsService Settings
+@inject UiState Ui
+@inject IJSRuntime JS
+
+<div class="tutorial-backdrop" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+    <div class="tutorial card">
+        <video @ref="_video" class="tutorial-video" src="media/hud-tutorial.mp4" autoplay loop muted playsinline
+               aria-label="@UiText.T("Im Spiel: Menü, Edit HUD, Minimap größer ziehen, dann die Minimap markieren")"></video>
+        <div class="tutorial-side">
+            <h2 id="tutorial-title">@UiText.T("Willkommen bei Soulcrest")</h2>
+            <p class="sv-lead">@UiText.T("Zwei kurze Schritte, dann findet Soulcrest dich auf der Karte.")</p>
+            <ol class="tutorial-steps">
+                <li>
+                    <b>@UiText.T("Minimap bei Bedarf vergrößern")</b>
+                    <p class="sv-hint">@UiText.T("Im Spiel das Menü öffnen, „Edit HUD“ wählen und die Minimap an der Ecke etwas größer ziehen. Eine größere Minimap macht das Tracking sicherer.")</p>
+                </li>
+                <li>
+                    <b>@UiText.T("Minimap markieren")</b>
+                    <MapRegionPicker />
+                </li>
+            </ol>
+            <div class="row tutorial-actions">
+                <button type="button" class="btn" @onclick="Close">@UiText.T("Überspringen")</button>
+                <button type="button" class="btn primary" @onclick="Close">@UiText.T("Fertig")</button>
+            </div>
+            <p class="sv-hint">@UiText.T("Der Bereich lässt sich später unter Optionen ändern; dort startet „Setup starten“ dieses Setup erneut.")</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ElementReference _video;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JS.InvokeAsync<bool>("soulcrestUi.playMuted", _video);
+    }
+
+    private void Close()
+    {
+        if (!Settings.Current.TutorialDone)
+            Settings.Update(s => s.TutorialDone = true);
+        Ui.CloseTutorial();
+    }
+}

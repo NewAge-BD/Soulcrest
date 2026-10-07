@@ -1,0 +1,458 @@
+@implements IDisposable
+@inject ProgressService Progress
+@inject SettingsService Settings
+@inject UiState Ui
+
+@{
+    var lang = Settings.Current.NameLanguage;
+    var shown = Sorted(Progress.Catalog.Pets.Where(Matches)).ToList();
+    var selected = (_selectedId is null ? null : Progress.Catalog.Find(_selectedId)) ?? shown.FirstOrDefault();
+}
+
+<div class="pets-view">
+    @* Gattungsleiste links, wie im Pet-Fenster des Spiels *@
+    <nav class="pets-rail" aria-label="@UiText.T("Gattung")">
+        <button class="pets-rail-item @(_genus.Length == 0 ? "is-active" : "")" title="@UiText.T("Alle Gattungen")" @onclick="@(() => _genus = "")">
+            <span class="pets-rail-icon pets-rail-all">@UiText.T("Alle")</span>
+            <span class="pets-rail-count">@_unlocked/@_total</span>
+        </button>
+        @foreach (var genus in RailGenera)
+        {
+            var counts = _genusCounts.GetValueOrDefault(genus);
+            var icon = GenusIcon(genus);
+            <button class="pets-rail-item pets-g-@genus @(_genus == genus ? "is-active" : "")" title="@Genus(genus)" @onclick="@(() => _genus = genus)">
+                <span class="pets-rail-icon">
+                    @if (icon is not null)
+                    {
+                        <img src="@icon" alt="" />
+                    }
+                    else
+                    {
+                        <span class="pets-rail-glyph">@(genus == "special" ? "✦" : "?")</span>
+                    }
+                </span>
+                <span class="pets-rail-label">@Genus(genus)</span>
+                <span class="pets-rail-count">@counts.Unlocked/@counts.Total</span>
+            </button>
+        }
+    </nav>
+
+    <section class="pets-main">
+        <header class="pets-head">
+            <h2 class="pets-title">Pets</h2>
+            <div class="pets-stats">
+                <span class="pets-stat" title="@UiText.T("Pets im Katalog")"><b>@_total</b> @UiText.T("Pets im Katalog")</span>
+                <span class="pets-stat" title="@UiText.T("freigeschaltet (Stufe 1+)")"><b>@_unlocked</b> @UiText.T("freigeschaltet (Stufe 1+)")</span>
+                <span class="pets-stat is-max" title="@UiText.F("Stufe {0} (max)", Progress.Thresholds.MaxLevel)"><b>@_done</b> @UiText.F("Stufe {0} (max)", Progress.Thresholds.MaxLevel)</span>
+                <span class="pets-stat is-focus" title="@UiText.T("Fokus-Pets (★, im Overlay)")"><b>@_focusCount</b> @UiText.T("Fokus-Pets (★, im Overlay)")</span>
+            </div>
+        </header>
+
+        <div class="pets-toolbar">
+            <input class="pets-search" type="text" autocomplete="off" spellcheck="false" placeholder="@UiText.T("Pet oder Monster suchen …")" @bind="_query" @bind:event="oninput" />
+            <select @bind="_map" title="@UiText.T("Karte")">
+                <option value="">@UiText.T("Alle Karten")</option>
+                @foreach (var group in Progress.Maps.GroupBy(m => m.Group))
+                {
+                    <optgroup label="@UiText.T(group.Key)">
+                        @foreach (var map in group)
+                        {
+                            <option value="@map.Id">@UiText.T(map.Label)</option>
+                        }
+                    </optgroup>
+                }
+            </select>
+            <select @bind="_status" title="Status">
+                <option value="">@UiText.T("Jeder Status")</option>
+                <option value="missing">@UiText.T("fehlt (0 Souls)")</option>
+                <option value="progress">@UiText.T("in Arbeit")</option>
+                <option value="done">@UiText.T("fertig")</option>
+                <option value="focus">@UiText.T("nur Fokus ★")</option>
+            </select>
+            <select @bind="_sort" title="@UiText.T("Sortierung")">
+                <option value="">@UiText.T("Sortierung: Gattung")</option>
+                <option value="name">@UiText.T("Sortierung: Name")</option>
+                <option value="progress">@UiText.T("Sortierung: meiste Souls")</option>
+                <option value="next">@UiText.T("Sortierung: nächste Stufe zuerst")</option>
+            </select>
+        </div>
+
+        <div class="pets-toolbar pets-toolbar-levels">
+            <div class="seg pets-levels" role="group" aria-label="@UiText.T("Stufe")">
+                <button class="@(_level.Length == 0 ? "on" : "")" @onclick="@(() => _level = "")">@UiText.T("Alle")</button>
+                <button class="@(_level == "0" ? "on" : "")" title="@UiText.T("nicht freigeschaltet")" @onclick="@(() => _level = "0")">@UiText.T("Gesperrt")</button>
+                @for (var l = 1; l < Progress.Thresholds.MaxLevel; l++)
+                {
+                    var value = l.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    <button class="@(_level == value ? "on" : "")" @onclick="@(() => _level = value)">@UiText.F("Stufe {0}", l)</button>
+                }
+                <button class="@(_level == "max" ? "on" : "")" title="@UiText.F("Stufe {0} (max)", Progress.Thresholds.MaxLevel)" @onclick="@(() => _level = "max")">MAX</button>
+            </div>
+            <span class="note">@UiText.F("{0} angezeigt", shown.Count)</span>
+            @if (FiltersActive)
+            {
+                <button class="btn link pets-reset" @onclick="ResetFilters">@UiText.T("Filter zurücksetzen")</button>
+            }
+        </div>
+
+        <div class="pets-scroll">
+            @if (shown.Count == 0)
+            {
+                <div class="pets-empty">
+                    <p>@UiText.T("Keine Pets für diese Filter.")</p>
+                    <button class="btn" @onclick="ResetFilters">@UiText.T("Filter zurücksetzen")</button>
+                </div>
+            }
+            else
+            {
+                <div class="pets-grid">
+                    @foreach (var pet in shown)
+                    {
+                        var souls = Progress.Souls(pet.Id);
+                        var level = Progress.Thresholds.Level(souls);
+                        var inLevel = Progress.Thresholds.SoulsInLevel(souls);
+                        var needed = Progress.Thresholds.NeededForNextLevel(souls);
+                        var isMax = Progress.Thresholds.IsMax(souls);
+                        var focus = Progress.IsFocus(pet.Id);
+                        var name = pet.DisplayName(lang);
+                        var petId = pet.Id;
+                        <div @key="petId"
+                             class="pets-card pets-g-@pet.Genus @StateClass(level, isMax) @(petId == selected?.Id ? "is-selected" : "")"
+                             role="button" tabindex="0"
+                             title="@UiText.F("{0} · {1}\nSpawns: {2}\nQuellmonster: {3}", name, Progress.LevelText(petId), MapCounts(pet.Spawns), MapCounts(pet.Monsters))"
+                             @onclick="@(() => _selectedId = petId)"
+                             @onkeydown="@(e => OnCardKey(e, petId))">
+                            <div class="pets-portrait">
+                                @if (pet.Icon is not null)
+                                {
+                                    <img src="@IconUrl(pet.Icon)" alt="" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <span class="pets-portrait-fallback">@Initial(name)</span>
+                                }
+                            </div>
+                            <button class="pets-card-star @(focus ? "on" : "")" title="@UiText.T("Fokus (Overlay)")" @onclick="@(() => Progress.ToggleFocus(petId))" @onclick:stopPropagation="true">★</button>
+                            <div class="pets-card-name">@name</div>
+                            <div class="pets-card-foot">
+                                @if (level >= 1)
+                                {
+                                    <span class="pets-badge">@level</span>
+                                }
+                                @if (isMax)
+                                {
+                                    <span class="pets-count is-max">MAX</span>
+                                }
+                                else
+                                {
+                                    <div class="pets-meter"><div style="width:@Percent(inLevel, needed, isMax)%"></div></div>
+                                    <span class="pets-count">@inLevel/@needed</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    @* Info-Panel des gewählten Pets *@
+    <aside class="pets-detail">
+        @if (selected is null)
+        {
+            <p class="note">@UiText.T("Kein Pet ausgewählt.")</p>
+        }
+        else
+        {
+            var pet = selected;
+            var souls = Progress.Souls(pet.Id);
+            var level = Progress.Thresholds.Level(souls);
+            var inLevel = Progress.Thresholds.SoulsInLevel(souls);
+            var needed = Progress.Thresholds.NeededForNextLevel(souls);
+            var isMax = Progress.Thresholds.IsMax(souls);
+            var focus = Progress.IsFocus(pet.Id);
+            var name = pet.DisplayName(lang);
+            var subname = Settings.Current.NameLanguage == "de" && pet.De is not null && pet.De != pet.En ? pet.En : pet.De;
+            var genusIcon = GenusIcon(pet.Genus);
+            <div class="pets-detail-body pets-g-@pet.Genus @StateClass(level, isMax)" @key="pet.Id">
+                <div class="pets-detail-hero">
+                    <div class="pets-detail-portrait">
+                        @if (pet.Icon is not null)
+                        {
+                            <img src="@IconUrl(pet.Icon)" alt="" />
+                        }
+                        else
+                        {
+                            <span class="pets-portrait-fallback">@Initial(name)</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="pets-detail-head">
+                    <button class="pets-detail-star @(focus ? "on" : "")" title="@UiText.T("Fokus (Overlay)")" @onclick="@(() => Progress.ToggleFocus(pet.Id))">★</button>
+                    <div class="pets-detail-names">
+                        <h2>@name</h2>
+                        @if (!string.IsNullOrEmpty(subname))
+                        {
+                            <div class="subname">@subname</div>
+                        }
+                    </div>
+                </div>
+                <div class="pets-detail-genus">
+                    @if (genusIcon is not null)
+                    {
+                        <img src="@genusIcon" alt="" />
+                    }
+                    <span>@Genus(pet.Genus)</span>
+                </div>
+
+                <section class="pets-insight">
+                    <div class="pets-insight-head">
+                        <span>@UiText.T("Fortschritt")</span>
+                        <b class="@(isMax ? "is-max" : "")">@LevelLine(level, inLevel, needed, isMax)</b>
+                    </div>
+                    <div class="pets-meter is-wide"><div style="width:@Percent(inLevel, needed, isMax)%"></div></div>
+                    <div class="pets-steps">
+                        @for (var l = 1; l <= Progress.Thresholds.MaxLevel; l++)
+                        {
+                            <span class="pets-step @(level >= l ? "on" : "")" title="@($"{LevelName(l)}: {Progress.Thresholds.Steps[l - 1]} Souls")">@l</span>
+                        }
+                    </div>
+                    <div class="pets-stage">@(isMax ? UiText.T("fertig") : UiText.F("noch {0} bis {1}", needed - inLevel, LevelName(level + 1))) · @UiText.T("gesamt") @souls/@Progress.Thresholds.Max</div>
+                </section>
+
+                <section class="pets-detail-section">
+                    <h3>@UiText.T("Korrektur")</h3>
+                    <div class="pets-correct">
+                        <label>
+                            <span>@UiText.T("Stufe")</span>
+                            <select value="@level" @onchange="@(e => SetLevel(pet.Id, e, inLevel))">
+                                @for (var l = 0; l <= Progress.Thresholds.MaxLevel; l++)
+                                {
+                                    <option value="@l">@LevelName(l)</option>
+                                }
+                            </select>
+                        </label>
+                        <label>
+                            <span>@UiText.T("Souls in Stufe")</span>
+                            @if (isMax)
+                            {
+                                <span class="note">–</span>
+                            }
+                            else
+                            {
+                                <span class="pets-correct-souls">
+                                    <input type="number" min="0" max="@(needed - 1)" value="@inLevel" @onchange="@(e => SetInLevel(pet.Id, level, e))" /><span class="note"> / @needed</span>
+                                </span>
+                            }
+                        </label>
+                        <div class="pets-correct-step">
+                            <button class="btn small" title="@UiText.T("1 Soul abziehen")" disabled="@(souls <= 0)" @onclick="@(() => Progress.SetSouls(pet.Id, souls - 1))">−1</button>
+                            <button class="btn small" title="@UiText.T("1 Soul hinzufügen")" disabled="@isMax" @onclick="@(() => Progress.SetSouls(pet.Id, souls + 1))">+1</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="pets-detail-section">
+                    <h3>@UiText.T("Fundorte")</h3>
+                    <div class="pets-where">
+                        <span class="pets-where-label">Spawns</span>
+                        @if (pet.Spawns.Count == 0)
+                        {
+                            <span class="note">–</span>
+                        }
+                        else
+                        {
+                            <ul>
+                                @foreach (var entry in pet.Spawns.OrderByDescending(c => c.Value))
+                                {
+                                    <li><span>@ShortLabel(entry.Key)</span><b>@entry.Value</b></li>
+                                }
+                            </ul>
+                        }
+                        <span class="pets-where-label">@UiText.T("Quellmonster")</span>
+                        @if (pet.Monsters.Count == 0)
+                        {
+                            <span class="note">–</span>
+                        }
+                        else
+                        {
+                            <ul>
+                                @foreach (var entry in pet.Monsters.OrderByDescending(c => c.Value))
+                                {
+                                    <li><span>@ShortLabel(entry.Key)</span><b>@entry.Value</b></li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    <button class="btn primary pets-map-btn" @onclick="@(() => Ui.ShowPetOnMap(pet.Id))">@UiText.T("Auf der Karte zeigen")</button>
+                </section>
+
+                <p class="note pets-detail-note">@UiText.F("Stufen: {0} Souls zum Freischalten, dann {1} und {2} weitere Souls bis MAX (gesamt {3}). Namen aus den vorhandenen Kartendaten.", Progress.Thresholds.Steps[0], Progress.Thresholds.Steps[1], Progress.Thresholds.Steps[2], Progress.Thresholds.Max)</p>
+            </div>
+        }
+    </aside>
+</div>
+
+@code {
+    private static readonly string[] KnownGenera = ["cogni", "fera", "natura", "varian", "special"];
+
+    private string _query = "", _genus = "", _map = "", _status = "", _level = "", _sort = "";
+    private string? _selectedId;
+    private int _total, _unlocked, _done, _focusCount;
+    private Dictionary<string, (int Total, int Unlocked)> _genusCounts = [];
+
+    /// <summary>Genus tabs: the five game genera, plus "unknown" only while learned pets without genus exist.</summary>
+    private IEnumerable<string> RailGenera =>
+        _genusCounts.ContainsKey("unknown") ? KnownGenera.Append("unknown") : KnownGenera;
+
+    private bool FiltersActive =>
+        _query.Length > 0 || _genus.Length > 0 || _map.Length > 0 || _status.Length > 0 || _level.Length > 0;
+
+    private bool Matches(PetDefinition pet)
+    {
+        if (_genus.Length > 0 && pet.Genus != _genus) return false;
+        if (_map.Length > 0 && pet.Spawns.GetValueOrDefault(_map) + pet.Monsters.GetValueOrDefault(_map) == 0) return false;
+        var souls = Progress.Souls(pet.Id);
+        switch (_status)
+        {
+            case "missing" when souls > 0: return false;
+            case "progress" when souls == 0 || Progress.Thresholds.IsMax(souls): return false;
+            case "done" when !Progress.Thresholds.IsMax(souls): return false;
+            case "focus" when !Progress.IsFocus(pet.Id): return false;
+        }
+        if (_level.Length > 0)
+        {
+            var isMax = Progress.Thresholds.IsMax(souls);
+            if (_level == "max" ? !isMax : isMax || Progress.Thresholds.Level(souls).ToString(System.Globalization.CultureInfo.InvariantCulture) != _level)
+                return false;
+        }
+        if (_query.Length > 1)
+        {
+            var q = _query.Trim();
+            return pet.En.Contains(q, StringComparison.OrdinalIgnoreCase) || (pet.De?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false);
+        }
+        return true;
+    }
+
+    private IEnumerable<PetDefinition> Sorted(IEnumerable<PetDefinition> pets)
+    {
+        var lang = Settings.Current.NameLanguage;
+        return _sort switch
+        {
+            "name" => pets.OrderBy(p => p.DisplayName(lang), StringComparer.CurrentCultureIgnoreCase),
+            "progress" => pets.OrderByDescending(p => Progress.Souls(p.Id)).ThenBy(p => p.DisplayName(lang), StringComparer.CurrentCultureIgnoreCase),
+            "next" => pets.OrderBy(p => RemainingToNext(p.Id)).ThenBy(p => p.DisplayName(lang), StringComparer.CurrentCultureIgnoreCase),
+            _ => pets,
+        };
+    }
+
+    /// <summary>Souls missing to the next level; finished pets sort last.</summary>
+    private int RemainingToNext(string petId)
+    {
+        var souls = Progress.Souls(petId);
+        return Progress.Thresholds.IsMax(souls)
+            ? int.MaxValue
+            : Progress.Thresholds.NeededForNextLevel(souls) - Progress.Thresholds.SoulsInLevel(souls);
+    }
+
+    private void ResetFilters()
+    {
+        _query = _genus = _map = _status = _level = "";
+    }
+
+    private void OnCardKey(KeyboardEventArgs e, string petId)
+    {
+        if (e.Key is "Enter")
+            _selectedId = petId;
+    }
+
+    protected override void OnInitialized()
+    {
+        Progress.Changed += Refresh;
+        Recount();
+    }
+
+    private void Recount()
+    {
+        _total = Progress.Catalog.Pets.Count;
+        _unlocked = Progress.Catalog.Pets.Count(p => Progress.Thresholds.Level(Progress.Souls(p.Id)) >= 1);
+        _done = Progress.Catalog.Pets.Count(p => Progress.Thresholds.IsMax(Progress.Souls(p.Id)));
+        _focusCount = Progress.FocusPets().Count;
+        _genusCounts = Progress.Catalog.Pets
+            .GroupBy(p => p.Genus)
+            .ToDictionary(g => g.Key, g => (g.Count(), g.Count(p => Progress.Thresholds.Level(Progress.Souls(p.Id)) >= 1)));
+    }
+
+    private void Refresh() => InvokeAsync(() =>
+    {
+        Recount();
+        StateHasChanged();
+    });
+
+    private void SetLevel(string petId, ChangeEventArgs e, int inLevel)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var level))
+            Progress.SetLevel(petId, level, inLevel);
+    }
+
+    private void SetInLevel(string petId, int level, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var inLevel))
+            Progress.SetLevel(petId, level, inLevel);
+    }
+
+    private static string LevelName(int level) => level switch
+    {
+        0 => UiText.T("nicht freigeschaltet"),
+        3 => UiText.T("Stufe 3 (max)"),
+        _ => UiText.F("Stufe {0}", level),
+    };
+
+    /// <summary>Like the game's info panel ("Lv. 1 (5/25)", "Lv. 3 (MAX)"), in German.</summary>
+    private string LevelLine(int level, int inLevel, int needed, bool isMax) =>
+        isMax ? UiText.F("Stufe {0} (MAX)", Progress.Thresholds.MaxLevel)
+        : level == 0 ? UiText.F("nicht freigeschaltet ({0}/{1})", inLevel, needed)
+        : UiText.F("Stufe {0} ({1}/{2})", level, inLevel, needed);
+
+    private static string StateClass(int level, bool isMax) => isMax ? "is-max" : level == 0 ? "is-locked" : "is-open";
+
+    private static int Percent(int inLevel, int needed, bool isMax) => isMax || needed == 0 ? 100 : inLevel * 100 / needed;
+
+    private static string IconUrl(string icon) => $"https://{MainForm.MapDataHost}/{icon}";
+
+    /// <summary>Genus symbols from the current gaming.tools map data package.</summary>
+    private static string? GenusIcon(string genus) => genus switch
+    {
+        "cogni" => IconUrl("icons/gamingtools/ui/resource/sprite/fwindow_vehicle/ut_fwindow_vehicle_creatureslot_intellect_sprite.png"),
+        "fera" => IconUrl("icons/gamingtools/ui/resource/sprite/fwindow_vehicle/ut_fwindow_vehicle_creatureslot_feral_sprite.png"),
+        "natura" => IconUrl("icons/gamingtools/ui/resource/sprite/fwindow_vehicle/ut_fwindow_vehicle_creatureslot_nature_sprite.png"),
+        "varian" => IconUrl("icons/gamingtools/ui/resource/sprite/fwindow_vehicle/ut_fwindow_vehicle_creatureslot_trans_sprite.png"),
+        _ => null,
+    };
+
+    private static string Initial(string name) => name.Length > 0 ? name[..1].ToUpperInvariant() : "?";
+
+
+    private static string Genus(string genus) => genus switch
+    {
+        "cogni" => "Cogni", "fera" => "Fera", "natura" => "Natura", "varian" => "Varian", "special" => "Special", "unknown" => UiText.T("Unbekannt"), _ => genus,
+    };
+
+    private string MapCounts(Dictionary<string, int> counts) =>
+        counts.Count == 0 ? "–" : string.Join(" · ", counts.OrderByDescending(c => c.Value).Select(c => $"{ShortLabel(c.Key)} {c.Value}"));
+
+    private string ShortLabel(string mapId)
+    {
+        var label = Progress.MapLabel(mapId);
+        // "Chaotische Mittlere Ebene von Reshanta" -> "Reshanta (Mittlere)"
+        if (label.Contains("Reshanta", StringComparison.Ordinal) && label != "Reshanta")
+        {
+            var level = label.Split(' ').FirstOrDefault(w => w is "Untere" or "Mittlere" or "Oberes" or "B");
+            return level is null ? "Reshanta" : $"Reshanta ({level})";
+        }
+        return label;
+    }
+
+    public void Dispose() => Progress.Changed -= Refresh;
+}

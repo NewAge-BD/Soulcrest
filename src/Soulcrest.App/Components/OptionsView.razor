@@ -1,0 +1,171 @@
+@implements IDisposable
+@inject MapTrackingService Tracking
+@inject SettingsService Settings
+@inject IJSRuntime JS
+@inject TrackerService Loot
+@inject Soulcrest.App.Capture.GameCaptureService Capture
+@inject UiState Ui
+
+<div class="page options">
+    <header class="sv-head">
+        <div class="row options-head">
+            <h2>@UiText.T("Optionen")</h2>
+            @* The first-start tutorial again (user request 2026-10-07). *@
+            <button type="button" class="btn primary" title="@UiText.T("Minimap vergrößern und markieren, mit kurzem Video")" @onclick="Ui.OpenTutorial">@UiText.T("▶ Setup starten")</button>
+        </div>
+        <p class="sv-lead">@UiText.T("Änderungen werden sofort gespeichert.")</p>
+    </header>
+    <OcrLanguageSetup />
+
+    <section class="card sv-card">
+        <h3>@UiText.T("Windows-Aufnahmerand")</h3>
+        <button class="btn" disabled="@_borderBusy" @onclick="DisableBorder">@UiText.T(_borderBusy ? "Windows-Freigabe wird geprüft …" : "Gelben Aufnahmerand deaktivieren")</button>
+        @if (_borderStatus is not null) { <p role="status">@UiText.T(_borderStatus)</p> }
+    </section>
+
+    <section class="card sv-card">
+        <h3>@UiText.T("Sprache")</h3>
+        <label for="ui-language">@UiText.T("Oberfläche und Namen")</label>
+        <select id="ui-language" value="@Settings.Current.UiLanguage" @onchange="SetLanguage">
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+        </select>
+        <p class="sv-hint">@UiText.T("Die Auswahl gilt für Menüs, Meldungen sowie Pet- und Kartennamen. Fehlende deutsche Namen bleiben Englisch.")</p>
+    </section>
+
+    <section class="card sv-card">
+        <div class="sv-card-head">
+            <h3>Loot-Tracker</h3>
+            @if (Loot.Running)
+            {
+                <span class="sv-badge on"><span class="sv-dot"></span>@UiText.T("Erfassung läuft")</span>
+            }
+            else
+            {
+                <span class="sv-badge">@UiText.T("aus")</span>
+            }
+        </div>
+        <p class="sv-lead">@UiText.T("Liest Soul-Meldungen über Npcap automatisch beim Programmstart. Ausschalten bleibt gespeichert.")</p>
+        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.LootTrackingEnabled" @onchange="ToggleLoot" /><span>@UiText.T("Netzwerk-Loot-Tracking aktiviert")</span></label>
+            <div class="kv sv-kv">
+                <span>Npcap</span>
+                <span>
+                    @if (Soulcrest.App.Network.NetworkLootService.NpcapInstalled)
+                    {
+                        <span class="sv-badge ok">@UiText.T("installiert")</span>
+                    }
+                    else
+                    {
+                        <span class="sv-badge error">@UiText.T("nicht gefunden")</span> <span class="note">Installation: npcap.com</span>
+                    }
+                </span>
+                <span>@UiText.T("Verbindung")</span><span>@(Loot.Network?.Connection ?? "–")</span>
+                <span>@UiText.T("Gelesen")</span><span>@(Loot.Network is { } n ? UiText.F("{0} Pakete, {1} Nachrichten", n.Packets, n.Messages) : "–")</span>
+                @if (Loot.Network is { UnknownPets.Count: > 0 } unknown)
+                {
+                    <span>@UiText.T("Unbekannte Pet-IDs")</span><span>@string.Join(", ", unknown.UnknownPets)</span>
+                }
+            </div>
+            <div class="status @(Loot.StatusIsError ? "error" : "")">@UiText.T(Loot.Status)</div>
+    </section>
+
+    <section class="card sv-card">
+        <div class="sv-card-head">
+            <h3>@UiText.T("Spieler-Tracking")</h3>
+            @if (Tracking.Running)
+            {
+                <span class="sv-badge on"><span class="sv-dot"></span>@UiText.T("läuft")</span>
+            }
+            else
+            {
+                <span class="sv-badge">@UiText.T("aus")</span>
+            }
+        </div>
+        <p class="sv-lead">@UiText.T("Soulcrest erkennt die Karte im Spiel und zeigt dich auf der interaktiven Karte. Gestartet und gestoppt wird in der Kachel „Player-Tracker“ links auf der Karte.")</p>
+        <div class="opt-field">
+            <span class="opt-label">@UiText.T("Kartenbereich")</span>
+            <div class="opt-control">
+                <MapRegionPicker />
+            </div>
+        </div>
+        <div class="status @(Tracking.StatusIsError ? "error" : "")">@UiText.T(Tracking.Status)</div>
+
+        <h4>@UiText.T("Spielerposition prüfen")</h4>
+        @if (Tracking.Running && Tracking.PreviewDataUrl is { } preview)
+        {
+            <div class="preview" @onclick="SetAnchor" title="@UiText.T("Auf die Spielerfigur klicken")">
+                <img src="@preview" alt="@UiText.T("Kartenbereich")" />
+            </div>
+            <p class="sv-hint">@UiText.T("Das rote Kreuz muss auf deiner Spielerfigur liegen. Sonst klicke im Bild auf die Figur.")</p>
+        }
+        else
+        {
+            <div class="sv-empty">@UiText.T("Die Vorschau erscheint, sobald das Tracking läuft.")</div>
+        }
+    </section>
+
+    <section class="card sv-card">
+        <div class="sv-card-head">
+            <h3>Overlays</h3>
+        </div>
+        <p class="sv-lead">@UiText.T("Einblendungen über dem Spiel. Ein-/ausblenden mit") <code>@UiText.T("Strg+Alt+P")</code>.</p>
+        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowRoutesInGame" @onchange="@(e => Settings.Update(s => s.ShowRoutesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Linien zu Zielen")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
+        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowPetsInGame" @onchange="@(e => Settings.Update(s => s.ShowPetsInGame = (bool)e.Value!))" /><span><b>@UiText.T("Pet-Symbole mit Stand")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
+        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowResourcesInGame" @onchange="@(e => Settings.Update(s => s.ShowResourcesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Ressourcen und Versteckte Kuben")</b><small>@UiText.T("auf Minimap und Vollbildkarte – die in der Legende der Karte eingeblendeten")</small></span></label>
+        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.OverlaysInRecordings" @onchange="@(e => Settings.Update(s => s.OverlaysInRecordings = (bool)e.Value!))" /><span><b>@UiText.T("Overlays in Aufnahmen sichtbar")</b><small>@UiText.T("Für OBS (Bildschirmaufnahme) und Screenshots. Aus: Overlays sind nur auf dem Monitor zu sehen.")</small></span></label>
+    </section>
+</div>
+
+@code {
+    private bool _borderBusy;
+    private string? _borderStatus;
+    private async Task DisableBorder()
+    {
+        _borderBusy = true;
+        try { _borderStatus = await Capture.DisableBorderAsync(); }
+        catch (Exception e) { _borderStatus = e.Message; }
+        finally { _borderBusy = false; }
+    }
+
+    private void SetLanguage(ChangeEventArgs e)
+    {
+        var language = e.Value?.ToString();
+        if (language is "de" or "en")
+            Settings.Update(s => { s.UiLanguage = language; s.NameLanguage = language; });
+    }
+
+    protected override void OnInitialized()
+    {
+        Tracking.Changed += OnChanged;
+        Loot.Changed += OnChanged;
+    }
+
+    private void ToggleLoot(ChangeEventArgs e)
+    {
+        if (e.Value is true) Loot.Start(); else Loot.Stop();
+    }
+
+    private DateTime _lastRender;
+
+    // The tracker reports up to 10 times per second; the page only needs a calm refresh.
+    private void OnChanged()
+    {
+        if (DateTime.Now - _lastRender < TimeSpan.FromMilliseconds(250))
+            return;
+        _lastRender = DateTime.Now;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SetAnchor(MouseEventArgs e)
+    {
+        var size = await JS.InvokeAsync<double[]>("soulcrestMap.elementSize", ".options .preview img");
+        if (size is [> 0 and var width, > 0 and var height])
+            Tracking.SetAnchor(e.OffsetX / width, e.OffsetY / height);
+    }
+
+    public void Dispose()
+    {
+        Tracking.Changed -= OnChanged;
+        Loot.Changed -= OnChanged;
+    }
+}

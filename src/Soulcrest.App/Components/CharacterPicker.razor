@@ -1,0 +1,24 @@
+﻿@inject ExplorationService Exploration
+@inject ExplorationScanService Scan
+@inject CharacterDetectionService Detection
+@implements IDisposable
+
+<div class="tile-field">
+    <label>@UiText.T("Charakterprofil")
+        <select disabled="@Scan.Running" value="@Exploration.ActiveId" @onchange="@(e => Exploration.Select(e.Value!.ToString()!))">
+            @foreach (var c in Exploration.Characters) { <option value="@c.Id">@c.Name</option> }
+        </select>
+    </label>
+    <input autocomplete="off" spellcheck="false" aria-label="@UiText.T("Charaktername / Server")" placeholder="@UiText.T("Charaktername / Server")" @bind="_name" maxlength="80" disabled="@Scan.Running" />
+    <button class="btn" disabled="@(Scan.Running || string.IsNullOrWhiteSpace(_name))" @onclick="Add">@UiText.T("Profil anlegen")</button>
+    <button class="btn" disabled="@(Scan.Running || string.IsNullOrWhiteSpace(_name))" @onclick="Rename">@UiText.T("Umbenennen")</button>
+</div>
+<div class="note">@(Detection.Status ?? UiText.T("Das Profil wechselt nach jedem Ladebildschirm von selbst zum eingeloggten Charakter, solange das Loot-Tracking läuft."))</div>
+@code {
+    private string _name = "";
+    protected override void OnInitialized() => Detection.Changed += Refresh;
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Detection.Changed -= Refresh;
+    private void Add() { Exploration.Add(_name); _name = ""; }
+    private void Rename() { Exploration.Rename(_name); _name = ""; }
+}

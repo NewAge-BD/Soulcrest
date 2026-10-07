@@ -1,0 +1,1553 @@
+{
+ "description": "Existing IDs matched by unique portrait identity or exact name. Multiple IDs are unresolved duplicates; never silently merge progress.",
+ "pets": {
+  "1193": {
+   "catalogIds": [
+    "addicted-shulak-cart-worker"
+   ],
+   "name": "Addicted Shulak Cart Worker",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1193"
+   ],
+   "primaryCatalogId": "addicted-shulak-cart-worker"
+  },
+  "1065": {
+   "catalogIds": [
+    "biruta"
+   ],
+   "name": "Biruta",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1065"
+   ],
+   "primaryCatalogId": "biruta"
+  },
+  "1105": {
+   "catalogIds": [
+    "biruta-herbalist"
+   ],
+   "name": "Biruta Herbalist",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1105"
+   ],
+   "primaryCatalogId": "biruta-herbalist"
+  },
+  "1202": {
+   "catalogIds": [
+    "decomposed-lupyllini"
+   ],
+   "name": "Decomposed Lupyllini",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1202"
+   ],
+   "primaryCatalogId": "decomposed-lupyllini"
+  },
+  "1195": {
+   "catalogIds": [
+    "dracuni-herbalist"
+   ],
+   "name": "Dracuni Herbalist",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1195"
+   ],
+   "primaryCatalogId": "dracuni-herbalist"
+  },
+  "1184": {
+   "catalogIds": [
+    "drakan-watcher"
+   ],
+   "name": "Drakan Watcher",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1184"
+   ],
+   "primaryCatalogId": "drakan-watcher"
+  },
+  "1147": {
+   "catalogIds": [
+    "dratona"
+   ],
+   "name": "Dratona",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1147"
+   ],
+   "primaryCatalogId": "dratona"
+  },
+  "1033": {
+   "catalogIds": [
+    "elite-manduri-fighter"
+   ],
+   "name": "Elite Manduri Fighter",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1033"
+   ],
+   "primaryCatalogId": "elite-manduri-fighter"
+  },
+  "1162": {
+   "catalogIds": [
+    "kerubar"
+   ],
+   "name": "Kerubar",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1162"
+   ],
+   "primaryCatalogId": "kerubar"
+  },
+  "1170": {
+   "catalogIds": [
+    "kerubian"
+   ],
+   "name": "Kerubian",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1170"
+   ],
+   "primaryCatalogId": "kerubian"
+  },
+  "1171": {
+   "catalogIds": [
+    "kerubiel"
+   ],
+   "name": "Kerubiel",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1171"
+   ],
+   "primaryCatalogId": "kerubiel"
+  },
+  "1005": {
+   "catalogIds": [
+    "klaw",
+    "neuth-01"
+   ],
+   "name": "Klaw",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1005"
+   ],
+   "primaryCatalogId": "klaw"
+  },
+  "1029": {
+   "catalogIds": [
+    "klaw-scout"
+   ],
+   "name": "Klaw Scout",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1029"
+   ],
+   "primaryCatalogId": "klaw-scout"
+  },
+  "1017": {
+   "catalogIds": [
+    "krallprst-01"
+   ],
+   "name": "Krall Warshaman",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1017"
+   ],
+   "primaryCatalogId": "krallprst-01"
+  },
+  "1002": {
+   "catalogIds": [
+    "krallreg-01"
+   ],
+   "name": "Krall Laborer",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1002"
+   ],
+   "primaryCatalogId": "krallreg-01"
+  },
+  "1026": {
+   "catalogIds": [
+    "krallwar-01"
+   ],
+   "name": "Krall Warrior",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1026"
+   ],
+   "primaryCatalogId": "krallwar-01"
+  },
+  "1108": {
+   "catalogIds": [
+    "krallwar-01-v01"
+   ],
+   "name": "Enhanced Krall Combatant",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1108"
+   ],
+   "primaryCatalogId": "krallwar-01-v01"
+  },
+  "1109": {
+   "catalogIds": [
+    "krallwar-01-v02"
+   ],
+   "name": "Enhanced Krall Sentry",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1109"
+   ],
+   "primaryCatalogId": "krallwar-01-v02"
+  },
+  "1115": {
+   "catalogIds": [
+    "kuru-overseer"
+   ],
+   "name": "Kuru Overseer",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1115"
+   ],
+   "primaryCatalogId": "kuru-overseer"
+  },
+  "1075": {
+   "catalogIds": [
+    "kuru-tinkerer"
+   ],
+   "name": "Kuru Tinkerer",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1075"
+   ],
+   "primaryCatalogId": "kuru-tinkerer"
+  },
+  "1074": {
+   "catalogIds": [
+    "kuru-worker"
+   ],
+   "name": "Kuru Worker",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1074"
+   ],
+   "primaryCatalogId": "kuru-worker"
+  },
+  "1010": {
+   "catalogIds": [
+    "manduri-fighter"
+   ],
+   "name": "Manduri Fighter",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1010"
+   ],
+   "primaryCatalogId": "manduri-fighter"
+  },
+  "1104": {
+   "catalogIds": [
+    "manduri-trebuchet-worker"
+   ],
+   "name": "Manduri Trebuchet Worker",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1104"
+   ],
+   "primaryCatalogId": "manduri-trebuchet-worker"
+  },
+  "1201": {
+   "catalogIds": [
+    "modified-lupyllini"
+   ],
+   "name": "Modified Lupyllini",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1201"
+   ],
+   "primaryCatalogId": "modified-lupyllini"
+  },
+  "1054": {
+   "catalogIds": [
+    "mumu-warrior"
+   ],
+   "name": "Mumu Warrior",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1054"
+   ],
+   "primaryCatalogId": "mumu-warrior"
+  },
+  "1137": {
+   "catalogIds": [
+    "mumu-worker"
+   ],
+   "name": "Mumu Worker",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1137"
+   ],
+   "primaryCatalogId": "mumu-worker"
+  },
+  "1200": {
+   "catalogIds": [
+    "naga-elite-priest"
+   ],
+   "name": "Naga Elite Priest",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1200"
+   ],
+   "primaryCatalogId": "naga-elite-priest"
+  },
+  "1030": {
+   "catalogIds": [
+    "nagarant-guardian-warrior"
+   ],
+   "name": "Nagarant Guardian Warrior",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1030"
+   ],
+   "primaryCatalogId": "nagarant-guardian-warrior"
+  },
+  "1040": {
+   "catalogIds": [
+    "owlmag-01"
+   ],
+   "name": "Aullaeu Shaman",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1040"
+   ],
+   "primaryCatalogId": "owlmag-01"
+  },
+  "1018": {
+   "catalogIds": [
+    "varg-berserker"
+   ],
+   "name": "Varg Berserker",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1018"
+   ],
+   "primaryCatalogId": "varg-berserker"
+  },
+  "1118": {
+   "catalogIds": [
+    "aberrant-bee"
+   ],
+   "name": "Aberrant Bee",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1118"
+   ],
+   "primaryCatalogId": "aberrant-bee"
+  },
+  "1119": {
+   "catalogIds": [
+    "aberrant-coradon"
+   ],
+   "name": "Aberrant Coradon",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1119"
+   ],
+   "primaryCatalogId": "aberrant-coradon"
+  },
+  "1089": {
+   "catalogIds": [
+    "aberrant-skama",
+    "fish-01-v01"
+   ],
+   "name": "Aberrant Skama",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1089"
+   ],
+   "primaryCatalogId": "aberrant-skama"
+  },
+  "1126": {
+   "catalogIds": [
+    "aberrant-tog"
+   ],
+   "name": "Aberrant Tog",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1126"
+   ],
+   "primaryCatalogId": "aberrant-tog"
+  },
+  "1125": {
+   "catalogIds": [
+    "aberrant-zaif"
+   ],
+   "name": "Aberrant Zaif",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1125"
+   ],
+   "primaryCatalogId": "aberrant-zaif"
+  },
+  "1038": {
+   "catalogIds": [
+    "airon"
+   ],
+   "name": "Airon",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1038"
+   ],
+   "primaryCatalogId": "airon"
+  },
+  "1130": {
+   "catalogIds": [
+    "altbug-01-cv02"
+   ],
+   "name": "Mutated Cadaver Insectoid",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1130"
+   ],
+   "primaryCatalogId": "altbug-01-cv02"
+  },
+  "1046": {
+   "catalogIds": [
+    "armadon"
+   ],
+   "name": "Armadon",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1046"
+   ],
+   "primaryCatalogId": "armadon"
+  },
+  "1114": {
+   "catalogIds": [
+    "ashen-spider"
+   ],
+   "name": "Ashen Spider",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1114"
+   ],
+   "primaryCatalogId": "ashen-spider"
+  },
+  "1163": {
+   "catalogIds": [
+    "basilisk"
+   ],
+   "name": "Basilisk",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1163"
+   ],
+   "primaryCatalogId": "basilisk"
+  },
+  "1059": {
+   "catalogIds": [
+    "bee-01"
+   ],
+   "name": "Giant Bee",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1059"
+   ],
+   "primaryCatalogId": "bee-01"
+  },
+  "1181": {
+   "catalogIds": [
+    "brax"
+   ],
+   "name": "Brax",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1181"
+   ],
+   "primaryCatalogId": "brax"
+  },
+  "1071": {
+   "catalogIds": [
+    "cadaver-insectoid"
+   ],
+   "name": "Cadaver Insectoid",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1071"
+   ],
+   "primaryCatalogId": "cadaver-insectoid"
+  },
+  "1041": {
+   "catalogIds": [
+    "cavebat-01"
+   ],
+   "name": "Cave Bat",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1041"
+   ],
+   "primaryCatalogId": "cavebat-01"
+  },
+  "1053": {
+   "catalogIds": [
+    "crab-01-v01"
+   ],
+   "name": "Aberrant Potcrab",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1053"
+   ],
+   "primaryCatalogId": "crab-01-v01"
+  },
+  "1022": {
+   "catalogIds": [
+    "crasaur"
+   ],
+   "name": "Crasaur",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1022"
+   ],
+   "primaryCatalogId": "crasaur"
+  },
+  "1039": {
+   "catalogIds": [
+    "crestlich-01"
+   ],
+   "name": "Crestlich",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1039"
+   ],
+   "primaryCatalogId": "crestlich-01"
+  },
+  "1037": {
+   "catalogIds": [
+    "crestlich-02"
+   ],
+   "name": "Male Crestlich",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1037"
+   ],
+   "primaryCatalogId": "crestlich-02"
+  },
+  "1014": {
+   "catalogIds": [
+    "drakan-guard-dog",
+    "drakan-watchdog"
+   ],
+   "name": "Drakan Guard Dog",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1014"
+   ],
+   "primaryCatalogId": "drakan-guard-dog"
+  },
+  "1134": {
+   "catalogIds": [
+    "eternal-coradon"
+   ],
+   "name": "Eternal Coradon",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1134"
+   ],
+   "primaryCatalogId": "eternal-coradon"
+  },
+  "1035": {
+   "catalogIds": [
+    "fish-01"
+   ],
+   "name": "Skama",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1035"
+   ],
+   "primaryCatalogId": "fish-01"
+  },
+  "1004": {
+   "catalogIds": [
+    "fossa"
+   ],
+   "name": "Fossa",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1004"
+   ],
+   "primaryCatalogId": "fossa"
+  },
+  "1034": {
+   "catalogIds": [
+    "giant-sparkie"
+   ],
+   "name": "Giant Sparkie",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1034"
+   ],
+   "primaryCatalogId": "giant-sparkie"
+  },
+  "1015": {
+   "catalogIds": [
+    "kailin"
+   ],
+   "name": "Kailin",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1015"
+   ],
+   "primaryCatalogId": "kailin"
+  },
+  "1097": {
+   "catalogIds": [
+    "kalnif-01"
+   ],
+   "name": "Karnif",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1097"
+   ],
+   "primaryCatalogId": "kalnif-01"
+  },
+  "1098": {
+   "catalogIds": [
+    "kalnif-02",
+    "modified-karnif"
+   ],
+   "name": "Modified Karnif",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1098"
+   ],
+   "primaryCatalogId": "modified-karnif"
+  },
+  "1036": {
+   "catalogIds": [
+    "lufilini-02"
+   ],
+   "name": "Lupyllini",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1036"
+   ],
+   "primaryCatalogId": "lufilini-02"
+  },
+  "1047": {
+   "catalogIds": [
+    "mole-01-v01"
+   ],
+   "name": "Aberrant Armadon",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1047"
+   ],
+   "primaryCatalogId": "mole-01-v01"
+  },
+  "1025": {
+   "catalogIds": [
+    "mutated-aberrant-odyle-spider"
+   ],
+   "name": "Mutated Aberrant Odyle Spider",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1025"
+   ],
+   "primaryCatalogId": "mutated-aberrant-odyle-spider"
+  },
+  "1143": {
+   "catalogIds": [
+    "mutated-ursus"
+   ],
+   "name": "Mutated Ursus",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1143"
+   ],
+   "primaryCatalogId": "mutated-ursus"
+  },
+  "1066": {
+   "catalogIds": [
+    "papis"
+   ],
+   "name": "Papis",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1066"
+   ],
+   "primaryCatalogId": "papis"
+  },
+  "1007": {
+   "catalogIds": [
+    "potcrab"
+   ],
+   "name": "Potcrab",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1007"
+   ],
+   "primaryCatalogId": "potcrab"
+  },
+  "1067": {
+   "catalogIds": [
+    "scorpion"
+   ],
+   "name": "Scorpion",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1067"
+   ],
+   "primaryCatalogId": "scorpion"
+  },
+  "1011": {
+   "catalogIds": [
+    "skyray"
+   ],
+   "name": "Skyray",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1011"
+   ],
+   "primaryCatalogId": "skyray"
+  },
+  "1016": {
+   "catalogIds": [
+    "slink"
+   ],
+   "name": "Slink",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1016"
+   ],
+   "primaryCatalogId": "slink"
+  },
+  "1006": {
+   "catalogIds": [
+    "sparkyod-01"
+   ],
+   "name": "Sparkie",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1006"
+   ],
+   "primaryCatalogId": "sparkyod-01"
+  },
+  "1083": {
+   "catalogIds": [
+    "spider"
+   ],
+   "name": "Spider",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1083"
+   ],
+   "primaryCatalogId": "spider"
+  },
+  "1060": {
+   "catalogIds": [
+    "starturtle"
+   ],
+   "name": "Starturtle",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1060"
+   ],
+   "primaryCatalogId": "starturtle"
+  },
+  "1045": {
+   "catalogIds": [
+    "sylphen"
+   ],
+   "name": "Sylphen",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1045"
+   ],
+   "primaryCatalogId": "sylphen"
+  },
+  "1203": {
+   "catalogIds": [
+    "tamed-karnif"
+   ],
+   "name": "Tamed Karnif",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1203"
+   ],
+   "primaryCatalogId": "tamed-karnif"
+  },
+  "1189": {
+   "catalogIds": [
+    "tamed-zaif",
+    "zaif-01-v01"
+   ],
+   "name": "Tamed Zaif",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1189"
+   ],
+   "primaryCatalogId": "tamed-zaif"
+  },
+  "1106": {
+   "catalogIds": [
+    "tayga"
+   ],
+   "name": "Tayga",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1106"
+   ],
+   "primaryCatalogId": "tayga"
+  },
+  "1072": {
+   "catalogIds": [
+    "tog"
+   ],
+   "name": "Tog",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1072"
+   ],
+   "primaryCatalogId": "tog"
+  },
+  "1117": {
+   "catalogIds": [
+    "unstable-spider"
+   ],
+   "name": "Unstable Spider",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1117"
+   ],
+   "primaryCatalogId": "unstable-spider"
+  },
+  "1042": {
+   "catalogIds": [
+    "ursus"
+   ],
+   "name": "Ursus",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1042"
+   ],
+   "primaryCatalogId": "ursus"
+  },
+  "1188": {
+   "catalogIds": [
+    "vivel"
+   ],
+   "name": "Vivel",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1188"
+   ],
+   "primaryCatalogId": "vivel"
+  },
+  "1116": {
+   "catalogIds": [
+    "withered-branch-spider"
+   ],
+   "name": "Withered Branch Spider",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1116"
+   ],
+   "primaryCatalogId": "withered-branch-spider"
+  },
+  "1120": {
+   "catalogIds": [
+    "young-kailin"
+   ],
+   "name": "Young Kailin",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1120"
+   ],
+   "primaryCatalogId": "young-kailin"
+  },
+  "1121": {
+   "catalogIds": [
+    "young-slink"
+   ],
+   "name": "Young Slink",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1121"
+   ],
+   "primaryCatalogId": "young-slink"
+  },
+  "1123": {
+   "catalogIds": [
+    "young-ursus"
+   ],
+   "name": "Young Ursus",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1123"
+   ],
+   "primaryCatalogId": "young-ursus"
+  },
+  "1124": {
+   "catalogIds": [
+    "zaif-01"
+   ],
+   "name": "Zaif",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1124"
+   ],
+   "primaryCatalogId": "zaif-01"
+  },
+  "1207": {
+   "catalogIds": [
+    "agrint"
+   ],
+   "name": "Agrint",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1207"
+   ],
+   "primaryCatalogId": "agrint"
+  },
+  "1210": {
+   "catalogIds": [
+    "agrint-01-v02"
+   ],
+   "name": "Dry Leaf Agrint",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1210"
+   ],
+   "primaryCatalogId": "agrint-01-v02"
+  },
+  "1027": {
+   "catalogIds": [
+    "agrint-02",
+    "withered-agrint"
+   ],
+   "name": "Withered Agrint",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1027"
+   ],
+   "primaryCatalogId": "withered-agrint"
+  },
+  "1208": {
+   "catalogIds": [
+    "ashen-agrint"
+   ],
+   "name": "Ashen Agrint",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1208"
+   ],
+   "primaryCatalogId": "ashen-agrint"
+  },
+  "1135": {
+   "catalogIds": [
+    "ashen-dionae"
+   ],
+   "name": "Ashen Dionae",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1135"
+   ],
+   "primaryCatalogId": "ashen-dionae"
+  },
+  "1214": {
+   "catalogIds": [
+    "black-spirit"
+   ],
+   "name": "Black Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1214"
+   ],
+   "primaryCatalogId": "black-spirit"
+  },
+  "1031": {
+   "catalogIds": [
+    "conuti-02"
+   ],
+   "name": "Konutin Worker",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1031"
+   ],
+   "primaryCatalogId": "conuti-02"
+  },
+  "1164": {
+   "catalogIds": [
+    "earthele-01"
+   ],
+   "name": "Lesser Earth Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1164"
+   ],
+   "primaryCatalogId": "earthele-01"
+  },
+  "1101": {
+   "catalogIds": [
+    "forest-guardian",
+    "forestarc-01"
+   ],
+   "name": "Forest Guardian",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1101"
+   ],
+   "primaryCatalogId": "forest-guardian"
+  },
+  "1048": {
+   "catalogIds": [
+    "forest-spirit"
+   ],
+   "name": "Forest Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1048"
+   ],
+   "primaryCatalogId": "forest-spirit"
+  },
+  "1131": {
+   "catalogIds": [
+    "forestele-01-cv01"
+   ],
+   "name": "Drana Spore",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1131"
+   ],
+   "primaryCatalogId": "forestele-01-cv01"
+  },
+  "1003": {
+   "catalogIds": [
+    "forestwisp-01"
+   ],
+   "name": "Forest Specter",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1003"
+   ],
+   "primaryCatalogId": "forestwisp-01"
+  },
+  "1086": {
+   "catalogIds": [
+    "fungus-01"
+   ],
+   "name": "Fungen",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1086"
+   ],
+   "primaryCatalogId": "fungus-01"
+  },
+  "1012": {
+   "catalogIds": [
+    "fungy-01"
+   ],
+   "name": "Fungie",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1012"
+   ],
+   "primaryCatalogId": "fungy-01"
+  },
+  "1050": {
+   "catalogIds": [
+    "gravi"
+   ],
+   "name": "Gravi",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1050"
+   ],
+   "primaryCatalogId": "gravi"
+  },
+  "1165": {
+   "catalogIds": [
+    "intermediate-earth-spirit"
+   ],
+   "name": "Intermediate Earth Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1165"
+   ],
+   "primaryCatalogId": "intermediate-earth-spirit"
+  },
+  "1187": {
+   "catalogIds": [
+    "intermediate-fire-spirit"
+   ],
+   "name": "Intermediate Fire Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1187"
+   ],
+   "primaryCatalogId": "intermediate-fire-spirit"
+  },
+  "1169": {
+   "catalogIds": [
+    "intermediate-water-spirit"
+   ],
+   "name": "Intermediate Water Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1169"
+   ],
+   "primaryCatalogId": "intermediate-water-spirit"
+  },
+  "1094": {
+   "catalogIds": [
+    "intermediate-wind-spirit"
+   ],
+   "name": "Intermediate Wind Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1094"
+   ],
+   "primaryCatalogId": "intermediate-wind-spirit"
+  },
+  "1052": {
+   "catalogIds": [
+    "large-leaf-gravi"
+   ],
+   "name": "Large Leaf Gravi",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1052"
+   ],
+   "primaryCatalogId": "large-leaf-gravi"
+  },
+  "1213": {
+   "catalogIds": [
+    "lesser-fire-spirit"
+   ],
+   "name": "Lesser Fire Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1213"
+   ],
+   "primaryCatalogId": "lesser-fire-spirit"
+  },
+  "1092": {
+   "catalogIds": [
+    "lesser-wind-spirit"
+   ],
+   "name": "Lesser Wind Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1092"
+   ],
+   "primaryCatalogId": "lesser-wind-spirit"
+  },
+  "1051": {
+   "catalogIds": [
+    "magic-gravi"
+   ],
+   "name": "Magic Gravi",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1051"
+   ],
+   "primaryCatalogId": "magic-gravi"
+  },
+  "1144": {
+   "catalogIds": [
+    "mutated-forest-guardian"
+   ],
+   "name": "Mutated Forest Guardian",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1144"
+   ],
+   "primaryCatalogId": "mutated-forest-guardian"
+  },
+  "1049": {
+   "catalogIds": [
+    "mutated-forest-spirit"
+   ],
+   "name": "Mutated Forest Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1049"
+   ],
+   "primaryCatalogId": "mutated-forest-spirit"
+  },
+  "1073": {
+   "catalogIds": [
+    "nepenthes"
+   ],
+   "name": "Nepenthes",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1073"
+   ],
+   "primaryCatalogId": "nepenthes"
+  },
+  "1127": {
+   "catalogIds": [
+    "odyle-stone-spirit"
+   ],
+   "name": "Odyle Stone Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1127"
+   ],
+   "primaryCatalogId": "odyle-stone-spirit"
+  },
+  "1136": {
+   "catalogIds": [
+    "rafflesia"
+   ],
+   "name": "Rafflesia",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1136"
+   ],
+   "primaryCatalogId": "rafflesia"
+  },
+  "1178": {
+   "catalogIds": [
+    "spirit-king-s-bodyguard-warrior"
+   ],
+   "name": "Spirit King's Bodyguard Warrior",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1178"
+   ],
+   "primaryCatalogId": "spirit-king-s-bodyguard-warrior"
+  },
+  "1069": {
+   "catalogIds": [
+    "stone-spirit"
+   ],
+   "name": "Stone Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1069"
+   ],
+   "primaryCatalogId": "stone-spirit"
+  },
+  "1166": {
+   "catalogIds": [
+    "superior-earth-spirit"
+   ],
+   "name": "Superior Earth Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1166"
+   ],
+   "primaryCatalogId": "superior-earth-spirit"
+  },
+  "1096": {
+   "catalogIds": [
+    "superior-fire-spirit"
+   ],
+   "name": "Superior Fire Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1096"
+   ],
+   "primaryCatalogId": "superior-fire-spirit"
+  },
+  "1155": {
+   "catalogIds": [
+    "superior-water-spirit"
+   ],
+   "name": "Superior Water Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1155"
+   ],
+   "primaryCatalogId": "superior-water-spirit"
+  },
+  "1095": {
+   "catalogIds": [
+    "superior-wind-spirit"
+   ],
+   "name": "Superior Wind Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1095"
+   ],
+   "primaryCatalogId": "superior-wind-spirit"
+  },
+  "1209": {
+   "catalogIds": [
+    "thin-agrint"
+   ],
+   "name": "Thin Agrint",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1209"
+   ],
+   "primaryCatalogId": "thin-agrint"
+  },
+  "1168": {
+   "catalogIds": [
+    "waterele-01"
+   ],
+   "name": "Lesser Water Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1168"
+   ],
+   "primaryCatalogId": "waterele-01"
+  },
+  "1219": {
+   "catalogIds": [
+    "zelophi"
+   ],
+   "name": "Zelophi",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1219"
+   ],
+   "primaryCatalogId": "zelophi"
+  },
+  "1129": {
+   "catalogIds": [
+    "abyssswarm-01-cv01"
+   ],
+   "name": "Drana Swarm",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1129"
+   ],
+   "primaryCatalogId": "abyssswarm-01-cv01"
+  },
+  "1110": {
+   "catalogIds": [
+    "blue-kalgolem"
+   ],
+   "name": "Blue Kalgolem",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1110"
+   ],
+   "primaryCatalogId": "blue-kalgolem"
+  },
+  "1157": {
+   "catalogIds": [
+    "cadaver-cleaner"
+   ],
+   "name": "Cadaver Cleaner",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1157"
+   ],
+   "primaryCatalogId": "cadaver-cleaner"
+  },
+  "1217": {
+   "catalogIds": [
+    "congealed-drana"
+   ],
+   "name": "Congealed Drana",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1217"
+   ],
+   "primaryCatalogId": "congealed-drana"
+  },
+  "1062": {
+   "catalogIds": [
+    "contaminated-slime",
+    "slime-02"
+   ],
+   "name": "Contaminated Slime",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1062"
+   ],
+   "primaryCatalogId": "contaminated-slime"
+  },
+  "1142": {
+   "catalogIds": [
+    "distorted-mutant"
+   ],
+   "name": "Distorted Mutant",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1142"
+   ],
+   "primaryCatalogId": "distorted-mutant"
+  },
+  "1056": {
+   "catalogIds": [
+    "drakan-probe"
+   ],
+   "name": "Drakan Probe",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1056"
+   ],
+   "primaryCatalogId": "drakan-probe"
+  },
+  "1148": {
+   "catalogIds": [
+    "drakana-kalgolem"
+   ],
+   "name": "Drakana Kalgolem",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1148"
+   ],
+   "primaryCatalogId": "drakana-kalgolem"
+  },
+  "1179": {
+   "catalogIds": [
+    "drana-mutant"
+   ],
+   "name": "Drana Mutant",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1179"
+   ],
+   "primaryCatalogId": "drana-mutant"
+  },
+  "1153": {
+   "catalogIds": [
+    "drana-mutant-brute"
+   ],
+   "name": "Drana Mutant Brute",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1153"
+   ],
+   "primaryCatalogId": "drana-mutant-brute"
+  },
+  "1174": {
+   "catalogIds": [
+    "drana-predator"
+   ],
+   "name": "Drana Predator",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1174"
+   ],
+   "primaryCatalogId": "drana-predator"
+  },
+  "1128": {
+   "catalogIds": [
+    "drana-slime"
+   ],
+   "name": "Drana Slime",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1128"
+   ],
+   "primaryCatalogId": "drana-slime"
+  },
+  "1173": {
+   "catalogIds": [
+    "duduka-trebuchet-worker"
+   ],
+   "name": "Duduka Trebuchet Worker",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1173"
+   ],
+   "primaryCatalogId": "duduka-trebuchet-worker"
+  },
+  "1172": {
+   "catalogIds": [
+    "duduka-worker"
+   ],
+   "name": "Duduka Worker",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1172"
+   ],
+   "primaryCatalogId": "duduka-worker"
+  },
+  "1218": {
+   "catalogIds": [
+    "faded-drana"
+   ],
+   "name": "Faded Drana",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1218"
+   ],
+   "primaryCatalogId": "faded-drana"
+  },
+  "1161": {
+   "catalogIds": [
+    "faded-floater"
+   ],
+   "name": "Faded Floater",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1161"
+   ],
+   "primaryCatalogId": "faded-floater"
+  },
+  "1180": {
+   "catalogIds": [
+    "faded-mutant"
+   ],
+   "name": "Faded Mutant",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1180"
+   ],
+   "primaryCatalogId": "faded-mutant"
+  },
+  "1154": {
+   "catalogIds": [
+    "faded-mutant-brute"
+   ],
+   "name": "Faded Mutant Brute",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1154"
+   ],
+   "primaryCatalogId": "faded-mutant-brute"
+  },
+  "1175": {
+   "catalogIds": [
+    "faded-predator"
+   ],
+   "name": "Faded Predator",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1175"
+   ],
+   "primaryCatalogId": "faded-predator"
+  },
+  "1140": {
+   "catalogIds": [
+    "forest-monster"
+   ],
+   "name": "Forest Monster",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1140"
+   ],
+   "primaryCatalogId": "forest-monster"
+  },
+  "1194": {
+   "catalogIds": [
+    "guardit-01"
+   ],
+   "name": "Guardite",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1194"
+   ],
+   "primaryCatalogId": "guardit-01"
+  },
+  "1197": {
+   "catalogIds": [
+    "guardit-02"
+   ],
+   "name": "Watcher Guardite",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1197"
+   ],
+   "primaryCatalogId": "guardit-02"
+  },
+  "1084": {
+   "catalogIds": [
+    "kalgolem"
+   ],
+   "name": "Kalgolem",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1084"
+   ],
+   "primaryCatalogId": "kalgolem"
+  },
+  "1141": {
+   "catalogIds": [
+    "marsh-targon"
+   ],
+   "name": "Marsh Targon",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1141"
+   ],
+   "primaryCatalogId": "marsh-targon"
+  },
+  "1176": {
+   "catalogIds": [
+    "mudthorn"
+   ],
+   "name": "Mudthorn",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1176"
+   ],
+   "primaryCatalogId": "mudthorn"
+  },
+  "1064": {
+   "catalogIds": [
+    "oculazen"
+   ],
+   "name": "Oculazen",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1064"
+   ],
+   "primaryCatalogId": "oculazen"
+  },
+  "1159": {
+   "catalogIds": [
+    "parasite-swarm"
+   ],
+   "name": "Parasite Swarm",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1159"
+   ],
+   "primaryCatalogId": "parasite-swarm"
+  },
+  "1087": {
+   "catalogIds": [
+    "pino-01"
+   ],
+   "name": "Pino",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1087"
+   ],
+   "primaryCatalogId": "pino-01"
+  },
+  "1088": {
+   "catalogIds": [
+    "pino-02"
+   ],
+   "name": "Pino Worker",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1088"
+   ],
+   "primaryCatalogId": "pino-02"
+  },
+  "1186": {
+   "catalogIds": [
+    "poison-blood"
+   ],
+   "name": "Poison Blood",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1186"
+   ],
+   "primaryCatalogId": "poison-blood"
+  },
+  "1192": {
+   "catalogIds": [
+    "silver-blade-rotan"
+   ],
+   "name": "Silver Blade Rotan",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1192"
+   ],
+   "primaryCatalogId": "silver-blade-rotan"
+  },
+  "1061": {
+   "catalogIds": [
+    "slime"
+   ],
+   "name": "Slime",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1061"
+   ],
+   "primaryCatalogId": "slime"
+  },
+  "1183": {
+   "catalogIds": [
+    "soulless-corpse-gnat"
+   ],
+   "name": "Soulless Corpse Gnat",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1183"
+   ],
+   "primaryCatalogId": "soulless-corpse-gnat"
+  },
+  "1216": {
+   "catalogIds": [
+    "specter-01"
+   ],
+   "name": "Dark Spirit",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1216"
+   ],
+   "primaryCatalogId": "specter-01"
+  },
+  "1013": {
+   "catalogIds": [
+    "swarm"
+   ],
+   "name": "Swarm",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1013"
+   ],
+   "primaryCatalogId": "swarm"
+  },
+  "1063": {
+   "catalogIds": [
+    "vigilant-oculazen"
+   ],
+   "name": "Vigilant Oculazen",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/pets/1063"
+   ],
+   "primaryCatalogId": "vigilant-oculazen"
+  }
+ }
+}

@@ -1,0 +1,35 @@
+@implements IDisposable
+@inject OcrLanguageInstaller Installer
+
+@if (Installer.Missing.Count > 0 || Installer.Status is not null)
+{
+    <div class="sv-callout">
+        @if (Installer.Missing.Count > 0)
+        {
+            <p>@UiText.T("Für die automatische OCR-Spracherkennung fehlen Windows-Sprachpakete. Download und Installation erfolgen über Windows Update und benötigen Administratorrechte.")</p>
+            <div class="row">
+                @foreach (var language in Installer.Missing)
+                {
+                    <button class="btn" disabled="@Installer.Busy" @onclick="@(() => Installer.InstallAsync(language))">@UiText.T(language == "de-DE" ? "Deutsch-OCR installieren" : "Englisch-OCR installieren")</button>
+                }
+                <button class="btn" disabled="@Installer.Busy" @onclick="Installer.Refresh">@UiText.T("Erneut prüfen")</button>
+            </div>
+        }
+        @if (Installer.Status is { } status)
+        {
+            <p role="status">@UiText.T(status)</p>
+        }
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Installer.Changed += Refresh;
+        // Checked off the UI thread (WinRT query), and not again on every page change.
+        if (Installer.CheckedAt is null || DateTime.UtcNow - Installer.CheckedAt > TimeSpan.FromSeconds(30))
+            _ = Task.Run(Installer.Refresh);
+    }
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Installer.Changed -= Refresh;
+}

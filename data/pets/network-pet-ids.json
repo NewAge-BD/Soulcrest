@@ -1,0 +1,139 @@
+{
+  "description": "Pet IDs of the server loot message 0d90 (count, then per entry pet id u32 LE + souls u32 LE), matched to OCR soul events of Soulcrest. Evidence: own loopback captures 2026-10-03 (game -> ExitLag relay), see docs/NETWORK_LOOT.md. The ids equal the pet ids of aion2.gaming.tools (/pets/<id>), checked for 1015, 1042, 1063, 1120, 1123, 1181.",
+  "pets": [
+    {
+      "networkId": 1010,
+      "petId": "manduri-fighter",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:36:36, single entry"
+      ]
+    },
+    {
+      "networkId": 1015,
+      "petId": "kailin",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 21:27:35 and 23:32:58, always together with 1120; order assumed (young variants have higher ids: ursus 1042 / young ursus 1123)",
+        "aion2.gaming.tools/pets/1015 (2026-10-03, same id)"
+      ]
+    },
+    {
+      "networkId": 1042,
+      "petId": "ursus",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:32:43, group with 1123 x2 and 1126",
+        "aion2.gaming.tools/pets/1042 (2026-10-03, same id)"
+      ]
+    },
+    {
+      "networkId": 1045,
+      "petId": "sylphen",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 21:28:14 single; 23:32:24 x2 next to brax 1181"
+      ]
+    },
+    {
+      "networkId": 1048,
+      "petId": "forest-spirit",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:34:11, single entry"
+      ]
+    },
+    {
+      "networkId": 1092,
+      "petId": "lesser-wind-spirit",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:34:05, with 1095 (superior wind spirit)"
+      ]
+    },
+    {
+      "networkId": 1095,
+      "petId": "superior-wind-spirit",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:33:59 and 23:34:05, the entry shared by both groups"
+      ]
+    },
+    {
+      "networkId": 1106,
+      "petId": "tayga",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:35:58 x1, 23:36:12 x2"
+      ]
+    },
+    {
+      "networkId": 1120,
+      "petId": "young-kailin",
+      "verified": true,
+      "sourceRefs": [
+        "see 1015",
+        "aion2.gaming.tools/pets/1120 (2026-10-03, same id)"
+      ]
+    },
+    {
+      "networkId": 1123,
+      "petId": "young-ursus",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:32:43, x2 next to 2x young ursus",
+        "aion2.gaming.tools/pets/1123 (2026-10-03, same id)"
+      ]
+    },
+    {
+      "networkId": 1126,
+      "petId": "aberrant-tog",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:33:32, single entry"
+      ]
+    },
+    {
+      "networkId": 1172,
+      "petId": "duduka-worker",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:35:11 x5 next to 5x duduka worker"
+      ]
+    },
+    {
+      "networkId": 1173,
+      "petId": "duduka-trebuchet-worker",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:35:14, single entry"
+      ]
+    },
+    {
+      "networkId": 1181,
+      "petId": "brax",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 23:32:50, single entry",
+        "aion2.gaming.tools/pets/1181 (2026-10-03, same id)"
+      ]
+    },
+    {
+      "networkId": 1202,
+      "petId": "decomposed-lupyllini",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 21:27:27, 21:28:19 and 23:33:25, single entries"
+      ]
+    },
+    {
+      "networkId": 1063,
+      "petId": "vigilant-oculazen",
+      "verified": true,
+      "sourceRefs": [
+        "capture 2026-10-03 22:45-22:47, 6 single entries; user collected Mumu Worker (MAX, presumably no 0d90) and Vigilant Oculazen",
+        "aion2.gaming.tools/pets/1063 (2026-10-03, same id)"
+      ]
+    }
+  ]
+}

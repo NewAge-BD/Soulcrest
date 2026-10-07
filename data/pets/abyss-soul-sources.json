@@ -1,0 +1,2190 @@
+{
+ "description": "Soul drops of the monsters on the Abyss maps (Chaotic Lower/Middle/Upper Reshanta): which pet's soul each monster gives. Taken from the monster's loot table, not from its name: the name suffix is often wrong (Abyss Klaw gives Klaw Scout, Abyss Sulfur Slime Contaminated Slime). Used by scripts/build_tester_data.py to link the monster placements to pets.",
+ "source": "https://aion2.gaming.tools/npcs/<npcId> (loot table entries 'Soul: <pet> (Bound)'), monster lists of /maps/20, /maps/22, /maps/23; read 2026-10-04 in the browser, about 1 page per second",
+ "sources": [
+  {
+   "npcId": "2600001",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600001 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600002",
+   "npc": "Abyss Klaw",
+   "level": 45,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": 1029,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600002 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600003",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600003 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600004",
+   "npc": "Abyss Karnif",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": 1098,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600004 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600011",
+   "npc": "Abyss Aberrant Swarn",
+   "level": 45,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600011 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600012",
+   "npc": "Abyss Aberrant Klaw",
+   "level": 45,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": 1029,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600012 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600013",
+   "npc": "Abyss Old Blade Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600013 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600014",
+   "npc": "Abyss Search Party Karnif",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": 1098,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600014 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600021",
+   "npc": "Abyss Swarm Mutant",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600021 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600023",
+   "npc": "Abyss Sulfur Slime",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Contaminated Slime",
+   "petId": 1062,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_slime_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600023 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600024",
+   "npc": "Abyss Sulfur Skama",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Aberrant Skama",
+   "petId": 1089,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_fish_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600024 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600026",
+   "npc": "Withered Sulfur Agrint",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Withered Agrint",
+   "petId": 1027,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600026 (loot: Soul: Withered Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600027",
+   "npc": "Sulfur Agrint",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": 1207,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600027 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600028",
+   "npc": "Thin Sulfur Agrint",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": 1209,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600028 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600029",
+   "npc": "Abyss Klaw Mutant",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": 1005,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600029 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600036",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": 1030,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600036 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600041",
+   "npc": "Abyss Nagarant Warrior",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": 1030,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600041 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600042",
+   "npc": "Abyss Naga Dark Mage",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Naga Elite Priest",
+   "petId": 1200,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600042 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600045",
+   "npc": "Abyss Red Mutated Insectoid",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Unstable Spider",
+   "petId": 1117,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600045 (loot: Soul: Unstable Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600046",
+   "npc": "Abyss Odyle Mutated Insectoid",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Spider",
+   "petId": 1083,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600046 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600047",
+   "npc": "Abyss Young Slink",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Young Slink",
+   "petId": 1121,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600047 (loot: Soul: Young Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600048",
+   "npc": "Abyss Slink",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Slink",
+   "petId": 1016,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600048 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600049",
+   "npc": "Abyss Nasty Nepenthes",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Nepenthes",
+   "petId": 1073,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rafflesia_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600049 (loot: Soul: Nepenthes (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600050",
+   "npc": "Abyss Zelophi",
+   "level": 46,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": 1219,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600050 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600051",
+   "npc": "Abyssal Kalgolem",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": 1110,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600051 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600052",
+   "npc": "Abyss Drakan Scout Beast",
+   "level": 47,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Drakan Guard Dog",
+   "petId": 1014,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_beritrac_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600052 (loot: Soul: Drakan Guard Dog (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600056",
+   "npc": "Abyss Rock Spirit",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Stone Spirit",
+   "petId": 1069,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_eartheleod_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600056 (loot: Soul: Stone Spirit (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600061",
+   "npc": "Abyss Coradon",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Eternal Coradon",
+   "petId": 1134,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_coradon_01_v04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600061 (loot: Soul: Eternal Coradon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600066",
+   "npc": "Old Tree Spirit Warrior",
+   "level": 49,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Spirit King's Bodyguard Warrior",
+   "petId": 1178,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_eleguard_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600066 (loot: Soul: Spirit King's Bodyguard Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600069",
+   "npc": "Abyss Corrupted Spirit",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Black Spirit",
+   "petId": 1214,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_darkele_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600069 (loot: Soul: Black Spirit (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600070",
+   "npc": "Root Kalgolem",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Kalgolem",
+   "petId": 1084,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600070 (loot: Soul: Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600071",
+   "npc": "Root Agrint",
+   "level": 48,
+   "maps": [
+    "Chaotic Lower Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": 1207,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600071 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600401",
+   "npc": "Abyss Swarm",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600401 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600402",
+   "npc": "Abyss Klaw",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": 1029,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600402 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600403",
+   "npc": "Abyss Silver Blade Rotan",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600403 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600404",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": 1098,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600404 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600411",
+   "npc": "Abyss Swarm",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600411 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600412",
+   "npc": "Abyss Klaw",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": 1029,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600412 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600413",
+   "npc": "Abyss Silver Blade Rotan",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600413 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600414",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": 1098,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600414 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600421",
+   "npc": "Abyss Swarm",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600421 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600423",
+   "npc": "Abyss Sulfur Slime",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Contaminated Slime",
+   "petId": 1062,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_slime_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600423 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600424",
+   "npc": "Abyss Sulfur Skama",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Aberrant Skama",
+   "petId": 1089,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_fish_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600424 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600426",
+   "npc": "Abyss Marsh Targon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Marsh Targon",
+   "petId": 1141,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_bigman_01_v02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600426 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600427",
+   "npc": "Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": 1207,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600427 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600428",
+   "npc": "Thin Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": 1209,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600428 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600429",
+   "npc": "Abyss Mutated Klaw",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": 1005,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600429 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600430",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": 1180,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600430 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600432",
+   "npc": "Abyss Giant Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant Brute",
+   "petId": 1154,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_02_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600432 (loot: Soul: Faded Mutant Brute (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600436",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": 1030,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600436 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600441",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": 1030,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600441 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600442",
+   "npc": "Abyss Naga Dark Mage",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Naga Elite Priest",
+   "petId": 1200,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600442 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600446",
+   "npc": "Abyss Odyle Mutated Insectoid",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Spider",
+   "petId": 1083,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600446 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600447",
+   "npc": "Abyss Young Slink",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Young Slink",
+   "petId": 1121,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600447 (loot: Soul: Young Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600448",
+   "npc": "Abyss Slink",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Slink",
+   "petId": 1016,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600448 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600449",
+   "npc": "Abyss Nasty Nepenthes",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nepenthes",
+   "petId": 1073,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rafflesia_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600449 (loot: Soul: Nepenthes (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600450",
+   "npc": "Abyss Zelophi",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": 1219,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600450 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600451",
+   "npc": "Abyss Blue Kalgolem",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": 1110,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600451 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600452",
+   "npc": "Tamed Zaif",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Tamed Zaif",
+   "petId": 1189,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_zaif_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600452 (loot: Soul: Tamed Zaif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600454",
+   "npc": "Enraged Forest Guardian",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Forest Guardian",
+   "petId": 1101,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_forestarc_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600454 (loot: Soul: Forest Guardian (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600455",
+   "npc": "Varg Berserker",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Varg Berserker",
+   "petId": 1018,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_varg_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600455 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600461",
+   "npc": "Abyss Eternal Coradon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Eternal Coradon",
+   "petId": 1134,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_coradon_01_v04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600461 (loot: Soul: Eternal Coradon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600466",
+   "npc": "Spirit King's Bodyguard Warrior",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Spirit King's Bodyguard Warrior",
+   "petId": 1178,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_eleguard_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600466 (loot: Soul: Spirit King's Bodyguard Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600469",
+   "npc": "Abyss Corrupted Spirit",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Black Spirit",
+   "petId": 1214,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_darkele_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600469 (loot: Soul: Black Spirit (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600470",
+   "npc": "Abyss Kalgolem",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Kalgolem",
+   "petId": 1084,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600470 (loot: Soul: Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600471",
+   "npc": "Abyss Agrint",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": 1207,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600471 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600481",
+   "npc": "Abyss Silver Blade Rotan",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600481 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600482",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": 1098,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600482 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600483",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": 1098,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600483 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600491",
+   "npc": "Abyss Silver Blade Rotan",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600491 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600492",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": 1098,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600492 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600493",
+   "npc": "Abyss Search Party Karnif",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Modified Karnif",
+   "petId": 1098,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalnif_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600493 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600502",
+   "npc": "Abyss Marsh Targon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Marsh Targon",
+   "petId": 1141,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_bigman_01_v02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600502 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600503",
+   "npc": "Thin Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": 1209,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600503 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600504",
+   "npc": "Abyss Mutated Klaw",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": 1005,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600504 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600505",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": 1180,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600505 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600511",
+   "npc": "Abyss Nasty Nepenthes",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nepenthes",
+   "petId": 1073,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_rafflesia_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600511 (loot: Soul: Nepenthes (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600512",
+   "npc": "Abyss Zelophi",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": 1219,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600512 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600513",
+   "npc": "Abyss Blue Kalgolem",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": 1110,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600513 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600515",
+   "npc": "Varg Berserker",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Varg Berserker",
+   "petId": 1018,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_varg_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600515 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600531",
+   "npc": "Thin Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": 1209,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600531 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600532",
+   "npc": "Abyss Marsh Targon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Marsh Targon",
+   "petId": 1141,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_bigman_01_v02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600532 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600534",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": 1180,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600534 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600535",
+   "npc": "Abyss Sulfur Skama",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Aberrant Skama",
+   "petId": 1089,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_fish_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600535 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600536",
+   "npc": "Abyss Naga Dark Mage",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Naga Elite Priest",
+   "petId": 1200,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600536 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600537",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": 1030,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600537 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600538",
+   "npc": "Abyss Mutated Klaw",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": 1005,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600538 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600539",
+   "npc": "Abyss Sulfur Slime",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Contaminated Slime",
+   "petId": 1062,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_slime_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600539 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600540",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": 1180,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600540 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600541",
+   "npc": "Abyss Giant Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant Brute",
+   "petId": 1154,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_02_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600541 (loot: Soul: Faded Mutant Brute (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600551",
+   "npc": "Thin Sulfur Agrint",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Thin Agrint",
+   "petId": 1209,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600551 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600552",
+   "npc": "Abyss Marsh Targon",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Marsh Targon",
+   "petId": 1141,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_bigman_01_v02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600552 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600554",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": 1180,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600554 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600555",
+   "npc": "Abyss Sulfur Skama",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Aberrant Skama",
+   "petId": 1089,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_fish_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600555 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600556",
+   "npc": "Abyss Naga Dark Mage",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Naga Elite Priest",
+   "petId": 1200,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600556 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600557",
+   "npc": "Abyss Nagarant Brawler",
+   "level": 54,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Nagarant Guardian Warrior",
+   "petId": 1030,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_nagaelite_04.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600557 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600558",
+   "npc": "Abyss Mutated Klaw",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": 1005,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600558 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600559",
+   "npc": "Abyss Sulfur Slime",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Contaminated Slime",
+   "petId": 1062,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_slime_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600559 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600560",
+   "npc": "Abyss Drana Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": 1180,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600560 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600561",
+   "npc": "Abyss Giant Mutant",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Faded Mutant Brute",
+   "petId": 1154,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_dranavar_02_cv01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600561 (loot: Soul: Faded Mutant Brute (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600571",
+   "npc": "Abyss Agrint",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": 1207,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600571 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600574",
+   "npc": "Abyss Zelophi",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": 1219,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600574 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600575",
+   "npc": "Abyss Blue Kalgolem",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": 1110,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600575 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600576",
+   "npc": "Abyss Slink",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Slink",
+   "petId": 1016,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600576 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600578",
+   "npc": "Abyss Odyle Mutated Insectoid",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Spider",
+   "petId": 1083,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600578 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600579",
+   "npc": "Tamed Zaif",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Tamed Zaif",
+   "petId": 1189,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_zaif_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600579 (loot: Soul: Tamed Zaif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600580",
+   "npc": "Varg Berserker",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Varg Berserker",
+   "petId": 1018,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_varg_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600580 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600581",
+   "npc": "Abyss Agrint",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Agrint",
+   "petId": 1207,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_agrint_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600581 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600584",
+   "npc": "Abyss Zelophi",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Zelophi",
+   "petId": 1219,
+   "genus": "natura",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_jellofi_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600584 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600585",
+   "npc": "Abyss Blue Kalgolem",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Blue Kalgolem",
+   "petId": 1110,
+   "genus": "varian",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_kalgolem_02.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600585 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600586",
+   "npc": "Abyss Slink",
+   "level": 51,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Slink",
+   "petId": 1016,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_lepisma_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600586 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600588",
+   "npc": "Abyss Odyle Mutated Insectoid",
+   "level": 50,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Spider",
+   "petId": 1083,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_spider_01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600588 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600589",
+   "npc": "Tamed Zaif",
+   "level": 52,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Tamed Zaif",
+   "petId": 1189,
+   "genus": "fera",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_zaif_01_v01.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600589 (loot: Soul: Tamed Zaif (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600590",
+   "npc": "Varg Berserker",
+   "level": 53,
+   "maps": [
+    "Chaotic Middle Reshanta"
+   ],
+   "pet": "Varg Berserker",
+   "petId": 1018,
+   "genus": "cogni",
+   "chancePercent": 100,
+   "portrait": "ut_vehicle_portrait_varg_03.webp",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600590 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04"
+   ]
+  },
+  {
+   "npcId": "2600601",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600601: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600602",
+   "npc": "Abyss Klaw",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": 1029,
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "derivedFrom": "2600002",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600602: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600002 gives Klaw Scout; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600603",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600603: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600604",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600604: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600621",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600621: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600622",
+   "npc": "Abyss Klaw",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": 1029,
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "derivedFrom": "2600002",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600622: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600002 gives Klaw Scout; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600623",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600623: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600624",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600624: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600641",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600641: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600642",
+   "npc": "Abyss Klaw",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": 1029,
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "derivedFrom": "2600002",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600642: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600002 gives Klaw Scout; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600643",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600643: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600644",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600644: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600661",
+   "npc": "Abyss Swarm",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600661: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600662",
+   "npc": "Abyss Klaw",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw Scout",
+   "petId": 1029,
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_02.webp",
+   "derivedFrom": "2600002",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600662: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600002 gives Klaw Scout; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600663",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600663: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600664",
+   "npc": "Abyss Rusty Rotan",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Silver Blade Rotan",
+   "petId": 1192,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_rotan_01.webp",
+   "derivedFrom": "2600003",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600664: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600681",
+   "npc": "Abyss Swarm",
+   "level": 43,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Swarm",
+   "petId": 1013,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_abyssswarm_01.webp",
+   "derivedFrom": "2600001",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600681: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600686",
+   "npc": "Abyss Drana Mutant",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": 1180,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "derivedFrom": "2600430",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600686: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600430 gives Faded Mutant; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600688",
+   "npc": "Abyss Mutated Klaw",
+   "level": 45,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Klaw",
+   "petId": 1005,
+   "genus": "cogni",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_neuth_01.webp",
+   "derivedFrom": "2600429",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600688: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600429 gives Klaw; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  },
+  {
+   "npcId": "2600689",
+   "npc": "Abyss Drana Mutant",
+   "level": 46,
+   "maps": [
+    "Chaotic Upper Reshanta"
+   ],
+   "pet": "Faded Mutant",
+   "petId": 1180,
+   "genus": "varian",
+   "chancePercent": null,
+   "portrait": "ut_vehicle_portrait_dranavar_01_cv01.webp",
+   "derivedFrom": "2600430",
+   "sourceRefs": [
+    "https://aion2.gaming.tools/npcs/2600689: loot table empty (not published), read 2026-10-04",
+    "Same-name monster https://aion2.gaming.tools/npcs/2600430 gives Faded Mutant; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)"
+   ]
+  }
+ ]
+}

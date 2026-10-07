@@ -1,0 +1,254 @@
+@implements IDisposable
+@inject PetScanService Scan
+@inject ProgressService Progress
+@inject SettingsService Settings
+
+<div class="page scan">
+    <header class="sv-head">
+        <h2>@UiText.T("Fortschritt aus dem Pet-Fenster übernehmen")</h2>
+        <p class="sv-lead">@UiText.T("Soulcrest liest das Pet-Fenster im Spiel, während du durch die Liste scrollst. Danach prüfst du die Liste und übernimmst die markierten Pets.")</p>
+    </header>
+    <OcrLanguageSetup />
+
+    <div class="sv-grid">
+        <section class="card sv-card">
+            <div class="sv-card-head">
+                <h3>Scan</h3>
+                @if (Scan.Starting)
+                {
+                    <span class="sv-badge warn">@UiText.T("startet …")</span>
+                }
+                else if (Scan.Running)
+                {
+                    <span class="sv-badge on"><span class="sv-dot"></span>@UiText.T("läuft")</span>
+                }
+                else
+                {
+                    <span class="sv-badge">@UiText.T("aus")</span>
+                }
+            </div>
+            <ol class="sv-steps">
+                <li>@UiText.T("Im Spiel das Pet-Fenster öffnen, Reiter") <b>ALL</b>@UiText.T(", ganz nach oben scrollen.")</li>
+                <li><b>@UiText.T("Scan starten")</b> @UiText.T("und die Liste langsam bis unten durchscrollen.")</li>
+                <li>@UiText.T("Unbekannte Pets (gelb/grau unten) im Spiel") <b>@UiText.T("einmal anklicken")</b>@UiText.T(": Soulcrest liest den Namen im rechten Bereich und merkt sich das Porträt.")</li>
+                <li>@UiText.T("Scan stoppen, Liste prüfen,") <b>@UiText.T("Übernehmen")</b>.</li>
+            </ol>
+
+            <div class="scan-region">
+                <span class="scan-label">@UiText.T("Aufnahmebereich")</span>
+                <span class="sv-chip">@Scan.CaptureRegion.Width × @Scan.CaptureRegion.Height px @(Settings.Current.PetWindowRegion is null ? UiText.T("(Hauptbildschirm)") : "")</span>
+                <button class="btn small" @onclick="Scan.SelectRegion" disabled="@Locked">@UiText.T("Bereich wählen")</button>
+                <button class="btn small" @onclick="Scan.UsePrimaryScreen" disabled="@(Locked || Settings.Current.PetWindowRegion is null)" title="@UiText.T("Ganzen Hauptbildschirm aufnehmen")">@UiText.T("Ganzer Bildschirm")</button>
+            </div>
+
+            <div class="row">
+                @if (Scan.Starting)
+                {
+                    <button class="btn primary busy" disabled><span class="spinner"></span>@UiText.T("Scan startet …")</button>
+                }
+                else if (Scan.Running)
+                {
+                    <button class="btn danger" @onclick="Scan.Stop"><span class="live-dot"></span>@UiText.T("Scan läuft · stoppen")</button>
+                }
+                else
+                {
+                    <button class="btn primary" @onclick="Scan.StartAsync" disabled="@_readingFile">@UiText.T("Scan starten")</button>
+                }
+                @if (_readingFile)
+                {
+                    <button class="btn busy" disabled><span class="spinner"></span>@UiText.T("Bild wird gelesen …")</button>
+                }
+                else
+                {
+                    <button class="btn" @onclick="ScanFile" disabled="@Locked" title="@UiText.T("Statt live zu scannen: einen Screenshot des Pet-Fensters einlesen")">@UiText.T("Bild einlesen …")</button>
+                }
+            </div>
+            <div class="status @(Scan.StatusIsError ? "error" : "")">@UiText.T(Scan.Status)</div>
+            @if (_fileError is not null)
+            {
+                <div class="status error">@UiText.T(_fileError)</div>
+            }
+            <div class="kv sv-kv">
+                <span>@UiText.T("Bilder gelesen")</span><span>@(Scan.Running && Scan.Frames == 0 ? UiText.T("warte auf das erste Bild …") : Scan.Frames.ToString())</span>
+                <span>@UiText.T("Ausgewählt im Spiel")</span><span>@(Scan.PanelText ?? "–")</span>
+                <span>@UiText.T("Sammlung laut Spiel")</span><span>@(Scan.Collection is { } c ? $"{c.Owned} / {c.Total}" : "–") · @UiText.T("erkannt freigeschaltet:") @Scan.Entries.Count(e => e.Reading?.Level >= 1)</span>
+            </div>
+            @if (Scan.PreviewDataUrl is not null)
+            {
+                <img class="preview" src="@Scan.PreviewDataUrl" alt="@UiText.T("Letzte Aufnahme")" />
+            }
+        </section>
+
+        <section class="card sv-card scan-results">
+            <div class="sv-card-head">
+                <h3>@UiText.T("Gelesene Pets") <span class="sv-count">@Scan.Entries.Count</span></h3>
+                @if (Scan.Entries.Count > 0)
+                {
+                    if (_confirmClear)
+                    {
+                        <button class="btn small danger" @onclick="ClearConfirmed">@UiText.T("Wirklich leeren?")</button>
+                    }
+                    else
+                    {
+                        <button class="btn small" @onclick="AskClear" disabled="@Locked" title="@UiText.T("Gelesene Liste verwerfen (der Fortschritt bleibt unverändert)")">@UiText.T("Liste leeren")</button>
+                    }
+                }
+            </div>
+            <div class="row">
+                @if (_justApplied)
+                {
+                    <button class="btn primary done" disabled>@UiText.F("✓ {0} übernommen", _appliedCount)</button>
+                }
+                else
+                {
+                    <button class="btn primary" @onclick="Apply" disabled="@(ApplyCount == 0)">@UiText.F("Markierte übernehmen ({0})", ApplyCount)</button>
+                }
+                @if (_applied is not null)
+                {
+                    <span class="note applied">@UiText.T(_applied)</span>
+                }
+                else if (ApplyCount == 0 && Scan.Entries.Count > 0)
+                {
+                    <span class="note">@UiText.T("Keine markierten Pets mit erkanntem Pet und gelesener Stufe.")</span>
+                }
+            </div>
+            @if (Scan.Entries.Count == 0)
+            {
+                <div class="sv-empty">@UiText.T("Noch keine Pets gelesen. Scan starten oder ein Bild einlesen.")</div>
+            }
+            else
+            {
+                <div class="scan-tablewrap">
+                    <table class="grid scan-table">
+                        <thead><tr><th title="@UiText.T("Übernehmen")">✓</th><th></th><th>Pet</th><th>@UiText.T("Im Spiel")</th><th>In Soulcrest</th></tr></thead>
+                        <tbody>
+                            @foreach (var entry in Scan.Entries.OrderBy(e => e.Confidence).ThenBy(e => e.PetId))
+                            {
+                                var reading = entry.Reading;
+                                <tr class="scan-row @ConfidenceClass(entry)">
+                                    <td><input type="checkbox" checked="@entry.Apply" disabled="@(entry.PetId is null)" @onchange="@(e => { Scan.SetApply(entry.Key, (bool)e.Value!); })" /></td>
+                                    <td><img class="scan-thumb" src="@entry.ThumbnailDataUrl" alt="" /></td>
+                                    <td>
+                                        <select value="@(entry.PetId ?? "")" @onchange="@(e => Scan.Assign(entry, e.Value?.ToString()))">
+                                            <option value="">@UiText.T("– unbekannt –")</option>
+                                            @foreach (var pet in Progress.Catalog.Pets.OrderBy(p => p.En))
+                                            {
+                                                <option value="@pet.Id">@pet.DisplayName(Settings.Current.NameLanguage)</option>
+                                            }
+                                        </select>
+                                        <div class="subname scan-conf">@UiText.T(ConfidenceText(entry))</div>
+                                    </td>
+                                    <td>@(reading is { } r ? UiText.T(LevelText(r.Level, r.InLevel)) : UiText.T("nicht lesbar"))<div class="subname">«@entry.LastText» · @entry.Seen×</div></td>
+                                    <td>@(entry.PetId is { } id ? Progress.LevelText(id) : "–")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+</div>
+
+@code {
+    private string? _applied;
+    private string? _fileError;
+    private bool _readingFile;
+    private bool _confirmClear;
+
+    private bool Locked => Scan.Running || Scan.Starting || _readingFile;
+
+    private int ApplyCount => Scan.Entries.Count(e => e.Apply && e.PetId is not null && e.Reading is not null);
+
+    protected override void OnInitialized()
+    {
+        Scan.Changed += Refresh;
+        Progress.Changed += Refresh;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private async Task ScanFile()
+    {
+        using var dialog = new OpenFileDialog { Filter = UiText.T("Bilder|*.png;*.jpg;*.jpeg;*.bmp;*.webp|Alle Dateien|*.*"), Title = UiText.T("Screenshot des Pet-Fensters wählen") };
+        if (dialog.ShowDialog() != DialogResult.OK)
+            return;
+        _fileError = null;
+        _readingFile = true;
+        StateHasChanged();
+        try
+        {
+            await Task.Run(() => Scan.ScanFileAsync(dialog.FileName));
+        }
+        catch (Exception exception)
+        {
+            _fileError = UiText.T("Fehler: ") + exception.Message;
+        }
+        finally
+        {
+            _readingFile = false;
+        }
+    }
+
+    // UiText.T("Liste leeren") discards the read list: the first click asks, the confirmation expires after 3 s.
+    private async Task AskClear()
+    {
+        _confirmClear = true;
+        StateHasChanged();
+        await Task.Delay(3000);
+        _confirmClear = false;
+    }
+
+    private void ClearConfirmed()
+    {
+        _confirmClear = false;
+        _applied = null;
+        Scan.Clear();
+    }
+
+    private bool _justApplied;
+    private int _appliedCount;
+
+    // Visible confirmation (user report 2026-10-03: "Markierte übernehmen hat kein Feedback"; it was also
+    // disabled while the scan ran). The button turns green for two seconds, the note stays.
+    private async Task Apply()
+    {
+        _appliedCount = Scan.ApplySelected();
+        _applied = $"{_appliedCount} Pets um {DateTime.Now:HH:mm:ss} in den Fortschritt übernommen.";
+        _justApplied = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        _justApplied = false;
+        StateHasChanged();
+    }
+
+    private static string LevelText(int level, int inLevel) => level switch
+    {
+        3 => UiText.T("Stufe 3 (max)"),
+        0 => $"nicht freigeschaltet · {inLevel}/5",
+        1 => $"Stufe 1 · {inLevel}/25",
+        _ => $"Stufe 2 · {inLevel}/75",
+    };
+
+    private static string ConfidenceClass(ScanEntry entry) => entry.Confidence switch
+    {
+        ScanConfidence.Confirmed => "confirmed",
+        ScanConfidence.Recognised => "recognised",
+        ScanConfidence.Uncertain => "uncertain",
+        _ => "unknown",
+    };
+
+    private static string ConfidenceText(ScanEntry entry) => entry.Confidence switch
+    {
+        ScanConfidence.Confirmed => UiText.T("bestätigt (Name im Spiel gelesen)"),
+        ScanConfidence.Recognised => $"erkannt am Porträt ({entry.MatchScore})",
+        ScanConfidence.Uncertain => $"unsicher ({entry.MatchScore}) – bitte prüfen oder im Spiel anklicken",
+        _ => entry.SuggestedName is null ? UiText.T("unbekannt – im Spiel anklicken oder wählen") : $"unbekannt (ähnlich: {entry.SuggestedName}) – im Spiel anklicken",
+    };
+
+    public void Dispose()
+    {
+        Scan.Changed -= Refresh;
+        Progress.Changed -= Refresh;
+    }
+}

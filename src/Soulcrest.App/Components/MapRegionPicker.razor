@@ -1,0 +1,24 @@
+@* Marking the minimap: the same control in the options and in the first-start tutorial. *@
+@inject MapTrackingService Tracking
+
+<div class="row">
+    <button class="btn primary" @onclick="Select">@UiText.T("🗺 Kartenbereich markieren")</button>
+    <RegionChip Region="Tracking.Region" JustSaved="_saved" />
+</div>
+<p class="sv-hint">@UiText.T("Minimap oder geöffnete Karte im Spiel einrahmen, nur den Kartenausschnitt.")</p>
+
+@code {
+    private bool _saved;
+
+    private async Task Select()
+    {
+        var before = Tracking.Region;
+        Tracking.SelectRegion();
+        if (Tracking.Region == before)
+            return;
+        _saved = true;
+        StateHasChanged();
+        await Task.Delay(2500);
+        _saved = false;
+    }
+}

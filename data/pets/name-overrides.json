@@ -1,0 +1,12 @@
+{
+  "_comment": "Real English names for catalog pets that only carry an icon name ('Crestlich 01') because the map data had a Chinese name only. Each entry needs sourceRefs. See data/pets/SCHEMA.md.",
+  "overrides": [
+    {
+      "id": "crestlich-01",
+      "en": "Crestlich",
+      "sourceRefs": [
+        "user screenshot 2026-10-03: loot feed 'Soul: Crestlich (Bound) x1', chat 'Obtained 2 Crestlich Soul Points' from 'Stonebeak Crestlich'"
+      ]
+    }
+  ]
+}
