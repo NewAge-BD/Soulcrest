@@ -18,7 +18,10 @@ eine Bildschirmaufnahme- plus Overlay-Software.
 - Netzwerkverkehr des Spiels verändern oder senden; mitschneiden nur in der Ausnahme unten;
 - Tastatur- oder Mauseingaben an das Spiel senden oder Spielaktionen automatisieren;
 - Spieldateien verändern;
-- zur Laufzeit Daten von Drittseiten abrufen. Kein Telemetrie- oder Update-Netzwerkzugriff in v1.
+- zur Laufzeit Daten von Drittseiten abrufen. Keine Telemetrie. Einzige Ausnahme ist die Update-Suche
+  (Nutzerentscheidung 2026-10-07): nach dem Start (abschaltbar unter Info) und auf Knopfdruck eine Anfrage
+  an die Releases von `NewAge-BD/Soulcrest` auf GitHub; der Installer wird nur auf ausdrücklichen Klick
+  geladen, gegen die veröffentlichte SHA-256 geprüft und dann gestartet. Gesendet wird nur die Anfrage.
   Der einmalige Kartendatenimport ist ein Entwicklerskript, kein App-Pfad;
 - bisheriger Kartenanbieter abrufen, scrapen oder deren Token nachbauen (siehe `MAP_DATA.md`).
 
@@ -34,7 +37,7 @@ auswerten darf (DPS-Meter sind für Aion 2 laut Nutzer erlaubt). Dafür gilt:
   Senden oder Verändern von Paketen. Ist der Verkehr verschlüsselt, ist dieser Weg zu Ende;
 - Mitschnitte liegen nur lokal unter `%LOCALAPPDATA%\Soulcrest\captures`.
 - **Charaktererkennung (Nutzerentscheidung 2026-10-06):** Aus demselben Mitschnitt wird nur der
-  **eigene** Charaktername gelesen, aus der Nachricht `33 36` beim Betreten der Welt. Damit folgt
+  **eigene** Charaktername gelesen, aus einer Servernachricht beim Betreten der Welt. Damit folgt
   das Erkundungsprofil dem eingeloggten Charakter. Namen oder Positionen anderer Spieler werden
   nicht ausgewertet. Echte Charakternamen kommen nicht ins Repository.
 

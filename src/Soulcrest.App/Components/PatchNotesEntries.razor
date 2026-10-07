@@ -1,0 +1,45 @@
+@* The entries of one version (Patchnotes tab and update notice). *@
+<ul class="pn-list">
+    @foreach (var entry in Entries)
+    {
+        <li>
+            @if (entry.Kind.Length > 0)
+            {
+                <span class="pn-kind @KindClass(entry.Kind)">@UiText.T(entry.Kind)</span>
+            }
+            else
+            {
+                <span aria-hidden="true"></span>
+            }
+            <span class="pn-text">
+                @foreach (var span in PatchNotes.Spans(entry.Text))
+                {
+                    if (span.Code)
+                    {
+                        <code>@span.Text</code>
+                    }
+                    else if (span.Bold)
+                    {
+                        <b>@span.Text</b>
+                    }
+                    else
+                    {
+                        @span.Text
+                    }
+                }
+            </span>
+        </li>
+    }
+</ul>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PatchNotes.Entry> Entries { get; set; } = [];
+
+    private static string KindClass(string kind) => kind switch
+    {
+        "Neu" => "new",
+        "Behoben" => "fixed",
+        "Verbessert" => "improved",
+        _ => "changed",
+    };
+}

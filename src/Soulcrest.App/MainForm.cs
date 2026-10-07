@@ -60,6 +60,7 @@ public sealed class MainForm : Form
         services.AddSingleton<ExplorationArrivalService>();
         services.AddSingleton<CharacterDetectionService>();
         services.AddSingleton<DiagnosticsService>();
+        services.AddSingleton<UpdateService>();
         services.AddSingleton<UiState>();
         _services = services.BuildServiceProvider();
         _settings = _services.GetRequiredService<SettingsService>();
@@ -145,6 +146,10 @@ public sealed class MainForm : Form
         // Like Grindcrest before tracking: ask Windows for capture without the yellow border (a prompt
         // only the first time), outside the capture lock; a bordered session is then restarted.
         _ = _gameCapture.PrepareBorderlessAsync();
+        // Look for a new version on GitHub (user request 2026-10-07); the installer replaces the running files.
+        var updates = _services.GetRequiredService<UpdateService>();
+        updates.ExitRequested += () => BeginInvoke(() => { if (!IsDisposed) Close(); });
+        updates.StartAutomaticCheck();
         var ui = _services.GetRequiredService<UiState>();
         UiResponsiveness.Watch(this, () => $"Tab {ui.Tab}, Tracking {(_map.Running ? (_map.Found ? "gefunden" : "sucht") : "aus")}", _watchdog.Token);
         _ = _scanMarkers.Handle; // shown by itself while a pet scan has cards to click

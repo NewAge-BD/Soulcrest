@@ -1,0 +1,70 @@
+@* A new version on GitHub (user request 2026-10-07): its patch notes and the update button. Shown after the
+   automatic check at start and after "Nach Updates suchen" under Info; "Später" closes it until the next check. *@
+@implements IDisposable
+@inject UpdateService Updates
+
+@if (Visible)
+{
+    <div class="tutorial-backdrop" role="dialog" aria-modal="true" aria-labelledby="update-title">
+        <div class="update-notice card">
+            <h2 id="update-title">@UiText.F("Soulcrest {0} ist verfügbar", Updates.Available[0].Version)</h2>
+            <p class="sv-lead">@UiText.F("Installiert: {0}. Das ist neu:", UpdateService.Installed?.ToString() ?? AppPaths.Version)</p>
+            @if (UiText.Language != "de")
+            {
+                <p class="sv-hint">The patch notes are written in German.</p>
+            }
+            <div class="update-notes">
+                @foreach (var update in Updates.Available)
+                {
+                    var releases = PatchNotes.Parse(update.Notes);
+                    <section class="update-version">
+                        <h3>@update.Version</h3>
+                        @if (releases.Count > 0)
+                        {
+                            <PatchNotesEntries Entries="@releases[0].Entries" />
+                        }
+                        else
+                        {
+                            <p class="sv-hint">@update.Notes</p>
+                        }
+                    </section>
+                }
+            </div>
+            @if (Updates.State == UpdateState.Downloading)
+            {
+                <progress class="update-progress" max="1" value="@Updates.Progress.ToString(System.Globalization.CultureInfo.InvariantCulture)"></progress>
+            }
+            @if (Updates.State is UpdateState.Downloading or UpdateState.Starting or UpdateState.Failed)
+            {
+                <div class="status @(Updates.State == UpdateState.Failed ? "error" : "")">@UiText.T(Updates.Message ?? "")</div>
+            }
+            <div class="row tutorial-actions">
+                <a class="btn link" href="@Updates.Available[0].Page" target="_blank" rel="noopener">@UiText.T("Auf GitHub ansehen")</a>
+                <button type="button" class="btn" disabled="@Busy" @onclick="Updates.Dismiss">@UiText.T("Später")</button>
+                <button type="button" class="btn primary" disabled="@(Busy || Updates.Available[0].Installer is null)" @onclick="Install">
+                    @(Updates.State == UpdateState.Downloading ? UiText.F("Lädt … {0:0} %", Updates.Progress * 100)
+                      : Updates.State == UpdateState.Starting ? UiText.T("Installer startet …") : UiText.T("Jetzt aktualisieren"))
+                </button>
+            </div>
+            @if (Updates.Available[0].Installer is null)
+            {
+                <p class="sv-hint">@UiText.T("Der Installer dieser Version wird auf GitHub noch gebaut. Bitte später erneut suchen.")</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool Visible => Updates.Available.Count > 0 && !Updates.Dismissed
+        && Updates.State is UpdateState.Available or UpdateState.Downloading or UpdateState.Starting or UpdateState.Failed;
+
+    private bool Busy => Updates.State is UpdateState.Downloading or UpdateState.Starting;
+
+    protected override void OnInitialized() => Updates.Changed += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private Task Install() => Updates.InstallAsync();
+
+    public void Dispose() => Updates.Changed -= Refresh;
+}

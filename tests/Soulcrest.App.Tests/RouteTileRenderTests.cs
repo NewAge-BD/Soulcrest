@@ -29,6 +29,7 @@ public sealed class RouteTileRenderTests
         services.AddSingleton<MapTargetsService>();
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<UiState>();
+        services.AddSingleton<UpdateService>();
         services.AddSingleton<IJSRuntime, NoJs>();
         await using var provider = services.BuildServiceProvider();
         var settings = provider.GetRequiredService<SettingsService>();

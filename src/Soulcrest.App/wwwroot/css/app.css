@@ -580,3 +580,10 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
 
 /* Info: support link */
 .info-support a.btn { display: inline-flex; align-items: center; gap: .35rem; text-decoration: none; }
+
+/* Update notice (2026-10-07): patch notes of the newer versions, scrolls inside the card. */
+.update-notice { display: flex; flex-direction: column; gap: .6rem; width: min(720px, 100%); max-height: calc(100vh - 32px); padding: 1rem; }
+.update-notice h2 { margin: 0; color: var(--accent); }
+.update-notes { overflow: auto; min-height: 0; flex: 1; display: flex; flex-direction: column; gap: .8rem; padding-right: .25rem; }
+.update-version h3 { margin: 0 0 .2rem; }
+.update-progress { width: 100%; accent-color: var(--accent); }

@@ -2,6 +2,17 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.1.30 – 2026-10-07
+
+- **Neu:** Soulcrest ist öffentlich auf GitHub: <https://github.com/NewAge-BD/Soulcrest>. Jede Version
+  gibt es dort als Windows-Installer unter „Releases“.
+- **Neu:** Update-Suche. Nach dem Start sucht Soulcrest nach einer neuen Version und zeigt ihre
+  Patchnotes; „Jetzt aktualisieren“ lädt den Installer, prüft ihn und startet ihn. Unter Info gibt es
+  „Nach Updates suchen“ und den Schalter für die Suche beim Start.
+- **Neu:** Unter Info lässt sich Soulcrest freiwillig über Ko-fi unterstützen.
+- **Geändert:** Lizenz PolyForm Noncommercial 1.0.0 (nicht kommerziell nutzbar).
+- **Entfernt:** Das alte Loot-Tracking per Texterkennung; Souls zählt nur noch der Netzwerk-Tracker.
+
 ## 0.1.29 – 2026-10-07
 
 - **Neu:** Reiter „Patchnotes“ zeigt, was sich in jeder Version geändert hat. Die installierte Version

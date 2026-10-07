@@ -24,38 +24,7 @@
                     <span class="sv-badge on">@UiText.T("installiert")</span>
                 }
             </div>
-            <ul class="pn-list">
-                @foreach (var entry in release.Entries)
-                {
-                    <li>
-                        @if (entry.Kind.Length > 0)
-                        {
-                            <span class="pn-kind @KindClass(entry.Kind)">@UiText.T(entry.Kind)</span>
-                        }
-                        else
-                        {
-                            <span aria-hidden="true"></span>
-                        }
-                        <span class="pn-text">
-                            @foreach (var span in PatchNotes.Spans(entry.Text))
-                            {
-                                if (span.Code)
-                                {
-                                    <code>@span.Text</code>
-                                }
-                                else if (span.Bold)
-                                {
-                                    <b>@span.Text</b>
-                                }
-                                else
-                                {
-                                    @span.Text
-                                }
-                            }
-                        </span>
-                    </li>
-                }
-            </ul>
+            <PatchNotesEntries Entries="@release.Entries" />
         </section>
     }
 </div>
@@ -64,11 +33,4 @@
     // "0.1.28+a4b8137.tester…" -> "0.1.28"
     private static string InstalledVersion => AppPaths.Version.Split('+', 2)[0];
 
-    private static string KindClass(string kind) => kind switch
-    {
-        "Neu" => "new",
-        "Behoben" => "fixed",
-        "Verbessert" => "improved",
-        _ => "changed",
-    };
 }

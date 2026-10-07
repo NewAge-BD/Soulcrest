@@ -13,6 +13,9 @@ public sealed class AppSettings
 
     public bool LootTrackingEnabled { get; set; } = true;
 
+    /// <summary>Look for a new version on GitHub after every start (UpdateService).</summary>
+    public bool CheckUpdatesOnStart { get; set; } = true;
+
     public bool OverlayEnabled { get; set; } = true;
     public int OverlayX { get; set; } = 40;
     public int OverlayY { get; set; } = 200;

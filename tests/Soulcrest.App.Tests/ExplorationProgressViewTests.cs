@@ -30,6 +30,7 @@ public sealed class ExplorationProgressViewTests
         services.AddSingleton<CharacterDetectionService>();
         services.AddSingleton<OcrLanguageInstaller>();
         services.AddSingleton<UiState>();
+        services.AddSingleton<UpdateService>();
         services.AddSingleton<IJSRuntime, NoJs>();
         await using var provider = services.BuildServiceProvider();
         var settings = provider.GetRequiredService<SettingsService>();

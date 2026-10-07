@@ -1,0 +1,77 @@
+# Builds the Windows installer for every version tag (v0.1.30, ...) and publishes it as a GitHub release.
+# Runs only in the public repository. The map data package is not in Git: it comes from the
+# "mapdata" release of this repository (uploaded by scripts/publish_public.py).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    if: github.repository == 'NewAge-BD/Soulcrest'
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $props = ([xml](Get-Content Directory.Build.props -Raw)).Project.PropertyGroup.Version
+          if ($version -ne $props) { throw "Tag $version does not match Directory.Build.props $props" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Inno Setup 7.1.0 (official, checked)
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:RUNNER_TEMP 'innosetup-7.1.0-x64.exe'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe' -OutFile $exe
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash
+          if ($hash -ne '0362A383ED217D4C4239B5933866DD96D3EB2102737DA92F80F6057A4B40DF2F') { throw "Unexpected Inno Setup hash $hash" }
+          $dir = Join-Path $env:RUNNER_TEMP 'inno'
+          Start-Process $exe -ArgumentList '/PORTABLE=1','/CURRENTUSER','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS',"/DIR=$dir" -Wait
+          if (-not (Test-Path "$dir\ISCC.exe")) { throw 'ISCC.exe missing' }
+
+      - name: Map data package
+        shell: pwsh
+        run: |
+          gh release download mapdata --pattern mapdata.zip --dir $env:RUNNER_TEMP
+          Expand-Archive (Join-Path $env:RUNNER_TEMP 'mapdata.zip') -DestinationPath imports/generated/mapdata
+          if (-not (Test-Path imports/generated/mapdata/manifest.json)) { throw 'mapdata.zip has no manifest.json' }
+
+      - name: Tests
+        run: dotnet test Soulcrest.slnx -c Release
+
+      - name: Installer
+        shell: pwsh
+        run: ./scripts/Build-Installer.ps1 -Compiler (Join-Path $env:RUNNER_TEMP 'inno\ISCC.exe') -Version '${{ steps.version.outputs.version }}'
+
+      - name: Release notes from docs/PATCHNOTES.md
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $lines = Get-Content docs/PATCHNOTES.md -Encoding utf8
+          $start = [array]::FindIndex($lines, [Predicate[string]]{ param($l) $l -match "^## $([regex]::Escape($version)) " })
+          if ($start -lt 0) { throw "No patch notes for $version" }
+          $end = [array]::FindIndex($lines, $start + 1, [Predicate[string]]{ param($l) $l -match '^## ' })
+          if ($end -lt 0) { $end = $lines.Count }
+          $lines[$start..($end - 1)] | Set-Content (Join-Path $env:RUNNER_TEMP 'notes.md') -Encoding utf8
+
+      - name: Publish release
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $setup = "artifacts/installer/Soulcrest-$version-Setup-win-x64.exe"
+          gh release create '${{ github.ref_name }}' $setup "$setup.sha256" artifacts/installer/BUILD-INFO.json `
+            --title "Soulcrest $version" --notes-file (Join-Path $env:RUNNER_TEMP 'notes.md')

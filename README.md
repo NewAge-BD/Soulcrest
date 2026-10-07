@@ -28,7 +28,7 @@ the game.
 The soul tracker reads the game's network traffic **read-only** with Npcap: only the server → client
 stream of the game, nothing is decrypted, and only your own character's name is read (to switch
 profiles). Nothing leaves your PC. You can turn the tracker off in the settings. Details:
-[docs/SAFETY.md](docs/SAFETY.md) and [docs/NETWORK_LOOT.md](docs/NETWORK_LOOT.md).
+[docs/SAFETY.md](docs/SAFETY.md).
 
 Using any third-party tool with an online game is at your own risk.
 

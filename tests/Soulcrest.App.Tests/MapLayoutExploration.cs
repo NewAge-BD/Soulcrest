@@ -33,6 +33,7 @@ public sealed class MapLayoutExploration
         services.AddSingleton<CharacterDetectionService>();
         services.AddSingleton<OcrLanguageInstaller>();
         services.AddSingleton<UiState>();
+        services.AddSingleton<UpdateService>();
         services.AddSingleton<IJSRuntime, NoJs>();
         await using var provider = services.BuildServiceProvider();
         await using var renderer = new HtmlRenderer(provider, provider.GetRequiredService<ILoggerFactory>());

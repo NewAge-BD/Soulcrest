@@ -29,6 +29,7 @@ public sealed class LocalizationTests
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<UiState>();
+        services.AddSingleton<UpdateService>();
         services.AddSingleton<OcrLanguageInstaller>();
         services.AddSingleton<IJSRuntime, UnusedJs>();
         await using var provider = services.BuildServiceProvider();

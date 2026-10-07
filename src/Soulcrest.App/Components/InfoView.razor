@@ -1,6 +1,8 @@
 @implements IDisposable
 @inject ProgressService Progress
 @inject DiagnosticsService Diagnostics
+@inject UpdateService Updates
+@inject SettingsService Settings
 
 <div class="page info">
     <header class="sv-head">
@@ -80,6 +82,27 @@
         </dl>
     </section>
 
+    <section class="card sv-card">
+        <div class="sv-card-head">
+            <h3>@UiText.T("Updates")</h3>
+            <span class="sv-badge @(Updates.State switch { UpdateState.UpToDate => "ok", UpdateState.Available => "on", UpdateState.Failed => "error", _ => "" })">
+                @UiText.F("installiert: {0}", UpdateService.Installed?.ToString() ?? AppPaths.Version)
+            </span>
+        </div>
+        <p class="sv-hint">@UiText.T("Soulcrest fragt die Releases auf GitHub ab und zeigt neue Versionen mit ihren Patchnotes. Gesendet wird nur die Anfrage selbst.")</p>
+        <div class="row">
+            <button type="button" class="btn primary @(Updates.State == UpdateState.UpToDate && _checked ? "done" : "")" disabled="@(Updates.State is UpdateState.Checking or UpdateState.Downloading or UpdateState.Starting)" @onclick="CheckUpdates">
+                @(Updates.State == UpdateState.Checking ? UiText.T("Suche …") : Updates.State == UpdateState.UpToDate && _checked ? UiText.T("✓ Aktuell") : UiText.T("Nach Updates suchen"))
+            </button>
+            @if (Updates.State == UpdateState.Available && Updates.Available.Count > 0)
+            {
+                <button type="button" class="btn" @onclick="ShowUpdate">@UiText.F("Version {0} ansehen", Updates.Available[0].Version)</button>
+            }
+            <span class="note">@(Updates.Message is { } message ? UiText.T(message) : "")@(Updates.CheckedAt is { } checkedAt ? " · " + checkedAt.ToString("HH:mm:ss") : "")</span>
+        </div>
+        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.CheckUpdatesOnStart" @onchange="@(e => Settings.Update(s => s.CheckUpdatesOnStart = (bool)e.Value!))" /><span>@UiText.T("Beim Start nach Updates suchen")</span></label>
+    </section>
+
     <section class="card sv-card info-support">
         <h3>@UiText.T("Soulcrest unterstützen")</h3>
         <p class="sv-hint">@UiText.T("Soulcrest ist kostenlos und bleibt es. Wer die Entwicklung unterstützen möchte, kann freiwillig über Ko-fi spenden.")</p>
@@ -105,7 +128,21 @@
     private bool _busy;
     private string? _action, _packaged, _error;
 
-    protected override void OnInitialized() => Diagnostics.Changed += Refresh;
+    private bool _checked;
+
+    protected override void OnInitialized()
+    {
+        Diagnostics.Changed += Refresh;
+        Updates.Changed += Refresh;
+    }
+
+    private async Task CheckUpdates()
+    {
+        await Updates.CheckAsync();
+        _checked = true;
+    }
+
+    private void ShowUpdate() => Updates.Reopen();
 
     private void Refresh() => InvokeAsync(StateHasChanged);
 
@@ -159,5 +196,9 @@
         }
     }
 
-    public void Dispose() => Diagnostics.Changed -= Refresh;
+    public void Dispose()
+    {
+        Diagnostics.Changed -= Refresh;
+        Updates.Changed -= Refresh;
+    }
 }
