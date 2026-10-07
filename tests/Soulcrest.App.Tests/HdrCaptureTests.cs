@@ -54,6 +54,10 @@ public sealed class HdrCaptureTests(ITestOutputHelper output)
             Assert.Equal(new OpenCvSharp.Vec3b(0, 255, 0), bgr.At<OpenCvSharp.Vec3b>(0, 1));
             Assert.Equal(new OpenCvSharp.Vec3b(255, 0, 0), bgr.At<OpenCvSharp.Vec3b>(1, 0));
             Assert.Equal(new OpenCvSharp.Vec3b(255, 255, 255), bgr.At<OpenCvSharp.Vec3b>(1, 1));
+            // Every second pixel per direction (quarter-size world map): the top left one.
+            using var half = HdrDisplay.ToBgr(pinned.AddrOfPinnedObject(), 24, 2, 2, HdrDisplay.Lookup(white), step: 2);
+            Assert.Equal((1, 1), (half.Rows, half.Cols));
+            Assert.Equal(new OpenCvSharp.Vec3b(0, 0, 255), half.At<OpenCvSharp.Vec3b>(0, 0));
         }
         finally
         {

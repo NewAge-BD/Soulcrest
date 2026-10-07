@@ -2,6 +2,15 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.2.3 – 2026-10-07
+
+- **Improved:** The overlay now follows the map almost without delay (about 20 instead of 150 ms). The
+  capture often dropped new game pictures and worked with old ones, especially with HDR.
+- **Improved:** While the world map is dragged, the overlay stays on the map; before, the list and bars
+  at the edges held it back.
+- **Improved:** Switching between the world map and the small map takes about 0.2 instead of 2–3 seconds.
+- **Improved:** Clearly less processor load while the world map is open.
+
 ## 0.2.2 – 2026-10-07
 
 - **Improved:** With the world map open, the in-game overlay follows the map smoothly and no longer

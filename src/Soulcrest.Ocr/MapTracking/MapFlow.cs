@@ -42,6 +42,26 @@ public sealed class MapFlow : IDisposable
 
     public int Points => _points?.Length ?? 0;
 
+    /// <summary>
+    /// Where new points are picked (null = everywhere). Points that wander out of it are kept while the
+    /// fit agrees with them.
+    /// </summary>
+    public Rect? SeedArea { get; set; }
+
+    /// <summary>
+    /// The map part of the open world map: without the list on the left, the bar on top and the buttons on
+    /// the right. Those stand still while the map is dragged, and their text has the strongest corners, so
+    /// the fit used to follow them and measured no movement at all (user report 2026-10-07: the overlay
+    /// trailed behind; probe on the world-map screenshot: 0 px instead of 66 px).
+    /// </summary>
+    public static Rect WorldMapArea(int width, int height)
+    {
+        var left = (int)(width * 0.18);
+        var top = (int)(height * 0.10);
+        var right = (int)(width * 0.94);
+        return new Rect(left, top, right - left, height - top);
+    }
+
     public void Reset()
     {
         _previous?.Dispose();
@@ -105,8 +125,15 @@ public sealed class MapFlow : IDisposable
 
     private Point2f[]? Seed(Mat gray)
     {
-        using var everywhere = new Mat();
-        var corners = Cv2.GoodFeaturesToTrack(gray, _maxPoints, 0.01, 12, everywhere, 7, false, 0.04);
+        using var mask = new Mat();
+        if (SeedArea is { } area && (area & new Rect(0, 0, gray.Width, gray.Height)) is { Width: > 0, Height: > 0 } inside)
+        {
+            mask.Create(gray.Size(), MatType.CV_8UC1);
+            mask.SetTo(Scalar.All(0));
+            using var seed = new Mat(mask, inside);
+            seed.SetTo(Scalar.All(255));
+        }
+        var corners = Cv2.GoodFeaturesToTrack(gray, _maxPoints, 0.01, 12, mask, 7, false, 0.04);
         return corners.Length >= _minPoints ? corners : null;
     }
 

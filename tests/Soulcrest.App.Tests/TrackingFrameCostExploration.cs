@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Drawing;
 using OpenCvSharp;
 using Soulcrest.App.Overlay;
@@ -23,7 +23,7 @@ public sealed class TrackingFrameCostExploration(ITestOutputHelper output)
             return;
         var fixtures = Path.Combine(AppContext.BaseDirectory, "fixtures", "map-tracking");
         using var region = Cv2.ImRead(Path.Combine(fixtures, "live-2026-10-03-region.png"));
-        output.WriteLine($"Minimap {region.Width}×{region.Height}");
+        output.WriteLine($"Minimap {region.Width}Ã—{region.Height}");
 
         // Consecutive frames: the map moves by a pixel each frame, like walking.
         var frames = Enumerable.Range(0, 8).Select(i =>
@@ -56,7 +56,7 @@ public sealed class TrackingFrameCostExploration(ITestOutputHelper output)
 
         var mapdata = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "imports", "generated", "mapdata"));
         using var icon = new Bitmap(26, 26);
-        var pets = MapPetMarkers.For(mapdata, "altgard").Select(s => new RouteOverlayForm.PetSymbol(s.X, s.Y, icon, "St. 1 · 6/25", false)).ToList();
+        var pets = MapPetMarkers.For(mapdata, "altgard").Select(s => new RouteOverlayForm.PetSymbol(s.X, s.Y, icon, "St. 1 Â· 6/25", false)).ToList();
         const double scale = 1.68; // map-tracking.log of the measured session
         var fix = new MapFix(scale, 0, region.Width / 2.0 - 4000 * scale, 0, scale, region.Height / 2.0 - 4000 * scale, 100, 100, 0.4, true);
         var placement = new MapPlacement("altgard", fix, 1, new Rectangle(0, 0, region.Width, region.Height), new Point2d(region.Width / 2.0, region.Height / 2.0));
@@ -64,6 +64,72 @@ public sealed class TrackingFrameCostExploration(ITestOutputHelper output)
         Time("Overlay-Bild Minimap leer", 60, () => RouteOverlayForm.RenderFrame(placement, [], []).Dispose());
         foreach (var f in frames)
             f.Dispose();
+
+        // World map open on 2560Ã—1440: the whole of Altgard on screen (8192 px reference at 0.17 px per pixel).
+        var screen = new Rectangle(0, 0, 2560, 1440);
+        const double worldScale = 0.17 * MapTrackingService.WorldMapScale;
+        var worldFix = new MapFix(worldScale, 0, screen.Width * MapTrackingService.WorldMapScale / 2 - 4096 * worldScale, 0, worldScale,
+            screen.Height * MapTrackingService.WorldMapScale / 2 - 4096 * worldScale, 100, 100, 0.4, true);
+        var world = new MapPlacement("altgard", worldFix, 1, screen, default, 1 / MapTrackingService.WorldMapScale, true);
+        Time($"Overlay-Bild Weltkarte ({pets.Count} Pets, DIB)", 60, () => RouteOverlayForm.RenderFrame(world, [], pets).Dispose());
+        Time("Overlay-Bild Weltkarte leer", 60, () => RouteOverlayForm.RenderFrame(world, [], []).Dispose());
+        var frame = RouteOverlayForm.RenderFrame(world, [], pets);
+        try
+        {
+            using var form = new LayeredProbe();
+            form.Show();
+            Time("UpdateLayeredWindow Weltkarte (2560Ã—1440)", 60, () => form.Present(frame));
+            Time("Fenster nur verschieben (SetWindowPos)", 60, () => form.MoveBy(1));
+        }
+        finally
+        {
+            frame.Dispose();
+        }
+    }
+
+    private sealed class LayeredProbe : Form
+    {
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                var cp = base.CreateParams;
+                cp.ExStyle |= NativeMethods.WS_EX_LAYERED | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TRANSPARENT;
+                return cp;
+            }
+        }
+
+        public LayeredProbe()
+        {
+            FormBorderStyle = FormBorderStyle.None;
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.Manual;
+        }
+
+        protected override bool ShowWithoutActivation => true;
+
+        public void Present(RouteOverlayForm.Frame frame)
+        {
+            var screen = NativeMethods.GetDC(0);
+            var memory = NativeMethods.CreateCompatibleDC(screen);
+            var old = NativeMethods.SelectObject(memory, frame.Bitmap);
+            var size = new NativeMethods.NativeSize(frame.Size.Width, frame.Size.Height);
+            var source = new NativeMethods.NativePoint(0, 0);
+            var target = new NativeMethods.NativePoint(frame.Location.X, frame.Location.Y);
+            var blend = new NativeMethods.BlendFunction { BlendOp = NativeMethods.AC_SRC_OVER, SourceConstantAlpha = 255, AlphaFormat = NativeMethods.AC_SRC_ALPHA };
+            NativeMethods.UpdateLayeredWindow(Handle, screen, ref target, ref size, memory, ref source, 0, ref blend, NativeMethods.ULW_ALPHA);
+            NativeMethods.SelectObject(memory, old);
+            NativeMethods.DeleteDC(memory);
+            NativeMethods.ReleaseDC(0, screen);
+        }
+
+        private int _x;
+
+        public void MoveBy(int dx)
+        {
+            _x = (_x + dx) % 8;
+            Location = new System.Drawing.Point(_x, 0);
+        }
     }
 
     private void Time(string name, int perSecond, Action action)
@@ -79,6 +145,6 @@ public sealed class TrackingFrameCostExploration(ITestOutputHelper output)
         process.Refresh();
         var ms = watch.Elapsed.TotalMilliseconds / runs;
         var cpuMs = (process.TotalProcessorTime - cpu).TotalMilliseconds / runs;
-        output.WriteLine($"{name}: {ms:0.00} ms Zeit, {cpuMs:0.00} ms CPU → bei {perSecond}/s {cpuMs * perSecond / 10:0.0} % eines Kerns");
+        output.WriteLine($"{name}: {ms:0.00} ms Zeit, {cpuMs:0.00} ms CPU â†’ bei {perSecond}/s {cpuMs * perSecond / 10:0.0} % eines Kerns");
     }
 }

@@ -22,6 +22,9 @@ public sealed record PlayerPosition(string MapId, double X, double Y, DateTimeOf
 public sealed record MapPlacement(string MapId, MapFix Fix, double WorldPerPixel, Rectangle Region, Point2d Anchor,
     double FrameScale = 1, bool WorldMap = false, Point2d? PlayerWorld = null)
 {
+    /// <summary>When the screen picture this placement follows arrived (Stopwatch timestamp, 0 = unknown).</summary>
+    public long CapturedAt { get; init; }
+
     public PointF WorldToScreen(double x, double y)
     {
         var frame = Fix.ReferenceToFrame(new Point2d(x / WorldPerPixel, y / WorldPerPixel));
@@ -50,11 +53,22 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     private const int MaxIdleIntervalMs = 2000;
     private const double StillPixels = 1.5;
 
-    /// <summary>Gap until the next detection: 250 ms while anything moves or is unsure, up to 2 s standing still.</summary>
-    internal static int DetectionIntervalMs(bool found, bool worldMap, int misses, double motionPixels, bool flowLost, int stillRuns) =>
-        found && !worldMap && misses == 0 && !flowLost && motionPixels < StillPixels
-            ? Math.Min(MaxIdleIntervalMs, IntervalMs << Math.Clamp(stillRuns, 0, 3))
-            : IntervalMs;
+    /// <summary>
+    /// Gap until the next detection: 250 ms while anything is unsure, up to 2 s standing still. On the open
+    /// world map the flow carries the overlay while it is dragged, detection only corrects its drift once a
+    /// second: at 250 ms the world map's detection (0.5-0.8 s each) ran without pause and took almost three
+    /// cores (log 2026-10-07). Closing the world map breaks the flow, which brings back 250 ms at once.
+    /// </summary>
+    internal static int DetectionIntervalMs(bool found, bool worldMap, int misses, double motionPixels, bool flowLost, int stillRuns)
+    {
+        if (!found || misses > 0 || flowLost)
+            return IntervalMs;
+        if (motionPixels < StillPixels)
+            return Math.Min(MaxIdleIntervalMs, IntervalMs << Math.Clamp(stillRuns, 0, 3));
+        return worldMap ? WorldMapMovingIntervalMs : IntervalMs;
+    }
+
+    private const int WorldMapMovingIntervalMs = 1000;
 
     /// <summary>Current gap between two detections (diagnosis).</summary>
     public int DetectionInterval { get; private set; } = IntervalMs;
@@ -323,6 +337,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             token.ThrowIfCancellationRequested();
             _preparing = Task.Run(() => Prepare(maps, token), token);
             var lastSubmit = 0L;
+            var lastEmblemCheck = 0L;
+            var emblemMisses = 0;
             double motion = 0;      // flow movement since the last detection (frame pixels)
             var flowLost = true;    // the flow could not follow since the last detection
             var stillRuns = 0;      // detections in a row without movement
@@ -375,6 +391,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 }
                 // The world map comes in at a quarter of its size already.
                 var frame = CaptureReadback.TryCapture(() => Grab(area, worldMap ? WorldMapScale : 1));
+                var frameAt = GameCaptureService.GrabbedFrameAt;
                 if (frame is null)
                 {
                     token.ThrowIfCancellationRequested();
@@ -388,8 +405,12 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 using (var gray = new Mat())
                 {
                     Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
+                    // World map: points only on the map, its standing panels held the overlay still.
+                    flow.SeedArea = worldMap ? MapFlow.WorldMapArea(gray.Width, gray.Height) : null;
                     var step = flow.Step(gray);
                     _cost.AddFlow(Stopwatch.GetElapsedTime(flowStarted));
+                    if (frameAt != 0)
+                        _cost.AddFlowLag(Stopwatch.GetElapsedTime(frameAt));
                     if (step is null)
                         flowLost = true;
                     else
@@ -401,12 +422,34 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                         {
                             _drift = _drift.Then(shift);
                             if (Placement is { } placement)
-                                Placement = placement with { Fix = shift.Apply(placement.Fix) };
+                                Placement = placement with { Fix = shift.Apply(placement.Fix), CapturedAt = frameAt };
+                            _flowFrameAt = frameAt;
                         }
                         if (Placement is not null)
                             PlacementMoved?.Invoke();
                     }
                 }
+
+                // World map open: its header symbol, checked ten times a second, tells at once when it was
+                // closed. Waiting for two failed world-map detections (0.5-1 s each) kept the world map's
+                // overlay up for 2-3 s (user report 2026-10-07).
+                if (worldMap && Stopwatch.GetElapsedTime(lastEmblemCheck).TotalMilliseconds >= EmblemCheckMs)
+                {
+                    lastEmblemCheck = Stopwatch.GetTimestamp();
+                    var screen = _worldScreen;
+                    using var corner = CaptureReadback.TryCapture(() => Grab(MapWindowEmblem.CornerOf(screen), 1));
+                    if (corner is not null)
+                    {
+                        emblemMisses = MapWindowEmblem.ShowsInCorner(corner, screen.Height) ? 0 : emblemMisses + 1;
+                        if (emblemMisses >= 2)
+                        {
+                            emblemMisses = 0;
+                            CloseWorldMap("Symbol weg");
+                        }
+                    }
+                }
+                else if (!worldMap)
+                    emblemMisses = 0;
 
                 // Flow moves only the visual overlay. It cannot establish that the minimap is still
                 // visible: opening/panning the world map can also yield a perfectly good flow fit.
@@ -416,7 +459,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 {
                     if (detecting is { IsFaulted: true })
                         throw detecting.Exception!.InnerException ?? detecting.Exception;
-                    var interval = DetectionIntervalMs(Found, worldMap, _misses, motion, flowLost, stillRuns);
+                    var interval = DetectionIntervalMs(Found, worldMap, worldMap ? _worldMisses : _misses, motion, flowLost, stillRuns);
                     DetectionInterval = interval;
                     if (Stopwatch.GetElapsedTime(lastSubmit).TotalMilliseconds >= interval)
                     {
@@ -627,7 +670,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         Position = new PlayerPosition(definition.Id, reference.X * world, reference.Y * world, DateTimeOffset.Now);
         // The map moved on while this frame was being matched: carry the result by the flow since then.
         lock (_flowGate)
-            Placement = new MapPlacement(definition.Id, _drift.Apply(fix), world, region, anchor);
+            Placement = new MapPlacement(definition.Id, _drift.Apply(fix), world, region, anchor) { CapturedAt = _flowFrameAt };
         PlacementMoved?.Invoke();
         SetStatus($"{definition.Label}: Position {Position.X:0}, {Position.Y:0} · {fix.Inliers} Treffer · Erkennung {LocateMs} ms · Overlay {Fps} fps · {CaptureMethod}");
     }
@@ -677,6 +720,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     /// <summary>Detection while the world map is open; closes the mode when the world map is gone.</summary>
     private void StepWorldMap(Rectangle region, List<MapDefinition> maps, Mat frame, CancellationToken token)
     {
+        if (!_worldMapOpen)
+            return;
         if (maps.FirstOrDefault(m => m.Id == _worldMapId) is not { } definition)
         {
             _worldMapOpen = false;
@@ -690,17 +735,37 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         {
             _worldMisses = 0;
             lock (_flowGate)
+            {
+                if (!_worldMapOpen)
+                    return; // closed meanwhile (header symbol gone)
                 SetWorldPlacement(definition, _drift.Apply(fix), _worldScreen, locator.Reference.WorldPerPixel);
+            }
+            Trace(definition.Id + " (Weltkarte)", true, fix, locator);
             return;
         }
         // One miss is held (panning, zooming); the second one means the world map was closed.
         if (++_worldMisses < 2)
             return;
         Trace(definition.Id + " (Weltkarte zu)", true, null, locator);
-        _worldMapOpen = false;
-        _misses = 0;
-        Placement = null;
-        Found = false;
+        CloseWorldMap(null);
+    }
+
+    private const int EmblemCheckMs = 100;
+
+    /// <summary>Leaves the world-map mode; the small map is searched again from the next frame on.</summary>
+    private void CloseWorldMap(string? reason)
+    {
+        lock (_flowGate)
+        {
+            if (!_worldMapOpen)
+                return;
+            _worldMapOpen = false;
+            _misses = 0;
+            Placement = null;
+            Found = false;
+        }
+        if (reason is not null)
+            LogFile.Append("map-tracking.log", $"{DateTime.Now:HH:mm:ss} Weltkarte zu ({reason}){Environment.NewLine}");
         PlacementMoved?.Invoke();
         SetStatus("Weltkarte geschlossen – suche die kleine Karte …");
     }
@@ -711,7 +776,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     {
         // The player stays where the small map last saw them, if the world map shows that zone.
         Point2d? player = Position is { } p && p.MapId == definition.Id ? new Point2d(p.X, p.Y) : null;
-        Placement = new MapPlacement(definition.Id, fix, worldPerPixel, screen, default, 1 / WorldMapScale, true, player);
+        Placement = new MapPlacement(definition.Id, fix, worldPerPixel, screen, default, 1 / WorldMapScale, true, player) { CapturedAt = _flowFrameAt };
         Found = true;
         PlacementMoved?.Invoke();
         SetStatus($"Weltkarte {definition.Label} offen – Overlay folgt ihr, Position eingefroren · {fix.Inliers} Treffer · Overlay {Fps} fps");
@@ -840,6 +905,14 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     internal static readonly int OpenCvThreads =
         int.TryParse(Environment.GetEnvironmentVariable("SOULCREST_OPENCV_THREADS"), out var threads) && threads >= 0 ? threads : 2;
     private readonly TrackingCost _cost = new();
+    private long _flowFrameAt; // screen picture of the newest flow step; under _flowGate
+
+    /// <summary>The overlay showed a picture that follows the screen picture of <paramref name="capturedAt"/>.</summary>
+    internal void ReportOverlayShown(long capturedAt)
+    {
+        if (capturedAt != 0)
+            _cost.AddOverlayLag(Stopwatch.GetElapsedTime(capturedAt));
+    }
 
     private sealed class CostScope(Action done) : IDisposable
     {

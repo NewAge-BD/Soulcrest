@@ -88,6 +88,12 @@ public sealed class GameCaptureService : IDisposable
         }
     }
 
+    /// <summary>
+    /// When the picture of this thread's last <see cref="Grab"/> came from the screen (Stopwatch timestamp,
+    /// WGC frame arrival or the GDI copy), to measure how far the overlay trails behind the game.
+    /// </summary>
+    [ThreadStatic] public static long GrabbedFrameAt;
+
     /// <summary>Picture of a screen rectangle as BGR image, optionally scaled.</summary>
     public Mat Grab(Rectangle area, double scale = 1.0)
     {
@@ -117,12 +123,14 @@ public sealed class GameCaptureService : IDisposable
                         if (capture.CaptureMat(area, scale, Stage) is { } picture)
                         {
                             _lastFailure = null;
+                            GrabbedFrameAt = capture.ReadFrameAt;
                             return picture;
                         }
                     }
                 }
                 Stage("GDI-Bildschirmkopie");
                 Interlocked.Increment(ref _gdiFallbacks);
+                GrabbedFrameAt = System.Diagnostics.Stopwatch.GetTimestamp();
                 using var bitmap = scale < 1 ? ScreenCapture.CaptureScaled(area, scale) : ScreenCapture.Capture(area);
                 return BitmapMat.ToBgr(bitmap);
             }

@@ -29,6 +29,11 @@ public sealed unsafe class MonitorCapture : IDisposable
     private const uint DoNotWait = 0x100000;
 
     private readonly object _gate = new();
+    // Guards only the newest frame. The reader holds it just to queue the GPU copy, not while it waits for
+    // and converts the picture (~21 ms with HDR): the callback found _gate taken almost always and dropped
+    // nearly every new frame, the picture read was 440 ms old on average (measured 2026-10-07, overlay
+    // trailed behind the dragged world map). Lock order: _gate, then _frameGate.
+    private readonly object _frameGate = new();
     private readonly GraphicsCaptureItem _item;
     private readonly Direct3D11CaptureFramePool _pool;
     private readonly GraphicsCaptureSession _session;
@@ -46,6 +51,11 @@ public sealed unsafe class MonitorCapture : IDisposable
     private Rectangle _lastCrop;
     private long _copies;
     private readonly long[] _copiedAt = new long[Slots];
+    private readonly long[] _frameAt = new long[Slots];
+    private long _latestAt;
+
+    /// <summary>When the frame of the last <see cref="CaptureMat"/> picture arrived (Stopwatch timestamp).</summary>
+    public long ReadFrameAt { get; private set; }
     private Direct3D11CaptureFrame? _latest;
     private bool _disposed;
 
@@ -237,7 +247,7 @@ public sealed unsafe class MonitorCapture : IDisposable
             Interlocked.Exchange(ref _lastFrameTicks, DateTime.UtcNow.Ticks);
             // WGC runs this on its own worker. Do not wait behind a GPU readback:
             // Windows may need this callback to return before that read can finish.
-            entered = Monitor.TryEnter(_gate);
+            entered = Monitor.TryEnter(_frameGate);
             if (!entered || _disposed) return;
             var size = frame.ContentSize;
             if (size.Width != _poolSize.Width || size.Height != _poolSize.Height)
@@ -256,6 +266,7 @@ public sealed unsafe class MonitorCapture : IDisposable
             }
             _latest?.Dispose();
             _latest = frame;
+            _latestAt = Stopwatch.GetTimestamp();
             frame = null; // ownership transferred to the reader
         }
         catch (Exception error) when (error is ExternalException or InvalidOperationException or ArgumentException)
@@ -265,7 +276,7 @@ public sealed unsafe class MonitorCapture : IDisposable
         }
         finally
         {
-            if (entered) Monitor.Exit(_gate);
+            if (entered) Monitor.Exit(_frameGate);
             try { frame?.Dispose(); }
             catch (ExternalException error) { Trace.TraceWarning("WGC frame release: {0}", error.Message); }
         }
@@ -303,11 +314,17 @@ public sealed unsafe class MonitorCapture : IDisposable
             lock (_gate)
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
-                if (_latest is { } frame)
+                (int Slot, Size Size)? copy = null;
+                lock (_frameGate)
                 {
-                    stage?.Invoke("WGC: Frame.Surface");
-                    return CopyCrop(frame.Surface, crop, scale, stage);
+                    if (_latest is { } frame)
+                    {
+                        stage?.Invoke("WGC: Frame.Surface");
+                        copy = CopyCrop(frame.Surface, crop, stage);
+                    }
                 }
+                if (copy is { } queued)
+                    return Read(queued.Slot, queued.Size, scale, stage);
             }
             if (waited.ElapsedMilliseconds > 100)
                 return null;
@@ -322,7 +339,8 @@ public sealed unsafe class MonitorCapture : IDisposable
         return mat is null ? null : Soulcrest.Ocr.BitmapMat.ToBitmap(mat);
     }
 
-    private OpenCvSharp.Mat CopyCrop(IDirect3DSurface surface, Rectangle crop, double scale, Action<string>? stage)
+    /// <summary>Queues the GPU copy of the crop; returns the staging slot to read (a finished earlier copy if fresh).</summary>
+    private (int Slot, Size Size) CopyCrop(IDirect3DSurface surface, Rectangle crop, Action<string>? stage)
     {
         nint access = 0, texture = 0;
         stage?.Invoke("WGC: Surface-COM-Zugriff");
@@ -399,6 +417,7 @@ public sealed unsafe class MonitorCapture : IDisposable
             _pending[slot] = true;
             _order[slot] = ++_copies;
             _copiedAt[slot] = Stopwatch.GetTimestamp();
+            _frameAt[slot] = _latestAt;
 
             // Read the oldest finished copy if it is fresh (a caller at 60 fps); occasional callers (pet
             // scan every 0.3 s, loot feed) wait for this call's copy instead of getting a picture 0.3 s old.
@@ -417,7 +436,8 @@ public sealed unsafe class MonitorCapture : IDisposable
             }
             if (read < 0)
                 read = slot;
-            return Read(read, crop.Size, scale, stage);
+            ReadFrameAt = _frameAt[read];
+            return (read, crop.Size);
         }
         finally
         {
@@ -454,13 +474,15 @@ public sealed unsafe class MonitorCapture : IDisposable
             stage?.Invoke("OpenCV: Bild konvertieren");
             if (_hdrLookup is not null)
             {
-                var converted = HdrDisplay.ToBgr(data.Data, data.RowPitch, size.Width, size.Height, _hdrLookup);
-                if (Math.Abs(scale - 1) < 1e-6)
+                var step = scale <= 0.5 ? 2 : 1; // pixels a later scaling would merge anyway
+                var converted = HdrDisplay.ToBgr(data.Data, data.RowPitch, size.Width, size.Height, _hdrLookup, step);
+                var rest = scale * step;
+                if (Math.Abs(rest - 1) < 1e-6)
                     return converted;
                 using (converted)
                 {
                     var scaled = new OpenCvSharp.Mat();
-                    OpenCvSharp.Cv2.Resize(converted, scaled, new OpenCvSharp.Size(), scale, scale, OpenCvSharp.InterpolationFlags.Area);
+                    OpenCvSharp.Cv2.Resize(converted, scaled, new OpenCvSharp.Size(), rest, rest, OpenCvSharp.InterpolationFlags.Area);
                     return scaled;
                 }
             }
@@ -598,8 +620,11 @@ public sealed unsafe class MonitorCapture : IDisposable
         {
             if (_disposed) return;
             _disposed = true;
-            _latest?.Dispose();
-            _latest = null;
+            lock (_frameGate)
+            {
+                _latest?.Dispose();
+                _latest = null;
+            }
         }
         // Do not close the session while holding a lock its callback may need.
         _pool.FrameArrived -= OnFrameArrived;

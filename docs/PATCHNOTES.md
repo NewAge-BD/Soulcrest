@@ -2,6 +2,15 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.2.3 – 2026-10-07
+
+- **Verbessert:** Das Overlay folgt der Karte jetzt fast ohne Verzögerung (rund 20 statt 150 ms). Die
+  Aufnahme hat neue Spielbilder oft verworfen und mit veralteten gearbeitet, besonders mit HDR.
+- **Verbessert:** Beim Ziehen der Weltkarte bleibt das Overlay auf der Karte; vorher hielten Liste und
+  Leisten am Rand es fest.
+- **Verbessert:** Wechsel zwischen Weltkarte und kleiner Karte in rund 0,2 statt 2–3 Sekunden.
+- **Verbessert:** Deutlich weniger Prozessorlast bei offener Weltkarte.
+
 ## 0.2.2 – 2026-10-07
 
 - **Verbessert:** Bei offener Weltkarte folgt das Ingame-Overlay der Karte flüssig und hängt beim

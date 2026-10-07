@@ -17,12 +17,35 @@ public static class MapWindowEmblem
     /// <summary>Whether the header symbol is shown; <paramref name="screen"/> is the full game picture (BGR).</summary>
     public static bool Shows(Mat screen) => Score(screen) >= Threshold;
 
+    /// <summary>
+    /// Whether the header symbol is shown in a picture of just <see cref="CornerOf"/>: a few milliseconds,
+    /// so the open world map can be checked ten times a second.
+    /// </summary>
+    public static bool ShowsInCorner(Mat corner, int screenHeight) => ScoreCorner(corner, screenHeight) >= Threshold;
+
+    /// <summary>The top left corner of the game picture that holds the symbol (screen coordinates).</summary>
+    public static System.Drawing.Rectangle CornerOf(System.Drawing.Rectangle screen)
+    {
+        var (width, height) = CornerSize(screen.Width, screen.Height);
+        return new System.Drawing.Rectangle(screen.X, screen.Y, width, height);
+    }
+
+    // Symbol at about (26, 22) of a 2560×1440 picture; the UI grows with the screen height.
+    private static (int Width, int Height) CornerSize(int width, int height) => (Math.Max(1, width * 8 / 100), Math.Max(1, height * 12 / 100));
+
     internal static double Score(Mat screen)
     {
-        if (Template.Value is not { } template || screen.Empty())
+        if (screen.Empty())
             return 0;
-        // Symbol at about (26, 22) of a 2560×1440 picture; the UI grows with the screen height.
-        using var corner = new Mat(screen, new OpenCvSharp.Rect(0, 0, Math.Max(1, screen.Width * 8 / 100), Math.Max(1, screen.Height * 12 / 100)));
+        var (width, height) = CornerSize(screen.Width, screen.Height);
+        using var corner = new Mat(screen, new OpenCvSharp.Rect(0, 0, width, height));
+        return ScoreCorner(corner, screen.Height);
+    }
+
+    private static double ScoreCorner(Mat corner, int screenHeight)
+    {
+        if (Template.Value is not { } template || corner.Empty())
+            return 0;
         using var gray = new Mat();
         if (corner.Channels() == 1)
             corner.CopyTo(gray);
@@ -31,7 +54,7 @@ public static class MapWindowEmblem
         var best = 0.0;
         foreach (var size in Sizes)
         {
-            var factor = screen.Height / 1440.0 * size;
+            var factor = screenHeight / 1440.0 * size;
             using var scaled = new Mat();
             Cv2.Resize(template, scaled, new OpenCvSharp.Size(), factor, factor, factor < 1 ? InterpolationFlags.Area : InterpolationFlags.Linear);
             if (scaled.Width >= gray.Width || scaled.Height >= gray.Height)

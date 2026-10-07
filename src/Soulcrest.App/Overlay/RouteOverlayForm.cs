@@ -99,7 +99,7 @@ public sealed class RouteOverlayForm : Form
     }
 
     /// <summary>A composed overlay picture (GDI bitmap with alpha) and where it goes; null = nothing to show.</summary>
-    internal sealed record Frame(nint Bitmap, Point Location, Size Size) : IDisposable
+    internal sealed record Frame(nint Bitmap, Point Location, Size Size, long CapturedAt = 0) : IDisposable
     {
         public void Dispose() => NativeMethods.DeleteObject(Bitmap);
     }
@@ -177,7 +177,7 @@ public sealed class RouteOverlayForm : Form
             NativeMethods.DeleteObject(dib);
             throw;
         }
-        return new Frame(dib, placement.Region.Location, size);
+        return new Frame(dib, placement.Region.Location, size, placement.CapturedAt);
     }
 
     /// <summary>UI thread: only hands the finished picture to Windows.</summary>
@@ -201,6 +201,7 @@ public sealed class RouteOverlayForm : Form
             if (!Visible)
                 Show();
             Present(frame);
+            _tracking.ReportOverlayShown(frame.CapturedAt);
         }
     }
 

@@ -89,19 +89,25 @@ internal static unsafe class HdrDisplay
         return (byte)Math.Clamp((int)Math.Round(encoded * 255), 0, 255);
     }
 
-    /// <summary>One mapped RGBA16F texture (row pitch in bytes) to a new BGR picture.</summary>
-    internal static OpenCvSharp.Mat ToBgr(nint data, uint rowPitch, int width, int height, byte[] lookup)
+    /// <summary>
+    /// One mapped RGBA16F texture (row pitch in bytes) to a new BGR picture; <paramref name="step"/> 2 takes
+    /// every second pixel per direction (half size, a quarter of the work: the full-screen world map cost
+    /// ~20 ms per picture before it was scaled to a quarter anyway).
+    /// </summary>
+    internal static OpenCvSharp.Mat ToBgr(nint data, uint rowPitch, int width, int height, byte[] lookup, int step = 1)
     {
-        var bgr = new OpenCvSharp.Mat(height, width, OpenCvSharp.MatType.CV_8UC3);
-        for (var y = 0; y < height; y++)
+        int rows = height / step, cols = width / step;
+        var bgr = new OpenCvSharp.Mat(rows, cols, OpenCvSharp.MatType.CV_8UC3);
+        for (var y = 0; y < rows; y++)
         {
-            var source = (ushort*)((byte*)data + (nuint)y * rowPitch);
+            var source = (ushort*)((byte*)data + (nuint)(y * step) * rowPitch);
             var target = (byte*)bgr.Ptr(y);
-            for (var x = 0; x < width; x++)
+            for (var x = 0; x < cols; x++)
             {
-                target[x * 3] = lookup[source[x * 4 + 2]];
-                target[x * 3 + 1] = lookup[source[x * 4 + 1]];
-                target[x * 3 + 2] = lookup[source[x * 4]];
+                var pixel = source + x * step * 4;
+                target[x * 3] = lookup[pixel[2]];
+                target[x * 3 + 1] = lookup[pixel[1]];
+                target[x * 3 + 2] = lookup[pixel[0]];
             }
         }
         return bgr;

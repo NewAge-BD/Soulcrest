@@ -26,4 +26,19 @@ public sealed class MapWindowEmblemTests
         Assert.False(screen.Empty(), name);
         Assert.Equal(expected, MapWindowEmblem.Shows(screen));
     }
+
+    [Theory]
+    [InlineData("map-tracking", "live-2026-10-03-worldmap-drift-screen.png", true)]
+    [InlineData("map-tracking", "live-2026-10-03-lost-screen.png", true)]
+    [InlineData("map-tracking", "live-2026-10-03-screen.png", false)]
+    [InlineData("pet-window", "en-2026-10-03-uiscale-large.png", true)]
+    [InlineData("pet-window", "en-2026-10-03-uiscale-small.png", true)]
+    public void CornerAloneDecidesTheSame(string folder, string name, bool expected)
+    {
+        // The open world map is checked ten times a second on a capture of just this corner.
+        using var screen = Cv2.ImRead(Fixture(folder, name));
+        var corner = MapWindowEmblem.CornerOf(new System.Drawing.Rectangle(0, 0, screen.Width, screen.Height));
+        using var picture = new Mat(screen, new Rect(corner.X, corner.Y, corner.Width, corner.Height));
+        Assert.Equal(expected, MapWindowEmblem.ShowsInCorner(picture, screen.Height));
+    }
 }
