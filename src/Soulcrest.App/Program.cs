@@ -14,9 +14,18 @@ internal static class Program
         Application.ThreadException += (_, e) =>
         {
             LogFile.Error("UI", e.Exception);
-            if (!Services.SmokeTest.Enabled)
-                MessageBox.Show(UiText.T("Ein unerwarteter Fehler ist aufgetreten. Soulcrest läuft weiter; Details stehen in logs\\errors.log.") +
-                    Environment.NewLine + Environment.NewLine + e.Exception.Message, "Soulcrest", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            if (!Services.SmokeTest.Enabled && ErrorNotice.ShouldShow(e.Exception.Message, DateTime.UtcNow))
+            {
+                try
+                {
+                    MessageBox.Show(UiText.T("Ein unerwarteter Fehler ist aufgetreten. Soulcrest läuft weiter; Details stehen in logs\\errors.log.") +
+                        Environment.NewLine + Environment.NewLine + e.Exception.Message, "Soulcrest", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                finally
+                {
+                    ErrorNotice.Closed();
+                }
+            }
         };
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             LogFile.Error(e.IsTerminating ? "Absturz" : "Hintergrund", e.ExceptionObject as Exception ?? new Exception(e.ExceptionObject?.ToString()));

@@ -4,19 +4,45 @@ using Xunit;
 
 namespace Soulcrest.App.Tests;
 
-/// <summary>The Patchnotes tab shows docs/PATCHNOTES.md as embedded in the app (user request 2026-10-07).</summary>
+/// <summary>The Patchnotes tab shows docs/PATCHNOTES.md or PATCHNOTES.en.md in the interface language (user requests 2026-10-07).</summary>
 public sealed class PatchNotesTests
 {
-    [Fact]
-    public void TheNewestEntryIsTheVersionOfThisBuild()
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public void TheNewestEntryIsTheVersionOfThisBuild(string language)
     {
         var version = typeof(PatchNotes).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion.Split('+')[0];
-        var releases = PatchNotes.All;
+        var releases = PatchNotes.For(language);
         Assert.NotEmpty(releases);
         Assert.Equal(version, releases[0].Version);
         Assert.All(releases, r => Assert.NotEmpty(r.Entries));
         Assert.Equal(releases.Count, releases.Select(r => r.Version).Distinct().Count());
-        Assert.Equal("0.1.28", PatchNotes.Shown[^1].Version); // the tab starts with 0.1.28
+    }
+
+    [Fact]
+    public void BothLanguagesListTheSameVersionsInTheTab()
+    {
+        // Every version the tab shows (from 0.1.28) has German and English notes with the same kinds of entries.
+        static Version[] Shown(string language) =>
+            [.. PatchNotes.For(language).Select(r => Version.Parse(r.Version)).Where(v => v >= PatchNotes.FirstShown)];
+        Assert.Equal(Shown("de"), Shown("en"));
+        Assert.Equal(PatchNotes.FirstShown, Shown("en")[^1]);
+        var kinds = new Dictionary<string, string> { ["Neu"] = "New", ["Verbessert"] = "Improved", ["Behoben"] = "Fixed", ["Geändert"] = "Changed", ["Entfernt"] = "Removed" };
+        foreach (var german in PatchNotes.For("de").Where(r => Version.Parse(r.Version) >= PatchNotes.FirstShown))
+        {
+            var english = PatchNotes.For("en").Single(r => r.Version == german.Version);
+            Assert.Equal(german.Entries.Select(e => kinds[e.Kind]).Order(), english.Entries.Select(e => e.Kind).Order());
+        }
+    }
+
+    [Fact]
+    public void TheUpdateNoticeTakesTheSectionOfItsLanguage()
+    {
+        const string body = "## 0.2.1 – 2026-10-08\n\n- **Neu:** Eins.\n\n## 0.2.1 – 2026-10-08\n\n- **New:** One.\n";
+        Assert.Equal("Eins.", PatchNotes.OfRelease(body, "de")!.Entries[0].Text);
+        Assert.Equal("One.", PatchNotes.OfRelease(body, "en")!.Entries[0].Text);
+        Assert.Equal("Eins.", PatchNotes.OfRelease("## 0.2.0 – 2026-10-07\n\n- **Neu:** Eins.\n", "en")!.Entries[0].Text); // older release: German only
     }
 
     [Fact]

@@ -2,10 +2,6 @@
     <header class="sv-head">
         <h2>@UiText.T("Patchnotes")</h2>
         <p class="sv-lead">@UiText.T("Was sich in jeder Version geändert hat, die neueste oben.")</p>
-        @if (UiText.Language != "de")
-        {
-            <p class="sv-hint">The patch notes are written in German.</p>
-        }
     </header>
 
     @if (PatchNotes.Shown.Count == 0)

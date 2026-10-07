@@ -37,9 +37,9 @@
 
     private static string KindClass(string kind) => kind switch
     {
-        "Neu" => "new",
-        "Behoben" => "fixed",
-        "Verbessert" => "improved",
+        "Neu" or "New" => "new",
+        "Behoben" or "Fixed" => "fixed",
+        "Verbessert" or "Improved" => "improved",
         _ => "changed",
     };
 }

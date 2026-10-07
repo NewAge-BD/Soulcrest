@@ -228,6 +228,7 @@ public sealed class MapTargetsService
         {
             if (_routes.FirstOrDefault(r => r.Id == routeId) is not { } route)
                 return;
+            StopRepeating(except: routeId);
             _targets.Clear();
             AddStops(route);
             JsonFile.Save(AppPaths.TargetsFile, _targets);
@@ -315,9 +316,30 @@ public sealed class MapTargetsService
     {
         lock (_gate)
         {
+            StopRepeating();
             _targets.Clear();
             JsonFile.Save(AppPaths.TargetsFile, _targets);
         }
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// A running route that is ended ("Alle entfernen", or replaced by another route) loses its repeat
+    /// switch; it was still shown as on (user report 2026-10-07). Called under the lock, before the marks go.
+    /// </summary>
+    private void StopRepeating(string? except = null)
+    {
+        var running = _targets.Select(t => t.RouteId).OfType<string>().Where(id => id != except).ToHashSet(StringComparer.Ordinal);
+        var changed = false;
+        for (var i = 0; i < _routes.Count; i++)
+        {
+            if (_routes[i].Repeat && running.Contains(_routes[i].Id))
+            {
+                _routes[i] = _routes[i] with { Repeat = false };
+                changed = true;
+            }
+        }
+        if (changed)
+            JsonFile.Save(AppPaths.RoutesFile, _routes);
     }
 }

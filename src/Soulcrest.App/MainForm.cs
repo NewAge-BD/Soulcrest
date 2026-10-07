@@ -132,6 +132,12 @@ public sealed class MainForm : Form
         Text = UiText.F("Soulcrest – Aion 2 Pet-Begleiter (Tester {0})", AppPaths.Version);
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        DarkTitleBar.Apply(Handle);
+    }
+
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);

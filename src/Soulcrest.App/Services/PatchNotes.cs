@@ -3,8 +3,8 @@ using System.Text.RegularExpressions;
 namespace Soulcrest.App.Services;
 
 /// <summary>
-/// The patch notes of docs/PATCHNOTES.md, embedded in the app for the Patchnotes tab (user request
-/// 2026-10-07). Reads the small Markdown subset the file uses: "## 0.1.28 – 2026-10-07", "- **Neu:** text"
+/// The patch notes of docs/PATCHNOTES.md (German) and docs/PATCHNOTES.en.md (English), embedded in the app
+/// for the Patchnotes tab and shown in the interface language (user requests 2026-10-07). Reads the small Markdown subset the file uses: "## 0.1.28 – 2026-10-07", "- **Neu:** text"
 /// with indented continuation lines, **bold** and `code`.
 /// </summary>
 public static partial class PatchNotes
@@ -13,16 +13,33 @@ public static partial class PatchNotes
 
     public sealed record Release(string Version, string Date, IReadOnlyList<Entry> Entries);
 
-    private static readonly Lazy<IReadOnlyList<Release>> Embedded = new(() =>
+    private static readonly Lazy<IReadOnlyList<Release>> German = new(() => Load("Soulcrest.PATCHNOTES.md"));
+    private static readonly Lazy<IReadOnlyList<Release>> English = new(() => Load("Soulcrest.PATCHNOTES.en.md"));
+
+    private static IReadOnlyList<Release> Load(string resource)
     {
-        using var stream = typeof(PatchNotes).Assembly.GetManifestResourceStream("Soulcrest.PATCHNOTES.md");
+        using var stream = typeof(PatchNotes).Assembly.GetManifestResourceStream(resource);
         if (stream is null)
             return [];
         using var reader = new StreamReader(stream);
         return Parse(reader.ReadToEnd());
-    });
+    }
 
-    public static IReadOnlyList<Release> All => Embedded.Value;
+    /// <summary>The notes in <paramref name="language"/> ("de" German, everything else English).</summary>
+    public static IReadOnlyList<Release> For(string language) => language == "de" ? German.Value : English.Value;
+
+    /// <summary>The notes in the interface language.</summary>
+    public static IReadOnlyList<Release> All => For(UiText.Language);
+
+    /// <summary>
+    /// The part of a GitHub release text in <paramref name="language"/>: the release workflow writes the German
+    /// section first and the English one second, both starting with "## &lt;version&gt;" (older releases: German only).
+    /// </summary>
+    public static Release? OfRelease(string body, string language)
+    {
+        var sections = Parse(body);
+        return sections.Count == 0 ? null : language == "de" || sections.Count == 1 ? sections[0] : sections[1];
+    }
 
     /// <summary>The tab starts with 0.1.28 (user decision 2026-10-07); older notes stay in the file.</summary>
     public static readonly Version FirstShown = new(0, 1, 28);

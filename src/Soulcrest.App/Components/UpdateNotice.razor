@@ -9,19 +9,15 @@
         <div class="update-notice card">
             <h2 id="update-title">@UiText.F("Soulcrest {0} ist verfügbar", Updates.Available[0].Version)</h2>
             <p class="sv-lead">@UiText.F("Installiert: {0}. Das ist neu:", UpdateService.Installed?.ToString() ?? AppPaths.Version)</p>
-            @if (UiText.Language != "de")
-            {
-                <p class="sv-hint">The patch notes are written in German.</p>
-            }
             <div class="update-notes">
                 @foreach (var update in Updates.Available)
                 {
-                    var releases = PatchNotes.Parse(update.Notes);
+                    var release = PatchNotes.OfRelease(update.Notes, UiText.Language);
                     <section class="update-version">
                         <h3>@update.Version</h3>
-                        @if (releases.Count > 0)
+                        @if (release is not null)
                         {
-                            <PatchNotesEntries Entries="@releases[0].Entries" />
+                            <PatchNotesEntries Entries="@release.Entries" />
                         }
                         else
                         {

@@ -33,6 +33,46 @@ public sealed class MapTargetsTests
         }
     }
 
+    /// <summary>User report 2026-10-07: a route ended with "Alle entfernen" still showed repeat as on.</summary>
+    [Fact]
+    public void EndingARunningRouteSwitchesItsRepeatOff()
+    {
+        File.Delete(AppPaths.TargetsFile);
+        File.Delete(AppPaths.RoutesFile);
+        try
+        {
+            var targets = new MapTargetsService();
+            targets.Toggle("altgard", 100, 100, "A", "Locations", null);
+            targets.Toggle("altgard", 200, 200, "B", "Locations", null, chain: true);
+            var first = targets.SaveRoute("altgard", "Eins")!;
+            targets.Clear();
+            targets.Toggle("altgard", 300, 300, "C", "Locations", null);
+            targets.Toggle("altgard", 400, 400, "D", "Locations", null, chain: true);
+            var second = targets.SaveRoute("altgard", "Zwei")!;
+
+            // "Alle entfernen" ends the running route: repeat goes off, also after a restart.
+            targets.StartRoute(first.Id);
+            targets.SetRouteRepeat(first.Id, true);
+            targets.Clear();
+            Assert.False(targets.Routes.Single(r => r.Id == first.Id).Repeat);
+            Assert.False(new MapTargetsService().Routes.Single(r => r.Id == first.Id).Repeat);
+
+            // Another route replaces the running one: the replaced one stops repeating, the started one keeps its switch.
+            targets.SetRouteRepeat(first.Id, true);
+            targets.StartRoute(first.Id);
+            Assert.True(targets.Routes.Single(r => r.Id == first.Id).Repeat); // restarting the same route keeps it
+            targets.SetRouteRepeat(second.Id, true);
+            targets.StartRoute(second.Id);
+            Assert.False(targets.Routes.Single(r => r.Id == first.Id).Repeat);
+            Assert.True(targets.Routes.Single(r => r.Id == second.Id).Repeat);
+        }
+        finally
+        {
+            File.Delete(AppPaths.TargetsFile);
+            File.Delete(AppPaths.RoutesFile);
+        }
+    }
+
     /// <summary>User request 2026-10-05: save the Shift + right click sequence, start it again, repeat it.</summary>
     [Fact]
     public void SavedRouteStartsAgainAndRepeatsAfterItsLastStop()

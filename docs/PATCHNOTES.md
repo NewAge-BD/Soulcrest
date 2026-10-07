@@ -2,6 +2,17 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.2.1 – 2026-10-07
+
+- **Neu:** Patchnotes gibt es jetzt auch auf Englisch; Soulcrest zeigt sie in der Sprache der Oberfläche,
+  auch im Update-Hinweis.
+- **Verbessert:** Die Windows-Titelleiste ist dunkel wie Soulcrest; unter Windows 11 hat sie die Farbe der
+  Kopfzeile.
+- **Behoben:** Wird eine laufende Route mit „Alle entfernen“ beendet oder durch eine andere ersetzt, ist
+  ihr Wiederholen danach aus.
+- **Behoben:** Ein Fehler, der sich ständig wiederholt, öffnet nicht mehr Hinweisfenster über
+  Hinweisfenster: höchstens eines gleichzeitig, derselbe Fehler höchstens einmal pro Minute.
+
 ## 0.2.0 – 2026-10-07
 
 - **Neu:** Soulcrest 0.2 – der erste öffentliche Abschnitt: frei auf GitHub, mit Updates aus der App heraus.

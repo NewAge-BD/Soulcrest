@@ -4,6 +4,9 @@ namespace Soulcrest.App.Overlay;
 
 internal static partial class NativeMethods
 {
+    [LibraryImport("dwmapi.dll")]
+    internal static partial int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
+
     internal const int WS_EX_LAYERED = 0x00080000;
     internal const int WS_EX_TRANSPARENT = 0x00000020;
     internal const int WS_EX_TOOLWINDOW = 0x00000080;

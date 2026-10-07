@@ -66,16 +66,21 @@ jobs:
         shell: pwsh
         run: ./scripts/Build-Installer.ps1 -Compiler (Join-Path $env:RUNNER_TEMP 'inno\ISCC.exe') -Version '${{ steps.version.outputs.version }}'
 
-      - name: Release notes from docs/PATCHNOTES.md
+      - name: Release notes from docs/PATCHNOTES.md and docs/PATCHNOTES.en.md
         shell: pwsh
         run: |
+          # German first, English second: the update notice in Soulcrest picks the section of its language.
           $version = '${{ steps.version.outputs.version }}'
-          $lines = Get-Content docs/PATCHNOTES.md -Encoding utf8
-          $start = [array]::FindIndex($lines, [Predicate[string]]{ param($l) $l -match "^## $([regex]::Escape($version)) " })
-          if ($start -lt 0) { throw "No patch notes for $version" }
-          $end = [array]::FindIndex($lines, $start + 1, [Predicate[string]]{ param($l) $l -match '^## ' })
-          if ($end -lt 0) { $end = $lines.Count }
-          $lines[$start..($end - 1)] | Set-Content (Join-Path $env:RUNNER_TEMP 'notes.md') -Encoding utf8
+          function Section([string] $file) {
+            $lines = Get-Content $file -Encoding utf8
+            $start = [array]::FindIndex($lines, [Predicate[string]]{ param($l) $l -match "^## $([regex]::Escape($version)) " })
+            if ($start -lt 0) { throw "No patch notes for $version in $file" }
+            $end = [array]::FindIndex($lines, $start + 1, [Predicate[string]]{ param($l) $l -match '^## ' })
+            if ($end -lt 0) { $end = $lines.Count }
+            return $lines[$start..($end - 1)]
+          }
+          $notes = @(Section docs/PATCHNOTES.md) + @('') + @(Section docs/PATCHNOTES.en.md)
+          $notes | Set-Content (Join-Path $env:RUNNER_TEMP 'notes.md') -Encoding utf8
 
       - name: Publish release
         shell: pwsh
@@ -85,12 +90,13 @@ jobs:
           $update = "artifacts/installer/Soulcrest-$version-Update-win-x64.exe"
           $assets = $setup, "$setup.sha256", $update, "$update.sha256", 'artifacts/installer/BUILD-INFO.json'
           $notes = Join-Path $env:RUNNER_TEMP 'notes.md'
+          # Every gh call is checked on its own: a failed upload must not end green with old files attached.
+          function Gh { & gh @args; if ($LASTEXITCODE -ne 0) { throw "gh $($args[0]) $($args[1]) failed ($LASTEXITCODE)" } }
           gh release view $env:TAG *> $null
           if ($LASTEXITCODE -eq 0) {
             # A rerun (tag pushed again, or started by hand) replaces the files of the existing release.
-            gh release upload $env:TAG @assets --clobber
-            gh release edit $env:TAG --title "Soulcrest $version" --notes-file $notes
+            Gh release upload $env:TAG @assets --clobber
+            Gh release edit $env:TAG --title "Soulcrest $version" --notes-file $notes
           } else {
-            gh release create $env:TAG @assets --title "Soulcrest $version" --notes-file $notes
+            Gh release create $env:TAG @assets --title "Soulcrest $version" --notes-file $notes
           }
-          if ($LASTEXITCODE -ne 0) { throw 'Publishing the release failed.' }

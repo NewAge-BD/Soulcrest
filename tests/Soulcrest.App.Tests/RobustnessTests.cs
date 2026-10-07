@@ -42,6 +42,19 @@ public sealed class RobustnessTests : IDisposable
         Assert.Equal(1, reached);
     }
 
+    [Fact]
+    public void ARecurringUiErrorShowsOneNoticeAtATimeAndOncePerMinute()
+    {
+        var message = "test " + Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        Assert.True(ErrorNotice.ShouldShow(message, now));
+        Assert.False(ErrorNotice.ShouldShow("other " + Guid.NewGuid(), now)); // a box is open
+        ErrorNotice.Closed();
+        Assert.False(ErrorNotice.ShouldShow(message, now.AddSeconds(30)));    // same error again too soon
+        Assert.True(ErrorNotice.ShouldShow(message, now.AddMinutes(2)));
+        ErrorNotice.Closed();
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))

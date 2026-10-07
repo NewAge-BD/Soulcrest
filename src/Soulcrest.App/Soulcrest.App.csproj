@@ -23,6 +23,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Localization\en.json" />
     <EmbeddedResource Include="..\..\docs\PATCHNOTES.md" LogicalName="Soulcrest.PATCHNOTES.md" Link="PATCHNOTES.md" />
+    <EmbeddedResource Include="..\..\docs\PATCHNOTES.en.md" LogicalName="Soulcrest.PATCHNOTES.en.md" Link="PATCHNOTES.en.md" WithCulture="false" />
     <EmbeddedResource Include="Assets\map-window-emblem.png" LogicalName="Soulcrest.MapWindowEmblem.png" />
     <InternalsVisibleTo Include="Soulcrest.App.Tests" />
     <ProjectReference Include="..\Soulcrest.Core\Soulcrest.Core.csproj" />
