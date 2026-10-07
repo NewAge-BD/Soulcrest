@@ -110,8 +110,10 @@ public sealed class MainForm : Form
             _services.GetRequiredService<TrackerService>(),
             _settings,
             _services.GetRequiredService<PetScanService>());
-        _scanMarkers = new ScanMarkerOverlayForm(_services.GetRequiredService<PetScanService>());
-        _explorationOverlay = new ExplorationScanOverlayForm(_services.GetRequiredService<ExplorationScanService>());
+        _scanMarkers = new ScanMarkerOverlayForm(_services.GetRequiredService<PetScanService>(), _settings,
+            _services.GetRequiredService<Capture.GameCaptureService>());
+        _explorationOverlay = new ExplorationScanOverlayForm(_services.GetRequiredService<ExplorationScanService>(), _settings,
+            _services.GetRequiredService<Capture.GameCaptureService>());
         _ = _services.GetRequiredService<ExplorationArrivalService>();
         _ = _services.GetRequiredService<FarmedTargetCleaner>(); // removes marks of pets farmed out of view
         _ = _services.GetRequiredService<CharacterDetectionService>(); // profile follows the character after loading screens

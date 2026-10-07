@@ -10,8 +10,8 @@ public sealed record PetSpawn(string PetId, double X, double Y, string? Icon, Mo
 /// <summary>A guard NPC on the map (world pixels).</summary>
 public sealed record GuardPost(double X, double Y);
 
-/// <summary>A monster name in English and German (German may be missing).</summary>
-public sealed record MonsterName(string En, string? De)
+/// <summary>A monster name in English and German (German may be missing); Count = monsters of its spawn group.</summary>
+public sealed record MonsterName(string En, string? De, int Count = 1)
 {
     public string In(string language) => language == "de" && !string.IsNullOrWhiteSpace(De) ? De : En;
 }
@@ -80,6 +80,17 @@ public static partial class MapPetMarkers
     public static MonsterName? MonsterAt(string mapDataDirectory, string mapId, string petId, double x, double y) =>
         For(mapDataDirectory, mapId).FirstOrDefault(s => s.PetId == petId && Math.Abs(s.X - x) < 0.5 && Math.Abs(s.Y - y) < 0.5)?.Monster;
 
+    /// <summary>
+    /// The monsters that drop a pet's soul on a map, the one with the most spawns first (user request
+    /// 2026-10-07: the loot tracker names the monster to hunt, "Soft Breeze Spirit" for "Lesser Wind Spirit").
+    /// </summary>
+    public static IReadOnlyList<MonsterName> MonstersOf(string mapDataDirectory, string mapId, string petId) =>
+        For(mapDataDirectory, mapId).Where(s => s.PetId == petId && s.Monster is not null).Select(s => s.Monster!)
+            .GroupBy(m => m.En, StringComparer.Ordinal)
+            .Select(g => g.First() with { Count = g.Sum(m => m.Count) })
+            .OrderByDescending(m => m.Count).ThenBy(m => m.En, StringComparer.Ordinal)
+            .ToList();
+
     /// <summary>Marker field 7 {"en": "Drana Mutant (28×)", "de": …}: the source monster, without the group size.</summary>
     internal static MonsterName? SourceMonster(JsonElement marker)
     {
@@ -87,12 +98,13 @@ public static partial class MapPetMarkers
             || !marker[7].TryGetProperty("en", out var en) || en.GetString() is not { Length: > 0 } english)
             return null;
         var german = marker[7].TryGetProperty("de", out var de) ? de.GetString() : null;
-        return new MonsterName(WithoutCount(english), german is null ? null : WithoutCount(german));
+        var size = GroupSize().Match(english);
+        return new MonsterName(WithoutCount(english), german is null ? null : WithoutCount(german), size.Success ? int.Parse(size.Groups[1].Value) : 1);
     }
 
     private static string WithoutCount(string name) => GroupSize().Replace(name, "");
 
-    [System.Text.RegularExpressions.GeneratedRegex(@" \(\d+×\)$")]
+    [System.Text.RegularExpressions.GeneratedRegex(@" \((\d+)×\)$")]
     private static partial System.Text.RegularExpressions.Regex GroupSize();
 
     /// <summary>data.js is "window.SoulcrestMaps["id"] = { ... };": the object after the first '=' is JSON.</summary>

@@ -2,6 +2,22 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.2.5 – 2026-10-07
+
+- **Neu:** Das Setup führt jetzt auch zum Pet-Scan und fragt nach der Erkundung: Wer mit dem Charakter
+  schon alles erkundet hat, hakt mit einem Klick alles ab (mit Rückgängig), sonst geht es zum
+  Erkundungs-Scan.
+- **Geändert:** Das Loot-Tracker-Overlay zeigt den Namen des Monsters, das du jagst, statt des Pet-Namens
+  (z. B. „Soft Breeze Spirit“ statt „Lesser Wind Spirit“).
+- **Verbessert:** Kleine, stark gezoomte Minimaps über strukturarmem Gelände (Küste, Sand) verlieren die
+  Position nicht mehr ständig; solange die Karte sauber mitläuft, hält Soulcrest die Position.
+- **Verbessert:** Die Hinweise der Scans sind in Aufnahmen sichtbar, wenn „Overlays in Aufnahmen sichtbar“
+  gewählt ist.
+- **Behoben:** Der Pet-Scan verwechselt Pets nicht mehr, die sich nur in der Farbe unterscheiden (z. B.
+  Stone Spirit und Odyle Stone Spirit).
+- **Behoben:** Ein unbekanntes Pet zeigte beim Scan kurz den Stand eines anderen.
+- **Verbessert:** Das Diagnosepaket enthält das letzte Bild des Pet-Scans.
+
 ## 0.2.4 – 2026-10-07
 
 - **Neu:** Gefahrenzonen der Wachen. Die Wachen an den Kibelisken töten Spieler der anderen Fraktion mit

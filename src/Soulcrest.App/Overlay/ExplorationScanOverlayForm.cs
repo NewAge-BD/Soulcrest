@@ -6,17 +6,29 @@ using Soulcrest.App.Services;
 
 namespace Soulcrest.App.Overlay;
 
-/// <summary>Click-through scan assistance, excluded from capture; follows the detected game window.</summary>
+/// <summary>
+/// Click-through scan assistance; follows the detected game window. In screen recordings only with
+/// "Overlays in Aufnahmen sichtbar" (user request 2026-10-07) and while the game window alone is captured,
+/// which never contains this overlay; a monitor or GDI capture would let the scan read it.
+/// </summary>
 public sealed class ExplorationScanOverlayForm : Form
 {
     private readonly ExplorationScanService _scan;
+    private readonly SettingsService _settings;
+    private readonly Capture.GameCaptureService _capture;
+    private bool _inRecordings;
+
+    // In recordings only when chosen and the scan cannot see the overlay (game window capture).
+    private bool WantedInRecordings => _settings.Current.OverlaysInRecordings && _capture.CapturesGameWindowOnly;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 50 };
     private DateTime _visibleUntil;
     private ExplorationScanFeedback? _shown;
     private string _shownStatus = "";
-    public ExplorationScanOverlayForm(ExplorationScanService scan)
+    public ExplorationScanOverlayForm(ExplorationScanService scan, SettingsService settings, Capture.GameCaptureService capture)
     {
         _scan = scan;
+        _settings = settings;
+        _capture = capture;
         FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true;
         StartPosition = FormStartPosition.Manual;
         _timer.Tick += (_, _) => Render(); _timer.Start();
@@ -34,11 +46,18 @@ public sealed class ExplorationScanOverlayForm : Form
     }
     protected override void OnHandleCreated(EventArgs e)
     {
-        base.OnHandleCreated(e); NativeMethods.SetCaptureVisibility(Handle, false);
+        base.OnHandleCreated(e);
+        _inRecordings = WantedInRecordings;
+        NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
     }
     private void Render()
     {
         if (IsDisposed || !IsHandleCreated) return;
+        if (WantedInRecordings != _inRecordings)
+        {
+            _inRecordings = WantedInRecordings;
+            NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
+        }
         if (_scan.Running) _visibleUntil = DateTime.UtcNow.AddSeconds(5);
         var feedback = _scan.Feedback;
         if (feedback is null || (!_scan.Running && DateTime.UtcNow > _visibleUntil)) { if (Visible) Hide(); return; }

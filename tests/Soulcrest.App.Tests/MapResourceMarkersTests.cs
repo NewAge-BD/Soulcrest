@@ -68,11 +68,24 @@ public sealed class MapResourceMarkersTests
         try
         {
             var spawns = MapPetMarkers.Load(path);
-            Assert.Equal(new MonsterName("Drana Mutant", "Dranamutant"), spawns[0].Monster);
+            Assert.Equal(new MonsterName("Drana Mutant", "Dranamutant", 28), spawns[0].Monster);
             Assert.Equal("Felsgeist (Abgrund)", spawns[1].Monster!.In("de")); // only the group size goes, not other brackets
             Assert.Equal("Abyss Rock Spirit", spawns[1].Monster!.In("en"));
             Assert.Null(spawns[2].Monster); // no source monster: the overlay keeps the pet name
         }
         finally { File.Delete(path); }
+    }
+
+    [Theory]
+    [InlineData("altgard", "lesser-wind-spirit", "Soft Breeze Spirit")]
+    [InlineData("altgard", "superior-wind-spirit", "Whirlwind Spirit")]
+    [InlineData("altgard", "drana-mutant-brute", "Drana Mutant")]
+    public void LootTrackerNamesTheMonsterToHunt(string map, string petId, string monster)
+    {
+        // User report 2026-10-07: the game names the monster, not the pet ("Soft Breeze Spirit", not "Lesser Wind Spirit").
+        var mapdata = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "imports", "generated", "mapdata"));
+        if (!File.Exists(Path.Combine(mapdata, map, "data.js")))
+            return; // map data package not built here
+        Assert.Contains(monster, MapPetMarkers.MonstersOf(mapdata, map, petId).Select(m => m.En));
     }
 }

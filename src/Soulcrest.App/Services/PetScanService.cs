@@ -72,6 +72,27 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
     public string? PanelText { get; private set; }
     public string? PreviewDataUrl { get; private set; }
 
+    // The last scanned picture at full size for the diagnosis package: the 420 px preview is too small to
+    // see why a portrait or a value was not recognised (colleague's scan 2026-10-07).
+    private readonly object _lastFrameGate = new();
+    private Bitmap? _lastPicture;
+
+    /// <summary>The last scanned picture as JPEG (full size); null before the first scan picture.</summary>
+    public byte[]? LastFrameJpeg()
+    {
+        lock (_lastFrameGate)
+        {
+            if (_lastPicture is null)
+                return null;
+            using var stream = new MemoryStream();
+            var codec = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders().First(c => c.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
+            using var parameters = new System.Drawing.Imaging.EncoderParameters(1);
+            parameters.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 90L);
+            _lastPicture.Save(stream, codec, parameters);
+            return stream.ToArray();
+        }
+    }
+
     /// <summary>Visible page of the last frame (null before the first frame).</summary>
     public ScanPageStatus? Page { get; private set; }
 
@@ -331,6 +352,11 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
         token.ThrowIfCancellationRequested();
         Frames++;
         PreviewDataUrl = ScreenCapture.ToDataUrl(bitmap, 420);
+        lock (_lastFrameGate)
+        {
+            _lastPicture?.Dispose();
+            _lastPicture = bitmap.Clone(new Rectangle(0, 0, bitmap.Width, bitmap.Height), bitmap.PixelFormat);
+        }
         if (scan.Collection is { } collection)
             Collection = collection;
         PanelText = scan.Panel is { } panel ? $"{panel.Name} · Stufe {panel.Level?.ToString() ?? "?"}" : null;
@@ -462,7 +488,7 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
         if (entry is null && petId is not null && _entries.Any(e => e.PetId == petId && (used?.Contains(e) == true || Contradicts(e, card))))
             petId = null; // the pet is already on another card of this frame, or is owned where this card is locked
         entry ??= petId is null
-            ? _entries.FirstOrDefault(e => used?.Contains(e) != true && !Contradicts(e, card) && PetWindowScanner.HashDistance(e.PortraitHash, card.PortraitHash) <= 8)
+            ? _entries.FirstOrDefault(e => used?.Contains(e) != true && !Contradicts(e, card) && !OtherValue(e, card) && PetWindowScanner.HashDistance(e.PortraitHash, card.PortraitHash) <= 8)
             : null;
         if (entry is null)
         {
@@ -489,6 +515,15 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
             return false;
         return (reading.Level == 0) != (progress.Level == 0);
     }
+
+    /// <summary>
+    /// An unknown entry already read with another value is another pet: values do not change during a
+    /// scan. Mudthorn (2/25) went into an unknown entry of 1/12 by a similar portrait and showed 1/12 until
+    /// its own votes won (colleague's scan log 2026-10-07). Only pictures of a list standing still count.
+    /// </summary>
+    private bool OtherValue(ScanEntry entry, PetCardScan card) =>
+        _voting && entry.Reading is { } reading && card.Progress is { } progress
+        && (reading.Level, reading.InLevel) != (progress.Level, progress.SoulsInLevel);
 
     private string UniqueKey(string key)
     {
@@ -684,6 +719,11 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
     public void Dispose()
     {
         _cancel?.Cancel();
+        lock (_lastFrameGate)
+        {
+            _lastPicture?.Dispose();
+            _lastPicture = null;
+        }
         // Not under a running portrait comparison (it reads the matcher's native descriptors): wait for
         // the scan to end, or leave the memory to the exiting process.
         try

@@ -21,8 +21,13 @@ public sealed class PortraitMatcher : IDisposable
 {
     // Thread-safe: every call uses its own SIFT and matcher, the references are only read (cards of one
     // capture are matched in parallel; one after another 15 cards took 3.8 s with 188 references).
-    private readonly List<(string PetId, Point2f[] Points, Mat Descriptors)> _references = [];
+    private readonly List<(string PetId, Point2f[] Points, Mat Descriptors, Mat? Colour)> _references = [];
     private readonly object _gate = new();
+    // Colour variants: the map-data portrait file without "_cv01" etc. names the art (Stone Spirit
+    // "…eartheleod_01", Odyle Stone Spirit "…eartheleod_01_cv01"); the first coloured picture of a pet is
+    // its hue reference.
+    private readonly Dictionary<string, string> _art = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Mat> _hue = new(StringComparer.Ordinal);
 
     public int ReferenceCount
     {
@@ -35,8 +40,14 @@ public sealed class PortraitMatcher : IDisposable
         using var image = Cv2.ImRead(imagePath, ImreadModes.Unchanged);
         if (image.Empty())
             return;
+        lock (_gate)
+            _art.TryAdd(petId, ArtKey(imagePath));
         AddReference(petId, image);
     }
+
+    /// <summary>"…/ut_vehicle_portrait_eartheleod_01_cv01.png" → "ut_vehicle_portrait_eartheleod_01".</summary>
+    public static string ArtKey(string imagePath) =>
+        System.Text.RegularExpressions.Regex.Replace(Path.GetFileNameWithoutExtension(imagePath), @"_cv\d+$", "");
 
     public void AddReference(string petId, Mat image)
     {
@@ -46,8 +57,13 @@ public sealed class PortraitMatcher : IDisposable
         var described = Describe(resized);
         if (described is null)
             return;
+        var colour = ColourSignature(resized);
         lock (_gate)
-            _references.Add((petId, described.Value.Points, described.Value.Descriptors));
+        {
+            _references.Add((petId, described.Value.Points, described.Value.Descriptors, colour));
+            if (colour is not null)
+                _hue.TryAdd(petId, colour);
+        }
     }
 
     public PortraitMatch Match(Mat portrait)
@@ -61,12 +77,12 @@ public sealed class PortraitMatcher : IDisposable
         var (points, descriptors) = described.Value;
         using var _ = descriptors;
 
-        var best = new Dictionary<string, int>(StringComparer.Ordinal);
-        List<(string PetId, Point2f[] Points, Mat Descriptors)> references;
+        var best = new Dictionary<string, (int Score, Mat? Colour)>(StringComparer.Ordinal);
+        List<(string PetId, Point2f[] Points, Mat Descriptors, Mat? Colour)> references;
         lock (_gate)
             references = [.. _references];
         using var matcher = new BFMatcher(NormTypes.L2);
-        foreach (var (petId, referencePoints, reference) in references)
+        foreach (var (petId, referencePoints, reference, colour) in references)
         {
             var good = new List<DMatch>();
             foreach (var pair in matcher.KnnMatch(descriptors, reference, 2))
@@ -75,16 +91,68 @@ public sealed class PortraitMatcher : IDisposable
                     good.Add(pair[0]);
             }
             var score = ConsistentMatches(good, points, referencePoints);
-            if (!best.TryGetValue(petId, out var existing) || score > existing)
-                best[petId] = score;
+            if (!best.TryGetValue(petId, out var existing) || score > existing.Score)
+                best[petId] = (score, colour);
         }
-        var ranked = best.OrderByDescending(b => b.Value).Take(2).ToList();
-        return ranked.Count switch
+        var ranked = best.OrderByDescending(b => b.Value.Score).Take(2).ToList();
+        var byShape = ranked.Count switch
         {
             0 => new PortraitMatch(null, 0, null, 0),
-            1 => new PortraitMatch(ranked[0].Key, ranked[0].Value, null, 0),
-            _ => new PortraitMatch(ranked[0].Key, ranked[0].Value, ranked[1].Key, ranked[1].Value),
+            1 => new PortraitMatch(ranked[0].Key, ranked[0].Value.Score, null, 0),
+            _ => new PortraitMatch(ranked[0].Key, ranked[0].Value.Score, ranked[1].Key, ranked[1].Value.Score),
         };
+        if (ranked.Count > 0 && Variants(ranked[0].Key) is { Count: > 1 } variants)
+        {
+            using var colour = ColourSignature(resized);
+            return ByColour(byShape, colour, variants);
+        }
+        return byShape;
+    }
+
+    /// <summary>The pet and its colour variants (same art), each with its hue reference; null without variants.</summary>
+    private List<(string PetId, Mat? Hue)>? Variants(string petId)
+    {
+        lock (_gate)
+        {
+            if (!_art.TryGetValue(petId, out var art))
+                return null;
+            return _art.Where(a => a.Value == art).Select(a => (a.Key, _hue.GetValueOrDefault(a.Key))).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Colour variants (21 pets in the map data, e.g. Stone Spirit blue, Odyle Stone Spirit green) are one
+    /// picture recoloured, and the shape matching works on grey: a real Stone Spirit card recoloured green
+    /// still scored 71 to 3 for Stone Spirit, and a colleague's scan took one for the other (2026-10-07).
+    /// Among the variants a clear hue difference decides. A grey (locked) portrait or hues too alike (Agrint,
+    /// Ashen Agrint) keep the shape's result.
+    /// </summary>
+    private static PortraitMatch ByColour(PortraitMatch byShape, Mat? portrait, List<(string PetId, Mat? Hue)> variants)
+    {
+        if (portrait is null || variants.Any(v => v.Hue is null))
+            return byShape;
+        var ranked = variants.Select(v => (v.PetId, Distance: Cv2.CompareHist(portrait, v.Hue!, HistCompMethods.Bhattacharyya)))
+            .OrderBy(v => v.Distance).ToList();
+        if (ranked[1].Distance - ranked[0].Distance < ClearHueDifference)
+            return byShape;
+        return new PortraitMatch(ranked[0].PetId, byShape.Score, ranked[1].PetId, Math.Min(byShape.Score / 3, ranked[0].PetId == byShape.PetId ? byShape.SecondScore : int.MaxValue));
+    }
+
+    private const double ClearHueDifference = 0.15;
+
+    /// <summary>Hue histogram of the clearly coloured pixels; null for a (nearly) grey picture.</summary>
+    public static Mat? ColourSignature(Mat bgr)
+    {
+        using var hsv = new Mat();
+        Cv2.CvtColor(bgr, hsv, ColorConversionCodes.BGR2HSV);
+        using var mask = new Mat();
+        Cv2.InRange(hsv, new Scalar(0, 70, 50), new Scalar(180, 255, 255), mask);
+        if (Cv2.CountNonZero(mask) < bgr.Rows * bgr.Cols / 10)
+            return null;
+        var hist = new Mat();
+        Cv2.CalcHist([hsv], [0], mask, hist, 1, [30], [new Rangef(0, 180)]);
+        Cv2.Normalize(hist, hist, 1, 0, NormTypes.L1);
+        return hist;
     }
 
     /// <summary>
@@ -158,8 +226,13 @@ public sealed class PortraitMatcher : IDisposable
     {
         lock (_gate)
         {
-            foreach (var (_, _, descriptors) in _references)
+            foreach (var (_, _, descriptors, colour) in _references)
+            {
                 descriptors.Dispose();
+                colour?.Dispose();
+            }
+            _hue.Clear();
+            _art.Clear();
             _references.Clear();
         }
     }

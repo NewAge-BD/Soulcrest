@@ -68,6 +68,12 @@ public sealed class GameCaptureService : IDisposable
     /// <summary>"Spielfenster (WGC)", "Monitor (WGC)" or "GDI".</summary>
     public string Method => Volatile.Read(ref _snapshot).Method;
 
+    /// <summary>
+    /// The pictures come from the game window alone, which never contains Soulcrest's overlays. Only then
+    /// may scan overlays show in screen recordings: a monitor or GDI capture would read them.
+    /// </summary>
+    public bool CapturesGameWindowOnly => Method == "Spielfenster (WGC)";
+
     /// <summary>Method plus the HDR state, for logs and status texts ("Spielfenster (WGC) · HDR, SDR-Weiß 200 nits").</summary>
     public string MethodText
     {

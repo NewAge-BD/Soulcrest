@@ -104,6 +104,7 @@ public sealed class DiagnosticsService : IDisposable
         // Use already produced previews: a fresh Grab could hang on the very driver/lock
         // this package is meant to diagnose. Missing previews are useful evidence too.
         AddPreview(zip, "karten-bereich", _map.PreviewDataUrl);
+        AddPicture(zip, "pet-scan-letztes-bild", _scan.LastFrameJpeg());
         return path;
     }
 
@@ -129,6 +130,19 @@ public sealed class DiagnosticsService : IDisposable
         writer.WriteLine("[Letzter abgeschlossener Gesamtbericht]");
         writer.WriteLine(fullReport ?? "Noch kein Gesamtbericht abgeschlossen. Der Aufnahmestatus oben ist davon unabhaengig.");
         if (error is not null) writer.WriteLine("Fehler der erweiterten Pruefung: " + error);
+    }
+
+    /// <summary>A kept picture (JPEG bytes), or a note that there is none yet.</summary>
+    internal static void AddPicture(ZipArchive zip, string name, byte[]? jpeg)
+    {
+        if (jpeg is { Length: > 0 })
+        {
+            using var entry = zip.CreateEntry($"bilder/{name}.jpg").Open();
+            entry.Write(jpeg);
+            return;
+        }
+        using var note = new StreamWriter(zip.CreateEntry($"bilder/{name}-fehlt.txt").Open());
+        note.Write("Seit dem Start von Soulcrest lief kein Pet-Scan.");
     }
 
     internal static void AddPreview(ZipArchive zip, string name, string? dataUrl)

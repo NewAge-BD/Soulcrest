@@ -9,20 +9,29 @@ namespace Soulcrest.App.Overlay;
 /// <summary>
 /// Frames the cards of the pet window that the scan could not finish (user request 2026-10-03): orange =
 /// value unreadable, yellow = pet unknown, both "click it". Shown only while a scan runs and the page
-/// stands still, so the frames never lag behind a scrolling list. Per-pixel alpha, click-through and
-/// always excluded from screen capture: the scan must never see its own frames.
+/// stands still, so the frames never lag behind a scrolling list. Per-pixel alpha, click-through. In screen
+/// recordings only with "Overlays in Aufnahmen sichtbar" (user request 2026-10-07) and while the game window
+/// alone is captured: a monitor or GDI capture would let the scan read its own frames.
 /// </summary>
 public sealed class ScanMarkerOverlayForm : Form
 {
     private static readonly Color ValueMissing = Color.FromArgb(249, 115, 22);
     private static readonly Color PetUnknown = Color.FromArgb(250, 204, 21);
     private readonly PetScanService _scan;
+    private readonly SettingsService _settings;
+    private readonly Capture.GameCaptureService _capture;
+    private bool _inRecordings;
+
+    // In recordings only when chosen and the scan cannot see the overlay (game window capture).
+    private bool WantedInRecordings => _settings.Current.OverlaysInRecordings && _capture.CapturesGameWindowOnly;
     private bool _pending;
     private string _shown = "";
 
-    public ScanMarkerOverlayForm(PetScanService scan)
+    public ScanMarkerOverlayForm(PetScanService scan, SettingsService settings, Capture.GameCaptureService capture)
     {
         _scan = scan;
+        _settings = settings;
+        _capture = capture;
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
@@ -46,7 +55,8 @@ public sealed class ScanMarkerOverlayForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        NativeMethods.SetCaptureVisibility(Handle, false);
+        _inRecordings = WantedInRecordings;
+        NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
     }
 
     /// <summary>Scan events come from the scan thread: redraw once on the UI thread.</summary>
@@ -64,6 +74,11 @@ public sealed class ScanMarkerOverlayForm : Form
 
     private void Render()
     {
+        if (WantedInRecordings != _inRecordings)
+        {
+            _inRecordings = WantedInRecordings;
+            NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
+        }
         var page = _scan.Page;
         var marks = _scan.Running && page is { Stable: true } ? page.Marks : [];
         var region = _scan.CaptureRegion;

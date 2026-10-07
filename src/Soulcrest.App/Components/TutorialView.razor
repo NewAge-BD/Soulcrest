@@ -1,9 +1,10 @@
 @* First-start tutorial (user request 2026-10-07): left the HUD video (enlarge the minimap in "Edit HUD"),
-   right the minimap marker from the options (the quest log step went to the Questrunner archive). Shown once after a fresh installation; again with "Setup starten"
+   right the minimap marker from the options, the faction (guard danger zones), the way to the pet scan and the exploration (all done, or the way to its scan) (the quest log step went to the Questrunner archive). Shown once after a fresh installation; again with "Setup starten"
    at the top of the options. *@
 @inject SettingsService Settings
 @inject UiState Ui
 @inject IJSRuntime JS
+@inject ExplorationService Exploration
 
 <div class="tutorial-backdrop" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
     <div class="tutorial card">
@@ -11,7 +12,7 @@
                aria-label="@UiText.T("Im Spiel: Menü, Edit HUD, Minimap größer ziehen, dann die Minimap markieren")"></video>
         <div class="tutorial-side">
             <h2 id="tutorial-title">@UiText.T("Willkommen bei Soulcrest")</h2>
-            <p class="sv-lead">@UiText.T("Drei kurze Schritte, dann findet Soulcrest dich auf der Karte.")</p>
+            <p class="sv-lead">@UiText.T("Fünf kurze Schritte, dann findet Soulcrest dich auf der Karte und kennt deine Pets und Erkundung.")</p>
             <ol class="tutorial-steps">
                 <li>
                     <b>@UiText.T("Minimap bei Bedarf vergrößern")</b>
@@ -37,6 +38,29 @@
                         _ => "Ohne Auswahl bleiben die Gefahrenzonen aus (änderbar unter Optionen → Overlays).",
                     })</p>
                 </li>
+                <li>
+                    <b>@UiText.T("Pet-Fortschritt einlesen")</b>
+                    <p class="sv-hint">@UiText.T("Soulcrest liest deinen Stand aus dem Pet-Fenster im Spiel: Pet-Fenster öffnen (Reiter ALL), Scan starten, langsam durchscrollen, danach prüfen und übernehmen. Später jederzeit im Reiter „Pet-Fenster“.")</p>
+                    <div class="row">
+                        <button type="button" class="btn" @onclick="OpenPetScan">@UiText.T("Zum Reiter Pet-Fenster")</button>
+                    </div>
+                </li>
+                <li>
+                    <b>@UiText.T("Erkundung: Kibelisks, Sealed Dungeons, Strongholds")</b>
+                    <p class="sv-hint">@UiText.F("Hast du mit diesem Charakter ({0}) schon alles zu 100 % erkundet? Dann ist kein Scan nötig.", ActiveCharacter)</p>
+                    <div class="row">
+                        <button type="button" class="btn" @onclick="MarkAllExplored" disabled="@(_explorationUndo is not null)">@UiText.T("Ja, alles erkundet")</button>
+                        <button type="button" class="btn" @onclick="OpenExplorationScan">@UiText.T("Nein – zum Erkundungs-Scan")</button>
+                        @if (_explorationUndo is not null)
+                        {
+                            <button type="button" class="btn" @onclick="UndoAllExplored">@UiText.T("Rückgängig")</button>
+                        }
+                    </div>
+                    @if (_explorationStatus is not null)
+                    {
+                        <p class="sv-hint" role="status">@_explorationStatus</p>
+                    }
+                </li>
             </ol>
             <div class="row tutorial-actions">
                 <button type="button" class="btn" @onclick="Close">@UiText.T("Überspringen")</button>
@@ -54,6 +78,42 @@
     {
         if (firstRender)
             await JS.InvokeAsync<bool>("soulcrestUi.playMuted", _video);
+    }
+
+    private string[]? _explorationUndo; // places this setup checked off, for "Rückgängig"
+    private string? _explorationStatus;
+
+    private string ActiveCharacter => Exploration.Characters.FirstOrDefault(c => c.Id == Exploration.ActiveId).Name ?? "";
+
+    /// <summary>Everything explored already: the whole list is checked off for this character, no scan needed.</summary>
+    private void MarkAllExplored()
+    {
+        var done = Exploration.Completed;
+        _explorationUndo = Exploration.Places.Select(p => p.Id).Where(id => !done.Contains(id)).ToArray();
+        Exploration.SetDone(Exploration.ActiveId, _explorationUndo);
+        _explorationStatus = UiText.F("{0} Orte für {1} als erkundet abgehakt.", Exploration.Places.Count, ActiveCharacter);
+    }
+
+    private void UndoAllExplored()
+    {
+        if (_explorationUndo is null)
+            return;
+        Exploration.SetDone(Exploration.ActiveId, _explorationUndo, done: false);
+        _explorationUndo = null;
+        _explorationStatus = UiText.T("Zurückgenommen.");
+    }
+
+    private void OpenExplorationScan()
+    {
+        Close();
+        Ui.Navigate("exploration");
+    }
+
+    /// <summary>The scan needs its own page (live picture, review, apply): the setup ends and opens it.</summary>
+    private void OpenPetScan()
+    {
+        Close();
+        Ui.Navigate("petscan");
     }
 
     private void Close()

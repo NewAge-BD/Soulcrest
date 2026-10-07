@@ -2,6 +2,21 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.2.5 – 2026-10-07
+
+- **New:** The setup now also leads to the pet scan and asks about exploration: if your character has
+  explored everything already, one click checks it all off (with undo); otherwise it takes you to the
+  exploration scan.
+- **Changed:** The loot tracker overlay shows the name of the monster you hunt instead of the pet's name
+  (e.g. "Soft Breeze Spirit" instead of "Lesser Wind Spirit").
+- **Improved:** Small, strongly zoomed minimaps over plain ground (coast, sand) no longer keep losing the
+  position; while the map moves along cleanly, Soulcrest holds the position.
+- **Improved:** The scans' hints show in recordings when "Show overlays in recordings" is on.
+- **Fixed:** The pet scan no longer mixes up pets that differ only in colour (e.g. Stone Spirit and Odyle
+  Stone Spirit).
+- **Fixed:** An unknown pet briefly showed another pet's progress during the scan.
+- **Improved:** The diagnosis package contains the last picture of the pet scan.
+
 ## 0.2.4 – 2026-10-07
 
 - **New:** Guard danger zones. The guards at the Kibelisks kill players of the other faction with one hit;

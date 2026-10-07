@@ -17,6 +17,14 @@ public static class Factions
         _ => [],
     };
 
+    /// <summary>The faction's own map, where its pets are hunted first.</summary>
+    public static string? HomeMap(string? faction) => faction switch
+    {
+        Elyos => "verteron",
+        Asmodian => "altgard",
+        _ => null,
+    };
+
     /// <summary>Sets the faction and switches the guard zones to the other faction's map.</summary>
     public static void Choose(SettingsService settings, string? faction) => settings.Update(s =>
     {

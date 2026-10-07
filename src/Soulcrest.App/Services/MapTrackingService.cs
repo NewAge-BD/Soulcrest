@@ -75,6 +75,12 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     private const int ReferenceZoomWidth = 4096; // reference image size, as in Map Overlay
     public const int MissesBeforeOtherMaps = 3;
     private const int HoldFrames = 4; // ~1 s at 4 frames per second
+    // Past those, the last placement is held while the flow follows the minimap without a break, up to
+    // 15 s: a strongly zoomed small minimap over coast and sand gave the detection 10-170 keypoints and lost
+    // the position again and again until the tracking went to rest (colleague's diagnosis 2026-10-07).
+    internal static readonly TimeSpan FlowHoldLimit = TimeSpan.FromSeconds(15);
+    private volatile bool _flowBroken = true; // the flow could not follow since the last found position
+    private long _lastFixAt;
     // Switching to another map needs clearly more evidence than staying: maps share decorations
     // (compass rose, emblems), a cut-out of one Abyss map reached 20 pairs on another one.
     private const int SwitchMinInliers = 30;
@@ -412,7 +418,10 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                     if (frameAt != 0)
                         _cost.AddFlowLag(Stopwatch.GetElapsedTime(frameAt));
                     if (step is null)
+                    {
                         flowLost = true;
+                        _flowBroken = true;
+                    }
                     else
                         motion += Math.Sqrt(step.Value.Tx * step.Value.Tx + step.Value.Ty * step.Value.Ty)
                             + 100 * (Math.Abs(step.Value.A - 1) + Math.Abs(step.Value.B)); // zoom or turn counts as movement
@@ -611,7 +620,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         // The fine reference follows the player with a 0.6× picture: same position (±0.1 map units) at
         // half the cost (114 → 57 ms, live captures 2026-10-03). Each locator always gets the same size,
         // so its local search stays consistent; the coarse search for a lost position keeps full size.
-        var fix = LocateAt(locator, frame, locator == fineLocator ? FineFrameScale : 1.0);
+        var fix = LocateAt(locator, frame, locator == fineLocator ? FineFrameScaleFor(region.Size) : 1.0);
         if (fix is not null && candidate != _currentMap && fix.Inliers < SwitchMinInliers)
             fix = null;
         // A narrow fix (few pairs) must fit the zoom of the last good one: while the in-game map fades,
@@ -639,9 +648,14 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             // Single misses happen while the in-game map zooms, scrolls or fades (live log 2026-10-03:
             // lost and found again within a second). Keep the last placement for a moment so the
             // marker and the route lines do not flicker (Map Overlay holds 8 frames).
-            if (_misses <= HoldFrames && Placement is not null)
+            if (Placement is not null && _misses <= HoldFrames)
             {
                 SetStatus($"Karte kurz nicht erkannt – halte letzte Position ({locator.LastInfo.Matches} Treffer).");
+                return;
+            }
+            if (Placement is not null && HoldsByFlow(_flowBroken, Stopwatch.GetElapsedTime(Interlocked.Read(ref _lastFixAt))))
+            {
+                SetStatus($"Karte gerade schwer erkennbar ({locator.LastInfo.Keypoints} Merkmale) – der Bildfluss hält die Position.");
                 return;
             }
             Found = false;
@@ -665,6 +679,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         }
         _misses = 0;
         Found = true;
+        _flowBroken = false;
+        Interlocked.Exchange(ref _lastFixAt, Stopwatch.GetTimestamp());
         var reference = fix.FrameToReference(anchor);
         var world = locator.Reference.WorldPerPixel;
         Position = new PlayerPosition(definition.Id, reference.X * world, reference.Y * world, DateTimeOffset.Now);
@@ -680,6 +696,16 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     /// clearly and the agreeing keypoints spread well beyond the marked small-map area.
     /// </summary>
     internal const double FineFrameScale = 0.6;
+
+    /// <summary>
+    /// The fine search shrinks large map areas to 0.6 (half the cost at the same position), small ones not:
+    /// a 514×292 minimap kept too few keypoints at 0.6 and was not found, at full size it was (colleague's
+    /// diagnosis 2026-10-07; the user's 518×469 area stays at 0.6).
+    /// </summary>
+    internal static double FineFrameScaleFor(System.Drawing.Size region) => region.Width * region.Height >= 200_000 ? FineFrameScale : 1.0;
+
+    /// <summary>Holds a lost position while the flow followed the minimap without a break since it was found.</summary>
+    internal static bool HoldsByFlow(bool flowBroken, TimeSpan sinceFix) => !flowBroken && sinceFix < FlowHoldLimit;
 
     /// <summary>Locates a picture shrunk by <paramref name="scale"/> and returns the fix for the full-size picture.</summary>
     internal static MapFix? LocateAt(MapLocator locator, Mat frame, double scale)

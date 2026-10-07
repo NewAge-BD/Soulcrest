@@ -408,7 +408,7 @@ public sealed class PetOverlayForm : Form
             g.DrawString(badge, nameFont, accentBrush, nameRight - badgeSize.Width, y + 3);
             nameRight -= badgeSize.Width + 2;
         }
-        var name = pet?.DisplayName(_settings.Current.NameLanguage) ?? petId;
+        var name = MonsterName(petId) ?? pet?.DisplayName(_settings.Current.NameLanguage) ?? petId;
         using (var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
             g.DrawString(name, nameFont, nameBrush, new RectangleF(x, y + 3, Math.Max(10, nameRight - x), nameFont.Height), format);
 
@@ -432,6 +432,28 @@ public sealed class PetOverlayForm : Form
         g.DrawString(count, countFont, shadow, textRect, center);
         textRect.Offset(-1, -1);
         g.DrawString(count, countFont, nameBrush, textRect, center);
+    }
+
+    /// <summary>
+    /// The monsters to hunt for a pet instead of its soul name (user request 2026-10-07: "Soft Breeze
+    /// Spirit", not "Lesser Wind Spirit"): on the map shown last, else the faction's own map, else any map
+    /// with the pet. The one with the most spawns there (Superior Wind Spirit: Whirlwind Spirit, 87, not the
+    /// 6 Immortal Wind Spirit Guardians).
+    /// </summary>
+    private string? MonsterName(string petId)
+    {
+        if (_progress.MapDataDirectory is not { } mapdata)
+            return null;
+        var language = _settings.Current.NameLanguage;
+        var maps = new[] { _settings.Current.LastMap, Factions.HomeMap(_settings.Current.Faction) }.OfType<string>()
+            .Concat(_progress.Maps.Select(m => m.Id)).Distinct(StringComparer.Ordinal);
+        foreach (var map in maps)
+        {
+            var monsters = MapPetMarkers.MonstersOf(mapdata, map, petId);
+            if (monsters.Count > 0)
+                return monsters[0].In(language);
+        }
+        return null;
     }
 
     private sealed record Toast(string PetId, int Quantity, DateTimeOffset Last);
