@@ -6,6 +6,12 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # Rebuild a release by hand: gh workflow run release.yml -f tag=v0.1.30
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Version tag, e.g. v0.1.30
+        required: true
 
 permissions:
   contents: write
@@ -16,8 +22,11 @@ jobs:
     runs-on: windows-latest
     env:
       GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -27,7 +36,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $version = $env:TAG.TrimStart('v')
           $props = ([xml](Get-Content Directory.Build.props -Raw)).Project.PropertyGroup.Version
           if ($version -ne $props) { throw "Tag $version does not match Directory.Build.props $props" }
           "version=$version" >> $env:GITHUB_OUTPUT
@@ -73,5 +82,5 @@ jobs:
         run: |
           $version = '${{ steps.version.outputs.version }}'
           $setup = "artifacts/installer/Soulcrest-$version-Setup-win-x64.exe"
-          gh release create '${{ github.ref_name }}' $setup "$setup.sha256" artifacts/installer/BUILD-INFO.json `
+          gh release create $env:TAG $setup "$setup.sha256" artifacts/installer/BUILD-INFO.json `
             --title "Soulcrest $version" --notes-file (Join-Path $env:RUNNER_TEMP 'notes.md')
