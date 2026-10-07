@@ -2,6 +2,11 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.2.2 – 2026-10-07
+
+- **Improved:** With the world map open, the in-game overlay follows the map smoothly and no longer
+  trails behind while it is moved.
+
 ## 0.2.1 – 2026-10-07
 
 - **New:** Patch notes are now available in English too; Soulcrest shows them in the interface language,
