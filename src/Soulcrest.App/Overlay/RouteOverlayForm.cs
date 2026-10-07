@@ -116,11 +116,19 @@ public sealed class RouteOverlayForm : Form
         // Marked pets (right click or progression target) show all their spawns and soul monsters, even
         // when the pet symbols are off or filtered (user request 2026-10-06).
         var marked = onMap.Select(t => PetOf(t.Target)).OfType<string>().ToHashSet(StringComparer.Ordinal);
-        // Pet targets carry their souls of the current level: "Superior Water Spirit 24/25" (user request 2026-10-06).
+        // Pet targets carry their souls of the current level: "Superior Water Spirit 24/25" (user request 2026-10-06),
+        // under the name of the monster to hunt there, not the pet's ("Drana Mutant", not "Drana Mutant Brute";
+        // user request 2026-10-07).
         for (var i = 0; i < onMap.Count; i++)
         {
             if (PetOf(onMap[i].Target) is { } pet)
-                onMap[i] = (onMap[i].Target with { Name = $"{onMap[i].Target.Name} {_progress.SoulCount(pet)}" }, onMap[i].Index);
+            {
+                var target = onMap[i].Target;
+                var name = _progress.MapDataDirectory is { } data && MapPetMarkers.MonsterAt(data, target.MapId, pet, target.X, target.Y) is { } monster
+                    ? monster.In(UiText.Language)
+                    : target.Name;
+                onMap[i] = (target with { Name = $"{name} {_progress.SoulCount(pet)}" }, onMap[i].Index);
+            }
         }
         // Targets the line leads to from the player carry their distance in game metres (user request
         // 2026-10-06): "Ninir · 258 m". Chained targets start at their predecessor and have none.
@@ -151,13 +159,15 @@ public sealed class RouteOverlayForm : Form
                     resources.Add(new ResourceSymbol(target.X, target.Y, ResourceIcon(icon, mapdata)));
             }
         }
-        if (placement is null || (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0))
+        var guards = placement is not null ? VisibleGuardZones(placement) : null;
+        if (placement is null || (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0 && guards is null))
             return null;
-        return RenderFrame(placement, onMap, pets, resources, souls);
+        return RenderFrame(placement, onMap, pets, resources, souls, guards);
     }
 
     internal static Frame RenderFrame(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> onMap,
-        IReadOnlyList<PetSymbol> pets, IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null)
+        IReadOnlyList<PetSymbol> pets, IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null,
+        GuardZones? guards = null)
     {
         // Drawn straight into a GDI DIB section that UpdateLayeredWindow takes as it is: converting a
         // full-screen picture with GetHbitmap cost 30 ms each time (measured 2026-10-05).
@@ -170,7 +180,7 @@ public sealed class RouteOverlayForm : Form
         {
             using var surface = new Bitmap(size.Width, size.Height, size.Width * 4, PixelFormat.Format32bppPArgb, bits);
             using var graphics = Graphics.FromImage(surface);
-            DrawInto(graphics, placement, onMap, pets, resources, souls); // a new DIB is all zeros: transparent
+            DrawInto(graphics, placement, onMap, pets, resources, souls, guards); // a new DIB is all zeros: transparent
         }
         catch
         {
@@ -207,23 +217,25 @@ public sealed class RouteOverlayForm : Form
 
     /// <summary>The overlay picture for the marked map area: lines, arrows, rings and names (transparent elsewhere).</summary>
     public static Bitmap Draw(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets, IReadOnlyList<PetSymbol>? pets = null,
-        IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null)
+        IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null)
     {
         var bitmap = new Bitmap(placement.Region.Width, placement.Region.Height, PixelFormat.Format32bppPArgb);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.Clear(Color.Transparent);
-        DrawInto(graphics, placement, targets, pets, resources, souls);
+        DrawInto(graphics, placement, targets, pets, resources, souls, guards);
         return bitmap;
     }
 
     /// <summary>Draws the overlay into a transparent, premultiplied 32-bit surface of the region's size.</summary>
     private static void DrawInto(Graphics graphics, MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets,
-        IReadOnlyList<PetSymbol>? pets, IReadOnlyList<ResourceSymbol>? resources, IReadOnlyList<SoulMonster>? souls = null)
+        IReadOnlyList<PetSymbol>? pets, IReadOnlyList<ResourceSymbol>? resources, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null)
     {
         var region = placement.Region;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         var origin = new PointF(region.X, region.Y);
+        if (guards is not null)
+            DrawGuardZones(graphics, placement, origin, guards); // beneath everything else
         var area = new RectangleF(4, 4, region.Width - 8, region.Height - 8);
         PointF? player = placement.PlayerOnScreen is { } p ? Offset(p, origin) : null;
         foreach (var resource in resources ?? [])
@@ -256,6 +268,53 @@ public sealed class RouteOverlayForm : Form
     }
 
     private static PointF Offset(PointF p, PointF origin) => new(p.X - origin.X, p.Y - origin.Y);
+
+    /// <summary>Guards to mark and the radius of their danger circle in world pixels.</summary>
+    public sealed record GuardZones(IReadOnlyList<GuardPost> Guards, double RadiusWorld);
+
+    /// <summary>
+    /// One half-transparent red area: the circles are filled as a single path, so where guards stand
+    /// together the red does not stack up darker, with a thin rim around the whole area.
+    /// </summary>
+    private static void DrawGuardZones(Graphics graphics, MapPlacement placement, PointF origin, GuardZones zones)
+    {
+        if (zones.Guards.Count == 0)
+            return;
+        var first = zones.Guards[0];
+        var centre = placement.WorldToScreen(first.X, first.Y);
+        var edge = placement.WorldToScreen(first.X + zones.RadiusWorld, first.Y);
+        var radius = MathF.Max(2, MathF.Sqrt((edge.X - centre.X) * (edge.X - centre.X) + (edge.Y - centre.Y) * (edge.Y - centre.Y)));
+        using var area = new GraphicsPath(FillMode.Winding);
+        foreach (var guard in zones.Guards)
+        {
+            var at = Offset(placement.WorldToScreen(guard.X, guard.Y), origin);
+            area.AddEllipse(at.X - radius, at.Y - radius, 2 * radius, 2 * radius);
+        }
+        using var fill = new SolidBrush(Color.FromArgb(80, 239, 68, 68));
+        graphics.FillPath(fill, area);
+        // The rim of the union: the path outline, cut to the outside of the filled area.
+        using var region = new Region(area);
+        var state = graphics.Save();
+        graphics.ExcludeClip(region);
+        using var rim = new Pen(Color.FromArgb(170, 239, 68, 68), 3f);
+        graphics.DrawPath(rim, area);
+        graphics.Restore(state);
+    }
+
+    /// <summary>Guards of this map when their zones are switched on for it, inside the marked map area.</summary>
+    private GuardZones? VisibleGuardZones(MapPlacement placement)
+    {
+        if (_progress.MapDataDirectory is not { } mapdata || !_settings.Current.GuardZoneMaps.Contains(placement.MapId))
+            return null;
+        var metersPerPixel = _progress.Maps.FirstOrDefault(m => m.Id == placement.MapId)?.MetersPerPixel ?? 1;
+        var radiusWorld = Math.Max(1, _settings.Current.GuardRadiusMeters) / metersPerPixel;
+        var first = placement.WorldToScreen(0, 0);
+        var second = placement.WorldToScreen(radiusWorld, 0);
+        var margin = (float)Math.Sqrt((second.X - first.X) * (second.X - first.X) + (second.Y - first.Y) * (second.Y - first.Y)) + 4;
+        var area = new RectangleF(placement.Region.X - margin, placement.Region.Y - margin, placement.Region.Width + 2 * margin, placement.Region.Height + 2 * margin);
+        var guards = MapPetMarkers.GuardsFor(mapdata, placement.MapId).Where(g => area.Contains(placement.WorldToScreen(g.X, g.Y))).ToList();
+        return guards.Count == 0 ? null : new GuardZones(guards, radiusWorld);
+    }
 
     /// <summary>A pet spawn to draw: portrait, label ("St. 1 · 6/25") and whether the pet is done (max).</summary>
     public sealed record PetSymbol(double X, double Y, Bitmap? Icon, string Label, bool Done);

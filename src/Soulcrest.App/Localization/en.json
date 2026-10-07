@@ -560,5 +560,17 @@
   "Version {0} ansehen": "View version {0}",
   "Beim Start nach Updates suchen": "Check for updates at start",
   "Jetzt aktualisieren ({0})": "Update now ({0})",
-  "Diese Version bringt neue Kartendaten mit, deshalb wird der vollständige Installer geladen.": "This version brings new map data, so the full installer is downloaded."
+  "Diese Version bringt neue Kartendaten mit, deshalb wird der vollständige Installer geladen.": "This version brings new map data, so the full installer is downloaded.",
+  "Gefahrenzonen der Wachen": "Guard danger zones",
+  "Roter Kreis um die Wachen an den Kibelisken (<Dawn Legion> Guard, <Vigilante Group> Guard), die Spieler der anderen Fraktion mit einem Schlag töten. Auf Minimap und Vollbildkarte.": "Red circle around the guards at the Kibelisks (<Dawn Legion> Guard, <Vigilante Group> Guard), who kill players of the other faction with one hit. On the minimap and full-screen map.",
+  "Radius": "Radius",
+  "entsperrt – ziehen, Ecken skalieren, Strg+Alt+L sperrt": "unlocked – drag, resize at the corners, Ctrl+Alt+L locks",
+  "Drei kurze Schritte, dann findet Soulcrest dich auf der Karte.": "Three short steps, then Soulcrest finds you on the map.",
+  "Deine Fraktion": "Your faction",
+  "keine Angabe": "not set",
+  "Die Fraktion schaltet die Zonen auf der Karte der anderen Fraktion ein: Elyos auf Altgard, Asmodier auf Verteron.": "The faction switches the zones on for the other faction's map: Elyos on Altgard, Asmodians on Verteron.",
+  "Die Wachen an den Kibelisken töten Spieler der anderen Fraktion mit einem Schlag. Soulcrest zeigt um sie eine rote Gefahrenzone auf der Karte, die für dich gefährlich ist.": "The guards at the Kibelisks kill players of the other faction with one hit. Soulcrest shows a red danger zone around them on the map that is dangerous for you.",
+  "Gefahrenzonen auf Altgard sind an.": "Danger zones on Altgard are on.",
+  "Gefahrenzonen auf Verteron sind an.": "Danger zones on Verteron are on.",
+  "Ohne Auswahl bleiben die Gefahrenzonen aus (änderbar unter Optionen → Overlays).": "Without a choice the danger zones stay off (can be changed under Options → Overlays)."
 }

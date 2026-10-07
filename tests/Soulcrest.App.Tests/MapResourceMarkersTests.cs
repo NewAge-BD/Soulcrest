@@ -38,4 +38,41 @@ public sealed class MapResourceMarkersTests
         }
         finally { File.Delete(path); }
     }
+
+    [Fact]
+    public void GuardsAreTheNpcsNamedGuard()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "soulcrest-guards-" + Guid.NewGuid() + ".js");
+        File.WriteAllText(path, """
+            window.SoulcrestMaps["test"] = {"categories":[{"name":"npc-other","group":"NPCs","icon":-1},{"name":"Cogni","group":"Monsters","icon":-1}],"icons":[],
+             "markers":[[0,10,20,"Guard","Wachmann",-1,null],[0,30,40,"Guard Captain","Wachhauptmann",-1,null],[1,50,60,"Guard","Wachmann",-1,null]]};
+            """);
+        try
+        {
+            Assert.Equal([new GuardPost(10, 20)], MapPetMarkers.LoadGuards(path)); // not the captain, not a monster called Guard
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void PetSymbolsNameTheMonsterThatDropsTheSoul()
+    {
+        // Pet "Drana Mutant Brute" comes from the monster "Drana Mutant" (user report 2026-10-07).
+        var path = Path.Combine(Path.GetTempPath(), "soulcrest-monster-" + Guid.NewGuid() + ".js");
+        File.WriteAllText(path, """
+            window.SoulcrestMaps["test"] = {"categories":[{"name":"Varian","group":"Pets","icon":0}],"icons":["icons/pet.png"],
+             "markers":[[0,10,20,"Drana Mutant Brute","Drana-Mutantenbrecher",0,"drana-mutant-brute",{"en":"Drana Mutant (28×)","de":"Dranamutant (28×)"}],
+                        [0,30,40,"Stone Spirit","Steingeist",0,"stone-spirit",{"en":"Abyss Rock Spirit","de":"Felsgeist (Abgrund)"}],
+                        [0,50,60,"Klaw","Klaw",0,"klaw"]]};
+            """);
+        try
+        {
+            var spawns = MapPetMarkers.Load(path);
+            Assert.Equal(new MonsterName("Drana Mutant", "Dranamutant"), spawns[0].Monster);
+            Assert.Equal("Felsgeist (Abgrund)", spawns[1].Monster!.In("de")); // only the group size goes, not other brackets
+            Assert.Equal("Abyss Rock Spirit", spawns[1].Monster!.In("en"));
+            Assert.Null(spawns[2].Monster); // no source monster: the overlay keeps the pet name
+        }
+        finally { File.Delete(path); }
+    }
 }

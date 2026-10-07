@@ -25,6 +25,19 @@ public sealed class PetOverlayForm : Form
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 250 };
     private bool _locked = true;
     private Point? _dragStart;
+    // Size (user request 2026-10-07): everything is laid out for 360 px and drawn scaled; unlocked, any
+    // corner can be dragged and the opposite one stays put.
+    private const int BaseWidth = 360, ScanWidth = 380, CornerGrip = 16;
+    private const double MinScale = 0.6, MaxScale = 2.5;
+    private double _scale;
+    private int _logicalHeight = 120;
+    private Corner _resizing;
+    private Point _resizeFrom;
+    private Rectangle _resizeBounds;
+    private double _resizeScale;
+
+    [Flags]
+    private enum Corner { None = 0, Left = 1, Top = 2, Right = 4, Bottom = 8 }
     // Scan mode: shown automatically while the pet window is scanned, moved off the card grid.
     private bool _scanMode;
     private bool _wasVisibleBeforeScan;
@@ -41,7 +54,8 @@ public sealed class PetOverlayForm : Form
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         Location = new Point(settings.Current.OverlayX, settings.Current.OverlayY);
-        Size = new Size(360, 120);
+        _scale = Math.Clamp(settings.Current.OverlayScale, MinScale, MaxScale);
+        ApplySize();
         BackColor = Color.FromArgb(16, 20, 28);
         Opacity = 0.88;
         DoubleBuffered = true;
@@ -89,30 +103,109 @@ public sealed class PetOverlayForm : Form
         var style = NativeMethods.GetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE);
         style = _locked ? style | NativeMethods.WS_EX_TRANSPARENT : style & ~(nint)NativeMethods.WS_EX_TRANSPARENT;
         NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE, style);
+        if (_locked)
+            Cursor = Cursors.Default;
         Invalidate();
     }
 
+    private int LogicalWidth => _scanMode ? ScanWidth : BaseWidth;
+
+    /// <summary>Window size from the layout size (360 × content height) and the scale.</summary>
+    private void ApplySize()
+    {
+        var size = new Size((int)Math.Round(LogicalWidth * _scale), (int)Math.Round(_logicalHeight * _scale));
+        if (Size != size)
+            Size = size;
+    }
+
+    private void SetLogicalHeight(int height)
+    {
+        if (_logicalHeight == height)
+            return;
+        _logicalHeight = height;
+        ApplySize();
+    }
+
+    private Corner CornerAt(Point p)
+    {
+        var corner = Corner.None;
+        if (p.X < CornerGrip) corner |= Corner.Left;
+        else if (p.X >= Width - CornerGrip) corner |= Corner.Right;
+        if (p.Y < CornerGrip) corner |= Corner.Top;
+        else if (p.Y >= Height - CornerGrip) corner |= Corner.Bottom;
+        // Only the four corners resize; edges and the inside move the overlay.
+        return (corner & (Corner.Left | Corner.Right)) != 0 && (corner & (Corner.Top | Corner.Bottom)) != 0 ? corner : Corner.None;
+    }
+
+    private static Cursor CursorFor(Corner corner) => corner switch
+    {
+        Corner.Left | Corner.Top or Corner.Right | Corner.Bottom => Cursors.SizeNWSE,
+        Corner.Right | Corner.Top or Corner.Left | Corner.Bottom => Cursors.SizeNESW,
+        _ => Cursors.SizeAll,
+    };
+
     protected override void OnMouseDown(MouseEventArgs e)
     {
-        if (!_locked && e.Button == MouseButtons.Left)
+        if (_locked || _scanMode || e.Button != MouseButtons.Left)
+            return;
+        _resizing = CornerAt(e.Location);
+        if (_resizing == Corner.None)
+        {
             _dragStart = e.Location;
+            return;
+        }
+        _resizeFrom = Cursor.Position;
+        _resizeBounds = Bounds;
+        _resizeScale = _scale;
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        if (_resizing != Corner.None)
+        {
+            ResizeTo(Cursor.Position);
+            return;
+        }
         if (_dragStart is { } start)
+        {
             Location = new Point(Location.X + e.X - start.X, Location.Y + e.Y - start.Y);
+            return;
+        }
+        if (!_locked && !_scanMode)
+            Cursor = CursorFor(CornerAt(e.Location));
+    }
+
+    /// <summary>Scales with the corner under the mouse; the opposite corner stays where it was.</summary>
+    private void ResizeTo(Point mouse)
+    {
+        var dx = mouse.X - _resizeFrom.X;
+        var dy = mouse.Y - _resizeFrom.Y;
+        if (_resizing.HasFlag(Corner.Left)) dx = -dx;
+        if (_resizing.HasFlag(Corner.Top)) dy = -dy;
+        // The larger pull wins, so a diagonal or a straight drag both work.
+        var byWidth = (_resizeBounds.Width + dx) / (double)_resizeBounds.Width;
+        var byHeight = (_resizeBounds.Height + dy) / (double)_resizeBounds.Height;
+        var factor = Math.Abs(byWidth - 1) >= Math.Abs(byHeight - 1) ? byWidth : byHeight;
+        _scale = Math.Clamp(_resizeScale * factor, MinScale, MaxScale);
+        var width = (int)Math.Round(LogicalWidth * _scale);
+        var height = (int)Math.Round(_logicalHeight * _scale);
+        var x = _resizing.HasFlag(Corner.Left) ? _resizeBounds.Right - width : _resizeBounds.X;
+        var y = _resizing.HasFlag(Corner.Top) ? _resizeBounds.Bottom - height : _resizeBounds.Y;
+        Bounds = new Rectangle(x, y, width, height);
+        Invalidate();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
-        if (_dragStart is null)
+        if (_dragStart is null && _resizing == Corner.None)
             return;
         _dragStart = null;
+        _resizing = Corner.None;
         _settings.Update(s =>
         {
             s.OverlayX = Location.X;
             s.OverlayY = Location.Y;
+            s.OverlayScale = Math.Round(_scale, 3);
         });
     }
 
@@ -123,17 +216,13 @@ public sealed class PetOverlayForm : Form
         if (_scanMode)
         {
             var missingLines = Math.Min(6, _scan.Page?.Missing.Count ?? 0);
-            var scanHeight = 34 + 44 + missingLines * 20 + 30;
-            if (Height != scanHeight)
-                Height = scanHeight;
+            SetLogicalHeight(34 + 44 + missingLines * 20 + 30);
             Invalidate();
             return;
         }
         var focus = _progress.FocusPets().Take(8).Count();
         var toasts = RecentToasts().Count;
-        var height = 34 + (focus == 0 ? 26 : focus * RowHeight) + toasts * (ToastHeight + 2) + 26;
-        if (Height != height)
-            Height = height;
+        SetLogicalHeight(34 + (focus == 0 ? 26 : focus * RowHeight) + toasts * (ToastHeight + 2) + 26);
         Invalidate();
     }
 
@@ -148,14 +237,14 @@ public sealed class PetOverlayForm : Form
             var area = _scan.CaptureRegion;
             // Right of the grid, below the auto-loot hint: an empty area of the pet window.
             Location = new Point(area.X + (int)(area.Width * 0.255), area.Y + (int)(area.Height * 0.62));
-            Width = 380;
+            ApplySize();
             if (!Visible)
                 Show();
         }
         else
         {
             Location = _locationBeforeScan;
-            Width = 360;
+            ApplySize();
             if (!_wasVisibleBeforeScan)
                 Hide();
         }
@@ -180,7 +269,7 @@ public sealed class PetOverlayForm : Form
         else if (page.Ready)
         {
             using var back = new SolidBrush(Color.FromArgb(40, 34, 197, 94));
-            g.FillRectangle(back, 6, y, Width - 12, 38);
+            g.FillRectangle(back, 6, y, LogicalWidth - 12, 38);
             g.DrawString(UiText.T($"✓ Alle {page.Cards} erkannt – weiterscrollen"), big, ok, 12, y + 7);
             y += 44;
         }
@@ -200,7 +289,7 @@ public sealed class PetOverlayForm : Form
             }
         }
         var collection = page?.Collection is { } c ? UiText.F(" · Sammlung {0}/{1}", c.Owned, c.Total) : "";
-        g.DrawString(UiText.T($"Gelesen gesamt: {page?.TotalPets ?? _scan.Entries.Count} Pets{collection}"), small, dim, 10, Height - 22);
+        g.DrawString(UiText.T($"Gelesen gesamt: {page?.TotalPets ?? _scan.Entries.Count} Pets{collection}"), small, dim, 10, _logicalHeight - 22);
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -208,6 +297,7 @@ public sealed class PetOverlayForm : Form
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+        g.ScaleTransform((float)_scale, (float)_scale); // laid out at 360 px, everything scales along
         using var title = new Font("Segoe UI Semibold", 10f);
         using var body = new Font("Segoe UI", 9.5f);
         using var small = new Font("Segoe UI", 8.5f);
@@ -215,7 +305,9 @@ public sealed class PetOverlayForm : Form
         using var dim = new SolidBrush(Color.FromArgb(150, 160, 175));
         using var white = new SolidBrush(Color.FromArgb(235, 240, 245));
         using var border = new Pen(_locked ? Color.FromArgb(60, 70, 90) : Color.FromArgb(250, 204, 21), _locked ? 1 : 2);
-        g.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+        g.DrawRectangle(border, 0, 0, LogicalWidth - 1, _logicalHeight - 1);
+        if (!_locked && !_scanMode)
+            DrawCornerGrips(g);
         if (_scanMode)
         {
             PaintScanMode(g, title, body, small);
@@ -224,7 +316,7 @@ public sealed class PetOverlayForm : Form
 
         g.DrawString(UiText.T("Soulcrest"), title, accent, 10, 7);
         var state = _tracker.Running ? "● Netzwerk" : "○ Erfassung aus";
-        g.DrawString(UiText.T(_locked ? state : "entsperrt – ziehen, Strg+Alt+L sperrt"), small, _tracker.Running ? accent : dim, 90, 9);
+        g.DrawString(UiText.T(_locked ? state : "entsperrt – ziehen, Ecken skalieren, Strg+Alt+L sperrt"), small, _tracker.Running ? accent : dim, 90, 9);
 
         var y = 34;
         var lang = _settings.Current.NameLanguage;
@@ -246,11 +338,23 @@ public sealed class PetOverlayForm : Form
             var left = ToastDuration - (DateTimeOffset.Now - toast.Last);
             var alpha = (int)Math.Clamp(left.TotalSeconds / 10 * 255, 60, 255);
             using var toastBack = new SolidBrush(Color.FromArgb(alpha * 40 / 255, 94, 234, 212));
-            g.FillRectangle(toastBack, 4, y, Width - 8, ToastHeight);
+            g.FillRectangle(toastBack, 4, y, LogicalWidth - 8, ToastHeight);
             DrawPetRow(g, toast.PetId, y, alpha, $"+{toast.Quantity}");
             y += ToastHeight + 2;
         }
-        g.DrawString(UiText.T("Strg+Alt+P ein/aus · Strg+Alt+L verschieben"), small, dim, 10, Height - 20);
+        g.DrawString(UiText.T("Strg+Alt+P ein/aus · Strg+Alt+L verschieben"), small, dim, 10, _logicalHeight - 20);
+    }
+
+    /// <summary>Unlocked: yellow angles in the corners show where the overlay can be resized.</summary>
+    private void DrawCornerGrips(Graphics g)
+    {
+        using var pen = new Pen(Color.FromArgb(250, 204, 21), 3);
+        const int length = 12;
+        int right = LogicalWidth - 2, bottom = _logicalHeight - 2;
+        g.DrawLines(pen, [new Point(1, 1 + length), new Point(1, 1), new Point(1 + length, 1)]);
+        g.DrawLines(pen, [new Point(right - length, 1), new Point(right, 1), new Point(right, 1 + length)]);
+        g.DrawLines(pen, [new Point(1, bottom - length), new Point(1, bottom), new Point(1 + length, bottom)]);
+        g.DrawLines(pen, [new Point(right - length, bottom), new Point(right, bottom), new Point(right, bottom - length)]);
     }
 
     /// <summary>
@@ -288,7 +392,7 @@ public sealed class PetOverlayForm : Form
             g.DrawEllipse(ring, icon);
 
         var x = icon.Right + 8;
-        var right = Width - 10;
+        var right = LogicalWidth - 10;
         using var nameFont = new Font("Segoe UI Semibold", 9.5f);
         using var smallFont = new Font("Segoe UI", 8f);
         using var nameBrush = new SolidBrush(A(Color.FromArgb(235, 240, 245)));

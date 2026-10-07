@@ -11,7 +11,7 @@
                aria-label="@UiText.T("Im Spiel: Menü, Edit HUD, Minimap größer ziehen, dann die Minimap markieren")"></video>
         <div class="tutorial-side">
             <h2 id="tutorial-title">@UiText.T("Willkommen bei Soulcrest")</h2>
-            <p class="sv-lead">@UiText.T("Zwei kurze Schritte, dann findet Soulcrest dich auf der Karte.")</p>
+            <p class="sv-lead">@UiText.T("Drei kurze Schritte, dann findet Soulcrest dich auf der Karte.")</p>
             <ol class="tutorial-steps">
                 <li>
                     <b>@UiText.T("Minimap bei Bedarf vergrößern")</b>
@@ -20,6 +20,22 @@
                 <li>
                     <b>@UiText.T("Minimap markieren")</b>
                     <MapRegionPicker />
+                </li>
+                <li>
+                    <b>@UiText.T("Deine Fraktion")</b>
+                    <p class="sv-hint">@UiText.T("Die Wachen an den Kibelisken töten Spieler der anderen Fraktion mit einem Schlag. Soulcrest zeigt um sie eine rote Gefahrenzone auf der Karte, die für dich gefährlich ist.")</p>
+                    <div class="row faction-choice" role="group" aria-label="@UiText.T("Deine Fraktion")">
+                        <button type="button" class="btn @(Settings.Current.Faction == Factions.Elyos ? "primary" : "")" aria-pressed="@(Settings.Current.Faction == Factions.Elyos)"
+                                @onclick="@(() => Factions.Choose(Settings, Factions.Elyos))">Elyos</button>
+                        <button type="button" class="btn @(Settings.Current.Faction == Factions.Asmodian ? "primary" : "")" aria-pressed="@(Settings.Current.Faction == Factions.Asmodian)"
+                                @onclick="@(() => Factions.Choose(Settings, Factions.Asmodian))">@UiText.T("Asmodier")</button>
+                    </div>
+                    <p class="sv-hint" role="status">@UiText.T(Settings.Current.Faction switch
+                    {
+                        Factions.Elyos => "Gefahrenzonen auf Altgard sind an.",
+                        Factions.Asmodian => "Gefahrenzonen auf Verteron sind an.",
+                        _ => "Ohne Auswahl bleiben die Gefahrenzonen aus (änderbar unter Optionen → Overlays).",
+                    })</p>
                 </li>
             </ol>
             <div class="row tutorial-actions">

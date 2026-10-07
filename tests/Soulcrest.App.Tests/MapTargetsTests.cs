@@ -275,6 +275,22 @@ public sealed class RouteOverlayDrawingTests
     }
 
     [Fact]
+    public void GuardZonesAreOneEvenRedArea()
+    {
+        // User request 2026-10-07: red half-transparent circles around the guards at the Kibelisks.
+        var fix = new MapFix(2, 0, -1000, 0, 2, -600, 50, 60, 0.3, false);
+        var placement = new MapPlacement("altgard", fix, 2, new Rectangle(1800, 100, 500, 400), new Point2d(250, 200));
+        var zones = new Soulcrest.App.Overlay.RouteOverlayForm.GuardZones([new GuardPost(1100, 700), new GuardPost(1104, 700)], RadiusWorld: 10);
+        using var bitmap = Soulcrest.App.Overlay.RouteOverlayForm.Draw(placement, [], guards: zones); // frames (100, 100) and (104, 100), radius 10
+
+        var single = bitmap.GetPixel(93, 100);  // inside the first circle only
+        var overlap = bitmap.GetPixel(102, 100); // inside both
+        Assert.True(single.R > 200 && single.G < 120 && single.A is > 40 and < 160, $"kein halbtransparentes Rot: {single}");
+        Assert.Equal(single.A, overlap.A); // standing together does not make the red darker
+        Assert.Equal(0, bitmap.GetPixel(100, 130).A);
+    }
+
+    [Fact]
     public void DrawsResourcesWithTheirLegendIconBelowPets()
     {
         var fix = new MapFix(2, 0, -1000, 0, 2, -600, 50, 60, 0.3, false);

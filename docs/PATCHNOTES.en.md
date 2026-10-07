@@ -2,6 +2,17 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.2.4 – 2026-10-07
+
+- **New:** Guard danger zones. The guards at the Kibelisks kill players of the other faction with one hit;
+  Soulcrest shows a red, half-transparent zone around them on the minimap and the full-screen map. In the
+  setup you pick your faction: Elyos see the zones on Altgard, Asmodians on Verteron. Radius (default
+  40 m) and maps under Options → Overlays.
+- **New:** The pet overlay can be dragged bigger or smaller at any corner while unlocked (Ctrl+Alt+L);
+  everything scales along.
+- **Changed:** Marked pets carry the name of the monster that drops their soul in the overlay (e.g.
+  "Drana Mutant" instead of "Drana Mutant Brute").
+
 ## 0.2.3 – 2026-10-07
 
 - **Improved:** The overlay now follows the map almost without delay (about 20 instead of 150 ms). The

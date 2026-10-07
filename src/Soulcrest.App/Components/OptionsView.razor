@@ -112,11 +112,42 @@
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowRoutesInGame" @onchange="@(e => Settings.Update(s => s.ShowRoutesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Linien zu Zielen")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowPetsInGame" @onchange="@(e => Settings.Update(s => s.ShowPetsInGame = (bool)e.Value!))" /><span><b>@UiText.T("Pet-Symbole mit Stand")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowResourcesInGame" @onchange="@(e => Settings.Update(s => s.ShowResourcesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Ressourcen und Versteckte Kuben")</b><small>@UiText.T("auf Minimap und Vollbildkarte – die in der Legende der Karte eingeblendeten")</small></span></label>
+        <div class="opt-toggle opt-guards">
+            <span>
+                <b>@UiText.T("Gefahrenzonen der Wachen")</b>
+                <small>@UiText.T("Roter Kreis um die Wachen an den Kibelisken (<Dawn Legion> Guard, <Vigilante Group> Guard), die Spieler der anderen Fraktion mit einem Schlag töten. Auf Minimap und Vollbildkarte.")</small>
+                <span class="opt-guard-maps">
+                    @foreach (var (id, label) in GuardMaps)
+                    {
+                        <label><input type="checkbox" checked="@Settings.Current.GuardZoneMaps.Contains(id)" @onchange="@(e => SetGuardMap(id, (bool)e.Value!))" /> @label</label>
+                    }
+                </span>
+                <label class="opt-guard-radius">
+                    @UiText.T("Radius")
+                    <input type="range" min="5" max="60" step="1" value="@Settings.Current.GuardRadiusMeters" @onchange="@(e => Settings.Update(s => s.GuardRadiusMeters = int.Parse((string)e.Value!)))" />
+                    <output>@Settings.Current.GuardRadiusMeters m</output>
+                </label>
+                <label class="opt-guard-radius">
+                    @UiText.T("Deine Fraktion")
+                    <select value="@(Settings.Current.Faction ?? "")" @onchange="@(e => Factions.Choose(Settings, (string?)e.Value))">
+                        <option value="">@UiText.T("keine Angabe")</option>
+                        <option value="elyos">Elyos</option>
+                        <option value="asmodian">@UiText.T("Asmodier")</option>
+                    </select>
+                </label>
+                <small>@UiText.T("Die Fraktion schaltet die Zonen auf der Karte der anderen Fraktion ein: Elyos auf Altgard, Asmodier auf Verteron.")</small>
+            </span>
+        </div>
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.OverlaysInRecordings" @onchange="@(e => Settings.Update(s => s.OverlaysInRecordings = (bool)e.Value!))" /><span><b>@UiText.T("Overlays in Aufnahmen sichtbar")</b><small>@UiText.T("Für OBS (Bildschirmaufnahme) und Screenshots. Aus: Overlays sind nur auf dem Monitor zu sehen.")</small></span></label>
     </section>
 </div>
 
 @code {
+    private static readonly (string Id, string Label)[] GuardMaps = [("altgard", "Altgard"), ("verteron", "Verteron")];
+
+    private void SetGuardMap(string id, bool on) => Settings.Update(s =>
+        s.GuardZoneMaps = on ? s.GuardZoneMaps.Append(id).Distinct().ToArray() : s.GuardZoneMaps.Where(m => m != id).ToArray());
+
     private bool _borderBusy;
     private string? _borderStatus;
     private async Task DisableBorder()

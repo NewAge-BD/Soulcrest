@@ -2,6 +2,17 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.2.4 – 2026-10-07
+
+- **Neu:** Gefahrenzonen der Wachen. Die Wachen an den Kibelisken töten Spieler der anderen Fraktion mit
+  einem Schlag; Soulcrest zeigt um sie eine rote, halbtransparente Zone auf Minimap und Vollbildkarte.
+  Im Setup wählst du deine Fraktion: Elyos sehen die Zonen auf Altgard, Asmodier auf Verteron. Radius
+  (Standard 40 m) und Karten unter Optionen → Overlays.
+- **Neu:** Das Pet-Overlay lässt sich im entsperrten Modus (Strg+Alt+L) an jeder Ecke größer oder kleiner
+  ziehen; alles skaliert mit.
+- **Geändert:** Markierte Pets tragen im Overlay den Namen des Monsters, das ihre Soul fallen lässt
+  (z. B. „Drana Mutant“ statt „Drana Mutant Brute“).
+
 ## 0.2.3 – 2026-10-07
 
 - **Verbessert:** Das Overlay folgt der Karte jetzt fast ohne Verzögerung (rund 20 statt 150 ms). Die

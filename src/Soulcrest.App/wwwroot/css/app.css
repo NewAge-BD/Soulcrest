@@ -610,3 +610,11 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
 /* Pet filters inside the Pets layer group (former "Anzeige" tile, 2026-10-07). */
 .mapside .pet-filters { display: flex; align-items: flex-start; gap: .5rem; padding: .3rem .4rem .45rem 1.6rem; }
 .mapside .pet-filters .field-label { width: auto; padding-top: .3rem; }
+
+/* Guard danger zones (Options → Overlays): maps and radius under the explanation. */
+.opt-guards { cursor: default; }
+.opt-guard-maps { display: flex; flex-wrap: wrap; gap: .4rem 1rem; margin-top: .3rem; }
+.opt-guard-maps label, .opt-guard-radius { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; }
+.opt-guard-radius { margin-top: .3rem; }
+.opt-guard-radius input[type=range] { flex: 1 1 8rem; max-width: 14rem; accent-color: var(--accent); }
+.opt-guard-radius output { min-width: 3rem; font-variant-numeric: tabular-nums; color: var(--muted); }

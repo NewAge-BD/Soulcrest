@@ -75,6 +75,22 @@ public sealed class AppSettings
     public bool ShowResourcesInGame { get; set; } = true;
 
     /// <summary>
+    /// Maps (ids) whose guards get a red danger circle on the in-game map: the guards at the Kibelisks
+    /// (&lt;Dawn Legion&gt; Guard, &lt;Vigilante Group&gt; Guard) kill players of the other faction with one hit
+    /// (user request 2026-10-07). Off by default; chosen per map (Altgard, Verteron).
+    /// </summary>
+    public string[] GuardZoneMaps { get; set; } = [];
+
+    /// <summary>Radius of a guard's danger circle in game metres (user decision 2026-10-07: 40 m, adjustable).</summary>
+    public int GuardRadiusMeters { get; set; } = 40;
+
+    /// <summary>The player's faction (<see cref="Factions"/>), chosen in the setup; sets <see cref="GuardZoneMaps"/>.</summary>
+    public string? Faction { get; set; }
+
+    /// <summary>Size of the pet overlay (1 = 360 px wide); dragged at a corner while unlocked (Ctrl+Alt+L).</summary>
+    public double OverlayScale { get; set; } = 1.0;
+
+    /// <summary>
     /// Legend selection of the interactive map per map id: shown categories as "Group/Name" (names stay
     /// when the data package is rebuilt, indices do not). Replaced as a whole on every change, so the
     /// in-game overlay can read it from another thread.
