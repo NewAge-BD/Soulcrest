@@ -51,3 +51,12 @@ Screenshot-Tests: `SOULCREST_LAYOUT_FIXTURES` auf den Ordner der vier bereitgest
 ## Automatischer Abschluss bei Ankunft
 
 Auf der Karte im Exploration-Progressionsbereich **Abschlussradius (Kartenpixel)** einstellen (Standard 40; 0 deaktiviert, maximal 500). Der angezeigte Kreis skaliert mit der Karte. Bei laufendem Spieler-Tracking wird das aktuelle Ziel innerhalb des Radius im aktiven Charakterprofil als fertig gespeichert und das nächste offene Ziel gewählt. Manuelle Korrekturen bleiben im jeweiligen Scan-Tab möglich. Der Abschluss bedeutet hier Ankunft am Ort; zusätzliche Dungeon-Abschlussbedingungen werden nicht geprüft.
+
+## Freischaltung von Sealed Dungeons (Nutzerangabe 2026-10-07, nach aion2maps)
+
+- Drei Sealed Dungeons je Karte öffnen nacheinander: Verteron (Elyos) Distorted Cave → Fissure Cave →
+  Rift Cave, Altgard (Asmodier) Lost Ruin → Twisted Pit → Rift Fissure.
+- „Ruins of the Ancient City of Ru“ (Verteron und Altgard) öffnet erst, wenn alle anderen Sealed Dungeons
+  derselben Karte erledigt sind.
+- Der Progressionsmodus überspringt einen gesperrten Dungeon; das Popup der Karte nennt, was fehlt
+  (`ExplorationService.Prerequisites`/`MissingFor`).

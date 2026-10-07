@@ -49,8 +49,7 @@
             <div class="status error">@UiText.T(_error)</div>
         }
 
-        <h3 class="layers-head"><span>@UiText.T("Ebenen")</span> <small>@_markerCount Marker</small>
-            <label class="chip regions-chip" title="@UiText.T("Gebietsgrenzen und -namen auf der Karte")"><input type="checkbox" checked="@_regions" @onchange="ToggleRegions" /> @UiText.T("Gebiete")</label></h3>
+        <h3 class="layers-head"><span>@UiText.T("Ebenen")</span> <small>@_markerCount Marker</small></h3>
         <div class="layers">
             @foreach (var group in _groups)
             {
@@ -378,7 +377,7 @@
     private string _query = "";
     private string? _focus;
     private int _focusPets, _focusMonsters, _markerCount;
-    private bool _regions = true, _ready, _wasActive;
+    private bool _ready, _wasActive;
     private bool _sideCollapsed, _rightCollapsed, _relayout; // view-only: sidebars hidden for small windows
     private string? _error;
 
@@ -458,7 +457,13 @@
         // Souls still missing to finish each pet's current level (0 = max), for "closest to completion".
         var missing = souls.ToDictionary(p => p.Key, p => Progress.Thresholds.NeededForNextLevel(p.Value) - Progress.Thresholds.SoulsInLevel(p.Value));
         var done = Exploration.Completed;
-        var places = Exploration.Places.Where(p => p.Map == _mapId).Select(p => new { index = p.Marker, id = p.Id, kind = p.Kind, done = done.Contains(p.Id) });
+        // locked/needs: sealed dungeons that open only after others (progression skips them, the popup names them).
+        var places = Exploration.Places.Where(p => p.Map == _mapId).Select(p =>
+        {
+            var needs = Exploration.MissingFor(p, done);
+            return new { index = p.Marker, id = p.Id, kind = p.Kind, done = done.Contains(p.Id), locked = needs.Count > 0,
+                needs = needs.Select(n => n.Name(Settings.Current.NameLanguage)).ToArray() };
+        });
         await JS.InvokeVoidAsync("soulcrestMap.setExploration", JsonSerializer.Serialize(places));
         await JS.InvokeVoidAsync("soulcrestMap.setProgression", Settings.Current.ProgressionEnabled, Settings.Current.ProgressionGoal, JsonSerializer.Serialize(souls), Settings.Current.ProgressionMode, Math.Clamp(Settings.Current.ExplorationCompletionRadius, 0, 500), Exploration.ActiveId, JsonSerializer.Serialize(missing));
         if (!Settings.Current.ProgressionEnabled)
@@ -855,12 +860,6 @@
                 s.HideLevel3 = hide;
         });
         await PushDone(includeLabels: false);
-    }
-
-    private async Task ToggleRegions(ChangeEventArgs e)
-    {
-        _regions = (bool)e.Value!;
-        await JS.InvokeVoidAsync("soulcrestMap.setRegionsVisible", _regions);
     }
 
     private void ToggleSidebar()

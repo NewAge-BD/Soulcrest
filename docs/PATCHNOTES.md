@@ -2,6 +2,18 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.2.0 – 2026-10-07
+
+- **Neu:** Soulcrest 0.2 – der erste öffentliche Abschnitt: frei auf GitHub, mit Updates aus der App heraus.
+- **Neu:** Der Progressionsmodus beachtet die Freischalt-Reihenfolge der Sealed Dungeons. Auf Verteron
+  öffnen Distorted Cave → Fissure Cave → Rift Cave nacheinander, auf Altgard Lost Ruin → Twisted Pit →
+  Rift Fissure; die Ruinen der Uralten Stadt Roah erst nach allen anderen Sealed Dungeons der Karte.
+  Gesperrte Dungeons überspringt er, das Popup auf der Karte nennt, was noch fehlt.
+- **Geändert:** Rechtsklick auf Kibelisks, Sealed Dungeons und Strongholds markiert sie wieder als Ziel.
+  Binden bzw. Abhaken steht jetzt im Popup beim Linksklick.
+- **Behoben:** Der Schalter „Gebiete“ ist weg; er blendete nichts ein. Die Gebietsnamen schaltet die
+  Ebene „Regions“.
+
 ## 0.1.31 – 2026-10-07
 
 - **Neu:** HDR-Aufnahme. Läuft der Monitor in HDR, nimmt Soulcrest das Spiel in voller HDR-Tiefe auf und

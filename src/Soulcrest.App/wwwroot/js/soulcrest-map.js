@@ -195,13 +195,38 @@ window.soulcrestMap = (() => {
         updateProgression();
     }
 
-    function popupFor(m, cat) {
+    function popupFor(m, cat, index) {
         const de = lang === 'de' && m[4] && m[4] !== m[3] ? `<br><span style="color:#8b96a8">${esc(m[3])}</span>` : '';
         const pet = m[6] && cat.group === 'Monsters' ? `<br>${ui('Soul für Pet:', 'Soul for pet:')} <b>${esc(m[6])}</b>` : '';
         const link = m[6] ? `<br><a href="#" onclick="window.soulcrestMap.focusPet('${m[6]}');return false;">${ui('Alle Spawns dieses Pets', 'All spawns of this pet')}</a>` : '';
         const source = m[7] && m[7].en ? `<br>${ui('Soul-Quelle:', 'Soul source:')} ${esc(lang === 'de' && m[7].de ? m[7].de : m[7].en)}` : '';
         const level = m[6] && cat.group === 'Pets' && petLabels[m[6]] ? `<br>${ui('Stand:', 'Progress:')} <b>${esc(petLabels[m[6]])}</b>` : '';
-        return `<b>${esc(nameOf(m) || cat.name)}</b>${de}<br>${esc(cat.group)} · ${esc(lang === 'de' && cat.de ? cat.de : cat.name)}${level}${pet}${source}${link}<br><span style="color:#8b96a8">${ui('Rechtsklick: als Ziel markieren', 'Right-click: set target')}</span>`;
+        return `<b>${esc(nameOf(m) || cat.name)}</b>${de}<br>${esc(cat.group)} · ${esc(lang === 'de' && cat.de ? cat.de : cat.name)}${level}${pet}${source}${link}${explorationLine(index)}<br><span style="color:#8b96a8">${ui('Rechtsklick: als Ziel markieren', 'Right-click: set target')}</span>`;
+    }
+
+    // Kibelisk bound / sealed dungeon or stronghold done, and the button that changes it for the active
+    // character (before 2026-10-07 a right-click menu; now right click always marks the target).
+    function explorationLine(index) {
+        const place = explorationPlaces.find(p => p.index === index);
+        if (!place) return '';
+        const kibelisk = place.kind === 'kibelisk';
+        const state = kibelisk ? (place.done ? ui('Gebunden', 'Bound') : ui('Nicht gebunden', 'Not bound'))
+            : (place.done ? ui('Erledigt', 'Done') : ui('Nicht erledigt', 'Not done'));
+        const action = kibelisk ? (place.done ? ui('Bindung entfernen', 'Remove binding') : ui('Als gebunden markieren', 'Mark as bound'))
+            : (place.done ? ui('Haken entfernen', 'Remove check') : ui('Als erledigt abhaken', 'Mark as done'));
+        const needs = place.needs || [];
+        const locked = !place.done && place.locked && needs.length
+            ? `<br><span class="exploration-locked">🔒 ${ui('Öffnet erst nach', 'Opens only after')} ${needs.length <= 3 ? needs.map(esc).join(', ') : ui(`${needs.length} weiteren Sealed Dungeons`, `${needs.length} more sealed dungeons`)}</span>`
+            : '';
+        return `<br>${ui('Status:', 'Status:')} <b>${state}</b> · <a href="#" class="exploration-toggle" onclick="window.soulcrestMap.toggleExplored(${index});return false;">${action}</a>${locked}`;
+    }
+
+    function toggleExplored(index) {
+        const place = explorationPlaces.find(p => p.index === index);
+        if (!place) return;
+        map.closePopup();
+        // The symbol changes when the exploration state comes back (setExploration): colour or grey, check mark.
+        dotnet.invokeMethodAsync('OnExplorationDone', place.id, !place.done);
     }
 
     // Kinds of a resource category for the legend; only listed when there are at least two.
@@ -234,17 +259,15 @@ window.soulcrestMap = (() => {
                     fillColor: colorFor(cat, m[0]), fillOpacity: 0.9,
                 });
             }
-            layer.bindPopup(() => popupFor(m, cat));
+            layer.bindPopup(() => popupFor(m, cat, i));
             layer.on('contextmenu', e => {
                 if (e.originalEvent) L.DomEvent.preventDefault(e.originalEvent);
                 const icon = iconIndex >= 0 ? current.icons[iconIndex] : null;
                 // Shift + right click chains the target to the last one (player → A → B).
                 const chain = !!(e.originalEvent && e.originalEvent.shiftKey);
-                const toggleTarget = () => dotnet.invokeMethodAsync('OnToggleTarget', current.id, m[1], m[2], nameOf(m) || cat.name, `${cat.group} · ${cat.name}`, icon, chain, cat.group === 'Pets' ? (m[6] || null) : null);
-                // Sealed dungeons and strongholds: a small menu, so the done mark can be taken back
-                // on the map (user request 2026-10-05). Shift keeps the quick chaining.
-                const place = !chain && explorationPlaces.find(p => p.index === i);
-                if (place) explorationMenu(layer, place, toggleTarget); else toggleTarget();
+                // Every symbol, Kibelisks and sealed dungeons too: right click marks it (user request 2026-10-07).
+                // Binding / done marks are set in the left-click popup.
+                dotnet.invokeMethodAsync('OnToggleTarget', current.id, m[1], m[2], nameOf(m) || cat.name, `${cat.group} · ${cat.name}`, icon, chain, cat.group === 'Pets' ? (m[6] || null) : null);
             });
             layer.markerIndex = i;
             markerRefs[i] = layer;
@@ -328,11 +351,6 @@ window.soulcrestMap = (() => {
         const group = kindLayers[index] && kindLayers[index].get(kind);
         if (!group) return;
         if (visible) catLayers[index].addLayer(group); else catLayers[index].removeLayer(group);
-    }
-
-    function setRegionsVisible(visible) {
-        if (!regionLayer) return;
-        if (visible) regionLayer.addTo(map); else map.removeLayer(regionLayer);
     }
 
     // done: pets on MAX (styled), hidden: pets of the levels the user hides (removed from the map).
@@ -460,21 +478,6 @@ window.soulcrestMap = (() => {
         return spawn ? (nameOf(spawn) || petId) : petId;
     }
 
-    function explorationMenu(layer, place, toggleTarget) {
-        const box = L.DomUtil.create('div', 'map-menu');
-        const item = (text, action) => {
-            const button = L.DomUtil.create('button', '', box);
-            button.type = 'button';
-            button.textContent = text;
-            L.DomEvent.on(button, 'click', ev => { L.DomEvent.stop(ev); map.closePopup(); action(); });
-        };
-        const targeted = targets.some(t => t.map === current.id && Math.abs(t.x - current.markers[place.index][1]) < 0.5 && Math.abs(t.y - current.markers[place.index][2]) < 0.5);
-        item(targeted ? ui('Ziel entfernen', 'Remove target') : ui('Als Ziel markieren', 'Set as target'), toggleTarget);
-        item(place.done ? ui('Haken entfernen (nicht erledigt)', 'Remove check (not done)') : ui('Als erledigt abhaken', 'Mark as done'),
-            () => dotnet.invokeMethodAsync('OnExplorationDone', place.id, !place.done));
-        L.popup({ closeButton: false, className: 'map-menu-popup', offset: [0, -8] }).setLatLng(layer.getLatLng()).setContent(box).openOn(map);
-    }
-
     function setExploration(json) {
         explorationPlaces = JSON.parse(json);
         progressionCandidates = null;
@@ -530,7 +533,8 @@ window.soulcrestMap = (() => {
             for (const p of explorationPlaces) {
                 // 'exploration' means sealed dungeons and strongholds; Kibelisks are only checked off.
                 const wanted = progression.mode === 'exploration' ? p.kind === 'dungeon' || p.kind === 'stronghold' : p.kind === progression.mode;
-                if (p.done || !wanted) continue;
+                // A sealed dungeon that opens only after others is skipped until they are done (user information 2026-10-07).
+                if (p.done || p.locked || !wanted) continue;
                 const m = current.markers[p.index];
                 if (m) result.push({ petId: p.id, x: m[1], y: m[2], name: nameOf(m), group: 'Locations' });
             }
@@ -692,5 +696,5 @@ window.soulcrestMap = (() => {
 
     const debugState = () => ({ center: map.getCenter(), zoom: map.getZoom(), focus: focusLayer ? focusLayer.getLayers().length : 0, map });
 
-    return { debugState, init, show, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setRegionsVisible, setDone, search, flyToMarker, focusPet, clearFocus, invalidate, keptZoom };
+    return { debugState, init, show, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, flyToMarker, focusPet, toggleExplored, clearFocus, invalidate, keptZoom };
 })();

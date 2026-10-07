@@ -564,13 +564,8 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
 .leaflet-container img.leaflet-tile { mix-blend-mode: normal; }
 
 .exploration-done .place-icon { opacity: .45; }
+.exploration-locked { color: var(--warn); }
 .kibelisk-unbound .place-icon { filter: grayscale(1) brightness(.8); opacity: .75; }
-.map-menu-popup .leaflet-popup-content-wrapper { padding: 4px; border-radius: 6px; background: var(--panel); color: var(--text); border: 1px solid var(--line); }
-.map-menu-popup .leaflet-popup-content { margin: 0; }
-.map-menu-popup .leaflet-popup-tip { background: var(--panel); }
-.map-menu { display: flex; flex-direction: column; gap: 2px; min-width: 190px; }
-.map-menu button { text-align: left; padding: 6px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--text); font: inherit; cursor: pointer; }
-.map-menu button:hover, .map-menu button:focus-visible { background: var(--panel-2); color: var(--accent); outline: none; }
 .exploration-check { position: absolute; right: -7px; top: -8px; color: #fff; background: #167c4d; border-radius: 50%; padding: 1px 4px; font-weight: bold; }
 
 /* First-start tutorial (2026-10-07): the HUD video left, the two markers right; as small as the video allows. */
@@ -612,7 +607,6 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
 .update-version h3 { margin: 0 0 .2rem; }
 .update-progress { width: 100%; accent-color: var(--accent); }
 
-/* Pet filters inside the Pets layer group, "Gebiete" in the layers head (former "Anzeige" tile, 2026-10-07). */
+/* Pet filters inside the Pets layer group (former "Anzeige" tile, 2026-10-07). */
 .mapside .pet-filters { display: flex; align-items: flex-start; gap: .5rem; padding: .3rem .4rem .45rem 1.6rem; }
 .mapside .pet-filters .field-label { width: auto; padding-top: .3rem; }
-.mapside h3.layers-head .regions-chip { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: .75rem; }
