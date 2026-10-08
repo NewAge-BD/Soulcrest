@@ -66,7 +66,12 @@ public sealed class GermanScanTests
     [InlineData("auto")]
     public async Task WindowsOcrReadsBothConfirmedGermanKibeliskStates(string language)
     {
-        Assert.Contains("de-DE", WindowsOcrLineReader.AvailableLanguages());
+        if (!WindowsOcrLineReader.AvailableLanguages().Contains("de-DE"))
+        {
+            // Without the German language pack (e.g. the GitHub build) skipped, as all OCR tests; required locally.
+            Assert.False(Environment.GetEnvironmentVariable("SOULCREST_REQUIRE_WINDOWS_OCR") == "1", "Windows OCR de-DE fehlt.");
+            return;
+        }
         // Synthetic typography exercises OCR and parser together; this is not a German game screenshot.
         using var bitmap = new Bitmap(1000, 300);
         using (var graphics = Graphics.FromImage(bitmap))

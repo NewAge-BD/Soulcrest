@@ -47,7 +47,12 @@ public sealed class GermanPetPanelTests
     [InlineData("auto")]
     public async Task WindowsOcrReadsConfirmedGermanPetCaptionAndProgress(string language)
     {
-        Assert.Contains("de-DE", WindowsOcrLineReader.AvailableLanguages());
+        if (!WindowsOcrLineReader.AvailableLanguages().Contains("de-DE"))
+        {
+            // Without the German language pack (e.g. the GitHub build) skipped, as all OCR tests; required locally.
+            Assert.False(Environment.GetEnvironmentVariable("SOULCREST_REQUIRE_WINDOWS_OCR") == "1", "Windows OCR de-DE fehlt.");
+            return;
+        }
         // Deliberately synthetic, with user-confirmed caption and a sourced catalog name.
         using var bitmap = new Bitmap(900, 240);
         using (var graphics = Graphics.FromImage(bitmap))

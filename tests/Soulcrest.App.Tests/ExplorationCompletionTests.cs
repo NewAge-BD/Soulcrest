@@ -76,6 +76,12 @@ public sealed class ExplorationCompletionTests
     [InlineData("Stronghold", "en-US", "stronghold")]
     public async Task WindowsOcrReadsHundredPercentWithItsGermanOrEnglishCategory(string heading, string language, string kind)
     {
+        if (!WindowsOcrLineReader.AvailableLanguages().Contains(language))
+        {
+            // Without that language pack (e.g. German on the GitHub build) skipped, as all OCR tests; required locally.
+            Assert.False(Environment.GetEnvironmentVariable("SOULCREST_REQUIRE_WINDOWS_OCR") == "1", $"Windows OCR {language} fehlt.");
+            return;
+        }
         // Synthetic typography exercises OCR and the geometric association; no DE screenshot is claimed.
         using var bitmap = EmptyCapture();
         using (var g = Graphics.FromImage(bitmap))

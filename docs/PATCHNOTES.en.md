@@ -2,7 +2,7 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
-## 0.2.6 – 2026-10-08
+## 0.2.7 – 2026-10-08
 
 - **New:** All progress scans (pets, Kibelisks, dungeons, strongholds) work with the German game client.
 - **New:** The pet scan shows the recognised name and value on every card. Ctrl + left-click on the value
