@@ -26,18 +26,23 @@ public sealed class GridMotion(double stillThreshold = 6)
         _lastPixels = null;
     }
 
-    public bool IsStill(Bitmap frame, IReadOnlyList<Rectangle> cards)
+    public bool IsStill(Bitmap frame, IReadOnlyList<Rectangle> cards) => Compare(frame, cards, advance: true);
+
+    /// <summary>OCR guards compare every fresh picture to their original source, including slow accumulated movement.</summary>
+    internal bool MatchesBaseline(Bitmap frame, IReadOnlyList<Rectangle> cards) => Compare(frame, cards, advance: false);
+
+    private bool Compare(Bitmap frame, IReadOnlyList<Rectangle> cards, bool advance)
     {
         if (cards.Count == 0)
         {
-            Reset();
+            if (advance) Reset();
             return false;
         }
         var area = cards.Aggregate(Rectangle.Union);
         area.Intersect(new Rectangle(Point.Empty, frame.Size));
         if (area.Width <= 0 || area.Height <= 0)
         {
-            Reset();
+            if (advance) Reset();
             return false;
         }
         var (pixels, width) = Thumbnail(frame, area);
@@ -46,9 +51,12 @@ public sealed class GridMotion(double stillThreshold = 6)
             && Math.Abs(area.X - _lastArea.X) <= 3 && Math.Abs(area.Y - _lastArea.Y) <= 3
             && Math.Abs(area.Width - _lastArea.Width) <= 3 && Math.Abs(area.Height - _lastArea.Height) <= 3;
         var still = sameGrid && MeanDifference(pixels, _lastPixels!) < stillThreshold;
-        _lastArea = area;
-        _lastPixels = pixels;
-        _lastWidth = width;
+        if (advance)
+        {
+            _lastArea = area;
+            _lastPixels = pixels;
+            _lastWidth = width;
+        }
         return still;
     }
 

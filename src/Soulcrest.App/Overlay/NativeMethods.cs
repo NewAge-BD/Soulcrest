@@ -24,6 +24,9 @@ internal static partial class NativeMethods
     internal const uint MOD_CONTROL = 0x2;
     internal const uint MOD_NOREPEAT = 0x4000;
 
+    [LibraryImport("user32.dll")]
+    internal static partial short GetAsyncKeyState(int key);
+
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool SetWindowDisplayAffinity(nint hwnd, uint affinity);

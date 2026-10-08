@@ -8,8 +8,16 @@ public sealed class AppSettings
     public string UiLanguage { get; set; } = "";
     public bool AutoOcrLanguage { get; set; } = true;
     public string OcrLanguage { get; set; } = "en-US";
+    public string? DetectedGameLanguage { get; set; }
+    public string OverlayLanguage { get; set; } = "auto";
     [System.Text.Json.Serialization.JsonIgnore]
     public string EffectiveOcrLanguage => AutoOcrLanguage ? "auto" : OcrLanguage;
+
+    /// <summary>Loot names follow the game unless the overlay has an explicit language.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string LootNameLanguage => OverlayLanguage is "de" or "en" ? OverlayLanguage
+        : !AutoOcrLanguage ? (OcrLanguage == "de-DE" ? "de" : "en")
+        : DetectedGameLanguage is "de" or "en" ? DetectedGameLanguage : NameLanguage;
 
     public bool LootTrackingEnabled { get; set; } = true;
 
@@ -184,7 +192,13 @@ public sealed class SettingsService
         var existed = File.Exists(AppPaths.SettingsFile);
         Current = JsonFile.Load<AppSettings>(AppPaths.SettingsFile);
         if (Current.UiLanguage is not ("de" or "en")) Current.UiLanguage = Current.NameLanguage == "de" ? "de" : "en";
-        Current.AutoOcrLanguage = true;
+        if (Current.OverlayLanguage is not ("auto" or "de" or "en")) Current.OverlayLanguage = "auto";
+        if (Current.DetectedGameLanguage is not ("de" or "en")) Current.DetectedGameLanguage = null;
+        if (Current.OcrLanguage is not ("de-DE" or "en-US"))
+        {
+            Current.OcrLanguage = "en-US";
+            Current.AutoOcrLanguage = true;
+        }
         if (Current.SettingsRevision < 1)
         {
             // The old default was saved with every settings file; a radius the user picked stays.
@@ -204,6 +218,19 @@ public sealed class SettingsService
     public AppSettings Current { get; }
 
     public event Action? Changed;
+
+    /// <summary>Only confident OCR hints replace the last known game language; unchanged frames do not write settings.</summary>
+    public void RememberGameLanguage(string? language)
+    {
+        if (language is not ("de" or "en")) return;
+        lock (_gate)
+        {
+            if (Current.DetectedGameLanguage == language) return;
+            Current.DetectedGameLanguage = language;
+            JsonFile.Save(AppPaths.SettingsFile, Current);
+        }
+        Changed?.Invoke();
+    }
 
     public void Update(Action<AppSettings> change)
     {

@@ -11,6 +11,7 @@ Beispieldaten/*.mp4
 Beispieldaten/*.mkv
 Beispieldaten/*.gif
 Beispieldaten/frames/
+Beispieldaten/*.png
 
 # Generierte Kartendaten (per scripts/Import-OpenMapData.ps1 reproduzierbar)
 data/maps/*/tiles/
@@ -23,6 +24,9 @@ imports/
 # Python
 __pycache__/
 .venv/
+
+# Lokale Analyse- und Vorschauausgaben
+output/
 
 # Agent-Arbeitskopien
 .claude/worktrees/

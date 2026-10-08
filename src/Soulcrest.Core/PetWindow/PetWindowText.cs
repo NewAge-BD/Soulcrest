@@ -22,7 +22,7 @@ public static partial class PetWindowText
     [GeneratedRegex(@"(\d{1,2})\s*[/lI|\\]\s*(7\s*[5S]|2\s*[5S]|[5S])\b", RegexOptions.CultureInvariant)]
     private static partial Regex Fraction();
 
-    [GeneratedRegex(@"Lv\.?\s*([0-9Il|])\b", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(?:Lv|St)\.?\s*([0-9Il|])\b", RegexOptions.CultureInvariant)]
     private static partial Regex PanelLevel();
 
     [GeneratedRegex(@"(\d{1,3})\s*/\s*(\d{2,3})", RegexOptions.CultureInvariant)]
@@ -150,9 +150,26 @@ public static partial class PetWindowText
     /// <summary>"Collection Status 94/200" -> (94, 200).</summary>
     public static (int Owned, int Total)? ParseCollection(string? text)
     {
-        if (string.IsNullOrWhiteSpace(text) || !text.Contains("Collection", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(text) || !(text.Contains("Collection", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("Sammlungsfortschritt", StringComparison.OrdinalIgnoreCase)))
             return null;
-        var match = Collection().Match(text);
-        return match.Success ? (int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value)) : null;
+        return ParseCollectionFooter(text);
+    }
+
+    /// <summary>German caption confirmed by the user, 2026-10-08. OCR can drop or space its hyphen.</summary>
+    public static bool IsInsightCaption(string text) => text.Contains("Insight", StringComparison.OrdinalIgnoreCase)
+        || IsGermanInsightCaption(text);
+
+    public static bool IsGermanInsightCaption(string text) =>
+        new string(text.Where(char.IsLetter).ToArray()).Contains("PetKenntnis", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The fixed collection footer supplies the location; its caption need not be English.</summary>
+    public static (int Owned, int Total)? ParseCollectionFooter(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var counts = Collection().Matches(text).Select(m => (Owned: int.Parse(m.Groups[1].Value), Total: int.Parse(m.Groups[2].Value)))
+            .Where(c => c.Total > 75 && c.Owned <= c.Total).ToArray();
+        // Card counters (denominator 5/25/75) and ambiguous footer readings are not collection counts.
+        return counts.Length == 1 ? counts[0] : null;
     }
 }

@@ -12,6 +12,15 @@ muss im **randlosen Fenstermodus** laufen; über exklusivem Vollbild kann nicht 
 - **Toast** bei jedem bestätigten Soul-Drop: `+2 Magic Gravi → 17/25`, ca. 3 s, stapelbar.
   Unbekanntes Monster: neutraler Toast `+2 ??? (Magic Gravi) – zuordnen`.
 - Kein Ton (Interview: nur Toast + Hotkeys).
+- **Namen im Loot-Overlay** (2026-10-08): Fokuszeilen und Loot-Einblendungen verwenden die
+  Monsternamen der Spielsprache, unabhängig von der Oberfläche. Unter Optionen → Overlays →
+  „Overlay-Sprache“ sind Automatisch (Spielsprache), Deutsch und Englisch wählbar; Standard ist
+  Automatisch. Eine feste Overlay-Auswahl hat Vorrang, danach die explizite Scan-Sprache, danach
+  die zuletzt sicher erkannte Sprache aus Pet- oder Erkundungsscan. Vor der ersten Erkennung gilt
+  die bisherige Namenssprache. Erkannte Sprache und Auswahl bleiben nach Neustart erhalten;
+  leere oder unklare OCR-Texte löschen die Erkennung nicht. Fehlende deutsche Monsternamen bleiben
+  Englisch; fehlt ein Quellmonster, gilt dieselbe Sprachwahl für den Pet-Namen. Menütexte und
+  Statusbeschriftungen behalten die Oberflächensprache.
 
 Technik aus Grindcrest übernehmen (siehe `GRINDCREST_REUSE.md`): `NativeOverlayForm`,
 `NativeOverlayHost`, `NativeOverlayRenderer` (GDI+ in ein Layered Window per

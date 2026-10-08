@@ -12,7 +12,7 @@ public sealed record KibeliskPage(IReadOnlyList<KibeliskRow> Rows, bool End);
 /// <summary>
 /// The Kibelisk tab of the world map (user screenshots 2026-10-06, English client): numbered names, long
 /// ones cut with "..", and below each a status line "Bind Complete" or "Binding Incomplete". German
-/// texts are not known yet (ROADMAP open point), so only these two are read. The list holds only the
+/// statuses were confirmed by the user on 2026-10-08. The list holds only the
 /// Kibelisks the character has discovered (second character 2026-10-06: 24 of 61, then empty space).
 /// </summary>
 public static partial class KibeliskList
@@ -25,8 +25,8 @@ public static partial class KibeliskList
 
     private static bool? Status(string text) => ExplorationService.Normalize(text) switch
     {
-        "bindcomplete" => true,
-        "bindingincomplete" => false,
+        "bindcomplete" or "bindungabgeschlossen" => true,
+        "bindingincomplete" or "bindungnichtabgeschlossen" => false,
         _ => null,
     };
 
@@ -74,14 +74,17 @@ public static partial class KibeliskList
         if (exact.Length > 0)
             return exact;
         if (!row.Truncated && ExplorationService.Match(row.Name, places) is { } similar)
-            return places.Where(p => p.En == similar.En).ToArray();
+            return places.Where(p => ExplorationService.Normalize(p.En) == ExplorationService.Normalize(similar.En)
+                || similar.De is not null && p.De is not null && ExplorationService.Normalize(p.De) == ExplorationService.Normalize(similar.De)).ToArray();
         // One letter misread or lost ("'dun's Lake" for "Idun's Lake", full Altgard list 2026-10-06), when
         // that fits exactly one name.
         if (!row.Truncated && name.Length >= 8)
         {
-            var near = places.Where(p => ExplorationService.Distance(name, ExplorationService.Normalize(p.En)) <= 1).ToArray();
-            if (near.Select(p => p.En).Distinct().Count() == 1)
-                return near;
+            var near = places.SelectMany(p => new[] { p.En, p.De }.Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Select(n => (Place: p, Name: ExplorationService.Normalize(n!))))
+                .Where(p => ExplorationService.Distance(name, p.Name) <= 1).ToArray();
+            if (near.Select(p => p.Name).Distinct().Count() == 1)
+                return near.Select(p => p.Place).DistinctBy(p => p.Id).ToArray();
         }
         // Cut names, also when OCR dropped the dots; long enough to mean something.
         return name.Length < 8 ? [] : places.Where(p => ExplorationService.Normalize(p.En).StartsWith(name, StringComparison.Ordinal)

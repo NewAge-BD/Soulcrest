@@ -17,5 +17,6 @@
     <ProjectReference Include="..\..\src\Soulcrest.App\Soulcrest.App.csproj" />
     <Content Include="..\fixtures\pet-window\*.png" Link="fixtures\pet-window\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\fixtures\map-tracking\*.png" Link="fixtures\map-tracking\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\fixtures\exploration-list\*.png" Link="fixtures\exploration-list\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

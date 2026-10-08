@@ -80,7 +80,7 @@ public sealed class ExplorationLayoutTests
         if (kind == "dungeon")
         {
             var service = new ExplorationService(new ProgressService());
-            var page = ExplorationScanService.ReadPage(layout.Rows(lines),service.Places.Where(p=>p.Map=="altgard" && p.Kind=="dungeon").ToArray());
+            var page = ExplorationScanService.ReadNames(layout.Rows(lines),service.Places.Where(p=>p.Map=="altgard" && p.Kind=="dungeon").ToArray());
             Assert.Equal(count,page.Ids.Count); Assert.Equal(end,page.End);
         }
     }

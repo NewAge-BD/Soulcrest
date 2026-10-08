@@ -30,9 +30,34 @@ public sealed partial class ExplorationService
     private readonly object _gate = new();
     private readonly string _path;
     private readonly ExplorationProfiles _state;
+    private readonly IReadOnlyDictionary<string, string> _mapTitles = new Dictionary<string, string>();
+    private readonly IReadOnlyDictionary<string, string[]> _mapNames = new Dictionary<string, string[]>();
     public IReadOnlyList<ExplorationPlace> Places { get; }
     public event Action? Changed;
-    public ExplorationService(ProgressService progress) : this(Path.Combine(AppPaths.DataDirectory, "exploration.json"), LoadPlaces(progress)) { }
+    public ExplorationService(ProgressService progress) : this(Path.Combine(AppPaths.DataDirectory, "exploration.json"), LoadPlaces(progress))
+    {
+        _mapTitles = progress.Maps.ToDictionary(m => m.Id, m => m.Label);
+        _mapNames = progress.Maps.ToDictionary(m => m.Id, m => new[] { m.Label, DataLabel(progress.MapDataDirectory, m.Id) }
+            .OfType<string>().Distinct(StringComparer.Ordinal).ToArray());
+    }
+    internal string MapTitle(string map) => _mapTitles.GetValueOrDefault(map, map);
+
+    /// <summary>
+    /// Every name the world map's title can show: the manifest label and the English label of the map's
+    /// data.js. They differ for Reshanta ("Chaotische Mittlere Ebene von Reshanta" / "Chaotic Middle
+    /// Reshanta"), so a single label made the exploration scan wait forever in the other client language.
+    /// </summary>
+    internal IReadOnlyList<string> MapTitles(string map) => _mapNames.GetValueOrDefault(map) ?? [MapTitle(map)];
+
+    private static string? DataLabel(string? mapDataDirectory, string map)
+    {
+        var path = mapDataDirectory is null ? null : Path.Combine(mapDataDirectory, map, "data.js");
+        if (path is null || !File.Exists(path)) return null;
+        using var reader = new StreamReader(path);
+        var head = new char[2048];
+        var read = reader.Read(head, 0, head.Length);
+        return Regex.Match(new string(head, 0, read), "\"label\":\"([^\"]+)\"") is { Success: true } m ? m.Groups[1].Value : null;
+    }
     internal ExplorationService(string path, IReadOnlyList<ExplorationPlace> places)
     {
         _path = path; Places = places; _state = JsonFile.Load<ExplorationProfiles>(path);
@@ -169,7 +194,7 @@ public sealed partial class ExplorationService
     {
         text = text.ToLowerInvariant().Replace("ß", "ss").Normalize(NormalizationForm.FormD);
         text = new string(text.Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark).ToArray());
-        text = Regex.Replace(text, @"\bentrance\b|^eingang (zur|zum|zu den|zu der) ", "");
+        text = Regex.Replace(text, @"\bentrance\b|^eingang (zur|zum|zu den|zu der|zu) ", "");
         return new string(text.Where(char.IsLetterOrDigit).ToArray());
     }
     internal static ExplorationPlace? Match(string text, IEnumerable<ExplorationPlace> candidates)
@@ -185,6 +210,18 @@ public sealed partial class ExplorationService
         if (name.Length < 5) return null;
         var exact = candidates.Where(p => Normalize(p.En) == name || p.De is not null && Normalize(p.De) == name).DistinctBy(p => p.Id).ToArray();
         if (exact.Length > 0) return exact.Length == 1 ? exact[0] : null;
+        // The German game list visibly truncates long names. Require an explicit ellipsis and
+        // a unique long prefix; one lost/extra character also covers adjective inflection.
+        if (Regex.IsMatch(text.TrimEnd(), @"(?:\.{2,}|…)\s*$"))
+        {
+            if (name.Length < 12) return null;
+            var prefixes = candidates.DistinctBy(p => p.Id).Where(p => new[] { p.En, p.De }
+                .Where(n => !string.IsNullOrEmpty(n)).Select(n => Normalize(n!)).Any(n =>
+                    n.Length > name.Length && Enumerable.Range(Math.Max(1, name.Length - 1), 3)
+                        .Where(length => length <= n.Length).Any(length => Distance(name, n[..length]) <= 1))).ToArray();
+            // An ambiguous truncated name must never fall through to full-name fuzzy matching.
+            return prefixes.Length == 1 ? prefixes[0] : null;
+        }
         var ranked = candidates.GroupBy(p => p.Id).Select(g => g.First()).Select(p => (Place: p,
             Score: new[] { p.En, p.De }.Where(n => !string.IsNullOrEmpty(n)).Select(n => Similarity(name, Normalize(n!))).Max()))
             .OrderByDescending(p => p.Score).Take(2).ToArray();

@@ -8,7 +8,7 @@
         <h2>@UiText.T("Fortschritt aus dem Pet-Fenster übernehmen")</h2>
         <p class="sv-lead">@UiText.T("Soulcrest liest das Pet-Fenster im Spiel, während du durch die Liste scrollst. Danach prüfst du die Liste und übernimmst die markierten Pets.")</p>
     </header>
-    <OcrLanguageSetup />
+    <OcrLanguageSetup Disabled="@(Scan.Running || Scan.Starting)" />
 
     <div class="sv-grid">
         <section class="card sv-card">
@@ -32,6 +32,7 @@
                 <li><b>@UiText.T("Scan starten")</b> @UiText.T("und die Liste langsam bis unten durchscrollen.")</li>
                 <li>@UiText.T("Unbekannte Pets (gelb/grau unten) im Spiel") <b>@UiText.T("einmal anklicken")</b>@UiText.T(": Soulcrest liest den Namen im rechten Bereich und merkt sich das Porträt.")</li>
                 <li>@UiText.T("Scan stoppen, Liste prüfen,") <b>@UiText.T("Übernehmen")</b>.</li>
+                <li>@UiText.T("Strg + Linksklick auf den erkannten Wert über der Kartenzahl öffnet die Korrektur.")</li>
             </ol>
 
             <div class="scan-region">
@@ -126,7 +127,7 @@
                             {
                                 var reading = entry.Reading;
                                 <tr class="scan-row @ConfidenceClass(entry)">
-                                    <td><input type="checkbox" checked="@entry.Apply" disabled="@(entry.PetId is null)" @onchange="@(e => { Scan.SetApply(entry.Key, (bool)e.Value!); })" /></td>
+                                    <td><input type="checkbox" checked="@(entry.Apply && reading is not null)" disabled="@(entry.PetId is null || reading is null)" @onchange="@(e => { Scan.SetApply(entry.Key, (bool)e.Value!); })" /></td>
                                     <td><img class="scan-thumb" src="@entry.ThumbnailDataUrl" alt="" /></td>
                                     <td>
                                         <select value="@(entry.PetId ?? "")" @onchange="@(e => Scan.Assign(entry, e.Value?.ToString()))">
@@ -138,7 +139,22 @@
                                         </select>
                                         <div class="subname scan-conf">@UiText.T(ConfidenceText(entry))</div>
                                     </td>
-                                    <td>@(reading is { } r ? UiText.T(LevelText(r.Level, r.InLevel)) : UiText.T("nicht lesbar"))<div class="subname">«@entry.LastText» · @entry.Seen×</div></td>
+                                    <td>
+                                        @(reading is { } r ? UiText.T(LevelText(r.Level, r.InLevel)) : UiText.T("nicht lesbar"))
+                                        @if (entry.HasValueConflict)
+                                        {
+                                            <div class="subname scan-conf">@UiText.T("Wert widersprüchlich – im Spiel anklicken")</div>
+                                        }
+                                        else if (entry.ManualReading is not null)
+                                        {
+                                            <div class="subname">@UiText.T("Wert manuell korrigiert")</div>
+                                        }
+                                        else if (entry.PanelReading is not null)
+                                        {
+                                            <div class="subname">@UiText.T("Wert im Panel bestätigt")</div>
+                                        }
+                                        <div class="subname">«@entry.LastText» · @entry.Seen×</div>
+                                    </td>
                                     <td>@(entry.PetId is { } id ? Progress.LevelText(id) : "–")</td>
                                 </tr>
                             }

@@ -109,6 +109,13 @@
             <h3>Overlays</h3>
         </div>
         <p class="sv-lead">@UiText.T("Einblendungen über dem Spiel. Ein-/ausblenden mit") <code>@UiText.T("Strg+Alt+P")</code>.</p>
+        <label for="overlay-language">@UiText.T("Overlay-Sprache")</label>
+        <select id="overlay-language" value="@Settings.Current.OverlayLanguage" @onchange="SetOverlayLanguage">
+            <option value="auto">@UiText.T("Automatisch (Spielsprache)")</option>
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+        </select>
+        <p class="sv-hint">@UiText.T("Namen im Loot-Overlay sind unabhängig von der Oberfläche. Automatisch nutzt die erkannte oder gewählte Spielsprache; bis dahin die Namenssprache. Fehlende deutsche Namen bleiben Englisch.")</p>
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowRoutesInGame" @onchange="@(e => Settings.Update(s => s.ShowRoutesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Linien zu Zielen")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowPetsInGame" @onchange="@(e => Settings.Update(s => s.ShowPetsInGame = (bool)e.Value!))" /><span><b>@UiText.T("Pet-Symbole mit Stand")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowResourcesInGame" @onchange="@(e => Settings.Update(s => s.ShowResourcesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Ressourcen und Versteckte Kuben")</b><small>@UiText.T("auf Minimap und Vollbildkarte – die in der Legende der Karte eingeblendeten")</small></span></label>
@@ -163,6 +170,13 @@
         var language = e.Value?.ToString();
         if (language is "de" or "en")
             Settings.Update(s => { s.UiLanguage = language; s.NameLanguage = language; });
+    }
+
+    private void SetOverlayLanguage(ChangeEventArgs e)
+    {
+        var language = e.Value?.ToString();
+        if (language is "auto" or "de" or "en")
+            Settings.Update(s => s.OverlayLanguage = language);
     }
 
     protected override void OnInitialized()

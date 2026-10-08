@@ -2,6 +2,22 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.2.6 – 2026-10-08
+
+- **Neu:** Alle Fortschrittsscans (Pets, Kibelisken, Dungeons, Garnisonen) funktionieren mit dem deutschen
+  Spielclient.
+- **Neu:** Der Pet-Scan zeigt auf jeder Karte den erkannten Namen und Wert. Mit Strg + Linksklick auf den
+  Wert lässt er sich direkt korrigieren.
+- **Neu:** Die Sprache der Namen im Loot-Overlay ist unter Optionen wählbar; standardmäßig folgt sie dem
+  Spiel.
+- **Verbessert:** Der Pet-Scan liest Kartenwerte deutlich sicherer: Er prüft die Stufe im Kreis gegen den
+  Zähler, verwirft Bilder während des Scrollens und markiert widersprüchliche Werte zum Prüfen.
+- **Verbessert:** Der Pet-Scan startet schneller.
+- **Verbessert:** Zeigt die Dungeon- oder Garnisonenliste 100 %, übernimmt der Erkundungs-Scan die ganze
+  Kategorie; Durchscrollen entfällt. Unter 100 % zählen nur Orte mit Abschluss-Haken in derselben Zeile.
+- **Verbessert:** Gekürzte deutsche Ortsnamen und „Eingang zu …“ werden sicherer zugeordnet.
+- **Geändert:** Neues Soulcrest-Logo.
+
 ## 0.2.5 – 2026-10-07
 
 - **Neu:** Das Setup führt jetzt auch zum Pet-Scan und fragt nach der Erkundung: Wer mit dem Charakter

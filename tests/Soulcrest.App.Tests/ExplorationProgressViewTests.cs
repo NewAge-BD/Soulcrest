@@ -13,14 +13,17 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")] // writes settings.json of the test data folder
 public sealed class ExplorationProgressViewTests
 {
-    [Fact]
-    public async Task OneTabListsAllThreeKinds()
+    [Theory]
+    [InlineData("en", "Scan Exploration Progress", "Sealed Dungeons", "Stronghold")]
+    [InlineData("de", "Erkundungsfortschritt scannen", "Versiegelte Dungeons", "Garnisonen")]
+    public async Task OneTabListsAllThreeKinds(string language, string title, string dungeons, string strongholds)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<GameCaptureService>();
         services.AddSingleton<ProgressService>();
+        services.AddSingleton<PetScanService>();
         services.AddSingleton<NetworkLootService>();
         services.AddSingleton<TrackerService>();
         services.AddSingleton<MapTrackingService>();
@@ -34,9 +37,8 @@ public sealed class ExplorationProgressViewTests
         services.AddSingleton<IJSRuntime, NoJs>();
         await using var provider = services.BuildServiceProvider();
         var settings = provider.GetRequiredService<SettingsService>();
-        var previous = (settings.Current.UiLanguage, settings.Current.LastMap);
-        settings.Update(s => { s.UiLanguage = "en"; s.LastMap = "altgard"; });
-        UiText.Language = "en";
+        var previous = (settings.Current.UiLanguage, settings.Current.NameLanguage, settings.Current.LastMap, settings.Current.TutorialDone);
+        settings.Update(s => { s.UiLanguage = s.NameLanguage = language; s.LastMap = "altgard"; s.TutorialDone = true; });
         provider.GetRequiredService<UiState>().Navigate("exploration");
         try
         {
@@ -44,18 +46,28 @@ public sealed class ExplorationProgressViewTests
             var html = await renderer.Dispatcher.InvokeAsync(async () =>
                 (await renderer.RenderComponentAsync<Soulcrest.App.Components.Main>()).ToHtmlString());
             html = System.Net.WebUtility.HtmlDecode(html);
-            Assert.Contains("Scan Exploration Progress", html);
+            Assert.Contains(title, html);
+            Assert.Contains("value=\"de-DE\"", html);
             Assert.DoesNotContain(">Stronghold</button>", html); // the old single tabs are gone
             if (provider.GetRequiredService<ExplorationService>().Places.Any(p => p.Map == "altgard"))
             {
-                Assert.Contains("<h3>Sealed Dungeons", html);
-                Assert.Contains("<h3>Stronghold", html);
+                Assert.Contains("<h3>" + dungeons, html);
+                Assert.Contains("<h3>" + strongholds, html);
                 Assert.Contains("<h3>Kibelisk", html);
+            }
+            if (Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW") is { Length: > 0 } output)
+            {
+                Directory.CreateDirectory(output);
+                static string Document(string body) => "<!doctype html><html><head><meta charset=\"utf-8\"><link rel=\"stylesheet\" href=\"/css/app.css\"></head><body>" + body + "</body></html>";
+                File.WriteAllText(Path.Combine(output, "exploration-" + language + ".html"), Document(html));
+                var pets = await renderer.Dispatcher.InvokeAsync(async () =>
+                    (await renderer.RenderComponentAsync<Soulcrest.App.Components.PetScanView>()).ToHtmlString());
+                File.WriteAllText(Path.Combine(output, "pets-" + language + ".html"), Document(pets));
             }
         }
         finally
         {
-            settings.Update(s => { s.UiLanguage = previous.UiLanguage; s.LastMap = previous.LastMap; });
+            settings.Update(s => { s.UiLanguage = previous.UiLanguage; s.NameLanguage = previous.NameLanguage; s.LastMap = previous.LastMap; s.TutorialDone = previous.TutorialDone; });
             UiText.Language = previous.UiLanguage;
         }
     }

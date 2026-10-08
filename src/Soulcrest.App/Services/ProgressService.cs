@@ -118,14 +118,14 @@ public sealed class ProgressService
     /// Adds a pet known only from the in-game pet window (name read from its info panel).
     /// Genus and spawns are unknown; the portrait is stored for recognition.
     /// </summary>
-    public PetDefinition LearnPet(string name, byte[] portraitPng)
+    public PetDefinition LearnPet(string name, byte[] portraitPng, string language = "en")
     {
         PetDefinition pet;
         lock (_gate)
         {
             name = PanelPetName.Clean(name);
             var id = PetCatalog.Slug(name);
-            pet = Catalog.Find(id) ?? new PetDefinition { Id = id, En = name, Genus = "unknown" };
+            pet = Catalog.Find(id) ?? new PetDefinition { Id = id, En = name, De = language == "de" ? name : null, Genus = "unknown" };
             if (_mapPets.All(m => m.Id != id) && _learned.All(l => l.Id != id))
             {
                 _learned.Add(pet);
@@ -136,6 +136,20 @@ public sealed class ProgressService
         }
         Changed?.Invoke();
         return pet;
+    }
+
+    /// <summary>A German name read twice for a confidently recognised learned pet keeps its existing ID.</summary>
+    public void NameLearnedGerman(string petId, string name)
+    {
+        lock (_gate)
+        {
+            var index = _learned.FindIndex(p => p.Id == petId);
+            if (index < 0 || !string.IsNullOrWhiteSpace(_learned[index].De) || PanelPetName.IsTruncated(name)) return;
+            _learned[index] = _learned[index] with { De = PanelPetName.Clean(name) };
+            JsonFile.Save(AppPaths.LearnedPetsFile, _learned);
+            Catalog = BuildCatalog();
+        }
+        Changed?.Invoke();
     }
 
     /// <summary>

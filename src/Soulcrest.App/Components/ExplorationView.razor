@@ -7,13 +7,13 @@
 <div class="page">
     <h2>@UiText.T(Title(Kind))</h2>
     <CharacterPicker />
-    <p>@UiText.T("Fortschritt gilt nur für diesen Charakter. Sealed Dungeons und Strongholds: Erkannte Namen werden abgehakt, fehlende nicht zurückgesetzt. Kibelisks: „Bind Complete“ hakt ab, „Binding Incomplete“ nimmt den Haken zurück; was in der vollständig gelesenen Liste fehlt, ist noch nicht entdeckt.")</p>
-    <OcrLanguageSetup />
+    <p>@UiText.T("Fortschritt gilt nur für diesen Charakter. Bei 100 % werden alle Dungeons oder Garnisonen dieser Kategorie auf der gewählten Karte abgeschlossen. Darunter zählen nur eindeutig erkannte Namen mit Abschluss-Haken. Fehlende Haken setzen nichts zurück. Kibelisks: „Bindung abgeschlossen“ hakt ab, „Bindung nicht abgeschlossen“ nimmt den Haken zurück.")</p>
+    <OcrLanguageSetup Disabled="@Scan.Running" />
     <section class="card sv-card">
         <select aria-label="@UiText.T("Karte wählen")" @bind="_map" @bind:after="BuildLists" disabled="@Scan.Running">
             @foreach (var m in Progress.Maps) { <option value="@m.Id">@m.Label</option> }
         </select>
-        <p>@UiText.T("Im Spiel die Weltkarte der gewählten Karte öffnen und nacheinander die Listen durchscrollen: Reiter Exploration (Sealed Dungeons, Strongholds) und Reiter Kibelisk. Der Scan erkennt selbst, welche Liste offen ist, und läuft, bis du ihn stoppst. Die linke Liste wird mit einer festen Scanmaske gelesen; auf die Hinweise im Overlay achten.")</p>
+        <p>@UiText.T("Im Spiel die Weltkarte der gewählten Karte öffnen. Bei 100 % ist für diese Kategorie kein Durchscrollen nötig. Sonst langsam scrollen und auf die Hinweise im Overlay achten. Im gemeinsamen Scan die übrigen Listen nacheinander öffnen; nach Abschluss aller Listen stoppt der Scan.")</p>
         <button class="btn" disabled="@(Scan.Running || _lists.All(l => l.Places.Length == 0))" @onclick="@(() => Scan.Start(_map, Kind))">@UiText.T("Scan starten")</button>
         <button class="btn" disabled="@(!Scan.Running)" @onclick="Scan.Stop">@UiText.T("Scan stoppen")</button>
         @if (Scan.Running) { <p>@Scan.ScanMap · @UiText.T(Title(Scan.ScanKind ?? Kind))</p> }
@@ -42,8 +42,8 @@
     [Parameter] public string Kind { get; set; } = "all";
     internal static string Title(string kind) => kind switch
     {
-        "dungeon" => "Sealed Dungeons",
-        "stronghold" => "Stronghold",
+        "dungeon" => "Versiegelte Dungeons",
+        "stronghold" => "Garnisonen",
         "kibelisk" => "Kibelisk",
         _ => "Erkundungsfortschritt scannen",
     };

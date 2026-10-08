@@ -31,6 +31,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .topbar { display: flex; align-items: center; gap: 1rem; padding: .45rem .9rem; background: var(--panel); border-bottom: 1px solid var(--line); min-width: 0; }
 .brand { flex: none; font-weight: 700; letter-spacing: .02em; color: var(--accent); font-size: 1.05rem; white-space: nowrap; }
 .brand small { color: var(--muted); font-weight: 400; margin-left: .35rem; }
+.brand-logo { width: 28px; height: 28px; object-fit: contain; vertical-align: middle; margin-right: .3rem; border-radius: 5px; }
 /* Tabs: bleiben einzeilig; in schmalen Fenstern lassen sie sich seitlich scrollen statt umzubrechen. */
 .tabs { display: flex; align-items: center; gap: .2rem; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }

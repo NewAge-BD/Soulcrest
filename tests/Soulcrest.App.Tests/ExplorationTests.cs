@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Text;
 using Soulcrest.Ocr;
@@ -49,7 +49,7 @@ public sealed class ExplorationTests
     public void UndiscoveredStopsBeforeUnknownRowsAndNeverMarksLaterNames()
     {
         var places = new[] { Place("a", "Hidden Vein Cave Entrance"), Place("b", "Old Graveyard Entrance") };
-        var page = ExplorationScanService.ReadPage([
+        var page = ExplorationScanService.ReadNames([
             new OcrLine("Hidden Vein Cave", 0, 10, 100, 20),
             new OcrLine("Undiscovered", 0, 40, 100, 20),
             new OcrLine("Old Graveyard", 0, 70, 100, 20)], places);
@@ -77,7 +77,7 @@ public sealed class ExplorationTests
         using var list = full.Clone(new Rectangle((int)(full.Width * .015), (int)(full.Height * .215), (int)(full.Width * .145), (int)(full.Height * .76)), full.PixelFormat);
         var lines = await WindowsOcrLineReader.Create("auto").ReadAsync(list);
         var service = new ExplorationService(new ProgressService());
-        var page = ExplorationScanService.ReadPage(lines, service.Places.Where(p => p.Map == "altgard" && p.Kind == "dungeon").ToArray());
+        var page = ExplorationScanService.ReadNames(lines, service.Places.Where(p => p.Map == "altgard" && p.Kind == "dungeon").ToArray());
         File.WriteAllText(Path.Combine(AppPaths.DataDirectory, "exploration-screenshot.txt"), string.Join("\n", lines.Select(l => l.Text)) + "\nMatched: " + string.Join(";", page.Ids) + "\nUnknown: " + string.Join(";", page.Unmatched));
         Assert.True(page.Ids.Count == (path.Contains("57b7d0e9") ? 9 : 14), $"Matched {page.Ids.Count}: " + string.Join(";", page.Unmatched));
         if (path.Contains("57b7d0e9")) Assert.True(page.End);

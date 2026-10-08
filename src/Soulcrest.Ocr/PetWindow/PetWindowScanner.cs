@@ -6,12 +6,15 @@ namespace Soulcrest.Ocr.PetWindow;
 public sealed record PetCardScan(
     int Column, Rectangle Bounds, PetCardProgress? Progress, string ProgressText,
     PortraitMatch Match, bool Selected, byte[] PortraitPng, ulong PortraitHash,
-    bool Locked = false, double BarFill = 0, string Source = "text");
+    bool Locked = false, double BarFill = 0, string Source = "text", string Evidence = "", Rectangle? ProgressBounds = null);
 
 /// <summary>Info panel of the selected pet: name, "Lv. n" and, when shown, the exact progress "(5/25)" / "(MAX)".</summary>
-public sealed record PetPanelScan(string? Name, int? Level, string RawText, PetCardProgress? Progress = null);
+public sealed record PetPanelScan(string? Name, int? Level, string RawText, PetCardProgress? Progress = null, string? Language = null);
 
-public sealed record PetWindowScan(IReadOnlyList<PetCardScan> Cards, PetPanelScan? Panel, (int Owned, int Total)? Collection, string? Problem);
+public sealed record PetWindowScan(IReadOnlyList<PetCardScan> Cards, PetPanelScan? Panel, (int Owned, int Total)? Collection, string? Problem)
+{
+    public string? Language { get; init; }
+}
 
 /// <summary>
 /// Reads the in-game pet window (docs/PET_WINDOW.md). Everything is located in the image itself, so
@@ -121,18 +124,22 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
             {
                 bands[i]?.Dispose();
             }
-            var (progressText, progress, locked, barFill, source) = reading;
+            var (progressText, progress, locked, barFill, source, textBounds) = reading;
+            textBounds.Offset(card.X, card.Y);
 
             using var portrait = new Mat(bgr, portraits[i]);
             Cv2.ImEncode(".png", portrait, out var png);
             cards.Add(new PetCardScan(column, new Rectangle(card.X, card.Y, card.Width, card.Height), progress, progressText, matches[i], selected, png,
-                hashes[i], locked, barFill, source));
+                hashes[i], locked, barFill, source, key.Item1, textBounds));
         }
 
         var panel = await ReadPanelAsync(bgr, cancellationToken);
         var collectionRect = Clamp(bgr, new Rect((int)(bgr.Width * 0.08), (int)(bgr.Height * 0.92), (int)(bgr.Width * 0.24), (int)(bgr.Height * 0.06)));
-        var collection = PetWindowText.ParseCollection(await ReadTextAsync(bgr, collectionRect, panelReader, cancellationToken));
-        return new PetWindowScan(cards, panel, collection, null);
+        var collection = PetWindowText.ParseCollectionFooter(await ReadTextAsync(bgr, collectionRect, panelReader, cancellationToken));
+        return new PetWindowScan(cards, panel, collection, null)
+        {
+            Language = panel?.Language ?? panelReader.DetectedLanguage ?? smallTextReader.DetectedLanguage,
+        };
     }
 
     // ------------------------------------------------------------------ grid
@@ -167,7 +174,7 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
     /// cannot split a row). Every card gets the narrowest column width, centred in its column, so the
     /// selection glow does not widen it.
     /// </summary>
-    private static List<(int Column, Rect Card)> FindCards(Mat gray, List<(int Left, int Right)> columns)
+    internal static List<(int Column, Rect Card)> FindCards(Mat gray, List<(int Left, int Right)> columns)
     {
         var width = columns.Min(c => c.Right - c.Left);
         int y0 = (int)(gray.Height * GridTop), y1 = (int)(gray.Height * GridBottom);
@@ -200,7 +207,10 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
         // its badge and text are missing, it read as "locked 0/5".
         // Compared with the median row (the selected row's glow makes it taller than the others).
         var fullHeight = rows.Select(r => r.End - r.Start).Order().ElementAt(rows.Count / 2);
-        rows = rows.Where(r => r.End - r.Start >= fullHeight * 0.9).ToList();
+        // Even a missing bottom 5–10 % can hide the entire counter/bar (German retest: 1/5
+        // became an implicit 0/5). Only complete rows may enter matching, voting or learning.
+        rows = rows.Where(r => r.Start > y0 && r.End < y1 && r.End - r.Start >= fullHeight * 0.97).ToList();
+        if (rows.Count == 0) return [];
         // Typical card height (the glow of a selected card can stretch its row a little).
         var height = rows.Select(r => r.End - r.Start).Order().ElementAt(rows.Count / 2);
         var result = new List<(int, Rect)>();
@@ -268,9 +278,11 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
     /// The progress text is a horizontal group of white (or cyan "MAX") glyphs of equal height near
     /// the card's bottom right. Found via connected components, so its position needs no layout constants.
     /// </summary>
-    private static TextBand? FindTextBand(Mat bgr, Rect card)
+    private static TextBand? FindTextBand(Mat bgr, Rect card, bool maxOnly = false)
     {
-        var search = Clamp(bgr, new Rect(card.X + card.Width / 5, card.Y + card.Height * 68 / 100, card.Width * 4 / 5, card.Height * 34 / 100));
+        var search = Clamp(bgr, maxOnly
+            ? new Rect(card.X + card.Width / 2, card.Y + card.Height * 84 / 100, card.Width / 2, card.Height * 18 / 100)
+            : new Rect(card.X + card.Width / 5, card.Y + card.Height * 68 / 100, card.Width * 4 / 5, card.Height * 34 / 100));
         using var area = new Mat(bgr, search);
         using var hsv = new Mat();
         using var white = new Mat();
@@ -279,7 +291,8 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
         Cv2.CvtColor(area, hsv, ColorConversionCodes.BGR2HSV);
         Cv2.InRange(hsv, new Scalar(0, 0, 170), new Scalar(180, 80, 255), white);
         Cv2.InRange(hsv, new Scalar(75, 90, 120), new Scalar(105, 255, 255), cyan);
-        Cv2.BitwiseOr(white, cyan, mask);
+        if (maxOnly) cyan.CopyTo(mask);
+        else Cv2.BitwiseOr(white, cyan, mask);
 
         using var labels = new Mat();
         using var stats = new Mat();
@@ -369,30 +382,40 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
         return best with { Glyphs = glyphImage };
     }
 
-    private sealed record CardReading(string Text, PetCardProgress? Progress, bool Locked, double BarFill, string Source);
+    private sealed record CardReading(string Text, PetCardProgress? Progress, bool Locked, double BarFill, string Source, Rectangle TextBounds);
 
     /// <summary>Progress of one card: text (several OCR views, checked against the bar), MAX, bar-only values.</summary>
     private async Task<CardReading> ReadCardAsync(Mat bgr, Rect card, TextBand? foundBand, Rect2d? usualText, CancellationToken cancellationToken)
     {
-        using var band = Widened(foundBand, card, usualText) ?? FallbackBand(bgr, card, usualText);
+        using var originalBand = Widened(foundBand, card, usualText) ?? FallbackBand(bgr, card, usualText);
+        var band = originalBand;
         var barFill = BarFill(bgr, card, band?.Rect);
         var locked = !HasLevelBadge(bgr, card);
         var source = "text";
         string progressText;
         PetCardProgress? progress;
-        // "MAX" is the only cyan text and MAX cards have no progress bar. Cyan portrait art next to an
-        // empty bar (0/25, locked2 fixture) is not MAX: the badge then shows "1".
-        // The selected card's cyan glow can look like "MAX" (live: Faded Floater 3/75); its reading counts
-        // little there and the info panel's exact value outweighs it, so MAX stays possible (MAX fixture).
-        if (!locked && barFill < 0.03 && BadgeShowsOne(bgr, card) is not true
-            && (band is { Cyan: true } || HasCyanText(bgr, card)))
+        // Cyan art and a bar hidden by the badge are not proof of MAX (live 2026-10-08:
+        // Zelophi 7/75, Young Ursus 6/75 and Crestlich 4/75). Read the badge's actual digit.
+        var badgeLevel = !locked && BadgeShowsOne(bgr, card) is true ? 1 : (int?)null;
+        if (!locked && badgeLevel is null)
+            badgeLevel = await ReadBadgeLevelAsync(bgr, card, cancellationToken);
+        // A level 1/2 card has white fraction text. A cyan portrait fragment must not select its crop.
+        using var fractionBand = badgeLevel is 1 or 2 && band is { Cyan: true }
+            ? FallbackBand(bgr, card, usualText) : null;
+        if (fractionBand is not null)
+        {
+            band = fractionBand;
+            barFill = BarFill(bgr, card, band.Rect);
+        }
+        if (badgeLevel == 3)
         {
             progressText = "MAX";
             progress = new PetCardProgress(3, 0, 0, true);
+            source = "badge";
         }
         else
         {
-            (progressText, progress) = band is { } found ? await ReadTextBandAsync(bgr, found, barFill, cancellationToken) : ("", null);
+            (progressText, progress) = band is { } found ? await ReadTextBandAsync(bgr, found, barFill, badgeLevel, cancellationToken) : ("", null);
         }
 
         // Owned card without readable text: a "1" in the level badge means x/25, and the bar is exact
@@ -420,28 +443,27 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
             progress = parsed with { SoulsInLevel = barSouls };
             source = "balken";
         }
-        return new CardReading(progressText, progress, locked, barFill, source);
+        // MAX has no bar and sits lower than a fraction. Locate its cyan glyphs separately for labels:
+        // white fur or "Equipped" must not put the label halfway up the selected card.
+        using var maxBand = badgeLevel == 3 ? FindTextBand(bgr, card, maxOnly: true) : null;
+        var textRect = maxBand?.Rect ?? (badgeLevel == 3 ? null : band?.Rect)
+            ?? new Rect(card.X + card.Width / 2, card.Y + card.Height * (badgeLevel == 3 ? 92 : 86) / 100,
+                card.Width / 2, Math.Max(8, card.Height / 12));
+        return new CardReading(progressText, progress, locked, barFill, source,
+            new Rectangle(textRect.X - card.X, textRect.Y - card.Y, textRect.Width, textRect.Height));
     }
 
     /// <summary>
-    /// The lower part of a card (text, bar, level badge) as a coarse fingerprint: 32×8 grey levels in 16
-    /// steps. Equal fingerprints mean the same picture there, so the same reading.
+    /// Exact lower-card pixels: downsampling used to hide changes in small digits, freezing bad reads.
     /// </summary>
     private static string CardFingerprint(Mat bgr, Rect card)
     {
         var region = Clamp(bgr, new Rect(card.X - card.Width * 6 / 100, card.Y + card.Height * 72 / 100, card.Width * 112 / 100, card.Height * 32 / 100));
         using var part = new Mat(bgr, region);
-        using var gray = new Mat();
-        using var small = new Mat();
-        Cv2.CvtColor(part, gray, ColorConversionCodes.BGR2GRAY);
-        Cv2.Resize(gray, small, new OpenCvSharp.Size(32, 8), 0, 0, InterpolationFlags.Area);
-        var bytes = new byte[32 * 8];
-        for (var y = 0; y < 8; y++)
-        {
-            for (var x = 0; x < 32; x++)
-                bytes[y * 32 + x] = (byte)(small.At<byte>(y, x) >> 4);
-        }
-        return $"{region.Width}x{region.Height}:{Convert.ToHexString(bytes)}";
+        using var contiguous = part.Clone();
+        var bytes = new byte[contiguous.Rows * contiguous.Cols * 3];
+        System.Runtime.InteropServices.Marshal.Copy(contiguous.Data, bytes, 0, bytes.Length);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
     }
 
     /// <summary>Median text rectangle relative to its card (fractions), from the cards whose text was found.</summary>
@@ -504,18 +526,20 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
     /// progress bar: a wrong value is worse than an unreadable one. Fixtures: every correct reading
     /// matched its bar within 0.04, every wrong one (26/75 for 20/75, 0/75 for 17/75, 6/25 for 0/25) did not.
     /// </summary>
-    private async Task<(string Text, PetCardProgress? Progress)> ReadTextBandAsync(Mat bgr, TextBand found, double barFill, CancellationToken cancellationToken)
+    private async Task<(string Text, PetCardProgress? Progress)> ReadTextBandAsync(Mat bgr, TextBand found, double barFill, int? badgeLevel, CancellationToken cancellationToken)
     {
         var rect = found.Rect;
         var attempts = new List<string>();
-        var candidates = new List<(string Text, PetCardProgress Progress)>();
-        // 4 = digit colour mask (first: clean also on bright art), 0 = clean glyph image (only the text
-        // components), 1 = brightest channel, 2 = white mask, 3 = outline; each at 4× and 6×. Windows OCR
+        var independentAttempts = new List<(string Text, int Variant)>();
+        var candidates = new List<(string Text, PetCardProgress Progress, int Variant)>();
+        // 5 = native denominator-calibrated colour + rim, 4 = older interpolated colour mask,
+        // 0 = clean glyph image (only the text components), 1 = brightest channel,
+        // 2 = white mask, 3 = outline; each at 4× and 6×. Windows OCR
         // is flaky on 3-character tokens; several views help.
         var passes = new List<(int Variant, WindowsOcrLineReader Reader)>();
-        foreach (var variant in found.Fallback ? new[] { 4, 1, 2, 3 } : new[] { 4, 0, 1, 2 })
+        foreach (var variant in found.Fallback ? new[] { 5, 4, 1, 2, 3 } : new[] { 5, 4, 0, 1, 2 })
         {
-            if (variant == 0 && found.Glyphs is null || variant == 4 && found.Cyan)
+            if (variant == 0 && found.Glyphs is null || variant is 4 or 5 && found.Cyan)
                 continue;
             passes.Add((variant, smallTextReader));
             if (largerTextReader is not null)
@@ -523,12 +547,14 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
         }
         using var band = new Mat(bgr, rect);
         using var digits = passes.Any(p => p.Variant == 4) ? DigitColourMask(bgr, rect) : null;
+        using var nativeDigits = passes.Any(p => p.Variant == 5) ? CounterColourMask.Create(bgr, rect) : null;
         foreach (var (variant, reader) in passes)
         {
-            if (variant == 4 && digits is null)
+            if (variant == 4 && digits is null || variant == 5 && nativeDigits is null)
                 continue;
             using var prepared = variant switch
             {
+                5 => nativeDigits!.Clone(),
                 4 => digits!.Clone(),
                 0 => found.Glyphs!.Clone(),
                 1 => MaxChannelInverted(band),
@@ -543,23 +569,30 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
             using var bitmap = BitmapMat.ToBitmap(color);
             var lines = await reader.ReadAsync(bitmap, cancellationToken);
             var text = string.Join(" ", lines.Select(l => l.Text)).Trim();
+            independentAttempts.Add((text, variant));
             if (PetWindowText.ParseCardLenient(text) is { } parsed)
             {
+                if (badgeLevel is { } level && parsed.Level != level)
+                {
+                    attempts.Add(text);
+                    continue;
+                }
                 // The bar confirms a value only where it can be seen: small x/75 values lie under the level
                 // badge (bar 0), and then any small reading "agreed" (live 2026-10-03: "1/73" taken as 1/75
                 // for 2/75). Such readings need agreeing passes instead.
                 // Garbled readings ("1/73", "6/2Ä") are completed from the bar only where the bar is
                 // precise enough: /25 and /5, or x/75 from 15 % on. A visible stub of 0.05 cannot tell 1 from
                 // 2 souls of 75 (live: "1/73" taken as 1/75 for 2/75).
-                var exact = PetWindowText.ParseCard(text) is not null;
-                var preciseBar = parsed.Needed != 75 || barFill >= 0.15;
-                if (AgreesWithBar(parsed, barFill) && BarCanTell(parsed, barFill) && !found.Fallback && (exact || preciseBar))
-                    return (text, parsed);
-                candidates.Add((text, parsed));
+                // Collect the other views before choosing: the first roughly matching value can be 3/25
+                // for 5/25. The bar alone is not exact enough to resolve that two-soul difference.
+                if (!ContradictsVisibleBar(parsed, barFill))
+                    candidates.Add((text, parsed, variant));
             }
             if (text.Length > 0)
                 attempts.Add(text);
         }
+        if (CardReadConsensus.Resolve(independentAttempts, badgeLevel, barFill) is { } supportedByLevel)
+            return ($"{supportedByLevel.SoulsInLevel}/{supportedByLevel.Needed} (Stufe + Zähler)", supportedByLevel);
         // Several independent passes reading exactly the same value outweigh a bar that light fur
         // made unreadable (live capture: 3× "5/25", bar measured 0.43). Lenient guesses do not count.
         var strict = candidates.Where(c => PetWindowText.ParseCard(c.Text) is not null).ToList();
@@ -568,14 +601,25 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
         // bar's value: six times "1/25" for 11/25, bar 0.45 (live 2026-10-03).
         if (consensus is not null && DropsLeadingDigit(consensus.Key, barFill))
             consensus = null;
-        if (consensus is not null && consensus.Count() >= 3)
+        var runnerUp = consensus is null ? 0 : strict.Count(c => c.Progress != consensus.Key);
+        // For MAX, actual text agreement is required when the badge could not be read. Cyan area alone
+        // never reaches this rule. For fractions, several views must dominate disagreeing readings.
+        if (consensus is not null && consensus.Count() >= 3 && consensus.Select(c => c.Variant).Distinct().Count() >= 2
+            && consensus.Count() >= runnerUp * 2 && (!consensus.Key.IsMax || badgeLevel is null && found.Cyan))
             return ($"{consensus.First().Text} ({consensus.Count()}× gleich)", consensus.Key);
         // Without a visible bar: two exact, agreeing readings and no other value, and still not against
         // the bar (a hidden bar only allows small values). A visible /25 bar is precise: then the readings
         // must lie within one soul of it (live 2026-10-03: twice "14/25" for Kerubar 16/25, bar 0.65).
-        if (consensus is not null && consensus.Count() >= 2 && strict.All(c => c.Progress == consensus.Key) && AgreesWithBar(consensus.Key, barFill)
+        if (consensus is not null && !consensus.Key.IsMax && consensus.Count() >= 2 && consensus.Select(c => c.Variant).Distinct().Count() >= 2
+            && strict.All(c => c.Progress == consensus.Key) && AgreesWithBar(consensus.Key, barFill)
             && (consensus.Key.Needed != 25 || barFill < 0.03 || Math.Abs(barFill * 25 - consensus.Key.SoulsInLevel) <= 1.0))
             return ($"{consensus.First().Text} ({consensus.Count()}× gleich, ohne Balken)", consensus.Key);
+        // A single unambiguous candidate needs a closely measured bar, not the broad plausibility check.
+        var supported = candidates.Where(c => !c.Progress.IsMax && BarCanTell(c.Progress, barFill)
+            && (PetWindowText.ParseCard(c.Text) is not null || c.Progress.Needed != 75 || barFill >= 0.15)
+            && Math.Abs(barFill * c.Progress.Needed - c.Progress.SoulsInLevel) <= 0.75).ToList();
+        if (!found.Fallback && supported.Count > 0 && candidates.All(c => c.Progress == supported[0].Progress))
+            return (supported[0].Text, supported[0].Progress);
         var rejected = candidates.Count > 0 ? $" (verworfen, Balken {barFill:0.00}: {string.Join(", ", candidates.Select(c => c.Text))})" : "";
         return (string.Join(" | ", attempts) + rejected, null);
     }
@@ -605,18 +649,6 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
         var fraction = (double)progress.SoulsInLevel / progress.Needed;
         var tolerance = progress.Needed switch { 75 => 0.07, 25 => 0.09, _ => 0.12 };
         return Math.Abs(fraction - barFill) <= tolerance;
-    }
-
-    /// <summary>Fallback MAX check: cyan pixels in the card's bottom right (only cyan text there is "MAX").</summary>
-    private static bool HasCyanText(Mat bgr, Rect card)
-    {
-        var region = Clamp(bgr, new Rect(card.X + card.Width * 35 / 100, card.Y + card.Height * 86 / 100, card.Width * 65 / 100, card.Height * 14 / 100));
-        using var area = new Mat(bgr, region);
-        using var hsv = new Mat();
-        using var cyan = new Mat();
-        Cv2.CvtColor(area, hsv, ColorConversionCodes.BGR2HSV);
-        Cv2.InRange(hsv, new Scalar(75, 90, 120), new Scalar(105, 255, 255), cyan);
-        return Cv2.CountNonZero(cyan) >= region.Width * region.Height * 0.05;
     }
 
     /// <summary>
@@ -778,6 +810,38 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
     /// </summary>
     private static bool? BadgeShowsOne(Mat bgr, Rect card)
     {
+        using var digit = BadgeDigit(bgr, card);
+        return digit is not null ? digit.Width < digit.Height * 0.45 : null;
+    }
+
+    /// <summary>A large visible /75 bar cannot support a radically different OCR counter.
+    /// Small bars may be hidden by the badge; the bar never supplies an exact numerator.</summary>
+    internal static bool ContradictsVisibleBar(PetCardProgress reading, double barFill) =>
+        reading.Needed == 75 && barFill >= 0.15
+        && Math.Abs(barFill - reading.SoulsInLevel / 75.0) > 0.20;
+
+    // A row of three identical glyphs is readable by Windows OCR, which often drops a lone digit.
+    // Only the connected glyph in the badge centre is used; neither portrait nor circle rim is read.
+    private async Task<int?> ReadBadgeLevelAsync(Mat bgr, Rect card, CancellationToken cancellationToken)
+    {
+        using var digit = BadgeDigit(bgr, card);
+        if (digit is null)
+            return null;
+        using var row = new Mat(digit.Height + 16, (digit.Width + 8) * 3 + 16, MatType.CV_8UC1, Scalar.White);
+        for (var i = 0; i < 3; i++)
+        {
+            using var target = new Mat(row, new Rect(8 + i * (digit.Width + 8), 8, digit.Width, digit.Height));
+            Cv2.BitwiseNot(digit, target);
+        }
+        using var color = new Mat();
+        Cv2.CvtColor(row, color, ColorConversionCodes.GRAY2BGR);
+        using var image = BitmapMat.ToBitmap(color);
+        var text = string.Concat((await smallTextReader.ReadAsync(image, cancellationToken)).Select(l => l.Text)).Replace(" ", "");
+        return text switch { "111" => 1, "222" => 2, "333" => 3, _ => null };
+    }
+
+    private static Mat? BadgeDigit(Mat bgr, Rect card)
+    {
         var region = Clamp(bgr, new Rect(card.X - card.Width * 8 / 100, card.Y + card.Height * 80 / 100, card.Width * 32 / 100, card.Height * 26 / 100));
         using var area = new Mat(bgr, region);
         using var hsv = new Mat();
@@ -812,7 +876,10 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
             if (digit is null || h > digit.Value.Height)
                 digit = new Rect(x, y, w, h);
         }
-        return digit is { } d ? d.Width < d.Height * 0.45 : null;
+        if (digit is not { } d)
+            return null;
+        using var component = new Mat(white, d);
+        return component.Clone();
     }
 
     /// <summary>Bounding box of the largest blob (small gaps closed), e.g. the badge circle without the glow around it.</summary>
@@ -907,20 +974,36 @@ public sealed class PetWindowScanner(WindowsOcrLineReader smallTextReader, Windo
         using var crop = new Mat(bgr, rect);
         using var bitmap = BitmapMat.ToBitmap(crop);
         var lines = await panelReader.ReadAsync(bitmap, cancellationToken);
-        var insight = lines.FirstOrDefault(l => l.Text.Contains("Insight", StringComparison.OrdinalIgnoreCase));
+        return ParsePanel(lines, bgr.Height);
+    }
+
+    internal static PetPanelScan? ParsePanel(IReadOnlyList<Soulcrest.Core.Text.OcrLine> lines, int imageHeight)
+    {
+        var insight = lines.FirstOrDefault(l => PetWindowText.IsInsightCaption(l.Text));
         if (insight is null)
             return null;
         // Everything on the "Pet Insight" row: "Lv. 1 (5/25)" / "Lv. 3 (MAX)".
         var row = string.Join(" ", lines.Where(l => Math.Abs(l.Y + l.Height / 2 - (insight.Y + insight.Height / 2)) < insight.Height * 0.9)
             .OrderBy(l => l.X).Select(l => l.Text));
-        var level = PetWindowText.ParsePanelLevel(row);
         var progress = PetWindowText.ParsePanelProgress(row);
+        var level = PetWindowText.ParsePanelLevel(row) ?? progress?.Level;
         // Name: the largest text in the band directly above "Pet Insight".
-        var name = lines.Where(l => l.Y < insight.Y - insight.Height * 0.5 && l.Y > insight.Y - bgr.Height * 0.12)
+        var name = lines.Where(l => IsNameLine(l.Text, l.Y, l.Height, insight.Y, insight.Height, imageHeight))
             .OrderByDescending(l => l.Height).FirstOrDefault();
         var raw = string.Join(" | ", lines.Select(l => l.Text));
-        return new PetPanelScan(name?.Text.Trim(), level, raw, progress);
+        var language = PetWindowText.IsGermanInsightCaption(insight.Text) ? "de"
+            : insight.Text.Contains("Insight", StringComparison.OrdinalIgnoreCase) ? "en" : GameLanguageDetector.Detect(lines.Select(l => l.Text));
+        return new PetPanelScan(name?.Text.Trim(), level, raw, progress, language);
     }
+
+    internal static bool IsNameLine(string text, double y, double height, double insightY, double insightHeight, int imageHeight) =>
+        y + height < insightY + insightHeight * .2 && y > insightY - imageHeight * .075
+        && !text.Contains("Owned", StringComparison.OrdinalIgnoreCase)
+        && !text.Contains("Effect", StringComparison.OrdinalIgnoreCase)
+        && !text.Trim().Equals("All", StringComparison.OrdinalIgnoreCase)
+        && !text.Contains("Collection", StringComparison.OrdinalIgnoreCase)
+        && !text.Contains("Sammlungsfortschritt", StringComparison.OrdinalIgnoreCase)
+        && !PetWindowText.IsInsightCaption(text);
 
     private static async Task<string> ReadTextAsync(Mat bgr, Rect rect, WindowsOcrLineReader reader, CancellationToken cancellationToken)
     {

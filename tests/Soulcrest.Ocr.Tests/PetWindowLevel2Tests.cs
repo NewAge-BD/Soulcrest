@@ -48,6 +48,7 @@ public sealed class PetWindowLevel2Tests(ITestOutputHelper output)
             Assert.Equal(expected is null ? new PetCardProgress(3, 0, 0, true) : new PetCardProgress(2, expected.Value, 75, false), card.Progress);
             read++;
         }
-        Assert.True(read >= 10, $"nur {read} von 15 gelesen");
+        // Native colour preprocessing adds Dratona 9/75 and Tayga 2/75; Rafflesia 3/75 remains ambiguous.
+        Assert.True(read >= 14, $"nur {read} von 15 gelesen");
     }
 }

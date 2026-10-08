@@ -8,6 +8,30 @@ namespace Soulcrest.App.Tests;
 public sealed class SettingsMigrationTests
 {
     [Theory]
+    [InlineData("de-DE")]
+    [InlineData("en-US")]
+    public void ExplicitScanLanguageSurvivesRestartWithoutChangingTheInterface(string language)
+    {
+        var path = AppPaths.SettingsFile;
+        var backup = File.Exists(path) ? File.ReadAllText(path) : null;
+        try
+        {
+            var settings = new SettingsService();
+            settings.Update(s => { s.UiLanguage = "en"; s.AutoOcrLanguage = false; s.OcrLanguage = language; });
+            var reloaded = new SettingsService().Current;
+            Assert.Equal(language, reloaded.EffectiveOcrLanguage);
+            Assert.Equal("en", reloaded.UiLanguage);
+            settings.Update(s => s.AutoOcrLanguage = true);
+            Assert.Equal("auto", new SettingsService().Current.EffectiveOcrLanguage);
+        }
+        finally
+        {
+            if (backup is null) File.Delete(path); else File.WriteAllText(path, backup);
+            _ = new SettingsService();
+        }
+    }
+
+    [Theory]
     [InlineData(40, 15)] // the old default saved with every settings file
     [InlineData(60, 60)] // chosen by the user: kept
     public void OldDefaultRadiusBecomesFifteen(int saved, int expected)

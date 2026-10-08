@@ -1,5 +1,18 @@
 @implements IDisposable
 @inject OcrLanguageInstaller Installer
+@inject SettingsService Settings
+
+<div class="sv-callout">
+    <label>
+        @UiText.T("Sprache im Spiel (Scan)")
+        <select value="@Settings.Current.EffectiveOcrLanguage" @onchange="SetLanguage" disabled="@Disabled" aria-label="@UiText.T("Sprache im Spiel (Scan)")">
+            <option value="auto">@UiText.T("Automatisch (Deutsch/Englisch)")</option>
+            <option value="de-DE">Deutsch</option>
+            <option value="en-US">English</option>
+        </select>
+    </label>
+    <p class="sv-hint">@UiText.T("Gilt ab dem nächsten Scan für Pets, Kibelisken, Dungeons und Garnisonen. Die Sprache der Oberfläche bleibt unabhängig davon.")</p>
+</div>
 
 @if (Installer.Missing.Count > 0 || Installer.Status is not null)
 {
@@ -23,13 +36,21 @@
 }
 
 @code {
+    [Parameter] public bool Disabled { get; set; }
+    private void SetLanguage(ChangeEventArgs args)
+    {
+        if (Disabled || args.Value?.ToString() is not ("auto" or "de-DE" or "en-US")) return;
+        var language = args.Value!.ToString()!;
+        Settings.Update(s => { s.AutoOcrLanguage = language == "auto"; if (language != "auto") s.OcrLanguage = language; });
+    }
     protected override void OnInitialized()
     {
         Installer.Changed += Refresh;
+        Settings.Changed += Refresh;
         // Checked off the UI thread (WinRT query), and not again on every page change.
         if (Installer.CheckedAt is null || DateTime.UtcNow - Installer.CheckedAt > TimeSpan.FromSeconds(30))
             _ = Task.Run(Installer.Refresh);
     }
     private void Refresh() => InvokeAsync(StateHasChanged);
-    public void Dispose() => Installer.Changed -= Refresh;
+    public void Dispose() { Installer.Changed -= Refresh; Settings.Changed -= Refresh; }
 }

@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using Soulcrest.App.Services;
+using Soulcrest.Core.Pets;
 
 namespace Soulcrest.App.Overlay;
 
@@ -319,7 +320,6 @@ public sealed class PetOverlayForm : Form
         g.DrawString(UiText.T(_locked ? state : "entsperrt – ziehen, Ecken skalieren, Strg+Alt+L sperrt"), small, _tracker.Running ? accent : dim, 90, 9);
 
         var y = 34;
-        var lang = _settings.Current.NameLanguage;
         var focus = _progress.FocusPets().Take(8).ToList();
         if (focus.Count == 0)
         {
@@ -408,7 +408,7 @@ public sealed class PetOverlayForm : Form
             g.DrawString(badge, nameFont, accentBrush, nameRight - badgeSize.Width, y + 3);
             nameRight -= badgeSize.Width + 2;
         }
-        var name = MonsterName(petId) ?? pet?.DisplayName(_settings.Current.NameLanguage) ?? petId;
+        var name = RowName(_settings.Current, MonsterName(petId), pet, petId);
         using (var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
             g.DrawString(name, nameFont, nameBrush, new RectangleF(x, y + 3, Math.Max(10, nameRight - x), nameFont.Height), format);
 
@@ -440,18 +440,20 @@ public sealed class PetOverlayForm : Form
     /// with the pet. The one with the most spawns there (Superior Wind Spirit: Whirlwind Spirit, 87, not the
     /// 6 Immortal Wind Spirit Guardians).
     /// </summary>
-    private string? MonsterName(string petId)
+    internal static string RowName(AppSettings settings, MonsterName? monster, PetDefinition? pet, string petId) =>
+        monster?.In(settings.LootNameLanguage) ?? pet?.DisplayName(settings.LootNameLanguage) ?? petId;
+
+    private MonsterName? MonsterName(string petId)
     {
         if (_progress.MapDataDirectory is not { } mapdata)
             return null;
-        var language = _settings.Current.NameLanguage;
         var maps = new[] { _settings.Current.LastMap, Factions.HomeMap(_settings.Current.Faction) }.OfType<string>()
             .Concat(_progress.Maps.Select(m => m.Id)).Distinct(StringComparer.Ordinal);
         foreach (var map in maps)
         {
             var monsters = MapPetMarkers.MonstersOf(mapdata, map, petId);
             if (monsters.Count > 0)
-                return monsters[0].In(language);
+                return monsters[0];
         }
         return null;
     }

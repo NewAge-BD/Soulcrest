@@ -8,6 +8,10 @@ Aion, Aion 2 und NCSOFT sind Marken oder eingetragene Marken der NCSOFT Corporat
 Kartengrafik, Orts-, Monster- und Pet-Namen sind geistiges Eigentum von NCSOFT. Soulcrest ist
 nicht mit NCSOFT verbunden und wird von NCSOFT weder unterstützt noch gesponsert.
 
+Das Symbol `Assets/exploration-complete.png` und die Erkundungslisten-Fixtures stammen aus
+vom Nutzer bereitgestellten Spielaufnahmen (Oktober 2026). Sie dienen ausschließlich dem lokalen
+Bildvergleich und den Erkennungstests. Spielgrafik © NCSOFT; keine freie Grafiklizenz behauptet.
+
 ## aion2.gaming.tools: Kartendaten und Pet-Katalog
 
 - Quelle: <https://aion2.gaming.tools/>, die `.d.json`-Datendateien und die zugehörigen statischen

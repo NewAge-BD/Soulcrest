@@ -2,6 +2,21 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.2.6 – 2026-10-08
+
+- **New:** All progress scans (pets, Kibelisks, dungeons, strongholds) work with the German game client.
+- **New:** The pet scan shows the recognised name and value on every card. Ctrl + left-click on the value
+  corrects it right away.
+- **New:** The language of the names in the loot overlay can be chosen under Options; by default it follows
+  the game.
+- **Improved:** The pet scan reads card values much more reliably: it checks the level in the circle
+  against the counter, ignores pictures taken while scrolling and marks conflicting values for checking.
+- **Improved:** The pet scan starts faster.
+- **Improved:** When the dungeon or stronghold list shows 100%, the exploration scan completes the whole
+  category; no scrolling needed. Below 100%, only places with a completion check in the same row count.
+- **Improved:** Truncated German place names and "Eingang zu …" are matched more reliably.
+- **Changed:** New Soulcrest logo.
+
 ## 0.2.5 – 2026-10-07
 
 - **New:** The setup now also leads to the pet scan and asks about exploration: if your character has

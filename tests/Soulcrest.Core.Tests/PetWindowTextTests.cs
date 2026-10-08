@@ -37,6 +37,9 @@ public sealed class PetWindowTextTests
     [InlineData("Lv. 3 (MAX)", 3)]
     [InlineData("Lv.2", 2)]
     [InlineData("Lv. I", 1)]
+    [InlineData("Pet-Kenntnis St. 1", 1)]
+    [InlineData("St. 2 (31/75)", 2)]
+    [InlineData("St. 3 (MAX)", 3)]
     [InlineData("Pet Insight", null)]
     public void ParsesPanelLevel(string text, int? level) => Assert.Equal(level, PetWindowText.ParsePanelLevel(text));
 
@@ -79,4 +82,18 @@ public sealed class PetWindowTextTests
 
     [Fact]
     public void ParsesCollectionStatus() => Assert.Equal((94, 200), PetWindowText.ParseCollection("Collection Status 94/200"));
+
+    [Theory]
+    [InlineData("Sammlungsfortschritt 174/200", 174)]
+    [InlineData("Sammlungsfortschritt 0/200", 0)]
+    public void ParsesConfirmedGermanCollectionCaption(string text, int owned) =>
+        Assert.Equal((owned, 200), PetWindowText.ParseCollection(text));
+
+    [Theory]
+    [InlineData("15/75")]
+    [InlineData("201/200")]
+    [InlineData("174/200 175/200")]
+    [InlineData("")]
+    public void CollectionFooterRejectsCardValuesAndAmbiguousCounts(string text) =>
+        Assert.Null(PetWindowText.ParseCollectionFooter(text));
 }
