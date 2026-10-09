@@ -78,7 +78,8 @@ public static partial class MapPetMarkers
     /// has no source monster or is not found.
     /// </summary>
     public static MonsterName? MonsterAt(string mapDataDirectory, string mapId, string petId, double x, double y) =>
-        For(mapDataDirectory, mapId).FirstOrDefault(s => s.PetId == petId && Math.Abs(s.X - x) < 0.5 && Math.Abs(s.Y - y) < 0.5)?.Monster;
+        For(mapDataDirectory, mapId).Concat(SoulMonstersFor(mapDataDirectory, mapId))
+            .FirstOrDefault(s => s.PetId == petId && s.Monster is not null && Math.Abs(s.X - x) < 0.5 && Math.Abs(s.Y - y) < 0.5)?.Monster;
 
     /// <summary>
     /// The monsters that drop a pet's soul on a map, the one with the most spawns first (user request
@@ -141,7 +142,12 @@ public static partial class MapPetMarkers
             if (category.Group == "Monsters")
             {
                 if (marker.GetArrayLength() > 6 && marker[6].ValueKind == JsonValueKind.String)
-                    monsters.Add(new PetSpawn(marker[6].GetString()!, marker[1].GetDouble(), marker[2].GetDouble(), null));
+                {
+                    var en = marker[3].ValueKind == JsonValueKind.String ? marker[3].GetString() : null;
+                    var de = marker[4].ValueKind == JsonValueKind.String ? marker[4].GetString() : null;
+                    monsters.Add(new PetSpawn(marker[6].GetString()!, marker[1].GetDouble(), marker[2].GetDouble(), null,
+                        string.IsNullOrWhiteSpace(en) ? null : new MonsterName(en, de)));
+                }
                 continue;
             }
             var pet = category.Group == "Pets";

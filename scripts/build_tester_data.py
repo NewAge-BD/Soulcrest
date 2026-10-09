@@ -233,6 +233,26 @@ def build_catalog(icons):
     return summaries, pets, numeric_to_catalog
 
 
+def boss_loot(npc_id, icons):
+    """Published item pool, unique by exact item ID. No probabilities inferred or combined."""
+    base = GAMINGTOOLS / 'cdn/data'
+    if not (base / 'en/npcs' / f'{npc_id}.d.json').exists():
+        return None  # unknown is different from a source-confirmed empty pool
+    npc = data('npcs', npc_id)
+    if not isinstance(npc.get('loot'), list):
+        return None
+    translated = data('npcs', npc_id, 'de') if (base / 'de/npcs' / f'{npc_id}.d.json').exists() else {}
+    german = {r['item']['id']: r['item'].get('name') for r in translated.get('loot', []) if r.get('item', {}).get('id')}
+    pool = {}
+    for row in npc['loot']:
+        item = row.get('item', {})
+        if not item.get('id') or not item.get('name') or item['id'] in pool:
+            continue
+        pool[item['id']] = {'id': item['id'], 'en': item['name'], 'de': german.get(item['id']),
+                            'icon': icons.get(item.get('iconPath')), 'rarity': item.get('rarity')}
+    return list(pool.values())
+
+
 def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
     en, de = data('interactive-map', mid), data('interactive-map', mid, 'de')
     index, de_index = data('interactive-map'), data('interactive-map', locale='de')
@@ -290,6 +310,29 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
                    de_entities.get(entity.get('id'), {}).get('name'), kind_icon, pet=pet,
                    extra={'npcId': entity.get('id'), 'derivedFrom': row.get('derivedFrom')} if row else None)
     name_kibelisks_by_village(payload)
+    # Network boss lists use named-spawn IDs, not NPC IDs. Join only by the source's exact entity ID.
+    spawn_refs = collections.defaultdict(set)
+    for spawn in data('maps', mid).get('namedSpawns', []):
+        spawn_refs[str(spawn['npc']['id'])].add(int(spawn['id']))
+    spawn_ids = {npc: next(iter(ids)) for npc, ids in spawn_refs.items() if len(ids) == 1}
+    payload['bosses'] = []
+    for point in en['points']:
+        entity = point.get('entity', {})
+        spawn_id = spawn_ids.get(str(entity.get('id')))
+        if 'boss' not in point.get('types', []) or spawn_id is None:
+            continue
+        translated = de_points.get(point['id'], {}).get('entity', {})
+        px, py = to_pixel(definition['map'], point['x'], point['y'])
+        logical_scale = payload['size'] / (512*2**definition['map']['maximumZoom'])
+        payload['bosses'].append({'spawnId': spawn_id, 'npcId': int(entity['id']),
+            'en': entity['name'], 'de': translated.get('name'),
+            'x': round(px*logical_scale, 3), 'y': round(py*logical_scale, 3),
+            'icon': icons.get(entity.get('iconPath')), 'loot': boss_loot(entity['id'], icons),
+            'sourceRefs': ['https://aion2.gaming.tools/npcs/' + entity['id']]})
+    payload['sourceMapId'] = int(mid)
+    # A spawn with several published positions is ambiguous. Never pick an arbitrary location.
+    boss_counts = collections.Counter(b['spawnId'] for b in payload['bosses'])
+    payload['bosses'] = [b for b in payload['bosses'] if boss_counts[b['spawnId']] == 1]
     add_pet_source_markers(payload, pets, cluster=0.03)
     for marker in payload['markers']:
         if marker[6]:
@@ -316,8 +359,12 @@ def main():
         directory=args.out/MAPS[mid]; directory.mkdir(parents=True,exist_ok=True)
         if not args.skip_tiles:
             write_tiles(GAMINGTOOLS/'cdn'/definition['map']['tilePackPath'].lstrip('/'),directory/'tiles')
+        # Loot is only needed by Boss Rush. Keep it out of Leaflet/tracking's frequently read map file.
+        map_payload = {**payload, 'bosses': [{k: v for k, v in boss.items() if k != 'loot'} for boss in payload['bosses']]}
         (directory/'data.js').write_text('window.SoulcrestMaps = window.SoulcrestMaps || {};\nwindow.SoulcrestMaps['+
-            json.dumps(MAPS[mid])+'] = '+json.dumps(payload,ensure_ascii=False,separators=(',',':'))+';\n',encoding='utf-8')
+            json.dumps(MAPS[mid])+'] = '+json.dumps(map_payload,ensure_ascii=False,separators=(',',':'))+';\n',encoding='utf-8')
+        (directory/'bosses.json').write_text(json.dumps({'mapId': int(mid), 'bosses': payload['bosses']},
+            ensure_ascii=False, indent=1), encoding='utf-8')
         manifest['maps'].append({'id':MAPS[mid],'label':german_maps.get(mid,definition)['name'],
             'group':{'elyos':'Elyos','asmodians':'Asmodier','asmodian':'Asmodier','abyss':'Abyss'}.get(definition['group'],definition['groupName']),
             'tiles':MAPS[mid]+'/tiles/{z}_{x}_{y}.webp','maxNativeZoom':definition['map']['maximumZoom']+1,

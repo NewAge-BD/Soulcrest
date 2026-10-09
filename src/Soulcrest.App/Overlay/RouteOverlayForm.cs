@@ -111,6 +111,10 @@ public sealed class RouteOverlayForm : Form
         var onMap = placement is null ? [] : targets.Select((t, i) => (Target: t, Index: i)).Where(t => t.Target.MapId == placement.MapId).ToList();
         if (placement is not null && _targets.Progression is { } next && next.MapId == placement.MapId)
             onMap.Add((next, -1)); // index -1: white (progression mode)
+        if (placement is not null && _targets.BossRush is { } boss && boss.MapId == placement.MapId)
+            onMap.Add((boss, -2));
+        if (placement is not null && _targets.BossPreview is { } preview && preview.MapId == placement.MapId)
+            onMap.Add((preview, -3));
         if (!_settings.Current.ShowRoutesInGame)
             onMap.Clear();
         // Marked pets (right click or progression target) show all their spawns and soul monsters, even
@@ -255,15 +259,18 @@ public sealed class RouteOverlayForm : Form
             DrawPet(graphics, Offset(placement.WorldToScreen(pet.X, pet.Y), origin), pet);
         foreach (var (target, index) in targets)
         {
-            var color = index < 0 ? Color.White : ColorTranslator.FromHtml(MapTargetsService.ColorOf(target, index)); // a route's stops share its colour
+            var color = target.Color is { } explicitColor ? ColorTranslator.FromHtml(explicitColor)
+                : index < 0 ? Color.White : ColorTranslator.FromHtml(MapTargetsService.ColorOf(target, index));
+            var preview = target.Id == "boss-next";
+            if (preview) color = Color.FromArgb(105, color);
             var at = Offset(placement.WorldToScreen(target.X, target.Y), origin);
             // A chained target (Shift + right click) starts at its predecessor, all others at the player.
             var before = target.After is { } after ? targets.FirstOrDefault(t => t.Target.Id == after).Target : null;
             PointF? start = before is not null ? Offset(placement.WorldToScreen(before.X, before.Y), origin) : player;
             if (start is { } from)
-                DrawRoute(graphics, from, at, area, target.Name, color);
+                DrawRoute(graphics, from, at, area, target.Name, color, preview);
             else if (area.Contains(at))
-                DrawTargetRing(graphics, at, area, target.Name, color); // world map of another zone: no player, rings only
+                DrawTargetRing(graphics, at, area, target.Name, color, preview); // world map of another zone: no player, rings only
         }
     }
 
@@ -560,16 +567,16 @@ public sealed class RouteOverlayForm : Form
         return (sprite, centre);
     }
 
-    private static void DrawTargetRing(Graphics graphics, PointF target, RectangleF area, string name, Color color)
+    private static void DrawTargetRing(Graphics graphics, PointF target, RectangleF area, string name, Color color, bool dashed = false)
     {
-        using var outline = new Pen(Color.FromArgb(170, 0, 0, 0), 7);
-        using var ring = new Pen(color, 3);
+        using var outline = new Pen(Color.FromArgb(dashed ? 50 : 170, 0, 0, 0), 7) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
+        using var ring = new Pen(color, 3) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
         graphics.DrawEllipse(outline, target.X - 12, target.Y - 12, 24, 24);
         graphics.DrawEllipse(ring, target.X - 12, target.Y - 12, 24, 24);
         DrawLabel(graphics, name, new PointF(target.X + 16, target.Y - 10), color, area, target.X - 16);
     }
 
-    private static void DrawRoute(Graphics graphics, PointF player, PointF target, RectangleF area, string name, Color color)
+    private static void DrawRoute(Graphics graphics, PointF player, PointF target, RectangleF area, string name, Color color, bool dashed = false)
     {
         if (RouteGeometry.Clip(player, target, area) is not { } segment)
             return;
@@ -582,8 +589,8 @@ public sealed class RouteOverlayForm : Form
             if (length > 14)
                 segment = (segment.Start, new PointF(segment.End.X - dx * 14 / length, segment.End.Y - dy * 14 / length), true);
         }
-        using var outline = new Pen(Color.FromArgb(170, 0, 0, 0), 7) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-        using var line = new Pen(color, 3.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        using var outline = new Pen(Color.FromArgb(dashed ? 50 : 170, 0, 0, 0), 7) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid, StartCap = LineCap.Round, EndCap = LineCap.Round };
+        using var line = new Pen(color, 3.5f) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid, StartCap = LineCap.Round, EndCap = LineCap.Round };
         graphics.DrawLine(outline, segment.Start, segment.End);
         graphics.DrawLine(line, segment.Start, segment.End);
         foreach (var (point, angle) in RouteGeometry.Arrows(segment.Start, segment.End, 56))
@@ -593,7 +600,7 @@ public sealed class RouteOverlayForm : Form
         float? leftOf = null;
         if (segment.ReachesEnd)
         {
-            using var ring = new Pen(color, 3);
+            using var ring = new Pen(color, 3) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
             graphics.DrawEllipse(outline, target.X - 12, target.Y - 12, 24, 24);
             graphics.DrawEllipse(ring, target.X - 12, target.Y - 12, 24, 24);
             labelAt = new PointF(target.X + 16, target.Y - 10);
@@ -639,7 +646,7 @@ public sealed class RouteOverlayForm : Form
             shift.Translate(dx, dy);
             path.Transform(shift);
         }
-        using var outline = new Pen(Color.FromArgb(220, 0, 0, 0), 4) { LineJoin = LineJoin.Round };
+        using var outline = new Pen(Color.FromArgb(Math.Min(220, (int)color.A), 0, 0, 0), 4) { LineJoin = LineJoin.Round };
         using var fill = new SolidBrush(color);
         graphics.DrawPath(outline, path);
         graphics.FillPath(fill, path);

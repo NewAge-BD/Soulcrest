@@ -186,6 +186,17 @@
         </div>
 
         <h3>@UiText.T("Wegführung")</h3>
+        <div class="tile boss-rush-tile">
+            <div class="tile-head">
+                <label class="tile-title switch" for="boss-rush-toggle" title="@UiText.T("Boss Rush ein- oder ausschalten")">
+                    <input id="boss-rush-toggle" type="checkbox" role="switch" aria-label="@UiText.T("Boss Rush ein- oder ausschalten")" checked="@Settings.Current.BossRushEnabled" @onchange="ToggleBossRush" />
+                    <span class="switch-track" aria-hidden="true"></span>
+                    Boss Rush Mode
+                </label>
+            </div>
+            <div class="note">@UiText.T("Boss Rush schaltet Wegführung und Spawn-Overlay gemeinsam. Aktivierte Boss-Alerts bleiben unabhängig davon eingeschaltet.")</div>
+            <button type="button" class="btn small" @onclick="@(() => Ui.Navigate("bossrush"))">@UiText.T("Boss-Rush-Tab öffnen")</button>
+        </div>
         <div class="tile">
             <div class="tile-head">
                 <label class="tile-title switch" title="@UiText.T("Progressionsmodus ein- oder ausschalten")">
@@ -393,17 +404,19 @@
         Targets.Changed += OnTargetsChanged;
         Loot.Changed += OnLootChanged;
         _language = Settings.Current.UiLanguage;
+        _nameLanguage = Settings.Current.NameLanguage;
         Settings.Changed += OnSettingsChanged;
     }
 
-    private string? _language;
+    private string? _language, _nameLanguage;
     private void OnSettingsChanged()
     {
-        if (_language == Settings.Current.UiLanguage) return;
+        var languageChanged = _language != Settings.Current.UiLanguage || _nameLanguage != Settings.Current.NameLanguage;
         _language = Settings.Current.UiLanguage;
+        _nameLanguage = Settings.Current.NameLanguage;
         _ = InvokeAsync(async () =>
         {
-            if (_ready)
+            if (languageChanged && _ready)
             {
                 await PushDone();
                 await JS.InvokeVoidAsync("soulcrestMap.setLanguage", Settings.Current.NameLanguage);
@@ -423,6 +436,13 @@
         InvokeAsync(StateHasChanged);
     }
 
+
+    private void ToggleBossRush(ChangeEventArgs e)
+    {
+        var enabled = (bool)e.Value!;
+        Settings.Update(s => s.BossRushEnabled = enabled);
+        if (enabled && !Loot.Running) Loot.Start();
+    }
 
     private async Task ToggleProgression(ChangeEventArgs e)
     {
@@ -557,7 +577,10 @@
     private async Task PushTargets()
     {
         // petId: the map shows all spawns and soul monsters of a marked pet (user request 2026-10-06).
-        var payload = Targets.Targets.Select((t, i) => new { id = t.Id, map = t.MapId, x = t.X, y = t.Y, name = t.Name, kind = t.Kind, color = MapTargetsService.ColorOf(t, i), after = t.After,
+        var shownTargets = Targets.Targets.AsEnumerable();
+        if (Targets.BossRush is { } boss) shownTargets = shownTargets.Append(boss);
+        if (Targets.BossPreview is { } preview) shownTargets = shownTargets.Append(preview);
+        var payload = shownTargets.Select((t, i) => new { id = t.Id, map = t.MapId, x = t.X, y = t.Y, name = t.Name, kind = t.Kind, color = MapTargetsService.ColorOf(t, i), after = t.After,
             petId = t.PetId ?? (t.Kind.StartsWith("Pets", StringComparison.Ordinal) ? Progress.FindByName(t.Name)?.Id : null) });
         await JS.InvokeVoidAsync("soulcrestMap.setTargets", JsonSerializer.Serialize(payload));
     }
@@ -665,6 +688,7 @@
         if (Active && !_wasActive && _ready)
         {
             await JS.InvokeVoidAsync("soulcrestMap.invalidate");
+            if (Ui.TakePendingBossFocus() is { } boss) await FlyToTarget(boss);
             if (Ui.TakePendingPetFocus() is { } pet)
             {
                 // Switch to a map where the pet actually lives.

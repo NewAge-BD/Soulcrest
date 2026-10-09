@@ -122,6 +122,18 @@ public sealed class AppSettings
 
     /// <summary>Progression mode: always lead to the nearest pet below <see cref="ProgressionGoal"/> souls.</summary>
     public bool ProgressionEnabled { get; set; }
+    public bool BossRushEnabled { get; set; }
+    public bool BossOverlayEnabled { get; set; } = true;
+    public int BossOverlayCount { get; set; } = 5;
+    public int BossOverlayX { get; set; } = 420;
+    public int BossOverlayY { get; set; } = 200;
+    public double BossOverlayScale { get; set; } = 1;
+    public bool BossOverlayLocked { get; set; } = true;
+    public bool BossAlertsEnabled { get; set; }
+    public string[] BossAlertIds { get; set; } = [];
+    public int BossAlertLeadSeconds { get; set; } = 60;
+    public int BossAlertDurationSeconds { get; set; } = 15;
+    public bool BossAlertSound { get; set; }
     public int ExplorationCompletionRadius { get; set; } = 15;
 
     /// <summary>
@@ -212,6 +224,11 @@ public sealed class SettingsService
             Current.TutorialDone |= existed;
             Current.SettingsRevision = 2;
         }
+        Current.BossOverlayCount = Math.Clamp(Current.BossOverlayCount, 1, 12);
+        Current.BossOverlayScale = double.IsFinite(Current.BossOverlayScale) ? Math.Clamp(Current.BossOverlayScale, .6, 2) : 1;
+        Current.BossAlertLeadSeconds = Math.Clamp(Current.BossAlertLeadSeconds, 0, 3600);
+        Current.BossAlertDurationSeconds = Math.Clamp(Current.BossAlertDurationSeconds, 3, 60);
+        Current.BossAlertIds ??= [];
         UiText.Language = Current.UiLanguage;
     }
 

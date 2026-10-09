@@ -25,8 +25,16 @@ def main():
     for i,nid in enumerate(ids):
         cache.data('npcs',nid)
         print('npc',i+1,len(ids),nid,flush=True)
+    boss_ids = {p['entity']['id'] for mid in MAP_IDS for p in cache.data('interactive-map', mid)['points']
+                if 'boss' in p.get('types', []) and p.get('entity', {}).get('id')}
+    boss_loot_icons = set()
+    for i, nid in enumerate(sorted(boss_ids)):
+        npc = cache.data('npcs', nid)
+        cache.data('npcs', nid, 'de')
+        boss_loot_icons.update(row['item']['iconPath'] for row in npc.get('loot', []) if row.get('item', {}).get('iconPath'))
+        print('boss loot', i+1, len(boss_ids), nid, flush=True)
     # Portraits and marker icons use the same public image cache.
-    icon_paths={p['iconPath'] for p in pets}
+    icon_paths={p['iconPath'] for p in pets} | boss_loot_icons
     for locale in ['en']:
         index=cache.data('interactive-map',locale=locale)
         for category in index['categories']:
@@ -36,6 +44,9 @@ def main():
             data=cache.data('interactive-map',mid)
             for point in data['points']:
                 if point.get('iconPath'):icon_paths.add(point['iconPath'])
+                # Boss schedule/alerts use the published NPC portrait, not the generic map symbol.
+                if 'boss' in point.get('types', []) and point.get('entity', {}).get('iconPath'):
+                    icon_paths.add(point['entity']['iconPath'])
             # Item icons of the resource kinds (Gem: Sapphire, Diamond, Ruby) for the legend sub-entries.
             for group in data['groups']:
                 if group.get('entity',{}).get('mainCategoryId')=='gatherables' and group.get('iconPath'):

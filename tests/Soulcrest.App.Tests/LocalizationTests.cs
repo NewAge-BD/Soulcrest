@@ -26,6 +26,7 @@ public sealed class LocalizationTests
         services.AddSingleton<TrackerService>();
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
+        services.AddSingleton<BossRushService>();
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<UiState>();
@@ -45,6 +46,7 @@ public sealed class LocalizationTests
                 (await renderer.RenderComponentAsync<Soulcrest.App.Components.Main>()).ToHtmlString());
             var html = System.Net.WebUtility.HtmlDecode(markup);
             Assert.Contains(tab, html);
+            Assert.Contains(">Pet Scan</button>", html);
             Assert.Contains(label, html);
             Assert.Contains("id=\"ui-language\"", html);
             Assert.Contains(language == "de" ? "Sprache im Spiel (Scan)" : "Game language (scan)", html);

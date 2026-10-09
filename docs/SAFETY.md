@@ -40,6 +40,12 @@ auswerten darf (DPS-Meter sind für Aion 2 laut Nutzer erlaubt). Dafür gilt:
   **eigene** Charaktername gelesen, aus einer Servernachricht beim Betreten der Welt. Damit folgt
   das Erkundungsprofil dem eingeloggten Charakter. Namen oder Positionen anderer Spieler werden
   nicht ausgewertet. Echte Charakternamen kommen nicht ins Repository.
+- **Boss Rush Mode (Nutzerauftrag 2026-10-09):** Derselbe passive Serverstrom liefert die
+  Boss-Spawn-IDs, Status und Zeitstempel (`0191`) sowie die Serverzeit (`0036`). Optionale
+  Zusatzblöcke werden übersprungen; es werden keine Spielerpositionen ausgewertet. Keine
+  zusätzlichen Anfragen an das Spiel, keine zweite Erfassung, keine Entschlüsselung.
+  Auf Nutzerwunsch bleibt die letzte Bossliste lokal in `cache/boss-timers.json` erhalten;
+  keine IPs/Verbindungsdaten. Nach Loads/Neustart ist sie bis zur frischen Liste vorläufig.
 
 Aufnahme: `scripts/Record-GameTraffic.ps1`.
 

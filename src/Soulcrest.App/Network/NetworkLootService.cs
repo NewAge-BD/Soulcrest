@@ -59,6 +59,12 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
     /// <summary>The own character entered the world (after a loading screen): its name.</summary>
     public event Action<string>? CharacterEntered;
 
+    /// <summary>Only unencrypted clock/boss messages; the stream key is transient and never persisted.</summary>
+    public event Action<string, byte[]>? BossMessageReceived;
+    public event Action? BossSessionReset;
+    private long _generation;
+    private sealed record ReceivedMessage(string Stream, byte[] Data);
+
     /// <summary>The own character seen last after a loading screen, null before the first one.</summary>
     public string? Character { get; private set; }
 
@@ -116,9 +122,9 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
         {
             var raw = capture.GetPacket();
             var at = new DateTimeOffset(raw.Timeval.Date);
-            foreach (var message in Feed(streams, raw, serverPorts, null))
+            foreach (var received in Feed(streams, raw, serverPorts, null))
             {
-                if (LootMessage.TryParse(message) is { } gains)
+                if (LootMessage.TryParse(received.Data) is { } gains)
                     found.AddRange(gains.Select(g => (at, g)));
             }
         }
@@ -135,9 +141,9 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
         while (device.GetNextPacket(out var capture) == GetPacketStatus.PacketRead)
         {
             var raw = capture.GetPacket();
-            foreach (var message in Feed(streams, raw, serverPorts, null))
+            foreach (var received in Feed(streams, raw, serverPorts, null))
             {
-                if (CharacterMessage.TryParseName(message) is { } name)
+                if (CharacterMessage.TryParseName(received.Data) is { } name)
                     found.Add((new DateTimeOffset(raw.Timeval.Date), name));
             }
         }
@@ -207,7 +213,9 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
             _device = null;
             _target = null;
             _streams.Clear();
+            _generation++;
         }
+        BossSessionReset?.Invoke();
         if (device is null)
             return;
         try
@@ -225,7 +233,8 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
     private void OnPacketArrival(object sender, PacketCapture capture)
     {
         var raw = capture.GetPacket();
-        List<byte[]> messages;
+        List<ReceivedMessage> messages;
+        long generation;
         lock (_gate)
         {
             if (!Running || !ReferenceEquals(sender, _device) || _target is not { } target)
@@ -234,24 +243,35 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
             messages = Feed(_streams, raw, target.ServerPorts, target.GamePorts);
             Messages += messages.Count;
             Resyncs = _streams.Values.Sum(s => s.Messages.Resyncs);
+            generation = _generation;
         }
-        foreach (var message in messages)
+        foreach (var received in messages)
         {
+            var message = received.Data;
             if (LootMessage.TryParse(message) is { } gains)
                 Count(gains);
             else if (CharacterMessage.TryParseName(message) is { } name)
             {
                 Character = name;
+                BossSessionReset?.Invoke();
                 CharacterEntered?.Invoke(name);
+            }
+            if (message.Length >= 2 && (message[0] == 0 && message[1] == 0x36 || message[0] == 1 && message[1] == 0x91))
+            {
+                lock (_gate)
+                {
+                    if (Running && generation == _generation)
+                        BossMessageReceived?.Invoke(received.Stream, message);
+                }
             }
         }
     }
 
     /// <summary>Server → game TCP payload of one packet through reassembly and message splitting.</summary>
-    private static List<byte[]> Feed(Dictionary<(string, int, int), (TcpReassembler Tcp, GameMessageStream Messages)> streams, RawCapture raw,
+    private static List<ReceivedMessage> Feed(Dictionary<(string, int, int), (TcpReassembler Tcp, GameMessageStream Messages)> streams, RawCapture raw,
         IReadOnlySet<int> serverPorts, IReadOnlySet<int>? gamePorts)
     {
-        var result = new List<byte[]>();
+        var result = new List<ReceivedMessage>();
         var packet = Packet.ParsePacket(raw.LinkLayerType, raw.Data);
         if (packet.Extract<TcpPacket>() is not { } tcp || packet.Extract<IPPacket>() is not { } ip)
             return result;
@@ -268,7 +288,7 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
             if (chunk.Gap)
                 stream.Messages.Break();
             if (chunk.Data.Length > 0)
-                result.AddRange(stream.Messages.Append(chunk.Data));
+                result.AddRange(stream.Messages.Append(chunk.Data).Select(message => new ReceivedMessage($"{key.Item1}:{key.Item2}:{key.Item3}", message)));
         }
         return result;
     }

@@ -79,3 +79,19 @@ zusätzlich Graustufen + CLAHE, damit HDR/SDR dieselben Features liefern.
 - Overlays folgen dem Spielfenster (Bewegen, Monitorwechsel, DPI) und verstecken sich, wenn das
   Spiel minimiert oder nicht im Vordergrund ist (`NativeGameForegroundMonitor`).
 - Overlays lesen und schreiben **keinen** Spielspeicher, senden keine Eingaben an das Spiel.
+
+## Boss Rush (2026-10-09)
+
+Eigener Tab statt Karten-Kachel. Das rote Ziel führt zum ältesten bestätigten Boss, der nächste
+Spawn hängt als blasse, gestrichelte Kette daran. Ohne aktiven Boss beginnt die Vorschau beim
+Spieler. Beide Ziele sind flüchtig und werden nicht durch Ankunft oder manuelle Routen beendet.
+
+Ein eigenes natives Boss-Panel zeigt 1–12 nächste Spawns mit Porträts/Countdowns. Größe, Position
+und Klicksperre sind im Boss-Rush-Tab konfigurierbar. Namen übernehmen die Overlay-/Spielsprache;
+Aufnahme-Sichtbarkeit entspricht den gemeinsamen Overlay-Settings. Die bisherige Pet-Overlay-
+Sperre und ihre Hotkeys bleiben unabhängig.
+
+Ausgewählte Bosse können vor ihrem Spawn und nach bestätigtem Spawn alarmieren. Vorwarnzeit,
+Sichtdauer und optionaler Ton sind einstellbar (Ton standardmäßig aus; keine Änderung am
+Soul-Drop-Feedback). Drei Alerts parallel, weitere in einer Warteschlange. Veraltete Listen
+alarmieren nicht. Der Test-Button zeigt eine Vorschau ohne Spiel-Eingaben oder Aufnahme.

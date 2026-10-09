@@ -2,6 +2,23 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.2.8 – 2026-10-09
+
+- **Neu:** Boss Rush mit eigenem Tab. Soulcrest liest die Field-Boss-Spawns passiv aus dem Spielverkehr
+  (Bossliste im Spiel einmal öffnen), führt dich in Spawn-Reihenfolge von Boss zu Boss und hängt den
+  nächsten Spawn als gestrichelte Linie an. Auch rechts im Kartenmenü schaltbar.
+- **Neu:** Boss-Overlay mit den nächsten Spawns, Porträts und Countdowns; Anzahl, Größe und Position
+  einstellbar.
+- **Neu:** Alerts für ausgewählte Bosse mit Vorwarnzeit, Anzeigedauer und optionalem Signalton.
+- **Neu:** Aufklappbare Lootpools pro Boss mit Item-Icons, deutschen/englischen Namen und Suche.
+- **Verbessert:** Boss-Timer bleiben nach Teleports und einem Neustart erhalten.
+- **Verbessert:** Modernisierte Ingame-Overlays. Loot-Kacheln zeigen ihre Seltenheit in Farbe; der
+  Loot-Fokus folgt dem markierten Pet oder dem Fortschrittsziel.
+- **Verbessert:** Strg+Alt+L entsperrt Loot- und Boss-Overlay gemeinsam zum Verschieben.
+- **Verbessert:** Das Setup zeigt während der Installation des Windows-OCR-Pakets einen laufenden Balken
+  und den Hinweis, dass das einige Minuten dauern kann.
+- **Geändert:** Der Tab „Pet-Fenster“ heißt jetzt „Pet Scan“.
+
 ## 0.2.7 – 2026-10-08
 
 - **Neu:** Alle Fortschrittsscans (Pets, Kibelisken, Dungeons, Garnisonen) funktionieren mit dem deutschen

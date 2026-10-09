@@ -76,6 +76,24 @@ public sealed class MapTargetsService
     /// <summary>Progression mode: the spawn the player is led to right now (not saved; white line).</summary>
     public MapTarget? Progression { get; private set; }
 
+    /// <summary>Transient red boss target. Never saved, chained, or completed on arrival.</summary>
+    public MapTarget? BossRush { get; private set; }
+    public MapTarget? BossPreview { get; private set; }
+
+    public void SetBossPreview(MapTarget? target)
+    {
+        if (target == BossPreview) return;
+        BossPreview = target;
+        Changed?.Invoke();
+    }
+
+    public void SetBossRush(MapTarget? target)
+    {
+        if (target == BossRush) return;
+        BossRush = target;
+        Changed?.Invoke();
+    }
+
     public void SetProgression(MapTarget? target)
     {
         if (target == Progression)

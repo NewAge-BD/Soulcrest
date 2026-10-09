@@ -1,0 +1,39 @@
+@inject SettingsService Settings
+
+<article class="boss-loot-card">
+    <button type="button" class="boss-loot-heading" aria-expanded="@(_open ? "true" : "false")" @onclick="@(() => _open = !_open)">
+        @if (Boss.Icon is { } icon) { <img src="@ImageUrl(icon)" alt="" loading="lazy" /> }
+        <strong>@Boss.Name(Settings.Current.NameLanguage)</strong>
+        <span class="note">@(Boss.Loot is { } pool ? UiText.F("{0} Items", pool.Count) : UiText.T("Lootpool unbekannt"))</span>
+        <span aria-hidden="true">@(_open ? "▾" : "▸")</span>
+    </button>
+    @if (_open)
+    {
+        <div class="boss-loot-content">
+            <a href="https://aion2.gaming.tools/npcs/@Boss.NpcId" target="_blank" rel="noopener noreferrer">@UiText.T("Lootpool auf gaming.tools") ↗</a>
+            @if (Boss.Loot is null) { <p class="note">@UiText.T("Für diesen Boss liegen noch keine Lootdaten vor.")</p> }
+            else if (Boss.Loot.Count == 0) { <p class="note">@UiText.T("Die Quelle listet für diesen Boss keine Items.")</p> }
+            else
+            {
+                <div class="boss-loot-grid">
+                    @foreach (var item in Boss.Loot.OrderBy(i => i.Name(Settings.Current.NameLanguage)))
+                    {
+                        <a class="boss-loot-item rarity-@item.RarityStyle" href="https://aion2.gaming.tools/items/@item.Id" target="_blank" rel="noopener noreferrer" title="@item.Name(Settings.Current.NameLanguage)">
+                            @if (item.Icon is { } image) { <img src="@ImageUrl(image)" alt="" loading="lazy" /> }
+                            else { <span class="boss-icon-fallback" aria-hidden="true">◆</span> }
+                            <span class="boss-loot-copy"><span>@item.Name(Settings.Current.NameLanguage)</span><small>@item.RarityLabel</small></span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired] public BossPlace Boss { get; set; } = default!;
+    [Parameter] public bool InitiallyExpanded { get; set; }
+    private bool _open;
+    protected override void OnInitialized() => _open = InitiallyExpanded;
+    private static string ImageUrl(string icon) => $"https://{MainForm.MapDataHost}/{icon}";
+}

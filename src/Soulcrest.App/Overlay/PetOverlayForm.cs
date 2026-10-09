@@ -15,14 +15,21 @@ public sealed class PetOverlayForm : Form
 {
     // A registered soul stays visible for a minute, with the pet's portrait (user request 2026-10-03).
     private static readonly TimeSpan ToastDuration = TimeSpan.FromMinutes(1);
-    private const int ToastHeight = 44;
-    // A pet row: round portrait, name above a progress bar with the count inside (user request 2026-10-04).
-    private const int RowHeight = 44;
+    private const int RowHeight = 52;
+    private static readonly Color PanelColor = Color.FromArgb(17, 24, 32);
+    private static readonly Color CardColor = Color.FromArgb(25, 35, 46);
+    private static readonly Color LineColor = Color.FromArgb(44, 59, 73);
+    private static readonly Color AccentColor = Color.FromArgb(94, 234, 212);
+    internal sealed record LootRow(string Name, string Genus, int Level, bool IsMax, int Current, int Needed,
+        Image? Icon = null, int Quantity = 0, int Alpha = 255);
+    private IReadOnlyList<LootRow> _focusRows = [];
+    private IReadOnlyList<LootRow> _lootRows = [];
     private readonly Dictionary<string, Image?> _icons = [];
     private readonly ProgressService _progress;
     private readonly TrackerService _tracker;
     private readonly SettingsService _settings;
     private readonly PetScanService _scan;
+    private readonly MapTargetsService _targets;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 250 };
     private bool _locked = true;
     private Point? _dragStart;
@@ -31,7 +38,7 @@ public sealed class PetOverlayForm : Form
     private const int BaseWidth = 360, ScanWidth = 380, CornerGrip = 16;
     private const double MinScale = 0.6, MaxScale = 2.5;
     private double _scale;
-    private int _logicalHeight = 120;
+    private int _logicalHeight = LootLogicalHeight(0, 0);
     private Corner _resizing;
     private Point _resizeFrom;
     private Rectangle _resizeBounds;
@@ -44,12 +51,13 @@ public sealed class PetOverlayForm : Form
     private bool _wasVisibleBeforeScan;
     private Point _locationBeforeScan;
 
-    public PetOverlayForm(ProgressService progress, TrackerService tracker, SettingsService settings, PetScanService scan)
+    public PetOverlayForm(ProgressService progress, TrackerService tracker, SettingsService settings, PetScanService scan, MapTargetsService targets)
     {
         _progress = progress;
         _tracker = tracker;
         _settings = settings;
         _scan = scan;
+        _targets = targets;
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
@@ -57,11 +65,12 @@ public sealed class PetOverlayForm : Form
         Location = new Point(settings.Current.OverlayX, settings.Current.OverlayY);
         _scale = Math.Clamp(settings.Current.OverlayScale, MinScale, MaxScale);
         ApplySize();
-        BackColor = Color.FromArgb(16, 20, 28);
-        Opacity = 0.88;
+        BackColor = PanelColor;
+        Opacity = 0.94;
         DoubleBuffered = true;
         _timer.Tick += (_, _) => RefreshLayout();
         _timer.Start();
+        RefreshLayout();
     }
 
     public bool Locked => _locked;
@@ -82,6 +91,7 @@ public sealed class PetOverlayForm : Form
     {
         base.OnHandleCreated(e);
         NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings);
+        ApplyLockState();
         _settings.Changed += ApplyCaptureVisibility;
     }
 
@@ -101,12 +111,18 @@ public sealed class PetOverlayForm : Form
     public void ToggleLock()
     {
         _locked = !_locked;
+        if (_locked) FinishDrag();
+        ApplyLockState();
+        Cursor = _locked ? Cursors.Default : Cursors.SizeAll;
+        Invalidate();
+    }
+
+    private void ApplyLockState()
+    {
+        if (!IsHandleCreated) return;
         var style = NativeMethods.GetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE);
         style = _locked ? style | NativeMethods.WS_EX_TRANSPARENT : style & ~(nint)NativeMethods.WS_EX_TRANSPARENT;
         NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE, style);
-        if (_locked)
-            Cursor = Cursors.Default;
-        Invalidate();
     }
 
     private int LogicalWidth => _scanMode ? ScanWidth : BaseWidth;
@@ -117,6 +133,15 @@ public sealed class PetOverlayForm : Form
         var size = new Size((int)Math.Round(LogicalWidth * _scale), (int)Math.Round(_logicalHeight * _scale));
         if (Size != size)
             Size = size;
+        UpdateWindowShape();
+    }
+
+    private void UpdateWindowShape()
+    {
+        using var path = RoundedRectangle(new RectangleF(0, 0, Width, Height), (float)(12 * _scale));
+        var previous = Region;
+        Region = new Region(path);
+        previous?.Dispose();
     }
 
     private void SetLogicalHeight(int height)
@@ -151,13 +176,14 @@ public sealed class PetOverlayForm : Form
             return;
         _resizing = CornerAt(e.Location);
         if (_resizing == Corner.None)
-        {
             _dragStart = e.Location;
-            return;
+        else
+        {
+            _resizeFrom = Cursor.Position;
+            _resizeBounds = Bounds;
+            _resizeScale = _scale;
         }
-        _resizeFrom = Cursor.Position;
-        _resizeBounds = Bounds;
-        _resizeScale = _scale;
+        Capture = true;
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -193,15 +219,29 @@ public sealed class PetOverlayForm : Form
         var x = _resizing.HasFlag(Corner.Left) ? _resizeBounds.Right - width : _resizeBounds.X;
         var y = _resizing.HasFlag(Corner.Top) ? _resizeBounds.Bottom - height : _resizeBounds.Y;
         Bounds = new Rectangle(x, y, width, height);
+        UpdateWindowShape();
         Invalidate();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
+        base.OnMouseUp(e);
+        FinishDrag();
+    }
+
+    protected override void OnMouseCaptureChanged(EventArgs e)
+    {
+        base.OnMouseCaptureChanged(e);
+        if (!Capture) FinishDrag();
+    }
+
+    private void FinishDrag()
+    {
         if (_dragStart is null && _resizing == Corner.None)
             return;
         _dragStart = null;
         _resizing = Corner.None;
+        Capture = false;
         _settings.Update(s =>
         {
             s.OverlayX = Location.X;
@@ -221,9 +261,15 @@ public sealed class PetOverlayForm : Form
             Invalidate();
             return;
         }
-        var focus = _progress.FocusPets().Take(8).Count();
-        var toasts = RecentToasts().Count;
-        SetLogicalHeight(34 + (focus == 0 ? 26 : focus * RowHeight) + toasts * (ToastHeight + 2) + 26);
+        var focus = SelectFocusTarget(_settings.Current, _targets.Targets, _targets.Progression);
+        _focusRows = focus?.PetId is { } petId ? [BuildRow(petId, target: focus)] : [];
+        _lootRows = RecentToasts().Select(toast =>
+        {
+            var left = ToastDuration - (DateTimeOffset.Now - toast.Last);
+            var alpha = (int)Math.Clamp(left.TotalSeconds / 10 * 255, 60, 255);
+            return BuildRow(toast.PetId, toast.Quantity, alpha);
+        }).ToList();
+        SetLogicalHeight(LootLogicalHeight(_focusRows.Count, _lootRows.Count));
         Invalidate();
     }
 
@@ -233,6 +279,7 @@ public sealed class PetOverlayForm : Form
         _scanMode = scanning;
         if (scanning)
         {
+            FinishDrag();
             _wasVisibleBeforeScan = Visible;
             _locationBeforeScan = Location;
             var area = _scan.CaptureRegion;
@@ -299,139 +346,216 @@ public sealed class PetOverlayForm : Form
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
         g.ScaleTransform((float)_scale, (float)_scale); // laid out at 360 px, everything scales along
-        using var title = new Font("Segoe UI Semibold", 10f);
-        using var body = new Font("Segoe UI", 9.5f);
-        using var small = new Font("Segoe UI", 8.5f);
-        using var accent = new SolidBrush(Color.FromArgb(94, 234, 212));
-        using var dim = new SolidBrush(Color.FromArgb(150, 160, 175));
-        using var white = new SolidBrush(Color.FromArgb(235, 240, 245));
-        using var border = new Pen(_locked ? Color.FromArgb(60, 70, 90) : Color.FromArgb(250, 204, 21), _locked ? 1 : 2);
-        g.DrawRectangle(border, 0, 0, LogicalWidth - 1, _logicalHeight - 1);
-        if (!_locked && !_scanMode)
-            DrawCornerGrips(g);
         if (_scanMode)
         {
+            using var title = new Font("Segoe UI Semibold", 10f);
+            using var body = new Font("Segoe UI", 9.5f);
+            using var small = new Font("Segoe UI", 8.5f);
+            using var border = new Pen(LineColor);
+            using var frame = RoundedRectangle(new RectangleF(.5f, .5f, LogicalWidth - 1, _logicalHeight - 1), 12);
+            g.DrawPath(border, frame);
             PaintScanMode(g, title, body, small);
             return;
         }
-
-        g.DrawString(UiText.T("Soulcrest"), title, accent, 10, 7);
-        var state = _tracker.Running ? "● Netzwerk" : "○ Erfassung aus";
-        g.DrawString(UiText.T(_locked ? state : "entsperrt – ziehen, Ecken skalieren, Strg+Alt+L sperrt"), small, _tracker.Running ? accent : dim, 90, 9);
-
-        var y = 34;
-        var focus = _progress.FocusPets().Take(8).ToList();
-        if (focus.Count == 0)
-        {
-            g.DrawString(UiText.T("Keine Fokus-Pets – in der Pet-Liste ★ setzen"), small, dim, 10, y + 4);
-            y += 26;
-        }
-        foreach (var pet in focus)
-        {
-            DrawPetRow(g, pet.Id, y, 255, null);
-            y += RowHeight;
-        }
-
-        foreach (var toast in RecentToasts())
-        {
-            // Fades out over the last 10 seconds of its minute.
-            var left = ToastDuration - (DateTimeOffset.Now - toast.Last);
-            var alpha = (int)Math.Clamp(left.TotalSeconds / 10 * 255, 60, 255);
-            using var toastBack = new SolidBrush(Color.FromArgb(alpha * 40 / 255, 94, 234, 212));
-            g.FillRectangle(toastBack, 4, y, LogicalWidth - 8, ToastHeight);
-            DrawPetRow(g, toast.PetId, y, alpha, $"+{toast.Quantity}");
-            y += ToastHeight + 2;
-        }
-        g.DrawString(UiText.T("Strg+Alt+P ein/aus · Strg+Alt+L verschieben"), small, dim, 10, _logicalHeight - 20);
-    }
-
-    /// <summary>Unlocked: yellow angles in the corners show where the overlay can be resized.</summary>
-    private void DrawCornerGrips(Graphics g)
-    {
-        using var pen = new Pen(Color.FromArgb(250, 204, 21), 3);
-        const int length = 12;
-        int right = LogicalWidth - 2, bottom = _logicalHeight - 2;
-        g.DrawLines(pen, [new Point(1, 1 + length), new Point(1, 1), new Point(1 + length, 1)]);
-        g.DrawLines(pen, [new Point(right - length, 1), new Point(right, 1), new Point(right, 1 + length)]);
-        g.DrawLines(pen, [new Point(1, bottom - length), new Point(1, bottom), new Point(1 + length, bottom)]);
-        g.DrawLines(pen, [new Point(right - length, bottom), new Point(right, bottom), new Point(right, bottom - length)]);
+        PaintLootPanel(g, _focusRows, _lootRows, _tracker.Running, _locked);
     }
 
     /// <summary>
-    /// One pet: round portrait (genus-coloured ring) on the left, then the name with the level and
-    /// <paramref name="badge"/> (e.g. "+2") above a progress bar; inside the bar the souls of this level.
+    /// Manual, currently active pet stops precede progression. A chained future stop waits until its
+    /// predecessor is gone; independent targets keep their marking order, with the current map first.
+    /// A shared display name alone is never enough to turn a non-pet mark into a focus pet.
     /// </summary>
-    private void DrawPetRow(Graphics g, string petId, int y, int alpha, string? badge)
+    internal static MapTarget? SelectFocusTarget(AppSettings settings, IReadOnlyList<MapTarget> targets, MapTarget? progression)
+    {
+        var marked = targets.Select(t => t.Id).ToHashSet(StringComparer.Ordinal);
+        var active = targets.Where(t => !string.IsNullOrWhiteSpace(t.PetId) && (t.After is null || !marked.Contains(t.After))).ToList();
+        return active.FirstOrDefault(t => t.MapId == settings.LastMap) ?? active.FirstOrDefault()
+            ?? (settings.ProgressionEnabled && !string.IsNullOrWhiteSpace(progression?.PetId) ? progression : null);
+    }
+
+    internal static int LootLogicalHeight(int focus, int drops) => focus == 0 && drops == 0 ? 54
+        : 54 + (focus == 0 ? 0 : 24 + focus * RowHeight + 8) + (drops == 0 ? 0 : 24 + drops * RowHeight + 8) + 28;
+
+    /// <summary>One layout for the live panel and offline previews; rows are a consistent progress snapshot.</summary>
+    internal static void PaintLootPanel(Graphics g, IReadOnlyList<LootRow> focus, IReadOnlyList<LootRow> drops, bool running, bool locked)
+    {
+        var height = LootLogicalHeight(focus.Count, drops.Count);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        using var background = new SolidBrush(PanelColor);
+        using var frame = RoundedRectangle(new RectangleF(.5f, .5f, BaseWidth - 1, height - 1), 12);
+        using var border = new Pen(locked ? LineColor : Color.FromArgb(250, 204, 21));
+        g.FillPath(background, frame);
+        g.DrawPath(border, frame);
+        using var title = new Font("Segoe UI Semibold", 14, GraphicsUnit.Pixel);
+        using var small = new Font("Segoe UI", 11, GraphicsUnit.Pixel);
+        using var white = new SolidBrush(Color.FromArgb(235, 240, 245));
+        using var dim = new SolidBrush(Color.FromArgb(161, 176, 190));
+        using var accent = new SolidBrush(AccentColor);
+        using var line = new Pen(LineColor);
+        g.DrawString("Soulcrest", title, white, 14, 10);
+        g.DrawString(UiText.T("Loot & Pet-Fortschritt"), small, dim, 14, 30);
+        var state = UiText.T(running ? "Netzwerk" : "Erfassung aus");
+        var stateWidth = g.MeasureString(state, small).Width + 28;
+        var stateRect = new RectangleF(BaseWidth - 14 - stateWidth, 13, stateWidth, 24);
+        using (var statePlate = new SolidBrush(running ? Color.FromArgb(24, 57, 58) : CardColor))
+        using (var statePath = RoundedRectangle(stateRect, 12))
+            g.FillPath(statePlate, statePath);
+        g.FillEllipse(running ? accent : dim, stateRect.X + 9, stateRect.Y + 9, 5, 5);
+        g.DrawString(state, small, running ? accent : dim, stateRect.X + 19, stateRect.Y + 5);
+        if (focus.Count == 0 && drops.Count == 0)
+        {
+            if (!locked) DrawCornerGrips(g, BaseWidth, height);
+            return;
+        }
+        g.DrawLine(line, 14, 53, BaseWidth - 14, 53);
+
+        var y = 54;
+        if (focus.Count > 0)
+        {
+            DrawSection(UiText.T("Fokus"), null);
+            foreach (var row in focus)
+            {
+                DrawPetRow(g, row, y);
+                y += RowHeight;
+            }
+            y += 8;
+        }
+        if (drops.Count > 0)
+        {
+            DrawSection(UiText.T("Letzte Beute"), $"+{drops.Sum(row => row.Quantity)}", highlight: true);
+            foreach (var row in drops)
+            {
+                DrawPetRow(g, row, y);
+                y += RowHeight;
+            }
+            y += 8;
+        }
+        g.DrawLine(line, 14, y, BaseWidth - 14, y);
+        g.DrawString(UiText.T(locked ? "Strg+Alt+P ein/aus · Strg+Alt+L verschieben" : "Verschieben · Ecken skalieren · Strg+Alt+L sperrt"),
+            small, dim, new RectangleF(14, y + 7, BaseWidth - 28, 18));
+        if (!locked) DrawCornerGrips(g, BaseWidth, height);
+
+        void DrawSection(string heading, string? metric, bool highlight = false)
+        {
+            g.DrawString(heading, small, dim, 14, y + 5);
+            if (metric is not null)
+            {
+                var width = g.MeasureString(metric, small).Width;
+                g.DrawString(metric, small, highlight ? accent : dim, BaseWidth - 14 - width, y + 5);
+            }
+            y += 24;
+        }
+    }
+
+    /// <summary>Unlocked: yellow angles in the corners show where the overlay can be resized.</summary>
+    private static void DrawCornerGrips(Graphics g, int width, int height)
+    {
+        using var pen = new Pen(Color.FromArgb(250, 204, 21), 3);
+        const int length = 12;
+        const int inset = 6;
+        int right = width - 7, bottom = height - 7;
+        g.DrawLines(pen, [new Point(inset, inset + length), new Point(inset, inset), new Point(inset + length, inset)]);
+        g.DrawLines(pen, [new Point(right - length, inset), new Point(right, inset), new Point(right, inset + length)]);
+        g.DrawLines(pen, [new Point(inset, bottom - length), new Point(inset, bottom), new Point(inset + length, bottom)]);
+        g.DrawLines(pen, [new Point(right - length, bottom), new Point(right, bottom), new Point(right, bottom - length)]);
+    }
+
+    private LootRow BuildRow(string petId, int quantity = 0, int alpha = 255, MapTarget? target = null)
     {
         var pet = _progress.Catalog.Find(petId);
         var souls = _progress.Souls(petId);
         var thresholds = _progress.Thresholds;
-        var isMax = thresholds.IsMax(souls);
-        var level = thresholds.Level(souls);
-        var needed = thresholds.NeededForNextLevel(souls);
-        var inLevel = thresholds.SoulsInLevel(souls);
-        var genusColor = GenusColor(pet?.Genus ?? "");
-        Color A(Color c) => Color.FromArgb(alpha * c.A / 255, c);
+        var monster = target is not null && _progress.MapDataDirectory is { } data
+            ? MapPetMarkers.MonsterAt(data, target.MapId, petId, target.X, target.Y) : null;
+        return new LootRow(RowName(_settings.Current, monster ?? MonsterName(petId, target?.MapId), pet, target?.Name ?? petId), pet?.Genus ?? "",
+            thresholds.Level(souls), thresholds.IsMax(souls), thresholds.SoulsInLevel(souls),
+            thresholds.NeededForNextLevel(souls), PetIcon(petId), quantity, alpha);
+    }
 
-        const int size = 34;
-        var icon = new Rectangle(8, y + (RowHeight - size) / 2, size, size);
-        using (var back = new SolidBrush(A(Color.FromArgb(30, 36, 48))))
-            g.FillEllipse(back, icon);
-        if (PetIcon(petId) is { } image)
+    private static void DrawPetRow(Graphics g, LootRow row, int y)
+    {
+        Color A(Color color) => Color.FromArgb(row.Alpha * color.A / 255, color);
+        var genus = GenusColor(row.Genus);
+        using var card = new SolidBrush(A(CardColor));
+        using var cardShape = RoundedRectangle(new RectangleF(10, y, BaseWidth - 20, RowHeight - 4), 8);
+        g.FillPath(card, cardShape);
+        using var edge = new Pen(A(row.Quantity > 0 ? Color.FromArgb(41, 89, 88) : LineColor));
+        g.DrawPath(edge, cardShape);
+
+        var icon = new Rectangle(18, y + 6, 36, 36);
+        using (var back = new SolidBrush(A(PanelColor))) g.FillEllipse(back, icon);
+        if (row.Icon is { } image)
         {
             var state = g.Save();
             using var clip = new GraphicsPath();
             clip.AddEllipse(icon);
             g.SetClip(clip);
             using var attributes = new System.Drawing.Imaging.ImageAttributes();
-            attributes.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = alpha / 255f });
+            attributes.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = row.Alpha / 255f });
             g.DrawImage(image, icon, 0, 0, image.Width, image.Height, GraphicsUnit.Pixel, attributes);
             g.Restore(state);
         }
-        using (var ring = new Pen(A(genusColor), 2))
-            g.DrawEllipse(ring, icon);
-
-        var x = icon.Right + 8;
-        var right = LogicalWidth - 10;
-        using var nameFont = new Font("Segoe UI Semibold", 9.5f);
-        using var smallFont = new Font("Segoe UI", 8f);
-        using var nameBrush = new SolidBrush(A(Color.FromArgb(235, 240, 245)));
-        using var dimBrush = new SolidBrush(A(Color.FromArgb(150, 160, 175)));
-        using var accentBrush = new SolidBrush(A(Color.FromArgb(94, 234, 212)));
-        var levelText = isMax ? "MAX" : level == 0 ? UiText.T("gesperrt") : UiText.F("Stufe {0}", level);
-        var levelSize = g.MeasureString(levelText, smallFont);
-        g.DrawString(UiText.T(levelText), smallFont, isMax ? accentBrush : dimBrush, right - levelSize.Width, y + 4);
-        var nameRight = right - levelSize.Width - 4;
-        if (badge is not null)
+        else
         {
-            var badgeSize = g.MeasureString(badge, nameFont);
-            g.DrawString(badge, nameFont, accentBrush, nameRight - badgeSize.Width, y + 3);
-            nameRight -= badgeSize.Width + 2;
+            using var fallbackFont = new Font("Segoe UI", 16, GraphicsUnit.Pixel);
+            using var fallbackBrush = new SolidBrush(A(genus));
+            using var center = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            g.DrawString("◆", fallbackFont, fallbackBrush, icon, center);
         }
-        var name = RowName(_settings.Current, MonsterName(petId), pet, petId);
-        using (var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
-            g.DrawString(name, nameFont, nameBrush, new RectangleF(x, y + 3, Math.Max(10, nameRight - x), nameFont.Height), format);
+        using (var ring = new Pen(A(genus), 1.5f)) g.DrawEllipse(ring, icon);
 
-        var bar = new Rectangle(x, y + 22, right - x, 16);
-        using (var trough = new SolidBrush(A(Color.FromArgb(45, 52, 66))))
-            g.FillRectangle(trough, bar);
-        var fill = isMax || needed == 0 ? 1.0 : Math.Clamp((double)inLevel / needed, 0, 1);
+        const int x = 64, right = BaseWidth - 20;
+        using var nameFont = new Font("Segoe UI Semibold", 13, GraphicsUnit.Pixel);
+        using var smallFont = new Font("Segoe UI", 10.5f, GraphicsUnit.Pixel);
+        using var countFont = new Font("Segoe UI Semibold", 11, GraphicsUnit.Pixel);
+        using var white = new SolidBrush(A(Color.FromArgb(235, 240, 245)));
+        using var dim = new SolidBrush(A(Color.FromArgb(161, 176, 190)));
+        using var accent = new SolidBrush(A(AccentColor));
+        var nameRight = (float)right;
+        if (row.Quantity > 0)
+        {
+            var quantity = $"+{row.Quantity}";
+            var width = g.MeasureString(quantity, countFont).Width + 12;
+            var badge = new RectangleF(right - width, y + 5, width, 19);
+            using var badgeBack = new SolidBrush(A(Color.FromArgb(24, 66, 64)));
+            using var badgeShape = RoundedRectangle(badge, 6);
+            g.FillPath(badgeBack, badgeShape);
+            g.DrawString(quantity, countFont, accent, badge.X + 6, badge.Y + 2);
+            nameRight = badge.X - 6;
+        }
+        using (var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
+            g.DrawString(row.Name, nameFont, white, new RectangleF(x, y + 5, Math.Max(10, nameRight - x), 18), format);
+        var levelText = row.IsMax ? "MAX" : row.Level == 0 ? UiText.T("gesperrt") : UiText.F("Stufe {0}", row.Level);
+        g.DrawString(levelText, smallFont, row.IsMax ? accent : dim, x, y + 25);
+        if (!row.IsMax)
+        {
+            var count = $"{row.Current} / {row.Needed}";
+            var countWidth = g.MeasureString(count, countFont).Width;
+            g.DrawString(count, countFont, white, right - countWidth, y + 24);
+        }
+        var bar = new RectangleF(x, y + 40, right - x, 4);
+        using (var trough = new SolidBrush(A(Color.FromArgb(43, 55, 69))))
+        using (var barShape = RoundedRectangle(bar, 2)) g.FillPath(trough, barShape);
+        var fill = row.IsMax || row.Needed == 0 ? 1 : Math.Clamp((double)row.Current / row.Needed, 0, 1);
         if (fill > 0)
         {
-            using var fillBrush = new LinearGradientBrush(bar, A(Color.FromArgb(200, genusColor)), A(genusColor), LinearGradientMode.Horizontal);
-            g.FillRectangle(fillBrush, bar.X, bar.Y, Math.Max(1, (int)(bar.Width * fill)), bar.Height);
+            using var fillBrush = new SolidBrush(A(row.IsMax ? AccentColor : genus));
+            using var fillShape = RoundedRectangle(new RectangleF(bar.X, bar.Y, Math.Max(1, (float)(bar.Width * fill)), bar.Height), 2);
+            g.FillPath(fillBrush, fillShape);
         }
-        using (var frame = new Pen(A(Color.FromArgb(70, 80, 100))))
-            g.DrawRectangle(frame, bar);
-        var count = isMax ? "MAX" : $"{inLevel} / {needed}";
-        using var countFont = new Font("Segoe UI Semibold", 8.5f);
-        using var center = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        using var shadow = new SolidBrush(A(Color.FromArgb(200, 0, 0, 0)));
-        var textRect = new RectangleF(bar.X, bar.Y, bar.Width, bar.Height);
-        textRect.Offset(1, 1);
-        g.DrawString(count, countFont, shadow, textRect, center);
-        textRect.Offset(-1, -1);
-        g.DrawString(count, countFont, nameBrush, textRect, center);
+    }
+
+    private static GraphicsPath RoundedRectangle(RectangleF bounds, float radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height));
+        path.AddArc(bounds.X, bounds.Y, diameter, diameter, 180, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Y, diameter, diameter, 270, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 
     /// <summary>
@@ -443,11 +567,11 @@ public sealed class PetOverlayForm : Form
     internal static string RowName(AppSettings settings, MonsterName? monster, PetDefinition? pet, string petId) =>
         monster?.In(settings.LootNameLanguage) ?? pet?.DisplayName(settings.LootNameLanguage) ?? petId;
 
-    private MonsterName? MonsterName(string petId)
+    private MonsterName? MonsterName(string petId, string? preferredMap = null)
     {
         if (_progress.MapDataDirectory is not { } mapdata)
             return null;
-        var maps = new[] { _settings.Current.LastMap, Factions.HomeMap(_settings.Current.Faction) }.OfType<string>()
+        var maps = new[] { preferredMap, _settings.Current.LastMap, Factions.HomeMap(_settings.Current.Faction) }.OfType<string>()
             .Concat(_progress.Maps.Select(m => m.Id)).Distinct(StringComparer.Ordinal);
         foreach (var map in maps)
         {
@@ -503,7 +627,11 @@ public sealed class PetOverlayForm : Form
     protected override void Dispose(bool disposing)
     {
         if (disposing)
+        {
+            _timer.Stop();
             _timer.Dispose();
+            foreach (var image in _icons.Values) image?.Dispose();
+        }
         base.Dispose(disposing);
     }
 }

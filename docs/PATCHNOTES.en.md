@@ -2,6 +2,23 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.2.8 – 2026-10-09
+
+- **New:** Boss Rush with its own tab. Soulcrest reads the field boss spawns passively from the game
+  traffic (open the in-game boss list once), leads you from boss to boss in spawn order and links the
+  next spawn as a dashed line. It can also be toggled in the right map sidebar.
+- **New:** Boss overlay with the upcoming spawns, portraits and countdowns; count, size and position
+  adjustable.
+- **New:** Alerts for selected bosses with advance warning, display duration and optional sound.
+- **New:** Expandable loot pools for each boss with item icons, German/English names and search.
+- **Improved:** Boss timers survive teleports and an app restart.
+- **Improved:** Modern in-game overlays. Loot tiles show their rarity in colour; the loot focus follows
+  the marked pet or the progression target.
+- **Improved:** Ctrl+Alt+L unlocks the loot and boss overlays together for moving.
+- **Improved:** While setup installs the Windows OCR package, the bar keeps moving and a note says this
+  can take a few minutes.
+- **Changed:** The "Pet window" tab is now called "Pet Scan".
+
 ## 0.2.7 – 2026-10-08
 
 - **New:** All progress scans (pets, Kibelisks, dungeons, strongholds) work with the German game client.

@@ -34,9 +34,35 @@ public sealed class MapResourceMarkersTests
             Assert.Equal("Resources/Herb/Azpha", resources[0].KindKey); // legend: Herb → Azpha
             Assert.Null(resources[2].KindKey);
             Assert.Equal([new PetSpawn("klaw", 90, 100, "icons/pet.png")], MapPetMarkers.Load(path));
-            Assert.Equal([new PetSpawn("klaw", 110, 120, null)], MapPetMarkers.LoadSoulMonsters(path)); // soul monster of Klaw
+            Assert.Equal([new PetSpawn("klaw", 110, 120, null, new MonsterName("Klaw Scout", null))], MapPetMarkers.LoadSoulMonsters(path)); // soul monster of Klaw
         }
         finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void RightClickedMonsterUsesItsExactPositionAndLocalizedSourceName()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "soulcrest-marked-monster-" + Guid.NewGuid());
+        var mapId = "marked-monster-" + Guid.NewGuid().ToString("N");
+        var map = Path.Combine(directory, mapId);
+        Directory.CreateDirectory(map);
+        File.WriteAllText(Path.Combine(map, "data.js"), $$"""
+            window.SoulcrestMaps["{{mapId}}"] = {"categories":[{"name":"Varian","group":"Pets","icon":-1},{"name":"Varian","group":"Monsters","icon":-1}],"icons":[],
+             "markers":[[0,10,20,"Pet A",null,-1,"pet-a",{"en":"Source A (28×)","de":"Quelle A (28×)"}],
+                        [1,30,40,"Source B","Quelle B",-1,"pet-a"],
+                        [1,50,60,"Source C",null,-1,"pet-a"],
+                        [1,70,80,"Unrelated source",null,-1,null]]};
+            """);
+        try
+        {
+            Assert.Equal("Quelle A", MapPetMarkers.MonsterAt(directory, mapId, "pet-a", 10, 20)?.In("de"));
+            Assert.Equal("Quelle B", MapPetMarkers.MonsterAt(directory, mapId, "pet-a", 30, 40)?.In("de"));
+            Assert.Equal("Source B", MapPetMarkers.MonsterAt(directory, mapId, "pet-a", 30, 40)?.In("en"));
+            Assert.Equal("Source C", MapPetMarkers.MonsterAt(directory, mapId, "pet-a", 50, 60)?.In("de"));
+            Assert.Null(MapPetMarkers.MonsterAt(directory, mapId, "another-pet", 30, 40));
+            Assert.Null(MapPetMarkers.MonsterAt(directory, mapId, "pet-a", 70, 80));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
     }
 
     [Fact]

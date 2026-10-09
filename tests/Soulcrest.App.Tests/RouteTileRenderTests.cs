@@ -27,6 +27,7 @@ public sealed class RouteTileRenderTests
         services.AddSingleton<TrackerService>();
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
+        services.AddSingleton<BossRushService>();
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<UiState>();
         services.AddSingleton<UpdateService>();

@@ -78,6 +78,7 @@ german.PrereqOcrDe=Deutsches OCR-Paket installieren (nur für den deutschen Spie
 german.PrereqDownloadFailed=Npcap konnte nicht heruntergeladen werden: %1%n%nDu kannst es später selbst von https://npcap.com installieren. Die Installation von Soulcrest geht weiter.
 german.PrereqInstallingOcr=Windows-OCR-Paket %1 wird installiert …
 german.PrereqInstallingNpcap=Npcap-Installer läuft …
+german.PrereqOcrPatience=Windows lädt das Sprachpaket herunter und installiert es. Das kann einige Minuten dauern – das Setup läuft weiter, bitte nicht abbrechen.
 german.PrereqDone=Voraussetzungen:
 german.PrereqNpcapOk=Npcap: installiert
 german.PrereqNpcapMissing=Npcap: fehlt noch (https://npcap.com); ohne Npcap kein Loot-Tracking
@@ -94,6 +95,7 @@ english.PrereqOcrDe=Install the German OCR package (only for the German game cli
 english.PrereqDownloadFailed=Npcap could not be downloaded: %1%n%nYou can install it later from https://npcap.com. Soulcrest setup continues.
 english.PrereqInstallingOcr=Installing the Windows OCR package %1 …
 english.PrereqInstallingNpcap=Npcap installer running …
+english.PrereqOcrPatience=Windows is downloading and installing the language package. This can take several minutes – setup is still working, please do not cancel.
 english.PrereqDone=Requirements:
 english.PrereqNpcapOk=Npcap: installed
 english.PrereqNpcapMissing=Npcap: still missing (https://npcap.com); no loot tracking without Npcap
@@ -227,15 +229,25 @@ begin
   end;
 end;
 
+// DISM downloads the package from Windows Update: several minutes in which the bar stood at 100 % and
+// setup looked stuck (user report 2026-10-09). The bar runs as a marquee meanwhile (setup keeps pumping
+// messages while it waits) and a second line says that this takes a while.
 procedure InstallOcr(Tag: String);
 var
   ErrorCode: Integer;
 begin
   WizardForm.StatusLabel.Caption := FmtMessage(CustomMessage('PrereqInstallingOcr'), [Tag]);
-  if not ShellExec('runas', ExpandConstant('{sys}\dism.exe'),
-    '/Online /Add-Capability /CapabilityName:Language.OCR~~~' + Tag + '~0.0.1.0 /NoRestart /Quiet',
-    '', SW_HIDE, ewWaitUntilTerminated, ErrorCode) then
-    Log('DISM ' + Tag + ' not started: ' + SysErrorMessage(ErrorCode));
+  WizardForm.FilenameLabel.Caption := CustomMessage('PrereqOcrPatience');
+  WizardForm.ProgressGauge.Style := npbstMarquee;
+  try
+    if not ShellExec('runas', ExpandConstant('{sys}\dism.exe'),
+      '/Online /Add-Capability /CapabilityName:Language.OCR~~~' + Tag + '~0.0.1.0 /NoRestart /Quiet',
+      '', SW_HIDE, ewWaitUntilTerminated, ErrorCode) then
+      Log('DISM ' + Tag + ' not started: ' + SysErrorMessage(ErrorCode));
+  finally
+    WizardForm.ProgressGauge.Style := npbstNormal;
+    WizardForm.FilenameLabel.Caption := '';
+  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

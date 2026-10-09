@@ -6,6 +6,10 @@ public sealed class UiState
     public string Tab { get; private set; } = "map";
     public string? PendingPetFocus { get; private set; }
 
+    private MapTarget? _pendingBoss;
+    public void ShowBossOnMap(MapTarget target) { _pendingBoss = target; Navigate("map"); }
+    public MapTarget? TakePendingBossFocus() { var target = _pendingBoss; _pendingBoss = null; return target; }
+
     public event Action? Changed;
 
     public void Navigate(string tab)

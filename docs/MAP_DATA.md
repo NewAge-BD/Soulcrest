@@ -87,6 +87,13 @@ Datenvertrag: `data.js` mit `groups`, `categories`, `icons`, `regions`, `markers
 Marker `[category,x,y,en,de,iconIndex,petId,extra]`. `pets.json` behält seine bisherigen Felder.
 Neue Prüfmetadaten sind additive Felder.
 
+Boss Rush: Der Builder verknüpft `maps/{id}.namedSpawns` über die exakte NPC-ID mit den
+Boss-Punkten aus `interactive-map/{id}`. Je Karte entsteht `bosses.json` mit `mapId` (numerische
+Quellkarte) und `bosses[{spawnId,npcId,en,de,x,y}]`; die Koordinaten durchlaufen dieselbe
+Umrechnung wie die Marker. `data.js` enthält diese Angaben ebenfalls additiv. Keine Zuordnung
+nach ähnlichem Namen. Fehlende Daten bleiben ohne Boss-Ziel; alte Pakete müssen neu gebaut werden.
+Mehrere Spawn-IDs je NPC oder mehrere Punkte je Spawn-ID werden als nicht eindeutig ausgelassen.
+
 `manifest.json` → `maps[].metersPerPixel`: Spielmeter je Kartenpixel aus den gaming.tools-Grenzen
 (Welteinheiten = Zentimeter). Werte: Altgard, Poeta und Abyss A 0,996; Verteron, Ishalgen, Eltnen und
 Morheim 1,992; Chaotic Reshanta 0,498. Im Spiel geprüft am 2026-10-06 auf Altgard: 258/998/906 m
@@ -98,3 +105,13 @@ Eltnen/Morheim besitzen deutlich weniger Platzierungen als der vorherige Datenbe
 Abyss Reshanta B fehlt im neuen Index. Unbelegte Monster bleiben ohne Pet-Zuordnung.
 Eigene gesetzte Kartenpunkte können durch geänderte Kalibrierung abweichen; sie werden nicht
 stillschweigend überschrieben.
+
+Boss-Rush-Erweiterung (2026-10-09): jeder Eintrag in `bosses.json` trägt zusätzlich `icon`
+(lokaler NPC-Porträtpfad), `loot` und `sourceRefs` (NPC-Detailseite). Loot-Items enthalten
+`id`, `en`, `de`, `icon` und `rarity`; mehrere Tabellen desselben Items werden per exakter ID
+zu einer Pool-Zeile zusammengeführt. Der Import berechnet keine Dropchancen. `loot: null`
+bedeutet fehlende Daten; `loot: []` eine vom NPC-Datensatz bestätigte leere Liste. Fetch und
+Bildkonvertierung bleiben vom Laufzeitprogramm getrennt; sämtliche Icons kommen aus dem
+aktiven, genehmigten gaming.tools-Cache.
+Lootdetails stehen ausschließlich in `bosses.json`; `data.js` behält nur die schlanken
+Boss-Metadaten für die Karte.

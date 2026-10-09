@@ -15,6 +15,7 @@ public sealed class MainForm : Form
 
     private readonly ServiceProvider _services;
     private readonly PetOverlayForm _overlay;
+    private readonly BossOverlayForm _bossOverlay;
     private readonly RouteOverlayForm _routeOverlay;
     private readonly ScanMarkerOverlayForm _scanMarkers;
     private readonly ExplorationScanOverlayForm _explorationOverlay;
@@ -56,6 +57,7 @@ public sealed class MainForm : Form
         services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
+        services.AddSingleton<BossRushService>();
         services.AddSingleton<FarmedTargetCleaner>();
         services.AddSingleton<ExplorationArrivalService>();
         services.AddSingleton<CharacterDetectionService>();
@@ -109,13 +111,15 @@ public sealed class MainForm : Form
             _services.GetRequiredService<ProgressService>(),
             _services.GetRequiredService<TrackerService>(),
             _settings,
-            _services.GetRequiredService<PetScanService>());
+            _services.GetRequiredService<PetScanService>(),
+            _services.GetRequiredService<MapTargetsService>());
         _scanMarkers = new ScanMarkerOverlayForm(_services.GetRequiredService<PetScanService>(), _settings,
             _services.GetRequiredService<Capture.GameCaptureService>());
         _explorationOverlay = new ExplorationScanOverlayForm(_services.GetRequiredService<ExplorationScanService>(), _settings,
             _services.GetRequiredService<Capture.GameCaptureService>());
         _ = _services.GetRequiredService<ExplorationArrivalService>();
         _ = _services.GetRequiredService<FarmedTargetCleaner>(); // removes marks of pets farmed out of view
+        _bossOverlay = new BossOverlayForm(_services.GetRequiredService<BossRushService>(), _settings, progress);
         _ = _services.GetRequiredService<CharacterDetectionService>(); // profile follows the character after loading screens
         // Loading screens end the tracking's rest in an instance at once (and start the short wait in a new one).
         _services.GetRequiredService<Network.NetworkLootService>().CharacterEntered += _ => _map.NoteLoadingScreen();
@@ -149,6 +153,7 @@ public sealed class MainForm : Form
         NativeMethods.RegisterHotKey(Handle, HotkeyLock, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT | NativeMethods.MOD_NOREPEAT, (uint)Keys.L);
         if (_settings.Current.OverlayEnabled)
             _overlay.Show();
+        _ = _bossOverlay.Handle;
         _ = _routeOverlay.Handle; // shown by itself while the map is tracked and targets are marked
         _ = _explorationOverlay.Handle;
         // Like Grindcrest before tracking: ask Windows for capture without the yellow border (a prompt
@@ -176,13 +181,22 @@ public sealed class MainForm : Form
                     ToggleOverlay();
                     break;
                 case HotkeyLock:
-                    if (!_overlay.Visible)
-                        ToggleOverlay();
-                    _overlay.ToggleLock();
+                    ToggleOverlayLocks();
                     break;
             }
         }
         base.WndProc(ref m);
+    }
+
+    private void ToggleOverlayLocks()
+    {
+        var bossEnabled = (_settings.Current.BossRushEnabled && _settings.Current.BossOverlayEnabled)
+            || _settings.Current.BossAlertsEnabled;
+        if (!_overlay.Visible && !bossEnabled) ToggleOverlay();
+        var unlock = (_overlay.Visible && _overlay.Locked)
+            || (bossEnabled && _settings.Current.BossOverlayLocked);
+        if (_overlay.Visible && _overlay.Locked == unlock) _overlay.ToggleLock();
+        if (bossEnabled) _settings.Update(s => s.BossOverlayLocked = !unlock);
     }
 
     public void ToggleOverlay()
@@ -244,6 +258,7 @@ public sealed class MainForm : Form
         NativeMethods.UnregisterHotKey(Handle, HotkeyLock);
         StopTracking();
         _overlay.Close();
+        _bossOverlay.Close();
         _routeOverlay.Close();
         _scanMarkers.Close();
         _explorationOverlay.Close();
@@ -270,6 +285,7 @@ public sealed class MainForm : Form
         {
             StopTracking();
             _overlay?.Dispose();
+            _bossOverlay?.Dispose();
             _routeOverlay?.Dispose();
             _scanMarkers?.Dispose();
             _explorationOverlay?.Dispose();

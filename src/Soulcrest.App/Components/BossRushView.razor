@@ -1,0 +1,224 @@
+@implements IDisposable
+@inject BossRushService BossRush
+@inject SettingsService Settings
+@inject TrackerService Loot
+@inject MapTargetsService Targets
+@inject ProgressService Progress
+@inject UiState Ui
+
+@{
+    var schedule = BossRush.Schedule;
+    var view = BossRush.View;
+    var spawned = schedule.Where(r => r.Spawned).ToArray();
+    var upcoming = schedule.Where(r => !r.Spawned).ToArray();
+    var currentMap = Progress.Maps.FirstOrDefault(m => m.Id == view.MapId);
+    var lootBosses = LootBosses.ToArray();
+}
+
+<div class="page boss-page">
+    <header class="sv-head boss-page-head">
+        <div class="boss-panel-kicker">SOULCREST / BOSS RUSH</div>
+        <h2>Boss Rush Mode</h2>
+        <p class="sv-lead">@UiText.T("Bestätigten Spawns folgen, kommende Spawns im Blick behalten.")</p>
+    </header>
+
+    <div class="boss-layout">
+        <div class="boss-main">
+            <section class="card sv-card boss-command @(Settings.Current.BossRushEnabled ? "enabled" : "paused")" aria-label="@UiText.T("Wegführung")">
+                <div class="boss-command-head">
+                    <span class="boss-panel-kicker">@UiText.T("Wegführung")</span>
+                    <label class="opt-toggle boss-mode-toggle"><input type="checkbox" id="boss-rush-mode" role="switch" checked="@Settings.Current.BossRushEnabled" @onchange="ToggleMode" /> Boss Rush Mode</label>
+                </div>
+                @if (Settings.Current.BossRushEnabled)
+                {
+                    @if (view.Boss is { } boss)
+                    {
+                        <div class="boss-command-main">
+                            @if (Icon(boss) is { } icon) { <img class="boss-portrait" src="@icon" alt="" /> }
+                            else { <span class="boss-portrait boss-icon-fallback" aria-hidden="true">◆</span> }
+                            <div class="boss-target-copy">
+                                <span class="boss-panel-kicker">@UiText.T(view.Spawned ? "Aktuelles Ziel" : "Nächster Spawn")</span>
+                                <h3>@boss.Name(Settings.Current.NameLanguage)</h3>
+                                <div class="boss-target-state"><span class="boss-status-dot @(view.Spawned && !view.Cached ? "" : "preview")" aria-hidden="true"></span><span>@(view.Cached && view.Spawned ? UiText.T("Zuletzt als gespawnt gemeldet") : !view.Spawned && view.Remaining > TimeSpan.Zero ? UiText.T("Geplant") : Status(view.Spawned, view.Remaining))</span></div>
+                                @if (currentMap is not null) { <span class="boss-map-label">@UiText.T(currentMap.Label)</span> }
+                            </div>
+                            @if (!view.Spawned && view.Remaining > TimeSpan.Zero)
+                            {
+                                <div class="boss-target-time" aria-label="@Status(false, view.Remaining)"><span>@UiText.T("Nächster Spawn")</span><strong>@BossRushService.Countdown(view.Remaining)</strong></div>
+                            }
+                        </div>
+                        <div class="boss-command-footer">
+                            <div class="boss-data-state @(view.Cached ? "cached" : "captured")"><span class="boss-status-dot @(view.Cached ? "preview" : "")" aria-hidden="true"></span><div><strong>@UiText.T(view.Cached ? "Gespeicherter Stand" : "Bossliste erfasst")</strong><span>@UiText.T("Countdowns laufen weiter")</span></div></div>
+                            @if ((Targets.BossRush ?? Targets.BossPreview) is { } target)
+                            {
+                                <button class="btn" @onclick="@(() => Ui.ShowBossOnMap(target))">@UiText.T(view.Cached && view.Spawned ? "Nächsten Spawn auf Karte zeigen" : "Auf Karte zeigen") <span aria-hidden="true">↗</span></button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="boss-empty boss-command-empty"><span class="boss-empty-mark" aria-hidden="true">◷</span><h3>@UiText.T("Noch keine Bossliste vorhanden")</h3><p>@UiText.T("Warte auf Boss-Timer. Öffne die Bossliste im Spiel.")</p></div>
+                    }
+                    @if (!Loot.Running) { <button class="btn boss-tracker-start" @onclick="Loot.Start">@UiText.T("Loot-Tracker starten")</button> }
+                }
+                else
+                {
+                    <div class="boss-empty boss-command-empty"><span class="boss-empty-mark" aria-hidden="true">◷</span><h3>@UiText.T("Boss Rush pausiert")</h3><p>@UiText.T("Aktiviere Boss Rush für Wegführung und Spawn-Overlay. Aktivierte Boss-Alerts bleiben eingeschaltet.")</p></div>
+                }
+                <div class="boss-quick-stats">
+                    <div class="boss-stat"><strong>@spawned.Length</strong><span>@UiText.T(view.Cached ? "Zuletzt gemeldete Spawns" : "Gespawnt")</span></div>
+                    <div class="boss-stat"><strong>@upcoming.Length</strong><span>@UiText.T("Geplant")</span></div>
+                    <div class="boss-stat"><strong>@Settings.Current.BossAlertIds.Length</strong><span>@UiText.T("Alert-Auswahl")</span></div>
+                </div>
+            </section>
+
+            <section class="card sv-card boss-timeline-panel">
+                <div class="boss-panel-heading"><div><span class="boss-panel-kicker">@UiText.T("Nächste Spawns")</span><h3>@UiText.T("Spawn-Zeitplan")</h3></div>@if (currentMap is not null) { <span class="boss-map-label">@UiText.T(currentMap.Label)</span> }</div>
+                @if (spawned.Length > 0)
+                {
+                    <h4 class="boss-section-label">@UiText.T(view.Cached ? "Zuletzt gemeldete Spawns" : "Bereits gespawnt") <span>@spawned.Length</span></h4>
+                    <ol class="boss-schedule boss-spawned-schedule">
+                        @for (var i = 0; i < spawned.Length; i++)
+                        {
+                            var row = spawned[i];
+                            <li class="boss-row spawned @(row.Cached ? "cached" : "")">
+                                <span class="boss-row-rank" aria-hidden="true">@((i + 1).ToString("00"))</span>
+                                @if (Icon(row.Place.Boss) is { } icon) { <img src="@icon" alt="" loading="lazy" /> }
+                                else { <span class="boss-icon-fallback" aria-hidden="true">◆</span> }
+                                <span class="boss-row-copy"><strong>@row.Place.Boss.Name(Settings.Current.NameLanguage)</strong><span>@UiText.T(row.Cached ? "Zuletzt als gespawnt gemeldet" : "Bereits gespawnt")</span></span>
+                                <span class="boss-row-time"><span class="boss-status-dot @(row.Cached ? "preview" : "")" aria-hidden="true"></span></span>
+                            </li>
+                        }
+                    </ol>
+                }
+                <h4 class="boss-section-label">@UiText.T("Nächste Spawns") <span>@upcoming.Length</span></h4>
+                @if (upcoming.Length > 0)
+                {
+                    <ol class="boss-schedule boss-upcoming-schedule">
+                        @for (var i = 0; i < upcoming.Length; i++)
+                        {
+                            var row = upcoming[i];
+                            <li class="boss-row upcoming @(i == 0 ? "next" : "")">
+                                <span class="boss-row-rank" aria-hidden="true">@((i + 1).ToString("00"))</span>
+                                @if (Icon(row.Place.Boss) is { } icon) { <img src="@icon" alt="" loading="lazy" /> }
+                                else { <span class="boss-icon-fallback" aria-hidden="true">◆</span> }
+                                <span class="boss-row-copy"><strong>@row.Place.Boss.Name(Settings.Current.NameLanguage)</strong><span>@UiText.T(currentMap?.Label ?? row.Place.Map)</span></span>
+                                <span class="boss-row-time" aria-label="@Status(false, row.Remaining)">@if (row.Remaining > TimeSpan.Zero) { <b>@BossRushService.Countdown(row.Remaining)</b> } else { <b class="boss-spawn-due">@UiText.T("Spawn fällig · warte auf Bestätigung")</b> }</span>
+                            </li>
+                        }
+                    </ol>
+                }
+                else
+                {
+                    <div class="boss-empty boss-schedule-empty"><p>@UiText.T("Keine bevorstehenden Spawns erfasst.")</p></div>
+                }
+                <p class="sv-hint boss-timeline-hint">@UiText.T("Öffne die Bossliste im Spiel für aktuelle Timer. Ein abgelaufener Countdown wartet auf die Spawn-Bestätigung.")</p>
+            </section>
+        </div>
+
+        <aside class="boss-settings" aria-label="@UiText.T("Einstellungen")">
+            <section class="card sv-card boss-setting-card">
+                <div class="boss-panel-heading"><div><span class="boss-panel-kicker">@UiText.T("Ingame-Anzeige")</span><h3>@UiText.T("Spawn-Overlay")</h3></div></div>
+                <label class="opt-toggle"><input type="checkbox" role="switch" checked="@Settings.Current.BossOverlayEnabled" @onchange="@(e => Settings.Update(s => s.BossOverlayEnabled = (bool)e.Value!))" /> @UiText.T("Nächste Spawns im Overlay anzeigen")</label>
+                <div class="boss-setting-grid">
+                    <label class="boss-field">@UiText.T("Anzahl der Spawns") <input type="number" min="1" max="12" value="@Settings.Current.BossOverlayCount" @onchange="SetCount" /></label>
+                    <label class="boss-field boss-scale-field">@UiText.T("Overlay-Größe") <span><input type="range" min="60" max="200" step="5" value="@((int)(Settings.Current.BossOverlayScale * 100))" @onchange="SetScale" /><output>@((int)(Settings.Current.BossOverlayScale * 100)) %</output></span></label>
+                </div>
+                <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.BossOverlayLocked" @onchange="@(e => Settings.Update(s => s.BossOverlayLocked = (bool)e.Value!))" /> @UiText.T("Overlay sperren")</label>
+                <p class="sv-hint boss-hotkey-hint"><kbd>Ctrl</kbd><span>+</span><kbd>Alt</kbd><span>+</span><kbd>L</kbd><span>@UiText.T("Overlays entsperren und verschieben. Erneut drücken zum Sperren.")</span></p>
+            </section>
+
+            <section class="card sv-card boss-setting-card boss-alert-card">
+                <div class="boss-panel-heading"><div><span class="boss-panel-kicker">@UiText.T("Benachrichtigungen")</span><h3>@UiText.T("Boss-Alerts")</h3></div><span class="boss-count-badge">@Settings.Current.BossAlertIds.Length</span></div>
+                <label class="opt-toggle"><input type="checkbox" id="boss-alerts-toggle" role="switch" checked="@Settings.Current.BossAlertsEnabled" @onchange="ToggleAlerts" /> @UiText.T("Alerts für ausgewählte Bosse")</label>
+                <div class="boss-setting-grid">
+                    <label class="boss-field">@UiText.T("Vorwarnzeit (Sekunden)") <input type="number" min="0" max="3600" value="@Settings.Current.BossAlertLeadSeconds" @onchange="SetLead" /></label>
+                    <label class="boss-field">@UiText.T("Anzeigedauer (Sekunden)") <input type="number" min="3" max="60" value="@Settings.Current.BossAlertDurationSeconds" @onchange="SetDuration" /></label>
+                </div>
+                <div class="boss-alert-actions"><label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.BossAlertSound" @onchange="@(e => Settings.Update(s => s.BossAlertSound = (bool)e.Value!))" /> @UiText.T("Signalton bei Alert")</label><button class="btn small" id="boss-alert-test" disabled="@(!Settings.Current.BossAlertsEnabled)" @onclick="BossRush.PreviewAlert">@UiText.T("Alert testen")</button></div>
+                <p class="sv-hint">@UiText.T("Je Spawn eine Vorwarnung und ein Alert bei bestätigtem Spawn. 0 Sekunden bedeutet nur Spawn-Alert. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p>
+                <details class="boss-alert-details">
+                    <summary><span>@UiText.T("Bosse auswählen")</span><span class="note">@UiText.F("{0} Bosse ausgewählt", Settings.Current.BossAlertIds.Length)</span></summary>
+                    <label class="boss-field" for="boss-alert-map">@UiText.T("Karte")
+                        <select id="boss-alert-map" @bind="_map">
+                            @foreach (var map in Progress.Maps.Where(m => BossRush.Catalogue.Any(b => b.Map == m.Id))) { <option value="@map.Id">@UiText.T(map.Label)</option> }
+                        </select>
+                    </label>
+                    <div class="boss-choices">
+                        @foreach (var choice in BossRush.Catalogue.Where(c => c.Map == _map).OrderBy(c => c.Boss.Name(Settings.Current.NameLanguage)))
+                        {
+                            <label><input type="checkbox" checked="@Settings.Current.BossAlertIds.Contains(choice.Key)" @onchange="@(e => SelectBoss(choice.Key, (bool)e.Value!))" />
+                                @if (Icon(choice.Boss) is { } icon) { <img src="@icon" alt="" loading="lazy" /> }
+                                <span>@choice.Boss.Name(Settings.Current.NameLanguage)</span>
+                            </label>
+                        }
+                    </div>
+                </details>
+            </section>
+        </aside>
+    </div>
+
+    <section class="card sv-card boss-loot-section">
+        <div class="boss-loot-header"><div><span class="boss-panel-kicker">@UiText.T("Lootkatalog")</span><h3>@UiText.T("Boss-Lootpools")</h3><p class="sv-hint">@UiText.T("Veröffentlichte Beutepools aus gaming.tools. Ein Boss öffnet seine Items mit Icons.")</p></div><span class="boss-count-badge">@UiText.F("{0} Bosse im Lootkatalog", lootBosses.Length)</span></div>
+        <div class="boss-loot-filters">
+            <label class="boss-field" for="boss-loot-map">@UiText.T("Karte")
+                <select id="boss-loot-map" @bind="_lootMap">
+                    @foreach (var map in Progress.Maps.Where(m => BossRush.Catalogue.Any(b => b.Map == m.Id))) { <option value="@map.Id">@UiText.T(map.Label)</option> }
+                </select>
+            </label>
+            <label class="boss-field boss-loot-search" for="boss-loot-search">@UiText.T("Boss oder Item suchen")<input id="boss-loot-search" type="search" placeholder="@UiText.T("Boss oder Item suchen")" @bind="_lootQuery" @bind:event="oninput" /></label>
+        </div>
+        @if (lootBosses.Length > 0)
+        {
+            <div class="boss-loot-cards">
+                @foreach (var choice in lootBosses)
+                {
+                    <BossLootCard @key="choice.Key" Boss="choice.Boss" />
+                }
+            </div>
+        }
+        else
+        {
+            <div class="boss-empty"><h4>@UiText.T("Keine Bosse gefunden.")</h4><p>@UiText.T("Suchbegriff oder Karte ändern.")</p></div>
+        }
+    </section>
+</div>
+
+@code {
+    private string _map = "altgard";
+    private string _lootMap = "altgard", _lootQuery = "";
+    private IEnumerable<BossChoice> LootBosses => BossRush.Catalogue.Where(b => b.Map == _lootMap
+        && (string.IsNullOrWhiteSpace(_lootQuery) || b.Boss.Name(Settings.Current.NameLanguage).Contains(_lootQuery.Trim(), StringComparison.OrdinalIgnoreCase)
+            || b.Boss.Loot?.Any(i => i.Name(Settings.Current.NameLanguage).Contains(_lootQuery.Trim(), StringComparison.OrdinalIgnoreCase)) == true))
+        .OrderBy(b => b.Boss.Name(Settings.Current.NameLanguage));
+    protected override void OnInitialized()
+    {
+        _map = BossRush.Catalogue.Any(b => b.Map == Settings.Current.LastMap) ? Settings.Current.LastMap : BossRush.Catalogue.FirstOrDefault()?.Map ?? "altgard";
+        _lootMap = _map;
+        BossRush.Changed += Refresh;
+        Settings.Changed += Refresh;
+        Loot.Changed += Refresh;
+    }
+    private void Refresh() => _ = InvokeAsync(StateHasChanged);
+    private void ToggleMode(ChangeEventArgs e)
+    {
+        var enabled = (bool)e.Value!;
+        Settings.Update(s => s.BossRushEnabled = enabled);
+        if (enabled && !Loot.Running) Loot.Start();
+    }
+    private void ToggleAlerts(ChangeEventArgs e)
+    {
+        var enabled = (bool)e.Value!;
+        Settings.Update(s => s.BossAlertsEnabled = enabled);
+        if (enabled && !Loot.Running) Loot.Start();
+    }
+    private string? Icon(BossPlace boss) => boss.Icon is { } icon ? $"https://{MainForm.MapDataHost}/{icon}" : null;
+    private static string Status(bool spawned, TimeSpan remaining) => spawned ? UiText.T("Bereits gespawnt")
+        : remaining > TimeSpan.Zero ? UiText.F("Spawn in {0}", BossRushService.Countdown(remaining)) : UiText.T("Spawn fällig · warte auf Bestätigung");
+    private void SetCount(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossOverlayCount = Math.Clamp(n, 1, 12)); }
+    private void SetScale(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossOverlayScale = Math.Clamp(n, 60, 200) / 100d); }
+    private void SetLead(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossAlertLeadSeconds = Math.Clamp(n, 0, 3600)); }
+    private void SetDuration(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossAlertDurationSeconds = Math.Clamp(n, 3, 60)); }
+    private void SelectBoss(string key, bool selected) => Settings.Update(s => s.BossAlertIds = selected ? s.BossAlertIds.Append(key).Distinct().ToArray() : s.BossAlertIds.Where(k => k != key).ToArray());
+    public void Dispose() { BossRush.Changed -= Refresh; Settings.Changed -= Refresh; Loot.Changed -= Refresh; }
+}

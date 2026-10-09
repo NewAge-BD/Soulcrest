@@ -28,6 +28,7 @@ public sealed class MapLayoutExploration
         services.AddSingleton<TrackerService>();
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
+        services.AddSingleton<BossRushService>();
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<CharacterDetectionService>();

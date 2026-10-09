@@ -430,6 +430,13 @@ window.soulcrestMap = (() => {
             // Ring just outside the symbol: pet portraits grow with the zoom, monster dots do not.
             const pet = (t.group || t.kind || '').startsWith('Pets');
             const radius = pet ? Math.round(15 * iconScale()) + 10 : 11;
+            const preview = t.id === 'boss-next';
+            if (t.id === 'boss-rush' || preview) {
+                L.marker(ll, { pane: 'targets', zIndexOffset: 2500, interactive: false, keyboard: false,
+                    icon: L.divIcon({ className: 'boss-rush-marker' + (preview ? ' boss-preview' : ''), html: '<span></span>', iconSize: [26, 32], iconAnchor: [13, 32] }) }).addTo(targetLayer);
+                L.tooltip({ permanent: true, direction: 'top', offset: [0, -35], className: 'boss-rush-label' + (preview ? ' boss-preview' : ''), opacity: preview ? 0.45 : 0.9, pane: 'targets' })
+                    .setLatLng(ll).setContent(esc(t.name)).addTo(targetLayer);
+            }
             if (t.group === 'Monsters') {
                 // Soul monster of the progression target: its layer is usually hidden, so draw the dot
                 // and say what it is (user report: "der Kreis liegt neben seinem Ziel").
@@ -437,12 +444,12 @@ window.soulcrestMap = (() => {
                 L.tooltip({ permanent: true, direction: 'top', offset: [0, -radius - 2], className: 'progression-label', pane: 'targets' })
                     .setLatLng(ll).setContent(`${esc(t.name)} → ${esc(petName(t.petId))}`).addTo(targetLayer);
             }
-            targetSymbol(t);
-            L.circleMarker(ll, { pane: 'targets', radius, color: '#000', weight: 6, opacity: 0.5, fill: false, interactive: false }).addTo(targetLayer);
-            L.circleMarker(ll, { pane: 'targets', radius, color: t.color, weight: 3.5, fill: false, interactive: false }).addTo(targetLayer);
+            if (!preview) targetSymbol(t);
+            L.circleMarker(ll, { pane: 'targets', radius, color: '#000', weight: 6, opacity: preview ? 0.12 : 0.5, fill: false, dashArray: preview ? '6 6' : null, interactive: false }).addTo(targetLayer);
+            L.circleMarker(ll, { pane: 'targets', radius, color: t.color, weight: 3.5, opacity: preview ? 0.45 : 1, dashArray: preview ? '6 6' : null, fill: false, interactive: false }).addTo(targetLayer);
             if (!from) continue;
-            L.polyline([from, ll], { color: '#000', weight: 7, opacity: 0.45, interactive: false }).addTo(targetLayer);
-            L.polyline([from, ll], { color: t.color, weight: 3.5, opacity: 0.95, interactive: false, dashArray: t.dashed ? '10 8' : null }).addTo(targetLayer);
+            L.polyline([from, ll], { color: '#000', weight: 7, opacity: preview ? 0.12 : 0.45, dashArray: preview ? '10 8' : null, interactive: false }).addTo(targetLayer);
+            L.polyline([from, ll], { color: t.color, weight: 3.5, opacity: preview ? 0.4 : 0.95, interactive: false, dashArray: t.dashed || preview ? '10 8' : null }).addTo(targetLayer);
             // Arrows every 70 screen pixels, only where they can be seen.
             const a = map.latLngToLayerPoint(from), b = map.latLngToLayerPoint(ll);
             const length = a.distanceTo(b);
@@ -453,7 +460,7 @@ window.soulcrestMap = (() => {
                 if (!view.contains(p)) continue;
                 shown++;
                 L.marker(p, {
-                    icon: L.divIcon({ className: 'route-arrow', html: `<span style="transform:rotate(${angle}deg);border-left-color:${t.color}"></span>`, iconSize: [16, 16] }),
+                    icon: L.divIcon({ className: 'route-arrow', html: `<span style="opacity:${preview ? 0.4 : 1};transform:rotate(${angle}deg);border-left-color:${t.color}"></span>`, iconSize: [16, 16] }),
                     interactive: false, keyboard: false,
                 }).addTo(targetLayer);
             }
