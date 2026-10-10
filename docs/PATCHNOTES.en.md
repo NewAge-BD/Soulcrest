@@ -2,6 +2,11 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.4.2 – 2026-10-10
+
+- **Fixed:** No extra symbol sits inside the ring of marked resources and hidden cubes when their category
+  is shown on the map; the game's own symbol stays visible.
+
 ## 0.4.1 – 2026-10-10
 
 - **Improved:** In-game target markers no longer cover the resource symbols: the ring lies around the

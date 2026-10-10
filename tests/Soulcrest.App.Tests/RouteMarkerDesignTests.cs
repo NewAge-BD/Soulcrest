@@ -71,4 +71,18 @@ public sealed class RouteMarkerDesignTests
         Assert.False(RouteOverlayForm.ShowsIconOnly(new MapTarget("k", "altgard", 1, 1, "Kibelisk", "Locations · Kibelisk", "i.png")));
         Assert.False(RouteOverlayForm.ShowsIconOnly(new MapTarget("p", "altgard", 1, 1, "Kuru", "Pets · Fera", "i.png", PetId: "kuru")));
     }
+
+    [Fact]
+    public void NoSymbolInsideTheRingOfAResourceTarget()
+    {
+        // User report 2026-10-10: the symbol from the map legend sat inside the ring and covered the game's own.
+        var target = new MapTarget("d", "altgard", 80, 40, "Diamond", "Resources · Gem", "icons/diamond.png");
+        var resources = new List<RouteOverlayForm.ResourceSymbol>
+        {
+            new(80, 40, null), // the marked diamond itself
+            new(120, 40, null), // a neighbour stays
+        };
+        RouteOverlayForm.RemoveSymbolInRing(resources, target);
+        Assert.Equal(120, Assert.Single(resources).X);
+    }
 }

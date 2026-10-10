@@ -2,6 +2,11 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.4.2 – 2026-10-10
+
+- **Behoben:** Im Ring markierter Ressourcen und Versteckter Kuben liegt kein zusätzliches Symbol mehr,
+  wenn die Kategorie auf der Karte eingeblendet ist; das Spielsymbol bleibt sichtbar.
+
 ## 0.4.1 – 2026-10-10
 
 - **Verbessert:** Zielmarker im Spiel verdecken die Ressourcensymbole nicht mehr: Der Ring liegt um das

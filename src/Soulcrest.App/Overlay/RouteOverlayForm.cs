@@ -168,7 +168,7 @@ public sealed class RouteOverlayForm : Form
         var souls = placement is not null && marked.Count > 0 ? VisibleSoulMonsters(placement, marked) : [];
         var resources = placement is not null && _settings.Current.ShowResourcesInGame ? VisibleResources(placement) : [];
         // Marked targets keep their symbol when its category is hidden (user request 2026-10-07); pets are
-        // drawn above anyway (marked pets always show).
+        // drawn above anyway (marked pets always show). Resources and cubes show it beside their ring instead.
         if (placement is not null && _progress.MapDataDirectory is { } mapdata)
         {
             foreach (var (target, _) in onMap)
@@ -179,6 +179,8 @@ public sealed class RouteOverlayForm : Form
                     resources.Add(new ResourceSymbol(target.X, target.Y, target.Icon is { } path ? ResourceIcon(path, mapdata) : null,
                         target.Color, target.Completed ? 0.28f : 1f));
                 }
+                else if (ShowsIconOnly(target))
+                    RemoveSymbolInRing(resources, target);
                 else if (!target.MonsterBranch && PetOf(target) is null && target.Icon is { } icon && !resources.Any(r => r.X == target.X && r.Y == target.Y))
                     resources.Add(new ResourceSymbol(target.X, target.Y, ResourceIcon(icon, mapdata)));
             }
@@ -328,6 +330,13 @@ public sealed class RouteOverlayForm : Form
     /// <summary>Marked resources and hidden cubes are labelled with their icon instead of their name.</summary>
     internal static bool ShowsIconOnly(MapTarget target) => !target.Leveling && target.PetId is null && !target.MonsterBranch
         && (target.Kind.StartsWith("Resources", StringComparison.Ordinal) || target.Kind.StartsWith("Collectibles", StringComparison.Ordinal));
+
+    /// <summary>
+    /// A resource or cube target shows its icon beside the ring; a symbol inside the ring covered the game's
+    /// own symbol there (user report 2026-10-10), also when the legend shows the category.
+    /// </summary>
+    internal static void RemoveSymbolInRing(List<ResourceSymbol> resources, MapTarget target) =>
+        resources.RemoveAll(r => r.X == target.X && r.Y == target.Y);
 
     /// <summary>"Diamond · 99 m" → "99 m"; a name without distance → "".</summary>
     internal static string DistanceOf(string name) => name.LastIndexOf(" · ", StringComparison.Ordinal) is var i and >= 0 ? name[(i + 3)..] : "";
