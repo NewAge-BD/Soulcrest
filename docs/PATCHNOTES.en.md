@@ -2,6 +2,12 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.4.1 – 2026-10-10
+
+- **Improved:** In-game target markers no longer cover the resource symbols: the ring lies around the
+  symbol, and arrows start and end at its rim. Marked resources and hidden cubes show their icon beside
+  the ring instead of their name; the distance stays.
+
 ## 0.4.0 – 2026-10-10
 
 - **New:** Leveling routes for Asmodians and Elyos, episodes 2–6 with their level range. The route leads

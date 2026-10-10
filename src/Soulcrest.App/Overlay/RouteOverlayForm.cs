@@ -186,12 +186,21 @@ public sealed class RouteOverlayForm : Form
         var guards = placement is not null ? VisibleGuardZones(placement) : null;
         if (placement is null || (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0 && guards is null))
             return null;
-        return RenderFrame(placement, onMap, pets, resources, souls, guards);
+        var targetIcons = new Dictionary<string, Bitmap?>(StringComparer.Ordinal);
+        if (_progress.MapDataDirectory is { } iconData)
+        {
+            foreach (var (target, _) in onMap)
+            {
+                if (ShowsIconOnly(target) && target.Icon is { } path)
+                    targetIcons[target.Id] = ResourceIcon(path, iconData);
+            }
+        }
+        return RenderFrame(placement, onMap, pets, resources, souls, guards, targetIcons);
     }
 
     internal static Frame RenderFrame(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> onMap,
         IReadOnlyList<PetSymbol> pets, IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null,
-        GuardZones? guards = null)
+        GuardZones? guards = null, IReadOnlyDictionary<string, Bitmap?>? targetIcons = null)
     {
         // Drawn straight into a GDI DIB section that UpdateLayeredWindow takes as it is: converting a
         // full-screen picture with GetHbitmap cost 30 ms each time (measured 2026-10-05).
@@ -204,7 +213,7 @@ public sealed class RouteOverlayForm : Form
         {
             using var surface = new Bitmap(size.Width, size.Height, size.Width * 4, PixelFormat.Format32bppPArgb, bits);
             using var graphics = Graphics.FromImage(surface);
-            DrawInto(graphics, placement, onMap, pets, resources, souls, guards); // a new DIB is all zeros: transparent
+            DrawInto(graphics, placement, onMap, pets, resources, souls, guards, targetIcons); // a new DIB is all zeros: transparent
         }
         catch
         {
@@ -241,18 +250,20 @@ public sealed class RouteOverlayForm : Form
 
     /// <summary>The overlay picture for the marked map area: lines, arrows, rings and names (transparent elsewhere).</summary>
     public static Bitmap Draw(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets, IReadOnlyList<PetSymbol>? pets = null,
-        IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null)
+        IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null,
+        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null)
     {
         var bitmap = new Bitmap(placement.Region.Width, placement.Region.Height, PixelFormat.Format32bppPArgb);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.Clear(Color.Transparent);
-        DrawInto(graphics, placement, targets, pets, resources, souls, guards);
+        DrawInto(graphics, placement, targets, pets, resources, souls, guards, targetIcons);
         return bitmap;
     }
 
     /// <summary>Draws the overlay into a transparent, premultiplied 32-bit surface of the region's size.</summary>
     private static void DrawInto(Graphics graphics, MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets,
-        IReadOnlyList<PetSymbol>? pets, IReadOnlyList<ResourceSymbol>? resources, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null)
+        IReadOnlyList<PetSymbol>? pets, IReadOnlyList<ResourceSymbol>? resources, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null,
+        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null)
     {
         var region = placement.Region;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -293,14 +304,33 @@ public sealed class RouteOverlayForm : Form
             var before = target.After is { } after ? targets.FirstOrDefault(t => t.Target.Id == after).Target : null;
             PointF? start = target.BranchX is { } bx && target.BranchY is { } by ? Offset(placement.WorldToScreen(bx, by), origin)
                 : before is not null ? Offset(placement.WorldToScreen(before.X, before.Y), origin) : target.Completed ? null : player;
+            // Resources and hidden cubes: their icon beside the ring instead of the name, so the label does not
+            // cover the symbols around it (user request 2026-10-10); the distance stays.
+            var icon = ShowsIconOnly(target) && targetIcons?.GetValueOrDefault(target.Id) is { } bitmap ? bitmap : null;
+            var label = icon is null ? target.Name : DistanceOf(target.Name);
+            // Lines leave a predecessor's ring (or the player marker) at its rim, never from its centre.
+            var startGap = target.BranchX is not null ? 0f : before is not null ? RingRadius + 2 : PlayerGap;
             if (start is { } from)
-                DrawRoute(graphics, from, at, area, target.Name, color, dashed);
+                DrawRoute(graphics, from, at, area, label, color, dashed, icon, startGap);
             else if (area.Contains(at))
-                DrawTargetRing(graphics, at, area, target.Name, color, dashed); // world map of another zone: no player, rings only
+                DrawTargetRing(graphics, at, area, label, color, dashed, icon); // world map of another zone: no player, rings only
         }
     }
 
     private static PointF Offset(PointF p, PointF origin) => new(p.X - origin.X, p.Y - origin.Y);
+
+    // A target ring lies around the resource symbol (disc of 24 px) instead of on its rim (user request
+    // 2026-10-10: the markers covered the resource symbols).
+    internal const float RingRadius = 15;
+    private const float PlayerGap = 10;
+    private const int TargetIconSize = 18;
+
+    /// <summary>Marked resources and hidden cubes are labelled with their icon instead of their name.</summary>
+    internal static bool ShowsIconOnly(MapTarget target) => !target.Leveling && target.PetId is null && !target.MonsterBranch
+        && (target.Kind.StartsWith("Resources", StringComparison.Ordinal) || target.Kind.StartsWith("Collectibles", StringComparison.Ordinal));
+
+    /// <summary>"Diamond · 99 m" → "99 m"; a name without distance → "".</summary>
+    internal static string DistanceOf(string name) => name.LastIndexOf(" · ", StringComparison.Ordinal) is var i and >= 0 ? name[(i + 3)..] : "";
 
     /// <summary>Guards to mark and the radius of their danger circle in world pixels.</summary>
     public sealed record GuardZones(IReadOnlyList<GuardPost> Guards, double RadiusWorld);
@@ -614,17 +644,55 @@ public sealed class RouteOverlayForm : Form
         return (sprite, centre);
     }
 
-    private static void DrawTargetRing(Graphics graphics, PointF target, RectangleF area, string name, Color color, bool dashed = false)
+    private static void DrawTargetRing(Graphics graphics, PointF target, RectangleF area, string name, Color color, bool dashed = false, Bitmap? icon = null)
     {
         using var outline = new Pen(Color.FromArgb(Math.Min(dashed ? 50 : 170, (int)color.A), 0, 0, 0), 7) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
         using var ring = new Pen(color, 3) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
-        graphics.DrawEllipse(outline, target.X - 12, target.Y - 12, 24, 24);
-        graphics.DrawEllipse(ring, target.X - 12, target.Y - 12, 24, 24);
-        DrawLabel(graphics, name, new PointF(target.X + 16, target.Y - 10), color, area, target.X - 16);
+        graphics.DrawEllipse(outline, target.X - RingRadius, target.Y - RingRadius, 2 * RingRadius, 2 * RingRadius);
+        graphics.DrawEllipse(ring, target.X - RingRadius, target.Y - RingRadius, 2 * RingRadius, 2 * RingRadius);
+        DrawTargetLabel(graphics, name, icon, target, color, area);
     }
 
-    private static void DrawRoute(Graphics graphics, PointF player, PointF target, RectangleF area, string name, Color color, bool dashed = false)
+    /// <summary>
+    /// Beside the ring: the resource icon (with the distance after it) or the name. The icon sits on the side
+    /// facing away from the line that arrives (<paramref name="from"/>), so the line never runs through it.
+    /// </summary>
+    private static void DrawTargetLabel(Graphics graphics, string name, Bitmap? icon, PointF target, Color color, RectangleF area, PointF? from = null)
     {
+        if (icon is null)
+        {
+            DrawLabel(graphics, name, new PointF(target.X + RingRadius + 4, target.Y - 10), color, area, target.X - RingRadius - 4);
+            return;
+        }
+        var (dirX, dirY) = (1f, 0f);
+        if (from is { } source && MathF.Sqrt((target.X - source.X) * (target.X - source.X) + (target.Y - source.Y) * (target.Y - source.Y)) is var length and > 1)
+            (dirX, dirY) = ((target.X - source.X) / length, (target.Y - source.Y) / length);
+        // Away from the line first, then to either side, then back towards it: the first spot fully inside the map.
+        var reach = RingRadius + 5 + TargetIconSize / 2f;
+        RectangleF BoxAt(float x, float y) => new(target.X + x * reach - TargetIconSize / 2f, target.Y + y * reach - TargetIconSize / 2f, TargetIconSize, TargetIconSize);
+        var inner = RectangleF.Inflate(area, -3, -3);
+        var box = new[] { BoxAt(dirX, dirY), BoxAt(-dirY, dirX), BoxAt(dirY, -dirX), BoxAt(-dirX, -dirY) }
+            .FirstOrDefault(inner.Contains, BoxAt(dirX, dirY));
+        using (var back = new SolidBrush(Color.FromArgb(Math.Min(210, (int)color.A), 15, 20, 30)))
+            graphics.FillEllipse(back, RectangleF.Inflate(box, 3, 3));
+        using (var rim = new Pen(color, 1.5f))
+            graphics.DrawEllipse(rim, RectangleF.Inflate(box, 3, 3));
+        graphics.DrawImage(icon, box);
+        if (name.Length > 0)
+            DrawLabel(graphics, name, new PointF(box.Right + 5, box.Top - 1), color, area, box.Left - 5);
+    }
+
+    private static void DrawRoute(Graphics graphics, PointF player, PointF target, RectangleF area, string name, Color color, bool dashed = false,
+        Bitmap? icon = null, float startGap = 0)
+    {
+        {
+            // Start at the rim of the ring (or the player marker) the line leaves, not in its middle.
+            var dx = target.X - player.X;
+            var dy = target.Y - player.Y;
+            var length = MathF.Sqrt(dx * dx + dy * dy);
+            if (startGap > 0 && length > startGap + RingRadius + 2)
+                player = new PointF(player.X + dx * startGap / length, player.Y + dy * startGap / length);
+        }
         if (RouteGeometry.Clip(player, target, area) is not { } segment)
             return;
         if (segment.ReachesEnd)
@@ -633,8 +701,9 @@ public sealed class RouteOverlayForm : Form
             var dx = segment.End.X - segment.Start.X;
             var dy = segment.End.Y - segment.Start.Y;
             var length = MathF.Sqrt(dx * dx + dy * dy);
-            if (length > 14)
-                segment = (segment.Start, new PointF(segment.End.X - dx * 14 / length, segment.End.Y - dy * 14 / length), true);
+            const float gap = RingRadius + 2;
+            if (length > gap)
+                segment = (segment.Start, new PointF(segment.End.X - dx * gap / length, segment.End.Y - dy * gap / length), true);
         }
         using var outline = new Pen(Color.FromArgb(Math.Min(dashed ? 50 : 170, (int)color.A), 0, 0, 0), 7) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid, StartCap = LineCap.Round, EndCap = LineCap.Round };
         using var line = new Pen(color, 3.5f) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid, StartCap = LineCap.Round, EndCap = LineCap.Round };
@@ -643,24 +712,24 @@ public sealed class RouteOverlayForm : Form
         foreach (var (point, angle) in RouteGeometry.Arrows(segment.Start, segment.End, 56))
             DrawChevron(graphics, point, angle, 9, color);
 
-        PointF labelAt;
-        float? leftOf = null;
         if (segment.ReachesEnd)
         {
             using var ring = new Pen(color, 3) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
-            graphics.DrawEllipse(outline, target.X - 12, target.Y - 12, 24, 24);
-            graphics.DrawEllipse(ring, target.X - 12, target.Y - 12, 24, 24);
-            labelAt = new PointF(target.X + 16, target.Y - 10);
-            leftOf = target.X - 16;
+            graphics.DrawEllipse(outline, target.X - RingRadius, target.Y - RingRadius, 2 * RingRadius, 2 * RingRadius);
+            graphics.DrawEllipse(ring, target.X - RingRadius, target.Y - RingRadius, 2 * RingRadius, 2 * RingRadius);
+            DrawTargetLabel(graphics, name, icon, target, color, area, player);
         }
         else
         {
             // Target beyond the map area: big arrow at the edge, pointing on.
             var angle = MathF.Atan2(target.Y - player.Y, target.X - player.X) * 180f / MathF.PI;
             DrawChevron(graphics, segment.End, angle, 16, color);
-            labelAt = new PointF(segment.End.X - 40, segment.End.Y + (segment.End.Y > area.Height / 2 ? -34 : 14));
+            var labelAt = new PointF(segment.End.X - 40, segment.End.Y + (segment.End.Y > area.Height / 2 ? -34 : 14));
+            if (icon is null)
+                DrawLabel(graphics, name, labelAt, color, area);
+            else
+                DrawTargetLabel(graphics, name, icon, new PointF(labelAt.X - RingRadius, labelAt.Y + 10), color, area);
         }
-        DrawLabel(graphics, name, labelAt, color, area, leftOf);
     }
 
     private static void DrawChevron(Graphics graphics, PointF at, float angle, float size, Color color)

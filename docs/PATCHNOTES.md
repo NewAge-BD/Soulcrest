@@ -2,6 +2,12 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.4.1 – 2026-10-10
+
+- **Verbessert:** Zielmarker im Spiel verdecken die Ressourcensymbole nicht mehr: Der Ring liegt um das
+  Symbol, Pfeile beginnen und enden am Ringrand. Markierte Ressourcen und Versteckte Kuben zeigen ihr
+  Icon neben dem Ring statt des Namens, die Entfernung bleibt.
+
 ## 0.4.0 – 2026-10-10
 
 - **Neu:** Leveling-Routen für Asmodier und Elyos, Episode 2–6 mit Levelbereich. Die Route führt Station
