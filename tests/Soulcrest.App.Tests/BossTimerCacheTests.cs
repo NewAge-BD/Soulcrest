@@ -45,7 +45,7 @@ public sealed class BossTimerCacheTests : IDisposable
         Assert.True(cache.Save(snapshot));
         var original = File.ReadAllText(CachePath);
         _time.Advance(TimeSpan.FromSeconds(10));
-        Assert.False(cache.Save(snapshot with { Bosses = snapshot.Bosses.Reverse().ToArray(), ServerUnixMs = ServerNow + 10000 }));
+        Assert.False(cache.Save(snapshot with { Bosses = Enumerable.Reverse(snapshot.Bosses).ToArray(), ServerUnixMs = ServerNow + 10000 }));
         Assert.False(new BossTimerCache(CachePath, _time).Save(snapshot));
         Assert.Equal(original, File.ReadAllText(CachePath));
         Assert.Empty(Directory.GetFiles(_folder, "*.tmp"));
