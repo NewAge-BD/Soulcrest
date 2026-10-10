@@ -171,6 +171,25 @@ public sealed class PetScanValueTests
     }
 
     [Fact]
+    public void UncertainAndUnknownLockedPetsAreMarkedLikeInTheList()
+    {
+        // User report 2026-10-10: the list asked to check uncertain pets, the overlay showed them as read
+        // and skipped unknown locked 0/5 cards.
+        var uncertain = Entry();
+        uncertain.Confidence = ScanConfidence.Uncertain;
+        uncertain.Observe(Card(5));
+        var lockedUnknown = new ScanEntry { Key = "locked", ThumbnailDataUrl = "", PortraitPng = [] };
+        lockedUnknown.Observe(Card(0, level: 0));
+        using var scan = new PetScanService(new SettingsService(), new ProgressService());
+        var page = scan.DescribePage([(Card(5), uncertain), (Card(0, level: 0), lockedUnknown)], stable: true);
+
+        Assert.True(page.Marks[0].PetUncertain);
+        Assert.True(page.Marks[1].PetUnknown);
+        Assert.False(page.Ready);
+        Assert.Equal(2, page.Missing.Count);
+    }
+
+    [Fact]
     public void ResetRequiresFreshEvidenceAndPanelConfirmation()
     {
         var entry = Entry();
@@ -225,7 +244,7 @@ public sealed class PetScanValueTests
         Assert.Equal(valid, PetScanService.ParseCorrection(text) is not null);
 
     [Fact]
-    public void OnlyControlOnTheDisplayedValueOfAStableCardIsEditable()
+    public void OnlyAltOnTheDisplayedValueOfAStableCardIsEditable()
     {
         var card = Card(5) with { ProgressBounds = new Rectangle(90, 170, 60, 12) };
         var mark = PetScanService.DescribeCard(card, Entry());

@@ -53,6 +53,7 @@ public sealed class ExplorationScanOverlayForm : Form
     private void Render()
     {
         if (IsDisposed || !IsHandleCreated) return;
+        if (!_settings.Current.ExplorationScanOverlayEnabled) { if (Visible) Hide(); return; }
         if (WantedInRecordings != _inRecordings)
         {
             _inRecordings = WantedInRecordings;

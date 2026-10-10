@@ -2,6 +2,26 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.4.0 – 2026-10-10
+
+- **Neu:** Leveling-Routen für Asmodier und Elyos, Episode 2–6 mit Levelbereich. Die Route führt Station
+  für Station über die Karte, merkt sich den Fortschritt pro Charakter und setzt nach einem Neustart fort.
+  Monsteraufgaben zweigen zum nächsten passenden Spawn ab.
+- **Neu:** Leveling-Overlay im Spiel mit aktueller Station, Fortschritt und Weiter/Zurück.
+- **Neu:** Der Progressionsmodus verfolgt mehrere Ziele zugleich: Pets, Sealed Dungeons und Strongholds
+  beliebig kombiniert, das nächstgelegene offene Ziel zuerst. „Am nächsten an der vollen Stufe“ ist jetzt
+  eine Option unter „Ziel je Pet“.
+- **Neu:** Overlays lassen sich direkt bedienen: Schloss-Knopf zum Entsperren, Verschieben mit gehaltener
+  Alt-Taste. Alle Overlay-Tastenkürzel sind unter Optionen frei belegbar.
+- **Neu:** Bei geöffnetem ESC-Menü blendet Soulcrest seine Overlays aus.
+- **Neu:** Routen werden im eigenen Format `.soulroute` gespeichert. Vorhandene Routen übernimmt
+  Soulcrest automatisch, die Leveling-Routen kommen dazu.
+- **Verbessert:** Das Pet-Scan-Overlay markiert alle Karten, die die Ergebnisliste zum Prüfen anzeigt,
+  auch unsicher erkannte und unbekannte gesperrte Pets.
+- **Verbessert:** Aufgeräumter Karten-Tab: Erklärungen stehen hinter einem ?-Symbol.
+- **Verbessert:** Boss-Rush-Loot nach Seltenheit sortiert und farbig markiert.
+- **Behoben:** Das Pet-Scan-Overlay erscheint auch, wenn das Pet-Fenster die Minimap verdeckt.
+
 ## 0.2.8 – 2026-10-09
 
 - **Neu:** Boss Rush mit eigenem Tab. Soulcrest liest die Field-Boss-Spawns passiv aus dem Spielverkehr

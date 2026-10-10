@@ -128,23 +128,21 @@ public sealed class BossOverlayTests
     [InlineData("de", false)]
     [InlineData("en", true)]
     [InlineData("en", false)]
-    public void HotkeyHintsExplainLootToggleAndLockStateWithoutClipping(string language, bool locked)
+    public void HotkeyHintsExplainHeldAltInteractionWithoutClipping(string language, bool locked)
     {
         var previous = UiText.Language;
         UiText.Language = language;
         try
         {
             var hint = BossOverlayForm.HotkeyHint(locked);
-            var modifier = language == "de" ? "Strg" : "Ctrl";
-            Assert.Contains(modifier + "+Alt+P", hint);
-            Assert.Contains(modifier + "+Alt+L", hint);
-            Assert.Contains("loot", hint, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains(language == "de" ? locked ? "verschieben" : "sperren" : locked ? "move" : "lock", hint);
+            Assert.Equal(language == "de"
+                ? locked ? "Schloss klicken zum Entsperren" : "Schloss: sperren · Kopf ziehen"
+                : locked ? "Click the lock to unlock" : "Lock to pass clicks through · Drag header", hint);
             using var bitmap = new Bitmap(BossOverlayForm.PanelWidth, 50);
             using var g = Graphics.FromImage(bitmap);
             using var font = new Font("Segoe UI", 11, FontStyle.Regular, GraphicsUnit.Pixel);
             Assert.True(g.MeasureString(hint, font).Width <= BossOverlayForm.PanelWidth - 34,
-                "Both hotkeys and their actions must fit without truncating the lock shortcut.");
+                "The held-Alt hint must fit without truncation.");
         }
         finally { UiText.Language = previous; }
     }

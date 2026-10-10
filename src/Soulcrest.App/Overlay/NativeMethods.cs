@@ -13,6 +13,9 @@ internal static partial class NativeMethods
     internal const int WS_EX_NOACTIVATE = 0x08000000;
     internal const int WS_EX_TOPMOST = 0x00000008;
     internal const int GWL_EXSTYLE = -20;
+    private const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004,
+        SWP_NOACTIVATE = 0x0010, SWP_FRAMECHANGED = 0x0020;
+    internal const int WM_MOUSEACTIVATE = 0x0021, MA_NOACTIVATE = 3;
     internal const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
     internal const uint WDA_NONE = 0x0;
 
@@ -44,6 +47,20 @@ internal static partial class NativeMethods
 
     [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     internal static partial nint SetWindowLongPtr(nint hwnd, int index, nint value);
+
+    /// <summary>Refreshes Windows' cached hit testing after changing a layered window's input style.</summary>
+    internal static void SetClickThrough(nint hwnd, bool clickThrough)
+    {
+        var style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+        var updated = clickThrough ? style | WS_EX_TRANSPARENT : style & ~(nint)WS_EX_TRANSPARENT;
+        if (style == updated) return;
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, updated);
+        SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetWindowPos(nint hwnd, nint insertAfter, int x, int y, int cx, int cy, uint flags);
 
     internal const int ULW_ALPHA = 0x2;
     internal const byte AC_SRC_OVER = 0;

@@ -8,7 +8,7 @@ namespace Soulcrest.App.Overlay;
 
 /// <summary>
 /// Compact in-game overlay: focus pets with souls/next target, toasts for new soul pickups,
-/// tracker status. Click-through while locked, excluded from screen capture so the OCR never
+/// tracker status. Click-through unless Alt is held, excluded from screen capture so the OCR never
 /// reads it (display affinity, as Grindcrest's NativeOverlayForm).
 /// </summary>
 public sealed class PetOverlayForm : Form
@@ -31,9 +31,16 @@ public sealed class PetOverlayForm : Form
     private readonly PetScanService _scan;
     private readonly MapTargetsService _targets;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 250 };
+    private readonly OverlayLockButton _lockButton;
+    private bool _manualInteraction;
     private bool _locked = true;
+    private bool _suppressRequested, _suppressed;
+
+    // No minimap (world map, instance, menus, the pet window itself) hides the loot panel, but never the
+    // pet-scan panel: the scan runs exactly while the pet window covers the minimap (user request 2026-10-10).
+    private bool Suppressed => _suppressRequested && !_scan.Running;
     private Point? _dragStart;
-    // Size (user request 2026-10-07): everything is laid out for 360 px and drawn scaled; unlocked, any
+    // Size (user request 2026-10-07): everything is laid out for 360 px and drawn scaled; while Alt is held, any
     // corner can be dragged and the opposite one stays put.
     private const int BaseWidth = 360, ScanWidth = 380, CornerGrip = 16;
     private const double MinScale = 0.6, MaxScale = 2.5;
@@ -68,12 +75,42 @@ public sealed class PetOverlayForm : Form
         BackColor = PanelColor;
         Opacity = 0.94;
         DoubleBuffered = true;
+        _lockButton = new OverlayLockButton(this);
+        _lockButton.Toggled += ToggleManualInteraction;
+        _lockButton.SetVisibleInRecordings(_settings.Current.OverlaysInRecordings);
         _timer.Tick += (_, _) => RefreshLayout();
         _timer.Start();
         RefreshLayout();
     }
 
     public bool Locked => _locked;
+
+    /// <summary>Temporarily hides this panel without changing the user's overlay preference.</summary>
+    public void SetSuppressed(bool suppressed)
+    {
+        _suppressRequested = suppressed;
+        ApplySuppression();
+    }
+
+    private void ApplySuppression()
+    {
+        var suppressed = Suppressed;
+        if (_suppressed == suppressed) return;
+        _suppressed = suppressed;
+        if (suppressed)
+        {
+            FinishDrag();
+            if (Capture) Capture = false;
+            SetInteractionEnabled(false);
+            Hide();
+            return;
+        }
+        RefreshLayout();
+        if (_settings.Current.OverlayEnabled || (_scanMode && _settings.Current.PetScanOverlayEnabled)) Show();
+        else Hide();
+    }
+
+    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed);
 
     protected override bool ShowWithoutActivation => true;
 
@@ -82,7 +119,9 @@ public sealed class PetOverlayForm : Form
         get
         {
             var cp = base.CreateParams;
-            cp.ExStyle |= NativeMethods.WS_EX_LAYERED | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOPMOST | NativeMethods.WS_EX_TRANSPARENT;
+            cp.ExStyle |= NativeMethods.WS_EX_LAYERED | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOPMOST;
+            if (_locked) cp.ExStyle |= NativeMethods.WS_EX_TRANSPARENT;
+            else cp.ExStyle &= ~NativeMethods.WS_EX_TRANSPARENT;
             return cp;
         }
     }
@@ -98,7 +137,7 @@ public sealed class PetOverlayForm : Form
     private void ApplyCaptureVisibility()
     {
         if (IsHandleCreated && !IsDisposed)
-            BeginInvoke(() => { NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings); Invalidate(); });
+            BeginInvoke(() => { NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings); _lockButton.SetVisibleInRecordings(_settings.Current.OverlaysInRecordings); Invalidate(); });
     }
 
     protected override void OnHandleDestroyed(EventArgs e)
@@ -107,10 +146,32 @@ public sealed class PetOverlayForm : Form
         base.OnHandleDestroyed(e);
     }
 
-    /// <summary>Unlocked: the overlay takes mouse input and can be dragged. Locked: click-through.</summary>
-    public void ToggleLock()
+    internal bool ManualInteractionEnabled => _manualInteraction;
+
+    internal void ToggleManualInteraction()
     {
-        _locked = !_locked;
+        _manualInteraction = !_manualInteraction;
+        _lockButton.SetLocked(!_manualInteraction);
+        SetInteractionEnabled(OverlayInteraction.IsAltHeld);
+    }
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (Visible) return;
+        _manualInteraction = false;
+        _lockButton?.SetLocked(true);
+        SetInteractionEnabled(false);
+    }
+
+    private bool InteractionAllowed => !_suppressed && (_manualInteraction || OverlayInteraction.IsAltHeld);
+
+    /// <summary>Alt temporarily enables mouse input. Releasing it ends a drag or resize and restores click-through.</summary>
+    public void SetInteractionEnabled(bool enabled)
+    {
+        enabled = (enabled || _manualInteraction) && !_suppressed;
+        if (_locked == !enabled) return;
+        _locked = !enabled;
         if (_locked) FinishDrag();
         ApplyLockState();
         Cursor = _locked ? Cursors.Default : Cursors.SizeAll;
@@ -120,9 +181,17 @@ public sealed class PetOverlayForm : Form
     private void ApplyLockState()
     {
         if (!IsHandleCreated) return;
-        var style = NativeMethods.GetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE);
-        style = _locked ? style | NativeMethods.WS_EX_TRANSPARENT : style & ~(nint)NativeMethods.WS_EX_TRANSPARENT;
-        NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE, style);
+        NativeMethods.SetClickThrough(Handle, _locked);
+    }
+
+    protected override void WndProc(ref Message message)
+    {
+        if (message.Msg == NativeMethods.WM_MOUSEACTIVATE)
+        {
+            message.Result = NativeMethods.MA_NOACTIVATE;
+            return;
+        }
+        base.WndProc(ref message);
     }
 
     private int LogicalWidth => _scanMode ? ScanWidth : BaseWidth;
@@ -172,6 +241,7 @@ public sealed class PetOverlayForm : Form
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
+        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
         if (_locked || _scanMode || e.Button != MouseButtons.Left)
             return;
         _resizing = CornerAt(e.Location);
@@ -188,6 +258,7 @@ public sealed class PetOverlayForm : Form
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
         if (_resizing != Corner.None)
         {
             ResizeTo(Cursor.Position);
@@ -226,6 +297,7 @@ public sealed class PetOverlayForm : Form
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
+        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
         FinishDrag();
     }
 
@@ -252,8 +324,17 @@ public sealed class PetOverlayForm : Form
 
     private void RefreshLayout()
     {
+        // The scan starting or ending changes whether the suppression applies (see Suppressed).
+        ApplySuppression();
+        if (_suppressed) return;
         if (_scan.Running != _scanMode)
             SwitchScanMode(_scan.Running);
+        if (!SmokeTest.Enabled && IsHandleCreated)
+        {
+            var wanted = _settings.Current.OverlayEnabled || (_scanMode && _settings.Current.PetScanOverlayEnabled);
+            if (wanted && !Visible) Show();
+            else if (!wanted && Visible) Hide();
+        }
         if (_scanMode)
         {
             var missingLines = Math.Min(6, _scan.Page?.Missing.Count ?? 0);
@@ -286,7 +367,7 @@ public sealed class PetOverlayForm : Form
             // Right of the grid, below the auto-loot hint: an empty area of the pet window.
             Location = new Point(area.X + (int)(area.Width * 0.255), area.Y + (int)(area.Height * 0.62));
             ApplySize();
-            if (!Visible)
+            if (!Visible && (_settings.Current.OverlayEnabled || _settings.Current.PetScanOverlayEnabled))
                 Show();
         }
         else
@@ -376,6 +457,9 @@ public sealed class PetOverlayForm : Form
     internal static int LootLogicalHeight(int focus, int drops) => focus == 0 && drops == 0 ? 54
         : 54 + (focus == 0 ? 0 : 24 + focus * RowHeight + 8) + (drops == 0 ? 0 : 24 + drops * RowHeight + 8) + 28;
 
+    internal static string HotkeyHint(bool locked) => UiText.T(locked
+        ? "Schloss klicken zum Entsperren" : "Schloss: sperren · Kopf ziehen");
+
     /// <summary>One layout for the live panel and offline previews; rows are a consistent progress snapshot.</summary>
     internal static void PaintLootPanel(Graphics g, IReadOnlyList<LootRow> focus, IReadOnlyList<LootRow> drops, bool running, bool locked)
     {
@@ -397,7 +481,7 @@ public sealed class PetOverlayForm : Form
         g.DrawString(UiText.T("Loot & Pet-Fortschritt"), small, dim, 14, 30);
         var state = UiText.T(running ? "Netzwerk" : "Erfassung aus");
         var stateWidth = g.MeasureString(state, small).Width + 28;
-        var stateRect = new RectangleF(BaseWidth - 14 - stateWidth, 13, stateWidth, 24);
+        var stateRect = new RectangleF(BaseWidth - 52 - stateWidth, 13, stateWidth, 24);
         using (var statePlate = new SolidBrush(running ? Color.FromArgb(24, 57, 58) : CardColor))
         using (var statePath = RoundedRectangle(stateRect, 12))
             g.FillPath(statePlate, statePath);
@@ -432,7 +516,7 @@ public sealed class PetOverlayForm : Form
             y += 8;
         }
         g.DrawLine(line, 14, y, BaseWidth - 14, y);
-        g.DrawString(UiText.T(locked ? "Strg+Alt+P ein/aus · Strg+Alt+L verschieben" : "Verschieben · Ecken skalieren · Strg+Alt+L sperrt"),
+        g.DrawString(HotkeyHint(locked),
             small, dim, new RectangleF(14, y + 7, BaseWidth - 28, 18));
         if (!locked) DrawCornerGrips(g, BaseWidth, height);
 
@@ -628,6 +712,8 @@ public sealed class PetOverlayForm : Form
     {
         if (disposing)
         {
+            _lockButton.Toggled -= ToggleManualInteraction;
+            _lockButton.Dispose();
             _timer.Stop();
             _timer.Dispose();
             foreach (var image in _icons.Values) image?.Dispose();

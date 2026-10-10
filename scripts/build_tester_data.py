@@ -381,6 +381,11 @@ def main():
     for name,obj in [('manifest.json',manifest),('pets.json',sorted(pets.values(),key=lambda p:(p['genus'],p['en'],p['id']))),
                      ('source-audit.json',{'sources':list(sources.values()),'conflicts':conflicts})]:
         (args.out/name).write_text(json.dumps(obj,ensure_ascii=False,indent=1),encoding='utf-8')
+    stations = ROOT/'imports/generated/leveling-stations.json'
+    if stations.exists():
+        from build_quest_objectives import build as build_quest_objectives
+        summary = build_quest_objectives(ROOT, load_json(stations), args.out)
+        print('Quest monster stations', summary['stations'], 'spawn markers', summary['spawnMarkers'], flush=True)
     print('Pets',len(pets),'soul sources',len(sources),'conflicts',len(conflicts),flush=True)
 
 if __name__ == '__main__': main()

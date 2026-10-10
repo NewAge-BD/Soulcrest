@@ -1,0 +1,10 @@
+@* Explanations behind a "?" (user request 2026-10-10: less visual clutter in the map tab). A native
+   <details>, so it opens by click or keyboard without own state; status messages stay visible. *@
+<details class="info-tip">
+    <summary title="@UiText.T("Erklärung")" aria-label="@UiText.T("Erklärung")">?</summary>
+    <div class="info-tip-body">@ChildContent</div>
+</details>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

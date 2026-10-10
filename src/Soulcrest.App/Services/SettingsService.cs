@@ -24,6 +24,11 @@ public sealed class AppSettings
     /// <summary>Look for a new version on GitHub after every start (UpdateService).</summary>
     public bool CheckUpdatesOnStart { get; set; } = true;
 
+    public Dictionary<string, OverlayHotkey?> OverlayHotkeys { get; set; } = Services.OverlayHotkeys.Defaults();
+    public bool MapOverlayEnabled { get; set; } = true;
+    public bool PetScanOverlayEnabled { get; set; } = true;
+    public bool ExplorationScanOverlayEnabled { get; set; } = true;
+    public bool BossOverlayVisible { get; set; } = true;
     public bool OverlayEnabled { get; set; } = true;
     public int OverlayX { get; set; } = 40;
     public int OverlayY { get; set; } = 200;
@@ -95,7 +100,7 @@ public sealed class AppSettings
     /// <summary>The player's faction (<see cref="Factions"/>), chosen in the setup; sets <see cref="GuardZoneMaps"/>.</summary>
     public string? Faction { get; set; }
 
-    /// <summary>Size of the pet overlay (1 = 360 px wide); dragged at a corner while unlocked (Ctrl+Alt+L).</summary>
+    /// <summary>Size of the pet overlay (1 = 360 px wide); dragged at a corner while Alt is held.</summary>
     public double OverlayScale { get; set; } = 1.0;
 
     /// <summary>
@@ -129,6 +134,13 @@ public sealed class AppSettings
     public int BossOverlayY { get; set; } = 200;
     public double BossOverlayScale { get; set; } = 1;
     public bool BossOverlayLocked { get; set; } = true;
+
+    /// <summary>Compact leveling itinerary HUD; follows the selected character and active route.</summary>
+    public bool LevelingOverlayEnabled { get; set; } = true;
+    public int LevelingOverlayX { get; set; } = 840;
+    public int LevelingOverlayY { get; set; } = 200;
+    public double LevelingOverlayScale { get; set; } = 1;
+    public bool LevelingOverlayLocked { get; set; } = true;
     public bool BossAlertsEnabled { get; set; }
     public string[] BossAlertIds { get; set; } = [];
     public int BossAlertLeadSeconds { get; set; } = 60;
@@ -138,13 +150,26 @@ public sealed class AppSettings
 
     /// <summary>
     /// One-time adjustments of saved settings (1: completion radius default 40 → 15, 2026-10-05;
-    /// 2: existing installations count the first-start tutorial as seen, 2026-10-07).
+    /// 2: existing installations count the first-start tutorial as seen, 2026-10-07;
+    /// 3: the single progression mode becomes a selection of kinds, 2026-10-10).
     /// </summary>
     public int SettingsRevision { get; set; }
 
     /// <summary>The first-start tutorial (minimap) was closed.</summary>
     public bool TutorialDone { get; set; }
+    /// <summary>Before revision 3 the only progression choice; read once to fill <see cref="ProgressionKinds"/>.</summary>
     public string ProgressionMode { get; set; } = "pets";
+
+    /// <summary>
+    /// What the progression mode leads to, any combination of "pets", "dungeon" and "stronghold" (user request
+    /// 2026-10-10: several at once). The nearest open target of the chosen kinds is next.
+    /// </summary>
+    public string[] ProgressionKinds { get; set; } = ["pets"];
+
+    /// <summary>Pets: true = the pet missing the fewest souls to finish its level, false = up to <see cref="ProgressionGoal"/>.</summary>
+    public bool ProgressionPetsClosest { get; set; }
+
+    public bool ProgressionIncludes(string kind) => ProgressionKinds.Contains(kind, StringComparer.Ordinal);
 
     /// <summary>Total souls a pet should reach: 5 (unlocked), 30 (level 2) or 105 (max).</summary>
     public int ProgressionGoal { get; set; } = 5;
@@ -224,8 +249,17 @@ public sealed class SettingsService
             Current.TutorialDone |= existed;
             Current.SettingsRevision = 2;
         }
+        if (Current.SettingsRevision < 3)
+        {
+            (Current.ProgressionKinds, Current.ProgressionPetsClosest) = ProgressionFromMode(Current.ProgressionMode);
+            Current.SettingsRevision = 3;
+        }
+        Current.ProgressionKinds = (Current.ProgressionKinds ?? []).Where(k => k is "pets" or "dungeon" or "stronghold")
+            .Distinct(StringComparer.Ordinal).ToArray();
+        OverlayHotkeys.Normalize(Current);
         Current.BossOverlayCount = Math.Clamp(Current.BossOverlayCount, 1, 12);
         Current.BossOverlayScale = double.IsFinite(Current.BossOverlayScale) ? Math.Clamp(Current.BossOverlayScale, .6, 2) : 1;
+        Current.LevelingOverlayScale = double.IsFinite(Current.LevelingOverlayScale) ? Math.Clamp(Current.LevelingOverlayScale, .7, 1.6) : 1;
         Current.BossAlertLeadSeconds = Math.Clamp(Current.BossAlertLeadSeconds, 0, 3600);
         Current.BossAlertDurationSeconds = Math.Clamp(Current.BossAlertDurationSeconds, 3, 60);
         Current.BossAlertIds ??= [];
@@ -235,6 +269,16 @@ public sealed class SettingsService
     public AppSettings Current { get; }
 
     public event Action? Changed;
+
+    /// <summary>The former single mode as kinds: "exploration" meant sealed dungeons and strongholds.</summary>
+    internal static (string[] Kinds, bool PetsClosest) ProgressionFromMode(string? mode) => mode switch
+    {
+        "closest" => (["pets"], true),
+        "dungeon" => (["dungeon"], false),
+        "stronghold" => (["stronghold"], false),
+        "exploration" => (["dungeon", "stronghold"], false),
+        _ => (["pets"], false),
+    };
 
     /// <summary>Only confident OCR hints replace the last known game language; unchanged frames do not write settings.</summary>
     public void RememberGameLanguage(string? language)

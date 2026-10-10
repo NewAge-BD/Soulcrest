@@ -108,7 +108,8 @@
         <div class="sv-card-head">
             <h3>Overlays</h3>
         </div>
-        <p class="sv-lead">@UiText.T("Einblendungen über dem Spiel. Ein-/ausblenden mit") <code>@UiText.T("Strg+Alt+P")</code>.</p>
+        <p class="sv-lead">@UiText.T("Einblendungen über dem Spiel. Eigene Tastenkürzel lassen sich unter Overlay-Hotkeys festlegen.")</p>
+        <p class="sv-hint">@UiText.T("Schloss im Overlay anklicken, um es zu bedienen und zu verschieben. Erneut klicken, um Klicks durchzulassen.")</p>
         <label for="overlay-language">@UiText.T("Overlay-Sprache")</label>
         <select id="overlay-language" value="@Settings.Current.OverlayLanguage" @onchange="SetOverlayLanguage">
             <option value="auto">@UiText.T("Automatisch (Spielsprache)")</option>
@@ -147,6 +148,7 @@
         </div>
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.OverlaysInRecordings" @onchange="@(e => Settings.Update(s => s.OverlaysInRecordings = (bool)e.Value!))" /><span><b>@UiText.T("Overlays in Aufnahmen sichtbar")</b><small>@UiText.T("Für OBS (Bildschirmaufnahme) und Screenshots. Aus: Overlays sind nur auf dem Monitor zu sehen.")</small></span></label>
     </section>
+    <OverlayHotkeyOptions />
 </div>
 
 @code {

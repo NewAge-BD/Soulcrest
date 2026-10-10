@@ -22,8 +22,10 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Localization\en.json" />
+    <EmbeddedResource Include="..\..\data\routes\leveling.soulroute" LogicalName="Soulcrest.LevelingRoutes.soulroute" Link="Routes\leveling.soulroute" />
     <EmbeddedResource Include="..\..\docs\PATCHNOTES.md" LogicalName="Soulcrest.PATCHNOTES.md" Link="PATCHNOTES.md" />
     <EmbeddedResource Include="..\..\docs\PATCHNOTES.en.md" LogicalName="Soulcrest.PATCHNOTES.en.md" Link="PATCHNOTES.en.md" WithCulture="false" />
+    <EmbeddedResource Include="Assets\esc-menu-icons.png" LogicalName="Soulcrest.EscMenuIcons.png" />
     <EmbeddedResource Include="Assets\map-window-emblem.png" LogicalName="Soulcrest.MapWindowEmblem.png" />
     <EmbeddedResource Include="Assets\exploration-complete.png" LogicalName="Soulcrest.ExplorationComplete.png" />
     <InternalsVisibleTo Include="Soulcrest.App.Tests" />

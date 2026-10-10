@@ -10,12 +10,12 @@ namespace Soulcrest.App;
 public sealed class MainForm : Form
 {
     public const string MapDataHost = "mapdata.soulcrest";
-    private const int HotkeyOverlay = 1;
-    private const int HotkeyLock = 2;
+    private readonly OverlayHotkeyService _hotkeys;
 
     private readonly ServiceProvider _services;
     private readonly PetOverlayForm _overlay;
     private readonly BossOverlayForm _bossOverlay;
+    private readonly LevelingOverlayForm _levelingOverlay;
     private readonly RouteOverlayForm _routeOverlay;
     private readonly ScanMarkerOverlayForm _scanMarkers;
     private readonly ExplorationScanOverlayForm _explorationOverlay;
@@ -26,9 +26,13 @@ public sealed class MainForm : Form
     private readonly Capture.GameCaptureService _gameCapture;
     private readonly ExplorationScanService _explorationScan;
     private readonly CancellationTokenSource _watchdog = new();
+    private readonly System.Windows.Forms.Timer _overlayInteractionTimer = new() { Interval = 25 };
     private bool _closing;
     private bool _cleanupStarted;
     private bool _trackingStopped;
+    private bool _overlayKeyboardStarted;
+    private bool _overlaysStarted;
+    private bool? _lastAlt, _lastShift;
 
     public IServiceProvider Services => _services;
 
@@ -43,9 +47,12 @@ public sealed class MainForm : Form
         if (File.Exists(icon))
             Icon = new Icon(icon);
 
+        RouteFile.EnsureDefaultLibrary(AppPaths.RoutesFile, AppPaths.LegacyRoutesFile);
+
         var services = new ServiceCollection();
         services.AddWindowsFormsBlazorWebView();
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<OverlayHotkeyService>();
         services.AddSingleton<OcrLanguageInstaller>();
         services.AddSingleton<Capture.GameCaptureService>();
         services.AddSingleton<ProgressService>();
@@ -66,6 +73,8 @@ public sealed class MainForm : Form
         services.AddSingleton<UiState>();
         _services = services.BuildServiceProvider();
         _settings = _services.GetRequiredService<SettingsService>();
+        _hotkeys = _services.GetRequiredService<OverlayHotkeyService>();
+        _hotkeys.Invoked += ExecuteOverlayHotkey;
         UpdateLanguage();
         _settings.Changed += UpdateLanguage;
         _tracker = _services.GetRequiredService<TrackerService>();
@@ -97,6 +106,7 @@ public sealed class MainForm : Form
         webView.BlazorWebViewInitialized += (_, e) =>
         {
             if (_closing || _cleanupStarted) return;
+            if (_overlaysStarted) StartOverlayKeyboard();
             // No browser suggestion lists over Soulcrest's own: WebView2 drew its autofill popup over
             // the map search as a box of dots (user report 2026-10-06).
             e.WebView.CoreWebView2.Settings.IsGeneralAutofillEnabled = false;
@@ -120,6 +130,8 @@ public sealed class MainForm : Form
         _ = _services.GetRequiredService<ExplorationArrivalService>();
         _ = _services.GetRequiredService<FarmedTargetCleaner>(); // removes marks of pets farmed out of view
         _bossOverlay = new BossOverlayForm(_services.GetRequiredService<BossRushService>(), _settings, progress);
+        _levelingOverlay = new LevelingOverlayForm(_services.GetRequiredService<MapTargetsService>(),
+            _services.GetRequiredService<ExplorationService>(), _settings);
         _ = _services.GetRequiredService<CharacterDetectionService>(); // profile follows the character after loading screens
         // Loading screens end the tracking's rest in an instance at once (and start the short wait in a new one).
         _services.GetRequiredService<Network.NetworkLootService>().CharacterEntered += _ => _map.NoteLoadingScreen();
@@ -129,6 +141,8 @@ public sealed class MainForm : Form
             _services.GetRequiredService<MapTargetsService>(),
             _settings,
             _services.GetRequiredService<ProgressService>());
+        _overlayInteractionTimer.Tick += (_, _) => UpdateOverlayState();
+        OverlayInteraction.Changed += ScheduleOverlayState;
     }
 
     private void UpdateLanguage()
@@ -142,6 +156,14 @@ public sealed class MainForm : Form
     {
         base.OnHandleCreated(e);
         DarkTitleBar.Apply(Handle);
+        if (_overlaysStarted && !_closing && !_cleanupStarted)
+            StartOverlayKeyboard();
+    }
+
+    protected override void OnHandleDestroyed(EventArgs e)
+    {
+        StopOverlayKeyboard();
+        base.OnHandleDestroyed(e);
     }
 
     protected override void OnShown(EventArgs e)
@@ -149,13 +171,18 @@ public sealed class MainForm : Form
         base.OnShown(e);
         if (SmokeTest.Enabled || _closing || _cleanupStarted)
             return; // no overlay, no global hotkeys during the self-test
-        NativeMethods.RegisterHotKey(Handle, HotkeyOverlay, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT | NativeMethods.MOD_NOREPEAT, (uint)Keys.P);
-        NativeMethods.RegisterHotKey(Handle, HotkeyLock, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT | NativeMethods.MOD_NOREPEAT, (uint)Keys.L);
+        _hotkeys.Attach(this);
+        _overlaysStarted = true;
+        StartOverlayKeyboard();
+        UpdateOverlayState();
         if (_settings.Current.OverlayEnabled)
             _overlay.Show();
         _ = _bossOverlay.Handle;
+        _ = _levelingOverlay.Handle;
         _ = _routeOverlay.Handle; // shown by itself while the map is tracked and targets are marked
         _ = _explorationOverlay.Handle;
+        SetOverlayInteractionEnabled(OverlayInteraction.IsAltHeld);
+        _overlayInteractionTimer.Start();
         // Like Grindcrest before tracking: ask Windows for capture without the yellow border (a prompt
         // only the first time), outside the capture lock; a bordered session is then restarted.
         _ = _gameCapture.PrepareBorderlessAsync();
@@ -173,39 +200,76 @@ public sealed class MainForm : Form
 
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == NativeMethods.WM_HOTKEY)
+        if (!_closing && !_cleanupStarted && OverlayInteraction.ProcessMessage(m.Msg, m.LParam))
+            UpdateOverlayState();
+        if (m.Msg == NativeMethods.WM_HOTKEY && !_closing && !_cleanupStarted)
         {
-            switch ((int)m.WParam)
-            {
-                case HotkeyOverlay:
-                    ToggleOverlay();
-                    break;
-                case HotkeyLock:
-                    ToggleOverlayLocks();
-                    break;
-            }
+            _hotkeys.ProcessHotkey((int)m.WParam);
         }
         base.WndProc(ref m);
     }
 
-    private void ToggleOverlayLocks()
+    internal void SetOverlayInteractionEnabled(bool enabled)
     {
-        var bossEnabled = (_settings.Current.BossRushEnabled && _settings.Current.BossOverlayEnabled)
-            || _settings.Current.BossAlertsEnabled;
-        if (!_overlay.Visible && !bossEnabled) ToggleOverlay();
-        var unlock = (_overlay.Visible && _overlay.Locked)
-            || (bossEnabled && _settings.Current.BossOverlayLocked);
-        if (_overlay.Visible && _overlay.Locked == unlock) _overlay.ToggleLock();
-        if (bossEnabled) _settings.Update(s => s.BossOverlayLocked = !unlock);
+        if (_cleanupStarted) return;
+        _overlay.SetInteractionEnabled(enabled);
+        _bossOverlay.SetInteractionEnabled(enabled);
+        _levelingOverlay.SetInteractionEnabled(enabled);
+    }
+
+    internal void UpdateOverlayState()
+    {
+        if (_closing || _cleanupStarted) return;
+        // Follow the minimap's existing detection/hold rules, including menu transitions.
+        // Disabled tracking cannot establish a hidden minimap and must leave the HUD usable.
+        var minimapHidden = _map.Running && !_map.Found && !_map.WorldMapOpen;
+        var escMenuOpen = _map.Running && _map.EscMenuOpen;
+        var suppressed = _map.WorldMapOpen || _map.InInstance || minimapHidden || escMenuOpen;
+        _overlay.SetSuppressed(suppressed);
+        _levelingOverlay.SetSuppressed(suppressed);
+        _bossOverlay.SetSuppressed(minimapHidden || escMenuOpen);
+        _routeOverlay.SetSuppressed(escMenuOpen);
+        var alt = OverlayInteraction.IsAltHeld;
+        var shift = OverlayInteraction.IsShiftHeld;
+        SetOverlayInteractionEnabled(alt);
+        if (_lastAlt != alt || _lastShift != shift)
+        {
+            _lastAlt = alt;
+            _lastShift = shift;
+            LogFile.Append("overlay-input.log", $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} overlay modifiers: alt={alt}, shift={shift}, suppressed={suppressed}; {OverlayInteraction.State}{Environment.NewLine}");
+        }
+    }
+
+    private void ScheduleOverlayState()
+    {
+        if (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) return;
+        try { BeginInvoke(UpdateOverlayState); }
+        catch (InvalidOperationException) when (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) { }
+    }
+
+    private void StartOverlayKeyboard() => _overlayKeyboardStarted = OverlayInteraction.StartKeyboard(Handle);
+
+    private void ExecuteOverlayHotkey(string action)
+    {
+        if (_closing || _cleanupStarted) return;
+        switch (action)
+        {
+            case "loot.toggle": ToggleOverlay(); return;
+            case "loot.unlock": if (_overlay.Visible) _overlay.ToggleManualInteraction(); return;
+            case "boss.unlock": if (_bossOverlay.Visible) _bossOverlay.ToggleManualInteraction(); return;
+            case "leveling.unlock": if (_levelingOverlay.Visible) _levelingOverlay.ToggleManualInteraction(); return;
+        }
+        _settings.Update(s => OverlayHotkeys.ToggleVisibility(s, action));
+        UpdateOverlayState();
     }
 
     public void ToggleOverlay()
     {
-        if (_overlay.Visible)
-            _overlay.Hide();
-        else
-            _overlay.Show();
-        _settings.Update(s => s.OverlayEnabled = _overlay.Visible);
+        var enabled = !_settings.Current.OverlayEnabled;
+        _settings.Update(s => s.OverlayEnabled = enabled);
+        if (enabled) _overlay.Show();
+        else _overlay.Hide();
+        UpdateOverlayState();
     }
 
     /// <summary>Restores the saved window position and size (when it is still on a screen).</summary>
@@ -252,13 +316,17 @@ public sealed class MainForm : Form
         base.OnFormClosing(e);
         if (e.Cancel || _cleanupStarted) return;
         _closing = true;
+        _overlaysStarted = false;
+        _overlayInteractionTimer.Stop();
+        StopOverlayKeyboard();
+        SetOverlayInteractionEnabled(false);
         _watchdog.Cancel();
         SaveWindowBounds();
-        NativeMethods.UnregisterHotKey(Handle, HotkeyOverlay);
-        NativeMethods.UnregisterHotKey(Handle, HotkeyLock);
+        _hotkeys.Detach();
         StopTracking();
         _overlay.Close();
         _bossOverlay.Close();
+        _levelingOverlay.Close();
         _routeOverlay.Close();
         _scanMarkers.Close();
         _explorationOverlay.Close();
@@ -274,18 +342,32 @@ public sealed class MainForm : Form
         _map?.Shutdown();
     }
 
+    private void StopOverlayKeyboard()
+    {
+        if (!_overlayKeyboardStarted) return;
+        _overlayKeyboardStarted = false;
+        OverlayInteraction.StopKeyboard();
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (!disposing) { base.Dispose(false); return; }
         if (_cleanupStarted) return;
         _cleanupStarted = true;
+        _overlaysStarted = false;
+        OverlayInteraction.Changed -= ScheduleOverlayState;
+        _overlayInteractionTimer.Dispose();
+        StopOverlayKeyboard();
         _settings.Changed -= UpdateLanguage;
+        _hotkeys.Invoked -= ExecuteOverlayHotkey;
+        _hotkeys.Detach();
         _closing = true;
         try
         {
             StopTracking();
             _overlay?.Dispose();
             _bossOverlay?.Dispose();
+            _levelingOverlay?.Dispose();
             _routeOverlay?.Dispose();
             _scanMarkers?.Dispose();
             _explorationOverlay?.Dispose();

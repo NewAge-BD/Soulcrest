@@ -4,7 +4,7 @@ namespace Soulcrest.App.Tests;
 public sealed class ExplorationArrivalTests
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
-    private static AppSettings Settings => new() { ProgressionEnabled = true, ProgressionMode = "dungeon", ExplorationCompletionRadius = 50 };
+    private static AppSettings Settings => new() { ProgressionEnabled = true, ProgressionKinds = ["dungeon"], ExplorationCompletionRadius = 50 };
     private static MapTarget Target => new("progression","altgard",100,100,"Cave","Sealed Dungeon",null,ExplorationId:"cave",CharacterId:"one");
     [Theory]
     [InlineData(130,140,true)]
@@ -28,14 +28,31 @@ public sealed class ExplorationArrivalTests
         var settings=Settings; var position=new PlayerPosition("altgard",100,100,Now);
         settings.ExplorationCompletionRadius=0;
         Assert.Null(ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
-        settings.ExplorationCompletionRadius=50; settings.ProgressionMode="pets";
+        settings.ExplorationCompletionRadius=50; settings.ProgressionKinds=["pets"];
         Assert.Null(ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
-        settings.ProgressionMode="stronghold";
+        settings.ProgressionKinds=["stronghold"];
         Assert.Null(ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
-        settings.ProgressionMode="exploration";
+        settings.ProgressionKinds=["pets","stronghold","dungeon"]; // a mixed selection with dungeons
         Assert.Equal("cave",ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
         settings.ProgressionEnabled=false;
         Assert.Null(ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
+    }
+}
+
+public sealed class ProgressionKindsTests
+{
+    [Theory]
+    [InlineData("pets", new[] { "pets" }, false)]
+    [InlineData("closest", new[] { "pets" }, true)]
+    [InlineData("dungeon", new[] { "dungeon" }, false)]
+    [InlineData("stronghold", new[] { "stronghold" }, false)]
+    [InlineData("exploration", new[] { "dungeon", "stronghold" }, false)]
+    public void TheFormerSingleModeBecomesASelection(string mode, string[] kinds, bool closest)
+    {
+        // User request 2026-10-10: several progression targets at once; old settings keep their meaning.
+        var (actual, petsClosest) = SettingsService.ProgressionFromMode(mode);
+        Assert.Equal(kinds, actual);
+        Assert.Equal(closest, petsClosest);
     }
 }
 

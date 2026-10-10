@@ -16,9 +16,12 @@ public sealed record ScanMark(Rectangle Bounds, bool ValueMissing, string Value,
     public string EntryKey { get; init; } = "";
     public string PetName { get; init; } = "";
     public Rectangle? ProgressBounds { get; init; }
+    /// <summary>Matched only uncertainly at the portrait; the list asks to check it, so the overlay does too.</summary>
+    public bool PetUncertain { get; init; }
     public string Label => UiText.F("{0}: {1}", UiText.T(Source), Value);
     public string Detail => Conflict ? UiText.F("Auch: {0} · prüfen", CurrentValue)
         : ValueMissing ? UiText.T("Wert? anklicken") : PetUnknown ? UiText.T("Pet? anklicken")
+        : PetUncertain ? UiText.T("Pet unsicher? anklicken")
         : Source == "Panel" && CurrentValue != "?" && CurrentValue != Value ? UiText.F("Karte: {0}", CurrentValue) : "";
 }
 
@@ -667,15 +670,15 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
         // Rows of the visible page, top to bottom; columns left/middle/right.
         var rowTops = frame.Select(f => f.Card.Bounds.Y).Distinct().Order().ToList();
         // A card is done when its value is read and the pet is known; otherwise the user should click it
-        // (the info panel then gives name and exact progress).
-        // A locked pet without souls (no counter on the card, 0/5) matches the default: nothing to take over,
-        // so it does not need to be identified.
+        // (the info panel then gives name and exact progress). Unknown and uncertain pets are marked like
+        // in the result list, locked ones without souls (0/5) too: the overlay used to skip them and showed
+        // uncertain matches as read while the list asked to check them (user report 2026-10-10).
         var marks = frame.Select(f => DescribeCard(f.Card, f.Entry) with
         {
             PetName = f.Entry.PetId is { } id ? progress.Catalog.Find(id)?.DisplayName(settings.Current.NameLanguage) ?? id
                 : f.Entry.SuggestedName is { } guess ? $"? {guess}" : UiText.T("Pet unbekannt"),
         }).ToList();
-        var open = frame.Where((f, i) => marks[i].ValueMissing || marks[i].Conflict || marks[i].PetUnknown)
+        var open = frame.Where((f, i) => marks[i].ValueMissing || marks[i].Conflict || marks[i].PetUnknown || marks[i].PetUncertain)
             .OrderBy(f => f.Card.Bounds.Y).ThenBy(f => f.Card.Column)
             .ToList();
         var missing = open
@@ -684,7 +687,8 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
                 var row = rowTops.FindIndex(y => Math.Abs(y - f.Card.Bounds.Y) < f.Card.Bounds.Height / 3) + 1;
                 var column = f.Card.Column switch { 0 => "links", 1 => "Mitte", _ => "rechts" };
                 var mark = DescribeCard(f.Card, f.Entry);
-                var reason = mark.Conflict ? "Wert widersprüchlich" : mark.ValueMissing ? "Wert unlesbar" : "Pet unbekannt";
+                var reason = mark.Conflict ? "Wert widersprüchlich" : mark.ValueMissing ? "Wert unlesbar"
+                    : mark.PetUnknown ? "Pet unbekannt" : "Pet unsicher";
                 return $"Reihe {row} {column} ({reason})";
             })
             .ToList();
@@ -702,11 +706,12 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
         var conflict = entry.HasValueConflict || confirmed is null && current is not null
             && entry.CandidateReading is { } previous && current != previous;
         var missing = confirmed is null && (current is null || entry.Reading is null);
-        var unknown = entry.PetId is null && entry.Reading is not (0, 0);
+        var unknown = entry.PetId is null;
+        var uncertain = !unknown && entry.Confidence == ScanConfidence.Uncertain;
         var source = entry.ManualReading is not null ? "Manuell" : entry.PanelReading is not null ? "Panel" : current is not null ? "Scan" : "Bisher";
         var alternative = conflict ? string.Join(", ", entry.Votes.Keys.Where(v => v != value).Select(v => ValueText(v))) : ValueText(current);
         return new ScanMark(card.Bounds, missing, ValueText(value), source, conflict, unknown, alternative)
-            { EntryKey = entry.Key, ProgressBounds = card.ProgressBounds };
+            { EntryKey = entry.Key, ProgressBounds = card.ProgressBounds, PetUncertain = uncertain };
     }
 
     /// <summary>Corrects the entry captured when the editor opened, even if the user scrolls meanwhile.</summary>

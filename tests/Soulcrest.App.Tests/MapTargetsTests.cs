@@ -136,8 +136,9 @@ public sealed class MapTargetsTests
     public void RouteStopsShareTheRouteColour()
     {
         File.Delete(AppPaths.TargetsFile);
-        // A route saved before route colours: no "color" in routes.json.
-        File.WriteAllText(AppPaths.RoutesFile, """[{"id":"old","name":"Alt","stops":[{"map":"altgard","x":1,"y":1,"name":"X","kind":"Locations","icon":null},{"map":"altgard","x":2,"y":2,"name":"Y","kind":"Locations","icon":null}]}]""");
+        File.Delete(AppPaths.RoutesFile);
+        // A legacy route saved before route colours migrates to the Soulcrest format.
+        File.WriteAllText(AppPaths.LegacyRoutesFile, """[{"id":"old","name":"Alt","stops":[{"map":"altgard","x":1,"y":1,"name":"X","kind":"Locations","icon":null},{"map":"altgard","x":2,"y":2,"name":"Y","kind":"Locations","icon":null}]}]""");
         try
         {
             var targets = new MapTargetsService();

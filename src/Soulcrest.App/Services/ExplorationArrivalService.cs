@@ -12,7 +12,7 @@ public sealed class ExplorationArrivalService : IDisposable
     private readonly ExplorationService _exploration;
     private readonly SettingsService _settings;
     private DateTimeOffset _lastPosition;
-    // Targets the player has been seen away from: only these disappear on arrival, so a target set
+    // Ordinary targets the player has been seen away from: only these disappear on arrival, so a target set
     // while standing next to it does not vanish at once.
     private readonly HashSet<string> _armed = [];
     public ExplorationArrivalService(MapTrackingService tracking, MapTargetsService targets, ExplorationService exploration, SettingsService settings)
@@ -36,7 +36,8 @@ public sealed class ExplorationArrivalService : IDisposable
 
     /// <summary>
     /// Marked targets on the player's map within the completion radius that were armed before (the
-    /// player had been outside the radius). Updates <paramref name="armed"/>; 0 disables the removal.
+    /// player had been outside the radius). Leveling routes complete only their current stop,
+    /// without requiring a departure before arrival. Updates <paramref name="armed"/>; 0 disables the removal.
     /// Reaching a stop of a sequence also removes the stops before it that were skipped (user decision
     /// 2026-10-05), first stop first, so a repeating route restarts only after its last stop.
     /// Pets marked by hand stay until the pet reaches its next level (<see cref="FarmedTargetCleaner"/>,
@@ -50,12 +51,21 @@ public sealed class ExplorationArrivalService : IDisposable
         if (radius == 0 || position.At > now || now - position.At > TimeSpan.FromSeconds(2) || !double.IsFinite(position.X) || !double.IsFinite(position.Y))
             return [];
         var arrived = new List<string>();
+        var levelingHeads = targets.Where(t => t.Leveling && !t.Completed).GroupBy(t => t.RouteId)
+            .Select(g => g.First().Id).ToHashSet();
         foreach (var target in targets)
         {
-            if (StaysUntilNextLevel(target))
+            if (target.Completed || StaysUntilNextLevel(target) || target.Leveling && !levelingHeads.Contains(target.Id))
                 continue;
             var inside = target.MapId == position.MapId
                 && (position.X - target.X) * (position.X - target.X) + (position.Y - target.Y) * (position.Y - target.Y) <= radius * radius;
+            if (target.Leveling)
+            {
+                // One current stop per route and fresh position; close NPC visits need no exit/re-entry.
+                armed.Remove(target.Id);
+                if (inside) arrived.Add(target.Id);
+                continue;
+            }
             if (!inside)
                 armed.Add(target.Id);
             else if (armed.Remove(target.Id))
@@ -99,11 +109,11 @@ public sealed class ExplorationArrivalService : IDisposable
         target.After is { } after ? targets.FirstOrDefault(t => t.Id == after) : null;
     internal static string? Reached(AppSettings settings, MapTarget? target, PlayerPosition position, string character, DateTimeOffset now)
     {
-        if (!settings.ProgressionEnabled || settings.ProgressionMode is not ("dungeon" or "stronghold" or "exploration") ||
+        if (!settings.ProgressionEnabled || !(settings.ProgressionIncludes("dungeon") || settings.ProgressionIncludes("stronghold")) ||
             settings.ExplorationCompletionRadius <= 0 || target?.ExplorationId is null || target.CharacterId != character ||
             target.MapId != position.MapId || position.At > now || now - position.At > TimeSpan.FromSeconds(2)) return null;
-        if (settings.ProgressionMode == "dungeon" && target.Kind != "Sealed Dungeon" ||
-            settings.ProgressionMode == "stronghold" && target.Kind != "Stronghold") return null;
+        if (target.Kind == "Sealed Dungeon" && !settings.ProgressionIncludes("dungeon") ||
+            target.Kind == "Stronghold" && !settings.ProgressionIncludes("stronghold")) return null;
         var radius = Math.Clamp(settings.ExplorationCompletionRadius, 0, 500);
         var dx = position.X - target.X; var dy = position.Y - target.Y;
         return double.IsFinite(dx) && double.IsFinite(dy) && dx * dx + dy * dy <= radius * radius ? target.ExplorationId : null;

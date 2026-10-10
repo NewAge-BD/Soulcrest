@@ -124,8 +124,7 @@
                     <label class="boss-field">@UiText.T("Anzahl der Spawns") <input type="number" min="1" max="12" value="@Settings.Current.BossOverlayCount" @onchange="SetCount" /></label>
                     <label class="boss-field boss-scale-field">@UiText.T("Overlay-Größe") <span><input type="range" min="60" max="200" step="5" value="@((int)(Settings.Current.BossOverlayScale * 100))" @onchange="SetScale" /><output>@((int)(Settings.Current.BossOverlayScale * 100)) %</output></span></label>
                 </div>
-                <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.BossOverlayLocked" @onchange="@(e => Settings.Update(s => s.BossOverlayLocked = (bool)e.Value!))" /> @UiText.T("Overlay sperren")</label>
-                <p class="sv-hint boss-hotkey-hint"><kbd>Ctrl</kbd><span>+</span><kbd>Alt</kbd><span>+</span><kbd>L</kbd><span>@UiText.T("Overlays entsperren und verschieben. Erneut drücken zum Sperren.")</span></p>
+                <p class="sv-hint boss-hotkey-hint"><kbd>Alt</kbd><span>@UiText.T("Gedrückt halten, um Overlays zu bedienen und zu verschieben. Nach dem Loslassen sind sie wieder klickdurchlässig.")</span></p>
             </section>
 
             <section class="card sv-card boss-setting-card boss-alert-card">

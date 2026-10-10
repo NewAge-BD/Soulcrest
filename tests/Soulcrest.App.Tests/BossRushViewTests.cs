@@ -32,6 +32,8 @@ public sealed class BossRushViewTests
         var previousLanguage = UiText.Language;
         var settingsPath = AppPaths.SettingsFile;
         var settingsBackup = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : null;
+        var routeProgressPath = Path.Combine(AppPaths.DataDirectory, "leveling-progress.json");
+        var routeProgressBackup = File.Exists(routeProgressPath) ? File.ReadAllBytes(routeProgressPath) : null;
         Environment.SetEnvironmentVariable("SOULCREST_MAPDATA", folder);
         try
         {
@@ -49,7 +51,8 @@ public sealed class BossRushViewTests
             services.AddSingleton(sp => new BossRushService(sp.GetRequiredService<ProgressService>(),
                 sp.GetRequiredService<SettingsService>(), sp.GetRequiredService<MapTargetsService>(),
                 sp.GetRequiredService<NetworkLootService>(), clock, Path.Combine(folder, "boss-timers.json")));
-            services.AddSingleton<ExplorationService>();
+            services.AddSingleton(new ExplorationService(Path.Combine(folder, "exploration.json"), []));
+            services.AddSingleton<ExplorationScanService>();
             services.AddSingleton<UiState>();
             services.AddSingleton<IJSRuntime, NoJs>();
             await using var provider = services.BuildServiceProvider();
@@ -87,6 +90,10 @@ public sealed class BossRushViewTests
             Assert.Contains(name, html);
             Assert.Contains(language == "de" ? "Spawn-Overlay" : "Spawn overlay", html);
             Assert.Contains(language == "de" ? "Boss-Alerts" : "Boss alerts", html);
+            Assert.Contains("<kbd>Alt</kbd>", html);
+            Assert.Contains(language == "de" ? "Nach dem Loslassen sind sie wieder klickdurchlässig." : "Release to let clicks pass through again.", html);
+            Assert.DoesNotContain(language == "de" ? "Overlay sperren" : "Lock overlay", html);
+            Assert.DoesNotContain("<kbd>L</kbd>", html);
             Assert.Contains("min=\"1\" max=\"12\"", html);
             var mapRoot = await renderer.Dispatcher.InvokeAsync(async () =>
                 await renderer.RenderComponentAsync<Soulcrest.App.Components.MapView>());
@@ -188,6 +195,8 @@ public sealed class BossRushViewTests
             if (settingsBackup is null) File.Delete(settingsPath); else File.WriteAllText(settingsPath, settingsBackup);
             _ = new SettingsService();
             UiText.Language = previousLanguage;
+            if (routeProgressBackup is null) File.Delete(routeProgressPath);
+            else File.WriteAllBytes(routeProgressPath, routeProgressBackup);
             Directory.Delete(folder, true);
         }
     }

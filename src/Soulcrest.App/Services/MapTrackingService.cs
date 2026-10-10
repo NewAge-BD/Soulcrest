@@ -123,6 +123,18 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     /// <summary>The in-game world map is open: the overlay follows it, the player position stays as it was.</summary>
     public bool WorldMapOpen => _worldMapOpen;
 
+    private readonly EscMenuDetector _escMenu = new();
+    private volatile bool _escMenuOpen;
+    public bool EscMenuOpen => _escMenuOpen;
+
+    internal void UpdateEscMenuContext(bool open)
+    {
+        if (_escMenuOpen == open) return;
+        _escMenuOpen = open;
+        SafeEvent.Raise(Changed, "ESC-Menü");
+    }
+
+
     public event Action? Changed;
 
     /// <summary>The placement moved (optical flow, up to 60 times per second): redraw the in-game overlay.</summary>
@@ -160,6 +172,14 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     /// </summary>
     public bool Paused { get; private set; }
 
+    private volatile bool _inInstance;
+
+    /// <summary>
+    /// An instance is inferred from the existing prolonged minimap-loss heuristic, independently of
+    /// the power-saving pause setting. A confirmed minimap or world map clears that context.
+    /// </summary>
+    public bool InInstance => _inInstance;
+
     /// <summary>No map this long after a loading screen: an instance. Without a loading screen seen (loot
     /// tracking off, or a long cutscene in the world) the tracking waits longer.</summary>
     internal static readonly TimeSpan PauseAfterLoadingScreen = TimeSpan.FromSeconds(8);
@@ -184,6 +204,20 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         // gone during the load already).
         var afterLoading = sinceLoadingScreen is { } since && since <= lostFor + TimeSpan.FromSeconds(30);
         return lostFor >= (afterLoading ? PauseAfterLoadingScreen : PauseWithoutLoadingScreen);
+    }
+
+    internal void UpdateInstanceContext(bool found, bool worldMap, TimeSpan lostFor, TimeSpan? sinceLoadingScreen)
+    {
+        // Keep the inferred context through a loading-screen wake-up until a map is confirmed.
+        // Otherwise the overlays briefly reappear during every paused probe or return load.
+        var inInstance = !found && !worldMap &&
+            (_inInstance || ShouldPause(true, found, worldMap, lostFor, sinceLoadingScreen));
+        if (_cancel?.IsCancellationRequested == true)
+            inInstance = false;
+        if (_inInstance == inInstance)
+            return;
+        _inInstance = inInstance;
+        Changed?.Invoke();
     }
 
     /// <summary>A loading screen (network, message of the own character): a map may come back.</summary>
@@ -307,7 +341,9 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     {
         _cancel?.Cancel();
         Running = false;
+        _escMenuOpen = false;
         Paused = false;
+        _inInstance = false;
         _lostSince = 0;
         Found = false;
         _worldMapOpen = false;
@@ -513,6 +549,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                     _lostSince = 0;
                 else if (_lostSince == 0 && detecting is { IsCompleted: true })
                     _lostSince = now; // from a finished search on: building a map reference does not count
+                UpdateInstanceContext(Found, worldMap, _lostSince == 0 ? TimeSpan.Zero : Stopwatch.GetElapsedTime(_lostSince, now),
+                    _loadingScreenAt == 0 ? null : Stopwatch.GetElapsedTime(_loadingScreenAt, now));
                 if (_lostSince != 0 && ShouldPause(settings.Current.PauseTrackingInInstances, Found, worldMap,
                         Stopwatch.GetElapsedTime(_lostSince, now), _loadingScreenAt == 0 ? null : Stopwatch.GetElapsedTime(_loadingScreenAt, now)))
                 {
@@ -535,6 +573,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         catch (Exception exception)
         {
             Running = false;
+            _escMenuOpen = false;
+            _inInstance = false;
             Found = false;
             SetStatus("Tracking abgebrochen: " + exception.Message, error: true);
         }
@@ -579,6 +619,14 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             Placement = null;
             SetStatus("Kartenbereich liegt außerhalb der Aufnahme – Position bleibt unverändert.");
             return;
+        }
+        var escMenuOpen = _escMenu.Detect(fullFrame);
+        if (escMenuOpen) { Found = false; Placement = null; }
+        UpdateEscMenuContext(escMenuOpen);
+        if (escMenuOpen)
+        {
+            SetStatus("ESC-Menü offen – Overlays ausgeblendet.");
+            return; // never publish player positions from a menu's background map
         }
         var maps = LoadMaps();
         _lastZoom ??= settings.Current.MiniMapZoom;
@@ -679,6 +727,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         }
         _misses = 0;
         Found = true;
+        _inInstance = false;
         _flowBroken = false;
         Interlocked.Exchange(ref _lastFixAt, Stopwatch.GetTimestamp());
         var reference = fix.FrameToReference(anchor);
@@ -804,6 +853,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         Point2d? player = Position is { } p && p.MapId == definition.Id ? new Point2d(p.X, p.Y) : null;
         Placement = new MapPlacement(definition.Id, fix, worldPerPixel, screen, default, 1 / WorldMapScale, true, player) { CapturedAt = _flowFrameAt };
         Found = true;
+        _inInstance = false;
         PlacementMoved?.Invoke();
         SetStatus($"Weltkarte {definition.Label} offen – Overlay folgt ihr, Position eingefroren · {fix.Inliers} Treffer · Overlay {Fps} fps");
     }

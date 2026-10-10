@@ -2,6 +2,26 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.4.0 – 2026-10-10
+
+- **New:** Leveling routes for Asmodians and Elyos, episodes 2–6 with their level range. The route leads
+  stop by stop across the map, remembers the progress per character and continues after a restart.
+  Monster tasks branch off to the nearest matching spawn.
+- **New:** In-game leveling overlay with the current stop, progress and Next/Back.
+- **New:** The progression mode follows several targets at once: pets, sealed dungeons and strongholds in
+  any combination, the nearest open target first. "Closest to the full level" is now an option under
+  "Goal per pet".
+- **New:** Overlays can be operated directly: a lock button to unlock them, moving with Alt held. All
+  overlay shortcuts can be set freely under Options.
+- **New:** While the ESC menu is open, Soulcrest hides its overlays.
+- **New:** Routes are saved in Soulcrest's own `.soulroute` format. Existing routes are taken over
+  automatically, and the leveling routes are added.
+- **Improved:** The pet scan overlay marks every card the result list asks you to check, including
+  uncertainly recognised and unknown locked pets.
+- **Improved:** Tidier map tab: explanations sit behind a ? symbol.
+- **Improved:** Boss Rush loot sorted by rarity and colour-coded.
+- **Fixed:** The pet scan overlay also appears when the pet window covers the minimap.
+
 ## 0.2.8 – 2026-10-09
 
 - **New:** Boss Rush with its own tab. Soulcrest reads the field boss spawns passively from the game

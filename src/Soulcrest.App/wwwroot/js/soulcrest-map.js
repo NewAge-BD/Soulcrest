@@ -372,10 +372,16 @@ window.soulcrestMap = (() => {
 
     const spawnRingRadius = () => Math.round(15 * iconScale()) + 7;
 
+    // Shared with right-click pet marking: quest hints use the very same spawn symbol.
+    function monsterSpawn(layer, x, y) {
+        return L.circleMarker(toLatLng(x, y), { renderer: canvas, radius: 4.5,
+            color: '#facc15', weight: 1.5, fillColor: '#f87171', fillOpacity: 0.95 }).addTo(layer);
+    }
+
     function updateMarkedPets() {
         if (!spawnLayer) return;
         const pets = new Set(targets.filter(t => t.map === current.id && t.petId).map(t => t.petId));
-        if (progressionTarget && progressionTarget.petId && progression.enabled && petMode()) pets.add(progressionTarget.petId);
+        if (progressionTarget && progressionTarget.petId && progression.enabled && !isPlace(progressionTarget)) pets.add(progressionTarget.petId);
         const key = current.id + ':' + [...pets].sort().join('|');
         if (key === spawnKey) {
             const radius = spawnRingRadius();
@@ -390,8 +396,7 @@ window.soulcrestMap = (() => {
                 if (!m[6] || !pets.has(m[6])) continue;
                 const cat = current.categories[m[0]];
                 if (cat.group === 'Monsters') {
-                    L.circleMarker(toLatLng(m[1], m[2]), { renderer: canvas, radius: 4.5, color: '#facc15', weight: 1.5, fillColor: '#f87171', fillOpacity: 0.95 })
-                        .bindPopup(() => popupFor(m, cat)).addTo(spawnLayer);
+                    monsterSpawn(spawnLayer, m[1], m[2]).bindPopup(() => popupFor(m, cat));
                 } else if (cat.group === 'Pets') {
                     for (const style of [{ color: '#000', weight: 6, opacity: 0.5 }, { color: '#5eead4', weight: 3, opacity: 1, dashArray: '6 4' }]) {
                         const ring = L.circleMarker(toLatLng(m[1], m[2]), { pane: 'targets', radius: spawnRingRadius(), fill: false, interactive: false, ...style });
@@ -411,7 +416,7 @@ window.soulcrestMap = (() => {
         const here = targets.filter(t => t.map === current.id);
         if (progressionTarget)
             here.push({ id: 'progression', map: current.id, x: progressionTarget.x, y: progressionTarget.y, name: progressionTarget.name, color: '#ffffff', dashed: true, group: progressionTarget.group, petId: progressionTarget.petId });
-        if (progressionTarget && progression.enabled && !petMode() && progression.completionRadius > 0) {
+        if (progressionTarget && progression.enabled && isPlace(progressionTarget) && progression.completionRadius > 0) {
             const center = toLatLng(progressionTarget.x, progressionTarget.y);
             const radius = Math.min(500, progression.completionRadius) / scale();
             const ring = Array.from({ length: 64 }, (_, i) => {
@@ -424,13 +429,19 @@ window.soulcrestMap = (() => {
         const view = map.getBounds().pad(0.3);
         for (const t of here) {
             const ll = L.latLng(toLatLng(t.x, t.y));
+            if (t.questMonster && !t.monsterBranch) {
+                monsterSpawn(targetLayer, t.x, t.y).bindTooltip(esc(t.name), { direction: 'top', offset: [0, -6] });
+                continue; // Spawn hints never enter the navigation chain.
+            }
             // A chained target starts at its predecessor, all others at the player.
             const before = t.after ? here.find(o => o.id === t.after) : null;
-            const from = before ? L.latLng(toLatLng(before.x, before.y)) : playerAt;
+            const from = Number.isFinite(t.branchX) && Number.isFinite(t.branchY) ? L.latLng(toLatLng(t.branchX, t.branchY)) : before ? L.latLng(toLatLng(before.x, before.y)) : t.completed ? null : playerAt;
             // Ring just outside the symbol: pet portraits grow with the zoom, monster dots do not.
             const pet = (t.group || t.kind || '').startsWith('Pets');
             const radius = pet ? Math.round(15 * iconScale()) + 10 : 11;
             const preview = t.id === 'boss-next';
+            const dashed = preview || t.monsterBranch;
+            const opacity = t.completed ? 0.28 : 1;
             if (t.id === 'boss-rush' || preview) {
                 L.marker(ll, { pane: 'targets', zIndexOffset: 2500, interactive: false, keyboard: false,
                     icon: L.divIcon({ className: 'boss-rush-marker' + (preview ? ' boss-preview' : ''), html: '<span></span>', iconSize: [26, 32], iconAnchor: [13, 32] }) }).addTo(targetLayer);
@@ -444,12 +455,15 @@ window.soulcrestMap = (() => {
                 L.tooltip({ permanent: true, direction: 'top', offset: [0, -radius - 2], className: 'progression-label', pane: 'targets' })
                     .setLatLng(ll).setContent(`${esc(t.name)} → ${esc(petName(t.petId))}`).addTo(targetLayer);
             }
-            if (!preview) targetSymbol(t);
-            L.circleMarker(ll, { pane: 'targets', radius, color: '#000', weight: 6, opacity: preview ? 0.12 : 0.5, fill: false, dashArray: preview ? '6 6' : null, interactive: false }).addTo(targetLayer);
-            L.circleMarker(ll, { pane: 'targets', radius, color: t.color, weight: 3.5, opacity: preview ? 0.45 : 1, dashArray: preview ? '6 6' : null, fill: false, interactive: false }).addTo(targetLayer);
+            if (t.monsterBranch) {
+                L.tooltip({ permanent: true, direction: 'top', offset: [0, -15], className: 'progression-label', pane: 'targets' })
+                    .setLatLng(ll).setContent(esc(t.name)).addTo(targetLayer);
+            } else if (!preview) targetSymbol(t);
+            L.circleMarker(ll, { pane: 'targets', radius, color: '#000', weight: 6, opacity: (preview ? 0.12 : 0.5) * opacity, fill: false, dashArray: dashed ? '6 6' : null, interactive: false }).addTo(targetLayer);
+            L.circleMarker(ll, { pane: 'targets', radius, color: t.color, weight: 3.5, opacity: (preview ? 0.45 : 1) * opacity, dashArray: dashed ? '6 6' : null, fill: false, interactive: false }).addTo(targetLayer);
             if (!from) continue;
-            L.polyline([from, ll], { color: '#000', weight: 7, opacity: preview ? 0.12 : 0.45, dashArray: preview ? '10 8' : null, interactive: false }).addTo(targetLayer);
-            L.polyline([from, ll], { color: t.color, weight: 3.5, opacity: preview ? 0.4 : 0.95, interactive: false, dashArray: t.dashed || preview ? '10 8' : null }).addTo(targetLayer);
+            L.polyline([from, ll], { color: '#000', weight: 7, opacity: (preview ? 0.12 : 0.45) * opacity, dashArray: dashed ? '10 8' : null, interactive: false }).addTo(targetLayer);
+            L.polyline([from, ll], { color: t.color, weight: 3.5, opacity: (preview ? 0.4 : 0.95) * opacity, interactive: false, dashArray: t.dashed || dashed ? '10 8' : null }).addTo(targetLayer);
             // Arrows every 70 screen pixels, only where they can be seen.
             const a = map.latLngToLayerPoint(from), b = map.latLngToLayerPoint(ll);
             const length = a.distanceTo(b);
@@ -460,7 +474,7 @@ window.soulcrestMap = (() => {
                 if (!view.contains(p)) continue;
                 shown++;
                 L.marker(p, {
-                    icon: L.divIcon({ className: 'route-arrow', html: `<span style="opacity:${preview ? 0.4 : 1};transform:rotate(${angle}deg);border-left-color:${t.color}"></span>`, iconSize: [16, 16] }),
+                    icon: L.divIcon({ className: 'route-arrow', html: `<span style="opacity:${(preview ? 0.4 : 1) * opacity};transform:rotate(${angle}deg);border-left-color:${t.color}"></span>`, iconSize: [16, 16] }),
                     interactive: false, keyboard: false,
                 }).addTo(targetLayer);
             }
@@ -470,6 +484,20 @@ window.soulcrestMap = (() => {
     // A marked target keeps its symbol when its layer is hidden or filtered (user request 2026-10-07:
     // stops of a route show their icons although the category is switched off).
     function targetSymbol(t) {
+        if (t.leveling) {
+            const style = t.icon ? `--objective-icon:url(${JSON.stringify(base + t.icon)});color:${t.color}` : `color:${t.color}`;
+            L.marker(toLatLng(t.x, t.y), { pane: 'targets', zIndexOffset: 1200, interactive: false, keyboard: false,
+                opacity: t.completed ? 0.28 : 1,
+                icon: L.divIcon({ className: 'leveling-marker', iconSize: [24, 24], iconAnchor: [12, 12],
+                    html: `<span class="leveling-marker-disc" style="${esc(style)}"><span class="${t.icon ? 'objective-icon' : 'objective-dot'}"></span></span>` })
+            }).addTo(targetLayer);
+            if (t.name && t.name.trim()) {
+                L.tooltip({ permanent: true, direction: 'top', offset: [0, -15], className: 'leveling-objective-label',
+                    opacity: t.completed ? 0.28 : 0.95, pane: 'targets' })
+                    .setLatLng(toLatLng(t.x, t.y)).setContent(`<span style="color:${t.color}">${esc(t.name)}</span>`).addTo(targetLayer);
+            }
+            return;
+        }
         const i = markerByPos.get(t.x + ',' + t.y);
         if (i === undefined) return;
         const layer = markerRefs[i];
@@ -500,13 +528,15 @@ window.soulcrestMap = (() => {
         }
     }
 
-    // 'pets': nearest pet below the goal; 'closest': the pet missing the fewest souls to finish its level,
-    // the nearest one on a tie (user request 2026-10-05); otherwise sealed dungeons / strongholds.
-    const petMode = () => progression.mode === 'pets' || progression.mode === 'closest';
+    // Any selection of 'pets', 'dungeon' and 'stronghold' (user request 2026-10-10). Pets: nearest below the
+    // goal, or with petsClosest the pet missing the fewest souls to finish its level, the nearest one on a
+    // tie (user request 2026-10-05). Between the kinds the nearest open target comes first.
+    const includes = kind => (progression.kinds || []).includes(kind);
+    const isPlace = target => !!target && target.group === 'Locations';
 
-    function setProgression(enabled, goal, soulsJson, mode = 'pets', completionRadius = 15, character = '', missingJson = '{}') {
+    function setProgression(enabled, goal, soulsJson, kindsJson = '["pets"]', petsClosest = false, completionRadius = 15, character = '', missingJson = '{}') {
         if (progression.character !== character) progressionTarget = null;
-        progression = { enabled, goal, souls: JSON.parse(soulsJson || '{}'), mode, completionRadius, character, missing: JSON.parse(missingJson || '{}') };
+        progression = { enabled, goal, souls: JSON.parse(soulsJson || '{}'), kinds: JSON.parse(kindsJson || '[]'), petsClosest, completionRadius, character, missing: JSON.parse(missingJson || '{}') };
         progressionCandidates = null;
         drawTargets();
         updateProgression();
@@ -519,12 +549,18 @@ window.soulcrestMap = (() => {
         if (progression.enabled && current) {
             const [ox, oy] = player ? fromLatLng(player.getLatLng()) : fromLatLng(map.getCenter());
             if (!progressionCandidates) progressionCandidates = buildProgressionCandidates();
-            let best = Infinity, fewest = Infinity;
+            // The best pet (fewest missing souls first when petsClosest) and the nearest place; then the nearer one.
+            let pet = null, petDistance = Infinity, fewest = Infinity, place = null, placeDistance = Infinity;
             for (const c of progressionCandidates) {
                 const d = (c.x - ox) * (c.x - ox) + (c.y - oy) * (c.y - oy);
+                if (isPlace(c)) {
+                    if (d < placeDistance) { placeDistance = d; place = c; }
+                    continue;
+                }
                 const missing = c.missing ?? 0;
-                if (missing < fewest || (missing === fewest && d < best)) { fewest = missing; best = d; next = c; }
+                if (missing < fewest || (missing === fewest && d < petDistance)) { fewest = missing; petDistance = d; pet = c; }
             }
+            next = petDistance <= placeDistance ? pet : place;
         }
         const changed = (next && next.petId + next.x + next.y) !== (progressionTarget && progressionTarget.petId + progressionTarget.x + progressionTarget.y);
         progressionTarget = next;
@@ -536,24 +572,21 @@ window.soulcrestMap = (() => {
 
     function buildProgressionCandidates() {
         const result = [];
-        if (!petMode()) {
-            for (const p of explorationPlaces) {
-                // 'exploration' means sealed dungeons and strongholds; Kibelisks are only checked off.
-                const wanted = progression.mode === 'exploration' ? p.kind === 'dungeon' || p.kind === 'stronghold' : p.kind === progression.mode;
-                // A sealed dungeon that opens only after others is skipped until they are done (user information 2026-10-07).
-                if (p.done || p.locked || !wanted) continue;
-                const m = current.markers[p.index];
-                if (m) result.push({ petId: p.id, x: m[1], y: m[2], name: nameOf(m), group: 'Locations' });
-            }
-            return result;
+        for (const p of explorationPlaces) {
+            // Sealed dungeons and strongholds as chosen; Kibelisks are only checked off.
+            // A sealed dungeon that opens only after others is skipped until they are done (user information 2026-10-07).
+            if (p.done || p.locked || !(p.kind === 'dungeon' || p.kind === 'stronghold') || !includes(p.kind)) continue;
+            const m = current.markers[p.index];
+            if (m) result.push({ petId: p.id, x: m[1], y: m[2], name: nameOf(m), group: 'Locations' });
         }
+        if (!includes('pets')) return result;
         // The pet symbol is the target (user report: a nearby soul monster looked like a miss).
         // Soul monsters only stand in for pets without a symbol on this map.
         const withSymbol = new Set(current.markers.filter(m => m[6] && current.categories[m[0]].group === 'Pets').map(m => m[6]));
         for (const m of current.markers) {
             const petId = m[6];
             if (!petId) continue;
-            const closest = progression.mode === 'closest';
+            const closest = !!progression.petsClosest;
             // Closest to completion: every pet below max (missing > 0); otherwise below the chosen goal.
             if (closest ? !(progression.missing[petId] > 0) : (progression.souls[petId] || 0) >= progression.goal) continue;
             const group = current.categories[m[0]].group;

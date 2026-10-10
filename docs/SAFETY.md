@@ -9,6 +9,10 @@ eine Bildschirmaufnahme- plus Overlay-Software.
   Prozess-ID gebunden; kein Rückfall auf eine Desktopaufnahme ohne ausdrückliche Wahl);
 - Fenstergeometrie, Monitor, DPI, Vordergrund- und Minimierungsstatus des Spielfensters lesen;
 - eigene transparente Fenster zeichnen und globale Hotkeys für **eigene** Funktionen registrieren;
+- den Zustand von **Alt und Shift** beobachten, damit sich die Overlays mit gehaltener Taste bedienen
+  lassen (Overlay-Interaktion, 2026-10-10): per Raw Input an das eigene Fenster und einen Low-Level-
+  Tastaturhook (`WH_KEYBOARD_LL`) im eigenen Prozess. Jede Eingabe wird unverändert weitergereicht,
+  nichts wird abgefangen, gesendet oder protokolliert; andere Tasten werden nicht ausgewertet;
 - lokale Dateien im eigenen Datenordner `%LOCALAPPDATA%\Soulcrest\` und im App-Verzeichnis
   lesen und schreiben.
 

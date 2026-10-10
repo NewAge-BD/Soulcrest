@@ -19,6 +19,7 @@ public sealed class RouteOverlayForm : Form
     private readonly SettingsService _settings;
     private int _pending;
     private bool _inRecordings;
+    private volatile bool _suppressed;
     private readonly object _composeGate = new();
 
     private readonly ProgressService _progress;
@@ -40,6 +41,16 @@ public sealed class RouteOverlayForm : Form
         _targets.Changed += Schedule;
         _settings.Changed += Schedule;
     }
+
+    public void SetSuppressed(bool suppressed)
+    {
+        if (_suppressed == suppressed) return;
+        _suppressed = suppressed;
+        if (suppressed) Hide();
+        else Schedule();
+    }
+
+    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed);
 
     protected override bool ShowWithoutActivation => true;
 
@@ -106,8 +117,9 @@ public sealed class RouteOverlayForm : Form
 
     private Frame? Compose()
     {
+        if (_suppressed || !_settings.Current.MapOverlayEnabled) return null;
         var placement = _tracking.Placement;
-        var targets = _targets.Targets;
+        var targets = _targets.VisibleTargets;
         var onMap = placement is null ? [] : targets.Select((t, i) => (Target: t, Index: i)).Where(t => t.Target.MapId == placement.MapId).ToList();
         if (placement is not null && _targets.Progression is { } next && next.MapId == placement.MapId)
             onMap.Add((next, -1)); // index -1: white (progression mode)
@@ -128,6 +140,7 @@ public sealed class RouteOverlayForm : Form
             if (PetOf(onMap[i].Target) is { } pet)
             {
                 var target = onMap[i].Target;
+                if (target.Completed) continue;
                 var name = _progress.MapDataDirectory is { } data && MapPetMarkers.MonsterAt(data, target.MapId, pet, target.X, target.Y) is { } monster
                     ? monster.In(UiText.Language)
                     : target.Name;
@@ -143,6 +156,7 @@ public sealed class RouteOverlayForm : Form
             for (var i = 0; i < onMap.Count; i++)
             {
                 var target = onMap[i].Target;
+                if (target.Completed || target.Leveling && string.IsNullOrWhiteSpace(target.Name)) continue;
                 if (target.After is { } after && ids.Contains(after))
                     continue;
                 var pixels = Math.Sqrt((target.X - player.X) * (target.X - player.X) + (target.Y - player.Y) * (target.Y - player.Y));
@@ -159,7 +173,13 @@ public sealed class RouteOverlayForm : Form
         {
             foreach (var (target, _) in onMap)
             {
-                if (PetOf(target) is null && target.Icon is { } icon && !resources.Any(r => r.X == target.X && r.Y == target.Y))
+                if (target.Leveling)
+                {
+                    resources.RemoveAll(r => r.X == target.X && r.Y == target.Y);
+                    resources.Add(new ResourceSymbol(target.X, target.Y, target.Icon is { } path ? ResourceIcon(path, mapdata) : null,
+                        target.Color, target.Completed ? 0.28f : 1f));
+                }
+                else if (!target.MonsterBranch && PetOf(target) is null && target.Icon is { } icon && !resources.Any(r => r.X == target.X && r.Y == target.Y))
                     resources.Add(new ResourceSymbol(target.X, target.Y, ResourceIcon(icon, mapdata)));
             }
         }
@@ -206,7 +226,7 @@ public sealed class RouteOverlayForm : Form
                 _inRecordings = _settings.Current.OverlaysInRecordings;
                 NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
             }
-            if (frame is null)
+            if (_suppressed || frame is null || !_settings.Current.MapOverlayEnabled)
             {
                 if (Visible)
                     Hide();
@@ -243,7 +263,10 @@ public sealed class RouteOverlayForm : Form
         var area = new RectangleF(4, 4, region.Width - 8, region.Height - 8);
         PointF? player = placement.PlayerOnScreen is { } p ? Offset(p, origin) : null;
         foreach (var resource in resources ?? [])
-            DrawResource(graphics, Offset(placement.WorldToScreen(resource.X, resource.Y), origin), resource.Icon);
+        {
+            var at = Offset(placement.WorldToScreen(resource.X, resource.Y), origin);
+            DrawResource(graphics, at, resource.Icon, resource.Color, resource.Opacity);
+        }
         if (souls is { Count: > 0 })
         {
             using var ring = new Pen(Color.FromArgb(250, 204, 21), 1.5f);
@@ -262,15 +285,18 @@ public sealed class RouteOverlayForm : Form
             var color = target.Color is { } explicitColor ? ColorTranslator.FromHtml(explicitColor)
                 : index < 0 ? Color.White : ColorTranslator.FromHtml(MapTargetsService.ColorOf(target, index));
             var preview = target.Id == "boss-next";
+            var dashed = preview || target.MonsterBranch;
             if (preview) color = Color.FromArgb(105, color);
+            if (target.Completed) color = Color.FromArgb(71, color);
             var at = Offset(placement.WorldToScreen(target.X, target.Y), origin);
             // A chained target (Shift + right click) starts at its predecessor, all others at the player.
             var before = target.After is { } after ? targets.FirstOrDefault(t => t.Target.Id == after).Target : null;
-            PointF? start = before is not null ? Offset(placement.WorldToScreen(before.X, before.Y), origin) : player;
+            PointF? start = target.BranchX is { } bx && target.BranchY is { } by ? Offset(placement.WorldToScreen(bx, by), origin)
+                : before is not null ? Offset(placement.WorldToScreen(before.X, before.Y), origin) : target.Completed ? null : player;
             if (start is { } from)
-                DrawRoute(graphics, from, at, area, target.Name, color, preview);
+                DrawRoute(graphics, from, at, area, target.Name, color, dashed);
             else if (area.Contains(at))
-                DrawTargetRing(graphics, at, area, target.Name, color, preview); // world map of another zone: no player, rings only
+                DrawTargetRing(graphics, at, area, target.Name, color, dashed); // world map of another zone: no player, rings only
         }
     }
 
@@ -339,7 +365,7 @@ public sealed class RouteOverlayForm : Form
     public sealed record SoulMonster(double X, double Y);
 
     /// <summary>A resource or hidden cube to draw with its legend icon.</summary>
-    public sealed record ResourceSymbol(double X, double Y, Bitmap? Icon);
+    public sealed record ResourceSymbol(double X, double Y, Bitmap? Icon, string? Color = null, float Opacity = 1f);
 
     private const int PetIconSize = 26;
     private const int ResourceIconSize = 20;
@@ -392,9 +418,30 @@ public sealed class RouteOverlayForm : Form
     }
 
     /// <summary>Legend icon on a dark disc, readable on any map colour; a dot if the icon is missing.</summary>
-    private static void DrawResource(Graphics graphics, PointF at, Bitmap? icon)
+    private static void DrawResource(Graphics graphics, PointF at, Bitmap? icon, string? tint = null, float opacity = 1f)
     {
         const int disc = ResourceIconSize + 4;
+        if (tint is not null)
+        {
+            var color = ColorTranslator.FromHtml(tint);
+            using var back = new SolidBrush(Color.FromArgb((int)(210 * opacity), 10, 14, 22));
+            graphics.FillEllipse(back, at.X - disc / 2f, at.Y - disc / 2f, disc, disc);
+            if (icon is null)
+            {
+                using var dot = new SolidBrush(Color.FromArgb((int)(255 * opacity), color));
+                graphics.FillEllipse(dot, at.X - 5, at.Y - 5, 10, 10);
+            }
+            else
+            {
+                using var attributes = new ImageAttributes();
+                attributes.SetColorMatrix(new ColorMatrix([
+                    [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0],
+                    [0, 0, 0, opacity, 0], [color.R / 255f, color.G / 255f, color.B / 255f, 0, 1]]));
+                graphics.DrawImage(icon, new Rectangle((int)at.X - ResourceIconSize / 2, (int)at.Y - ResourceIconSize / 2, ResourceIconSize, ResourceIconSize),
+                    0, 0, icon.Width, icon.Height, GraphicsUnit.Pixel, attributes);
+            }
+            return;
+        }
         if (icon is null)
         {
             using var back = new SolidBrush(Color.FromArgb(150, 10, 14, 22));
@@ -569,7 +616,7 @@ public sealed class RouteOverlayForm : Form
 
     private static void DrawTargetRing(Graphics graphics, PointF target, RectangleF area, string name, Color color, bool dashed = false)
     {
-        using var outline = new Pen(Color.FromArgb(dashed ? 50 : 170, 0, 0, 0), 7) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
+        using var outline = new Pen(Color.FromArgb(Math.Min(dashed ? 50 : 170, (int)color.A), 0, 0, 0), 7) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
         using var ring = new Pen(color, 3) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
         graphics.DrawEllipse(outline, target.X - 12, target.Y - 12, 24, 24);
         graphics.DrawEllipse(ring, target.X - 12, target.Y - 12, 24, 24);
@@ -589,7 +636,7 @@ public sealed class RouteOverlayForm : Form
             if (length > 14)
                 segment = (segment.Start, new PointF(segment.End.X - dx * 14 / length, segment.End.Y - dy * 14 / length), true);
         }
-        using var outline = new Pen(Color.FromArgb(dashed ? 50 : 170, 0, 0, 0), 7) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid, StartCap = LineCap.Round, EndCap = LineCap.Round };
+        using var outline = new Pen(Color.FromArgb(Math.Min(dashed ? 50 : 170, (int)color.A), 0, 0, 0), 7) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid, StartCap = LineCap.Round, EndCap = LineCap.Round };
         using var line = new Pen(color, 3.5f) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid, StartCap = LineCap.Round, EndCap = LineCap.Round };
         graphics.DrawLine(outline, segment.Start, segment.End);
         graphics.DrawLine(line, segment.Start, segment.End);
@@ -623,7 +670,7 @@ public sealed class RouteOverlayForm : Form
         graphics.RotateTransform(angle);
         PointF[] shape = [new(size, 0), new(-size * 0.7f, -size * 0.75f), new(-size * 0.25f, 0), new(-size * 0.7f, size * 0.75f)];
         using var fill = new SolidBrush(color);
-        using var edge = new Pen(Color.FromArgb(200, 0, 0, 0), 1.5f);
+        using var edge = new Pen(Color.FromArgb(Math.Min(200, (int)color.A), 0, 0, 0), 1.5f);
         graphics.FillPolygon(fill, shape);
         graphics.DrawPolygon(edge, shape);
         graphics.Restore(state);
@@ -636,6 +683,7 @@ public sealed class RouteOverlayForm : Form
     /// </summary>
     private static void DrawLabel(Graphics graphics, string text, PointF at, Color color, RectangleF area, float? leftOf = null)
     {
+        if (string.IsNullOrWhiteSpace(text)) return;
         using var path = new GraphicsPath();
         using var family = new FontFamily("Segoe UI");
         path.AddString(text, family, (int)FontStyle.Bold, 15, at, StringFormat.GenericDefault);
@@ -714,4 +762,5 @@ public sealed class RouteOverlayForm : Form
         }
         base.Dispose(disposing);
     }
+
 }

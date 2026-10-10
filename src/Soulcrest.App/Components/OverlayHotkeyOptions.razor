@@ -1,0 +1,67 @@
+@implements IDisposable
+@inject OverlayHotkeyService Hotkeys
+@inject SettingsService Settings
+
+<section class="card sv-card overlay-hotkeys">
+    <div class="sv-card-head"><h3>@UiText.T("Overlay-Hotkeys")</h3><span class="sv-badge">@UiText.T("Frei belegbar")</span></div>
+    <p class="sv-lead">@UiText.T("Auf eine Belegung klicken und die gewünschte Tastenkombination drücken. Änderungen werden sofort gespeichert.")</p>
+    <p class="sv-hint">@UiText.T("Strg, Alt, Umschalt oder Win mit einer Taste kombinieren; F1–F24 funktionieren auch allein. Escape bricht die Eingabe ab.")</p>
+    <div class="overlay-hotkey-list">
+        @foreach (var group in OverlayHotkeys.Actions.GroupBy(a => a.Overlay))
+        {
+            <div class="overlay-hotkey-group" @key="group.Key">
+                <div class="overlay-hotkey-heading">
+                    <strong>@UiText.T(group.Key)</strong>
+                    @{ var visibility = group.First(a => !a.Unlock).Id; }
+                    <label><input type="checkbox" checked="@OverlayHotkeys.IsVisible(Settings.Current, visibility)" @onchange="e => SetVisible(visibility, e.Value is true)" />@UiText.T("Anzeigen")</label>
+                </div>
+                @foreach (var action in group)
+                {
+                    <div class="overlay-hotkey-row" @key="action.Id">
+                        <span id="hotkey-label-@action.Id">@UiText.T(action.Unlock ? "Sperren / Entsperren" : "Ein- / Ausblenden")</span>
+                        <button type="button" class="hotkey-record @(_recording == action.Id ? "recording" : "")" aria-labelledby="hotkey-label-@action.Id" aria-pressed="@(_recording == action.Id)"
+                                @onclick="() => Begin(action.Id)" @onkeydown="e => Record(action.Id, e)" @onkeydown:preventDefault="@(_recording == action.Id)" @onkeydown:stopPropagation="@(_recording == action.Id)" @onblur="Cancel">
+                            @(_recording == action.Id ? UiText.T("Tasten drücken …") : Hotkeys.Binding(action.Id)?.Label ?? UiText.T("Nicht belegt"))
+                        </button>
+                        <button type="button" class="btn link hotkey-clear" disabled="@(Hotkeys.Binding(action.Id) is null)" aria-label="@(UiText.T("Belegung entfernen") + ": " + UiText.T(action.Overlay))" @onclick="() => Clear(action.Id)">×</button>
+                        @if (Hotkeys.Error(action.Id) is { } error)
+                        {
+                            <small class="hotkey-error" role="status">@UiText.T(error)</small>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+    @if (_message is not null) { <p class="hotkey-error" role="status">@UiText.T(_message)</p> }
+    <p class="sv-hint">@UiText.T("Hotkeys blenden nur die Anzeige um. Routenfortschritt und laufende Scans bleiben erhalten. Loot und Leveling bleiben in Dungeons und auf der Weltkarte ausgeblendet.")</p>
+</section>
+
+@code {
+    private string? _recording, _message;
+    protected override void OnInitialized() { Hotkeys.Changed += Refresh; Settings.Changed += Refresh; }
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    private void Begin(string action) { _message = null; _recording = action; Hotkeys.SetCapturing(true); }
+    private void Cancel() { _recording = null; Hotkeys.SetCapturing(false); }
+    private void Clear(string action) { Cancel(); _message = Hotkeys.Assign(action, null); }
+    private void SetVisible(string action, bool visible)
+    {
+        if (OverlayHotkeys.IsVisible(Settings.Current, action) != visible)
+            Settings.Update(s => OverlayHotkeys.ToggleVisibility(s, action));
+    }
+    private void Record(string action, KeyboardEventArgs e)
+    {
+        if (_recording != action || e.Repeat) return;
+        if (e.Key == "Escape") { Cancel(); return; }
+        if (e.Key is "Control" or "Alt" or "Shift" or "Meta" or "AltGraph") return;
+        if (e.Key is "Delete" or "Backspace" && !e.CtrlKey && !e.AltKey && !e.ShiftKey && !e.MetaKey) { Clear(action); return; }
+        if (OverlayHotkey.FromKeyboard(e) is not { } gesture)
+        {
+            _message = "Bitte eine Kombination mit Strg, Alt, Umschalt oder Win wählen; F1–F24 gehen auch allein.";
+            return;
+        }
+        _message = Hotkeys.Assign(action, gesture);
+        if (_message is null) Cancel();
+    }
+    public void Dispose() { Hotkeys.Changed -= Refresh; Settings.Changed -= Refresh; Hotkeys.SetCapturing(false); }
+}

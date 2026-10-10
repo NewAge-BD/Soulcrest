@@ -20,6 +20,7 @@ public sealed class LocalizationTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<OverlayHotkeyService>();
         services.AddSingleton<GameCaptureService>();
         services.AddSingleton<ProgressService>();
         services.AddSingleton<NetworkLootService>();
@@ -55,6 +56,13 @@ public sealed class LocalizationTests
             Assert.Contains("id=\"overlay-language\"", html);
             Assert.Contains(language == "de" ? "Overlay-Sprache" : "Overlay language", html);
             Assert.Contains(language == "de" ? "Automatisch (Spielsprache)" : "Automatic (game language)", html);
+            Assert.Contains(language == "de" ? "Schloss im Overlay anklicken" : "Click the overlay lock", html);
+            Assert.DoesNotContain("Auf der Weltkarte im Spiel: Alt", html);
+            Assert.Contains(language == "de" ? "Overlay-Hotkeys" : "Overlay hotkeys", html);
+            Assert.Contains("hotkey-record", html);
+            Assert.Contains("hotkey-label-leveling.unlock", html);
+            Assert.Contains("hotkey-label-exploration-scan.toggle", html);
+            Assert.Contains(language == "de" ? "Nicht belegt" : "Unassigned", html);
             if (Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW") is { Length: > 0 } output)
             {
                 Directory.CreateDirectory(output);
@@ -79,6 +87,7 @@ public sealed class LocalizationTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<OverlayHotkeyService>();
         services.AddSingleton<GameCaptureService>();
         services.AddSingleton<ProgressService>();
         services.AddSingleton<ExplorationService>();

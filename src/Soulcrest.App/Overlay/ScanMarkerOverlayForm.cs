@@ -10,7 +10,7 @@ namespace Soulcrest.App.Overlay;
 /// Labels every card with its recognised value (user request 2026-10-08): green = read,
 /// orange = value unreadable, yellow = pet unknown, red = conflicting values. Shown while the page
 /// stands still, so the frames never lag behind a scrolling list. Per-pixel alpha, click-through; a small
-/// owned input window allows Ctrl+left-click on a value to correct Soulcrest's result. In screen
+/// owned input window allows Alt+left-click on a value to correct Soulcrest's result. In screen
 /// recordings only with "Overlays in Aufnahmen sichtbar" (user request 2026-10-07) and while the game window
 /// alone is captured: a monitor or GDI capture would let the scan read its own frames.
 /// </summary>
@@ -40,12 +40,13 @@ public sealed class ScanMarkerOverlayForm : Form
         _scan = scan;
         _settings = settings;
         _capture = capture;
-        _hotspot = new ScanValueHotspotForm(OpenEditor);
+        _hotspot = new ScanValueHotspotForm(OpenEditor, () => _interactiveTarget);
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         _scan.Changed += Schedule;
+        _settings.Changed += Schedule;
         _interactionTimer.Tick += (_, _) => UpdateInteraction();
         _interactionTimer.Start();
     }
@@ -85,6 +86,7 @@ public sealed class ScanMarkerOverlayForm : Form
 
     private void Render()
     {
+        if (!_settings.Current.PetScanOverlayEnabled) { SetInteractiveTarget(null); if (Visible) Hide(); _shown = ""; return; }
         if (_editing) return;
         if (WantedInRecordings != _inRecordings)
         {
@@ -124,11 +126,11 @@ public sealed class ScanMarkerOverlayForm : Form
             graphics.Clear(Color.Transparent);
             foreach (var mark in marks)
             {
-                var color = mark.Conflict ? ConflictingValue : mark.ValueMissing ? ValueMissing : mark.PetUnknown ? PetUnknown : ReadValue;
+                var color = mark.Conflict ? ConflictingValue : mark.ValueMissing ? ValueMissing : mark.PetUnknown || mark.PetUncertain ? PetUnknown : ReadValue;
                 var box = mark.Bounds;
                 box.Offset(-area.X, -area.Y);
                 box.Inflate(4, 4);
-                if (mark.Conflict || mark.ValueMissing || mark.PetUnknown)
+                if (mark.Conflict || mark.ValueMissing || mark.PetUnknown || mark.PetUncertain)
                 {
                     using var glow = new Pen(Color.FromArgb(90, color), 7);
                     using var line = new Pen(color, 3);
@@ -175,17 +177,16 @@ public sealed class ScanMarkerOverlayForm : Form
         return new Rectangle(right - width, counter.Top - height - 3, width, height);
     }
 
-    internal static ScanMark? EditableAt(IReadOnlyList<ScanMark> marks, Point capturePoint, bool control, bool stable) =>
-        control && stable ? marks.FirstOrDefault(m => m.EntryKey.Length > 0 && ValueTag(m).Contains(capturePoint)) : null;
+    internal static ScanMark? EditableAt(IReadOnlyList<ScanMark> marks, Point capturePoint, bool altHeld, bool stable) =>
+        altHeld && stable ? marks.FirstOrDefault(m => m.EntryKey.Length > 0 && ValueTag(m).Contains(capturePoint)) : null;
 
     private void UpdateInteraction()
     {
         var page = _scan.Page;
-        var control = (NativeMethods.GetAsyncKeyState((int)Keys.ControlKey) & 0x8000) != 0;
         var point = Cursor.Position;
         var region = _scan.CaptureRegion;
         point.Offset(-region.X, -region.Y);
-        var target = EditableAt(_renderedMarks, point, control,
+        var target = EditableAt(_renderedMarks, point, OverlayInteraction.IsAltHeld,
             Visible && !_editing && _scan.Running && page is { Stable: true } && ReferenceEquals(page.Marks, _renderedMarks));
         // Read only window metadata. Never intercept input intended for another application.
         if (target is not null && !UiResponsiveness.ForegroundProcess().Equals("AION2", StringComparison.OrdinalIgnoreCase)) target = null;
@@ -195,13 +196,14 @@ public sealed class ScanMarkerOverlayForm : Form
     private void SetInteractiveTarget(ScanMark? target)
     {
         if (_interactiveTarget == target) return;
+        _hotspot.ResetInteraction();
         _interactiveTarget = target;
         if (target is null)
         {
             _hotspot.Hide();
             return;
         }
-        // The visual layer stays click-through. Only this one value gets an input window while Ctrl
+        // The visual layer stays click-through. Only this one value gets an input window while Alt
         // is held; names, borders, other cards and the original counter never become input surfaces.
         var bounds = ValueTag(target);
         bounds.Offset(_scan.CaptureRegion.Location);
@@ -209,11 +211,11 @@ public sealed class ScanMarkerOverlayForm : Form
         if (!_hotspot.Visible) _hotspot.Show(this);
     }
 
-    private void OpenEditor()
+    private void OpenEditor(ScanMark expected)
     {
         if (_editing) return;
         UpdateInteraction();
-        if (_interactiveTarget is not { } mark) return;
+        if (_interactiveTarget is not { } mark || mark != expected) return;
         _editing = true;
         SetInteractiveTarget(null);
         try
@@ -262,6 +264,7 @@ public sealed class ScanMarkerOverlayForm : Form
         if (disposing)
         {
             _scan.Changed -= Schedule;
+            _settings.Changed -= Schedule;
             _interactionTimer.Dispose();
             _hotspot.Dispose();
         }
@@ -270,8 +273,14 @@ public sealed class ScanMarkerOverlayForm : Form
 
     private sealed class ScanValueHotspotForm : Form
     {
-        internal ScanValueHotspotForm(Action edit)
+        private readonly Action<ScanMark> _edit;
+        private readonly Func<ScanMark?> _target;
+        private ScanMark? _pressedTarget;
+
+        internal ScanValueHotspotForm(Action<ScanMark> edit, Func<ScanMark?> target)
         {
+            _edit = edit;
+            _target = target;
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
@@ -279,8 +288,50 @@ public sealed class ScanMarkerOverlayForm : Form
             BackColor = Color.Black;
             Opacity = .01;
             Cursor = Cursors.Hand;
-            // Wait for the complete click: no unmatched mouse-up is left behind when the editor opens.
-            MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) edit(); };
+        }
+
+        internal void ResetInteraction()
+        {
+            _pressedTarget = null;
+            Capture = false;
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            ResetInteraction();
+            if (e.Button != MouseButtons.Left || !OverlayInteraction.IsAltHeld) return;
+            _pressedTarget = _target();
+            Capture = _pressedTarget is not null;
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (!OverlayInteraction.IsAltHeld) ResetInteraction();
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            var pressed = _pressedTarget;
+            ResetInteraction();
+            // A complete Alt-click must refer to the same still-displayed card on release.
+            if (e.Button == MouseButtons.Left && OverlayInteraction.IsAltHeld
+                && pressed is not null && pressed == _target() && ClientRectangle.Contains(e.Location))
+                _edit(pressed);
+        }
+
+        protected override void OnMouseCaptureChanged(EventArgs e)
+        {
+            base.OnMouseCaptureChanged(e);
+            if (!Capture) _pressedTarget = null;
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (!Visible) ResetInteraction();
         }
 
         protected override bool ShowWithoutActivation => true;

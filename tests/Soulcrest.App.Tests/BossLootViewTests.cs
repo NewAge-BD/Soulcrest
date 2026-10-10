@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,9 @@ public sealed class BossLootViewTests
                 : new[] { "Common", "Rare", "Legendary", "Unique", "Epic", "Special", "Rarity unknown" })
                 Assert.Contains($"<small>{label}</small>", html);
             Assert.DoesNotContain("unsupported-token", html);
+            var itemIds = Regex.Matches(html, "href=\"https://aion2\\.gaming\\.tools/items/([^\"]+)\"")
+                .Select(match => match.Groups[1].Value);
+            Assert.Equal(new[] { "special", "epic", "110130006", "legend", "rare", "common", "missing", "110130007" }, itemIds);
             Assert.Contains(language == "de" ? "Lootpool unbekannt" : "Loot pool unknown", await Render(boss with { Loot = null }, false));
             Assert.Contains(language == "de" ? "keine Items" : "no items", await Render(boss with { Loot = [] }, true));
             if (Environment.GetEnvironmentVariable("SOULCREST_BOSS_UI_PREVIEW") is { Length: > 0 } output
@@ -68,6 +72,54 @@ public sealed class BossLootViewTests
             }
         }
         finally { UiText.Language = previous; }
+    }
+
+    [Theory]
+    [InlineData("de", "apple", "zebra")]
+    [InlineData("en", "zebra", "apple")]
+    public void EqualRarityUsesLocalizedNamesAndStableItemIds(string language, string first, string second)
+    {
+        BossLoot[] items = [
+            new("zebra", "Alpha", "Zebra", null, "legend"),
+            new("apple", "Zulu", "Apfel", null, "legend"),
+            new("b", "Same name", "Gleicher Name", null, "rare"),
+            new("a", "Same name", "Gleicher Name", null, "rare"),
+            new("unknown", "Aardvark", "Aal", null, "unpublished-grade")];
+        var expected = new[] { first, second, "a", "b", "unknown" };
+        Assert.Equal(expected, BossLoot.OrderByRarity(items, language).Select(item => item.Id));
+        Assert.Equal(expected, BossLoot.OrderByRarity(items.Reverse(), language).Select(item => item.Id));
+    }
+
+    [Fact]
+    public void UnknownGradesStayNeutralAndSortAfterAllPublishedGrades()
+    {
+        var known = new[] { "special", "epic", "unique", "legend", "rare", "common" };
+        var items = known.Reverse().Select(rarity => new BossLoot(rarity, "Same name", null, null, rarity))
+            .Prepend(new("unknown", "Aardvark", null, null, "unpublished-grade"))
+            .Prepend(new("missing", "Zebra", null, null, null));
+        Assert.Equal(known.Concat(["unknown", "missing"]), BossLoot.OrderByRarity(items, "en").Select(item => item.Id));
+        foreach (var value in new string?[] { null, "", "unpublished-grade" })
+        {
+            var item = new BossLoot("unknown", "Unknown", null, null, value);
+            Assert.Equal("unknown", item.RarityStyle);
+            Assert.Equal(-1, item.RarityRank);
+        }
+    }
+
+    [Theory]
+    [InlineData("common", "#cbd5e1")]
+    [InlineData("rare", "#4ade80")]
+    [InlineData("legend", "#60a5fa")]
+    [InlineData("unique", "#facc15")]
+    [InlineData("epic", "#fb923c")]
+    [InlineData("special", "#5eead4")]
+    public void ItemPaletteIsSoulcrestsOwn(string rarity, string color)
+    {
+        var css = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "Soulcrest.App", "wwwroot", "css", "app.css"));
+        Assert.Contains($".boss-loot-item.rarity-{rarity} {{ --loot-color: {color};", css);
+        Assert.DoesNotContain("aion2.gaming.tools/_app", css); // nothing taken from the website's stylesheet
+        Assert.DoesNotContain(".boss-loot-item.rarity-unknown { --loot-color: #", css);
     }
     private sealed record PoolCatalogue(int MapId, List<BossPlace> Bosses);
 }

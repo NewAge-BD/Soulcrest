@@ -17,7 +17,8 @@ public static class AppPaths
     public static string EventsFile => Path.Combine(DataDirectory, "events.jsonl");
     public static string PinsFile => Path.Combine(DataDirectory, "pins.json");
     public static string TargetsFile => Path.Combine(DataDirectory, "targets.json");
-    public static string RoutesFile => Path.Combine(DataDirectory, "routes.json");
+    public static string RoutesFile => Path.Combine(DataDirectory, "routes.soulroute");
+    public static string LegacyRoutesFile => Path.Combine(DataDirectory, "routes.json");
     public static string LogsDirectory => Path.Combine(DataDirectory, "logs");
 
     /// <summary>Pets and portraits learned from the in-game pet window (pets not in the map data).</summary>

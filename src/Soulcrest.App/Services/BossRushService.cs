@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Soulcrest.App.Network;
 using Soulcrest.Core.Network;
@@ -12,6 +13,23 @@ public sealed record BossLoot(string Id, string En, string? De, string? Icon, st
         "common" or "rare" or "legend" or "unique" or "epic" or "special" => Rarity,
         _ => "unknown"
     };
+    public int RarityRank => RarityStyle switch
+    {
+        "common" => 0,
+        "rare" => 1,
+        "legend" => 2,
+        "unique" => 3,
+        "epic" => 4,
+        "special" => 5,
+        _ => -1
+    };
+    public static IOrderedEnumerable<BossLoot> OrderByRarity(IEnumerable<BossLoot> items, string language)
+    {
+        var names = StringComparer.Create(CultureInfo.GetCultureInfo(language == "de" ? "de-DE" : "en-US"), ignoreCase: true);
+        return items.OrderByDescending(item => item.RarityRank)
+            .ThenBy(item => item.Name(language), names)
+            .ThenBy(item => item.Id, StringComparer.Ordinal);
+    }
     public string RarityLabel => UiText.T(RarityStyle switch
     {
         "common" => "Gewöhnlich",

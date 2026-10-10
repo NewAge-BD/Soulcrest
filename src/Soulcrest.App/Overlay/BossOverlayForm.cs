@@ -5,7 +5,7 @@ using Soulcrest.App.Services;
 
 namespace Soulcrest.App.Overlay;
 
-/// <summary>Independent, movable boss schedule and alert panel. No game input, click-through when locked.</summary>
+/// <summary>Independent boss schedule and alert panel. Mouse input and moving are enabled only while Alt is held.</summary>
 public sealed class BossOverlayForm : Form
 {
     internal const int PanelWidth = 400;
@@ -28,7 +28,9 @@ public sealed class BossOverlayForm : Form
     private IReadOnlyList<BossRushEntry> _rows = [];
     private IReadOnlyList<BossNotice> _alerts = [];
     private Point? _drag;
-    private bool _locked = true, _inRecordings, _showList;
+    private readonly OverlayLockButton _lockButton;
+    private bool _manualInteraction;
+    private bool _locked = true, _inRecordings, _showList, _suppressed;
     private long _lastSoundId;
 
     public BossOverlayForm(BossRushService bosses, SettingsService settings, ProgressService progress)
@@ -43,9 +45,28 @@ public sealed class BossOverlayForm : Form
         BackColor = Surface;
         Opacity = 0.94;
         DoubleBuffered = true;
+        _lockButton = new OverlayLockButton(this);
+        _lockButton.Toggled += ToggleManualInteraction;
+        _lockButton.SetVisibleInRecordings(_settings.Current.OverlaysInRecordings);
         _timer.Tick += (_, _) => RefreshPanel();
         _timer.Start();
     }
+
+    public void SetSuppressed(bool suppressed)
+    {
+        if (_suppressed == suppressed) return;
+        _suppressed = suppressed;
+        if (suppressed)
+        {
+            FinishDrag();
+            Capture = false;
+            Hide();
+            SetInteractionEnabled(false);
+        }
+        else RefreshPanel();
+    }
+
+    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed);
 
     protected override bool ShowWithoutActivation => true;
     protected override CreateParams CreateParams
@@ -54,7 +75,9 @@ public sealed class BossOverlayForm : Form
         {
             var cp = base.CreateParams;
             cp.ExStyle |= NativeMethods.WS_EX_LAYERED | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE
-                | NativeMethods.WS_EX_TOPMOST | NativeMethods.WS_EX_TRANSPARENT;
+                | NativeMethods.WS_EX_TOPMOST;
+            if (_locked) cp.ExStyle |= NativeMethods.WS_EX_TRANSPARENT;
+            else cp.ExStyle &= ~NativeMethods.WS_EX_TRANSPARENT;
             return cp;
         }
     }
@@ -64,17 +87,55 @@ public sealed class BossOverlayForm : Form
         base.OnHandleCreated(e);
         NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings);
         _inRecordings = _settings.Current.OverlaysInRecordings;
-        ApplyLock(_settings.Current.BossOverlayLocked);
+        ApplyInteractionStyle();
     }
 
-    private void ApplyLock(bool locked)
+    /// <summary>Temporary interaction state; legacy lock preferences have no effect.</summary>
+    internal bool ManualInteractionEnabled => _manualInteraction;
+
+    internal void ToggleManualInteraction()
     {
-        _locked = locked;
-        if (locked) FinishDrag();
-        var style = NativeMethods.GetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE);
-        NativeMethods.SetWindowLongPtr(Handle, NativeMethods.GWL_EXSTYLE,
-            locked ? style | NativeMethods.WS_EX_TRANSPARENT : style & ~(nint)NativeMethods.WS_EX_TRANSPARENT);
-        Cursor = locked ? Cursors.Default : Cursors.SizeAll;
+        _manualInteraction = !_manualInteraction;
+        _lockButton.SetLocked(!_manualInteraction);
+        SetInteractionEnabled(OverlayInteraction.IsAltHeld);
+    }
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (Visible) return;
+        _manualInteraction = false;
+        _lockButton?.SetLocked(true);
+        SetInteractionEnabled(false);
+    }
+
+    private bool InteractionAllowed => !_suppressed && (_manualInteraction || OverlayInteraction.IsAltHeld);
+
+    public void SetInteractionEnabled(bool enabled)
+    {
+        enabled = (enabled || _manualInteraction) && !_suppressed;
+        if (_locked == !enabled) return;
+        _locked = !enabled;
+        if (_locked) FinishDrag();
+        ApplyInteractionStyle();
+        Cursor = _locked ? Cursors.Default : Cursors.SizeAll;
+        Invalidate();
+    }
+
+    private void ApplyInteractionStyle()
+    {
+        if (!IsHandleCreated) return;
+        NativeMethods.SetClickThrough(Handle, _locked);
+    }
+
+    protected override void WndProc(ref Message message)
+    {
+        if (message.Msg == NativeMethods.WM_MOUSEACTIVATE)
+        {
+            message.Result = NativeMethods.MA_NOACTIVATE;
+            return;
+        }
+        base.WndProc(ref message);
     }
 
     protected override void OnSizeChanged(EventArgs e)
@@ -89,7 +150,7 @@ public sealed class BossOverlayForm : Form
 
     private void RefreshPanel()
     {
-        if (!IsHandleCreated || IsDisposed || SmokeTest.Enabled) return;
+        if (_suppressed || !IsHandleCreated || IsDisposed || SmokeTest.Enabled) return;
         var settings = _settings.Current;
         _showList = ScheduleEnabled(settings);
         _rows = _showList ? _bosses.OverlaySpawns : [];
@@ -97,12 +158,12 @@ public sealed class BossOverlayForm : Form
         var newest = _alerts.LastOrDefault()?.Id ?? _lastSoundId;
         if (newest > _lastSoundId && settings.BossAlertSound) SystemSounds.Exclamation.Play();
         _lastSoundId = newest;
-        if (!PanelVisible(settings, _alerts.Count)) { Hide(); return; }
-        if (_locked != settings.BossOverlayLocked) ApplyLock(settings.BossOverlayLocked);
+        if (!PanelVisible(settings, _alerts.Count)) { FinishDrag(); Hide(); return; }
         if (_inRecordings != settings.OverlaysInRecordings)
         {
             _inRecordings = settings.OverlaysInRecordings;
             NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
+        _lockButton?.SetVisibleInRecordings(_inRecordings);
         }
         var scale = Math.Clamp(settings.BossOverlayScale, .6, 2);
         Size = new Size((int)(PanelWidth * scale), (int)(LogicalHeight(_rows.Count, _alerts.Count, _showList) * scale));
@@ -115,17 +176,16 @@ public sealed class BossOverlayForm : Form
     {
         var settings = _settings.Current;
         e.Graphics.ScaleTransform((float)Math.Clamp(settings.BossOverlayScale, .6, 2), (float)Math.Clamp(settings.BossOverlayScale, .6, 2));
-        PaintPanel(e.Graphics, _rows, _alerts, _showList, settings.BossOverlayLocked, settings.LootNameLanguage, BossIcon);
+        PaintPanel(e.Graphics, _rows, _alerts, _showList, _locked, settings.LootNameLanguage, BossIcon);
     }
 
     internal static bool ScheduleEnabled(AppSettings settings) => settings.BossRushEnabled && settings.BossOverlayEnabled;
 
-    internal static bool PanelVisible(AppSettings settings, int alerts) => ScheduleEnabled(settings)
-        || (settings.BossAlertsEnabled && alerts > 0);
+    internal static bool PanelVisible(AppSettings settings, int alerts) => settings.BossOverlayVisible
+        && (ScheduleEnabled(settings) || (settings.BossAlertsEnabled && alerts > 0));
 
     internal static string HotkeyHint(bool locked) => UiText.T(locked
-        ? "Strg+Alt+P Loot ein/aus · Strg+Alt+L verschieben"
-        : "Strg+Alt+P Loot ein/aus · Strg+Alt+L sperren");
+        ? "Schloss klicken zum Entsperren" : "Schloss: sperren · Kopf ziehen");
 
     internal static int LogicalHeight(int rows, int alerts, bool list) => HeaderHeight + Math.Max(0, alerts) * AlertStride
         + (list ? rows > 0 ? HeroStride + (rows - 1) * RowStride : 72 : 0) + FooterHeight;
@@ -156,8 +216,6 @@ public sealed class BossOverlayForm : Form
         FillRound(new RectangleF(14, 15, 3, 17), 1.5f, Accent);
         g.DrawString("BOSS RUSH", title, white, 25, 14);
         g.DrawString(UiText.T(list ? "Nächste Spawns" : "Boss-Alerts"), small, dim, new RectangleF(157, 17, 205, 17), right);
-        if (locked) DrawLock(373, 18);
-        else DrawGrip(375, 17, Accent);
 
         var y = HeaderHeight;
         foreach (var alert in alerts)
@@ -263,13 +321,6 @@ public sealed class BossOverlayForm : Form
             for (var col = 0; col < 2; col++)
                 for (var row = 0; row < 3; row++) g.FillEllipse(brush, left + col * 4, top + row * 4, 2, 2);
         }
-
-        void DrawLock(int left, int top)
-        {
-            using var pen = new Pen(Muted, 1.2f);
-            g.DrawArc(pen, left + 2, top, 6, 9, 180, 180);
-            g.DrawRectangle(pen, left, top + 5, 10, 7);
-        }
     }
 
     private static GraphicsPath Rounded(RectangleF bounds, float radius)
@@ -302,6 +353,7 @@ public sealed class BossOverlayForm : Form
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
+        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
         if (_locked || e.Button != MouseButtons.Left) return;
         _drag = e.Location;
         Capture = true;
@@ -309,11 +361,13 @@ public sealed class BossOverlayForm : Form
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
         if (_drag is { } from) Location = new Point(Location.X + e.X - from.X, Location.Y + e.Y - from.Y);
     }
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
+        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
         FinishDrag();
     }
     protected override void OnMouseCaptureChanged(EventArgs e)
@@ -330,7 +384,7 @@ public sealed class BossOverlayForm : Form
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _timer.Stop(); _timer.Dispose(); foreach (var image in _icons.Values) image?.Dispose(); }
+        if (disposing) { _lockButton.Toggled -= ToggleManualInteraction; _lockButton.Dispose(); _timer.Stop(); _timer.Dispose(); foreach (var image in _icons.Values) image?.Dispose(); }
         base.Dispose(disposing);
     }
 }

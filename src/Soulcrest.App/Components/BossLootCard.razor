@@ -16,7 +16,7 @@
             else
             {
                 <div class="boss-loot-grid">
-                    @foreach (var item in Boss.Loot.OrderBy(i => i.Name(Settings.Current.NameLanguage)))
+                    @foreach (var item in BossLoot.OrderByRarity(Boss.Loot, Settings.Current.NameLanguage))
                     {
                         <a class="boss-loot-item rarity-@item.RarityStyle" href="https://aion2.gaming.tools/items/@item.Id" target="_blank" rel="noopener noreferrer" title="@item.Name(Settings.Current.NameLanguage)">
                             @if (item.Icon is { } image) { <img src="@ImageUrl(image)" alt="" loading="lazy" /> }
