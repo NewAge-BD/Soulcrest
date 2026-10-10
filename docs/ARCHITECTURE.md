@@ -5,14 +5,14 @@
 ```text
 Soulcrest.slnx
 ├─ src/
-│  ├─ Soulcrest.Core          net9.0         Pet-DB-Modelle, Fortschrittslogik, Chat-Parser,
+│  ├─ Soulcrest.Core          net10.0        Pet-DB-Modelle, Fortschrittslogik, Chat-Parser,
 │  │                                         Scroll-Reconciler, Fuzzy-Matching (plattformneutral)
-│  ├─ Soulcrest.Ocr           net9.0-windows Windows OCR (Pet-Fenster, Listen), Kartenabgleich,
+│  ├─ Soulcrest.Ocr           net10.0-windows Windows OCR (Pet-Fenster, Listen), Kartenabgleich,
 │  │                                         Farbklassifikation, Tonemapping, OpenCvSharp
-│  ├─ Soulcrest.Vision        net9.0-windows Kartenerkennung: Features, Homographie, opt. Fluss
-│  ├─ Soulcrest.App           net9.0-windows WinForms-Host + Blazor Hybrid (WebView2), Capture,
+│  ├─ Soulcrest.Vision        net10.0-windows Kartenerkennung: Features, Homographie, opt. Fluss
+│  ├─ Soulcrest.App           net10.0-windows WinForms-Host + Blazor Hybrid (WebView2), Capture,
 │  │                                         native Overlays, Persistenz, Lokalisierung
-│  └─ Soulcrest.BrowserPreview net9.0        UI + Karte mit Beispieldaten im Browser
+│  └─ Soulcrest.BrowserPreview net10.0       UI + Karte mit Beispieldaten im Browser
 ├─ tests/
 │  ├─ Soulcrest.Core.Tests     Parser, Reconciler, Fortschritt, Pet-DB-Validierung
 │  ├─ Soulcrest.Ocr.Tests      Pet-Fenster- und Karten-Fixtures

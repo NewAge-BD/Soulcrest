@@ -59,7 +59,7 @@ dotnet run --project src/Soulcrest.App
 ./scripts/Build-Installer.ps1                  # Inno Setup 7 installer
 ```
 
-Requires the .NET 9 SDK, Python 3 and, for the installer, Inno Setup 7. The map data is not part of
+Requires the .NET 10 SDK (pinned in `global.json`), Python 3 and, for the installer, Inno Setup 7. The map data is not part of
 this repository; please keep the fetch script's rate limit.
 
 ## Credits

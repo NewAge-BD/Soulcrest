@@ -165,6 +165,7 @@ public sealed class OverlayInteractionPanelTests : IDisposable
     [InlineData("_levelingOverlay")]
     public Task WindowsRoutesPointerToThePanelOnlyWhileInteractionIsEnabled(string field) => RunOnSta(() =>
     {
+        if (InteractiveDesktop.Missing) return; // needs real window hit-testing
         using var main = new MainForm();
         var panel = (Form)GetField(main, field)!;
         var area = (Screen.AllScreens.FirstOrDefault(screen => !screen.Primary) ?? Screen.PrimaryScreen!).WorkingArea;

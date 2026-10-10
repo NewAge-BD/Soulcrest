@@ -12,6 +12,7 @@ public sealed class OverlayLockButtonTests
     [Fact]
     public Task NativeHotspotRemainsClickableAboveAClickThroughTarget() => RunOnSta(() =>
     {
+        if (InteractiveDesktop.Missing) return; // needs real window hit-testing
         using var behind = CreateBehind();
         using var target = CreateTarget(behind.Bounds);
         using var button = new OverlayLockButton(target);
@@ -166,6 +167,7 @@ public sealed class OverlayLockButtonTests
     [Fact]
     public Task DisposingHotspotLeavesItsTargetUsableAndClickThrough() => RunOnSta(() =>
     {
+        if (InteractiveDesktop.Missing) return; // needs real window hit-testing
         using var behind = CreateBehind();
         using var target = CreateTarget(behind.Bounds);
         using var button = new OverlayLockButton(target);
