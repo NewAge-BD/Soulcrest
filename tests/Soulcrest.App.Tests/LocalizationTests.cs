@@ -80,8 +80,8 @@ public sealed class LocalizationTests
     }
 
     [Theory]
-    [InlineData("de", "Bei 100 %", "Abschluss-Haken")]
-    [InlineData("en", "At 100%", "completion check")]
+    [InlineData("de", "Bestätigte 100 %", "Abschluss-Haken")]
+    [InlineData("en", "A confirmed 100%", "completion check")]
     public async Task ExplorationInstructionsExplainCategoryCompletionInBothLanguages(string language, string percentage, string check)
     {
         var services = new ServiceCollection();
@@ -107,7 +107,7 @@ public sealed class LocalizationTests
             var html = System.Net.WebUtility.HtmlDecode(markup);
             Assert.Contains(percentage, html);
             Assert.Contains(check, html);
-            Assert.Contains(language == "de" ? "kein Durchscrollen nötig" : "no scrolling is needed", html);
+            Assert.Contains(language == "de" ? "Fehlende Haken setzen nichts zurück" : "Missing checkmarks do not reset progress", html);
             if (Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW") is { Length: > 0 } output)
             {
                 Directory.CreateDirectory(output);

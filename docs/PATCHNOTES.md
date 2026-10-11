@@ -2,6 +2,15 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.4.4 – 2026-10-11
+
+- **Behoben:** Beim Wechsel der Karte konnte die interaktive Karte mit einem Fehler hängen bleiben
+  (veraltete Zielmarker der vorherigen Karte).
+- **Verbessert:** Der Exploration-Scan liest auch ausgegraute, kontrastarme Erkundungslisten und
+  Ultrawide-Auflösungen zuverlässiger; ein Abschluss braucht weiterhin zwei eindeutige Lesungen.
+- **Verbessert:** Neue Scan-Kachel mit drei Schritten, Start/Stopp und getrennten Zählern; die
+  Scanhilfe im Spiel hat eine klare Legende (Grün = Name zweimal gelesen).
+
 ## 0.4.3 – 2026-10-11
 
 - **Neu:** Sealed Dungeons werden beim Betreten abgehakt, auch ohne Progressionsmodus: Nach einer Position

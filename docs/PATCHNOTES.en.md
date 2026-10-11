@@ -2,6 +2,15 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.4.4 – 2026-10-11
+
+- **Fixed:** Switching maps could leave the interactive map stuck with an error (stale target markers of
+  the previous map).
+- **Improved:** The exploration scan reads greyed-out, low-contrast exploration lists and ultrawide
+  resolutions more reliably; completing still needs two unambiguous readings.
+- **Improved:** New scan tile with three steps, start/stop and separate counters; the in-game scan helper
+  has a clear legend (green = name read twice).
+
 ## 0.4.3 – 2026-10-11
 
 - **New:** Sealed dungeons are ticked off when you enter them, even without the progression mode: an

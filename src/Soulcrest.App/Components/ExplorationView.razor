@@ -4,41 +4,109 @@
 @inject ProgressService Progress
 @inject SettingsService Settings
 
-<div class="page">
-    <h2>@UiText.T(Title(Kind))</h2>
-    <CharacterPicker />
-    <p>@UiText.T("Fortschritt gilt nur für diesen Charakter. Bei 100 % werden alle Dungeons oder Garnisonen dieser Kategorie auf der gewählten Karte abgeschlossen. Darunter zählen nur eindeutig erkannte Namen mit Abschluss-Haken. Fehlende Haken setzen nichts zurück. Kibelisks: „Bindung abgeschlossen“ hakt ab, „Bindung nicht abgeschlossen“ nimmt den Haken zurück.")</p>
-    <OcrLanguageSetup Disabled="@Scan.Running" />
-    <section class="card sv-card">
-        <select aria-label="@UiText.T("Karte wählen")" @bind="_map" @bind:after="BuildLists" disabled="@Scan.Running">
-            @foreach (var m in Progress.Maps) { <option value="@m.Id">@m.Label</option> }
-        </select>
-        <p>@UiText.T("Im Spiel die Weltkarte der gewählten Karte öffnen. Bei 100 % ist für diese Kategorie kein Durchscrollen nötig. Sonst langsam scrollen und auf die Hinweise im Overlay achten. Im gemeinsamen Scan die übrigen Listen nacheinander öffnen; nach Abschluss aller Listen stoppt der Scan.")</p>
-        <button class="btn" disabled="@(Scan.Running || _lists.All(l => l.Places.Length == 0))" @onclick="@(() => Scan.Start(_map, Kind))">@UiText.T("Scan starten")</button>
-        <button class="btn" disabled="@(!Scan.Running)" @onclick="Scan.Stop">@UiText.T("Scan stoppen")</button>
-        @if (Scan.Running) { <p>@Scan.ScanMap · @UiText.T(Title(Scan.ScanKind ?? Kind))</p> }
-        <p role="status">@UiText.T(Scan.Status) · @Scan.Recognized @UiText.T("erkannt")</p>
-        @if (Scan.Preview is not null) { <img src="@Scan.Preview" alt="@UiText.T("Scan-Vorschau")" style="max-width:320px;max-height:420px;object-fit:contain" /> }
-        @if (Scan.Unmatched.Length > 0) { <p>@UiText.T("Nicht eindeutig erkannt:") @string.Join(" · ", Scan.Unmatched)</p> }
+<div class="page exploration-page">
+    <header class="exploration-heading">
+        <span class="exploration-eyebrow">@UiText.T("Charakterfortschritt")</span>
+        <h2>@UiText.T(Title(Kind))</h2>
+        <p>@UiText.T("Dungeons, Garnisonen und Kibelisken aus der Weltkarte übernehmen.")</p>
+    </header>
+
+    <section class="card sv-card exploration-profile">
+        <CharacterPicker />
+        <p class="exploration-profile-note">@UiText.T("Prüfe das Charakterprofil. Der Scan speichert ausschließlich für diesen Charakter.")</p>
     </section>
-    <div class="sv-grid">
+
+    <section class="card sv-card exploration-scan" data-scan-state="@(Scan.Running ? "running" : "idle")">
+        <div class="exploration-scan-heading">
+            <div><h3>@UiText.T("Erkundung einscannen")</h3><p>@UiText.T("Öffne die Listen im Spiel. Soulcrest liest mit.")</p></div>
+            <span class="exploration-scan-badge @(Scan.Running ? "live" : "")"><i aria-hidden="true"></i>@UiText.T(Scan.Running ? "Scan läuft" : "Bereit zum Scannen")</span>
+        </div>
+        <div class="exploration-scan-controls">
+            <label>@UiText.T("Karte wählen")
+                <select aria-label="@UiText.T("Karte wählen")" @bind="_map" @bind:after="BuildLists" disabled="@Scan.Running">
+                    @foreach (var m in Progress.Maps) { <option value="@m.Id">@m.Label</option> }
+                </select>
+            </label>
+            @if (Scan.Running)
+            {
+                <button class="btn exploration-scan-stop" @onclick="Scan.Stop">@UiText.T("Scan stoppen")</button>
+            }
+            else
+            {
+                <button class="btn primary" disabled="@_lists.All(l => l.Places.Length == 0)" @onclick="@(() => Scan.Start(_map, Kind))">@UiText.T("Scan starten")</button>
+            }
+        </div>
+        <ol class="exploration-scan-steps" aria-label="@UiText.T("So funktioniert der Scan")">
+            <li><span>1</span><div><strong>@UiText.T("Karte und Liste öffnen")</strong><p>@UiText.T("Wähle im Spiel dieselbe Karte und eine Erkundungsliste.")</p></div></li>
+            <li><span>2</span><div><strong>@UiText.T("Kurz stillhalten")</strong><p>@UiText.T("Warte, bis die sichtbaren Zeilen bestätigt sind.")</p></div></li>
+            <li><span>3</span><div><strong>@UiText.T("Langsam weiter")</strong><p>@UiText.T("Scrolle langsam. Öffne danach die nächste Kategorie.")</p></div></li>
+        </ol>
+        <div class="exploration-scan-status @(Scan.Feedback?.Ready == true ? "ready" : "")" role="status" aria-live="polite" aria-atomic="true">
+            <div class="exploration-scan-status-copy">
+                <span class="exploration-eyebrow">@UiText.T(Scan.Running ? "Aktuelle Prüfung" : "Scan-Status")</span>
+                <strong>@UiText.T(Scan.Status)</strong>
+                @if (Scan.ScanMap is not null)
+                {
+                    <span class="exploration-scan-context">@MapLabel(Scan.ScanMap) <span aria-hidden="true">·</span> @UiText.T(Title(Scan.DetectedKind ?? Scan.ScanKind ?? Kind))</span>
+                }
+            </div>
+            <dl class="exploration-scan-metrics">
+                <div><dt>@UiText.T("Zeilen geprüft")</dt><dd>@(Scan.Feedback is { Total: > 0 } feedback ? $"{Math.Min(feedback.Read, feedback.Total)} / {feedback.Total}" : "—")</dd></div>
+                <div><dt>@UiText.T("Einträge übernommen")</dt><dd>@Scan.Recognized</dd></div>
+                <div><dt>@UiText.T("Noch unklar")</dt><dd>@Scan.Unmatched.Length</dd></div>
+            </dl>
+        </div>
+        <div class="exploration-scan-footer">
+            <p>@UiText.T(Scan.DetectedKind == "kibelisk" ? "Kibelisken übernehmen den gelesenen Bindungsstatus: abgeschlossen setzt den Haken, nicht abgeschlossen nimmt ihn zurück." : "Erkannte Namen allein setzen keinen Abschluss. Nur Haken oder bestätigte 100 % zählen.")</p>
+            <details class="exploration-scan-rules">
+                <summary>@UiText.T("So werden Abschlüsse gespeichert")</summary>
+                <p>@UiText.T("Bestätigte 100 % schließen die gesamte Kategorie auf der gewählten Karte ab. Sonst zählen nur eindeutig erkannte Namen mit Abschluss-Haken. Fehlende Haken setzen nichts zurück.")</p>
+                <p>@UiText.T("Kibelisken übernehmen den gelesenen Bindungsstatus: abgeschlossen setzt den Haken, nicht abgeschlossen nimmt ihn zurück.")</p>
+                <p>@UiText.T("Du kannst jederzeit stoppen. Bereits übernommene Einträge bleiben gespeichert.")</p>
+            </details>
+        </div>
+        <OcrLanguageSetup Disabled="@Scan.Running" />
+        @if (Scan.Preview is not null || Scan.Unmatched.Length > 0)
+        {
+            <details class="exploration-scan-inspection">
+                <summary>@UiText.T("Scan-Vorschau und unklare Einträge") @if (Scan.Unmatched.Length > 0) { <span class="exploration-scan-unclear-count">@Scan.Unmatched.Length</span> }</summary>
+                <div class="exploration-scan-inspection-body">
+                    @if (Scan.Preview is not null)
+                    {
+                        <figure><img src="@Scan.Preview" alt="@UiText.T("Scan-Vorschau")" /><figcaption>@UiText.T("Aufgenommener Listenbereich")</figcaption></figure>
+                    }
+                    @if (Scan.Unmatched.Length > 0)
+                    {
+                        <div class="exploration-scan-unmatched"><h4>@UiText.T("Nicht eindeutig erkannt:")</h4><p>@UiText.T("Halte die Liste kurz still. Verbleibende Einträge kannst du unten manuell prüfen.")</p><ul>@foreach (var name in Scan.Unmatched) { <li>@name</li> }</ul></div>
+                    }
+                </div>
+            </details>
+        }
+    </section>
+
+    <div class="exploration-saved-heading"><h3>@UiText.T("Gespeicherter Fortschritt")</h3><span>@UiText.T("Für den gewählten Charakter und die gewählte Karte")</span></div>
+    <div class="sv-grid exploration-progress-grid">
         @foreach (var (kind, places) in _lists)
         {
-            <section class="card sv-card">
-                <h3>@UiText.T(Title(kind)) <small>@places.Count(p => Done.Contains(p.Id)) / @places.Length @UiText.T("fertig")</small></h3>
+            var completed = places.Count(p => Done.Contains(p.Id));
+            <section class="card sv-card exploration-category" data-category="@kind">
+                <h3>@UiText.T(Title(kind)) <small>@completed / @places.Length @UiText.T("fertig")</small></h3>
+                @if (places.Length > 0) { <progress value="@completed" max="@places.Length" aria-label="@UiText.T(Title(kind))"></progress> }
                 <details>
                     <summary>@UiText.T("Einträge anzeigen und manuell korrigieren")</summary>
-                    @foreach (var p in places)
-                    {
-                        <label style="display:block;padding:6px"><input type="checkbox" checked="@Done.Contains(p.Id)" disabled="@Scan.Running" @onchange="@(e => Exploration.SetDone(Exploration.ActiveId, [p.Id], (bool)e.Value!))" /> @p.Name(Settings.Current.NameLanguage)</label>
-                    }
+                    <div class="exploration-manual-list">
+                        @foreach (var p in places)
+                        {
+                            <label><input type="checkbox" checked="@Done.Contains(p.Id)" disabled="@Scan.Running" @onchange="@(e => Exploration.SetDone(Exploration.ActiveId, [p.Id], (bool)e.Value!))" /> @p.Name(Settings.Current.NameLanguage)</label>
+                        }
+                    </div>
                 </details>
             </section>
         }
     </div>
 </div>
 @code {
-    /// <summary>"all" (tab "Scan Exploration Progress"): sealed dungeons, strongholds and Kibelisks together.</summary>
+    /// <summary>"all" reads sealed dungeons, strongholds and Kibelisks together.</summary>
     [Parameter] public string Kind { get; set; } = "all";
     internal static string Title(string kind) => kind switch
     {
@@ -48,22 +116,20 @@
         _ => "Erkundungsfortschritt scannen",
     };
     private string _map = "altgard";
-    // The lists are built when map, kind or name language change, not on every render: they were
-    // filtered and sorted again for each row and each refresh (tab felt slow, user report 2026-10-05).
     private (string Kind, ExplorationPlace[] Places)[] _lists = [];
     private string? _builtFor;
     private HashSet<string> Done = [];
     private DateTime _lastScanRender;
+    private string MapLabel(string map) => Progress.Maps.FirstOrDefault(m => m.Id == map)?.Label ?? map;
 
     protected override void OnInitialized()
     {
-        _map = Settings.Current.LastMap;
+        _map = Scan.Running && Scan.ScanMap is not null ? Scan.ScanMap : Settings.Current.LastMap;
         Done = Exploration.Completed;
         Exploration.Changed += Refresh;
         Scan.Changed += RefreshScan;
         Settings.Changed += RefreshLanguage;
     }
-
     protected override void OnParametersSet() => BuildLists();
 
     private void BuildLists()
@@ -76,23 +142,18 @@
         _lists = kinds.Select(kind => (kind, Exploration.Places.Where(p => p.Map == _map && p.Kind == kind).DistinctBy(p => p.Id)
             .OrderBy(p => p.Name(language), StringComparer.CurrentCulture).ToArray())).ToArray();
     }
-
     private void Refresh() => InvokeAsync(() => { Done = Exploration.Completed; StateHasChanged(); });
-
-    // The scan reports several times per second; the page needs a few updates (state changes at once).
     private void RefreshScan() => InvokeAsync(() =>
     {
         if (Scan.Running && DateTime.UtcNow - _lastScanRender < TimeSpan.FromMilliseconds(300)) return;
         _lastScanRender = DateTime.UtcNow;
         StateHasChanged();
     });
-
     private void RefreshLanguage() => InvokeAsync(() =>
     {
         var before = _builtFor;
         BuildLists();
         if (before != _builtFor) StateHasChanged();
     });
-
     public void Dispose() { Exploration.Changed -= Refresh; Scan.Changed -= RefreshScan; Settings.Changed -= RefreshLanguage; }
 }

@@ -3,13 +3,13 @@ using Soulcrest.Core.Text;
 
 namespace Soulcrest.App.Services;
 
-/// <summary>Fixed list mask from the maximum-scale screenshot: left 22% of the game window.</summary>
+/// <summary>The list scales with a 16:9 viewport; an ultrawide window adds map space, not wider list columns.</summary>
 public sealed record ExplorationLayout(Rectangle Bounds)
 {
     // Include the map title in the same capture, so completion cannot spill into another map.
     public Rectangle CaptureBounds => Rectangle.FromLTRB(Bounds.Left, 0, Bounds.Right, Bounds.Bottom);
     public static ExplorationLayout ForWindow(Size window) => new(Rectangle.FromLTRB(
-        0, (int)(window.Height * .12), (int)Math.Ceiling(window.Width * .22), (int)(window.Height * .98)));
+        0, (int)(window.Height * .12), (int)Math.Ceiling(Math.Min(window.Width, window.Height * 16d / 9) * .22), (int)(window.Height * .98)));
 
     public IReadOnlyList<OcrLine> Rows(IReadOnlyList<OcrLine> lines) => lines.Where(l =>
         l.Y >= Bounds.Top && l.Y + l.Height <= Bounds.Bottom && l.X >= Bounds.Left && l.X + l.Width <= Bounds.Right &&

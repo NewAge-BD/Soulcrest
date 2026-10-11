@@ -124,6 +124,17 @@ window.soulcrestMap = (() => {
         if (!window.SoulcrestMaps || !window.SoulcrestMaps[mapId]) await loadScript(`${base}${mapId}/data.js?v=${manifest.version || ''}`);
         explorationPlaces = [];
         progressionCandidates = null;
+        // fitBounds/setView emit move/zoom events synchronously. Their drawing callbacks must
+        // never combine the new payload with the previous map's marker indexes or layers.
+        targetLayer = null;
+        spawnLayer = null;
+        progressionTarget = null;
+        markerRefs = [];
+        markerByPos = new Map();
+        petRefs = [];
+        markedPets = new Set();
+        spawnKey = '';
+        player = null;
         current = window.SoulcrestMaps[mapId];
         current.def = def;
 
@@ -500,10 +511,12 @@ window.soulcrestMap = (() => {
         }
         const i = markerByPos.get(t.x + ',' + t.y);
         if (i === undefined) return;
-        const layer = markerRefs[i];
-        if (layer.iconIndex === undefined || (map.hasLayer(layer) && !layer.petHidden)) return;
-        const m = current.markers[i];
-        L.marker(toLatLng(m[1], m[2]), { icon: iconFor(current.categories[m[0]], layer.iconIndex, m), interactive: false, keyboard: false })
+        const layer = markerRefs[i], m = current.markers[i];
+        // A target can outlive its map payload. Copy a symbol only from the matching live marker.
+        if (!layer || !m || m[1] !== t.x || m[2] !== t.y || layer.iconIndex === undefined) return;
+        const category = current.categories[m[0]];
+        if (!category || (map.hasLayer(layer) && !layer.petHidden)) return;
+        L.marker(toLatLng(m[1], m[2]), { icon: iconFor(category, layer.iconIndex, m), interactive: false, keyboard: false })
             .addTo(targetLayer);
     }
 

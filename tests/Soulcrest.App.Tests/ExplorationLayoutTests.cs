@@ -9,7 +9,9 @@ public sealed class ExplorationLayoutTests
     [Theory]
     [InlineData(2559,1439,563)]
     [InlineData(1920,1080,423)]
-    public void MaskUsesFixedWindowProportions(int width, int height, int right)
+    [InlineData(2560,1080,423)]
+    [InlineData(3440,1440,564)]
+    public void MaskFollowsListScaleIncludingUltrawideWindows(int width, int height, int right)
     {
         var layout = ExplorationLayout.ForWindow(new Size(width,height));
         Assert.Equal(0,layout.Bounds.Left); Assert.Equal(right,layout.Bounds.Right);

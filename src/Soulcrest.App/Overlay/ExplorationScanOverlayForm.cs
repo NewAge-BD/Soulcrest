@@ -62,44 +62,120 @@ public sealed class ExplorationScanOverlayForm : Form
         if (_scan.Running) _visibleUntil = DateTime.UtcNow.AddSeconds(5);
         var feedback = _scan.Feedback;
         if (feedback is null || (!_scan.Running && DateTime.UtcNow > _visibleUntil)) { if (Visible) Hide(); return; }
-        var state = _scan.Status + _scan.Running + UiText.Language;
+        var kind = _scan.DetectedKind ?? _scan.ScanKind;
+        var state = _scan.Status + _scan.Running + UiText.Language + kind;
         if (ReferenceEquals(_shown, feedback) && _shownStatus == state && Visible) return;
         _shown = feedback; _shownStatus = state;
-        using var bitmap = CreateImage(feedback, _scan.ScanKind, _scan.Running ? feedback.Message : _scan.Status, _scan.Recognized, _scan.Running, out var area);
+        using var bitmap = CreateImage(feedback, kind, _scan.Running ? feedback.Message : _scan.Status, _scan.Recognized, _scan.Running, out var area);
         if (!Visible) Show();
         Present(bitmap, new Point(feedback.Window.X + area.X, feedback.Window.Y + area.Y));
     }
 
     internal static Bitmap CreateImage(ExplorationScanFeedback feedback, string? kind, string status, int total, bool running, out Rectangle area)
     {
-        var list = feedback.List ?? new Rectangle(20, 150, 400, 600);
-        var panel = new Rectangle(Math.Min(list.Right + 20, Math.Max(0, feedback.Window.Width - 440)), Math.Max(10, list.Top), 420, 130);
-        area = Rectangle.Union(list, panel); area.Inflate(8, 8);
+        var window = new Rectangle(Point.Empty, new Size(Math.Max(1, feedback.Window.Width), Math.Max(1, feedback.Window.Height)));
+        var list = Rectangle.Intersect(feedback.List ?? ExplorationLayout.ForWindow(window.Size).Bounds, window);
+        var panel = PanelBounds(window.Size, list);
+        area = Rectangle.Union(list, panel); area.Inflate(8, 8); area.Intersect(window);
         var bitmap = new Bitmap(area.Width, area.Height, PixelFormat.Format32bppPArgb);
         using (var g = Graphics.FromImage(bitmap))
         {
             g.Clear(Color.Transparent); g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             g.TranslateTransform(-area.X, -area.Y);
-            using var outline = new Pen(Color.FromArgb(94, 234, 212), 2);
-            if (feedback.List is not null) g.DrawRectangle(outline, list);
+            g.SetClip(window);
+            using var outline = new Pen(Color.FromArgb(94, 234, 212), 1.5f);
+            if (feedback.List is not null && !list.IsEmpty) g.DrawRectangle(outline, list);
             if (running)
                 foreach (var mark in feedback.Marks)
                 {
-                    using var pen = new Pen(mark.Recognized ? Color.LimeGreen : Color.Orange, 2);
-                    var box = mark.Bounds; box.Inflate(3, 3); g.DrawRectangle(pen, box);
+                    var box = Rectangle.Intersect(mark.Bounds, list);
+                    if (box.IsEmpty) continue;
+                    box.Inflate(3, 3); box.Intersect(list);
+                    using var pen = new Pen(mark.Recognized ? Color.FromArgb(104, 222, 161) : Color.FromArgb(246, 190, 91), 2)
+                    { DashStyle = mark.Recognized ? DashStyle.Solid : DashStyle.Dash };
+                    g.DrawRectangle(pen, box);
                 }
-            using var back = new SolidBrush(Color.FromArgb(235, 16, 20, 28));
-            using var ink = new SolidBrush(Color.White);
-            using var accent = new SolidBrush(feedback.Ready ? Color.LimeGreen : Color.FromArgb(94,234,212));
+            using var back = new SolidBrush(Color.FromArgb(245, 22, 28, 38));
+            using var ink = new SolidBrush(Color.FromArgb(239, 243, 249));
+            using var muted = new SolidBrush(Color.FromArgb(171, 184, 201));
+            using var accent = new SolidBrush(feedback.Ready ? Color.FromArgb(104, 222, 161) : Color.FromArgb(94, 234, 212));
+            using var border = new Pen(Color.FromArgb(81, 101, 124), 1);
             using var title = new Font("Segoe UI", 16, FontStyle.Bold, GraphicsUnit.Pixel);
-            using var body = new Font("Segoe UI", 15, FontStyle.Regular, GraphicsUnit.Pixel);
-            g.FillRectangle(back, panel); g.DrawRectangle(outline, panel);
-            g.DrawString("Soulcrest · " + kind switch { "dungeon" => "Sealed Dungeons", "stronghold" => "Stronghold", "kibelisk" => "Kibelisk", _ => "Exploration" }, title, accent, panel.X + 10, panel.Y + 8);
-            g.DrawString(UiText.T(status), body, ink, new RectangleF(panel.X+10, panel.Y+35, panel.Width-20, 58));
-            g.DrawString(UiText.F("Sichtbar: {0}/{1} · Insgesamt erkannt: {2}", feedback.Read, feedback.Total, total), body, ink, panel.X+10, panel.Y+103);
+            using var body = new Font("Segoe UI", 14, FontStyle.Regular, GraphicsUnit.Pixel);
+            using var small = new Font("Segoe UI", 12, FontStyle.Regular, GraphicsUnit.Pixel);
+            using var number = new Font("Segoe UI", 22, FontStyle.Bold, GraphicsUnit.Pixel);
+            using var format = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit };
+            using var shape = RoundedRectangle(panel, 12);
+            g.FillPath(back, shape); g.DrawPath(border, shape);
+            var x = panel.X + 16; var width = panel.Width - 32;
+            g.DrawString(CategoryTitle(kind), title, ink, new RectangleF(x, panel.Y + 14, width, 24), format);
+            g.DrawString(PhaseLabel(feedback.Ready, running), small, accent, new RectangleF(x, panel.Y + 40, width, 20), format);
+            g.DrawString(UiText.T(status), body, ink, new RectangleF(x, panel.Y + 65, width, 55), format);
+            using var separator = new Pen(Color.FromArgb(58, 73, 92), 1);
+            g.DrawLine(separator, x, panel.Y + 129, panel.Right - 16, panel.Y + 129);
+            var column = width / 2;
+            g.DrawString(UiText.T("Sichtbare Zeilen geprüft"), small, muted, new RectangleF(x, panel.Y + 140, column - 8, 19), format);
+            g.DrawString(VisibleCount(feedback), number, ink, new RectangleF(x, panel.Y + 158, column - 8, 30), format);
+            g.DrawString(UiText.T("Einträge übernommen"), small, muted, new RectangleF(x + column, panel.Y + 140, column, 19), format);
+            g.DrawString(Math.Max(0, total).ToString(System.Globalization.CultureInfo.InvariantCulture), number, ink,
+                new RectangleF(x + column, panel.Y + 158, column, 30), format);
+            using var track = new SolidBrush(Color.FromArgb(54, 67, 84));
+            g.FillRectangle(track, x, panel.Y + 194, width, 4);
+            if (feedback.Total > 0)
+                g.FillRectangle(accent, x, panel.Y + 194, width * Math.Clamp((float)feedback.Read / feedback.Total, 0, 1), 4);
+            DrawLegend(g, x, panel.Y + 209, small, muted, width);
+            g.DrawString(UiText.T(kind == "kibelisk"
+                    ? "Geprüft heißt gelesen. Der Bindestatus bestimmt den Fortschritt."
+                    : "Geprüft heißt gelesen. Nur Haken oder bestätigte 100 % zählen als abgeschlossen."),
+                small, muted, new RectangleF(x, panel.Y + 234, width, 36), format);
         }
         return bitmap;
+    }
+
+    internal static string CategoryTitle(string? kind) => "Soulcrest · " + (kind switch
+    {
+        "dungeon" => "Sealed Dungeons",
+        "stronghold" => "Strongholds",
+        "kibelisk" => "Kibelisks",
+        _ => UiText.T("Erkundungsscan")
+    });
+
+    internal static string PhaseLabel(bool ready, bool running) => UiText.T(!running ? "Scan beendet"
+        : ready ? "Bereit zum Weiterscrollen" : "Namen werden geprüft");
+
+    internal static string VisibleCount(ExplorationScanFeedback feedback) =>
+        UiText.F("{0} / {1}", Math.Clamp(feedback.Read, 0, Math.Max(0, feedback.Total)), Math.Max(0, feedback.Total));
+
+    internal static Rectangle PanelBounds(Size window, Rectangle list)
+    {
+        var width = Math.Min(420, Math.Max(1, window.Width - 24));
+        var height = Math.Min(282, Math.Max(1, window.Height - 24));
+        var x = Math.Min(list.Right + 20, Math.Max(0, window.Width - width - 12));
+        var bottom = Math.Max(0, window.Height - height - 12);
+        var y = Math.Clamp(list.Top, Math.Min(12, bottom), bottom);
+        return new Rectangle(x, y, width, height);
+    }
+
+    private static GraphicsPath RoundedRectangle(Rectangle rectangle, int radius)
+    {
+        var path = new GraphicsPath(); var diameter = Math.Min(radius * 2, Math.Min(rectangle.Width, rectangle.Height));
+        path.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180, 90);
+        path.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270, 90);
+        path.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure(); return path;
+    }
+
+    private static void DrawLegend(Graphics g, int x, int y, Font font, Brush ink, int width)
+    {
+        using var green = new SolidBrush(Color.FromArgb(104, 222, 161));
+        using var amber = new SolidBrush(Color.FromArgb(246, 190, 91));
+        g.FillEllipse(green, x, y + 4, 7, 7);
+        g.DrawString(UiText.T("Geprüft"), font, ink, x + 13, y);
+        var second = x + width / 2;
+        g.FillEllipse(amber, second, y + 4, 7, 7);
+        g.DrawString(UiText.T("Noch prüfen"), font, ink, second + 13, y);
     }
     private void Present(Bitmap bitmap, Point location)
     {

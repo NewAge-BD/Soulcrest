@@ -15,6 +15,13 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
     public bool Running => Volatile.Read(ref _running) != 0;
     public string? ScanMap { get; private set; }
     public string? ScanKind { get; private set; }
+    public string? DetectedKind { get; private set; }
+    public bool StatusIsError { get; private set; }
+    public int Frames { get; private set; }
+    public bool ContrastEnhanced { get; private set; }
+    public string? LastFrameDataUrl { get; private set; }
+    public string? LastOcrReport { get; private set; }
+    private string? _lastLogSnapshot;
     public string Status { get; private set; } = "Bereit.";
     public string? Preview { get; private set; }
     public string[] Unmatched { get; private set; } = [];
@@ -37,14 +44,18 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
         var mapTitles = exploration.MapTitles(map);
         var cancel = new CancellationTokenSource();
         lock (_lifetime) _cancel = cancel;
-        ScanMap = map; ScanKind = kind;
+        ScanMap = map; ScanKind = kind; DetectedKind = null;
+        Frames = 0; ContrastEnhanced = false; StatusIsError = false;
+        LastFrameDataUrl = null; LastOcrReport = null; _lastLogSnapshot = null;
         Recognized = 0; Unmatched = []; Feedback = null; Preview = null; Status = "Warte auf den passenden Exploration-Tab …";
         Changed?.Invoke();
         _ = Task.Run(async () =>
         {
             try
             {
-                var reader = WindowsOcrLineReader.Create(settings?.Current.EffectiveOcrLanguage ?? "auto", 1);
+                var language = settings?.Current.EffectiveOcrLanguage ?? "auto";
+                var reader = WindowsOcrLineReader.Create(language, 1);
+                var contrastReader = WindowsOcrLineReader.Create(language, 2);
                 var confirmation = new Confirmation(); var seen = new HashSet<string>();
                 // Kibelisks: numbered rows with their own status, see KibeliskList (user request 2026-10-06).
                 var kibelisks = all || kind == "kibelisk" ? new KibeliskSession(kibeliskPlaces) : null;
@@ -58,8 +69,15 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                     using var masked = await GrabAsync(cancel.Token);
                     var window = _frameWindow;
                     var layout = ExplorationLayout.ForWindow(window.Size);
+                    Frames++;
                     var detected = await reader.ReadAsync(masked, cancel.Token);
                     var lines = detected.Select(l => l with { X = l.X + layout.CaptureBounds.X, Y = l.Y + layout.CaptureBounds.Y }).ToArray();
+                    // A separate local-contrast view recovers dim text. All checkmarks and motion
+                    // still come from the untouched capture; enhanced 100% alone never completes a list.
+                    using var enhanced = ExplorationTextEnhancer.Create(masked);
+                    var contrastDetected = await contrastReader.ReadAsync(enhanced, cancel.Token);
+                    var contrastLines = contrastDetected.Select(l => l with { X = l.X + layout.CaptureBounds.X, Y = l.Y + layout.CaptureBounds.Y }).ToArray();
+                    ContrastEnhanced = true;
                     cancel.Token.ThrowIfCancellationRequested();
                     // OCR can finish after the user has already scrolled: never restore stale boxes.
                     using (var latest = await ReadMaskAsync(window, layout.CaptureBounds, cancel.Token))
@@ -74,20 +92,21 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                     settings?.RememberGameLanguage(reader.DetectedLanguage);
                     if (exploration.ActiveId != character)
                     {
-                        Status = "Charakter gewechselt. Scan erneut starten."; Feedback = null; break;
+                        Status = "Charakter gewechselt. Scan erneut starten."; DetectedKind = null; Feedback = null; break;
                     }
-                    if (!layout.ShowsMap(lines, mapTitles))
+                    if (!layout.ShowsMap(lines, mapTitles) && !layout.ShowsMap(contrastLines, mapTitles))
                     {
-                        confirmation = new Confirmation();
+                        confirmation = new Confirmation(); DetectedKind = null;
                         Status = "Passende Weltkarte nicht erkannt – gewählte Karte im Spiel öffnen.";
                         Unmatched = [];
                         Feedback = new(window, layout.Bounds, Status, 0, 0, [], false);
-                        UpdatePreview(masked, ref nextPreview); Changed?.Invoke();
+                        UpdatePreview(masked, ref nextPreview); RecordOcr(lines, contrastLines); Changed?.Invoke();
                         await Task.Delay(250, cancel.Token); continue;
                     }
                     var listPage = kibelisks is null ? null : KibeliskList.Read(rows, layout.Bounds.Bottom);
                     if (kibelisks is not null && listPage is not null && (!all || listPage.Rows.Count > 0))
                     {
+                        DetectedKind = "kibelisk";
                         var settledBefore = kibelisks.Confirmed.Count;
                         kibelisks.Observe(listPage);
                         var (bound, unbound, unknownRows, open) = kibelisks.Result();
@@ -112,7 +131,7 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                             .ToArray();
                         Feedback = new(window, layout.Bounds, Status, listed.Count(kibelisks.Confirmed.ContainsKey), listed.Count, kibeliskMarks,
                             listed.Count > 0 && listed.All(kibelisks.Confirmed.ContainsKey));
-                        UpdatePreview(masked, ref nextPreview);
+                        UpdatePreview(masked, ref nextPreview); RecordOcr(lines, contrastLines);
                         if (kibelisks.Complete && (!all || finishedKinds.IsSupersetOf(["dungeon", "stronghold"])))
                         {
                             if (all) Status = "Alle Erkundungslisten abgeschlossen.";
@@ -123,7 +142,8 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                         if (await ListMovedAsync(window, layout.CaptureBounds, masked, cancel.Token)) HideRowMarks();
                         continue;
                     }
-                    var page = ExplorationList.Read(lines, candidates, masked, layout, map, mapTitles);
+                    var page = ExplorationOcrSelection.Read(lines, contrastLines, candidates, masked, layout, map, mapTitles);
+                    DetectedKind = page.Kind;
                     var alreadyFull = page.Kind is not null && fullKinds.Contains(page.Kind);
                     if (alreadyFull) confirmation = new Confirmation();
                     var confirmed = alreadyFull ? [] : confirmation.Observe(page);
@@ -145,11 +165,10 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                         : page.Unmatched.Length > 0 ? "Unklare Zeilen – kurz stillhalten oder später manuell prüfen."
                         : "Liste wird gelesen – kurz stillhalten.";
                     var marks = visible.Select(r => new ExplorationRowMark(new Rectangle((int)r.Line.X, (int)r.Line.Y, (int)r.Line.Width, (int)r.Line.Height),
-                        r.Id is not null && confirmed.Contains(r.Id))).ToArray();
-                    var categoryTotal = candidates.Where(p => p.Kind == page.Kind).Select(p => p.Id).Distinct().Count();
-                    Feedback = new(window, layout.Bounds, Status, full ? categoryTotal : confirmation.Read.Count,
-                        full || page.Full ? categoryTotal : visible.Count, marks, ready);
-                    UpdatePreview(masked, ref nextPreview);
+                        r.Id is not null && confirmation.Read.Contains(r.Id))).ToArray();
+                    Feedback = new(window, layout.Bounds, Status, full || page.Full ? 0 : confirmation.Read.Count,
+                        visible.Count, marks, ready);
+                    UpdatePreview(masked, ref nextPreview); RecordOcr(lines, contrastLines);
                     if ((full || confirmation.Finished) && !all) break;
                     if (all && kibelisks?.Complete == true && finishedKinds.IsSupersetOf(["dungeon", "stronghold"]))
                     {
@@ -176,7 +195,12 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                 }
             }
             catch (OperationCanceledException) { Status = "Scan gestoppt."; }
-            catch (Exception e) { Status = e.Message; }
+            catch (Exception e)
+            {
+                StatusIsError = true;
+                Status = "Scan konnte nicht fortgesetzt werden. Erneut starten; Details in der Diagnose.";
+                LogFile.Error("Erkundungsscan", e);
+            }
             finally
             {
                 if (cancel.IsCancellationRequested) Status = "Scan gestoppt.";
@@ -189,10 +213,26 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
     {
         if (DateTime.UtcNow < nextPreview) return;
         nextPreview = DateTime.UtcNow.AddSeconds(2);
+        using var full = new MemoryStream(); masked.Save(full, ImageFormat.Png);
+        LastFrameDataUrl = "data:image/png;base64," + Convert.ToBase64String(full.ToArray());
         var scale = Math.Min(1d, Math.Min(320d / masked.Width, 480d / masked.Height));
         using var preview = new Bitmap(masked, new Size(Math.Max(1, (int)(masked.Width * scale)), Math.Max(1, (int)(masked.Height * scale))));
         using var png = new MemoryStream(); preview.Save(png, ImageFormat.Png);
         Preview = "data:image/png;base64," + Convert.ToBase64String(png.ToArray());
+    }
+
+    private void RecordOcr(IReadOnlyList<OcrLine> original, IReadOnlyList<OcrLine> enhanced)
+    {
+        var report = $"Karte: {ScanMap}; Auswahl: {ScanKind}; Erkannt: {DetectedKind ?? "–"}\n" +
+            $"Status: {Status}; Bilder: {Frames}; Kontrastansicht: {ContrastEnhanced}\n" +
+            $"Geprüft: {Feedback?.Read ?? 0}/{Feedback?.Total ?? 0}; Übernommen: {Recognized}\n" +
+            "[Original-OCR]\n" + string.Join("\n", original.Select(l => $"{l.X:0},{l.Y:0} {l.Width:0}x{l.Height:0}: {l.Text}")) +
+            "\n[Kontrast-OCR]\n" + string.Join("\n", enhanced.Select(l => $"{l.X:0},{l.Y:0} {l.Width:0}x{l.Height:0}: {l.Text}"));
+        LastOcrReport = report;
+        var signature = Status + "\n" + string.Join("\n", original.Select(l => l.Text)) + "\n" + string.Join("\n", enhanced.Select(l => l.Text));
+        if (signature == _lastLogSnapshot) return;
+        _lastLogSnapshot = signature;
+        LogFile.Append("exploration-scan.log", $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\n{report}\n\n");
     }
 
     /// <summary>Watches the list between OCR passes (3 × 250 ms); true as soon as it scrolled.</summary>
@@ -259,7 +299,7 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                 if (MonitorCapture.GameWindowBounds() is not { } area)
                 {
                     Status = "Warte auf das Spielfenster …";
-                    Feedback = null; Changed?.Invoke();
+                    DetectedKind = null; Feedback = null; Changed?.Invoke();
                     await Task.Delay(750, token); continue;
                 }
                 await PaceCaptureAsync(token);
@@ -277,7 +317,7 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
             {
                 Status = "Aufnahme beschäftigt. Scan wird fortgesetzt …";
             }
-            Feedback = null;
+            DetectedKind = null; Feedback = null;
             Changed?.Invoke();
             await Task.Delay(750, token);
         }
@@ -291,8 +331,9 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
         private bool _priorFull;
         private int _endFrames;
         private int _fullFrames;
+        private bool _endReady;
         public bool FullConfirmed => _fullFrames >= 2;
-        public bool Finished => _endFrames >= 2 || FullConfirmed;
+        public bool Finished => _endFrames >= 2 && _endReady || FullConfirmed;
         public HashSet<string> Read { get; private set; } = [];
         public string[] Observe(Page page)
         {
@@ -305,7 +346,9 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
             Read = names.Where(_priorNames.Contains).ToHashSet();
             _priorNames = new(names); _priorFull = page.Full;
             _prior = new(page.Ids);
-            _endFrames = page.End ? _endFrames + 1 : 0;
+            // The end label must not finish a page while its dim names are still unclear.
+            _endReady = names.Count > 0 && page.Unmatched.Length == 0 && names.All(Read.Contains);
+            _endFrames = page.End && page.Unmatched.Length == 0 ? _endFrames + 1 : 0;
             return confirmed;
         }
     }

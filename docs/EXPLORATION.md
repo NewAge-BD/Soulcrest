@@ -25,9 +25,10 @@ gaming.tools-Kartendaten und behalten dieselben IDs und Charakterprofile.
    bestehende Bestätigung über zwei ruhige Aufnahmen bleibt erhalten; hier gibt es keinen
    100-%-Kurzweg.
 5. Das durchklickbare Overlay zeigt geprüfte Zeilen, Zähler und Scrollhinweise. Grüne Zeilen haben
-   einen bestätigten Abschluss. Sind alle sichtbaren Namen geprüft, darf weitergescrollt werden;
+   einen zweimal bestätigten Namen. Das ist unabhängig vom Abschluss-Haken. Sind alle sichtbaren Namen geprüft, darf weitergescrollt werden;
    Zeilen ohne belegten Haken bleiben dabei offen. **Unentdeckt / Undiscovered** beendet den
-   entdeckten Abschnitt nach zwei Aufnahmen, Namen darunter werden ignoriert. Der gemeinsame Scan
+   entdeckten Abschnitt nach zwei Aufnahmen, sobald alle sichtbaren Namen eindeutig und wiederholt
+   gelesen sind; unklare Namen halten den Scan offen. Namen darunter werden ignoriert. Der gemeinsame Scan
    endet, sobald alle drei Listen abgeschlossen sind; **Scan stoppen** bleibt jederzeit möglich.
 6. Nicht eindeutige Namen der aktuell geöffneten Liste stehen unter der Vorschau. Texte außerhalb
    einer erkannten Weltkarte und Kategorie gelangen nicht in diese Liste. Die Einträge darunter
@@ -35,10 +36,17 @@ gaming.tools-Kartendaten und behalten dieselben IDs und Charakterprofile.
 
 ## Aufnahme und Abgleich
 
-- Die feste Listenmaske bleibt links bei 22 % der Fensterbreite und vertikal bei 12–98 % der Höhe
-  (563 px breit bei 2559 px). Zusätzlich enthält dieselbe WGC-Aufnahme den Kartenkopf darüber;
+- Die feste Listenmaske folgt links 22 % der auf 16:9 begrenzten Fensterbreite und vertikal
+  12–98 % der Höhe (563 px bei 2559×1439; 423 px bei 1920×1080 und 2560×1080). Auf Ultrawide
+  wächst die Karte, nicht die Namens-/Hakenspalte. Zusätzlich enthält dieselbe WGC-Aufnahme den Kartenkopf darüber;
   der Kartenname aus dem Katalog muss mit dem gewählten Kartenprofil übereinstimmen. Überschriften
   validieren den Inhalt, verschieben oder verkleinern die feste Maske aber nicht.
+- Eine zweite, gleich große Graustufenansicht mit lokal begrenzter Kontrastverstärkung (CLAHE)
+  und zweifacher OCR-Vergrößerung liest ausgegraute Namen. Original und Kontrastansicht werden
+  getrennt nach Karte/Kategorie validiert, dann nur eindeutige physische Zeilen zusammengeführt.
+  Unterschiedliche gültige Namen für dieselbe Zeile bleiben unklar. Die Namens-Matchschwellen
+  bleiben unverändert. Abschluss-Haken und Bewegung werden immer am Original geprüft;
+  **100 % ausschließlich in der Kontrastansicht schließen keine Kategorie ab**.
 - Desktop-/GDI-Ersatzbilder werden abgewiesen. Nach jedem OCR-Lauf wird das aktuelle Bild erneut
   auf Bewegung geprüft; Scrollen oder ein Fensterwechsel verwirft die Bestätigung. Zwischen den
   Läufen gilt weiterhin das gemeinsame Capture-Budget. Keine Spieleingaben.
@@ -84,6 +92,22 @@ $env:SOULCREST_REQUIRE_WINDOWS_OCR = '1'
 dotnet test Soulcrest.slnx -c Release
 node --test tests/exploration-map.test.cjs tests/map-filter.test.cjs
 ```
+
+## Scanhilfe und Diagnose (2026-10-11)
+
+Die Scan-Kachel führt durch Karte/Liste öffnen, Stillhalten und langsames Scrollen. Sie trennt
+**geprüfte sichtbare Zeilen**, **übernommene Einträge** dieser Sitzung und **gespeicherte Abschlüsse**
+des Charakters. Kibelisk-Einträge zählen beim Übernehmen auch mit bestätigtem ungebundenem Status.
+Die Vorschau und unklare Namen lassen sich ausklappen; nach dem Stoppen bleibt die manuelle
+Korrektur möglich. Das durchklickbare Scan-Overlay verwendet dieselbe Zählerbedeutung und Legende.
+
+Diagnose-Pakete enthalten jetzt den letzten bereits aufgenommenen Listenbereich in voller
+Auflösung (`bilder/erkundung-letzte-liste.png`), Original-/Kontrast-OCR mit Koordinaten
+(`erkundung-ocr.txt`) sowie das begrenzte `exploration-scan.log`. Dafür wird keine neue Aufnahme
+ausgelöst. Das vom Nutzer bereitgestellte Paket vom 11.10., 04:31 enthielt nur Karten- und
+Pet-Bilder, keine Dungeon-Liste. Der konkrete graue Nutzerframe konnte daher nicht reproduziert
+werden. Vorhandene Original-Dungeon-Fixtures sowie ausdrücklich synthetische Kontrast- und
+Ultrawide-Varianten prüfen die Verbesserung; ein Nachtest im betroffenen Spielclient bleibt nötig.
 
 ## Automatischer Abschluss bei Ankunft
 

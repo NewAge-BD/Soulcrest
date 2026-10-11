@@ -10,7 +10,7 @@ internal static class ExplorationList
     internal sealed record Row(OcrLine Line, string? Id, bool Complete);
 
     internal static ExplorationScanService.Page Read(IReadOnlyList<OcrLine> lines, IReadOnlyList<ExplorationPlace> candidates,
-        Bitmap capture, ExplorationLayout layout, string map, IReadOnlyCollection<string>? mapTitles = null)
+        Bitmap capture, ExplorationLayout layout, string map, IReadOnlyCollection<string>? mapTitles = null, bool allowFullCompletion = true)
     {
         if (!layout.ShowsMap(lines, mapTitles ?? [map])) return new([], [], false);
         var headings = lines.Where(l => l.Y >= layout.Bounds.Top && l.Y < layout.Bounds.Top + layout.Bounds.Height * .13 &&
@@ -25,7 +25,7 @@ internal static class ExplorationList
             l.X + l.Width <= layout.Bounds.Right && Regex.IsMatch(l.Text, @"^\s*(?:[1Il][0Oo]{2}|[0-9]{1,2})\s*%\s*$")).ToArray();
         // Windows OCR can read the three digits as "IOO". Correct only this exact percentage
         // token at the heading's percentage position; never normalise names or arbitrary text.
-        if (percentages.Length == 1 && Regex.IsMatch(percentages[0].Text, @"^\s*[1Il][0Oo]{2}\s*%\s*$"))
+        if (allowFullCompletion && percentages.Length == 1 && Regex.IsMatch(percentages[0].Text, @"^\s*[1Il][0Oo]{2}\s*%\s*$"))
             return new(places.Select(p => p.Id).ToHashSet(), [], false, kind, true, []);
 
         var rowTop = percentages.Length == 1 ? percentages[0].Y + percentages[0].Height * 2 : heading.Y + heading.Height * 3;

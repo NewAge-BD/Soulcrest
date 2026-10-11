@@ -29,6 +29,7 @@ public sealed class DiagnosticsService : IDisposable
     private readonly TrackerService _loot;
     private readonly MapTrackingService _map;
     private readonly PetScanService _scan;
+    private readonly ExplorationScanService? _explorationScan;
     private readonly System.Threading.Timer _timer;
     private readonly object _gate = new();
     private long _framesBefore = -1;
@@ -37,13 +38,14 @@ public sealed class DiagnosticsService : IDisposable
     private string? _lastReport;
     private string? _checkError;
 
-    public DiagnosticsService(SettingsService settings, GameCaptureService capture, TrackerService loot, MapTrackingService map, PetScanService scan)
+    public DiagnosticsService(SettingsService settings, GameCaptureService capture, TrackerService loot, MapTrackingService map, PetScanService scan, ExplorationScanService? explorationScan = null)
     {
         _settings = settings;
         _capture = capture;
         _loot = loot;
         _map = map;
         _scan = scan;
+        _explorationScan = explorationScan;
         _timer = new System.Threading.Timer(_ => Check(), null, TimeSpan.FromSeconds(10), Every);
     }
 
@@ -105,6 +107,9 @@ public sealed class DiagnosticsService : IDisposable
         // this package is meant to diagnose. Missing previews are useful evidence too.
         AddPreview(zip, "karten-bereich", _map.PreviewDataUrl);
         AddPicture(zip, "pet-scan-letztes-bild", _scan.LastFrameJpeg());
+        AddPreview(zip, "erkundung-letzte-liste", _explorationScan?.LastFrameDataUrl);
+        using (var writer = new StreamWriter(zip.CreateEntry("erkundung-ocr.txt").Open(), Encoding.UTF8))
+            writer.Write(_explorationScan?.LastOcrReport ?? "Seit dem Start wurde noch keine Erkundungsliste gelesen.");
         return path;
     }
 
@@ -120,6 +125,9 @@ public sealed class DiagnosticsService : IDisposable
             $"Loot: {_loot.Status}\nLoot-Quelle: Netzwerk\n" +
             $"Karte: {_map.Status}\nKarten-FPS: {_map.Fps}\n" +
             $"Pet-Scan: {_scan.Status}\nPet-Scan läuft: {_scan.Running}\nPet-Scan Fehler: {_scan.StatusIsError}\nPet-Scan Bilder: {_scan.Frames}\n" +
+            $"Erkundungsscan: {_explorationScan?.Status ?? "noch nicht gestartet"}\nErkundungsscan läuft: {_explorationScan?.Running ?? false}\n" +
+            $"Erkundungsscan Karte: {_explorationScan?.ScanMap}; Kategorie: {_explorationScan?.DetectedKind ?? _explorationScan?.ScanKind}\n" +
+            $"Erkundungsscan Bilder: {_explorationScan?.Frames ?? 0}; Kontrastansicht: {_explorationScan?.ContrastEnhanced ?? false}\n" +
             $"Erweiterte Pruefung aktiv: {Volatile.Read(ref _checking) != 0}\n";
     }
 
@@ -250,7 +258,7 @@ public sealed class DiagnosticsService : IDisposable
         _framesBefore = capture.FramesArrived;
         _gdiBefore = capture.GdiFallbacks;
         Line($"Seit der letzten Prüfung: {framesDelta} Bilder, {gdiDelta} GDI-Abrufe");
-        var capturing = _map.Running || _scan.Running;
+        var capturing = _map.Running || _scan.Running || _explorationScan?.Running == true;
         if (capture.Method != "Spielfenster (WGC)" && games.Count > 0)
         {
             hints.Add(new(true, $"Soulcrest nimmt nicht das Spielfenster auf, sondern {(capture.Method == "GDI" ? "per GDI-Bildschirmkopie" : "den ganzen Monitor (gelber Rahmen um den Bildschirm)")}. Grund: {capture.LastProblem ?? "unbekannt"}"));
@@ -288,6 +296,12 @@ public sealed class DiagnosticsService : IDisposable
         if (_loot.StatusIsError) hints.Add(new(true, _loot.Status));
         if (_scan.Status == CaptureReadback.Waiting || _map.Status == CaptureReadback.Waiting || _loot.Status == CaptureReadback.Waiting)
             hints.Add(new(false, CaptureReadback.Waiting));
+        Line("");
+
+        Line("[Erkundungsscan]");
+        Line($"läuft: {_explorationScan?.Running ?? false}, Karte: {_explorationScan?.ScanMap}, Kategorie: {_explorationScan?.DetectedKind ?? _explorationScan?.ScanKind}, Bilder: {_explorationScan?.Frames ?? 0}");
+        Line($"Status: {_explorationScan?.Status ?? "noch nicht gestartet"}; Kontrastansicht: {_explorationScan?.ContrastEnhanced ?? false}");
+        if (_explorationScan?.StatusIsError == true) hints.Add(new(true, _explorationScan.Status));
         Line("");
 
         Line("[Hinweise]");
