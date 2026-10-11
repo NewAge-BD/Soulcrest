@@ -71,10 +71,11 @@ german.UpdateNeedsInstall=Dieses Update setzt eine installierte Soulcrest-Versio
 german.UpdateNeedsMapData=Dieses Update enthält keine Kartendaten, und die installierten passen nicht dazu. Bitte den vollständigen Installer (Soulcrest-{#AppVersion}-Setup-win-x64.exe) verwenden.
 german.PrereqCaption=Voraussetzungen
 german.PrereqDescription=Npcap und Windows-OCR
-german.PrereqSub=Soulcrest braucht Npcap fürs Loot-Tracking und das Windows-OCR-Paket für die Sprache deines Spielclients. Angehakte Teile installiert das Setup jetzt; Windows fragt dafür einmal nach Administratorrechten.
+german.PrereqSub=OCR liest Pets und Erkundungslisten. Wähle das Paket passend zur Sprache im Spiel, unabhängig von Soulcrests Oberflächensprache. Bei Sprachwechseln sind beide sinnvoll.%n%nNpcap wird fürs Loot-Tracking benötigt. Ausgewählte fehlende Pakete werden installiert; Windows fragt dafür nach Administratorrechten.
 german.PrereqNpcap=Npcap 1.89 herunterladen und installieren (npcap.com, für das Loot-Tracking). Im Npcap-Installer die Voreinstellungen übernehmen; die kostenlose Npcap-Lizenz erlaubt bis zu 5 Installationen.
-german.PrereqOcrEn=Englisches OCR-Paket installieren (Spielclient auf Englisch, Standard)
-german.PrereqOcrDe=Deutsches OCR-Paket installieren (nur für den deutschen Spielclient nötig)
+german.PrereqOcrEn=Englisch-OCR (en-US) – für englische Spieltexte
+german.PrereqOcrDe=Deutsch-OCR (de-DE, optional) – für deutsche Spieltexte
+german.PrereqAlreadyInstalled=bereits installiert
 german.PrereqDownloadFailed=Npcap konnte nicht heruntergeladen werden: %1%n%nDu kannst es später selbst von https://npcap.com installieren. Die Installation von Soulcrest geht weiter.
 german.PrereqInstallingOcr=Windows-OCR-Paket %1 wird installiert …
 german.PrereqInstallingNpcap=Npcap-Installer läuft …
@@ -84,14 +85,16 @@ german.PrereqNpcapOk=Npcap: installiert
 german.PrereqNpcapMissing=Npcap: fehlt noch (https://npcap.com); ohne Npcap kein Loot-Tracking
 german.PrereqOcrOk=OCR %1: installiert
 german.PrereqOcrMissing=OCR %1: noch nicht verfügbar; nach einem Windows-Neustart erneut in Soulcrest unter Optionen prüfen
+german.PrereqOcrNotSelected=OCR %1: nicht installiert (nicht ausgewählt); Scans dieser Spielsprache benötigen das Paket
 english.UpdateNeedsInstall=This update needs an installed Soulcrest. Please use the full installer (Soulcrest-{#AppVersion}-Setup-win-x64.exe).
 english.UpdateNeedsMapData=This update contains no map data, and the installed map data does not match. Please use the full installer (Soulcrest-{#AppVersion}-Setup-win-x64.exe).
 english.PrereqCaption=Requirements
 english.PrereqDescription=Npcap and Windows OCR
-english.PrereqSub=Soulcrest needs Npcap for loot tracking and the Windows OCR package for your game client's language. Setup installs the ticked parts now; Windows asks for administrator rights once.
+english.PrereqSub=OCR reads pets and exploration lists. Choose the package for your in-game language, independently of Soulcrest's interface language. Both are useful if you switch languages.%n%nNpcap is needed for loot tracking. Selected missing packages will be installed; Windows asks for administrator rights.
 english.PrereqNpcap=Download and install Npcap 1.89 (npcap.com, for loot tracking). Keep the defaults in the Npcap installer; the free Npcap licence allows up to 5 installations.
-english.PrereqOcrEn=Install the English OCR package (game client in English, default)
-english.PrereqOcrDe=Install the German OCR package (only for the German game client)
+english.PrereqOcrEn=English OCR (en-US) – for English game text
+english.PrereqOcrDe=German OCR (de-DE, optional) – for German game text
+english.PrereqAlreadyInstalled=already installed
 english.PrereqDownloadFailed=Npcap could not be downloaded: %1%n%nYou can install it later from https://npcap.com. Soulcrest setup continues.
 english.PrereqInstallingOcr=Installing the Windows OCR package %1 …
 english.PrereqInstallingNpcap=Npcap installer running …
@@ -101,6 +104,7 @@ english.PrereqNpcapOk=Npcap: installed
 english.PrereqNpcapMissing=Npcap: still missing (https://npcap.com); no loot tracking without Npcap
 english.PrereqOcrOk=OCR %1: installed
 english.PrereqOcrMissing=OCR %1: not available yet; after a Windows restart check again in Soulcrest under Options
+english.PrereqOcrNotSelected=OCR %1: not installed (not selected); scans of this game language need the package
 
 [Code]
 // Requirements (user request 2026-10-07): Npcap and the Windows OCR package are checked and, when
@@ -178,6 +182,19 @@ begin
   Result := Pos(',' + Prefix + '-', OcrLanguages) > 0;
 end;
 
+// User request 2026-10-11: show both languages and their status. German stays optional,
+// unchecked when missing; installed packages are checked and disabled, never reinstalled.
+function AddOcrOption(Caption, Prefix: String; DefaultSelected: Boolean): Integer;
+var
+  Installed: Boolean;
+begin
+  Installed := HasOcr(Prefix);
+  if Installed then Caption := Caption + ' – ' + CustomMessage('PrereqAlreadyInstalled');
+  Result := PrereqPage.Add(Caption);
+  PrereqPage.Values[Result] := Installed or DefaultSelected;
+  PrereqPage.CheckListBox.ItemEnabled[Result] := not Installed;
+end;
+
 procedure InitializeWizard;
 begin
   OcrLanguages := ReadOcrLanguages;
@@ -188,24 +205,23 @@ begin
     CustomMessage('PrereqSub'), False, False);
   if not NpcapInstalled then
     NpcapIndex := PrereqPage.Add(CustomMessage('PrereqNpcap'));
-  if not HasOcr('en') then
-    OcrEnIndex := PrereqPage.Add(CustomMessage('PrereqOcrEn'));
-  if not HasOcr('de') then
-    OcrDeIndex := PrereqPage.Add(CustomMessage('PrereqOcrDe'));
+  OcrEnIndex := AddOcrOption(CustomMessage('PrereqOcrEn'), 'en', True);
+  OcrDeIndex := AddOcrOption(CustomMessage('PrereqOcrDe'), 'de', False);
   if NpcapIndex >= 0 then PrereqPage.Values[NpcapIndex] := True;
-  if OcrEnIndex >= 0 then PrereqPage.Values[OcrEnIndex] := True;
   DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), SetupMessage(msgPreparingDesc), nil);
   DownloadPage.ShowBaseNameInsteadOfUrl := True;
 end;
 
 function Chosen(Index: Integer): Boolean;
 begin
-  Result := (Index >= 0) and PrereqPage.Values[Index] and not WizardSilent;
+  Result := False;
+  if WizardSilent or (Index < 0) then Exit;
+  Result := PrereqPage.Values[Index] and PrereqPage.CheckListBox.ItemEnabled[Index];
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PageID = PrereqPage.ID) and (NpcapIndex < 0) and (OcrEnIndex < 0) and (OcrDeIndex < 0);
+  Result := (PageID = PrereqPage.ID) and WizardSilent;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -273,7 +289,7 @@ procedure CurPageChanged(CurPageID: Integer);
 var
   Summary: String;
 begin
-  if (CurPageID <> wpFinished) or (NpcapIndex < 0) and (OcrEnIndex < 0) and (OcrDeIndex < 0) then
+  if (CurPageID <> wpFinished) or WizardSilent then
     Exit;
   Summary := CustomMessage('PrereqDone');
   if NpcapInstalled then
@@ -282,12 +298,15 @@ begin
     Summary := Summary + #13#10 + '• ' + CustomMessage('PrereqNpcapMissing');
   if HasOcr('en') then
     Summary := Summary + #13#10 + '• ' + FmtMessage(CustomMessage('PrereqOcrOk'), ['en-US'])
+  else if Chosen(OcrEnIndex) then
+    Summary := Summary + #13#10 + '• ' + FmtMessage(CustomMessage('PrereqOcrMissing'), ['en-US'])
   else
-    Summary := Summary + #13#10 + '• ' + FmtMessage(CustomMessage('PrereqOcrMissing'), ['en-US']);
-  if Chosen(OcrDeIndex) then
-    if HasOcr('de') then
-      Summary := Summary + #13#10 + '• ' + FmtMessage(CustomMessage('PrereqOcrOk'), ['de-DE'])
-    else
-      Summary := Summary + #13#10 + '• ' + FmtMessage(CustomMessage('PrereqOcrMissing'), ['de-DE']);
+    Summary := Summary + #13#10 + '• ' + FmtMessage(CustomMessage('PrereqOcrNotSelected'), ['en-US']);
+  if HasOcr('de') then
+    Summary := Summary + #13#10 + '• ' + FmtMessage(CustomMessage('PrereqOcrOk'), ['de-DE'])
+  else if Chosen(OcrDeIndex) then
+    Summary := Summary + #13#10 + '• ' + FmtMessage(CustomMessage('PrereqOcrMissing'), ['de-DE'])
+  else
+    Summary := Summary + #13#10 + '• ' + FmtMessage(CustomMessage('PrereqOcrNotSelected'), ['de-DE']);
   WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10#13#10 + Summary;
 end;

@@ -2,6 +2,12 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.4.7 – 2026-10-11
+
+- **Improved:** The installer shows both OCR languages (English and German) with their status; packs
+  already installed are marked as such. German is optional and helps when the game runs in German or you
+  switch the game language. What matters is the game's language, not Soulcrest's interface language.
+
 ## 0.4.6 – 2026-10-11
 
 - **New:** The loot overlay shows the soul name in small grey text under the monster name

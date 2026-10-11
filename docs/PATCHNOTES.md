@@ -2,6 +2,13 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.4.7 – 2026-10-11
+
+- **Verbessert:** Der Installer zeigt beide OCR-Sprachen (Englisch und Deutsch) mit ihrem Status;
+  bereits installierte Pakete sind als installiert markiert. Deutsch ist optional und hilft, wenn das
+  Spiel auf Deutsch läuft oder du die Spielsprache wechselst. Maßgeblich ist die Sprache des Spiels,
+  nicht die der Soulcrest-Oberfläche.
+
 ## 0.4.6 – 2026-10-11
 
 - **Neu:** Das Loot-Overlay zeigt unter dem Monsternamen klein und grau den Soul-Namen
