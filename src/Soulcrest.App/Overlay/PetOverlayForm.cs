@@ -15,13 +15,13 @@ public sealed class PetOverlayForm : Form
 {
     // A registered soul stays visible for a minute, with the pet's portrait (user request 2026-10-03).
     private static readonly TimeSpan ToastDuration = TimeSpan.FromMinutes(1);
-    private const int RowHeight = 52;
+    private const int RowHeight = 68;
     private static readonly Color PanelColor = Color.FromArgb(17, 24, 32);
     private static readonly Color CardColor = Color.FromArgb(25, 35, 46);
     private static readonly Color LineColor = Color.FromArgb(44, 59, 73);
     private static readonly Color AccentColor = Color.FromArgb(94, 234, 212);
     internal sealed record LootRow(string Name, string Genus, int Level, bool IsMax, int Current, int Needed,
-        Image? Icon = null, int Quantity = 0, int Alpha = 255);
+        Image? Icon = null, int Quantity = 0, int Alpha = 255, string? SoulName = null);
     private IReadOnlyList<LootRow> _focusRows = [];
     private IReadOnlyList<LootRow> _lootRows = [];
     private readonly Dictionary<string, Image?> _icons = [];
@@ -33,6 +33,7 @@ public sealed class PetOverlayForm : Form
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 250 };
     private readonly OverlayLockButton _lockButton;
     private bool _manualInteraction;
+    private bool _altInteractionRequested, _blockAltUntilRelease;
     private bool _locked = true;
     private bool _suppressRequested, _suppressed;
 
@@ -148,11 +149,18 @@ public sealed class PetOverlayForm : Form
 
     internal bool ManualInteractionEnabled => _manualInteraction;
 
-    internal void ToggleManualInteraction()
+    internal void ToggleManualInteraction() => SetManualInteraction(_locked);
+
+    // A hotkey can itself contain Alt: toggle the persistent choice, not its temporary Alt unlock.
+    internal void ToggleManualInteractionFromHotkey() => SetManualInteraction(!_manualInteraction);
+
+    private void SetManualInteraction(bool enabled)
     {
-        _manualInteraction = !_manualInteraction;
-        _lockButton.SetLocked(!_manualInteraction);
-        SetInteractionEnabled(OverlayInteraction.IsAltHeld);
+        // An explicit lock wins over an already active Alt signal until its next release.
+        _manualInteraction = enabled;
+        var alt = _altInteractionRequested || OverlayInteraction.IsAltHeld;
+        _blockAltUntilRelease = !enabled && alt;
+        SetInteractionEnabled(alt);
     }
 
     protected override void OnVisibleChanged(EventArgs e)
@@ -164,12 +172,15 @@ public sealed class PetOverlayForm : Form
         SetInteractionEnabled(false);
     }
 
-    private bool InteractionAllowed => !_suppressed && (_manualInteraction || OverlayInteraction.IsAltHeld);
+    private bool InteractionAllowed => !_suppressed && (_manualInteraction || (!_blockAltUntilRelease && OverlayInteraction.IsAltHeld));
 
     /// <summary>Alt temporarily enables mouse input. Releasing it ends a drag or resize and restores click-through.</summary>
     public void SetInteractionEnabled(bool enabled)
     {
-        enabled = (enabled || _manualInteraction) && !_suppressed;
+        _altInteractionRequested = enabled;
+        if (!enabled) _blockAltUntilRelease = false;
+        enabled = (_manualInteraction || (enabled && !_blockAltUntilRelease)) && !_suppressed;
+        if (_lockButton is { } button && button.Locked != !enabled) button.SetLocked(!enabled);
         if (_locked == !enabled) return;
         _locked = !enabled;
         if (_locked) FinishDrag();
@@ -241,7 +252,7 @@ public sealed class PetOverlayForm : Form
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
-        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
+        if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         if (_locked || _scanMode || e.Button != MouseButtons.Left)
             return;
         _resizing = CornerAt(e.Location);
@@ -258,7 +269,7 @@ public sealed class PetOverlayForm : Form
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
+        if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         if (_resizing != Corner.None)
         {
             ResizeTo(Cursor.Position);
@@ -297,7 +308,7 @@ public sealed class PetOverlayForm : Form
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
+        if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         FinishDrag();
     }
 
@@ -343,8 +354,9 @@ public sealed class PetOverlayForm : Form
             return;
         }
         var focus = SelectFocusTarget(_settings.Current, _targets.Targets, _targets.Progression);
-        _focusRows = focus?.PetId is { } petId ? [BuildRow(petId, target: focus)] : [];
-        _lootRows = RecentToasts().Select(toast =>
+        var loot = LootToasts(_progress.Recent(), _progress.Catalog, focus?.PetId, DateTimeOffset.Now);
+        _focusRows = focus?.PetId is { } petId ? [BuildRow(petId, loot.FocusQuantity, target: focus)] : [];
+        _lootRows = loot.Drops.Select(toast =>
         {
             var left = ToastDuration - (DateTimeOffset.Now - toast.Last);
             var alpha = (int)Math.Clamp(left.TotalSeconds / 10 * 255, 60, 255);
@@ -554,7 +566,8 @@ public sealed class PetOverlayForm : Form
             ? MapPetMarkers.MonsterAt(data, target.MapId, petId, target.X, target.Y) : null;
         return new LootRow(RowName(_settings.Current, monster ?? MonsterName(petId, target?.MapId), pet, target?.Name ?? petId), pet?.Genus ?? "",
             thresholds.Level(souls), thresholds.IsMax(souls), thresholds.SoulsInLevel(souls),
-            thresholds.NeededForNextLevel(souls), PetIcon(petId), quantity, alpha);
+            thresholds.NeededForNextLevel(souls), PetIcon(petId), quantity, alpha,
+            pet?.DisplayName(_settings.Current.LootNameLanguage));
     }
 
     private static void DrawPetRow(Graphics g, LootRow row, int y)
@@ -567,7 +580,7 @@ public sealed class PetOverlayForm : Form
         using var edge = new Pen(A(row.Quantity > 0 ? Color.FromArgb(41, 89, 88) : LineColor));
         g.DrawPath(edge, cardShape);
 
-        var icon = new Rectangle(18, y + 6, 36, 36);
+        var icon = new Rectangle(18, y + 14, 36, 36);
         using (var back = new SolidBrush(A(PanelColor))) g.FillEllipse(back, icon);
         if (row.Icon is { } image)
         {
@@ -609,16 +622,22 @@ public sealed class PetOverlayForm : Form
             nameRight = badge.X - 6;
         }
         using (var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
+        {
             g.DrawString(row.Name, nameFont, white, new RectangleF(x, y + 5, Math.Max(10, nameRight - x), 18), format);
+            // User request 2026-10-11: the pet's Soul name is separate and visually secondary.
+            if (!string.IsNullOrWhiteSpace(row.SoulName))
+                g.DrawString(UiText.F("Soul: {0}", row.SoulName), smallFont, dim,
+                    new RectangleF(x, y + 24, right - x, 15), format);
+        }
         var levelText = row.IsMax ? "MAX" : row.Level == 0 ? UiText.T("gesperrt") : UiText.F("Stufe {0}", row.Level);
-        g.DrawString(levelText, smallFont, row.IsMax ? accent : dim, x, y + 25);
+        g.DrawString(levelText, smallFont, row.IsMax ? accent : dim, x, y + 41);
         if (!row.IsMax)
         {
             var count = $"{row.Current} / {row.Needed}";
             var countWidth = g.MeasureString(count, countFont).Width;
-            g.DrawString(count, countFont, white, right - countWidth, y + 24);
+            g.DrawString(count, countFont, white, right - countWidth, y + 40);
         }
-        var bar = new RectangleF(x, y + 40, right - x, 4);
+        var bar = new RectangleF(x, y + 56, right - x, 4);
         using (var trough = new SolidBrush(A(Color.FromArgb(43, 55, 69))))
         using (var barShape = RoundedRectangle(bar, 2)) g.FillPath(trough, barShape);
         var fill = row.IsMax || row.Needed == 0 ? 1 : Math.Clamp((double)row.Current / row.Needed, 0, 1);
@@ -666,16 +685,21 @@ public sealed class PetOverlayForm : Form
         return null;
     }
 
-    private sealed record Toast(string PetId, int Quantity, DateTimeOffset Last);
+    internal sealed record Toast(string PetId, int Quantity, DateTimeOffset Last);
 
-    /// <summary>Souls of the last minute, one row per pet (newest first, at most 5).</summary>
-    private List<Toast> RecentToasts() => _progress.Recent()
-        .Where(r => DateTimeOffset.Now - r.At < ToastDuration)
-        .GroupBy(r => r.PetId)
-        .Select(g => new Toast(g.Key, g.Sum(r => r.Quantity), g.Max(r => r.At)))
-        .OrderByDescending(t => t.Last)
-        .Take(5)
-        .ToList();
+    /// <summary>One presentation per pet; focus pickups stay on the focus row (user request 2026-10-11).</summary>
+    internal static (int FocusQuantity, IReadOnlyList<Toast> Drops) LootToasts(
+        IEnumerable<LoggedSoul> recent, PetCatalog catalog, string? focusPetId, DateTimeOffset now)
+    {
+        string CanonicalId(string id) => catalog.Find(id)?.Id ?? id;
+        var focusId = focusPetId is null ? null : CanonicalId(focusPetId);
+        var toasts = recent.Where(r => now - r.At < ToastDuration)
+            .GroupBy(r => CanonicalId(r.PetId))
+            .Select(g => new Toast(g.Key, g.Sum(r => r.Quantity), g.Max(r => r.At)))
+            .OrderByDescending(t => t.Last).ToArray();
+        return (toasts.FirstOrDefault(t => t.PetId == focusId)?.Quantity ?? 0,
+            toasts.Where(t => t.PetId != focusId).Take(5).ToArray());
+    }
 
     /// <summary>Portrait of a pet: map-data icon, else the portrait learned from the pet window.</summary>
     private Image? PetIcon(string petId)

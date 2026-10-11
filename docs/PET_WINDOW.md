@@ -486,3 +486,16 @@ Panelnamen. Zum Ende standen 101 gelesene Einträge und 58 erkannte freigeschalt
   Detailauswahl, Gattungszahlen und Fokus-/MAX-Zähler beziehen sich auf dieselbe geprüfte Liste;
   das Detail nennt die Soul-ID. Ungeprüfte gelernte Namen behalten ihre Rohdaten, werden dadurch
   aber nicht zu gültigen Listeneinträgen. Gatekeeper Pinopi ist belegt; Gatekeeper ist kein eigenes Pet.
+
+## Pet-Scan im Setup (Nutzerentscheidung 2026-10-11)
+
+Der Pet-Scan läuft direkt innerhalb des geöffneten Setups. Der bisherige Tab-Wechsel, der das
+Setup sofort als erledigt speicherte, entfällt. Die gleiche Scan-Ansicht erlaubt Start/Stop,
+Bildimport, Prüfen und Korrigieren; die Ergebnisse bleiben im gemeinsamen Scan-Service.
+
+„Markierte übernehmen & weiter“ beendet einen laufenden Scan, wartet dessen letzte Arbeit ab
+und übernimmt die markierten, zugeordneten Einträge mit lesbarem Wert. Anschließend zeigt das
+Setup den Erkundungsschritt. Vorbereitung und Bildimport müssen zuerst fertig werden. Fehler
+bleiben sichtbar und verhindern eine unbemerkte Fortsetzung. Bewusstes Überspringen übernimmt
+nichts. Erst Fertig/Setup überspringen bzw. der abschließende Erkundungs-Tabwechsel beendet das
+Setup; Minimap- und Fraktionswahl gehen während des eingebetteten Scans nicht verloren.

@@ -29,6 +29,9 @@ public sealed class ExplorationScanViewTests
         Assert.Contains(second, html);
         Assert.Contains(third, html);
         Assert.Contains(start, html);
+        Assert.Contains(language == "de" ? "Karte und geöffnete Liste werden automatisch erkannt." : "The map and open list are detected automatically.", html);
+        Assert.Contains(language == "de" ? "auf der erkannten Karte" : "on the detected map", html);
+        Assert.DoesNotContain(language == "de" ? "dieselbe Karte" : "the same map", html);
         Assert.Contains(language == "de" ? "Namen allein setzen keinen Abschluss" : "names alone do not mark completion", html);
         Assert.DoesNotContain("Scan-Vorschau und unklare Einträge", html);
         Assert.DoesNotContain("Scan preview and unclear entries", html);
@@ -83,6 +86,33 @@ public sealed class ExplorationScanViewTests
         await view.Export(html, "unclear");
     }
 
+    [Theory]
+    [InlineData("de", "Scan starten")]
+    [InlineData("en", "Start scan")]
+    public async Task AMapWithoutPlacesDoesNotBlockAutomaticScanningWhenAnotherMapHasPlaces(string language, string start)
+    {
+        await using var view = new TestView(language);
+        var html = await view.Render(map: "empty-map", hasPlaces: false, kind: "stronghold");
+        var button = System.Text.RegularExpressions.Regex.Matches(html, "<button[^>]*>[^<]*</button>")
+            .Cast<System.Text.RegularExpressions.Match>().Single(match => match.Value.Contains(start, StringComparison.Ordinal)).Value;
+        Assert.DoesNotContain("disabled", button);
+        Assert.Contains(language == "de" ? "Karte und geöffnete Liste werden automatisch erkannt." : "The map and open list are detected automatically.", html);
+        Assert.Equal(new[] { "done" }, view.Exploration.Completed);
+    }
+
+    [Theory]
+    [InlineData("de", "Scan starten")]
+    [InlineData("en", "Start scan")]
+    public async Task NoExplorationPlacesKeepsAutomaticScanDisabled(string language, string start)
+    {
+        await using var view = new TestView(language, hasPlaces: false);
+        var html = await view.Render(hasPlaces: true);
+        var button = System.Text.RegularExpressions.Regex.Matches(html, "<button[^>]*>[^<]*</button>")
+            .Cast<System.Text.RegularExpressions.Match>().Single(match => match.Value.Contains(start, StringComparison.Ordinal)).Value;
+        Assert.Contains("disabled", button);
+        Assert.Empty(view.Exploration.Completed);
+    }
+
     private sealed class TestView : IAsyncDisposable
     {
         private readonly ServiceProvider _provider;
@@ -94,16 +124,16 @@ public sealed class ExplorationScanViewTests
         public ExplorationService Exploration { get; }
         private ExplorationScanService Scan => _provider.GetRequiredService<ExplorationScanService>();
 
-        public TestView(string language)
+        public TestView(string language, bool hasPlaces = true)
         {
             _language = language;
             Exploration = new ExplorationService(_profile,
-            [new("done", "altgard", "dungeon", 1, "Manual completed dungeon", null),
+            hasPlaces ? [new("done", "altgard", "dungeon", 1, "Manual completed dungeon", null),
              new("open", "altgard", "dungeon", 2, "Manual open dungeon", null),
              new("unknown", "altgard", "dungeon", 3, "Manual unknown dungeon", null),
              new("stronghold", "altgard", "stronghold", 4, "Manual stronghold", null),
-             new("kibelisk", "altgard", "kibelisk", 5, "Manual Kibelisk", null)]);
-            Exploration.SetDone(Exploration.ActiveId, ["done"]);
+             new("kibelisk", "altgard", "kibelisk", 5, "Manual Kibelisk", null)] : []);
+            if (hasPlaces) Exploration.SetDone(Exploration.ActiveId, ["done"]);
             var services = new ServiceCollection();
             services.AddLogging();
             services.AddSingleton<SettingsService>();
@@ -125,11 +155,11 @@ public sealed class ExplorationScanViewTests
 
         public void SetScan(string name, object value) => typeof(ExplorationScanService).GetProperty(name)!.SetValue(Scan, value);
         public void SetRunning(bool running) => typeof(ExplorationScanService).GetField("_running", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Scan, running ? 1 : 0);
-        public async Task<string> Render(bool decode = true)
+        public async Task<string> Render(bool decode = true, string map = "altgard", bool hasPlaces = true, string kind = "all")
         {
             await using var renderer = new HtmlRenderer(_provider, _provider.GetRequiredService<ILoggerFactory>());
             var html = await renderer.Dispatcher.InvokeAsync(async () =>
-                (await renderer.RenderComponentAsync<ExplorationScanPanel>(ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(ExplorationScanPanel.Map)] = "altgard", [nameof(ExplorationScanPanel.HasPlaces)] = true }))).ToHtmlString());
+                (await renderer.RenderComponentAsync<ExplorationScanPanel>(ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(ExplorationScanPanel.Map)] = map, [nameof(ExplorationScanPanel.HasPlaces)] = hasPlaces, [nameof(ExplorationScanPanel.Kind)] = kind }))).ToHtmlString());
             return decode ? WebUtility.HtmlDecode(html) : html;
         }
         public async Task Export(string html, string state)

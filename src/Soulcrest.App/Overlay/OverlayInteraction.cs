@@ -10,13 +10,13 @@ internal static class OverlayInteraction
     static OverlayInteraction() => Hook.Changed += () => Changed?.Invoke();
 
     // Explicit left/right state also covers AltGr; reading the high bit never intercepts or sends input.
-    internal static bool IsAltHeld => ResolveHeld(Hook.AltHeld ?? Keyboard.AltHeld, IsAltDown(NativeMethods.GetAsyncKeyState));
-    internal static bool IsShiftHeld => ResolveHeld(Hook.ShiftHeld ?? Keyboard.ShiftHeld,
+    internal static bool IsAltHeld => ResolveHeld(OverlayModifierObservation.Latest(Hook.AltObservation, Keyboard.AltObservation), IsAltDown(NativeMethods.GetAsyncKeyState));
+    internal static bool IsShiftHeld => ResolveHeld(OverlayModifierObservation.Latest(Hook.ShiftObservation, Keyboard.ShiftObservation),
         (NativeMethods.GetAsyncKeyState((int)Keys.ShiftKey) & 0x8000) != 0);
 
     internal static bool ResolveHeld(bool? observed, bool queried) => observed == true || queried;
 
-    internal static string State => $"rawAlt={Keyboard.AltHeld}, hookAlt={Hook.AltHeld}, rawShift={Keyboard.ShiftHeld}, hookShift={Hook.ShiftHeld}";
+    internal static string State => $"rawAlt={Keyboard.AltHeld}, hookAlt={Hook.AltHeld}, rawShift={Keyboard.ShiftHeld}, hookShift={Hook.ShiftHeld}; altOrder={Keyboard.AltObservation.Sequence}/{Hook.AltObservation.Sequence}, shiftOrder={Keyboard.ShiftObservation.Sequence}/{Hook.ShiftObservation.Sequence}";
 
     internal static bool StartKeyboard(nint target)
     {

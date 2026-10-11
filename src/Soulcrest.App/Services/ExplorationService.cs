@@ -205,36 +205,9 @@ public sealed partial class ExplorationService
         text = Regex.Replace(text, @"\bentrance\b|^eingang (zur|zum|zu den|zu der|zu) ", "");
         return new string(text.Where(char.IsLetterOrDigit).ToArray());
     }
-    internal static ExplorationPlace? Match(string text, IEnumerable<ExplorationPlace> candidates)
-    {
-        var name = Normalize(text);
-        // List names evidenced by the user's Altgard screenshots (2026-10-04).
-        var alias = name switch { "lostruins" => "Lost Ruin Entrance", "fafnitestorageroom" => "Fafnite Storage Entrance", _ => null };
-        if (alias is not null)
-        {
-            var matches = candidates.Where(p => p.Map == "altgard" && p.Kind == "dungeon" && p.En == alias).DistinctBy(p => p.Id).ToArray();
-            if (matches.Length == 1) return matches[0];
-        }
-        if (name.Length < 5) return null;
-        var exact = candidates.Where(p => Normalize(p.En) == name || p.De is not null && Normalize(p.De) == name).DistinctBy(p => p.Id).ToArray();
-        if (exact.Length > 0) return exact.Length == 1 ? exact[0] : null;
-        // The German game list visibly truncates long names. Require an explicit ellipsis and
-        // a unique long prefix; one lost/extra character also covers adjective inflection.
-        if (Regex.IsMatch(text.TrimEnd(), @"(?:\.{2,}|…)\s*$"))
-        {
-            if (name.Length < 12) return null;
-            var prefixes = candidates.DistinctBy(p => p.Id).Where(p => new[] { p.En, p.De }
-                .Where(n => !string.IsNullOrEmpty(n)).Select(n => Normalize(n!)).Any(n =>
-                    n.Length > name.Length && Enumerable.Range(Math.Max(1, name.Length - 1), 3)
-                        .Where(length => length <= n.Length).Any(length => Distance(name, n[..length]) <= 1))).ToArray();
-            // An ambiguous truncated name must never fall through to full-name fuzzy matching.
-            return prefixes.Length == 1 ? prefixes[0] : null;
-        }
-        var ranked = candidates.GroupBy(p => p.Id).Select(g => g.First()).Select(p => (Place: p,
-            Score: new[] { p.En, p.De }.Where(n => !string.IsNullOrEmpty(n)).Select(n => Similarity(name, Normalize(n!))).Max()))
-            .OrderByDescending(p => p.Score).Take(2).ToArray();
-        return ranked.Length > 0 && ranked[0].Score >= .90 && (ranked.Length == 1 || ranked[0].Score - ranked[1].Score >= .08) ? ranked[0].Place : null;
-    }
+    // User request 2026-10-11: all complete DE/EN catalog names are shared scan references.
+    internal static ExplorationPlace? Match(string text, IEnumerable<ExplorationPlace> candidates) =>
+        new ExplorationNameIndex(candidates).Match(text);
     internal static int Distance(string a, string b) => (int)Math.Round((1 - Similarity(a, b)) * Math.Max(a.Length, b.Length));
 
     private static double Similarity(string a, string b)

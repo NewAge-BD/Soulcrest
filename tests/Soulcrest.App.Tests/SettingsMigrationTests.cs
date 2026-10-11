@@ -7,6 +7,60 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")] // both write settings.json of the test data folder
 public sealed class SettingsMigrationTests
 {
+    // User request 2026-10-11: only new/missing settings default on; a saved off stays off.
+    [Fact]
+    public void FreshSettingsEnablePlayerTrackingAndFollowingAfterRestart()
+    {
+        var path = AppPaths.SettingsFile;
+        var backup = File.Exists(path) ? File.ReadAllText(path) : null;
+        try
+        {
+            File.Delete(path);
+            var settings = new SettingsService();
+            Assert.True(settings.Current.MapTrackingActive);
+            Assert.True(settings.Current.FollowPlayer);
+            Assert.Null(settings.Current.MapRegion); // enabling does not fabricate a calibration
+            settings.Update(s => s.UiLanguage = "en");
+            var reloaded = new SettingsService().Current;
+            Assert.True(reloaded.MapTrackingActive);
+            Assert.True(reloaded.FollowPlayer);
+        }
+        finally
+        {
+            if (backup is null) File.Delete(path); else File.WriteAllText(path, backup);
+            _ = new SettingsService();
+        }
+    }
+
+    [Theory]
+    [InlineData("{}", true, true)]
+    [InlineData("{\"MapTrackingActive\":false}", false, true)]
+    [InlineData("{\"FollowPlayer\":false}", true, false)]
+    [InlineData("{\"MapTrackingActive\":false,\"FollowPlayer\":false}", false, false)]
+    [InlineData("{\"SettingsRevision\":3,\"MapTrackingActive\":false,\"FollowPlayer\":false}", false, false)]
+    [InlineData("{\"SettingsRevision\":3,\"MapTrackingActive\":true,\"FollowPlayer\":true}", true, true)]
+    public void SavedPlayerTrackingChoicesSurviveMigrationAndRestart(string json, bool tracking, bool following)
+    {
+        var path = AppPaths.SettingsFile;
+        var backup = File.Exists(path) ? File.ReadAllText(path) : null;
+        try
+        {
+            File.WriteAllText(path, json);
+            var settings = new SettingsService();
+            Assert.Equal(tracking, settings.Current.MapTrackingActive);
+            Assert.Equal(following, settings.Current.FollowPlayer);
+            settings.Update(s => s.UiLanguage = "en");
+            var reloaded = new SettingsService().Current;
+            Assert.Equal(tracking, reloaded.MapTrackingActive);
+            Assert.Equal(following, reloaded.FollowPlayer);
+        }
+        finally
+        {
+            if (backup is null) File.Delete(path); else File.WriteAllText(path, backup);
+            _ = new SettingsService();
+        }
+    }
+
     [Theory]
     [InlineData("de-DE")]
     [InlineData("en-US")]

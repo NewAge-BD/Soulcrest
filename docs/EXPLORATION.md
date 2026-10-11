@@ -8,13 +8,14 @@ Dungeons und Garnisonen. Unter **Sprache im Spiel (Scan)** stehen **Automatisch 
 Pets; die Oberfläche bleibt unabhängig. Deutsche Ortsnamen kommen aus den lokalen
 gaming.tools-Kartendaten und behalten dieselben IDs und Charakterprofile.
 
-1. Das passende Charakterprofil und dieselbe Karte wie im Spiel wählen. Weltkarte und gewünschte
-   Liste im Spiel öffnen, dann **Scan starten**.
+1. Das passende Charakterprofil wählen. Weltkarte und gewünschte Liste im Spiel öffnen, dann
+   **Scan starten**. Karte und geöffnete Kategorie werden automatisch erkannt; bei Kartenwechsel
+   muss der Scan nicht gestoppt oder die Karte in Soulcrest von Hand gewählt werden.
 2. **100 % bei Dungeons oder Garnisonen:** Kartenname, Kategorieüberschrift und deren Prozentanzeige
    müssen in zwei aufeinanderfolgenden ruhigen Aufnahmen zusammenpassen. Dann werden sämtliche
    Katalogorte dieser Kategorie auf dieser Karte für den beim Start gewählten Charakter als fertig
    gespeichert. Einzelne Namen und Haken müssen dafür nicht gelesen werden; Durchscrollen entfällt.
-   Ein einzelner Kategoriescan endet. Im gemeinsamen Scan die nächste offene Liste öffnen: die fertige
+   Im gemeinsamen Scan die nächste offene Liste öffnen: die fertige
    Kategorie wartet nur auf einen Bildwechsel und wird dabei nicht erneut per OCR gelesen.
 3. **Unter 100 %:** Langsam scrollen und jede Seite kurz stehen lassen. Nur ein eindeutig zugeordneter
    Name mit dem goldenen Kreis-und-Haken-Symbol derselben Zeile darf nach zwei ruhigen Aufnahmen
@@ -23,7 +24,9 @@ gaming.tools-Kartendaten und behalten dieselben IDs und Charakterprofile.
 4. **Kibelisks:** „Bindung abgeschlossen“ / „Bind Complete“ hakt ab; „Bindung nicht abgeschlossen“ /
    „Binding Incomplete“ nimmt den Haken zurück. Der vollständige Statustext muss passen. Die
    bestehende Bestätigung über zwei ruhige Aufnahmen bleibt erhalten; hier gibt es keinen
-   100-%-Kurzweg.
+   100-%-Kurzweg. Unbekannte oder mehrdeutige Namen verhindern, dass fehlende Orte am Listenende
+   als ungebunden übernommen werden oder die Liste vorzeitig als fertig gilt. Ein bereits gelesenes
+   Bindungsergebnis kann nach zwei neuen ruhigen Aufnahmen aktualisiert werden.
 5. Das durchklickbare Overlay zeigt geprüfte Zeilen, Zähler und Scrollhinweise. Grüne Zeilen haben
    einen zweimal bestätigten Namen. Das ist unabhängig vom Abschluss-Haken. Sind alle sichtbaren Namen geprüft, darf weitergescrollt werden;
    Zeilen ohne belegten Haken bleiben dabei offen. **Unentdeckt / Undiscovered** beendet den
@@ -39,25 +42,54 @@ gaming.tools-Kartendaten und behalten dieselben IDs und Charakterprofile.
 - Die feste Listenmaske folgt links 22 % der auf 16:9 begrenzten Fensterbreite und vertikal
   12–98 % der Höhe (563 px bei 2559×1439; 423 px bei 1920×1080 und 2560×1080). Auf Ultrawide
   wächst die Karte, nicht die Namens-/Hakenspalte. Zusätzlich enthält dieselbe WGC-Aufnahme den Kartenkopf darüber;
-  der Kartenname aus dem Katalog muss mit dem gewählten Kartenprofil übereinstimmen. Überschriften
+  der Kartenname muss eindeutig zu einer bekannten Karte mit Erkundungsorten gehören. Zwei
+  ruhige Beobachtungen bestätigen die Karte. Widersprüchliche oder mehrdeutige Titel setzen diese
+  Bestätigung zurück. Überschriften
   validieren den Inhalt, verschieben oder verkleinern die feste Maske aber nicht.
 - Eine zweite, gleich große Graustufenansicht mit lokal begrenzter Kontrastverstärkung (CLAHE)
   und zweifacher OCR-Vergrößerung liest ausgegraute Namen. Original und Kontrastansicht werden
   getrennt nach Karte/Kategorie validiert, dann nur eindeutige physische Zeilen zusammengeführt.
-  Unterschiedliche gültige Namen für dieselbe Zeile bleiben unklar. Die Namens-Matchschwellen
-  bleiben unverändert. Abschluss-Haken und Bewegung werden immer am Original geprüft;
+  Unterschiedliche gültige Namen für dieselbe Zeile bleiben unklar. Auch eine mehrdeutige
+  Kandidatenmenge darf nicht durch einen fremden Namen des anderen OCR-Passes ersetzt werden.
+  Ein zweiter Pass kann nur einen darin enthaltenen Kandidaten bestätigen. Abschluss-Haken und
+  Bewegung werden immer am Original geprüft;
   **100 % ausschließlich in der Kontrastansicht schließen keine Kategorie ab**.
+- Nutzerbeleg 2026-10-11: Die mit Punkten oder … gekürzte Überschrift **Versiegelter Dunge...**
+  wird als Dungeon-Kategorie erkannt. Karte, räumlicher Überschriftenbereich und zwei ruhige
+  Lesungen bleiben Pflicht. Die bekannte Präfixform muss vollständig vorliegen und ausdrücklich
+  gekürzt sein; kurze oder nur ähnlich klingende Texte werden nicht als Kategorie geraten.
+  Synthetische Windows-OCR mit DE/Auto belegt auch die Fehlablesungen „Versiegelter Dunge.«“
+  und „Versiegelter Dunge.„“; nur diese beiden zusätzlichen Endungen werden repariert.
+  Die gleichen belegten DE/EN-Kategorieüberschriften helfen der automatischen OCR-Sprachauswahl;
+  widersprüchliche Sprachhinweise bleiben unentschieden.
 - Desktop-/GDI-Ersatzbilder werden abgewiesen. Nach jedem OCR-Lauf wird das aktuelle Bild erneut
   auf Bewegung geprüft; Scrollen oder ein Fensterwechsel verwirft die Bestätigung. Zwischen den
   Läufen gilt weiterhin das gemeinsame Capture-Budget. Keine Spieleingaben.
 - Das Abschluss-Symbol stammt aus dem Nutzerbeleg vom 8.10.2026. Farbmaske und Formvergleich
   berücksichtigen verschiedene Fenstergrößen und UI-Skalierungen; gesucht wird nur in der rechten
-  Symbolspalte der Liste. Ein Symbol darf genau einer nahegelegenen Namenszeile zugeordnet werden.
-- Exakte normalisierte EN/DE-Namen zuerst; sonst mindestens 90 % Ähnlichkeit und 8 Prozentpunkte
+  Symbolspalte der Liste (60–95 % ihrer Breite). Die Nutzeraufnahmen vom 11.10. belegen den
+  rechten Hakenrand außerhalb der früheren 85-%-Grenze bei **Sehr groß**. **Sehr klein** und
+  **Sehr groß** werden mit unveränderten Farb-/Formschwellen geprüft. Ein Symbol darf genau einer
+  nahegelegenen Namenszeile zugeordnet werden.
+- `ExplorationNameIndex` baut Referenzen aus sämtlichen vollständigen deutschen und englischen
+  Katalognamen auf (aktuelles Datenpaket: 304 Ortsidentitäten, 608 Quellnamen). Im Scan wird zuerst
+  nach erkannter Karte und Kategorie gefiltert. DE/EN-Varianten desselben Orts zählen als eine ID;
+  echte gleichnamige Kibelisken bleiben getrennte Kandidaten. Es gibt keine Liste einzelner
+  gekürzter Ortsnamenszustände und keine gerenderten Schriftbilder.
+- Exakte normalisierte Vollnamen zuerst; sonst mindestens 90 % Ähnlichkeit und 8 Prozentpunkte
   Abstand zum zweiten Kandidaten. Entrance und die deutschen Eingang-Zusätze einschließlich
-  **Eingang zu** werden entfernt. Sichtbar mit Punkten oder … gekürzte Namen ab 12 normalisierten
-  Zeichen werden nur bei einem eindeutigen Präfix übernommen; höchstens ein verlorenes, zusätzliches
-  oder falsches Zeichen ist erlaubt. Mehrdeutige Präfixe bleiben offen.
+  **Eingang zu** werden entfernt. Der initiale Abschnitt vor der ersten ausdrücklichen Ellipse
+  (`..` oder `…`) wird gegen alle vollständigen Referenzen verglichen, auch wenn OCR Kartenlabels
+  oder Entfernung dahinter angehängt hat. Dungeon-/Garnisonspräfixe brauchen mindestens 12
+  normalisierte Zeichen und höchstens einen Zeichenfehler; mehrere plausible IDs bleiben offen.
+  Ohne Ellipse ist zusätzlich nur ein exaktes langes Präfix zulässig. Ein vollständiger anderer
+  Katalogname hinter der Ellipse macht die Zeile widersprüchlich. Originaltext, Wörter und
+  Hakenkoordinaten bleiben erhalten. Rechts beginnende Kartenlabels außerhalb der linken
+  Namensstartspalte (2,5–30 % Listenbreite) sind keine zusätzlichen Listenzeilen.
+- Kibelisk-Namen verwenden denselben Referenzindex. Ihre bestehenden exakten Präfixe ab acht
+  Zeichen und der eindeutige Ein-Zeichen-Abgleich für Vollnamen bleiben erhalten. Echte
+  Kandidatengruppen werden erst durch passende Zeilenzahl und einheitlichen Bindungsstatus
+  aufgelöst; ein Anhang hinter einer Ellipse darf keine Gruppe erzwingen.
 - Die von Windows OCR beobachtete Schreibweise `IOO %` wird ausschließlich im räumlich zugeordneten
   Prozentfeld als `100 %` gelesen (`I`/`l` für die Eins, `O`/`o` für die beiden Nullen). Kategorie,
   Kartenkopf und Bestätigung über zwei Aufnahmen bleiben Pflicht. Andere Texte werden nicht so korrigiert.
@@ -96,7 +128,7 @@ node --test tests/exploration-map.test.cjs tests/map-filter.test.cjs
 ## Scanhilfe und Diagnose (2026-10-11)
 
 Die Scan-Kachel führt durch Karte/Liste öffnen, Stillhalten und langsames Scrollen. Sie trennt
-**geprüfte sichtbare Zeilen**, **übernommene Einträge** dieser Sitzung und **gespeicherte Abschlüsse**
+**geprüfte sichtbare Zeilen**, **übernommene Einträge** der aktuell erkannten Karte und **gespeicherte Abschlüsse**
 des Charakters. Kibelisk-Einträge zählen beim Übernehmen auch mit bestätigtem ungebundenem Status.
 Die Vorschau und unklare Namen lassen sich ausklappen; nach dem Stoppen bleibt die manuelle
 Korrektur möglich. Das durchklickbare Scan-Overlay verwendet dieselbe Zählerbedeutung und Legende.
@@ -107,7 +139,26 @@ Auflösung (`bilder/erkundung-letzte-liste.png`), Original-/Kontrast-OCR mit Koo
 ausgelöst. Das vom Nutzer bereitgestellte Paket vom 11.10., 04:31 enthielt nur Karten- und
 Pet-Bilder, keine Dungeon-Liste. Der konkrete graue Nutzerframe konnte daher nicht reproduziert
 werden. Vorhandene Original-Dungeon-Fixtures sowie ausdrücklich synthetische Kontrast- und
-Ultrawide-Varianten prüfen die Verbesserung; ein Nachtest im betroffenen Spielclient bleibt nötig.
+Ultrawide-Varianten prüfen die Verbesserung. Die nachgereichten Diagnosepakete vom 11.10.,
+19:59:56 (**Sehr groß**) und 20:02:47 (**Sehr klein**) enthalten Originalaufnahmen der Altgard-
+Garnisonsliste. Ein isolierter Offline-Abgleich mit der Produktionslogik erkennt in beiden
+Karte, Kategorie und zwei Namen; nur Grabräuberversteck besitzt den Abschluss-Haken, Provisorium
+der Klingenlegion bleibt offen. Die Diagnosebilder werden nicht als Repository-Fixtures gespeichert.
+Automatische Kartenwechsel und die Korrektur benötigen weiterhin einen Live-Nachtest nach Tester-Neustart.
+
+Das Paket vom 11.10., 20:21:40, stammt vom aktuellen Tester und belegt einen zusätzlichen
+Namensfehler: `Verlassenes Gefängnis der...Wlu s Brücke` bzw. `...Mu@s Brücke` enthält hinter
+der Ellipse einen Kartenlabel-Anhang. Die vollständige Katalogreferenz lautet **Eingang zum
+Verlassenen Gefängnis der Archonen** / **Abandoned Archon Jail Entrance**. Allgemeine
+Ellipsentrennung und Referenzvergleich lösen den Namen mit der vorhandenen Ein-Zeichen-Toleranz
+auf; separate rechts beginnende Kartenlabels werden nicht als Listennamen gewertet. Ein
+isolierter Offline-Abgleich der gespeicherten Garnisonsseite erkennt den einen offenen Ort.
+Die beiden betroffenen Dungeon-OCR-Frames erkennen 14/14 bzw. 10/10 Namen ohne Unklarheiten;
+dafür werden leere synthetische Bilder verwendet, da die passenden alten Dungeonpixel fehlen.
+Auch die Kategorie wird dabei aus dem jeweiligen Scanlog vorgegeben: Der Textdump enthält
+keine Wortrechtecke für die Reparatur der verbundenen Symbol-/Überschriftenzeile.
+Das beweist Namens-/Zeilenzuordnung, keine historische Kategorieerkennung oder Dungeon-Abschlüsse. Synthetische
+Regressionen prüfen die Original-Hakenbindung separat. Live-Nachtest nach erneutem Testerstart nötig.
 
 ## Automatischer Abschluss bei Ankunft
 
@@ -125,7 +176,9 @@ Auf der Karte im Exploration-Progressionsbereich **Abschlussradius (Kartenpixel)
 ## Übersicht und automatische Kartenwahl (2026-10-11)
 
 Nutzerentscheidung aus dem Interview: Gesamtübersicht, Filter und Checkliste stehen im Vordergrund.
-Die Scanhilfe ist darunter eingeklappt und öffnet sich während eines Scans. Gesamt- und
+Nutzerkorrektur 2026-10-11: Der Scan-Einstieg steht dauerhaft sichtbar direkt unter dem Seitentitel,
+vor Gesamtübersicht und Checkliste. Charakter-/Kartenwahl und Start/Stop bleiben zusammen;
+nur die Hilfen und Vorschau innerhalb der Scan-Kachel sind einklappbar. Gesamt- und
 Kategorie-Zähler gelten immer für die gesamte gewählte Karte und den aktuellen Charakter; Suche
 oder Statusfilter verändern sie nicht. Die Suche berücksichtigt belegte englische und deutsche
 Ortsnamen. Gesperrte Dungeons nennen die noch offenen Voraussetzungen. Einzelne Haken bleiben
@@ -135,7 +188,12 @@ Standardmäßig folgt die Übersicht der im Spiel erkannten Karte. Eine manuelle
 „Karte fixieren“ speichert `ExplorationPinnedMap`; „Spielkarte folgen“ löscht diese Fixierung.
 `LastMap` bleibt die Auswahl des Karten-Tabs und dient hier nur als anfänglicher Ersatz. Bei
 fehlender aktueller Erkennung bleibt die bisherige Auswahl sichtbar und wird entsprechend benannt.
-Während eines Scans hat dessen unveränderliche `ScanMap` Vorrang.
+Während eines Scans hat dessen automatisch bestätigte `ScanMap` Vorrang. Die gespeicherte
+Fixierung und Ansichtsfilter beschränken die Erkennung nicht und bleiben nach dem Scan erhalten.
+Bei bestätigtem Kartenwechsel werden Ortskandidaten, Kibelisk-Zeilen, Zwei-Frame-Bestätigungen,
+Listenende, 100-%-Kurzwege und sichtbare Zähler neu aufgebaut; gespeicherte Abschlüsse bleiben
+unangetastet. Keine alte Lesung darf die neue Karte abschließen. Der Scan bleibt an den beim
+Start gewählten Charakter gebunden.
 
 `MapTrackingService.DetectedMap` enthält Karten-ID, Minimap/Weltkarte und Zeit des bestätigten
 SIFT-Treffers. Bildfluss erneuert diesen Zeitstempel nicht. Für die Anzeige gilt ein Fenster von

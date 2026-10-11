@@ -31,6 +31,7 @@ public sealed class MapLayoutExploration
         services.AddSingleton<BossRushService>();
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<ExplorationScanService>();
+        services.AddSingleton<PetScanService>();
         services.AddSingleton<CharacterDetectionService>();
         services.AddSingleton<OcrLanguageInstaller>();
         services.AddSingleton<UiState>();

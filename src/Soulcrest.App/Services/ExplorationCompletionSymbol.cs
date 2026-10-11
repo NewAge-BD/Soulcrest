@@ -15,7 +15,8 @@ internal static class ExplorationCompletionSymbol
         using var gold = Gold(bgr);
         // Completion symbols form a column to the right of names. Do not search map markers.
         var left = (int)(layout.Bounds.Width * .60);
-        var right = Math.Min(capture.Width, (int)(layout.Bounds.Width * .85));
+        // At the game's largest UI scale, a complete symbol extends beyond the former 85% edge.
+        var right = Math.Min(capture.Width, (int)(layout.Bounds.Width * .95));
         var top = Math.Max(0, layout.Bounds.Top - layout.CaptureBounds.Top);
         if (right <= left || top >= capture.Height) return [];
         using var column = new Mat(gold, new Rect(left, top, right - left, capture.Height - top));

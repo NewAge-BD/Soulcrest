@@ -2,6 +2,20 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.4.6 – 2026-10-11
+
+- **Neu:** Das Loot-Overlay zeigt unter dem Monsternamen klein und grau den Soul-Namen
+  (`Soul: <Pet>`). Das Fokus-Pet erscheint nicht mehr zusätzlich unter „Letzte Beute“; seine Drops der
+  letzten Minute stehen als +N auf der Fokuskarte.
+- **Neu:** Der Pet-Scan läuft direkt im Setup; markierte Ergebnisse werden bei „Weiter“ übernommen.
+- **Verbessert:** Der Exploration-Scan erkennt Karte und geöffnete Liste selbst und folgt ihnen, auch
+  beim Wechsel. Der Start sitzt jetzt oben im Exploration-Tab.
+- **Verbessert:** Gekürzte Ortsnamen („Versiegelter Dunge…“, lange Dungeon-Namen) werden mit den
+  vollständigen deutschen und englischen Namen abgeglichen; Kartenbeschriftungen daneben stören nicht
+  mehr. Der Abschluss-Haken wird auch bei sehr kleiner und sehr großer UI-Skalierung gefunden.
+- **Behoben:** Ein Overlay ließ sich manchmal trotz losgelassener Alt-Taste weiter verschieben. Das
+  Schloss zeigt jetzt den echten Zustand und sperrt sofort.
+
 ## 0.4.5 – 2026-10-11
 
 - **Neu:** Erkundungsübersicht im Exploration-Tab: Zähler je Kategorie, Suche (DE/EN), Filter

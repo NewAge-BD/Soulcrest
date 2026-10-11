@@ -43,12 +43,12 @@ public sealed class OverlayRenderExploration
             string Name(string id, string language) => catalog?.Find(id)?.DisplayName(language) ?? id;
             PetOverlayForm.LootRow[] Focus(string language) =>
             [
-                new(Name("kailin", language), "cogni", 1, false, 19, 25, Icon("kailin")),
+                new(Name("kailin", language), "cogni", 1, false, 19, 25, Icon("kailin"), Quantity: 3, SoulName: Name("kailin", language)),
             ];
             PetOverlayForm.LootRow[] Drops(string language) =>
             [
-                new(Name("young-kailin", language), "cogni", 1, false, 12, 25, Icon("young-kailin"), Quantity: 1),
-                new(Name("tayga", language), "fera", 2, false, 72, 75, Icon("tayga"), Quantity: 2, Alpha: 140),
+                new(Name("young-kailin", language), "cogni", 1, false, 12, 25, Icon("young-kailin"), Quantity: 1, SoulName: Name("young-kailin", language)),
+                new(Name("tayga", language), "fera", 2, false, 72, 75, Icon("tayga"), Quantity: 2, Alpha: 140, SoulName: Name("tayga", language)),
             ];
             Render(target, Focus("en"), Drops("en"), "en", 1, true);
             var focus = Focus("de");
@@ -59,7 +59,7 @@ public sealed class OverlayRenderExploration
             Render(Suffix("empty"), [], [], "en", 1, true);
             Render(Suffix("loot-only"), [], drops, "de", 1, true);
             Render(Suffix("focus-only"), focus, [], "de", 1, true);
-            Render(Suffix("long-name"), [focus[0] with { Name = focus[0].Name + " · langer Prüftext für die Namenskürzung" }], drops, "de", 1, true);
+            Render(Suffix("long-name"), [focus[0] with { Name = focus[0].Name + " · langer Prüftext für die Namenskürzung", SoulName = focus[0].SoulName + " · langer Prüftext für die Namenskürzung" }], drops, "de", 1, true);
             Render(Suffix("dense"), focus, drops.Concat(drops).Concat(drops.Take(1)).ToArray(), "de", 1, true);
 
             string Suffix(string suffix) => Path.Combine(Path.GetDirectoryName(target) ?? ".",

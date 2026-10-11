@@ -119,6 +119,60 @@ public sealed class OverlayManualLockTests : IDisposable
         Assert.Equal(panel.Top, Setting(persisted, yProperty));
     });
 
+    [Theory]
+    [InlineData("_overlay")]
+    [InlineData("_bossOverlay")]
+    [InlineData("_levelingOverlay")]
+    public Task LockIconTracksActualAltInteractionAndExplicitLockWaitsForRelease(string field) => RunOnSta(() =>
+    {
+        using var host = new MainForm();
+        var panel = PreparePanel(host, field);
+        var before = File.ReadAllBytes(AppPaths.SettingsFile);
+        host.SetOverlayInteractionEnabled(true);
+        Assert.False(LockButton(panel).Locked);
+        Assert.False(ManualInteraction(panel));
+        AssertClickThrough(panel, false);
+
+        ClickLock(panel);
+        Assert.True(LockButton(panel).Locked);
+        Assert.False(ManualInteraction(panel));
+        host.SetOverlayInteractionEnabled(true);
+        host.SetOverlayInteractionEnabled(true);
+        AssertClickThrough(panel, true);
+        Assert.True(LockButton(panel).Locked);
+
+        host.SetOverlayInteractionEnabled(false);
+        AssertClickThrough(panel, true);
+        host.SetOverlayInteractionEnabled(true); // A genuinely new Alt press can enable interaction again.
+        AssertClickThrough(panel, false);
+        Assert.False(LockButton(panel).Locked);
+        host.SetOverlayInteractionEnabled(false);
+        Assert.True(LockButton(panel).Locked);
+        AssertClickThrough(panel, true);
+        Assert.Equal(before, File.ReadAllBytes(AppPaths.SettingsFile));
+    });
+
+    [Theory]
+    [InlineData("_overlay")]
+    [InlineData("_bossOverlay")]
+    [InlineData("_levelingOverlay")]
+    public Task ExplicitLockDuringADragReleasesCaptureDespiteAnActiveAltSignal(string field) => RunOnSta(() =>
+    {
+        using var host = new MainForm();
+        var panel = PreparePanel(host, field);
+        ClickLock(panel);
+        host.SetOverlayInteractionEnabled(true);
+        SendMouse(panel, MouseDown, new Point(30, 30));
+        Assert.True(panel.Capture);
+        SendMouse(panel, MouseMove, new Point(60, 50));
+        ClickLock(panel);
+        Assert.False(panel.Capture);
+        Assert.True(LockButton(panel).Locked);
+        host.SetOverlayInteractionEnabled(true);
+        AssertClickThrough(panel, true);
+        Assert.False(ManualInteraction(panel));
+    });
+
     [Fact]
     public Task NativeLevelingNextWithoutAltAdvancesOnlyTheCurrentCharacterAndRejectsACharacterChangeDuringClick() => RunOnSta(() =>
     {
@@ -219,23 +273,30 @@ public sealed class OverlayManualLockTests : IDisposable
     [InlineData("_overlay", "loot.unlock")]
     [InlineData("_bossOverlay", "boss.unlock")]
     [InlineData("_levelingOverlay", "leveling.unlock")]
-    public Task ConfiguredGlobalHotkeyUsesTheSameNativeLockAction(string field, string action) => RunOnSta(() =>
+    public Task ConfiguredGlobalHotkeyTogglesManualChoiceWhileAltIsTemporarilyUnlocking(string field, string action) => RunOnSta(() =>
     {
         using var host = new MainForm(); // Never activate the host or send input to the game.
         var panel = PreparePanel(host, field);
         var hotkeys = host.Services.GetRequiredService<OverlayHotkeyService>();
         hotkeys.Assign("loot.toggle", null);
-        Assert.Null(hotkeys.Assign(action, new OverlayHotkey((int)Keys.F23, 6)));
+        Assert.Null(hotkeys.Assign(action, new OverlayHotkey((int)Keys.F23, 3)));
         hotkeys.Attach(host);
         Assert.Null(hotkeys.Error(action));
         var index = OverlayHotkeys.Actions.Select(a => a.Id).ToList().IndexOf(action);
         Assert.False(ManualInteraction(panel));
+        host.SetOverlayInteractionEnabled(true); // Alt is part of this configured shortcut.
+        Assert.False(LockButton(panel).Locked);
         SendMessage(host.Handle, NativeMethods.WM_HOTKEY, 0x5100 + index, 0);
         Assert.True(ManualInteraction(panel));
         Assert.False(LockButton(panel).Locked);
+        host.SetOverlayInteractionEnabled(false);
+        Assert.False(LockButton(panel).Locked); // Releasing the shortcut preserves manual unlock.
+        host.SetOverlayInteractionEnabled(true);
         SendMessage(host.Handle, NativeMethods.WM_HOTKEY, 0x5100 + index, 0);
         Assert.False(ManualInteraction(panel));
+        host.SetOverlayInteractionEnabled(true);
         Assert.True(LockButton(panel).Locked);
+        AssertClickThrough(panel, true);
         panel.Hide();
         SendMessage(host.Handle, NativeMethods.WM_HOTKEY, 0x5100 + index, 0);
         Assert.False(ManualInteraction(panel));

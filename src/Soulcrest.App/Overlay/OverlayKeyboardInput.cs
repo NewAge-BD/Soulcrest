@@ -29,6 +29,8 @@ internal sealed class OverlayKeyboardInput
     private const uint MaximumKeyboardPacketSize = 1024;
     private readonly Dictionary<nint, ModifierState> _devices = [];
     private bool _registered, _altKnown, _shiftKnown;
+    internal OverlayModifierObservation AltObservation { get; private set; } = OverlayModifierObservation.Unknown;
+    internal OverlayModifierObservation ShiftObservation { get; private set; } = OverlayModifierObservation.Unknown;
 
     internal bool? AltHeld => _altKnown ? _devices.Values.Any(state => state.LeftAlt || state.RightAlt) : null;
     internal bool? ShiftHeld => _shiftKnown ? _devices.Values.Any(state => state.LeftShift || state.RightShift) : null;
@@ -59,6 +61,7 @@ internal sealed class OverlayKeyboardInput
         }
         _devices.Clear();
         _altKnown = _shiftKnown = false;
+        AltObservation = ShiftObservation = OverlayModifierObservation.Unknown;
     }
 
     /// <summary>The caller still passes WM_INPUT to its base window procedure for Windows cleanup.</summary>
@@ -144,10 +147,20 @@ internal sealed class OverlayKeyboardInput
         }
         if (state.LeftAlt || state.RightAlt || state.LeftShift || state.RightShift) _devices[device] = state;
         else _devices.Remove(device);
+        // Record releases even when this source already considered the modifier up.
+        if (key is LeftAltKey or RightAltKey) AltObservation = OverlayModifierObservation.Capture(AltHeld);
+        else ShiftObservation = OverlayModifierObservation.Capture(ShiftHeld);
         return true;
     }
 
-    internal void RemoveDevice(nint device) => _devices.Remove(device);
+    internal void RemoveDevice(nint device)
+    {
+        var alt = AltHeld;
+        var shift = ShiftHeld;
+        _devices.Remove(device);
+        if (alt != AltHeld) AltObservation = OverlayModifierObservation.Capture(AltHeld);
+        if (shift != ShiftHeld) ShiftObservation = OverlayModifierObservation.Capture(ShiftHeld);
+    }
 
     private struct ModifierState
     {

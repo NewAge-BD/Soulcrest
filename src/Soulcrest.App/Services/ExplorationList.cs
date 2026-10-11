@@ -7,7 +7,8 @@ namespace Soulcrest.App.Services;
 /// <summary>A category heading anchors its percentage and rows. Only checked rows are completions.</summary>
 internal static class ExplorationList
 {
-    internal sealed record Row(OcrLine Line, string? Id, bool Complete);
+    internal sealed record Row(OcrLine Line, string? Id, bool Complete,
+        IReadOnlySet<string>? CandidateIds = null, bool NameConflict = false);
 
     internal static ExplorationScanService.Page Read(IReadOnlyList<OcrLine> lines, IReadOnlyList<ExplorationPlace> candidates,
         Bitmap capture, ExplorationLayout layout, string map, IReadOnlyCollection<string>? mapTitles = null, bool allowFullCompletion = true)
@@ -20,6 +21,7 @@ internal static class ExplorationList
         var kind = ExplorationLayout.HeadingKind(heading.Text)!;
         var places = candidates.Where(p => p.Map == map && p.Kind == kind).DistinctBy(p => p.Id).ToArray();
         if (places.Length == 0) return new([], [], false);
+        var nameIndex = new ExplorationNameIndex(places);
         var percentages = lines.Where(l => l.Y >= heading.Y + heading.Height * .7 &&
             l.Y + l.Height <= heading.Y + heading.Height * 5 && l.X >= layout.Bounds.Width * .55 &&
             l.X + l.Width <= layout.Bounds.Right && Regex.IsMatch(l.Text, @"^\s*(?:[1Il][0Oo]{2}|[0-9]{1,2})\s*%\s*$")).ToArray();
@@ -32,7 +34,9 @@ internal static class ExplorationList
         var region = layout.Rows(lines).Where(l => l.Y >= rowTop).ToArray();
         var stop = region.Where(l => ExplorationService.Normalize(l.Text) is "undiscovered" or "unentdeckt")
             .Select(l => l.Y).DefaultIfEmpty(double.PositiveInfinity).Min();
-        var names = region.Where(l => l.Y < stop && l.X >= layout.Bounds.Width * .025 && l.X < layout.Bounds.Width * .65 &&
+        // Names start in the left text column. Right-starting map labels can show through
+        // the translucent list (user diagnosis 2026-10-11); do not count them as unknown rows.
+        var names = region.Where(l => l.Y < stop && l.X >= layout.Bounds.Width * .025 && l.X < layout.Bounds.Width * .30 &&
             ExplorationService.Normalize(l.Text).Length >= 5).OrderBy(l => l.Y).ToArray();
         var symbols = ExplorationCompletionSymbol.Find(capture, layout);
         // A symbol can belong to exactly one nearest row; never borrow a check from the next line.
@@ -44,8 +48,14 @@ internal static class ExplorationList
                     r.Distance <= Math.Max(r.Line.Height * .75, symbol.Height * .55)).OrderBy(r => r.Distance).ToArray();
             if (nearby.Length == 1) checkedRows.Add(nearby[0].Line);
         }
-        var rows = names.Select(l => new Row(l, ExplorationService.Match(l.Text, places)?.Id, checkedRows.Contains(l))).ToArray();
+        var rows = names.Select(line =>
+        {
+            var resolution = nameIndex.ResolveObservation(line.Text);
+            return new Row(line, !resolution.Conflict && resolution.Candidates.Count == 1 ? resolution.Candidates[0].Id : null,
+                checkedRows.Contains(line), resolution.Candidates.Select(place => place.Id).ToHashSet(), resolution.Conflict);
+        }).ToArray();
         return new(rows.Where(r => r.Complete && r.Id is not null).Select(r => r.Id!).ToHashSet(),
             rows.Where(r => r.Id is null).Select(r => r.Line.Text).Distinct().ToArray(), double.IsFinite(stop), kind, false, rows);
     }
+
 }

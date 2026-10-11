@@ -255,9 +255,9 @@ public sealed class MainForm : Form
         switch (action)
         {
             case "loot.toggle": ToggleOverlay(); return;
-            case "loot.unlock": if (_overlay.Visible) _overlay.ToggleManualInteraction(); return;
-            case "boss.unlock": if (_bossOverlay.Visible) _bossOverlay.ToggleManualInteraction(); return;
-            case "leveling.unlock": if (_levelingOverlay.Visible) _levelingOverlay.ToggleManualInteraction(); return;
+            case "loot.unlock": if (_overlay.Visible) _overlay.ToggleManualInteractionFromHotkey(); return;
+            case "boss.unlock": if (_bossOverlay.Visible) _bossOverlay.ToggleManualInteractionFromHotkey(); return;
+            case "leveling.unlock": if (_levelingOverlay.Visible) _levelingOverlay.ToggleManualInteractionFromHotkey(); return;
         }
         _settings.Update(s => OverlayHotkeys.ToggleVisibility(s, action));
         UpdateOverlayState();

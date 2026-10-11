@@ -29,22 +29,18 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
     public ExplorationScanFeedback? Feedback { get; private set; }
     public event Action? Changed;
     /// <summary>
-    /// Scans the list open in game. Kind "all" (tab "Scan Exploration Progress", user request
-    /// 2026-10-06) reads whichever list is open, picture by picture: the Kibelisk list (numbered rows
-    /// with a status) or the exploration list (sealed dungeons and strongholds), and keeps running
-    /// until all lists are finished or the user stops it. A confirmed 100% completes its category.
+    /// User request 2026-10-11: recognize the open world map and exploration category automatically.
+    /// The view's map/category filters do not restrict this scan.
+    /// Two stable map-title observations select a fresh map session; character ownership stays fixed.
+    /// The scan ends after all lists on the current map finish or the user stops it.
     /// </summary>
-    public void Start(string map, string kind)
+    public void Start()
     {
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return;
-        var all = kind == "all";
-        var candidates = exploration.Places.Where(p => p.Map == map && (all ? p.Kind is "dungeon" or "stronghold" : p.Kind == kind)).ToArray();
-        var kibeliskPlaces = exploration.Places.Where(p => p.Map == map && p.Kind == "kibelisk").ToArray();
         var character = exploration.ActiveId;
-        var mapTitles = exploration.MapTitles(map);
         var cancel = new CancellationTokenSource();
         lock (_lifetime) _cancel = cancel;
-        ScanMap = map; ScanKind = kind; DetectedKind = null;
+        ScanMap = null; ScanKind = "all"; DetectedKind = null;
         Frames = 0; ContrastEnhanced = false; StatusIsError = false;
         LastFrameDataUrl = null; LastOcrReport = null; _lastLogSnapshot = null;
         Recognized = 0; Unmatched = []; Feedback = null; Preview = null; Status = "Warte auf den passenden Exploration-Tab …";
@@ -56,12 +52,8 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                 var language = settings?.Current.EffectiveOcrLanguage ?? "auto";
                 var reader = WindowsOcrLineReader.Create(language, 1);
                 var contrastReader = WindowsOcrLineReader.Create(language, 2);
-                var confirmation = new Confirmation(); var seen = new HashSet<string>();
-                // Kibelisks: numbered rows with their own status, see KibeliskList (user request 2026-10-06).
-                var kibelisks = all || kind == "kibelisk" ? new KibeliskSession(kibeliskPlaces) : null;
-                var kibeliskSettled = 0;
-                var finishedKinds = new HashSet<string>();
-                var fullKinds = new HashSet<string>();
+                var session = new ExplorationScanSession(exploration);
+                var mapSelector = new ExplorationScanMapSelector(exploration);
                 var nextPreview = DateTime.MinValue;
                 while (!cancel.IsCancellationRequested)
                 {
@@ -84,102 +76,113 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                     {
                         if (latest is null || !SameList(masked, latest))
                         {
-                            HideRowMarks(); confirmation = new Confirmation();
+                            HideRowMarks(); session.ResetPending(); mapSelector.Reset();
                             await Task.Delay(250, cancel.Token); continue;
                         }
                     }
+                    cancel.Token.ThrowIfCancellationRequested();
                     var rows = layout.Rows(lines);
                     settings?.RememberGameLanguage(reader.DetectedLanguage);
                     if (exploration.ActiveId != character)
                     {
                         Status = "Charakter gewechselt. Scan erneut starten."; DetectedKind = null; Feedback = null; break;
                     }
-                    if (!layout.ShowsMap(lines, mapTitles) && !layout.ShowsMap(contrastLines, mapTitles))
+                    var readMap = mapSelector.Read(layout, lines, contrastLines);
+                    var confirmedMap = mapSelector.Observe(readMap);
+                    if (confirmedMap is null)
                     {
-                        confirmation = new Confirmation(); DetectedKind = null;
-                        Status = "Passende Weltkarte nicht erkannt – gewählte Karte im Spiel öffnen.";
+                        session.ResetPending(); DetectedKind = null;
+                        Status = readMap is null
+                            ? "Weltkarte nicht eindeutig erkannt – Weltkarte und Erkundungsliste im Spiel öffnen."
+                            : "Weltkarte erkannt – Karte wird bestätigt. Kurz stillhalten.";
                         Unmatched = [];
                         Feedback = new(window, layout.Bounds, Status, 0, 0, [], false);
                         UpdatePreview(masked, ref nextPreview); RecordOcr(lines, contrastLines); Changed?.Invoke();
                         await Task.Delay(250, cancel.Token); continue;
                     }
-                    var listPage = kibelisks is null ? null : KibeliskList.Read(rows, layout.Bounds.Bottom);
-                    if (kibelisks is not null && listPage is not null && (!all || listPage.Rows.Count > 0))
+                    if (session.SwitchMap(confirmedMap))
+                    {
+                        ScanMap = confirmedMap; DetectedKind = null;
+                        Recognized = 0; Unmatched = []; Feedback = null;
+                    }
+                    var listPage = session.Kibelisks is null ? null : KibeliskList.Read(rows, layout.Bounds.Bottom);
+                    if (session.Kibelisks is not null && listPage is not null && listPage.Rows.Count > 0)
                     {
                         DetectedKind = "kibelisk";
-                        var settledBefore = kibelisks.Confirmed.Count;
-                        kibelisks.Observe(listPage);
-                        var (bound, unbound, unknownRows, open) = kibelisks.Result();
+                        var confirmedRows = session.Kibelisks.Observe(listPage);
+                        var (bound, unbound, unknownRows, open) = session.Kibelisks.Result();
                         Unmatched = unknownRows.Concat(open).Take(100).ToArray();
-                        if (kibelisks.Confirmed.Count != settledBefore || kibelisks.Ended)
+                        if (confirmedRows.Count > 0 || session.Kibelisks.Ended)
                         {
+                            cancel.Token.ThrowIfCancellationRequested();
                             exploration.SetDone(character, bound);
+                            cancel.Token.ThrowIfCancellationRequested();
                             exploration.SetDone(character, unbound, false); // the list is the truth: unbound unchecks
-                            kibeliskSettled = bound.Count + unbound.Count;
-                            Recognized = seen.Count + kibeliskSettled;
+                            session.KibeliskSettled = bound.Count + unbound.Count;
+                            Recognized = session.Seen.Count + session.KibeliskSettled;
                         }
                         var listed = listPage.Rows.Select(r => r.Number).ToHashSet();
-                        Status = kibelisks.Complete && all ? "Kibelisk-Liste fertig – nächste Liste öffnen oder Scan stoppen."
-                            : kibelisks.Complete ? "Ende der Kibelisk-Liste erkannt. Scan abgeschlossen."
-                            : listPage.Rows.Count == 0 ? "Kibelisk-Liste nicht erkannt – auf der Weltkarte den Reiter Kibelisk öffnen."
-                            : listed.All(kibelisks.Confirmed.ContainsKey) ? "Alle sichtbaren Einträge erkannt – weiterscrollen."
+                        Status = session.Kibelisks.Complete ? "Kibelisk-Liste fertig – nächste Liste öffnen oder Scan stoppen."
+                            : listed.All(session.Kibelisks.Confirmed.ContainsKey) ? "Alle sichtbaren Einträge erkannt – weiterscrollen."
                             : "Liste wird gelesen – kurz stillhalten.";
                         // Boxes on the numbered names: green once that row is confirmed.
                         var kibeliskMarks = rows.Where(l => System.Text.RegularExpressions.Regex.IsMatch(l.Text, @"^\s*\d{1,3}\s*[.,]"))
                             .Select(l => new ExplorationRowMark(new Rectangle((int)l.X, (int)l.Y, (int)l.Width, (int)l.Height),
-                                int.TryParse(System.Text.RegularExpressions.Regex.Match(l.Text, @"\d+").Value, out var n) && kibelisks.Confirmed.ContainsKey(n)))
+                                int.TryParse(System.Text.RegularExpressions.Regex.Match(l.Text, @"\d+").Value, out var n) && session.Kibelisks.Confirmed.ContainsKey(n)))
                             .ToArray();
-                        Feedback = new(window, layout.Bounds, Status, listed.Count(kibelisks.Confirmed.ContainsKey), listed.Count, kibeliskMarks,
-                            listed.Count > 0 && listed.All(kibelisks.Confirmed.ContainsKey));
+                        Feedback = new(window, layout.Bounds, Status, listed.Count(session.Kibelisks.Confirmed.ContainsKey), listed.Count, kibeliskMarks,
+                            listed.Count > 0 && listed.All(session.Kibelisks.Confirmed.ContainsKey));
                         UpdatePreview(masked, ref nextPreview); RecordOcr(lines, contrastLines);
-                        if (kibelisks.Complete && (!all || finishedKinds.IsSupersetOf(["dungeon", "stronghold"])))
+                        if (session.Kibelisks.Complete && session.FinishedKinds.IsSupersetOf(["dungeon", "stronghold"]))
                         {
-                            if (all) Status = "Alle Erkundungslisten abgeschlossen.";
+                            Status = "Alle Erkundungslisten abgeschlossen.";
                             break;
                         }
                         Changed?.Invoke();
-                        confirmation = new Confirmation();
-                        if (await ListMovedAsync(window, layout.CaptureBounds, masked, cancel.Token)) HideRowMarks();
+                        session.Confirmation = new Confirmation();
+                        if (await ListMovedAsync(window, layout.CaptureBounds, masked, cancel.Token))
+                        {
+                            HideRowMarks(); session.ResetPending(); mapSelector.Reset();
+                        }
                         continue;
                     }
-                    var page = ExplorationOcrSelection.Read(lines, contrastLines, candidates, masked, layout, map, mapTitles);
+                    session.Kibelisks?.ResetPending();
+                    var page = ExplorationOcrSelection.Read(lines, contrastLines, session.Candidates, masked, layout, session.Map!, session.MapTitles);
                     DetectedKind = page.Kind;
-                    var alreadyFull = page.Kind is not null && fullKinds.Contains(page.Kind);
-                    if (alreadyFull) confirmation = new Confirmation();
-                    var confirmed = alreadyFull ? [] : confirmation.Observe(page);
+                    var alreadyFull = page.Kind is not null && session.FullKinds.Contains(page.Kind);
+                    if (alreadyFull) session.Confirmation = new Confirmation();
+                    var confirmed = alreadyFull ? [] : session.Confirmation.Observe(page);
+                    cancel.Token.ThrowIfCancellationRequested();
                     exploration.SetDone(character, confirmed);
-                    seen.UnionWith(confirmed); Recognized = seen.Count + kibeliskSettled;
+                    session.Seen.UnionWith(confirmed); Recognized = session.Seen.Count + session.KibeliskSettled;
                     Unmatched = alreadyFull ? [] : page.Unmatched.Order().Take(100).ToArray();
-                    var full = alreadyFull || confirmation.FullConfirmed;
-                    if (page.Kind is not null && (alreadyFull || confirmation.Finished)) finishedKinds.Add(page.Kind);
-                    if (page.Kind is not null && full) fullKinds.Add(page.Kind);
+                    var full = alreadyFull || session.Confirmation.FullConfirmed;
+                    if (page.Kind is not null && (alreadyFull || session.Confirmation.Finished)) session.FinishedKinds.Add(page.Kind);
+                    if (page.Kind is not null && full) session.FullKinds.Add(page.Kind);
                     var visible = page.Rows ?? [];
-                    var ready = full || visible.Count > 0 && page.Unmatched.Length == 0 && visible.All(r => r.Id is not null && confirmation.Read.Contains(r.Id));
-                    Status = full && all ? "100 % bestätigt – Kategorie fertig. Nächste offene Liste öffnen."
-                        : full ? "100 % bestätigt. Kategorie vollständig abgeschlossen."
+                    var ready = full || visible.Count > 0 && page.Unmatched.Length == 0 && visible.All(r => r.Id is not null && session.Confirmation.Read.Contains(r.Id));
+                    Status = full ? "100 % bestätigt – Kategorie fertig. Nächste offene Liste öffnen."
                         : page.Full ? "100 % erkannt – Abschluss wird bestätigt."
                         : page.Kind is null ? "Passende Erkundungsliste nicht erkannt – Dungeon oder Garnison öffnen."
-                        : confirmation.Finished && all ? "Ende der entdeckten Orte erkannt – nächste Liste öffnen oder Scan stoppen."
-                        : confirmation.Finished ? "Ende der entdeckten Orte erkannt. Scan abgeschlossen."
+                        : session.Confirmation.Finished ? "Ende der entdeckten Orte erkannt – nächste Liste öffnen oder Scan stoppen."
                         : ready ? "Sichtbare Zeilen geprüft – weiterscrollen. Nur Haken zählen als fertig."
                         : page.Unmatched.Length > 0 ? "Unklare Zeilen – kurz stillhalten oder später manuell prüfen."
                         : "Liste wird gelesen – kurz stillhalten.";
                     var marks = visible.Select(r => new ExplorationRowMark(new Rectangle((int)r.Line.X, (int)r.Line.Y, (int)r.Line.Width, (int)r.Line.Height),
-                        r.Id is not null && confirmation.Read.Contains(r.Id))).ToArray();
-                    Feedback = new(window, layout.Bounds, Status, full || page.Full ? 0 : confirmation.Read.Count,
+                        r.Id is not null && session.Confirmation.Read.Contains(r.Id))).ToArray();
+                    Feedback = new(window, layout.Bounds, Status, full || page.Full ? 0 : session.Confirmation.Read.Count,
                         visible.Count, marks, ready);
                     UpdatePreview(masked, ref nextPreview); RecordOcr(lines, contrastLines);
-                    if ((full || confirmation.Finished) && !all) break;
-                    if (all && kibelisks?.Complete == true && finishedKinds.IsSupersetOf(["dungeon", "stronghold"]))
+                    if ((session.Kibelisks is null || session.Kibelisks.Complete) && session.FinishedKinds.IsSupersetOf(["dungeon", "stronghold"]))
                     {
                         Status = "Alle Erkundungslisten abgeschlossen."; break;
                     }
                     Changed?.Invoke();
-                    if (full && all)
+                    if (full)
                     {
                         // This category is done. Wait for a changed screen instead of OCRing it again.
                         while (exploration.ActiveId == character && !await ListMovedAsync(window, layout.CaptureBounds, masked, cancel.Token)) { }
-                        confirmation = new Confirmation();
+                        session.ResetPending(); mapSelector.Reset();
                         continue;
                     }
                     // Watch pixels between OCR passes; a scroll must not wait for the next OCR.
@@ -189,7 +192,7 @@ public sealed class ExplorationScanService(ExplorationService exploration, GameC
                         using var latest = await ReadMaskAsync(window, layout.CaptureBounds, cancel.Token);
                         if (latest is null || !SameList(masked, latest))
                         {
-                            HideRowMarks(); confirmation = new Confirmation(); break;
+                            HideRowMarks(); session.ResetPending(); mapSelector.Reset(); break;
                         }
                     }
                 }

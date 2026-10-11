@@ -17,25 +17,28 @@
         <p>@UiText.T("Deine Erkundung im Blick. Offene Orte finden und Fortschritt verwalten.")</p>
     </header>
 
-    <section class="card exploration-context" aria-label="@UiText.T("Charakter und Karte")">
-        <CharacterPicker Compact="true" />
-        <label class="exploration-map-field">@UiText.T("Karte")
-            <select aria-label="@UiText.T("Karte wählen")" value="@_map" @onchange="PinMap" disabled="@Scan.Running">
-                @foreach (var group in Progress.Maps.GroupBy(m => m.Group))
-                {
-                    <optgroup label="@UiText.T(group.Key)">
-                        @foreach (var m in group) { <option value="@m.Id">@UiText.T(m.Label)</option> }
-                    </optgroup>
-                }
-            </select>
-        </label>
-        <div class="exploration-follow">
-            <button type="button" class="btn @(Settings.Current.ExplorationPinnedMap is null ? "following" : "")" disabled="@(Scan.Running || string.IsNullOrEmpty(_map))" @onclick="TogglePin" aria-pressed="@(Settings.Current.ExplorationPinnedMap is not null)">
-                @UiText.T(Settings.Current.ExplorationPinnedMap is null ? "Karte fixieren" : "Spielkarte folgen")
-            </button>
-            <span class="exploration-map-source @(_selection.Source == "detected" ? "detected" : "")">@UiText.T(MapSource)</span>
-        </div>
-        <span class="exploration-context-note">@UiText.T("Fortschritt gilt für den gewählten Charakter.")</span>
+    <section class="exploration-scan-setup" aria-label="@UiText.T("Fortschritt aus dem Spiel einlesen")">
+        <section class="card exploration-context" aria-label="@UiText.T("Charakter und Karte")">
+            <CharacterPicker Compact="true" />
+            <label class="exploration-map-field">@UiText.T("Karte")
+                <select aria-label="@UiText.T("Karte wählen")" value="@_map" @onchange="PinMap" disabled="@Scan.Running">
+                    @foreach (var group in Progress.Maps.GroupBy(m => m.Group))
+                    {
+                        <optgroup label="@UiText.T(group.Key)">
+                            @foreach (var m in group) { <option value="@m.Id">@UiText.T(m.Label)</option> }
+                        </optgroup>
+                    }
+                </select>
+            </label>
+            <div class="exploration-follow">
+                <button type="button" class="btn @(Settings.Current.ExplorationPinnedMap is null ? "following" : "")" disabled="@(Scan.Running || string.IsNullOrEmpty(_map))" @onclick="TogglePin" aria-pressed="@(Settings.Current.ExplorationPinnedMap is not null)">
+                    @UiText.T(Settings.Current.ExplorationPinnedMap is null ? "Karte fixieren" : "Spielkarte folgen")
+                </button>
+                <span class="exploration-map-source @(_selection.Source == "detected" ? "detected" : "")">@UiText.T(MapSource)</span>
+            </div>
+            <span class="exploration-context-note">@UiText.T("Fortschritt gilt für den gewählten Charakter.")</span>
+        </section>
+        <ExplorationScanPanel Map="@_map" Kind="@Kind" HasPlaces="@(_overview.Total > 0)" />
     </section>
 
     <section class="exploration-summary" aria-label="@UiText.T("Gesamtübersicht")">
@@ -112,10 +115,6 @@
         <p class="exploration-checklist-note">@UiText.T(Scan.Running ? "Manuelle Änderungen sind während des Scans gesperrt." : "Haken setzen oder entfernen, um den gespeicherten Fortschritt zu korrigieren.")</p>
     </section>
 
-    <details class="exploration-scan-drawer" open="@Scan.Running">
-        <summary><span><strong>@UiText.T("Fortschritt aus dem Spiel einlesen")</strong><small>@UiText.T(Scan.Running ? "Scan läuft – hier stoppen oder den Status prüfen." : "Bereits erledigte Orte per Scan übernehmen.")</small></span><span class="exploration-scan-drawer-state">@UiText.T(Scan.Running ? "Aktiv" : "Scan öffnen")</span></summary>
-        <ExplorationScanPanel Map="@_map" Kind="@Kind" HasPlaces="@(_overview.Total > 0)" />
-    </details>
 </div>
 @code {
     [Parameter] public string Kind { get; set; } = "all";

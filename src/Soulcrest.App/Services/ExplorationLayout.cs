@@ -15,12 +15,7 @@ public sealed record ExplorationLayout(Rectangle Bounds)
         l.Y >= Bounds.Top && l.Y + l.Height <= Bounds.Bottom && l.X >= Bounds.Left && l.X + l.Width <= Bounds.Right &&
         !IsHeading(l.Text)).ToArray();
 
-    internal static string? HeadingKind(string text) => ExplorationService.Normalize(text) switch
-    {
-        "sealeddungeon" or "sealeddungeons" or "versiegelterdungeon" or "versiegeltedungeons" => "dungeon",
-        "stronghold" or "strongholds" or "garnison" or "garnisonen" => "stronghold",
-        _ => null
-    };
+    internal static string? HeadingKind(string text) => ExplorationHeading.Read(text)?.Kind;
     private static bool IsHeading(string text) => HeadingKind(text) is not null;
 
     internal bool ShowsMap(IReadOnlyList<OcrLine> lines, string map) => ShowsMap(lines, [map]);

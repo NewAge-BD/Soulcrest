@@ -1,10 +1,11 @@
 @implements IDisposable
 @inject ExplorationScanService Scan
+@inject ExplorationService Exploration
 @inject ProgressService Progress
 
 <section class="card sv-card exploration-scan" data-scan-state="@(Scan.Running ? "running" : "idle")">
         <div class="exploration-scan-heading">
-            <div><h3>@UiText.T("Erkundung einscannen")</h3><p>@UiText.T("Öffne die Listen im Spiel. Soulcrest liest mit.")</p></div>
+            <div><h3>@UiText.T("Erkundung einscannen")</h3><p>@UiText.T("Karte und geöffnete Liste werden automatisch erkannt.")</p></div>
             <span class="exploration-scan-badge @(Scan.Running ? "live" : "")"><i aria-hidden="true"></i>@UiText.T(Scan.Running ? "Scan läuft" : "Bereit zum Scannen")</span>
         </div>
         <div class="exploration-scan-controls">
@@ -14,13 +15,13 @@
             }
             else
             {
-                <button class="btn primary" disabled="@(!HasPlaces)" @onclick="@(() => Scan.Start(Map, Kind))">@UiText.T("Scan starten")</button>
+                <button class="btn primary" disabled="@(!CanScan)" @onclick="Scan.Start">@UiText.T("Scan starten")</button>
             }
         </div>
         <ol class="exploration-scan-steps" aria-label="@UiText.T("So funktioniert der Scan")">
-            <li><span>1</span><div><strong>@UiText.T("Karte und Liste öffnen")</strong><p>@UiText.T("Wähle im Spiel dieselbe Karte und eine Erkundungsliste.")</p></div></li>
+            <li><span>1</span><div><strong>@UiText.T("Karte und Liste öffnen")</strong><p>@UiText.T("Öffne im Spiel eine Weltkarte und die Liste für Dungeons, Garnisonen oder Kibelisken.")</p></div></li>
             <li><span>2</span><div><strong>@UiText.T("Kurz stillhalten")</strong><p>@UiText.T("Warte, bis die sichtbaren Zeilen bestätigt sind.")</p></div></li>
-            <li><span>3</span><div><strong>@UiText.T("Langsam weiter")</strong><p>@UiText.T("Scrolle langsam. Öffne danach die nächste Kategorie.")</p></div></li>
+            <li><span>3</span><div><strong>@UiText.T("Langsam weiter")</strong><p>@UiText.T("Scrolle langsam. Wechsle danach die Liste oder Karte.")</p></div></li>
         </ol>
         <div class="exploration-scan-status @(Scan.Feedback?.Ready == true ? "ready" : "")" role="status" aria-live="polite" aria-atomic="true">
             <div class="exploration-scan-status-copy">
@@ -41,7 +42,7 @@
             <p>@UiText.T(Scan.DetectedKind == "kibelisk" ? "Kibelisken übernehmen den gelesenen Bindungsstatus: abgeschlossen setzt den Haken, nicht abgeschlossen nimmt ihn zurück." : "Erkannte Namen allein setzen keinen Abschluss. Nur Haken oder bestätigte 100 % zählen.")</p>
             <details class="exploration-scan-rules">
                 <summary>@UiText.T("So werden Abschlüsse gespeichert")</summary>
-                <p>@UiText.T("Bestätigte 100 % schließen die gesamte Kategorie auf der gewählten Karte ab. Sonst zählen nur eindeutig erkannte Namen mit Abschluss-Haken. Fehlende Haken setzen nichts zurück.")</p>
+                <p>@UiText.T("Bestätigte 100 % schließen die gesamte Kategorie auf der erkannten Karte ab. Sonst zählen nur eindeutig erkannte Namen mit Abschluss-Haken. Fehlende Haken setzen nichts zurück.")</p>
                 <p>@UiText.T("Kibelisken übernehmen den gelesenen Bindungsstatus: abgeschlossen setzt den Haken, nicht abgeschlossen nimmt ihn zurück.")</p>
                 <p>@UiText.T("Du kannst jederzeit stoppen. Bereits übernommene Einträge bleiben gespeichert.")</p>
             </details>
@@ -68,6 +69,7 @@
     [Parameter, EditorRequired] public string Map { get; set; } = "";
     [Parameter] public string Kind { get; set; } = "all";
     [Parameter] public bool HasPlaces { get; set; } = true;
+    private bool CanScan => Exploration.Places.Any(place => place.Kind is "dungeon" or "stronghold" or "kibelisk");
     private DateTime _lastScanRender;
     private string MapLabel(string map) => Progress.Maps.FirstOrDefault(m => m.Id == map)?.Label ?? map;
     protected override void OnInitialized() => Scan.Changed += Refresh;

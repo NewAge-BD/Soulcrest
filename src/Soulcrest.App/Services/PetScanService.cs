@@ -238,13 +238,19 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
 
     /// <summary>While the reference portraits load (several seconds on the first start): the button shows it.</summary>
     public bool Starting { get; private set; }
+    public bool Stopping { get; private set; }
+    private Task? _preparing;
+    private readonly object _stopGate = new();
+    private Task? _stopping;
 
     public async Task StartAsync()
     {
-        if (Running || Starting)
+        if (Running || Starting || Stopping)
             return;
         // Loading the portraits ran on the UI thread: the button stayed unchanged for seconds (user report
         // 2026-10-03). Now it says "Scan startet …" right away.
+        var prepared = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _preparing = prepared.Task;
         Starting = true;
         _startedAt = Stopwatch.GetTimestamp();
         _waitingForFirstFrame = true;
@@ -265,25 +271,32 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
             _gridMotion.Reset();
             _overlayMotion.Reset();
             BeginNewRun();
+            token.ThrowIfCancellationRequested();
+            Running = true;
+            StartupTrace("capture-ready");
+            // Publish the loop before its status event: an immediate StopAsync must drain it too.
+            _loop = Task.Run(async () =>
+            {
+                await prepared.Task.ConfigureAwait(false);
+                if (!token.IsCancellationRequested) await LoopAsync(token).ConfigureAwait(false);
+            });
+            SetStatus("Scan läuft – langsam durch die Pet-Liste scrollen. Unbekannte Pets einmal anklicken, dann liest Soulcrest den Namen rechts.");
         }
         catch (OperationCanceledException)
         {
-            Starting = false;
             _waitingForFirstFrame = false;
-            return;
         }
         catch (Exception exception)
         {
-            Starting = false;
             _waitingForFirstFrame = false;
             SetStatus(exception.Message, error: true);
-            return;
         }
-        Starting = false;
-        Running = true;
-        StartupTrace("capture-ready");
-        SetStatus("Scan läuft – langsam durch die Pet-Liste scrollen. Unbekannte Pets einmal anklicken, dann liest Soulcrest den Namen rechts.");
-        _loop = Task.Run(() => LoopAsync(token));
+        finally
+        {
+            Starting = false;
+            prepared.TrySetResult();
+            Changed?.Invoke();
+        }
     }
 
     /// <summary>A new scan run: earlier values stay until their card is seen again (see <see cref="ScanEntry.Stale"/>).</summary>
@@ -304,7 +317,45 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
         _waitingForFirstFrame = false;
         Running = false;
         Page = null;
-        SetStatus($"Scan beendet: {Entries.Count} Pets gelesen. Ergebnisse prüfen und übernehmen.");
+        // A failed capture remains a failure when the user stops or leaves the setup.
+        if (!StatusIsError) SetStatus($"Scan beendet: {Entries.Count} Pets gelesen. Ergebnisse prüfen und übernehmen.");
+        else Changed?.Invoke();
+    }
+
+    /// <summary>Stops and drains preparation and the last frame before a wizard saves its final snapshot.</summary>
+    public Task StopAsync()
+    {
+        TaskCompletionSource stopped;
+        Task? preparing;
+        lock (_stopGate)
+        {
+            if (_stopping is { IsCompleted: false }) return _stopping;
+            stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            _stopping = stopped.Task;
+            preparing = _preparing;
+            Stopping = true;
+        }
+        _ = CompleteStopAsync(preparing, stopped);
+        return stopped.Task;
+    }
+
+    private async Task CompleteStopAsync(Task? preparing, TaskCompletionSource stopped)
+    {
+        try
+        {
+            Stop();
+            // File imports intentionally finish their current OCR operation; no scanner is disposed here.
+            if (preparing is not null) await preparing.ConfigureAwait(false);
+            if (_loop is { } loop) await loop.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception) { SetStatus(exception.Message, error: true); }
+        finally
+        {
+            Stopping = false;
+            stopped.TrySetResult();
+            Changed?.Invoke();
+        }
     }
 
     public void Clear()
@@ -327,10 +378,13 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
     /// <summary>Scans a single image file (e.g. a screenshot of the pet window).</summary>
     public async Task ScanFileAsync(string path)
     {
-        if (Running || Starting) return;
+        if (Running || Starting || Stopping) return;
+        var prepared = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _preparing = prepared.Task;
         Starting = true;
         _startedAt = 0;
         _waitingForFirstFrame = false;
+        SetStatus("Bild wird gelesen …");
         try
         {
             if (_loop is { } previous)
@@ -341,9 +395,19 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
             await _initializing;
             using var bitmap = new Bitmap(path);
             await ProcessAsync(bitmap, CancellationToken.None, singlePicture: true);
-            SetStatus($"Bild gelesen: {Entries.Count} Pets.");
+            if (!StatusIsError) SetStatus($"Bild gelesen: {Entries.Count} Pets.");
         }
-        finally { Starting = false; }
+        catch (Exception exception)
+        {
+            SetStatus(exception.Message, error: true);
+            throw;
+        }
+        finally
+        {
+            Starting = false;
+            prepared.TrySetResult();
+            Changed?.Invoke();
+        }
     }
 
     private void EnsureScanner(CancellationToken token = default)

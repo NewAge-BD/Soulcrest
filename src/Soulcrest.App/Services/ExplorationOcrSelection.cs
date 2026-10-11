@@ -32,7 +32,8 @@ internal static class ExplorationOcrSelection
             {
                 consumed.Add(partner);
                 var other = secondRows[partner];
-                if (row.Id is not null && other.Id is not null && row.Id != other.Id)
+                if (row.NameConflict || other.NameConflict || Rejects(row, other.Id) || Rejects(other, row.Id)
+                    || row.Id is not null && other.Id is not null && row.Id != other.Id)
                 {
                     rows.Add(row with { Id = null, Complete = false });
                     additionalUnknown.Add(other.Line.Text);
@@ -61,6 +62,10 @@ internal static class ExplorationOcrSelection
             ordered.Where(row => row.Id is null).Select(row => row.Line.Text).Concat(additionalUnknown).Distinct().ToArray(),
             first.End && second.End, first.Kind, false, ordered);
     }
+
+    // An ambiguous reading is evidence too: a second pass cannot replace it with an unrelated ID.
+    private static bool Rejects(ExplorationList.Row row, string? id) =>
+        id is not null && row.CandidateIds is { Count: > 0 } candidates && !candidates.Contains(id);
 
     private static bool SameRow(ExplorationList.Row first, ExplorationList.Row second) =>
         Math.Abs(Center(first.Line) - Center(second.Line)) <= Math.Max(first.Line.Height, second.Line.Height) * .75;

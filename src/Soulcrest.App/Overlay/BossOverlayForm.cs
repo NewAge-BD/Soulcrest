@@ -30,6 +30,7 @@ public sealed class BossOverlayForm : Form
     private Point? _drag;
     private readonly OverlayLockButton _lockButton;
     private bool _manualInteraction;
+    private bool _altInteractionRequested, _blockAltUntilRelease;
     private bool _locked = true, _inRecordings, _showList, _suppressed;
     private long _lastSoundId;
 
@@ -93,11 +94,18 @@ public sealed class BossOverlayForm : Form
     /// <summary>Temporary interaction state; legacy lock preferences have no effect.</summary>
     internal bool ManualInteractionEnabled => _manualInteraction;
 
-    internal void ToggleManualInteraction()
+    internal void ToggleManualInteraction() => SetManualInteraction(_locked);
+
+    // A hotkey can itself contain Alt: toggle the persistent choice, not its temporary Alt unlock.
+    internal void ToggleManualInteractionFromHotkey() => SetManualInteraction(!_manualInteraction);
+
+    private void SetManualInteraction(bool enabled)
     {
-        _manualInteraction = !_manualInteraction;
-        _lockButton.SetLocked(!_manualInteraction);
-        SetInteractionEnabled(OverlayInteraction.IsAltHeld);
+        // An explicit lock wins over an already active Alt signal until its next release.
+        _manualInteraction = enabled;
+        var alt = _altInteractionRequested || OverlayInteraction.IsAltHeld;
+        _blockAltUntilRelease = !enabled && alt;
+        SetInteractionEnabled(alt);
     }
 
     protected override void OnVisibleChanged(EventArgs e)
@@ -109,11 +117,14 @@ public sealed class BossOverlayForm : Form
         SetInteractionEnabled(false);
     }
 
-    private bool InteractionAllowed => !_suppressed && (_manualInteraction || OverlayInteraction.IsAltHeld);
+    private bool InteractionAllowed => !_suppressed && (_manualInteraction || (!_blockAltUntilRelease && OverlayInteraction.IsAltHeld));
 
     public void SetInteractionEnabled(bool enabled)
     {
-        enabled = (enabled || _manualInteraction) && !_suppressed;
+        _altInteractionRequested = enabled;
+        if (!enabled) _blockAltUntilRelease = false;
+        enabled = (_manualInteraction || (enabled && !_blockAltUntilRelease)) && !_suppressed;
+        if (_lockButton is { } button && button.Locked != !enabled) button.SetLocked(!enabled);
         if (_locked == !enabled) return;
         _locked = !enabled;
         if (_locked) FinishDrag();
@@ -353,7 +364,7 @@ public sealed class BossOverlayForm : Form
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
-        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
+        if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         if (_locked || e.Button != MouseButtons.Left) return;
         _drag = e.Location;
         Capture = true;
@@ -361,13 +372,13 @@ public sealed class BossOverlayForm : Form
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
+        if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         if (_drag is { } from) Location = new Point(Location.X + e.X - from.X, Location.Y + e.Y - from.Y);
     }
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
+        if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         FinishDrag();
     }
     protected override void OnMouseCaptureChanged(EventArgs e)

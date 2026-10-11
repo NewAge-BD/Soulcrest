@@ -20,6 +20,10 @@ internal sealed class OverlayModifierHook : IDisposable
     private readonly HookProcedure _procedure;
     private HookRun? _run;
     private int _modifiers;
+    private OverlayModifierObservation _altObservation = OverlayModifierObservation.Unknown;
+    private OverlayModifierObservation _shiftObservation = OverlayModifierObservation.Unknown;
+    internal OverlayModifierObservation AltObservation => Volatile.Read(ref _altObservation);
+    internal OverlayModifierObservation ShiftObservation => Volatile.Read(ref _shiftObservation);
     private bool _disposed;
 
     internal OverlayModifierHook() => _procedure = HookCallback;
@@ -151,6 +155,8 @@ internal sealed class OverlayModifierHook : IDisposable
             before = Volatile.Read(ref _modifiers);
             after = (down ? before | key : before & ~key) | known;
         } while (Interlocked.CompareExchange(ref _modifiers, after, before) != before);
+        if (known == AltKnown) Volatile.Write(ref _altObservation, OverlayModifierObservation.Capture(AltState(after)));
+        else Volatile.Write(ref _shiftObservation, OverlayModifierObservation.Capture(ShiftState(after)));
         if (AltState(before) != AltState(after) || ShiftState(before) != ShiftState(after)) NotifyChanged();
         return true;
     }
@@ -161,7 +167,10 @@ internal sealed class OverlayModifierHook : IDisposable
 
     private void ResetModifiers()
     {
-        if (Interlocked.Exchange(ref _modifiers, 0) != 0) NotifyChanged();
+        var previous = Interlocked.Exchange(ref _modifiers, 0);
+        Volatile.Write(ref _altObservation, OverlayModifierObservation.Unknown);
+        Volatile.Write(ref _shiftObservation, OverlayModifierObservation.Unknown);
+        if (previous != 0) NotifyChanged();
     }
 
     private void NotifyChanged()

@@ -220,7 +220,10 @@
     private readonly CancellationTokenSource _lifetime = new();
     private bool _readingFile, _fileError, _confirmClear, _justApplied, _disposed;
     private int _appliedCount, _savedUnlocked, _savedMax, _refreshQueued, _snapshotPending, _savedPending;
-    private bool Locked => Scan.Running || Scan.Starting || _readingFile;
+    [Parameter] public EventCallback<bool> BusyChanged { get; set; }
+    public bool IsReadingFile => _readingFile;
+    public bool HasError => Scan.StatusIsError || _fileError;
+    private bool Locked => Scan.Running || Scan.Starting || Scan.Stopping || _readingFile;
 
     protected override void OnInitialized()
     {
@@ -288,7 +291,13 @@
     private void SetStatus(string status) { _status = status is "review" or "ready" or "selected" ? status : "all"; Rebuild(); }
     private void ResetFilters() { _search = ""; _status = "all"; Rebuild(); }
     private void SelectVisible(bool apply) => Scan.SetApply(_overview.Rows.Where(row => row.Eligible).Select(row => row.Entry.Key), apply);
-    private Task StartScan() => Locked ? Task.CompletedTask : Scan.StartAsync();
+    private Task StartScan()
+    {
+        if (Locked) return Task.CompletedTask;
+        _fileError = false;
+        _fileFeedback = null;
+        return Scan.StartAsync();
+    }
     private void StopScan() { if (!_readingFile && (Scan.Running || Scan.Starting)) Scan.Stop(); }
     private void SelectRegion() { if (!Locked) Scan.SelectRegion(); }
     private void UsePrimaryScreen() { if (!Locked) Scan.UsePrimaryScreen(); }
@@ -303,6 +312,7 @@
         _readingFile = true;
         _confirmClear = false;
         StateHasChanged();
+        if (!_disposed) await BusyChanged.InvokeAsync(true);
         try
         {
             await Task.Run(() => Scan.ScanFileAsync(dialog.FileName));
@@ -310,7 +320,11 @@
             _fileFeedback = UiText.T(_fileError ? "Bild konnte nicht eingelesen werden. Scan-Status prüfen." : "Bild eingelesen. Ergebnisse unten prüfen und übernehmen.");
         }
         catch (Exception exception) { _fileError = true; _fileFeedback = UiText.T("Fehler: ") + exception.Message; }
-        finally { _readingFile = false; }
+        finally
+        {
+            _readingFile = false;
+            if (!_disposed) await BusyChanged.InvokeAsync(false);
+        }
     }
 
     private void ToggleCorrection(string key)

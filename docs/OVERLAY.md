@@ -21,6 +21,16 @@ muss im **randlosen Fenstermodus** laufen; über exklusivem Vollbild kann nicht 
   leere oder unklare OCR-Texte löschen die Erkennung nicht. Fehlende deutsche Monsternamen bleiben
   Englisch; fehlt ein Quellmonster, gilt dieselbe Sprachwahl für den Pet-Namen. Menütexte und
   Statusbeschriftungen behalten die Oberflächensprache.
+- **Soul-Namen und eindeutige Zeilen** (Nutzerwunsch 2026-10-11): Unter dem hellen Monsternamen
+  steht eine eigene kleinere graue Zeile `Soul: <Pet-Name>` aus dem Pet-Katalog, in derselben
+  Overlay-/Spielsprache. Fehlende Soul-Namen werden nicht geraten; lange Namen enden mit Ellipse.
+  Die Zeilenhöhe enthält zusätzlich Stufe, Zähler und Fortschrittsbalken. Die Zusatzzeile wird bei
+  alten Beuteeinträgen zusammen mit der Karte ausgeblendet.
+  Das aktuelle Fokus-Pet erscheint ausschließlich im Fokusbereich; seine Soul-Drops der letzten
+  Minute stehen dort als `+N`. Historische Aliase werden vor dem Gruppieren auf dieselbe Pet-ID
+  aufgelöst. Unter „Letzte Beute“ bleiben bis zu fünf andere Pets, neueste zuerst. Beim Fokuswechsel
+  erscheint das vorherige Fokus-Pet wieder in der Beuteliste, solange sein Drop noch aktuell ist.
+  Die Aufteilung verändert nur die Anzeige, nicht Loot-Ereignisse oder gespeicherten Fortschritt.
 
 Technik aus Grindcrest übernehmen (siehe `GRINDCREST_REUSE.md`): `NativeOverlayForm`,
 `NativeOverlayHost`, `NativeOverlayRenderer` (GDI+ in ein Layered Window per
@@ -79,6 +89,25 @@ zusätzlich Graustufen + CLAHE, damit HDR/SDR dieselben Features liefern.
 - Overlays folgen dem Spielfenster (Bewegen, Monitorwechsel, DPI) und verstecken sich, wenn das
   Spiel minimiert oder nicht im Vordergrund ist (`NativeGameForegroundMonitor`).
 - Overlays lesen und schreiben **keinen** Spielspeicher, senden keine Eingaben an das Spiel.
+
+## Schloss und hängende Alt-Zustände (2026-10-11)
+
+- Nutzerdiagnose an der laufenden Instanz: geschlossenes Schloss, aber verschiebbares Panel.
+  Im Eingabe-Log blieb der Modifier-Observer auf Alt gedrückt, während Raw Input bereits
+  losgelassen meldete. Ein späterer Release im Observer stellte die Sperre wieder her.
+- Für Alt und Shift zählt jeweils die zuletzt eingegangene Modifier-Beobachtung beider Quellen.
+  Eine neuere Loslassmeldung kann einen alten Gedrückt-Zustand entkräften, auch wenn die meldende
+  Quelle selbst zuvor schon losgelassen annahm. Der positive Windows-Tastenzustand bleibt als
+  Fallback für noch nicht eingegangene Press-Meldungen erhalten. Unbekannte Quellen haben keinen
+  Vorrang. Es werden nur der letzte Modifier-Zustand und eine Reihenfolgezahl gehalten, keine
+  anderen Tasten oder Eingabetexte.
+- Loot-, Boss- und Leveling-Schlösser zeigen den tatsächlichen Interaktionszustand, einschließlich
+  temporärer Alt-Freigabe. Ein ausdrücklicher Klick auf Sperren beendet Drag/Resize bzw. eine
+  ausstehende Button-Aktion sofort. Ein bereits aktives Alt-Signal bleibt für dieses Panel bis
+  zu seiner nächsten Loslassmeldung blockiert; erst erneutes Alt-Drücken gibt es wieder frei.
+  Manuelles Entsperren bleibt unabhängig davon möglich. Ein Hotkey mit Alt schaltet die manuelle
+  Wahl um, damit die temporäre Alt-Freigabe das dauerhafte Entsperren nicht umkehrt. Die Wahl ist weiterhin flüchtig;
+  Ausblenden beendet die manuelle Interaktion. Keine Weltkarten-Interaktion wird aktiviert.
 
 ## Boss Rush (2026-10-09)
 

@@ -33,6 +33,7 @@ public sealed class LevelingOverlayForm : Form
     private RouteProgress? _pressedProgress;
     private readonly OverlayLockButton _lockButton;
     private bool _manualInteraction;
+    private bool _altInteractionRequested, _blockAltUntilRelease;
     private bool _locked = true, _inRecordings, _suppressed;
 
     public LevelingOverlayForm(MapTargetsService targets, ExplorationService exploration, SettingsService settings)
@@ -96,11 +97,18 @@ public sealed class LevelingOverlayForm : Form
 
     internal bool ManualInteractionEnabled => _manualInteraction;
 
-    internal void ToggleManualInteraction()
+    internal void ToggleManualInteraction() => SetManualInteraction(_locked);
+
+    // A hotkey can itself contain Alt: toggle the persistent choice, not its temporary Alt unlock.
+    internal void ToggleManualInteractionFromHotkey() => SetManualInteraction(!_manualInteraction);
+
+    private void SetManualInteraction(bool enabled)
     {
-        _manualInteraction = !_manualInteraction;
-        _lockButton.SetLocked(!_manualInteraction);
-        SetInteractionEnabled(OverlayInteraction.IsAltHeld);
+        // An explicit lock wins over an already active Alt signal until its next release.
+        _manualInteraction = enabled;
+        var alt = _altInteractionRequested || OverlayInteraction.IsAltHeld;
+        _blockAltUntilRelease = !enabled && alt;
+        SetInteractionEnabled(alt);
     }
 
     protected override void OnVisibleChanged(EventArgs e)
@@ -112,12 +120,15 @@ public sealed class LevelingOverlayForm : Form
         SetInteractionEnabled(false);
     }
 
-    private bool InteractionAllowed => !_suppressed && (_manualInteraction || OverlayInteraction.IsAltHeld);
+    private bool InteractionAllowed => !_suppressed && (_manualInteraction || (!_blockAltUntilRelease && OverlayInteraction.IsAltHeld));
 
     /// <summary>Temporary interaction state; releasing Alt cancels any pending button action.</summary>
     public void SetInteractionEnabled(bool enabled)
     {
-        enabled = (enabled || _manualInteraction) && !_suppressed;
+        _altInteractionRequested = enabled;
+        if (!enabled) _blockAltUntilRelease = false;
+        enabled = (_manualInteraction || (enabled && !_blockAltUntilRelease)) && !_suppressed;
+        if (_lockButton is { } button && button.Locked != !enabled) button.SetLocked(!enabled);
         if (_locked == !enabled) return;
         _locked = !enabled;
         if (_locked) ResetInteraction();
@@ -377,7 +388,7 @@ public sealed class LevelingOverlayForm : Form
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
-        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
+        if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         if (e.Button != MouseButtons.Left) return;
         var action = HitTest(LogicalPoint(e.Location), _locked, _snapshot);
         if (action == LevelingOverlayAction.Drag) _drag = e.Location;
@@ -395,7 +406,7 @@ public sealed class LevelingOverlayForm : Form
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
+        if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         if (_drag is { } from)
             Location = new Point(Location.X + e.X - from.X, Location.Y + e.Y - from.Y);
         _hover = HitTest(LogicalPoint(e.Location), _locked, _snapshot);
@@ -414,7 +425,7 @@ public sealed class LevelingOverlayForm : Form
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        if (!InteractionAllowed) { SetInteractionEnabled(false); return; }
+        if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         if (e.Button != MouseButtons.Left) return;
         var action = _pressed;
         var routeId = _pressedRouteId;

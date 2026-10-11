@@ -18,7 +18,7 @@ public sealed class ExplorationOverviewViewTests
     [Theory]
     [InlineData("de", "Gesamtübersicht", "Erkundungs-Checkliste", "Manuell fixiert", "Spielkarte folgen")]
     [InlineData("en", "Overview", "Exploration checklist", "Manually pinned", "Follow game map")]
-    public async Task PinnedOverviewShowsSavedCompletionAndLockedChecklistBeforeTheOptionalScan(string language, string overview, string checklist, string source, string follow)
+    public async Task PinnedOverviewKeepsTheScanVisibleAboveSavedCompletionAndTheLockedChecklist(string language, string overview, string checklist, string source, string follow)
     {
         await using var fixture = new Fixture(language);
         fixture.Settings.Current.ExplorationPinnedMap = "altgard";
@@ -32,8 +32,8 @@ public sealed class ExplorationOverviewViewTests
         Assert.Contains("exploration-place locked", html);
         Assert.Contains("Twisted Pit Entrance", html);
         Assert.Contains("class=\"exploration-rows\" tabindex=\"0\"", html);
-        Assert.Contains("<details class=\"exploration-scan-drawer\"><summary>", html);
-        Assert.True(html.IndexOf("exploration-checklist\"", StringComparison.Ordinal) < html.IndexOf("exploration-scan-drawer\"", StringComparison.Ordinal));
+        AssertVisibleScanAboveOverview(html);
+        Assert.Contains(language == "de" ? "Scan starten" : "Start scan", html);
         Assert.False(fixture.Tracking.Running);
         Assert.Equal(new[] { "lost" }, fixture.Exploration.Completed);
         await fixture.Export(html, "pinned");
@@ -61,7 +61,7 @@ public sealed class ExplorationOverviewViewTests
     [Theory]
     [InlineData("de", "Karte des laufenden Scans", "Manuelle Änderungen sind während des Scans gesperrt.")]
     [InlineData("en", "Map locked by the running scan", "Manual changes are locked during a scan.")]
-    public async Task RunningScanKeepsItsMapLocksCorrectionsAndExpandsTheScanDrawer(string language, string source, string locked)
+    public async Task RunningScanKeepsItsMapLocksCorrectionsAndRemainsVisibleAtTheTop(string language, string source, string locked)
     {
         await using var fixture = new Fixture(language);
         fixture.Settings.Current.ExplorationPinnedMap = null;
@@ -75,13 +75,27 @@ public sealed class ExplorationOverviewViewTests
         Assert.Contains(locked, html);
         Assert.Contains("data-place=\"rift\"", html);
         Assert.DoesNotContain("data-place=\"verteron-open\"", html);
-        Assert.Matches("<details class=\"exploration-scan-drawer\" open(?:>|[ =])", html);
+        AssertVisibleScanAboveOverview(html);
+        Assert.Contains(language == "de" ? "Scan stoppen" : "Stop scan", html);
         Assert.Contains("data-scan-state=\"running\"", html);
         var checkboxes = Regex.Matches(html, "<input type=\"checkbox\"[^>]*>").Select(match => match.Value).ToArray();
         Assert.NotEmpty(checkboxes);
         Assert.All(checkboxes, checkbox => Assert.Contains("disabled", checkbox));
         Assert.Equal(new[] { "lost" }, fixture.Exploration.Completed);
         await fixture.Export(html, "scanning");
+    }
+
+    private static void AssertVisibleScanAboveOverview(string html)
+    {
+        Assert.Contains("class=\"exploration-scan-setup\"", html);
+        Assert.DoesNotContain("exploration-scan-drawer", html);
+        Assert.Single(Regex.Matches(html, "data-scan-state="));
+        var setup = html.IndexOf("class=\"exploration-scan-setup\"", StringComparison.Ordinal);
+        var context = html.IndexOf("class=\"card exploration-context\"", StringComparison.Ordinal);
+        var scan = html.IndexOf("data-scan-state=", StringComparison.Ordinal);
+        var overview = html.IndexOf("class=\"exploration-summary\"", StringComparison.Ordinal);
+        var checklist = html.IndexOf("class=\"card exploration-checklist\"", StringComparison.Ordinal);
+        Assert.True(setup < context && context < scan && scan < overview && overview < checklist);
     }
 
     private sealed class Fixture : IAsyncDisposable

@@ -1057,9 +1057,9 @@ button.route-color:hover, button.route-color.open { box-shadow: 0 0 0 2px #11192
 @media (max-width: 1000px) { .exploration-scan-status { flex-direction: column; } .exploration-scan-metrics { gap: 1.5rem; } .exploration-progress-grid { grid-template-columns: 1fr; } }
 @media (max-width: 650px) { .card.exploration-scan { padding: .9rem; } .exploration-scan-steps { grid-template-columns: 1fr; } .exploration-scan-controls { align-items: stretch; flex-direction: column; } .exploration-scan-controls > label { max-width: none; } .exploration-scan-metrics { gap: 1rem; } .exploration-scan-metrics dt { font-size: .63rem; } }
 
-/* Exploration overview: character/map context and saved checklist come before optional scanning. */
+/* Exploration overview: visible scan setup comes before the saved checklist. */
 .exploration-overview { --exploration-line: #334256; }
-.exploration-overview > :is(.exploration-context,.exploration-summary,.exploration-next,.exploration-checklist,.exploration-scan-drawer) { max-width: 88rem; }
+.exploration-overview > :is(.exploration-context,.exploration-summary,.exploration-next,.exploration-checklist,.exploration-scan-setup) { max-width: 88rem; }
 .exploration-context { display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap; padding: 1rem; border-radius: 10px; margin-bottom: 1rem; }
 .character-picker-compact { display: flex; flex: 1; flex-direction: column; align-items: stretch; min-width: 12rem; max-width: 24rem; gap: .25rem; }
 .character-picker-compact > label, .exploration-map-field { display: flex; flex: 1; flex-direction: column; gap: .35rem; color: #98abc3; font-size: .7rem; min-width: 12rem; }
@@ -1123,16 +1123,9 @@ button.route-color:hover, button.route-color.open { box-shadow: 0 0 0 2px #11192
 .exploration-place-focus { display: flex; align-items: center; gap: .45rem; flex: none; font-size: .7rem; padding: .35rem .5rem; }
 .exploration-checklist-note { margin: .8rem 0 0; color: #8396af; font-size: .67rem; line-height: 1.5; }
 .exploration-list-empty { padding: 2rem .75rem; border-top: 1px solid #ffffff0b; color: #99adc6; text-align: center; font-size: .85rem; }
-.exploration-scan-drawer { margin-top: 1rem; border: 1px solid #344357; border-radius: 10px; background: #151f2b; }
-.exploration-scan-drawer > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; list-style: none; cursor: pointer; }
-.exploration-scan-drawer > summary::-webkit-details-marker { display: none; }
-.exploration-scan-drawer > summary > span:first-child { display: flex; flex-direction: column; gap: .3rem; }
-.exploration-scan-drawer > summary strong { color: #c4d2e5; font-size: .8rem; font-weight: 500; }
-.exploration-scan-drawer > summary small { color: #8195af; font-size: .68rem; }
-.exploration-scan-drawer-state { color: #9dafc6; font-size: .68rem; white-space: nowrap; }
-.exploration-scan-drawer-state::after { content: "›"; display: inline-block; padding-left: .5rem; }
-.exploration-scan-drawer[open] .exploration-scan-drawer-state::after { content: "⌄"; }
-.exploration-scan-drawer > .exploration-scan { margin: 0 .75rem .75rem; }
+.exploration-scan-setup { margin-bottom: 1.15rem; }
+.exploration-scan-setup > .exploration-context { margin-bottom: .75rem; }
+.exploration-scan-setup > .exploration-scan { margin: 0; }
 .exploration-overview :is(button,select,input,summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media(max-width:1000px) { .exploration-summary { grid-template-columns: repeat(3,minmax(0,1fr)); } .exploration-total { grid-column: 1/-1; flex-direction: row; align-items: baseline; justify-content: space-between; flex-wrap: wrap; } .exploration-total > strong { font-size: 1.5rem; } }
 @media(max-width:650px) { .exploration-context { gap: .7rem; } .character-picker-compact, .exploration-map-field { min-width: 100%; max-width: none; } .exploration-follow { padding: 0; } .exploration-summary { gap: .4rem; } .exploration-category-chip { padding: .65rem; } .exploration-category-heading { flex-direction: column; align-items: flex-start; } .exploration-category-heading strong { font-size: .65rem; } .exploration-category-value { font-size: 1.1rem; } .exploration-category-value small { display: block; } .exploration-next { align-items: stretch; flex-direction: column; } .exploration-next > .btn { align-self: flex-start; } .exploration-checklist { padding: .8rem; } .exploration-filters .exploration-search { min-width: 100%; } .exploration-place { gap: .45rem; } .exploration-place-focus > span:first-child { display: none; } .exploration-place-distance { font-size: .62rem; } }
@@ -1268,3 +1261,11 @@ button.route-color:hover, button.route-color.open { box-shadow: 0 0 0 2px #11192
 
 .pet-scan-state.error { border-color: #f8717140; background: #f8717108; }
 .pet-scan-state.error i { background: #f3a09e; }
+
+/* The existing pet scanner stays inside the setup until selected results have been applied. */
+.tutorial.tutorial-scan { width: min(1180px, 100%); max-width: min(1180px, 100%); }
+.tutorial-scan-content { min-width: 0; }
+.tutorial-scan-content .page.pet-scan-page { padding: 0; overflow: visible; height: auto; }
+.tutorial-scan .tutorial-actions { position: sticky; bottom: -1rem; z-index: 1; margin: 0; padding: .8rem 0; border-top: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+.tutorial-scan .tutorial-side > .status { margin: 0; }
+@media (max-width: 640px) { .tutorial-scan .tutorial-actions > .btn { flex: 1 1 auto; } }

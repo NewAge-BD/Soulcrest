@@ -65,30 +65,13 @@ public static partial class KibeliskList
     /// The Kibelisks a row can be: the exact name, else every place whose name starts with the cut name.
     /// Equally named places (Altgard "Steel Hammer Temporary Trading Post" #1/#2) all count.
     /// </summary>
-    public static IReadOnlyList<ExplorationPlace> Candidates(KibeliskRow row, IReadOnlyList<ExplorationPlace> places)
+    public static IReadOnlyList<ExplorationPlace> Candidates(KibeliskRow row, IReadOnlyList<ExplorationPlace> places) =>
+        Candidates(row, new ExplorationNameIndex(places));
+
+    internal static IReadOnlyList<ExplorationPlace> Candidates(KibeliskRow row, ExplorationNameIndex names)
     {
-        var name = ExplorationService.Normalize(row.Name);
-        if (name.Length < 4)
-            return [];
-        var exact = places.Where(p => ExplorationService.Normalize(p.En) == name || p.De is not null && ExplorationService.Normalize(p.De) == name).ToArray();
-        if (exact.Length > 0)
-            return exact;
-        if (!row.Truncated && ExplorationService.Match(row.Name, places) is { } similar)
-            return places.Where(p => ExplorationService.Normalize(p.En) == ExplorationService.Normalize(similar.En)
-                || similar.De is not null && p.De is not null && ExplorationService.Normalize(p.De) == ExplorationService.Normalize(similar.De)).ToArray();
-        // One letter misread or lost ("'dun's Lake" for "Idun's Lake", full Altgard list 2026-10-06), when
-        // that fits exactly one name.
-        if (!row.Truncated && name.Length >= 8)
-        {
-            var near = places.SelectMany(p => new[] { p.En, p.De }.Where(n => !string.IsNullOrWhiteSpace(n))
-                    .Select(n => (Place: p, Name: ExplorationService.Normalize(n!))))
-                .Where(p => ExplorationService.Distance(name, p.Name) <= 1).ToArray();
-            if (near.Select(p => p.Name).Distinct().Count() == 1)
-                return near.Select(p => p.Place).DistinctBy(p => p.Id).ToArray();
-        }
-        // Cut names, also when OCR dropped the dots; long enough to mean something.
-        return name.Length < 8 ? [] : places.Where(p => ExplorationService.Normalize(p.En).StartsWith(name, StringComparison.Ordinal)
-            || p.De is not null && ExplorationService.Normalize(p.De).StartsWith(name, StringComparison.Ordinal)).ToArray();
+        var resolved = names.ResolveObservation(row.Name, row.Truncated);
+        return resolved.Conflict ? [] : resolved.Candidates;
     }
 }
 
@@ -100,6 +83,7 @@ public static partial class KibeliskList
 /// </summary>
 public sealed class KibeliskSession(IReadOnlyList<ExplorationPlace> places)
 {
+    private readonly ExplorationNameIndex _names = new(places);
     private Dictionary<int, KibeliskRow> _previous = [];
     private readonly Dictionary<int, KibeliskRow> _confirmed = [];
     private bool _endBefore;
@@ -108,6 +92,13 @@ public sealed class KibeliskSession(IReadOnlyList<ExplorationPlace> places)
     public bool Ended { get; private set; }
 
     public IReadOnlyDictionary<int, KibeliskRow> Confirmed => _confirmed;
+
+    /// <summary>Interrupts consecutive-frame evidence without losing already confirmed rows.</summary>
+    public void ResetPending()
+    {
+        _previous.Clear();
+        _endBefore = false;
+    }
 
     /// <summary>Adds a picture's rows; returns the rows confirmed by it.</summary>
     public IReadOnlyList<KibeliskRow> Observe(KibeliskPage page)
@@ -136,7 +127,7 @@ public sealed class KibeliskSession(IReadOnlyList<ExplorationPlace> places)
         var unbound = new List<string>();
         var unknown = new List<string>();
         var open = new List<string>();
-        foreach (var group in _confirmed.Values.Select(r => (Row: r, Places: KibeliskList.Candidates(r, places)))
+        foreach (var group in _confirmed.Values.Select(r => (Row: r, Places: KibeliskList.Candidates(r, _names)))
                      .GroupBy(e => string.Join("|", e.Places.Select(p => p.Id).Order())))
         {
             var candidates = group.First().Places;
@@ -153,10 +144,11 @@ public sealed class KibeliskSession(IReadOnlyList<ExplorationPlace> places)
             }
             (rows[0].Bound ? bound : unbound).AddRange(candidates.Select(p => p.Id));
         }
-        if (Ended)
+        if (Ended && _confirmed.Count > 0 && unknown.Count == 0 && open.Count == 0)
         {
-            // Not in the complete list: not discovered yet, so not bound either.
-            var listed = _confirmed.Values.SelectMany(r => KibeliskList.Candidates(r, places)).Select(p => p.Id).ToHashSet();
+            // Only a fully resolved list proves that an absent place is undiscovered. An unreadable
+            // name may be that very place; never turn its earlier binding into an inferred negative.
+            var listed = _confirmed.Values.SelectMany(r => KibeliskList.Candidates(r, _names)).Select(p => p.Id).ToHashSet();
             unbound.AddRange(places.Select(p => p.Id).Distinct().Where(id => !listed.Contains(id)));
         }
         return (bound, unbound, unknown, open);
@@ -167,10 +159,9 @@ public sealed class KibeliskSession(IReadOnlyList<ExplorationPlace> places)
     {
         get
         {
-            if (Ended)
-                return true;
-            var (bound, unbound, _, _) = Result();
-            return places.Select(p => p.Id).Distinct().All(id => bound.Contains(id) || unbound.Contains(id));
+            var (bound, unbound, unknown, open) = Result();
+            if (unknown.Count > 0 || open.Count > 0) return false;
+            return Ended || places.Select(p => p.Id).Distinct().All(id => bound.Contains(id) || unbound.Contains(id));
         }
     }
 }

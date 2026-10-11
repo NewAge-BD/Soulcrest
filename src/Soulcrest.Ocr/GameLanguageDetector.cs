@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Soulcrest.Core.Text;
 
 namespace Soulcrest.Ocr;
 
@@ -24,6 +25,11 @@ public static partial class GameLanguageDetector
         // These complete game captions are stronger evidence than one ordinary word (user-confirmed DE).
         if (captions.Any(t => t.Contains("petkenntnis", StringComparison.Ordinal) || t.Contains("sammlungsfortschritt", StringComparison.Ordinal))) de = Math.Max(de, 2);
         if (captions.Any(t => t.Contains("petinsight", StringComparison.Ordinal) || t.Contains("collectionstatus", StringComparison.Ordinal))) en = Math.Max(en, 2);
+        // Exact known category headings also identify the client language. Only the observed
+        // circular icon and a valid trailing percentage may surround a heading in this hint.
+        var headings = texts.Select(ExplorationHeading.ReadLanguageHint).ToArray();
+        if (headings.Contains("de")) de = Math.Max(de, 2);
+        if (headings.Contains("en")) en = Math.Max(en, 2);
         if (en >= 2 && en >= de + 2) return "en";
         if (de >= 2 && de >= en + 2) return "de";
         return null; // names, digits, MAX, empty frames or mixed/uncertain text do not prove a language

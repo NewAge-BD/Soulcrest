@@ -2,6 +2,20 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.4.6 – 2026-10-11
+
+- **New:** The loot overlay shows the soul name in small grey text under the monster name
+  (`Soul: <Pet>`). The focus pet no longer appears under "Recent loot" as well; its drops of the last
+  minute show as +N on the focus card.
+- **New:** The pet scan runs right inside the setup; marked results are applied on "Next".
+- **Improved:** The exploration scan detects the map and the open list by itself and follows them, also
+  when they change. Its start now sits at the top of the Exploration tab.
+- **Improved:** Cut-off place names (long dungeon names) are matched against the full English and German
+  names; map labels next to them no longer get in the way. The completion tick is found at very small
+  and very large UI scales too.
+- **Fixed:** An overlay could sometimes still be moved after Alt was released. The lock now shows the
+  real state and locks at once.
+
 ## 0.4.5 – 2026-10-11
 
 - **New:** Exploration overview in the Exploration tab: counters per category, search (EN/DE),
