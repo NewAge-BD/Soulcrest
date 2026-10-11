@@ -11,6 +11,25 @@ namespace Soulcrest.Core.PetWindow;
 /// </summary>
 public static partial class PanelPetName
 {
+    // Exact broken names reported on 2026-10-11, matched only to sourced numeric identities:
+    // https://aion2.gaming.tools/pets/1044 (Aultross's Doppelganger)
+    // https://aion2.gaming.tools/pets/1202 (Decomposed Lupyllini).
+    // These two observations never broaden the general fuzzy or truncated-name rules.
+    private static readonly IReadOnlyDictionary<string, string> ScanNameRepairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Aultrossts Doppelga..."] = "1044",
+        ["Decomposed Lupyllini t.Z5"] = "1202",
+    };
+
+    /// <summary>Only a complete pet name may create a new learned catalog entry.</summary>
+    public static bool CanLearn(string name)
+    {
+        var clean = Clean(name);
+        var key = Key(clean).Replace(" ", "", StringComparison.Ordinal);
+        return key.Length >= 3 && !IsTruncated(clean) && !ScanNameRepairs.ContainsKey(name.Trim())
+            && key is not ("petinfo" or "gatekeeper");
+    }
+
     // "J" before a consonant at a word start, "j" at a word end or between consonants: no English name
     // has these, so they are misread "I"/"i".
     [GeneratedRegex(@"\bJ(?=[b-df-hj-np-tv-z])")]
@@ -41,7 +60,14 @@ public static partial class PanelPetName
     /// </summary>
     public static PetDefinition? Resolve(string raw, IEnumerable<PetDefinition> pets)
     {
-        var candidates = pets
+        var available = pets.ToList();
+        if (ScanNameRepairs.TryGetValue(raw.Trim(), out var numericId))
+        {
+            var exactIdentity = available.Where(p => p.NumericId == numericId && !p.LegacyDuplicate)
+                .DistinctBy(p => p.Id).ToList();
+            return exactIdentity.Count == 1 ? exactIdentity[0] : null;
+        }
+        var candidates = available
             .SelectMany(p => new[] { p.En, p.De }.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => (Pet: p, Name: Key(n!))))
             .Where(c => c.Name.Length > 0)
             .ToList();

@@ -36,6 +36,9 @@ public sealed record ScanPageStatus(int Cards, int Read, IReadOnlyList<string> M
 public sealed class ScanEntry
 {
     private static long _nextManualRevision;
+    private static long _nextSelectionRevision;
+    private long _selectionRevision;
+    private bool? _applyOverride;
     private long _manualRevision;
     public required string Key { get; init; }
     public string? PetId { get; set; }
@@ -66,7 +69,7 @@ public sealed class ScanEntry
             Confidence = Confidence, MatchScore = MatchScore, ThumbnailDataUrl = ThumbnailDataUrl,
             PortraitPng = (byte[])PortraitPng.Clone(), PortraitHash = PortraitHash,
             Seen = Seen, Apply = Apply, LastText = LastText, PanelReading = PanelReading, ManualReading = ManualReading,
-            _manualRevision = _manualRevision };
+            _manualRevision = _manualRevision, _selectionRevision = _selectionRevision, _applyOverride = _applyOverride };
         foreach (var vote in Votes) copy.Votes.Add(vote.Key, vote.Value);
         return copy;
     }
@@ -109,8 +112,23 @@ public sealed class ScanEntry
         LastText = ManualReading is null ? "" : $"Manuell {PetScanService.ValueText(ManualReading)}";
     }
 
+    internal void Select(bool apply)
+    {
+        Apply = apply;
+        _applyOverride = apply;
+        _selectionRevision = Interlocked.Increment(ref _nextSelectionRevision);
+    }
+
+    internal bool DefaultApply => _applyOverride ?? true;
+
     internal void MergeValues(ScanEntry other)
     {
+        if (other._selectionRevision > _selectionRevision)
+        {
+            _selectionRevision = other._selectionRevision;
+            _applyOverride = other._applyOverride;
+            Apply = DefaultApply;
+        }
         foreach (var evidence in other._evidence) _evidence.Add(evidence);
         foreach (var vote in other.Votes)
             Votes[vote.Key] = Math.Max(Votes.GetValueOrDefault(vote.Key), vote.Value);
@@ -353,7 +371,7 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
             RepairLearnedPortraits(matcher, cache, token);
             cache.Save();
             StartupTrace($"validation-ready hits={cache.Hits} misses={cache.Misses}");
-            foreach (var (petId, path) in ProgressService.LearnedPortraits())
+            foreach (var (petId, path) in progress.RecognitionPortraits())
             {
                 token.ThrowIfCancellationRequested();
                 matcher.AddReference(petId, path);
@@ -378,7 +396,7 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
         // The same picture learned for two pets (Kailin / Young Kailin, 2026-10-03): at most one of them is
         // right, and as references they make both pets indistinguishable. Both are set aside and learned
         // again on the next click.
-        var portraits = ProgressService.LearnedPortraits()
+        var portraits = progress.RecognitionPortraits()
             .Select(p => (p.PetId, p.Path, Hash: PortraitValidationCache.ImageHash(p.Path))).ToList();
         var duplicates = portraits
             .GroupBy(p => p.Hash)
@@ -887,6 +905,12 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
             _pendingPanelName = null;
             return;
         }
+        if (named is null && !PanelPetName.CanLearn(name))
+        {
+            _pendingPanelName = null;
+            SetStatus($"Pet-Name „{name}“ ist unvollständig oder kein Pet-Name. Bitte das Pet erneut auswählen; nichts gelernt.");
+            return;
+        }
         var observation = (entry.Key, name);
         var repeated = _pendingPanelName == observation;
         _pendingPanelName = observation;
@@ -958,7 +982,7 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
         }
         entry.PetId = pet.Id;
         entry.Confidence = ScanConfidence.Confirmed;
-        entry.Apply = true;
+        entry.Apply = entry.DefaultApply;
         // The exact panel value is authoritative; repeated card reads cannot outvote it.
         if (scan.Panel.Progress is { } exact)
         {
@@ -973,19 +997,45 @@ public sealed class PetScanService(SettingsService settings, ProgressService pro
     public void SetApply(string key, bool apply)
     {
         lock (_gate)
-            if (_entries.FirstOrDefault(e => e.Key == key) is { } entry) entry.Apply = apply;
+        {
+            while (_mergedKeys.TryGetValue(key, out var survivor)) key = survivor;
+            if (_entries.FirstOrDefault(e => e.Key == key) is { } entry) entry.Select(apply);
+        }
         Changed?.Invoke();
+    }
+
+    /// <summary>Updates the displayed selection against the current merged entries in one batch.</summary>
+    public void SetApply(IEnumerable<string> keys, bool apply)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        var changed = false;
+        lock (_gate)
+        {
+            foreach (var original in keys.Distinct(StringComparer.Ordinal))
+            {
+                var key = original;
+                while (_mergedKeys.TryGetValue(key, out var survivor)) key = survivor;
+                if (_entries.FirstOrDefault(e => e.Key == key) is not { } entry
+                    || apply && (entry.PetId is null || entry.Reading is null))
+                    continue;
+                changed |= entry.Apply != apply;
+                entry.Select(apply);
+            }
+        }
+        if (changed) Changed?.Invoke();
     }
 
     public void Assign(ScanEntry entry, string? petId)
     {
         lock (_gate)
         {
-            entry = _entries.FirstOrDefault(e => e.Key == entry.Key)!;
+            var key = entry.Key;
+            while (_mergedKeys.TryGetValue(key, out var survivor)) key = survivor;
+            entry = _entries.FirstOrDefault(e => e.Key == key)!;
             if (entry is null) return;
-            entry.PetId = string.IsNullOrEmpty(petId) ? null : petId;
+            entry.PetId = string.IsNullOrEmpty(petId) ? null : progress.Catalog.Find(petId)?.Id ?? petId;
             entry.Confidence = entry.PetId is null ? ScanConfidence.Unknown : ScanConfidence.Confirmed;
-            entry.Apply = entry.PetId is not null;
+            entry.Apply = entry.PetId is not null && entry.DefaultApply;
             if (entry.PetId is not null)
                 ProgressService.SaveLearnedPortrait(entry.PetId, entry.PortraitPng);
         }

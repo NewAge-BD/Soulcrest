@@ -14,8 +14,8 @@ namespace Soulcrest.App.Tests;
 public sealed class ExplorationProgressViewTests
 {
     [Theory]
-    [InlineData("en", "Scan Exploration Progress", "Sealed Dungeons", "Stronghold")]
-    [InlineData("de", "Erkundungsfortschritt scannen", "Versiegelte Dungeons", "Garnisonen")]
+    [InlineData("en", "Exploration Progress", "Sealed Dungeons", "Stronghold")]
+    [InlineData("de", "Erkundungsfortschritt", "Versiegelte Dungeons", "Garnisonen")]
     public async Task OneTabListsAllThreeKinds(string language, string title, string dungeons, string strongholds)
     {
         var services = new ServiceCollection();
@@ -52,9 +52,9 @@ public sealed class ExplorationProgressViewTests
             Assert.DoesNotContain(">Stronghold</button>", html); // the old single tabs are gone
             if (provider.GetRequiredService<ExplorationService>().Places.Any(p => p.Map == "altgard"))
             {
-                Assert.Contains("<h3>" + dungeons, html);
-                Assert.Contains("<h3>" + strongholds, html);
-                Assert.Contains("<h3>Kibelisk", html);
+                Assert.Contains(dungeons, html);
+                Assert.Contains(strongholds, html);
+                Assert.Contains("Kibelisk", html);
             }
             if (Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW") is { Length: > 0 } output)
             {

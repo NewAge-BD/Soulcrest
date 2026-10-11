@@ -78,9 +78,14 @@ sobald eine Kategorie mindestens zwei hat; ausgeblendete Unterarten speichert
 - Pet-Symbole stehen auf einer realen Monsterposition nahe der Mitte einer Spawn-Gruppe
   (3 Prozent der Monsterausdehnung, zusammenhängende Nachbarschaft).
 - `catalog-identities.json` bewahrt die bisherigen IDs; neue Einträge nutzen den englischen Slug.
-  Acht vorhandene Doppelidentitäten bleiben auf ausdrücklichen Nutzerwunsch erhalten.
-  Es werden keine Fortschrittsdateien geändert oder Werte addiert. Kartensymbole nutzen die
-  bisherige numerische Katalogzuordnung; die getrennten Alt-IDs bleiben im Katalog.
+  Acht historische Doppelkennungen bleiben im Import als Kompatibilitätsdaten erhalten.
+  Seit der Duplikatmeldung vom 2026-10-11 zeigt die App pro eindeutig belegter numerischer Pet-ID
+  genau einen primären Eintrag: `legacyDuplicate` wird nur bei genau einer primären Kennung
+  derselben `numericId` zum Alias. Gleicher Name oder gleiches Bild allein genügt nicht.
+  Alte Profilwerte bleiben beim reinen Laden unverändert; die Anzeige nutzt den höchsten
+  gespeicherten Soul-Stand und vereint Fokusmarkierungen. Erst eine ausdrückliche Speicheraktion
+  für dieses Pet normalisiert seine Kennungen. Werte werden nie addiert. Kartensymbole und
+  Scan-Referenzen verwenden dieselbe primäre Identität.
 - Porträts kommen aus gaming.tools, WebP→PNG für GDI+-Overlays. PNG bewahrt die dekodierten Pixel.
 
 Datenvertrag: `data.js` mit `groups`, `categories`, `icons`, `regions`, `markers`;

@@ -11,6 +11,8 @@ public sealed record PetDefinition
     [JsonPropertyName("genus")] public required string Genus { get; init; }
     [JsonPropertyName("icon")] public string? Icon { get; init; }
     [JsonPropertyName("iconName")] public string? IconName { get; init; }
+    [JsonPropertyName("numericId")] public string? NumericId { get; init; }
+    [JsonPropertyName("legacyDuplicate")] public bool LegacyDuplicate { get; init; }
     [JsonPropertyName("spawns")] public Dictionary<string, int> Spawns { get; init; } = [];
     [JsonPropertyName("monsters")] public Dictionary<string, int> Monsters { get; init; } = [];
 
@@ -29,13 +31,36 @@ public sealed class PetCatalog
 {
     private readonly Dictionary<string, PetDefinition> _byId;
 
-    public PetCatalog(IEnumerable<PetDefinition> pets)
+    public PetCatalog(IEnumerable<PetDefinition> pets, IReadOnlyDictionary<string, string>? aliases = null)
     {
-        Pets = pets.OrderBy(p => p.Genus, StringComparer.Ordinal).ThenBy(p => p.En, StringComparer.OrdinalIgnoreCase).ToList();
+        var input = pets.ToList();
+        var resolved = new Dictionary<string, string>(StringComparer.Ordinal);
+        // User report 2026-10-11: old map IDs appeared as separate pets and made identical
+        // portraits/names ambiguous. Only the sourced numeric ID plus an explicit legacy flag
+        // proves an alias; shared names or shared icons alone never merge different pets.
+        foreach (var group in input.Where(p => !string.IsNullOrWhiteSpace(p.NumericId)).GroupBy(p => p.NumericId))
+        {
+            var primary = group.Where(p => !p.LegacyDuplicate).DistinctBy(p => p.Id).ToArray();
+            if (primary.Length != 1) continue;
+            foreach (var legacy in group.Where(p => p.LegacyDuplicate && p.Id != primary[0].Id))
+                resolved[legacy.Id] = primary[0].Id;
+        }
+        if (aliases is not null)
+            foreach (var (alias, target) in aliases)
+                if (alias != target && !resolved.ContainsKey(target) && !aliases.ContainsKey(target)
+                    && input.Any(p => p.Id == target)) resolved[alias] = target;
+        Pets = input.Where(p => !resolved.ContainsKey(p.Id)).OrderBy(p => p.Genus, StringComparer.Ordinal)
+            .ThenBy(p => p.En, StringComparer.OrdinalIgnoreCase).ToList();
         _byId = Pets.GroupBy(p => p.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        foreach (var (alias, target) in resolved)
+            _byId[alias] = _byId[target];
+        Aliases = resolved;
     }
 
     public IReadOnlyList<PetDefinition> Pets { get; }
+
+    /// <summary>Compatibility IDs resolve to a single displayed and recognised pet.</summary>
+    public IReadOnlyDictionary<string, string> Aliases { get; }
 
     public PetDefinition? Find(string id) => _byId.GetValueOrDefault(id);
 

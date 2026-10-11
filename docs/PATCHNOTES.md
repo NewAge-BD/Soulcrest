@@ -2,6 +2,22 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.4.5 – 2026-10-11
+
+- **Neu:** Erkundungsübersicht im Exploration-Tab: Zähler je Kategorie, Suche (DE/EN), Filter
+  Offen/Erledigt/Gesperrt und eine Checkliste. Sie folgt automatisch der Karte, auf der du im Spiel
+  bist (lässt sich fixieren), schlägt den nächsten offenen Ort vor und nennt die Voraussetzungen
+  gesperrter Dungeons.
+- **Verbessert:** Der Progressionsmodus folgt einem Kartenwechsel im Spiel (z. B. Altgard → Abyss),
+  auch wenn „Spieler verfolgen“ aus ist.
+- **Verbessert:** Pet-Scan-Tab überarbeitet: drei Schritte, Suche und Filter, Prüfbedürftiges zuerst,
+  Korrekturen direkt in der Zeile, Sammelübernahme markierter Ergebnisse.
+- **Behoben:** Die Pet-Liste zeigt nur noch Pets mit belegter Soul-ID; doppelte Einträge (z. B.
+  Modified Karnif) sind zusammengeführt, „Gatekeeper“ ist kein eigenes Pet mehr. Abgeschnittene Namen
+  wie „Aultrossts Doppelga…“ werden richtig zugeordnet.
+- **Geändert:** Spieler-Tracking und „Spieler verfolgen“ sind neu standardmäßig an; gespeicherte
+  Einstellungen bleiben.
+
 ## 0.4.4 – 2026-10-11
 
 - **Behoben:** Beim Wechsel der Karte konnte die interaktive Karte mit einem Fehler hängen bleiben

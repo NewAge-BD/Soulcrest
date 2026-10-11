@@ -22,6 +22,8 @@ public sealed class ExplorationProfiles
     public List<CharacterExploration> Characters { get; set; } = [];
 }
 
+public sealed record ExplorationCharacterSnapshot(string CharacterId, IReadOnlySet<string> Completed);
+
 public enum CharacterChoice { Unchanged, Selected, Adopted, Created }
 
 /// <summary>Character-only exploration state. Pet progress remains server-wide.</summary>
@@ -80,6 +82,12 @@ public sealed partial class ExplorationService
     public string ActiveId { get { lock (_gate) return _state.Active; } }
     public IReadOnlyList<(string Id, string Name)> Characters { get { lock (_gate) return _state.Characters.Select(c => (c.Id, c.Name)).ToArray(); } }
     public HashSet<string> Completed { get { lock (_gate) return new(_state.Characters.Single(c => c.Id == _state.Active).Done); } }
+    /// <summary>Atomic character/progress pair for UI handlers (user request 2026-10-11).</summary>
+    public ExplorationCharacterSnapshot Snapshot()
+    {
+        lock (_gate)
+            return new(_state.Active, new HashSet<string>(_state.Characters.Single(c => c.Id == _state.Active).Done));
+    }
     public void Select(string id)
     {
         lock (_gate) { if (!_state.Characters.Any(c => c.Id == id)) return; _state.Active = id; JsonFile.Save(_path, _state); }

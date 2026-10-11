@@ -560,7 +560,19 @@
 
     private async Task ToggleProgression(ChangeEventArgs e)
     {
-        Settings.Update(s => s.ProgressionEnabled = (bool)e.Value!);
+        var enabled = (bool)e.Value!;
+        Settings.Update(s => s.ProgressionEnabled = enabled);
+        var player = ExplorationOverview.FreshPosition(ExplorationOverview.Capture(Tracking), DateTimeOffset.UtcNow);
+        if (enabled && player is not null && player.MapId != _mapId && _maps.Any(m => m.Id == player.MapId))
+        {
+            // Enabling progression while browsing another map starts on the actual player map,
+            // even when that map was already observed and ordinary player following is off.
+            _trackedMap = player.MapId;
+            _explorationTarget = null;
+            Targets.SetProgression(null);
+            await SwitchMap(player.MapId, keepAt: player);
+            return;
+        }
         await PushProgression();
     }
 
@@ -596,6 +608,11 @@
 
     private async Task PushProgression()
     {
+        if (Targets.Progression is { } previous && previous.MapId != _mapId)
+        {
+            _explorationTarget = null;
+            Targets.SetProgression(null);
+        }
         var souls = Progress.Catalog.Pets.ToDictionary(p => p.Id, p => Progress.Souls(p.Id));
         // Souls still missing to finish each pet's current level (0 = max), for "closest to completion".
         var missing = souls.ToDictionary(p => p.Key, p => Progress.Thresholds.NeededForNextLevel(p.Value) - Progress.Thresholds.SoulsInLevel(p.Value));
@@ -623,6 +640,12 @@
     [JSInvokable]
     public void OnProgressionTarget(string mapId, string? petId, double x, double y, string? name)
     {
+        // A callback can still be queued by the old map after ShowMap has replaced its payload.
+        // Ignore it, including an old null target, rather than overwriting the new map's guidance.
+        if (mapId != _mapId || !_maps.Any(m => m.Id == mapId)) return;
+        var player = ExplorationOverview.FreshPosition(ExplorationOverview.Capture(Tracking), DateTimeOffset.UtcNow);
+        if (player is not null && player.MapId != mapId) return;
+        if (petId is not null && (!double.IsFinite(x) || !double.IsFinite(y))) return;
         _explorationTarget = null;
         if (petId is null || !Settings.Current.ProgressionEnabled)
         {
@@ -881,20 +904,38 @@
 
     private async Task PushPlayer(bool force)
     {
-        if (Tracking.Position is not { } position)
+        var snapshot = ExplorationOverview.Capture(Tracking);
+        if (snapshot.Position is not { } position)
             return;
-        if (!force && position == _shownPosition && Tracking.Found == _shownFound)
+        var fresh = ExplorationOverview.FreshPosition(snapshot, DateTimeOffset.UtcNow);
+        // Only a verified minimap identifies a player map change. Opening another world map keeps
+        // Position frozen and must not redirect progression (user request 2026-10-11).
+        var changedMap = fresh is not null && _trackedMap != fresh.MapId;
+        if (!force && !changedMap && position == _shownPosition && snapshot.Found == _shownFound)
             return;
         _shownPosition = position;
-        _shownFound = Tracking.Found;
-        // Follow the player onto another map only when the player changed maps; a map the user picked
-        // by hand stays until then.
-        var changedMap = _trackedMap != position.MapId;
-        _trackedMap = position.MapId;
-        if (Settings.Current.FollowPlayer && Tracking.Found && changedMap && position.MapId != _mapId && _maps.Any(m => m.Id == position.MapId))
+        _shownFound = snapshot.Found;
+        if (fresh is not null) _trackedMap = fresh.MapId;
+        if (changedMap && fresh is not null && _maps.Any(m => m.Id == fresh.MapId)
+            && (Settings.Current.FollowPlayer || Settings.Current.ProgressionEnabled))
         {
-            await SwitchMap(position.MapId, keepAt: position);
-            return; // ShowMap draws the player
+            if (Settings.Current.ProgressionEnabled)
+            {
+                _explorationTarget = null;
+                Targets.SetProgression(null);
+            }
+            if (fresh.MapId != _mapId)
+            {
+                await SwitchMap(fresh.MapId, keepAt: fresh);
+                return; // ShowMap draws the fresh player and rebuilds progression for this map.
+            }
+            if (Settings.Current.ProgressionEnabled)
+            {
+                // The user may already have browsed to the destination map. Reload its own payload
+                // once so JS reissues guidance even when the same target was previously a preview.
+                await ShowMap(keepAt: fresh);
+                return;
+            }
         }
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         await JS.InvokeVoidAsync("soulcrestMap.setPlayer", position.MapId, position.X, position.Y, Settings.Current.FollowPlayer && Active, Tracking.Found);
@@ -935,7 +976,23 @@
                 await FocusPet(pet);
             }
         }
+        if (Active && _ready && Ui.TakePendingExplorationFocus() is { } place)
+            await FocusExploration(place);
         _wasActive = Active;
+    }
+
+    /// <summary>Uses the catalogue marker on its own map; no boss preview, target or completion is changed.</summary>
+    internal async Task FocusExploration(ExplorationPlace requested)
+    {
+        var place = Exploration.Places.FirstOrDefault(p => p.Id == requested.Id);
+        if (place is null || !_maps.Any(m => m.Id == place.Map) || place.Marker < 0
+            || !double.IsFinite(place.X) || !double.IsFinite(place.Y)) return;
+        // Like a map picked by hand, this focus remains until the player actually changes maps.
+        // Otherwise ShowMap's first player push could immediately switch back before Marker is used.
+        _trackedMap = Tracking.Position?.MapId ?? _trackedMap;
+        if (_mapId != place.Map) await SwitchMap(place.Map);
+        if (_mapId != place.Map || _error is not null) return;
+        await FlyTo(place.Marker);
     }
 
     private async Task ShowMap(PlayerPosition? keepAt = null)

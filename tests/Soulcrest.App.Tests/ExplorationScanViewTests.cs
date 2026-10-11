@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Net;
 using System.Reflection;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -28,11 +29,6 @@ public sealed class ExplorationScanViewTests
         Assert.Contains(second, html);
         Assert.Contains(third, html);
         Assert.Contains(start, html);
-        Assert.Contains("class=\"exploration-manual-list\"", html);
-        Assert.Contains("Manual completed dungeon", html);
-        Assert.Contains("Manual open dungeon", html);
-        Assert.Contains("<progress value=\"1\" max=\"3\"", html);
-        Assert.Contains(language == "de" ? "ausschließlich für diesen Charakter" : "for this character only", html);
         Assert.Contains(language == "de" ? "Namen allein setzen keinen Abschluss" : "names alone do not mark completion", html);
         Assert.DoesNotContain("Scan-Vorschau und unklare Einträge", html);
         Assert.DoesNotContain("Scan preview and unclear entries", html);
@@ -59,9 +55,7 @@ public sealed class ExplorationScanViewTests
         Assert.Contains($"<dt>{imported}</dt><dd>7</dd>", html);
         Assert.Contains(stop, html);
         Assert.Contains(category, html);
-        Assert.Contains("<progress value=\"1\" max=\"3\"", html);
         Assert.DoesNotContain("<progress value=\"7\"", html);
-        Assert.Contains("<input type=\"checkbox\" checked disabled", html);
         Assert.DoesNotContain("class=\"btn primary\"", html);
         Assert.Equal(new[] { "done" }, view.Exploration.Completed);
         await view.Export(html, "running");
@@ -135,7 +129,7 @@ public sealed class ExplorationScanViewTests
         {
             await using var renderer = new HtmlRenderer(_provider, _provider.GetRequiredService<ILoggerFactory>());
             var html = await renderer.Dispatcher.InvokeAsync(async () =>
-                (await renderer.RenderComponentAsync<ExplorationView>()).ToHtmlString());
+                (await renderer.RenderComponentAsync<ExplorationScanPanel>(ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(ExplorationScanPanel.Map)] = "altgard", [nameof(ExplorationScanPanel.HasPlaces)] = true }))).ToHtmlString());
             return decode ? WebUtility.HtmlDecode(html) : html;
         }
         public async Task Export(string html, string state)

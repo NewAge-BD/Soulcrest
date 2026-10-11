@@ -54,7 +54,13 @@ Icon-Namen („Crestlich 01“), den der Loot-Feed nie zeigt. Echte Namen kommen
 
 ## Quellenabgleich 2026-10-04
 
-`catalog-identities.json` hält stabile Katalog-IDs und die acht erhaltenen Doppelidentitäten fest.
+`catalog-identities.json` hält stabile Katalog-IDs und acht historische Doppelkennungen fest.
+Der generierte Import kennzeichnet diese mit `numericId` und `legacyDuplicate`. Die App löst eine
+Altkennung nur auf, wenn dieselbe numerische Quell-ID genau einen primären Eintrag hat. Die
+Altkennung bleibt auffindbar, erscheint aber nicht als zusätzliches Pet oder als konkurrierendes
+Scan-Porträt. Gemeinsame Namen/Bilder allein sind kein Identitätsbeleg. Alte Profilwerte bleiben
+beim Laden erhalten; Anzeige: höchster Soul-Stand und Fokus-ODER, keine Addition. Eine explizite
+Fortschrittsänderung normalisiert nur die Kennungen des betroffenen Pets (Nutzerwunsch 2026-10-11).
 `tamed-from.json` enthält Pet-Seiten-Belege für den unabhängigen Abgleich mit NPC-Beute.
 `soul-sources.json` dokumentiert direkte Soul-Beute und gekennzeichnete Ableitungen mit URL-Belegen.
 Diese Faktentabellen enthalten keine Kartenbilder oder Roh-Platzierungsdaten.

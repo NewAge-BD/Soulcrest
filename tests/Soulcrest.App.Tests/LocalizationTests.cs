@@ -94,6 +94,8 @@ public sealed class LocalizationTests
         services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<NetworkLootService>();
         services.AddSingleton<CharacterDetectionService>();
+        services.AddSingleton<MapTrackingService>();
+        services.AddSingleton<UiState>();
         services.AddSingleton<OcrLanguageInstaller>();
         await using var provider = services.BuildServiceProvider();
         provider.GetRequiredService<SettingsService>();

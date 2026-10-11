@@ -3,157 +3,211 @@
 @inject ExplorationScanService Scan
 @inject ProgressService Progress
 @inject SettingsService Settings
+@inject MapTrackingService Tracking
+@inject UiState Ui
 
-<div class="page exploration-page">
+@{
+    var renderedCharacter = _renderedCharacter;
+    var renderedMap = _map;
+}
+<div class="page exploration-page exploration-overview">
     <header class="exploration-heading">
-        <span class="exploration-eyebrow">@UiText.T("Charakterfortschritt")</span>
+        <span class="exploration-eyebrow">SOULCREST / @UiText.T("Charakterfortschritt")</span>
         <h2>@UiText.T(Title(Kind))</h2>
-        <p>@UiText.T("Dungeons, Garnisonen und Kibelisken aus der Weltkarte übernehmen.")</p>
+        <p>@UiText.T("Deine Erkundung im Blick. Offene Orte finden und Fortschritt verwalten.")</p>
     </header>
 
-    <section class="card sv-card exploration-profile">
-        <CharacterPicker />
-        <p class="exploration-profile-note">@UiText.T("Prüfe das Charakterprofil. Der Scan speichert ausschließlich für diesen Charakter.")</p>
+    <section class="card exploration-context" aria-label="@UiText.T("Charakter und Karte")">
+        <CharacterPicker Compact="true" />
+        <label class="exploration-map-field">@UiText.T("Karte")
+            <select aria-label="@UiText.T("Karte wählen")" value="@_map" @onchange="PinMap" disabled="@Scan.Running">
+                @foreach (var group in Progress.Maps.GroupBy(m => m.Group))
+                {
+                    <optgroup label="@UiText.T(group.Key)">
+                        @foreach (var m in group) { <option value="@m.Id">@UiText.T(m.Label)</option> }
+                    </optgroup>
+                }
+            </select>
+        </label>
+        <div class="exploration-follow">
+            <button type="button" class="btn @(Settings.Current.ExplorationPinnedMap is null ? "following" : "")" disabled="@(Scan.Running || string.IsNullOrEmpty(_map))" @onclick="TogglePin" aria-pressed="@(Settings.Current.ExplorationPinnedMap is not null)">
+                @UiText.T(Settings.Current.ExplorationPinnedMap is null ? "Karte fixieren" : "Spielkarte folgen")
+            </button>
+            <span class="exploration-map-source @(_selection.Source == "detected" ? "detected" : "")">@UiText.T(MapSource)</span>
+        </div>
+        <span class="exploration-context-note">@UiText.T("Fortschritt gilt für den gewählten Charakter.")</span>
     </section>
 
-    <section class="card sv-card exploration-scan" data-scan-state="@(Scan.Running ? "running" : "idle")">
-        <div class="exploration-scan-heading">
-            <div><h3>@UiText.T("Erkundung einscannen")</h3><p>@UiText.T("Öffne die Listen im Spiel. Soulcrest liest mit.")</p></div>
-            <span class="exploration-scan-badge @(Scan.Running ? "live" : "")"><i aria-hidden="true"></i>@UiText.T(Scan.Running ? "Scan läuft" : "Bereit zum Scannen")</span>
+    <section class="exploration-summary" aria-label="@UiText.T("Gesamtübersicht")">
+        <div class="exploration-total">
+            <span class="exploration-eyebrow">@UiText.T("Gesamtübersicht")</span>
+            <strong>@_overview.Completed <small>/ @_overview.Total</small></strong>
+            <span>@UiText.F("Offene Orte: {0}", _overview.Total - _overview.Completed)</span>
         </div>
-        <div class="exploration-scan-controls">
-            <label>@UiText.T("Karte wählen")
-                <select aria-label="@UiText.T("Karte wählen")" @bind="_map" @bind:after="BuildLists" disabled="@Scan.Running">
-                    @foreach (var m in Progress.Maps) { <option value="@m.Id">@m.Label</option> }
-                </select>
-            </label>
-            @if (Scan.Running)
+        @foreach (var category in _overview.Categories)
+        {
+            <button type="button" class="exploration-category-chip @(_kind == category.Kind ? "selected" : "")" aria-pressed="@(_kind == category.Kind)" @onclick="@(() => SelectKind(category.Kind))">
+                <span class="exploration-category-heading"><span class="exploration-kind-symbol @category.Kind" aria-hidden="true">@KindSymbol(category.Kind)</span><strong>@UiText.T(Title(category.Kind))</strong></span>
+                <span class="exploration-category-value">@category.Completed <small>/ @category.Total @UiText.T("fertig")</small></span>
+                @if (category.Total > 0) { <progress value="@category.Completed" max="@category.Total" aria-label="@UiText.T(Title(category.Kind))"></progress> }
+            </button>
+        }
+    </section>
+
+    <section class="card exploration-next" aria-label="@UiText.T("Nächstes offenes Ziel")">
+        <div class="exploration-next-copy">
+            <span class="exploration-eyebrow">@UiText.T("Nächstes offenes Ziel")</span>
+            @if (_overview.Next is { } next)
             {
-                <button class="btn exploration-scan-stop" @onclick="Scan.Stop">@UiText.T("Scan stoppen")</button>
+                <strong>@next.Place.Name(Settings.Current.NameLanguage)</strong>
+                <span>@UiText.T(Title(next.Place.Kind)) @if (next.Distance is { } distance) { <span aria-hidden="true">·</span> @DistanceLabel(distance) }</span>
             }
             else
             {
-                <button class="btn primary" disabled="@_lists.All(l => l.Places.Length == 0)" @onclick="@(() => Scan.Start(_map, Kind))">@UiText.T("Scan starten")</button>
+                <strong>@UiText.T(NextEmptyMessage)</strong>
             }
         </div>
-        <ol class="exploration-scan-steps" aria-label="@UiText.T("So funktioniert der Scan")">
-            <li><span>1</span><div><strong>@UiText.T("Karte und Liste öffnen")</strong><p>@UiText.T("Wähle im Spiel dieselbe Karte und eine Erkundungsliste.")</p></div></li>
-            <li><span>2</span><div><strong>@UiText.T("Kurz stillhalten")</strong><p>@UiText.T("Warte, bis die sichtbaren Zeilen bestätigt sind.")</p></div></li>
-            <li><span>3</span><div><strong>@UiText.T("Langsam weiter")</strong><p>@UiText.T("Scrolle langsam. Öffne danach die nächste Kategorie.")</p></div></li>
-        </ol>
-        <div class="exploration-scan-status @(Scan.Feedback?.Ready == true ? "ready" : "")" role="status" aria-live="polite" aria-atomic="true">
-            <div class="exploration-scan-status-copy">
-                <span class="exploration-eyebrow">@UiText.T(Scan.Running ? "Aktuelle Prüfung" : "Scan-Status")</span>
-                <strong>@UiText.T(Scan.Status)</strong>
-                @if (Scan.ScanMap is not null)
-                {
-                    <span class="exploration-scan-context">@MapLabel(Scan.ScanMap) <span aria-hidden="true">·</span> @UiText.T(Title(Scan.DetectedKind ?? Scan.ScanKind ?? Kind))</span>
-                }
-            </div>
-            <dl class="exploration-scan-metrics">
-                <div><dt>@UiText.T("Zeilen geprüft")</dt><dd>@(Scan.Feedback is { Total: > 0 } feedback ? $"{Math.Min(feedback.Read, feedback.Total)} / {feedback.Total}" : "—")</dd></div>
-                <div><dt>@UiText.T("Einträge übernommen")</dt><dd>@Scan.Recognized</dd></div>
-                <div><dt>@UiText.T("Noch unklar")</dt><dd>@Scan.Unmatched.Length</dd></div>
-            </dl>
-        </div>
-        <div class="exploration-scan-footer">
-            <p>@UiText.T(Scan.DetectedKind == "kibelisk" ? "Kibelisken übernehmen den gelesenen Bindungsstatus: abgeschlossen setzt den Haken, nicht abgeschlossen nimmt ihn zurück." : "Erkannte Namen allein setzen keinen Abschluss. Nur Haken oder bestätigte 100 % zählen.")</p>
-            <details class="exploration-scan-rules">
-                <summary>@UiText.T("So werden Abschlüsse gespeichert")</summary>
-                <p>@UiText.T("Bestätigte 100 % schließen die gesamte Kategorie auf der gewählten Karte ab. Sonst zählen nur eindeutig erkannte Namen mit Abschluss-Haken. Fehlende Haken setzen nichts zurück.")</p>
-                <p>@UiText.T("Kibelisken übernehmen den gelesenen Bindungsstatus: abgeschlossen setzt den Haken, nicht abgeschlossen nimmt ihn zurück.")</p>
-                <p>@UiText.T("Du kannst jederzeit stoppen. Bereits übernommene Einträge bleiben gespeichert.")</p>
-            </details>
-        </div>
-        <OcrLanguageSetup Disabled="@Scan.Running" />
-        @if (Scan.Preview is not null || Scan.Unmatched.Length > 0)
+        @if (_overview.Next is { } target)
         {
-            <details class="exploration-scan-inspection">
-                <summary>@UiText.T("Scan-Vorschau und unklare Einträge") @if (Scan.Unmatched.Length > 0) { <span class="exploration-scan-unclear-count">@Scan.Unmatched.Length</span> }</summary>
-                <div class="exploration-scan-inspection-body">
-                    @if (Scan.Preview is not null)
-                    {
-                        <figure><img src="@Scan.Preview" alt="@UiText.T("Scan-Vorschau")" /><figcaption>@UiText.T("Aufgenommener Listenbereich")</figcaption></figure>
-                    }
-                    @if (Scan.Unmatched.Length > 0)
-                    {
-                        <div class="exploration-scan-unmatched"><h4>@UiText.T("Nicht eindeutig erkannt:")</h4><p>@UiText.T("Halte die Liste kurz still. Verbleibende Einträge kannst du unten manuell prüfen.")</p><ul>@foreach (var name in Scan.Unmatched) { <li>@name</li> }</ul></div>
-                    }
-                </div>
-            </details>
+            <button class="btn primary" @onclick="@(() => Ui.ShowExplorationOnMap(target.Place))">@UiText.T("Auf Karte anzeigen") <span aria-hidden="true">↗</span></button>
+        }
+        else if (!_trackingRunning && _overview.Completed < _overview.Total)
+        {
+            <button class="btn" @onclick="@(() => Ui.Navigate("map"))">@UiText.T("Zum Spielertracking")</button>
         }
     </section>
 
-    <div class="exploration-saved-heading"><h3>@UiText.T("Gespeicherter Fortschritt")</h3><span>@UiText.T("Für den gewählten Charakter und die gewählte Karte")</span></div>
-    <div class="sv-grid exploration-progress-grid">
-        @foreach (var (kind, places) in _lists)
+    <section class="card exploration-checklist" aria-label="@UiText.T("Erkundungs-Checkliste")">
+        <div class="exploration-checklist-heading"><h3>@UiText.T("Erkundungs-Checkliste")</h3><span>@UiText.F("Angezeigte Einträge: {0}", _overview.Rows.Count)</span></div>
+        <div class="exploration-filters">
+            <input class="exploration-search" type="search" autocomplete="off" spellcheck="false" aria-label="@UiText.T("Ort suchen")" placeholder="@UiText.T("Ort suchen …")" @bind="_search" @bind:event="oninput" @bind:after="Rebuild" />
+            <label>@UiText.T("Kategorie")<select @bind="_kind" @bind:after="Rebuild"><option value="all">@UiText.T("Alle Kategorien")</option>@foreach (var category in _overview.Categories) { <option value="@category.Kind">@UiText.T(Title(category.Kind))</option> }</select></label>
+            <label>@UiText.T("Status")<select @bind="_status" @bind:after="Rebuild"><option value="all">@UiText.T("Alle")</option><option value="open">@UiText.T("Offen")</option><option value="done">@UiText.T("Erledigt")</option><option value="locked">@UiText.T("Gesperrt")</option></select></label>
+            @if (_search.Length > 0 || _kind != "all" || _status != "all") { <button class="btn link" @onclick="ResetFilters">@UiText.T("Filter zurücksetzen")</button> }
+        </div>
+        @if (_overview.Rows.Count == 0)
         {
-            var completed = places.Count(p => Done.Contains(p.Id));
-            <section class="card sv-card exploration-category" data-category="@kind">
-                <h3>@UiText.T(Title(kind)) <small>@completed / @places.Length @UiText.T("fertig")</small></h3>
-                @if (places.Length > 0) { <progress value="@completed" max="@places.Length" aria-label="@UiText.T(Title(kind))"></progress> }
-                <details>
-                    <summary>@UiText.T("Einträge anzeigen und manuell korrigieren")</summary>
-                    <div class="exploration-manual-list">
-                        @foreach (var p in places)
-                        {
-                            <label><input type="checkbox" checked="@Done.Contains(p.Id)" disabled="@Scan.Running" @onchange="@(e => Exploration.SetDone(Exploration.ActiveId, [p.Id], (bool)e.Value!))" /> @p.Name(Settings.Current.NameLanguage)</label>
-                        }
-                    </div>
-                </details>
-            </section>
+            <div class="exploration-list-empty">@UiText.T(_overview.Total == 0 ? "Für diese Karte sind keine Erkundungsorte hinterlegt." : "Keine Orte passen zu deinen Filtern.")</div>
         }
-    </div>
+        else
+        {
+            <ul class="exploration-rows" tabindex="0" aria-label="@UiText.T("Erkundungs-Checkliste")">
+                @foreach (var row in _overview.Rows)
+                {
+                    <li @key="row.Place.Id" class="exploration-place @(row.Done ? "done" : row.Locked ? "locked" : "")" data-place="@row.Place.Id">
+                        <input type="checkbox" checked="@row.Done" disabled="@Scan.Running" aria-label="@UiText.F("{0} abgeschlossen", row.Place.Name(Settings.Current.NameLanguage))" @onchange="@(e => SetDone(row.Place, e, renderedCharacter, renderedMap))" />
+                        <span class="exploration-kind-symbol @row.Place.Kind" aria-hidden="true">@KindSymbol(row.Place.Kind)</span>
+                        <div class="exploration-place-copy"><strong>@row.Place.Name(Settings.Current.NameLanguage)</strong><span>@UiText.T(Title(row.Place.Kind))
+                            @if (row.Locked) { <span class="exploration-locked-label">@UiText.T("Gesperrt")</span> }
+                            else if (row.Done) { <span class="exploration-done-label">@UiText.T("Erledigt")</span> }
+                        </span>
+                            @if (row.Locked) { <small>@UiText.F("Benötigt: {0}", string.Join(", ", row.Missing.Select(p => p.Name(Settings.Current.NameLanguage))))</small> }
+                        </div>
+                        @if (row.Distance is { } distance) { <span class="exploration-place-distance">@DistanceLabel(distance)</span> }
+                        <button type="button" class="btn exploration-place-focus" title="@UiText.T("Auf Karte anzeigen")" aria-label="@UiText.F("{0} auf Karte anzeigen", row.Place.Name(Settings.Current.NameLanguage))" @onclick="@(() => Ui.ShowExplorationOnMap(row.Place))"><span>@UiText.T("Karte")</span><span aria-hidden="true">↗</span></button>
+                    </li>
+                }
+            </ul>
+        }
+        <p class="exploration-checklist-note">@UiText.T(Scan.Running ? "Manuelle Änderungen sind während des Scans gesperrt." : "Haken setzen oder entfernen, um den gespeicherten Fortschritt zu korrigieren.")</p>
+    </section>
+
+    <details class="exploration-scan-drawer" open="@Scan.Running">
+        <summary><span><strong>@UiText.T("Fortschritt aus dem Spiel einlesen")</strong><small>@UiText.T(Scan.Running ? "Scan läuft – hier stoppen oder den Status prüfen." : "Bereits erledigte Orte per Scan übernehmen.")</small></span><span class="exploration-scan-drawer-state">@UiText.T(Scan.Running ? "Aktiv" : "Scan öffnen")</span></summary>
+        <ExplorationScanPanel Map="@_map" Kind="@Kind" HasPlaces="@(_overview.Total > 0)" />
+    </details>
 </div>
 @code {
-    /// <summary>"all" reads sealed dungeons, strongholds and Kibelisks together.</summary>
     [Parameter] public string Kind { get; set; } = "all";
-    internal static string Title(string kind) => kind switch
-    {
-        "dungeon" => "Versiegelte Dungeons",
-        "stronghold" => "Garnisonen",
-        "kibelisk" => "Kibelisk",
-        _ => "Erkundungsfortschritt scannen",
-    };
-    private string _map = "altgard";
-    private (string Kind, ExplorationPlace[] Places)[] _lists = [];
-    private string? _builtFor;
-    private HashSet<string> Done = [];
-    private DateTime _lastScanRender;
-    private string MapLabel(string map) => Progress.Maps.FirstOrDefault(m => m.Id == map)?.Label ?? map;
-
+    internal static string Title(string kind) => kind switch { "dungeon" => "Versiegelte Dungeons", "stronghold" => "Garnisonen", "kibelisk" => "Kibelisk", _ => "Erkundungsfortschritt" };
+    private string _map = "", _search = "", _kind = "all", _status = "all", _parameterKind = "";
+    private ExplorationOverviewSnapshot _overview = null!;
+    private ExplorationMapSelection _selection = null!;
+    private PlayerPosition? _position;
+    private string _renderedCharacter = "";
+    private bool _trackingRunning, _playerOnOtherMap;
+    private string NextEmptyMessage => _overview.Total == 0 ? "Keine Erkundungsorte auf dieser Karte."
+        : _overview.Completed == _overview.Total ? "Alle Orte auf dieser Karte abgeschlossen."
+        : !_trackingRunning ? "Spielertracking im Karten-Tab aktivieren."
+        : _playerOnOtherMap ? "Für diese Karte liegt keine Spielerposition vor."
+        : _position is null ? "Spielerposition für das nächste Ziel benötigt."
+        : "Kein verfügbares offenes Ziel. Prüfe die Voraussetzungen oder wähle eine andere Kategorie.";
+    private System.Threading.Timer? _freshnessTimer;
+    private int _trackingQueued;
+    private DateTime _lastTrackingRender;
+    private volatile bool _disposed;
+    private string MapSource => _selection.Source switch { "scan" => "Karte des laufenden Scans", "pinned" => "Manuell fixiert", "detected" => _selection.WorldMap ? "Automatisch erkannt · Weltkarte" : "Automatisch erkannt · Spielkarte", _ => "Zuletzt gewählt · warte auf Erkennung" };
+    private static string KindSymbol(string kind) => kind switch { "dungeon" => "▣", "stronghold" => "⚑", _ => "◇" };
+    private string DistanceLabel(double pixels) => Progress.Maps.FirstOrDefault(m => m.Id == _map)?.MetersPerPixel is { } meters ? UiText.F("{0} m", Math.Round(pixels * meters)) : UiText.F("{0} Kartenpixel", Math.Round(pixels));
     protected override void OnInitialized()
     {
-        _map = Scan.Running && Scan.ScanMap is not null ? Scan.ScanMap : Settings.Current.LastMap;
-        Done = Exploration.Completed;
         Exploration.Changed += Refresh;
-        Scan.Changed += RefreshScan;
-        Settings.Changed += RefreshLanguage;
+        Settings.Changed += Refresh;
+        Scan.Changed += Refresh;
+        Tracking.Changed += RefreshTracking;
+        _freshnessTimer = new System.Threading.Timer(_ => RefreshTracking(), null, 1000, 1000);
     }
-    protected override void OnParametersSet() => BuildLists();
-
-    private void BuildLists()
+    protected override void OnParametersSet()
     {
-        var language = Settings.Current.NameLanguage;
-        var key = $"{_map}|{Kind}|{language}";
-        if (key == _builtFor) return;
-        _builtFor = key;
-        string[] kinds = Kind == "all" ? ["dungeon", "stronghold", "kibelisk"] : [Kind];
-        _lists = kinds.Select(kind => (kind, Exploration.Places.Where(p => p.Map == _map && p.Kind == kind).DistinctBy(p => p.Id)
-            .OrderBy(p => p.Name(language), StringComparer.CurrentCulture).ToArray())).ToArray();
+        if (_parameterKind != Kind) { _parameterKind = Kind; _kind = Kind; }
+        Rebuild();
     }
-    private void Refresh() => InvokeAsync(() => { Done = Exploration.Completed; StateHasChanged(); });
-    private void RefreshScan() => InvokeAsync(() =>
+    private void Rebuild()
     {
-        if (Scan.Running && DateTime.UtcNow - _lastScanRender < TimeSpan.FromMilliseconds(300)) return;
-        _lastScanRender = DateTime.UtcNow;
-        StateHasChanged();
-    });
-    private void RefreshLanguage() => InvokeAsync(() =>
+        var tracking = ExplorationOverview.Capture(Tracking);
+        var profile = Exploration.Snapshot();
+        var now = DateTimeOffset.UtcNow;
+        _selection = ExplorationOverview.SelectMap(Progress.Maps, _map, Settings.Current.LastMap, Settings.Current.ExplorationPinnedMap, Scan.Running, Scan.ScanMap, tracking, now);
+        _map = _selection.MapId;
+        var position = ExplorationOverview.FreshPosition(tracking, now);
+        _trackingRunning = tracking.Running;
+        _playerOnOtherMap = position is not null && position.MapId != _map;
+        _position = position?.MapId == _map ? position : null;
+        _renderedCharacter = profile.CharacterId;
+        _overview = ExplorationOverview.Build(Exploration.Places, profile.Completed, _map, Settings.Current.NameLanguage, _position, _search, _kind, _status);
+    }
+    private void PinMap(ChangeEventArgs e)
     {
-        var before = _builtFor;
-        BuildLists();
-        if (before != _builtFor) StateHasChanged();
-    });
-    public void Dispose() { Exploration.Changed -= Refresh; Scan.Changed -= RefreshScan; Settings.Changed -= RefreshLanguage; }
+        if (Scan.Running || e.Value?.ToString() is not { } map || !Progress.Maps.Any(m => m.Id == map)) return;
+        Settings.Update(s => s.ExplorationPinnedMap = map);
+    }
+    private void TogglePin()
+    {
+        if (Scan.Running) return;
+        Settings.Update(s => s.ExplorationPinnedMap = s.ExplorationPinnedMap is null ? _map : null);
+    }
+    private void SelectKind(string kind) { _kind = _kind == kind ? "all" : kind; Rebuild(); }
+    private void ResetFilters() { _search = ""; _kind = "all"; _status = "all"; Rebuild(); }
+    private void SetDone(ExplorationPlace place, ChangeEventArgs e, string character, string map)
+    {
+        if (Scan.Running || character != Exploration.ActiveId || map != _map || place.Map != map) return;
+        Exploration.SetDone(character, [place.Id], e.Value is true);
+    }
+    private void Refresh()
+    {
+        if (_disposed) return;
+        _ = RenderSafelyAsync(() => { if (_disposed) return; Rebuild(); StateHasChanged(); });
+    }
+    private async Task RenderSafelyAsync(Action refresh)
+    {
+        try { await InvokeAsync(refresh); }
+        catch (ObjectDisposedException) when (_disposed) { }
+        catch (InvalidOperationException) when (_disposed) { }
+    }
+    private void RefreshTracking()
+    {
+        if (_disposed || Interlocked.Exchange(ref _trackingQueued, 1) != 0) return;
+        _ = RenderSafelyAsync(() =>
+        {
+            Volatile.Write(ref _trackingQueued, 0);
+            if (_disposed || DateTime.UtcNow - _lastTrackingRender < TimeSpan.FromMilliseconds(900)) return;
+            _lastTrackingRender = DateTime.UtcNow;
+            Rebuild(); StateHasChanged();
+        });
+    }
+    public void Dispose()
+    {
+        _disposed = true; _freshnessTimer?.Dispose();
+        Exploration.Changed -= Refresh; Settings.Changed -= Refresh; Scan.Changed -= Refresh; Tracking.Changed -= RefreshTracking;
+    }
 }

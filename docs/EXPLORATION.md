@@ -121,3 +121,40 @@ Auf der Karte im Exploration-Progressionsbereich **Abschlussradius (Kartenpixel)
   derselben Karte erledigt sind.
 - Der Progressionsmodus überspringt einen gesperrten Dungeon; das Popup der Karte nennt, was fehlt
   (`ExplorationService.Prerequisites`/`MissingFor`).
+
+## Übersicht und automatische Kartenwahl (2026-10-11)
+
+Nutzerentscheidung aus dem Interview: Gesamtübersicht, Filter und Checkliste stehen im Vordergrund.
+Die Scanhilfe ist darunter eingeklappt und öffnet sich während eines Scans. Gesamt- und
+Kategorie-Zähler gelten immer für die gesamte gewählte Karte und den aktuellen Charakter; Suche
+oder Statusfilter verändern sie nicht. Die Suche berücksichtigt belegte englische und deutsche
+Ortsnamen. Gesperrte Dungeons nennen die noch offenen Voraussetzungen. Einzelne Haken bleiben
+manuell korrigierbar; während eines Scans sind sie gesperrt.
+
+Standardmäßig folgt die Übersicht der im Spiel erkannten Karte. Eine manuelle Auswahl oder
+„Karte fixieren“ speichert `ExplorationPinnedMap`; „Spielkarte folgen“ löscht diese Fixierung.
+`LastMap` bleibt die Auswahl des Karten-Tabs und dient hier nur als anfänglicher Ersatz. Bei
+fehlender aktueller Erkennung bleibt die bisherige Auswahl sichtbar und wird entsprechend benannt.
+Während eines Scans hat dessen unveränderliche `ScanMap` Vorrang.
+
+`MapTrackingService.DetectedMap` enthält Karten-ID, Minimap/Weltkarte und Zeit des bestätigten
+SIFT-Treffers. Bildfluss erneuert diesen Zeitstempel nicht. Für die Anzeige gilt ein Fenster von
+fünf Sekunden; Stop, Ladebildschirm, Menü und verlorene Erkennung entwerten den Kontext. Die
+geöffnete Weltkarte kann die angezeigte Übersicht wechseln, liefert aber keine Spielerposition.
+Der Tab verwendet vorhandene Erkennung und startet keine zusätzliche Aufnahme.
+
+„Nächster offener Ort“ berücksichtigt die gewählte Kategorie, offene Voraussetzungen und eine
+aktuelle Spielerposition derselben Karte. Suche und Statusfilter verändern die Empfehlung nicht.
+Ohne frische Position wird keine Entfernung geschätzt. Entfernungen werden mit dem belegten
+Kartenmaßstab in Meter umgerechnet, sonst als Kartenpixel angezeigt. „Auf Karte zeigen“ fokussiert
+den Ort in Soulcrest; es setzt keinen Abschluss und ändert keine Progressions- oder Boss-Modi.
+Die bestehenden Ankunftsregeln bleiben beim `ExplorationArrivalService`.
+
+## Progression folgt Kartenwechseln (2026-10-11)
+
+Nutzerkorrektur: Der aktivierte Progression Mode folgt einem bestätigten Wechsel der Spielerkarte,
+auch wenn „Spieler verfolgen“ ausgeschaltet ist. Beispiel: Altgard → Abyss darf kein Altgard-Ziel
+behalten. Vor dem Kartenwechsel wird das bisherige Progressionsziel verworfen, anschließend auf
+der neuen Karte neu berechnet. Späte Zielmeldungen der alten Karte werden ignoriert. Das bloße
+Öffnen einer anderen Weltkarte ist kein Spielerwechsel. Die Exploration-Fixierung betrifft nur
+die Erkundungsübersicht und verhindert diesen Progressionswechsel nicht.

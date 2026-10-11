@@ -1,0 +1,81 @@
+@implements IDisposable
+@inject ExplorationScanService Scan
+@inject ProgressService Progress
+
+<section class="card sv-card exploration-scan" data-scan-state="@(Scan.Running ? "running" : "idle")">
+        <div class="exploration-scan-heading">
+            <div><h3>@UiText.T("Erkundung einscannen")</h3><p>@UiText.T("Öffne die Listen im Spiel. Soulcrest liest mit.")</p></div>
+            <span class="exploration-scan-badge @(Scan.Running ? "live" : "")"><i aria-hidden="true"></i>@UiText.T(Scan.Running ? "Scan läuft" : "Bereit zum Scannen")</span>
+        </div>
+        <div class="exploration-scan-controls">
+            @if (Scan.Running)
+            {
+                <button class="btn exploration-scan-stop" @onclick="Scan.Stop">@UiText.T("Scan stoppen")</button>
+            }
+            else
+            {
+                <button class="btn primary" disabled="@(!HasPlaces)" @onclick="@(() => Scan.Start(Map, Kind))">@UiText.T("Scan starten")</button>
+            }
+        </div>
+        <ol class="exploration-scan-steps" aria-label="@UiText.T("So funktioniert der Scan")">
+            <li><span>1</span><div><strong>@UiText.T("Karte und Liste öffnen")</strong><p>@UiText.T("Wähle im Spiel dieselbe Karte und eine Erkundungsliste.")</p></div></li>
+            <li><span>2</span><div><strong>@UiText.T("Kurz stillhalten")</strong><p>@UiText.T("Warte, bis die sichtbaren Zeilen bestätigt sind.")</p></div></li>
+            <li><span>3</span><div><strong>@UiText.T("Langsam weiter")</strong><p>@UiText.T("Scrolle langsam. Öffne danach die nächste Kategorie.")</p></div></li>
+        </ol>
+        <div class="exploration-scan-status @(Scan.Feedback?.Ready == true ? "ready" : "")" role="status" aria-live="polite" aria-atomic="true">
+            <div class="exploration-scan-status-copy">
+                <span class="exploration-eyebrow">@UiText.T(Scan.Running ? "Aktuelle Prüfung" : "Scan-Status")</span>
+                <strong>@UiText.T(Scan.Status)</strong>
+                @if (Scan.ScanMap is not null)
+                {
+                    <span class="exploration-scan-context">@MapLabel(Scan.ScanMap) <span aria-hidden="true">·</span> @UiText.T(ExplorationView.Title(Scan.DetectedKind ?? Scan.ScanKind ?? Kind))</span>
+                }
+            </div>
+            <dl class="exploration-scan-metrics">
+                <div><dt>@UiText.T("Zeilen geprüft")</dt><dd>@(Scan.Feedback is { Total: > 0 } feedback ? $"{Math.Min(feedback.Read, feedback.Total)} / {feedback.Total}" : "—")</dd></div>
+                <div><dt>@UiText.T("Einträge übernommen")</dt><dd>@Scan.Recognized</dd></div>
+                <div><dt>@UiText.T("Noch unklar")</dt><dd>@Scan.Unmatched.Length</dd></div>
+            </dl>
+        </div>
+        <div class="exploration-scan-footer">
+            <p>@UiText.T(Scan.DetectedKind == "kibelisk" ? "Kibelisken übernehmen den gelesenen Bindungsstatus: abgeschlossen setzt den Haken, nicht abgeschlossen nimmt ihn zurück." : "Erkannte Namen allein setzen keinen Abschluss. Nur Haken oder bestätigte 100 % zählen.")</p>
+            <details class="exploration-scan-rules">
+                <summary>@UiText.T("So werden Abschlüsse gespeichert")</summary>
+                <p>@UiText.T("Bestätigte 100 % schließen die gesamte Kategorie auf der gewählten Karte ab. Sonst zählen nur eindeutig erkannte Namen mit Abschluss-Haken. Fehlende Haken setzen nichts zurück.")</p>
+                <p>@UiText.T("Kibelisken übernehmen den gelesenen Bindungsstatus: abgeschlossen setzt den Haken, nicht abgeschlossen nimmt ihn zurück.")</p>
+                <p>@UiText.T("Du kannst jederzeit stoppen. Bereits übernommene Einträge bleiben gespeichert.")</p>
+            </details>
+        </div>
+        <OcrLanguageSetup Disabled="@Scan.Running" />
+        @if (Scan.Preview is not null || Scan.Unmatched.Length > 0)
+        {
+            <details class="exploration-scan-inspection">
+                <summary>@UiText.T("Scan-Vorschau und unklare Einträge") @if (Scan.Unmatched.Length > 0) { <span class="exploration-scan-unclear-count">@Scan.Unmatched.Length</span> }</summary>
+                <div class="exploration-scan-inspection-body">
+                    @if (Scan.Preview is not null)
+                    {
+                        <figure><img src="@Scan.Preview" alt="@UiText.T("Scan-Vorschau")" /><figcaption>@UiText.T("Aufgenommener Listenbereich")</figcaption></figure>
+                    }
+                    @if (Scan.Unmatched.Length > 0)
+                    {
+                        <div class="exploration-scan-unmatched"><h4>@UiText.T("Nicht eindeutig erkannt:")</h4><p>@UiText.T("Halte die Liste kurz still. Verbleibende Einträge kannst du unten manuell prüfen.")</p><ul>@foreach (var name in Scan.Unmatched) { <li>@name</li> }</ul></div>
+                    }
+                </div>
+            </details>
+        }
+    </section>
+@code {
+    [Parameter, EditorRequired] public string Map { get; set; } = "";
+    [Parameter] public string Kind { get; set; } = "all";
+    [Parameter] public bool HasPlaces { get; set; } = true;
+    private DateTime _lastScanRender;
+    private string MapLabel(string map) => Progress.Maps.FirstOrDefault(m => m.Id == map)?.Label ?? map;
+    protected override void OnInitialized() => Scan.Changed += Refresh;
+    private void Refresh() => InvokeAsync(() =>
+    {
+        if (Scan.Running && DateTime.UtcNow - _lastScanRender < TimeSpan.FromMilliseconds(300)) return;
+        _lastScanRender = DateTime.UtcNow;
+        StateHasChanged();
+    });
+    public void Dispose() => Scan.Changed -= Refresh;
+}

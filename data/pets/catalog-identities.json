@@ -1,5 +1,5 @@
 {
- "description": "Existing IDs matched by unique portrait identity or exact name. Multiple IDs are unresolved duplicates; never silently merge progress.",
+ "description": "Existing IDs matched by unique portrait identity or exact name. Multiple catalog IDs retain compatibility; numericId plus legacyDuplicate resolves one primary runtime identity. Preserve raw progress on load; never add alias soul totals.",
  "pets": {
   "1193": {
    "catalogIds": [

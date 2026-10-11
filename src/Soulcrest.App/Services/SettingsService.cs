@@ -33,6 +33,9 @@ public sealed class AppSettings
     public int OverlayX { get; set; } = 40;
     public int OverlayY { get; set; } = 200;
     public string LastMap { get; set; } = "altgard";
+
+    /// <summary>User request 2026-10-11: null follows the detected game map; a map id pins the exploration overview.</summary>
+    public string? ExplorationPinnedMap { get; set; }
     public int? MainX { get; set; }
     public int? MainY { get; set; }
     public int? MainWidth { get; set; }
@@ -66,8 +69,8 @@ public sealed class AppSettings
     public double PlayerAnchorX { get; set; } = 0.5;
     public double PlayerAnchorY { get; set; } = 0.5;
 
-    /// <summary>Opt-in: the interactive map follows the tracked player (and switches to the map the player is on).</summary>
-    public bool FollowPlayer { get; set; }
+    /// <summary>Follow the tracked player by default (user request 2026-10-11); explicit saved choices stay.</summary>
+    public bool FollowPlayer { get; set; } = true;
 
     /// <summary>
     /// Usual zoom of the small map (screen pixels per map unit). Remembered so that a world map that is
@@ -75,8 +78,8 @@ public sealed class AppSettings
     /// </summary>
     public double? MiniMapZoom { get; set; }
 
-    /// <summary>Tracking was running when the app closed: resume it on the next start.</summary>
-    public bool MapTrackingActive { get; set; }
+    /// <summary>Tracking is enabled by default (user request 2026-10-11); resume after minimap setup and remember explicit choices.</summary>
+    public bool MapTrackingActive { get; set; } = true;
 
     /// <summary>Lines to the marked targets over the in-game map (RouteOverlayForm).</summary>
     public bool ShowRoutesInGame { get; set; } = true;

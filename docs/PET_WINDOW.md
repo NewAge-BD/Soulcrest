@@ -445,3 +445,44 @@ Panelnamen. Zum Ende standen 101 gelesene Einträge und 58 erkannte freigeschalt
   Randgeometrie sowie eine kontrolliert angeschnittene bestehende Original-Fixture. Keine neuen
   Spielbilder gespeichert. Die Wirkung auf die Gesamtzählung braucht einen erneuten Live-Nachtest;
   die ältere Abweichung 175/174 ist damit nicht als gelöst erklärt.
+
+## Pet-Scan-Übersicht und Katalogidentität (2026-10-11)
+
+- Neuer Tab mit serverweitem gespeicherten Stand, drei kurzen Schritten, sichtbarer Spielsprache
+  und Start/Stop/Abbruch. Die aktuelle Seite zeigt stabile bzw. bewegte Aufnahme, gelesene Karten
+  und die nächste Handlung. Vollständig bedeutet nur die sichtbare Seite. Fehler überstimmen
+  einen alten grünen Seitenstatus. Aufnahmebereich, Hilfe, Vorschau und Scan-Details sind einklappbar.
+- Globale Zähler für gelesene, bereite, zu prüfende und markierte Pets. EN/DE-Suche und Statusfilter
+  ändern ausschließlich die sichtbaren Ergebnisse. Sammelauswahl betrifft sichtbar übernehmbare
+  Einträge; Übernehmen gilt weiterhin für alle markierten Ergebnisse, auch außerhalb des Filters.
+  Unsichere gewählte Zuordnungen werden vor der Übernahme ausdrücklich benannt.
+- Ergebniszeilen vergleichen Lesung und gespeicherten Stand. Pro Zeile öffnet „Korrigieren“ die
+  Pet-Zuordnung, Wertkorrektur und Lesungsdetails. Erlaubte Werte bleiben N/5, N/25, N/75 und MAX;
+  Korrekturen ändern zunächst den Scan, erst „Markierte übernehmen“ schreibt den Fortschritt.
+  Übernehmen bleibt während des Scans möglich. Liste leeren benötigt Bestätigung und ist im Scan gesperrt.
+- Scan-Snapshots werden einmal pro zusammengefasstem Service-Ereignis übernommen. Keine zusätzliche
+  Aufnahme und keine periodische UI-Abfrage. Bewusste Aus-/Abwahl bleibt bei erneuter Panelbestätigung,
+  Scan-Neustart und Eintragszusammenführung erhalten; bei zwei manuellen Entscheidungen gilt die jüngste.
+- Acht ausdrücklich mit derselben numerischen Quell-ID belegte historische Katalogkennungen sind
+  zur Laufzeit Aliasse statt weiterer Pets/Porträtreferenzen. Gleicher Name oder gleiches Bild reicht
+  nicht. Alte Rohprofilwerte und Aliasporträts bleiben beim Laden unverändert. Anzeige: höchster
+  Soul-Stand und gemeinsamer Fokus; eine ausdrückliche Speicheraktion normalisiert nur dieses Pet.
+- Die gemeldeten Einträge „Modifizierter Karnif“ und „Tamed Zajf“ können nach der Aliasauflösung
+  wieder eindeutig zum vorhandenen EN/DE-Katalog aufgelöst werden. Für „Aultrossts Doppelga...“
+  und „Decomposed Lupyllini t.Z5“ gelten zwei enge, dokumentierte Korrekturen auf die belegten
+  numerischen Pet-Identitäten 1044/1202. Keine allgemeinen Matchschwellen werden gelockert.
+  Bestehende Namensreparatur erhält den höchsten Fortschritt, Fokus und jüngsten Zeitstempel.
+- „Pet Info“, der gemeldete unvollständige Name „Gatekeeper“ und nicht auflösbare abgeschnittene
+  Namen werden nicht neu gelernt. Solche gelernten Rohdatensätze bleiben zur Sicherheit gespeichert,
+  erscheinen aber weder im Katalog noch als Scan-Referenz. Unbelegter Fortschritt wird keinem
+  vermuteten Pet zugeschlagen. Bekannte vollständige Katalog-Pets werden weiterhin zuerst aufgelöst.
+- Für Namensreparaturen sind weder ein neues Capture noch ein Zugriff auf Nutzerdaten im Arbeitslauf
+  nötig. Die normale App führt die bestehende Reparatur beim nächsten Start aus; Tests nutzen
+  isolierte Daten. Ein erneuter Live-Scan bleibt zur Beurteilung der tatsächlichen Erkennungsqualität nötig.
+- Zusätzlicher Nutzerwunsch: Die Pets-Liste zeigt ausschließlich eindeutig belegte Soul-Identitäten.
+  `PetSoulIdentity` prüft `numericId` gegen die eingebettete `PetIdTable`; ältere Pakete dürfen ihre
+  exakte Katalogkennung aus derselben Tabelle verwenden. Namen/Porträts allein reichen nicht.
+  Mehrere verbleibende primäre Pets derselben Soul-ID bleiben als mehrdeutig ausgeblendet. Suche,
+  Detailauswahl, Gattungszahlen und Fokus-/MAX-Zähler beziehen sich auf dieselbe geprüfte Liste;
+  das Detail nennt die Soul-ID. Ungeprüfte gelernte Namen behalten ihre Rohdaten, werden dadurch
+  aber nicht zu gültigen Listeneinträgen. Gatekeeper Pinopi ist belegt; Gatekeeper ist kein eigenes Pet.

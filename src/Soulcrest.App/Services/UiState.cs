@@ -10,6 +10,22 @@ public sealed class UiState
     public void ShowBossOnMap(MapTarget target) { _pendingBoss = target; Navigate("map"); }
     public MapTarget? TakePendingBossFocus() { var target = _pendingBoss; _pendingBoss = null; return target; }
 
+    private ExplorationPlace? _pendingExploration;
+
+    /// <summary>Focuses a catalogue place without enabling tracking, changing a boss mode or saving progress.</summary>
+    public void ShowExplorationOnMap(ExplorationPlace place)
+    {
+        _pendingExploration = place;
+        Navigate("map");
+    }
+
+    public ExplorationPlace? TakePendingExplorationFocus()
+    {
+        var place = _pendingExploration;
+        _pendingExploration = null;
+        return place;
+    }
+
     public event Action? Changed;
 
     public void Navigate(string tab)

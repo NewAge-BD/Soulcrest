@@ -5,8 +5,8 @@
 
 @{
     var lang = Settings.Current.NameLanguage;
-    var shown = Sorted(Progress.Catalog.Pets.Where(Matches)).ToList();
-    var selected = (_selectedId is null ? null : Progress.Catalog.Find(_selectedId)) ?? shown.FirstOrDefault();
+    var shown = Sorted(_verifiedPets.Where(Matches)).ToList();
+    var selected = (_selectedId is null ? null : _verifiedPets.FirstOrDefault(pet => pet.Id == _selectedId)) ?? shown.FirstOrDefault();
 }
 
 <div class="pets-view">
@@ -41,7 +41,7 @@
         <header class="pets-head">
             <h2 class="pets-title">Pets</h2>
             <div class="pets-stats">
-                <span class="pets-stat" title="@UiText.T("Pets im Katalog")"><b>@_total</b> @UiText.T("Pets im Katalog")</span>
+                <span class="pets-stat" title="@UiText.T("Nur Pets mit belegter Soul-ID.")"><b>@_total</b> @UiText.T("Pets im Katalog")</span>
                 <span class="pets-stat" title="@UiText.T("freigeschaltet (Stufe 1+)")"><b>@_unlocked</b> @UiText.T("freigeschaltet (Stufe 1+)")</span>
                 <span class="pets-stat is-max" title="@UiText.F("Stufe {0} (max)", Progress.Thresholds.MaxLevel)"><b>@_done</b> @UiText.F("Stufe {0} (max)", Progress.Thresholds.MaxLevel)</span>
                 <span class="pets-stat is-focus" title="@UiText.T("Fokus-Pets (★, im Overlay)")"><b>@_focusCount</b> @UiText.T("Fokus-Pets (★, im Overlay)")</span>
@@ -116,7 +116,7 @@
                         var focus = Progress.IsFocus(pet.Id);
                         var name = pet.DisplayName(lang);
                         var petId = pet.Id;
-                        <div @key="petId"
+                        <div @key="petId" data-pet-id="@petId"
                              class="pets-card pets-g-@pet.Genus @StateClass(level, isMax) @(petId == selected?.Id ? "is-selected" : "")"
                              role="button" tabindex="0"
                              title="@UiText.F("{0} · {1}\nSpawns: {2}\nQuellmonster: {3}", name, Progress.LevelText(petId), MapCounts(pet.Spawns), MapCounts(pet.Monsters))"
@@ -204,6 +204,10 @@
                         <img src="@genusIcon" alt="" />
                     }
                     <span>@Genus(pet.Genus)</span>
+                    @if (Progress.SoulId(pet.Id) is { } soulId)
+                    {
+                        <span class="subname" data-pet-soul-id="@soulId">@UiText.F("Soul-ID: {0}", soulId)</span>
+                    }
                 </div>
 
                 <section class="pets-insight">
@@ -300,6 +304,7 @@
     private string _query = "", _genus = "", _map = "", _status = "", _level = "", _sort = "";
     private string? _selectedId;
     private int _total, _unlocked, _done, _focusCount;
+    private IReadOnlyList<PetDefinition> _verifiedPets = [];
     private Dictionary<string, (int Total, int Unlocked)> _genusCounts = [];
 
     /// <summary>Genus tabs: the five game genera, plus "unknown" only while learned pets without genus exist.</summary>
@@ -375,11 +380,13 @@
 
     private void Recount()
     {
-        _total = Progress.Catalog.Pets.Count;
-        _unlocked = Progress.Catalog.Pets.Count(p => Progress.Thresholds.Level(Progress.Souls(p.Id)) >= 1);
-        _done = Progress.Catalog.Pets.Count(p => Progress.Thresholds.IsMax(Progress.Souls(p.Id)));
-        _focusCount = Progress.FocusPets().Count;
-        _genusCounts = Progress.Catalog.Pets
+        _verifiedPets = Progress.VerifiedPets;
+        _total = _verifiedPets.Count;
+        _unlocked = _verifiedPets.Count(p => Progress.Thresholds.Level(Progress.Souls(p.Id)) >= 1);
+        _done = _verifiedPets.Count(p => Progress.Thresholds.IsMax(Progress.Souls(p.Id)));
+        _focusCount = _verifiedPets.Count(p => Progress.IsFocus(p.Id));
+        if (_selectedId is not null && !_verifiedPets.Any(pet => pet.Id == _selectedId)) _selectedId = null;
+        _genusCounts = _verifiedPets
             .GroupBy(p => p.Genus)
             .ToDictionary(g => g.Key, g => (g.Count(), g.Count(p => Progress.Thresholds.Level(Progress.Souls(p.Id)) >= 1)));
     }

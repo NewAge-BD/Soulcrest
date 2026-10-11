@@ -2,6 +2,20 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.4.5 – 2026-10-11
+
+- **New:** Exploration overview in the Exploration tab: counters per category, search (EN/DE),
+  Open/Done/Locked filters and a checklist. It follows the map you are on in the game automatically (can
+  be pinned), suggests the nearest open place and names the requirements of locked dungeons.
+- **Improved:** The progression mode follows a map change in the game (e.g. Altgard → Abyss), even with
+  "Follow player" turned off.
+- **Improved:** Reworked pet scan tab: three steps, search and filters, results to check first,
+  corrections right in the row, applying all marked results at once.
+- **Fixed:** The pet list only shows pets with a confirmed soul ID; duplicates (e.g. Modified Karnif) are
+  merged and "Gatekeeper" is no longer a pet of its own. Cut-off names such as "Aultrossts Doppelga…"
+  are matched correctly.
+- **Changed:** Player tracking and "Follow player" are now on by default; saved settings stay.
+
 ## 0.4.4 – 2026-10-11
 
 - **Fixed:** Switching maps could leave the interactive map stuck with an error (stale target markers of

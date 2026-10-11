@@ -23,9 +23,10 @@ public sealed class ProgressService
     public ProgressService()
     {
         MapDataDirectory = AppPaths.FindMapData();
-        _mapPets = MapDataDirectory is not null && File.Exists(Path.Combine(MapDataDirectory, "pets.json"))
-            ? PetCatalog.Load(Path.Combine(MapDataDirectory, "pets.json")).Pets.ToList()
-            : [];
+        var mapCatalog = MapDataDirectory is not null && File.Exists(Path.Combine(MapDataDirectory, "pets.json"))
+            ? PetCatalog.Load(Path.Combine(MapDataDirectory, "pets.json")) : new PetCatalog([]);
+        _mapPets = mapCatalog.Pets.ToList();
+        _aliases = new Dictionary<string, string>(mapCatalog.Aliases, StringComparer.Ordinal);
         _learned = JsonFile.Load<List<PetDefinition>>(AppPaths.LearnedPetsFile);
         _learnedNames = JsonFile.Load<Dictionary<string, string>>(AppPaths.LearnedNamesFile);
         _profile = JsonFile.Load<ProgressProfile>(AppPaths.ProgressFile);
@@ -35,6 +36,7 @@ public sealed class ProgressService
     }
 
     private readonly List<PetDefinition> _mapPets;
+    private readonly Dictionary<string, string> _aliases;
     private readonly List<PetDefinition> _learned;
     // Real names for placeholder pets ("Crestlich 01"), learned from the in-game pet window.
     private readonly Dictionary<string, string> _learnedNames;
@@ -49,7 +51,7 @@ public sealed class ProgressService
         foreach (var (id, name) in _learnedNames)
             names[id] = name;
         var mapPets = PetNameOverrides.Apply(_mapPets, names).ToList();
-        return new PetCatalog(mapPets.Concat(_learned.Where(l => mapPets.All(m => m.Id != l.Id))));
+        return new PetCatalog(mapPets.Concat(_learned.Where(l => PanelPetName.CanLearn(l.En) && mapPets.All(m => m.Id != l.Id))), _aliases);
     }
 
     /// <summary>Catalog pet still named after its icon (no override, nothing learned yet).</summary>
@@ -83,9 +85,7 @@ public sealed class ProgressService
                 return;
             _learned.Remove(learned);
             _learnedNames[placeholderId] = learned.En;
-            if (_profile.Pets.Remove(learnedId, out var moved)
-                && (!_profile.Pets.TryGetValue(placeholderId, out var existing) || existing.Souls < moved.Souls))
-                _profile.Pets[placeholderId] = moved;
+            MergeProfile(learnedId, placeholderId);
             var oldPortrait = Path.Combine(AppPaths.LearnedPortraitsDirectory, $"{learnedId}.png");
             var newPortrait = Path.Combine(AppPaths.LearnedPortraitsDirectory, $"{placeholderId}.png");
             if (File.Exists(oldPortrait))
@@ -108,6 +108,10 @@ public sealed class ProgressService
     /// <summary>Map-data pets plus pets learned from the in-game pet window. Replaced when a pet is learned.</summary>
     public PetCatalog Catalog { get; private set; }
 
+    public IReadOnlyList<PetDefinition> VerifiedPets => PetSoulIdentity.Verified(Catalog);
+
+    public int? SoulId(string petId) => Catalog.Find(petId) is { } pet ? PetSoulIdentity.Resolve(pet, Catalog) : null;
+
     public bool IsLearned(string petId)
     {
         lock (_gate)
@@ -125,7 +129,10 @@ public sealed class ProgressService
         {
             name = PanelPetName.Clean(name);
             var id = PetCatalog.Slug(name);
-            pet = Catalog.Find(id) ?? new PetDefinition { Id = id, En = name, De = language == "de" ? name : null, Genus = "unknown" };
+            if (FindByName(name) is null && Catalog.Find(id) is null && !PanelPetName.CanLearn(name))
+                throw new ArgumentException("Pet name is incomplete or identifies a panel label.", nameof(name));
+            pet = FindByName(name) ?? Catalog.Find(id) ?? new PetDefinition { Id = id, En = name, De = language == "de" ? name : null, Genus = "unknown" };
+            id = pet.Id;
             if (_mapPets.All(m => m.Id != id) && _learned.All(l => l.Id != id))
             {
                 _learned.Add(pet);
@@ -171,6 +178,18 @@ public sealed class ProgressService
             ? Directory.GetFiles(AppPaths.LearnedPortraitsDirectory, "*.png").Select(p => (Path.GetFileNameWithoutExtension(p), p))
             : [];
 
+    /// <summary>
+    /// One portrait identity per catalog pet, including a legacy-file fallback. Loading a scan
+    /// never needs to rename or discard stored alias portraits just to remove duplicate references.
+    /// </summary>
+    public IReadOnlyList<(string PetId, string Path)> RecognitionPortraits() => LearnedPortraits()
+        .Where(p => Catalog.Find(p.PetId) is not null)
+        .Select(p => (PetId: CanonicalId(p.PetId), p.Path, OriginalId: p.PetId))
+        .OrderBy(p => p.PetId != p.OriginalId)
+        .ThenBy(p => p.OriginalId, StringComparer.Ordinal)
+        .DistinctBy(p => p.PetId)
+        .Select(p => (p.PetId, p.Path)).ToArray();
+
     /// <summary>Finds a pet by its displayed name (English or German), tolerant to case and punctuation.</summary>
     public PetDefinition? FindByName(string name)
     {
@@ -201,13 +220,7 @@ public sealed class ProgressService
             if (target.Id == learned.Id)
                 continue;
             _learned.Remove(learned);
-            if (_profile.Pets.Remove(learned.Id, out var moved))
-            {
-                if (!_profile.Pets.TryGetValue(target.Id, out var existing) || existing.Souls < moved.Souls)
-                    _profile.Pets[target.Id] = moved;
-                else
-                    existing.Focus |= moved.Focus;
-            }
+            MergeProfile(learned.Id, target.Id);
             var oldPortrait = Path.Combine(AppPaths.LearnedPortraitsDirectory, $"{learned.Id}.png");
             var newPortrait = Path.Combine(AppPaths.LearnedPortraitsDirectory, $"{target.Id}.png");
             if (File.Exists(oldPortrait))
@@ -223,6 +236,31 @@ public sealed class ProgressService
             return;
         JsonFile.Save(AppPaths.LearnedPetsFile, _learned);
         Persist();
+    }
+
+    private bool MergeProfile(string alias, string target)
+    {
+        if (alias == target || !_profile.Pets.Remove(alias, out var moved)) return false;
+        var existing = _profile.Get(target);
+        // Alias snapshots describe the same collection: keep the greatest value, never add them.
+        existing.Souls = Math.Max(existing.Souls, moved.Souls);
+        existing.Focus |= moved.Focus;
+        if (moved.UpdatedAt > existing.UpdatedAt) existing.UpdatedAt = moved.UpdatedAt;
+        return true;
+    }
+
+    private string CanonicalId(string petId) => Catalog.Find(petId)?.Id ?? petId;
+
+    private IEnumerable<string> ProfileIds(string canonicalId) =>
+        _aliases.Where(pair => pair.Value == canonicalId).Select(pair => pair.Key).Prepend(canonicalId);
+
+    /// <summary>Normalises this pet only when an explicit progress write is about to occur.</summary>
+    private PetProgressEntry EntryForWrite(string petId)
+    {
+        var canonicalId = CanonicalId(petId);
+        foreach (var alias in ProfileIds(canonicalId).Where(id => id != canonicalId))
+            MergeProfile(alias, canonicalId);
+        return _profile.Get(canonicalId);
     }
 
     /// <summary>Maps of the data package in manifest order (grouped Elyos, Asmodier, Abyss).</summary>
@@ -251,19 +289,19 @@ public sealed class ProgressService
     public int Souls(string petId)
     {
         lock (_gate)
-            return _profile.Pets.TryGetValue(petId, out var entry) ? entry.Souls : 0;
+            return ProfileIds(CanonicalId(petId)).Max(id => _profile.Pets.TryGetValue(id, out var entry) ? entry.Souls : 0);
     }
 
     public bool IsFocus(string petId)
     {
         lock (_gate)
-            return _profile.Pets.TryGetValue(petId, out var entry) && entry.Focus;
+            return ProfileIds(CanonicalId(petId)).Any(id => _profile.Pets.TryGetValue(id, out var entry) && entry.Focus);
     }
 
     public IReadOnlyList<PetDefinition> FocusPets()
     {
         lock (_gate)
-            return Catalog.Pets.Where(p => _profile.Pets.TryGetValue(p.Id, out var e) && e.Focus).ToList();
+            return Catalog.Pets.Where(p => IsFocus(p.Id)).ToList();
     }
 
     public IReadOnlyList<LoggedSoul> Recent()
@@ -274,10 +312,11 @@ public sealed class ProgressService
 
     public void AddSouls(string petId, int quantity, string source, string rawText)
     {
-        var logged = new LoggedSoul(DateTimeOffset.Now, petId, quantity, source, rawText);
         lock (_gate)
         {
-            var entry = _profile.Get(petId);
+            petId = CanonicalId(petId);
+            var logged = new LoggedSoul(DateTimeOffset.Now, petId, quantity, source, rawText);
+            var entry = EntryForWrite(petId);
             entry.Souls += quantity;
             entry.UpdatedAt = logged.At;
             _recent.Insert(0, logged);
@@ -304,7 +343,7 @@ public sealed class ProgressService
     {
         lock (_gate)
         {
-            var entry = _profile.Get(petId);
+            var entry = EntryForWrite(petId);
             entry.Souls = Math.Max(0, souls);
             entry.UpdatedAt = DateTimeOffset.Now;
             Persist();
@@ -320,7 +359,7 @@ public sealed class ProgressService
         {
             foreach (var (petId, level, inLevel) in values)
             {
-                var entry = _profile.Get(petId);
+                var entry = EntryForWrite(petId);
                 entry.Souls = Thresholds.Total(level, inLevel);
                 entry.UpdatedAt = DateTimeOffset.Now;
             }
@@ -335,8 +374,9 @@ public sealed class ProgressService
         lock (_gate)
         {
             var id = source.CatalogId ?? FindByName(source.En)?.Id ?? PetCatalog.Slug(source.En);
-            if (Catalog.Find(id) is not null) return id;
-            _learned.Add(new PetDefinition { Id = id, En = source.En, Genus = source.Genus.ToLowerInvariant() });
+            if (Catalog.Find(id) is { } known) return known.Id;
+            _learned.Add(new PetDefinition { Id = id, En = source.En, Genus = source.Genus.ToLowerInvariant(),
+                NumericId = source.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) });
             JsonFile.Save(AppPaths.LearnedPetsFile, _learned);
             Catalog = BuildCatalog();
             return id;
@@ -380,7 +420,7 @@ public sealed class ProgressService
     {
         lock (_gate)
         {
-            var entry = _profile.Get(petId);
+            var entry = EntryForWrite(petId);
             entry.Focus = !entry.Focus;
             Persist();
         }
