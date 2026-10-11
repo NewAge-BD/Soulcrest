@@ -4,8 +4,8 @@ namespace Soulcrest.App.Tests;
 public sealed class ExplorationArrivalTests
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
-    private static AppSettings Settings => new() { ProgressionEnabled = true, ProgressionKinds = ["dungeon"], ExplorationCompletionRadius = 50 };
-    private static MapTarget Target => new("progression","altgard",100,100,"Cave","Sealed Dungeon",null,ExplorationId:"cave",CharacterId:"one");
+    private static AppSettings Settings => new() { ProgressionEnabled = true, ProgressionKinds = ["stronghold"], ExplorationCompletionRadius = 50 };
+    private static MapTarget Target => new("progression","altgard",100,100,"Fort","Stronghold",null,ExplorationId:"cave",CharacterId:"one");
     [Theory]
     [InlineData(130,140,true)]
     [InlineData(131,140,false)]
@@ -30,12 +30,40 @@ public sealed class ExplorationArrivalTests
         Assert.Null(ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
         settings.ExplorationCompletionRadius=50; settings.ProgressionKinds=["pets"];
         Assert.Null(ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
-        settings.ProgressionKinds=["stronghold"];
+        settings.ProgressionKinds=["dungeon"];
         Assert.Null(ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
-        settings.ProgressionKinds=["pets","stronghold","dungeon"]; // a mixed selection with dungeons
+        settings.ProgressionKinds=["pets","stronghold","dungeon"]; // a mixed selection with strongholds
         Assert.Equal("cave",ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
         settings.ProgressionEnabled=false;
         Assert.Null(ExplorationArrivalService.Reached(settings,Target,position,"one",Now));
+    }
+
+    [Fact]
+    public void SealedDungeonTargetIsNotCompletedByTheRadiusAlone()
+    {
+        var settings=Settings; settings.ProgressionKinds=["dungeon","stronghold"];
+        var dungeon=Target with { Kind="Sealed Dungeon" };
+        Assert.Null(ExplorationArrivalService.Reached(settings,dungeon,new("altgard",100,100,Now),"one",Now));
+    }
+
+    [Fact]
+    public void NearestSealedDungeonWithinTheRadiusOnTheSameMap()
+    {
+        ExplorationPlace[] places=[new("far","altgard","dungeon",0,"Far",null,130,100), new("near","altgard","dungeon",0,"Near",null,110,100),
+            new("fort","altgard","stronghold",0,"Fort",null,101,100), new("other","poeta","dungeon",0,"Other",null,100,100)];
+        Assert.Equal("near",ExplorationArrivalService.DungeonAt(places,new("altgard",100,100,Now),40,Now));
+        Assert.Null(ExplorationArrivalService.DungeonAt(places,new("altgard",100,200,Now),40,Now));
+        Assert.Null(ExplorationArrivalService.DungeonAt(places,new("altgard",100,100,Now),0,Now));
+        Assert.Null(ExplorationArrivalService.DungeonAt(places,new("altgard",100,100,Now.AddSeconds(-3)),40,Now));
+    }
+
+    [Fact]
+    public void TheInstanceMustFollowTheEntranceSoon()
+    {
+        Assert.True(ExplorationArrivalService.EnteredInTime(Now,Now.AddSeconds(40)));
+        Assert.True(ExplorationArrivalService.EnteredInTime(Now,Now.AddMinutes(2)));
+        Assert.False(ExplorationArrivalService.EnteredInTime(Now,Now.AddMinutes(2).AddSeconds(1)));
+        Assert.False(ExplorationArrivalService.EnteredInTime(Now,Now.AddSeconds(-1)));
     }
 }
 
@@ -108,4 +136,5 @@ public sealed class TargetArrivalTests
         Assert.Empty(ExplorationArrivalService.ArrivedTargets([A], new("altgard", 100, 100, Now.AddSeconds(-3)), 40, armed, Now));
         Assert.Empty(ExplorationArrivalService.ArrivedTargets([A], new("altgard", 100, 100, Now), 0, armed, Now));
     }
+
 }

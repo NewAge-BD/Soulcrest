@@ -64,11 +64,17 @@ public sealed class RouteMarkerDesignTests
     public void TheIconLabelKeepsOnlyTheDistance(string name, string label) => Assert.Equal(label, RouteOverlayForm.DistanceOf(name));
 
     [Fact]
-    public void OnlyResourcesAndCubesSwapTheirNameForTheIcon()
+    public void ResourcesCubesDungeonsKibelisksAndQuestsSwapTheirNameForTheIcon()
     {
         Assert.True(RouteOverlayForm.ShowsIconOnly(new MapTarget("r", "altgard", 1, 1, "Diamond", "Resources · Gem", "i.png")));
         Assert.True(RouteOverlayForm.ShowsIconOnly(new MapTarget("c", "altgard", 1, 1, "Hidden Cube", "Collectibles · Hidden Cube", "i.png")));
-        Assert.False(RouteOverlayForm.ShowsIconOnly(new MapTarget("k", "altgard", 1, 1, "Kibelisk", "Locations · Kibelisk", "i.png")));
+        Assert.True(RouteOverlayForm.ShowsIconOnly(new MapTarget("k", "altgard", 1, 1, "Kibelisk", "Locations · Kibelisk", "i.png")));
+        Assert.True(RouteOverlayForm.ShowsIconOnly(new MapTarget("q", "altgard", 1, 1, "Finding Nemon", "NPCs · Hero Quest", "i.png", Leveling: true)));
+        Assert.True(RouteOverlayForm.ShowsIconOnly(new MapTarget("progression", "altgard", 1, 1, "Spider Cave", "Sealed Dungeon", null)));
+        Assert.False(RouteOverlayForm.ShowsIconOnly(new MapTarget("s", "altgard", 1, 1, "Fort", "Stronghold", null)));
+        Assert.False(RouteOverlayForm.ShowsIconOnly(new MapTarget("w", "altgard", 1, 1, "", "Waypoint", null, Leveling: true)));
+        Assert.Equal("Kibelisk", RouteOverlayForm.CategoryOf("Locations · Kibelisk"));
+        Assert.Equal("Sealed Dungeon", RouteOverlayForm.CategoryOf("Sealed Dungeon"));
         Assert.False(RouteOverlayForm.ShowsIconOnly(new MapTarget("p", "altgard", 1, 1, "Kuru", "Pets · Fera", "i.png", PetId: "kuru")));
     }
 

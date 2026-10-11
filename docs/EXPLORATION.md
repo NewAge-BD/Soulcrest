@@ -87,7 +87,7 @@ node --test tests/exploration-map.test.cjs tests/map-filter.test.cjs
 
 ## Automatischer Abschluss bei Ankunft
 
-Auf der Karte im Exploration-Progressionsbereich **Abschlussradius (Kartenpixel)** einstellen (Standard 40; 0 deaktiviert, maximal 500). Der angezeigte Kreis skaliert mit der Karte. Bei laufendem Spieler-Tracking wird das aktuelle Ziel innerhalb des Radius im aktiven Charakterprofil als fertig gespeichert und das nächste offene Ziel gewählt. Manuelle Korrekturen bleiben im jeweiligen Scan-Tab möglich. Der Abschluss bedeutet hier Ankunft am Ort; zusätzliche Dungeon-Abschlussbedingungen werden nicht geprüft.
+Auf der Karte im Exploration-Progressionsbereich **Abschlussradius (Kartenpixel)** einstellen (Standard 40; 0 deaktiviert, maximal 500). Der angezeigte Kreis skaliert mit der Karte. Bei laufendem Spieler-Tracking wird das aktuelle Ziel innerhalb des Radius im aktiven Charakterprofil als fertig gespeichert und das nächste offene Ziel gewählt. Manuelle Korrekturen bleiben im jeweiligen Scan-Tab möglich. Strongholds gelten bei Ankunft am Ort als abgeschlossen. **Sealed Dungeons** (Nutzerentscheidung 2026-10-11) werden beim Betreten abgehakt, auch ohne Progressionsmodus: Die letzte Spielerposition liegt im Abschlussradius eines Sealed Dungeons und das Tracking erkennt höchstens zwei Minuten danach eine Instanz (Minimap nach dem Ladebildschirm verschwunden). Bei mehreren Dungeons im Radius zählt der nächstgelegene. Vorbeigehen allein hakt nichts ab; zusätzliche Dungeon-Abschlussbedingungen (Boss besiegt) werden nicht geprüft.
 
 ## Freischaltung von Sealed Dungeons (Nutzerangabe 2026-10-07, nach aion2maps)
 

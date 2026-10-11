@@ -2,6 +2,15 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.4.3 – 2026-10-11
+
+- **New:** Sealed dungeons are ticked off when you enter them, even without the progression mode: an
+  instance has to follow a position within the completion radius. Walking past no longer ticks them off.
+  Strongholds still only need the radius.
+- **Improved:** Target markers for sealed dungeons, Kibelisks and quests now look like the resource
+  markers: a ring around the game's symbol, the line starting at its rim, icon and distance beside the
+  ring. This applies in every mode (marked, progression, leveling routes).
+
 ## 0.4.2 – 2026-10-10
 
 - **Fixed:** No extra symbol sits inside the ring of marked resources and hidden cubes when their category

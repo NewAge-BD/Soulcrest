@@ -173,14 +173,14 @@ public sealed class RouteOverlayForm : Form
         {
             foreach (var (target, _) in onMap)
             {
-                if (target.Leveling)
+                if (ShowsIconOnly(target))
+                    RemoveSymbolInRing(resources, target);
+                else if (target.Leveling)
                 {
                     resources.RemoveAll(r => r.X == target.X && r.Y == target.Y);
                     resources.Add(new ResourceSymbol(target.X, target.Y, target.Icon is { } path ? ResourceIcon(path, mapdata) : null,
                         target.Color, target.Completed ? 0.28f : 1f));
                 }
-                else if (ShowsIconOnly(target))
-                    RemoveSymbolInRing(resources, target);
                 else if (!target.MonsterBranch && PetOf(target) is null && target.Icon is { } icon && !resources.Any(r => r.X == target.X && r.Y == target.Y))
                     resources.Add(new ResourceSymbol(target.X, target.Y, ResourceIcon(icon, mapdata)));
             }
@@ -193,7 +193,8 @@ public sealed class RouteOverlayForm : Form
         {
             foreach (var (target, _) in onMap)
             {
-                if (ShowsIconOnly(target) && target.Icon is { } path)
+                // Progression targets (sealed dungeons, strongholds) carry no icon: their category's legend icon.
+                if (ShowsIconOnly(target) && (target.Icon ?? MapPetMarkers.CategoryIcon(iconData, target.MapId, CategoryOf(target.Kind))) is { } path)
                     targetIcons[target.Id] = ResourceIcon(path, iconData);
             }
         }
@@ -306,8 +307,9 @@ public sealed class RouteOverlayForm : Form
             var before = target.After is { } after ? targets.FirstOrDefault(t => t.Target.Id == after).Target : null;
             PointF? start = target.BranchX is { } bx && target.BranchY is { } by ? Offset(placement.WorldToScreen(bx, by), origin)
                 : before is not null ? Offset(placement.WorldToScreen(before.X, before.Y), origin) : target.Completed ? null : player;
-            // Resources and hidden cubes: their icon beside the ring instead of the name, so the label does not
-            // cover the symbols around it (user request 2026-10-10); the distance stays.
+            // Resources, hidden cubes, sealed dungeons, Kibelisks and quests: their icon beside the ring instead of
+            // the name, so the label does not cover the symbols around it (user requests 2026-10-10/11); the
+            // distance stays.
             var icon = ShowsIconOnly(target) && targetIcons?.GetValueOrDefault(target.Id) is { } bitmap ? bitmap : null;
             var label = icon is null ? target.Name : DistanceOf(target.Name);
             // Lines leave a predecessor's ring (or the player marker) at its rim, never from its centre.
@@ -327,13 +329,20 @@ public sealed class RouteOverlayForm : Form
     private const float PlayerGap = 10;
     private const int TargetIconSize = 18;
 
-    /// <summary>Marked resources and hidden cubes are labelled with their icon instead of their name.</summary>
-    internal static bool ShowsIconOnly(MapTarget target) => !target.Leveling && target.PetId is null && !target.MonsterBranch
-        && (target.Kind.StartsWith("Resources", StringComparison.Ordinal) || target.Kind.StartsWith("Collectibles", StringComparison.Ordinal));
+    /// <summary>
+    /// Resources, hidden cubes, sealed dungeons, Kibelisks and quest NPCs are labelled with their icon instead of
+    /// their name, in every mode: marked by hand, progression and leveling routes (user request 2026-10-11).
+    /// </summary>
+    internal static bool ShowsIconOnly(MapTarget target) => target.PetId is null && !target.MonsterBranch
+        && (target.Kind.StartsWith("Resources", StringComparison.Ordinal) || target.Kind.StartsWith("Collectibles", StringComparison.Ordinal)
+            || target.Kind.StartsWith("NPCs", StringComparison.Ordinal) || CategoryOf(target.Kind) is "Sealed Dungeon" or "Kibelisk");
+
+    /// <summary>"Locations · Kibelisk" → "Kibelisk"; a progression target's kind is the category alone.</summary>
+    internal static string CategoryOf(string kind) => kind.LastIndexOf(" · ", StringComparison.Ordinal) is var i and >= 0 ? kind[(i + 3)..] : kind;
 
     /// <summary>
-    /// A resource or cube target shows its icon beside the ring; a symbol inside the ring covered the game's
-    /// own symbol there (user report 2026-10-10), also when the legend shows the category.
+    /// A target with its icon beside the ring has no symbol inside it; one there covered the game's own symbol
+    /// (user report 2026-10-10), also when the legend shows the category.
     /// </summary>
     internal static void RemoveSymbolInRing(List<ResourceSymbol> resources, MapTarget target) =>
         resources.RemoveAll(r => r.X == target.X && r.Y == target.Y);
@@ -686,7 +695,15 @@ public sealed class RouteOverlayForm : Form
             graphics.FillEllipse(back, RectangleF.Inflate(box, 3, 3));
         using (var rim = new Pen(color, 1.5f))
             graphics.DrawEllipse(rim, RectangleF.Inflate(box, 3, 3));
-        graphics.DrawImage(icon, box);
+        if (color.A == 255)
+            graphics.DrawImage(icon, box);
+        else
+        {
+            // Fades with its ring: completed leveling stops, the boss preview.
+            using var attributes = new ImageAttributes();
+            attributes.SetColorMatrix(new ColorMatrix { Matrix33 = color.A / 255f });
+            graphics.DrawImage(icon, Rectangle.Round(box), 0, 0, icon.Width, icon.Height, GraphicsUnit.Pixel, attributes);
+        }
         if (name.Length > 0)
             DrawLabel(graphics, name, new PointF(box.Right + 5, box.Top - 1), color, area, box.Left - 5);
     }

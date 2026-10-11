@@ -819,5 +819,6 @@
   "Mindestens ein Ziel wählen.": "Choose at least one target.",
   "Am nächsten an der vollen Stufe": "Closest to the full level",
   "Mehrere Ziele: Das nächstgelegene offene Ziel kommt zuerst.": "Several targets: the nearest open target comes first.",
-  "Erklärung": "Explanation"
+  "Erklärung": "Explanation",
+  "Sealed Dungeons werden beim Betreten abgehakt, auch ohne Progressionsmodus: Nach einer Position im Abschlussradius muss eine Instanz folgen. Strongholds genügt der Radius.": "Sealed dungeons are ticked off when entered, even without the progression mode: an instance has to follow a position within the completion radius. Strongholds only need the radius."
 }

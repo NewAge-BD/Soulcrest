@@ -3,7 +3,8 @@ namespace Soulcrest.App.Services;
 /// <summary>
 /// On a fresh player position: completes the current exploration target, and removes marked targets
 /// (right click / Shift + right click) the player has reached, like the progression target disappears
-/// (user request 2026-10-05).
+/// (user request 2026-10-05). Sealed dungeons complete when the player enters them: an instance right after
+/// a position within the completion radius, with or without the progression mode (user request 2026-10-11).
 /// </summary>
 public sealed class ExplorationArrivalService : IDisposable
 {
@@ -12,6 +13,9 @@ public sealed class ExplorationArrivalService : IDisposable
     private readonly ExplorationService _exploration;
     private readonly SettingsService _settings;
     private DateTimeOffset _lastPosition;
+    private bool _inInstance;
+    // The sealed dungeon at the last fresh position (null: none within the radius) and its character.
+    private (string Id, string Character, DateTimeOffset At)? _atDungeon;
     // Ordinary targets the player has been seen away from: only these disappear on arrival, so a target set
     // while standing next to it does not vanish at once.
     private readonly HashSet<string> _armed = [];
@@ -22,12 +26,21 @@ public sealed class ExplorationArrivalService : IDisposable
     }
     private void Check()
     {
+        var entered = _tracking.Running && _tracking.InInstance && !_inInstance;
+        _inInstance = _tracking.InInstance;
+        if (entered && _atDungeon is { } at && EnteredInTime(at.At, DateTimeOffset.UtcNow))
+        {
+            _atDungeon = null;
+            _exploration.SetDone(at.Character, [at.Id]); // already done ones change nothing
+        }
         var position = _tracking.Position;
         if (!_tracking.Running || !_tracking.Found || position is null || position.At <= _lastPosition) return;
         _lastPosition = position.At;
         var character = _exploration.ActiveId;
         var id = Reached(_settings.Current, _targets.Progression, position, character, DateTimeOffset.UtcNow);
         if (id is not null) _exploration.SetDone(character, [id]);
+        _atDungeon = DungeonAt(_exploration.Places, position, _settings.Current.ExplorationCompletionRadius, DateTimeOffset.UtcNow) is { } dungeon
+            ? (dungeon, character, position.At) : null;
         var kibelisks = ReachedKibelisks(_exploration.Places, position, _settings.Current.ExplorationCompletionRadius, DateTimeOffset.UtcNow);
         if (kibelisks.Count > 0) _exploration.SetDone(character, kibelisks); // already done ones change nothing
         foreach (var arrived in ArrivedTargets(_targets.Targets, position, _settings.Current.ExplorationCompletionRadius, _armed, DateTimeOffset.UtcNow))
@@ -101,6 +114,29 @@ public sealed class ExplorationArrivalService : IDisposable
             .Select(p => p.Id).Distinct().ToList();
     }
 
+    /// <summary>
+    /// The nearest sealed dungeon within the completion radius of a fresh position. It counts as done only
+    /// when an instance follows (<see cref="EnteredInTime"/>): walking past is not entering. 0 turns this off.
+    /// </summary>
+    internal static string? DungeonAt(IReadOnlyList<ExplorationPlace> places, PlayerPosition position, int completionRadius, DateTimeOffset now)
+    {
+        var radius = Math.Clamp(completionRadius, 0, 500);
+        if (radius == 0 || position.At > now || now - position.At > TimeSpan.FromSeconds(2) || !double.IsFinite(position.X) || !double.IsFinite(position.Y))
+            return null;
+        return places.Where(p => p.Kind == "dungeon" && p.Map == position.MapId)
+            .Select(p => (p.Id, Distance: (p.X - position.X) * (p.X - position.X) + (p.Y - position.Y) * (p.Y - position.Y)))
+            .Where(p => p.Distance <= radius * radius).OrderBy(p => p.Distance).Select(p => p.Id).FirstOrDefault();
+    }
+
+    /// <summary>
+    /// The instance belongs to the dungeon when it is recognised soon after the last position at its
+    /// entrance: loading screen plus <see cref="MapTrackingService.PauseAfterLoadingScreen"/>, or
+    /// <see cref="MapTrackingService.PauseWithoutLoadingScreen"/> without one, with room for the entry.
+    /// </summary>
+    internal static readonly TimeSpan DungeonEntryWindow = TimeSpan.FromMinutes(2);
+    internal static bool EnteredInTime(DateTimeOffset atEntrance, DateTimeOffset instanceAt) =>
+        atEntrance <= instanceAt && instanceAt - atEntrance <= DungeonEntryWindow;
+
     /// <summary>A pet marked with a right click, outside a saved route.</summary>
     internal static bool StaysUntilNextLevel(MapTarget target) =>
         target.RouteId is null && (target.PetId is not null || target.Kind.StartsWith("Pets", StringComparison.Ordinal));
@@ -109,11 +145,11 @@ public sealed class ExplorationArrivalService : IDisposable
         target.After is { } after ? targets.FirstOrDefault(t => t.Id == after) : null;
     internal static string? Reached(AppSettings settings, MapTarget? target, PlayerPosition position, string character, DateTimeOffset now)
     {
-        if (!settings.ProgressionEnabled || !(settings.ProgressionIncludes("dungeon") || settings.ProgressionIncludes("stronghold")) ||
+        if (!settings.ProgressionEnabled ||
             settings.ExplorationCompletionRadius <= 0 || target?.ExplorationId is null || target.CharacterId != character ||
             target.MapId != position.MapId || position.At > now || now - position.At > TimeSpan.FromSeconds(2)) return null;
-        if (target.Kind == "Sealed Dungeon" && !settings.ProgressionIncludes("dungeon") ||
-            target.Kind == "Stronghold" && !settings.ProgressionIncludes("stronghold")) return null;
+        // Sealed dungeons complete only when entered (DungeonAt), strongholds by the radius alone.
+        if (target.Kind != "Stronghold" || !settings.ProgressionIncludes("stronghold")) return null;
         var radius = Math.Clamp(settings.ExplorationCompletionRadius, 0, 500);
         var dx = position.X - target.X; var dy = position.Y - target.Y;
         return double.IsFinite(dx) && double.IsFinite(dy) && dx * dx + dy * dy <= radius * radius ? target.ExplorationId : null;

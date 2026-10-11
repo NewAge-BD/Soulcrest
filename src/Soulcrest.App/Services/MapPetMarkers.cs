@@ -33,7 +33,7 @@ public sealed record MapResource(string Category, double X, double Y, string? Ic
 public static partial class MapPetMarkers
 {
     private sealed record MapMarkers(IReadOnlyList<PetSpawn> Pets, IReadOnlyList<MapResource> Resources, IReadOnlyList<PetSpawn> SoulMonsters,
-        IReadOnlyList<GuardPost> Guards);
+        IReadOnlyList<GuardPost> Guards, IReadOnlyDictionary<string, string>? CategoryIcons = null);
 
     private static readonly ConcurrentDictionary<string, MapMarkers> Cache = new();
 
@@ -47,6 +47,10 @@ public static partial class MapPetMarkers
 
     /// <summary>Guards of a map (NPC "Guard", mostly at the Kibelisks: Altgard 304, Verteron 277 in the 2026-10 data).</summary>
     public static IReadOnlyList<GuardPost> GuardsFor(string mapDataDirectory, string mapId) => Markers(mapDataDirectory, mapId).Guards;
+
+    /// <summary>The legend icon of a category by its name ("Sealed Dungeon"), for targets that carry no icon of their own.</summary>
+    public static string? CategoryIcon(string mapDataDirectory, string mapId, string category) =>
+        Markers(mapDataDirectory, mapId).CategoryIcons?.GetValueOrDefault(category);
 
     internal static IReadOnlyList<GuardPost> LoadGuards(string path) => Read(path).Guards;
 
@@ -167,6 +171,8 @@ public static partial class MapPetMarkers
                 resources.Add(new MapResource(CategoryKey(category.Group, category.Name), marker[1].GetDouble(), marker[2].GetDouble(), icon, kind));
             }
         }
-        return new(spawns, resources, monsters, guards);
+        var categoryIcons = categories.Where(c => c.Icon >= 0 && c.Icon < icons.Count && icons[c.Icon] is not null)
+            .GroupBy(c => c.Name, StringComparer.Ordinal).ToDictionary(g => g.Key, g => icons[g.First().Icon]!, StringComparer.Ordinal);
+        return new(spawns, resources, monsters, guards, categoryIcons);
     }
 }

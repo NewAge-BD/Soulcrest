@@ -2,6 +2,15 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.4.3 – 2026-10-11
+
+- **Neu:** Sealed Dungeons werden beim Betreten abgehakt, auch ohne Progressionsmodus: Nach einer Position
+  im Abschlussradius muss eine Instanz folgen. Vorbeigehen hakt nichts mehr ab. Strongholds genügt
+  weiterhin der Radius.
+- **Verbessert:** Zielmarker für Sealed Dungeons, Kibelisken und Quests sehen jetzt aus wie die der
+  Ressourcen: Ring um das Spielsymbol, Linie ab dem Rand, Icon und Entfernung neben dem Ring. Das gilt
+  in allen Modi (markiert, Progression, Leveling-Routen).
+
 ## 0.4.2 – 2026-10-10
 
 - **Behoben:** Im Ring markierter Ressourcen und Versteckter Kuben liegt kein zusätzliches Symbol mehr,
