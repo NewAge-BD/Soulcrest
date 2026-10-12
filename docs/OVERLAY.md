@@ -124,3 +124,13 @@ Ausgewählte Bosse können vor ihrem Spawn und nach bestätigtem Spawn alarmiere
 Sichtdauer und optionaler Ton sind einstellbar (Ton standardmäßig aus; keine Änderung am
 Soul-Drop-Feedback). Drei Alerts parallel, weitere in einer Warteschlange. Veraltete Listen
 alarmieren nicht. Der Test-Button zeigt eine Vorschau ohne Spiel-Eingaben oder Aufnahme.
+
+## Kompakte Alert-Oberflächen (2026-10-12)
+
+Nutzerentscheidung: HUD, Benachrichtigungen und Timeline haben eigene persistierte Breite,
+Skalierung und Position. Größenregler in Alerts und unterer rechter Ziehgriff bei Schloss-/Alt-
+Freigabe. Auf Abschluss/Capture-Verlust/Relock/Alt-Release wird eine Änderung beendet; Refresh
+überschreibt sie nicht. Bannersichtbarkeit bleibt unabhängig von Menü/Minimap.
+Die Timeline verzichtet auf Titelkopf, Zeitraumbuttons und Fußzeile. Resetlinien statt Resetspuren,
+Siege in der Invasionsspur; ausgewählte Bosse als lokale Icons in einer optionalen Einzelspur.
+Zeitpunkte und kollidierende Inhalte bleiben per Tooltip zugänglich. Siehe ALERTS.md.

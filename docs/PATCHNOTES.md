@@ -2,6 +2,25 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.5.0 – 2026-10-12
+
+- **Neu:** Tab **Alerts** mit Event-Timern für EU-Server (deutsche Zeit): Shugo Festival, Dimensional
+  Invasion, Spacetime Rift (mit Portalphase), Abyss Siege sowie täglicher und wöchentlicher Reset.
+  Zeitachse über 12, 24 oder 48 Stunden, laufende und nächste Events, Erinnerungen mit Vorwarnung
+  zum Einschalten.
+- **Neu:** Eigene Erinnerungen: stündlich, täglich, wöchentlich, alle N Tage, im Minutenabstand oder
+  einmalig, je mit Overlay und/oder Ton.
+- **Neu:** Boss-Erinnerungen aus den erfassten Boss-Timern, gemeinsam in Alerts und Boss Rush: pro Boss
+  Vorwarnung aus, 2, 5, 10, 15 Minuten oder eigene Zeit.
+- **Neu:** Töne: kurzer Standard-Doppelton oder eigene MP3-Dateien aus einer gemeinsamen Bibliothek,
+  direkt an jeder Event- und Bosskarte wählbar und testbar.
+- **Neu:** Overlays für Timer, Kurzbenachrichtigungen (auch bei ausgeblendeter Minimap sichtbar) und
+  eine Event-Zeitachse (standardmäßig aus); alle kompakt, frei skalierbar per Ziehgriff, mit Schloss,
+  Alt-Freigabe und eigenen Hotkeys.
+- **Neu:** Der Karten-Tab zeigt eine kompakte Timer-Liste aller Events und ausgewählten Bosse.
+- **Behoben:** Die interaktive Karte sprang nach dem Wegteleportieren wiederholt zum Abyss zurück
+  (veraltete Position oder Aufnahme).
+
 ## 0.4.7 – 2026-10-11
 
 - **Verbessert:** Der Installer zeigt beide OCR-Sprachen (Englisch und Deutsch) mit ihrem Status;

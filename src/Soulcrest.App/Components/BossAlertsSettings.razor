@@ -1,0 +1,127 @@
+@implements IDisposable
+@inject BossRushService BossRush
+@inject SettingsService Settings
+@inject TrackerService Loot
+@inject ProgressService Progress
+@inject AlertsService Alerts
+
+<section class="card sv-card boss-setting-card boss-alert-card @(CompactSelectionOnly ? "compact-selection" : "")">
+    <div class="boss-panel-heading"><div><span class="boss-panel-kicker">@UiText.T("Benachrichtigungen")</span><h3>@UiText.T("Boss-Alerts")</h3></div><span class="boss-count-badge">@Settings.Current.BossAlertIds.Length</span></div>
+    <fieldset class="alerts-boss-options" disabled="@(Busy || _presentationBusy)">
+    <label class="opt-toggle"><input type="checkbox" id="boss-alerts-toggle" role="switch" checked="@Settings.Current.BossAlertsEnabled" @onchange="ToggleAlerts" /> @UiText.T("Alerts für ausgewählte Bosse")</label>
+    <div class="boss-setting-grid">
+        <label class="boss-field">@UiText.T(CompactSelectionOnly ? "Standard-Vorwarnzeit (Sekunden)" : "Vorwarnzeit (Sekunden)") <input type="number" min="0" max="3600" value="@Settings.Current.BossAlertLeadSeconds" @onchange="SetLead" /></label>
+        <label class="boss-field">@UiText.T("Anzeigedauer (Sekunden)") <input type="number" min="3" max="60" value="@Settings.Current.BossAlertDurationSeconds" @onchange="SetDuration" /></label>
+    </div>
+    <div class="boss-alert-actions"><label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.BossAlertSound" @onchange="@(e => Settings.Update(s => s.BossAlertSound = (bool)e.Value!))" /> @UiText.T("Signalton für Bosse ohne eigene Einstellung")</label><button class="btn small" id="boss-alert-test" disabled="@(!Settings.Current.BossAlertsEnabled)" @onclick="BossRush.PreviewAlert">@UiText.T("Alert testen")</button></div>
+    <p class="sv-hint">@UiText.T("Je Spawn eine Vorwarnung und ein Alert bei bestätigtem Spawn. 0 Sekunden bedeutet nur Spawn-Alert. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p>
+    <p class="sv-hint">@UiText.T(CompactSelectionOnly ? "Individuelle Erinnerungen stellst du direkt an den Boss-Kacheln ein. Die Standard-Vorwarnzeit gilt für Bosse ohne eigene Einstellung." : "Anzeige und Ton lassen sich pro ausgewähltem Boss anpassen.")</p>
+    @if (_presentationBusy) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Wird gespeichert …")</p> }
+    else if (_presentationError is not null) { <p class="alerts-error" role="alert">@_presentationError</p> }
+    else if (_presentationSaved) { <p class="alerts-feedback" role="status">@UiText.T("Boss-Alert gespeichert.")</p> }
+    <details class="boss-alert-details">
+        <summary><span>@UiText.T("Bosse auswählen")</span><span class="note">@UiText.F("{0} Bosse ausgewählt", Settings.Current.BossAlertIds.Length)</span></summary>
+        <label class="boss-field" for="boss-alert-map">@UiText.T("Karte")
+            <select id="boss-alert-map" @bind="_map">
+                @foreach (var map in Progress.Maps.Where(m => BossRush.Catalogue.Any(b => b.Map == m.Id))) { <option value="@map.Id">@UiText.T(map.Label)</option> }
+            </select>
+        </label>
+        <div class="boss-choices">
+            @foreach (var choice in BossRush.Catalogue.Where(c => c.Map == _map).OrderBy(c => c.Boss.Name(Settings.Current.NameLanguage)))
+            {
+                var selected = Settings.Current.BossAlertIds.Contains(choice.Key);
+                var presentation = _presentations.GetValueOrDefault(choice.Key) ?? new BossAlertPresentation();
+                <div class="alerts-boss-choice">
+                    <label><input type="checkbox" checked="@selected" @onchange="@(e => SelectBoss(choice.Key, (bool)e.Value!))" />
+                        @if (Icon(choice.Boss) is { } icon) { <img src="@icon" alt="" loading="lazy" /> }
+                        <span>@choice.Boss.Name(Settings.Current.NameLanguage)</span>
+                    </label>
+                    @if (selected && !CompactSelectionOnly)
+                    {
+                        <div class="alerts-boss-presentation">
+                            <div class="alerts-boss-channels"><label class="check"><input type="checkbox" checked="@presentation.ShowOverlay" @onchange="@(e => SavePresentation(choice.Key, presentation with { ShowOverlay = (bool)e.Value! }))" />@UiText.T("Overlay-Banner anzeigen")</label><label class="check"><input type="checkbox" checked="@presentation.PlaySound" @onchange="@(e => SavePresentation(choice.Key, presentation with { PlaySound = (bool)e.Value! }))" />@UiText.T("Signalton abspielen")</label></div>
+                            @if (presentation.ShowOverlay)
+                            {
+                                <div class="alerts-boss-fields"><label class="boss-field">@UiText.T("Countdown im Overlay")<select value="@presentation.AlwaysShowOverlay.ToString()" @onchange="@(e => SavePresentation(choice.Key, presentation with { AlwaysShowOverlay = e.Value?.ToString() == bool.TrueString }))"><option value="False">@UiText.T("Nur vor dem Event")</option><option value="True">@UiText.T("Dauerhaft")</option></select></label>
+                                    @if (!presentation.AlwaysShowOverlay) { <label class="boss-field">@UiText.T("Countdown einblenden ab (Minuten vorher)")<input type="number" min="0" max="1440" value="@presentation.OverlayLeadMinutes" @onchange="@(e => SetOverlayLead(choice.Key, e))" /></label> }
+                                </div>
+                            }
+                            @if (presentation.PlaySound) { <AlertSoundPicker Sound="@presentation.Sound" SoundFile="@presentation.SoundFile" Disabled="@(Busy || _presentationBusy)" Changed="@(selection => SetSound(choice.Key, selection))" /> }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </details>
+    </fieldset>
+</section>
+
+@code {
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool CompactSelectionOnly { get; set; }
+    private string _map = "altgard";
+    private bool _presentationBusy, _disposed;
+    private long _presentationRevision;
+    private Dictionary<string, BossAlertPresentation> _presentations = new(StringComparer.Ordinal);
+    private Dictionary<string, BossAlertPresentation> ReadPresentations() => BossRush.Catalogue.ToDictionary(choice => choice.Key, choice => Alerts.GetBossPresentation(choice.Key), StringComparer.Ordinal);
+    private string? _presentationError;
+    private bool _presentationSaved;
+    protected override void OnInitialized()
+    {
+        _map = BossRush.Catalogue.Any(b => b.Map == Settings.Current.LastMap) ? Settings.Current.LastMap : BossRush.Catalogue.FirstOrDefault()?.Map ?? "altgard";
+        _presentations = ReadPresentations();
+        BossRush.Changed += Refresh;
+        Settings.Changed += Refresh;
+        Alerts.Changed += Refresh;
+    }
+    private void Refresh()
+    {
+        if (_disposed) return;
+        // Global settings render from Current and the cached presentations immediately.
+        // A background snapshot must not delay a switch changed in another tab.
+        _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
+        _ = RefreshAsync();
+    }
+    private async Task RefreshAsync()
+    {
+        if (_disposed) return;
+        var revision = Interlocked.Increment(ref _presentationRevision);
+        var presentations = await Task.Run(ReadPresentations);
+        if (_disposed) return;
+        await InvokeAsync(() =>
+        {
+            // A late snapshot must not replace a newer refresh or a completed user change.
+            if (_disposed || revision != Volatile.Read(ref _presentationRevision)) return;
+            _presentations = presentations;
+            StateHasChanged();
+        });
+    }
+    private void ToggleAlerts(ChangeEventArgs e)
+    {
+        var enabled = (bool)e.Value!;
+        Settings.Update(s => s.BossAlertsEnabled = enabled);
+        if (enabled && !Loot.Running) Loot.Start();
+    }
+    private string? Icon(BossPlace boss) => boss.Icon is { } icon ? $"https://{MainForm.MapDataHost}/{icon}" : null;
+    private void SetLead(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossAlertLeadSeconds = Math.Clamp(n, 0, 3600)); }
+    private void SetDuration(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossAlertDurationSeconds = Math.Clamp(n, 3, 60)); }
+    private void SelectBoss(string key, bool selected) => Settings.Update(s => s.BossAlertIds = selected ? s.BossAlertIds.Append(key).Distinct().ToArray() : s.BossAlertIds.Where(k => k != key).ToArray());
+    private async Task SavePresentation(string key, BossAlertPresentation presentation)
+    {
+        if (Busy || _presentationBusy) return;
+        Interlocked.Increment(ref _presentationRevision);
+        _presentationBusy = true; _presentationSaved = false; _presentationError = null;
+        try
+        {
+            _presentationSaved = await Task.Run(() => Alerts.SetBossPresentation(key, presentation));
+            if (_presentationSaved) _presentations[key] = presentation;
+            _presentationError = _presentationSaved ? null : Alerts.Status ?? UiText.T("Bitte gültige Boss-Alert-Einstellungen wählen.");
+        }
+        finally { Interlocked.Increment(ref _presentationRevision); _presentationBusy = false; }
+    }
+    private Task SetSound(string key, AlertSoundPicker.Selection selection) => SavePresentation(key,
+        (_presentations.GetValueOrDefault(key) ?? new BossAlertPresentation()) with { Sound = selection.Sound, SoundFile = selection.SoundFile });
+    private Task SetOverlayLead(string key, ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var minutes)
+        ? SavePresentation(key, (_presentations.GetValueOrDefault(key) ?? new BossAlertPresentation()) with { OverlayLeadMinutes = Math.Clamp(minutes, 0, 1440) }) : Task.CompletedTask;
+    public void Dispose() { _disposed = true; Interlocked.Increment(ref _presentationRevision); BossRush.Changed -= Refresh; Settings.Changed -= Refresh; Alerts.Changed -= Refresh; }
+}

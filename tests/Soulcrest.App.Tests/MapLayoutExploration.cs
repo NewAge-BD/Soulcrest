@@ -29,6 +29,7 @@ public sealed class MapLayoutExploration
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
         services.AddSingleton<BossRushService>();
+        services.AddSingleton(_ => new AlertsService(Path.Combine(Path.GetTempPath(), "Soulcrest-map-render-" + Guid.NewGuid().ToString("N") + ".json"), runTimer: false));
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<PetScanService>();
@@ -42,6 +43,7 @@ public sealed class MapLayoutExploration
         var html = await renderer.Dispatcher.InvokeAsync(async () =>
             (await renderer.RenderComponentAsync<Soulcrest.App.Components.Main>()).ToHtmlString());
         var css = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "Soulcrest.App", "wwwroot", "css", "app.css"));
+        css += File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "Soulcrest.App", "wwwroot", "css", "alerts.css"));
         File.WriteAllText(target, $"<!doctype html><html><head><meta charset=\"utf-8\"><style>html,body{{height:100%;margin:0}} #app{{height:100%}} {css} #map{{background:#3b4a3a;height:100%}}</style></head><body><div id=\"app\">{html}</div></body></html>");
     }
 

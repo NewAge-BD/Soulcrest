@@ -29,6 +29,7 @@ public sealed class ExplorationProgressViewTests
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
         services.AddSingleton<BossRushService>();
+        services.AddSingleton(_ => new AlertsService(Path.Combine(Path.GetTempPath(), "Soulcrest-map-render-" + Guid.NewGuid().ToString("N") + ".json"), runTimer: false));
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<CharacterDetectionService>();

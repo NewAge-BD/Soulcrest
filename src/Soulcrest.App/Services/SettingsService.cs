@@ -144,9 +144,30 @@ public sealed class AppSettings
     public int LevelingOverlayY { get; set; } = 200;
     public double LevelingOverlayScale { get; set; } = 1;
     public bool LevelingOverlayLocked { get; set; } = true;
+    /// <summary>Event countdown HUD; alert definitions and delivery preferences live in alerts.json.</summary>
+    public bool AlertsOverlayEnabled { get; set; } = true;
+    public int AlertsOverlayX { get; set; } = 420;
+    public int AlertsOverlayY { get; set; } = 520;
+    public double AlertsOverlayScale { get; set; } = 1;
+    public int AlertsOverlayWidth { get; set; } = 340;
+    /// <summary>User request 2026-10-12: compact banners can be positioned and resized independently.</summary>
+    public int AlertNotificationsX { get; set; } = 420;
+    public int AlertNotificationsY { get; set; } = 520;
+    public int AlertNotificationsWidth { get; set; } = 340;
+    public double AlertNotificationsScale { get; set; } = 1;
+    /// <summary>User request 2026-10-12: separate event/boss timeline with optional minimap visibility.</summary>
+    public bool EventTimelineOverlayEnabled { get; set; }
+    public int EventTimelineOverlayX { get; set; } = 40;
+    public int EventTimelineOverlayY { get; set; } = 540;
+    public double EventTimelineOverlayScale { get; set; } = 1;
+    public int EventTimelineOverlayWidth { get; set; } = 720;
+    public int EventTimelineHours { get; set; } = 12;
+    public bool EventTimelineFollowMinimap { get; set; } = true;
     public bool BossAlertsEnabled { get; set; }
     public string[] BossAlertIds { get; set; } = [];
     public int BossAlertLeadSeconds { get; set; } = 60;
+    /// <summary>Missing entries inherit the global lead time; disabling a reminder keeps its timer selected.</summary>
+    public Dictionary<string, BossReminderPreference> BossReminderOverrides { get; set; } = new(StringComparer.Ordinal);
     public int BossAlertDurationSeconds { get; set; } = 15;
     public bool BossAlertSound { get; set; }
     public int ExplorationCompletionRadius { get; set; } = 15;
@@ -154,7 +175,8 @@ public sealed class AppSettings
     /// <summary>
     /// One-time adjustments of saved settings (1: completion radius default 40 → 15, 2026-10-05;
     /// 2: existing installations count the first-start tutorial as seen, 2026-10-07;
-    /// 3: the single progression mode becomes a selection of kinds, 2026-10-10).
+    /// 3: the single progression mode becomes a selection of kinds, 2026-10-10;
+    /// 4: notification banners inherit their former shared HUD position and scale, 2026-10-12).
     /// </summary>
     public int SettingsRevision { get; set; }
 
@@ -266,6 +288,25 @@ public sealed class SettingsService
         Current.BossAlertLeadSeconds = Math.Clamp(Current.BossAlertLeadSeconds, 0, 3600);
         Current.BossAlertDurationSeconds = Math.Clamp(Current.BossAlertDurationSeconds, 3, 60);
         Current.BossAlertIds ??= [];
+        Current.AlertsOverlayScale = double.IsFinite(Current.AlertsOverlayScale) ? Math.Clamp(Current.AlertsOverlayScale, .6, 2) : 1;
+        Current.EventTimelineOverlayScale = double.IsFinite(Current.EventTimelineOverlayScale) ? Math.Clamp(Current.EventTimelineOverlayScale, .6, 2) : 1;
+        Current.AlertsOverlayWidth = Math.Clamp(Current.AlertsOverlayWidth, 240, 1000);
+        Current.EventTimelineOverlayWidth = Math.Clamp(Current.EventTimelineOverlayWidth, 360, 1600);
+        if (Current.SettingsRevision < 4)
+        {
+            // Banners previously used the HUD coordinates; retain that placement on upgrade.
+            Current.AlertNotificationsX = Current.AlertsOverlayX;
+            Current.AlertNotificationsY = Current.AlertsOverlayY;
+            Current.AlertNotificationsScale = Current.AlertsOverlayScale;
+            Current.AlertNotificationsWidth = Current.AlertsOverlayWidth;
+            Current.SettingsRevision = 4;
+        }
+        Current.AlertNotificationsWidth = Math.Clamp(Current.AlertNotificationsWidth, 240, 1000);
+        Current.AlertNotificationsScale = double.IsFinite(Current.AlertNotificationsScale) ? Math.Clamp(Current.AlertNotificationsScale, .6, 2) : 1;
+        if (Current.EventTimelineHours is not (12 or 24 or 48)) Current.EventTimelineHours = 12;
+        Current.BossReminderOverrides = (Current.BossReminderOverrides ?? [])
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && pair.Value is not null)
+            .ToDictionary(pair => pair.Key, pair => pair.Value with { LeadSeconds = Math.Clamp(pair.Value.LeadSeconds, 0, 3600) }, StringComparer.Ordinal);
         UiText.Language = Current.UiLanguage;
     }
 

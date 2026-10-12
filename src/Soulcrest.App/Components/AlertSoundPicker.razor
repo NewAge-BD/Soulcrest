@@ -1,0 +1,82 @@
+@implements IDisposable
+@inject AlertSoundPlayer Sounds
+@inject AlertsService Alerts
+
+<div class="alert-sound-picker">
+    <span class="alerts-field-label">@UiText.T("Signalton")</span>
+    <div class="event-quick-reminders alert-sound-choices" role="group" aria-label="@UiText.T("Signalton")">
+        <button type="button" disabled="@(Disabled || _working)" class="@(!Enabled ? "selected" : "")" aria-pressed="@(!Enabled ? "true" : "false")" data-sound="off" @onclick="@(() => Select(new(Sound, SoundFile, false)))">@UiText.T("Aus")</button>
+        <button type="button" disabled="@(Disabled || _working)" class="@(Enabled && Sound != "custom" ? "selected" : "")" aria-pressed="@(Enabled && Sound != "custom" ? "true" : "false")" data-sound="standard" @onclick="@(() => Select(new("standard", null)))">@UiText.T("Standard")</button>
+        @foreach (var path in Files)
+        {
+            <button type="button" @key="path" disabled="@(Disabled || _working)" class="@(Enabled && Sound == "custom" && SameFile(path, SoundFile) ? "selected" : "")" aria-pressed="@(Enabled && Sound == "custom" && SameFile(path, SoundFile) ? "true" : "false")" data-sound="custom" title="@Path.GetFileName(path)" @onclick="@(() => Select(new("custom", path)))">♪ @Path.GetFileNameWithoutExtension(path)</button>
+        }
+        <button type="button" class="event-reminder-custom" disabled="@(Disabled || _working)" title="@UiText.T("MP3 hinzufügen")" aria-label="@UiText.T("MP3 hinzufügen")" @onclick="Choose">+</button>
+    </div>
+    <div class="alert-sound-test"><button type="button" class="btn small" disabled="@(Disabled || _working || !Enabled || Sound == "custom" && string.IsNullOrWhiteSpace(SoundFile))" @onclick="Test">♪ @UiText.T("Ton testen")</button></div>
+    @if (_working) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Bitte warten …")</p> }
+    else if (_error is not null) { <p class="alerts-error" role="alert">@_error</p> }
+    else if (_feedback is not null) { <p class="alerts-feedback" role="status">@_feedback</p> }
+</div>
+
+@code {
+    public sealed record Selection(string Sound, string? SoundFile, bool Enabled = true);
+    [Parameter] public string Sound { get; set; } = "standard";
+    [Parameter] public string? SoundFile { get; set; }
+    [Parameter] public bool Enabled { get; set; } = true;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback<Selection> Changed { get; set; }
+    private bool _working, _disposed, _observingSound;
+    private string? _error, _feedback;
+    private IEnumerable<string> Files => Alerts.SoundFiles.Concat(AlertsService.ValidSoundFile(SoundFile) ? new[] { SoundFile! } : Array.Empty<string>()).Distinct(StringComparer.OrdinalIgnoreCase);
+    private static bool SameFile(string first, string? second) => string.Equals(first, second, StringComparison.OrdinalIgnoreCase);
+    protected override void OnInitialized() { Sounds.Changed += SoundChanged; Alerts.Changed += LibraryChanged; }
+    private void LibraryChanged() { if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); }); }
+    private void SoundChanged()
+    {
+        if (_disposed || !_observingSound) return;
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed || !_observingSound || Sounds.Status is not { } error) return;
+            _feedback = null; _error = error; StateHasChanged();
+        });
+    }
+    private async Task Select(Selection selection)
+    {
+        if (Disabled || _working || _disposed) return;
+        _error = null; _feedback = null; _observingSound = false;
+        await Changed.InvokeAsync(selection);
+    }
+    private async Task Choose()
+    {
+        if (Disabled || _working || _disposed) return;
+        _working = true; _error = null; _feedback = null; _observingSound = false;
+        try
+        {
+            var choice = await Sounds.ChooseMp3Async();
+            if (_disposed) return;
+            if (choice.Error is { } error) { _error = error; return; }
+            if (choice.Path is not { } path) { _feedback = UiText.T("Dateiauswahl abgebrochen."); return; }
+            var saved = await Task.Run(() => Alerts.AddSoundFile(path));
+            if (_disposed) return;
+            if (!saved) { _error = UiText.T("MP3-Bibliothek konnte nicht gespeichert werden."); return; }
+            await Changed.InvokeAsync(new Selection("custom", path));
+            _feedback = UiText.F("MP3 ausgewählt: {0}", Path.GetFileName(path));
+        }
+        finally { _working = false; }
+    }
+    private async Task Test()
+    {
+        if (Disabled || _working || _disposed || !Enabled) return;
+        _working = true; _error = null; _feedback = null; _observingSound = true;
+        try
+        {
+            var started = await Sounds.Play(Sound == "custom" ? "custom" : "standard", SoundFile);
+            if (_disposed) return;
+            if (started) _feedback = UiText.T("Testton gestartet.");
+            else { _observingSound = false; _error = Sounds.Status ?? UiText.T("Ton konnte nicht abgespielt werden."); }
+        }
+        finally { _working = false; }
+    }
+    public void Dispose() { _disposed = true; _observingSound = false; Sounds.Changed -= SoundChanged; Alerts.Changed -= LibraryChanged; }
+}

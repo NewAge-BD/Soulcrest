@@ -60,6 +60,11 @@ public static class OverlayHotkeys
         new OverlayHotkeyAction("boss.unlock", "Boss Rush", true),
         new OverlayHotkeyAction("leveling.toggle", "Leveling Routes"),
         new OverlayHotkeyAction("leveling.unlock", "Leveling Routes", true),
+        new OverlayHotkeyAction("alerts.toggle", "Alerts"),
+        new OverlayHotkeyAction("alerts.unlock", "Alerts", true),
+        new OverlayHotkeyAction("notifications.unlock", "Alert-Benachrichtigungen", true),
+        new OverlayHotkeyAction("event-timeline.toggle", "Event-Timeline"),
+        new OverlayHotkeyAction("event-timeline.unlock", "Event-Timeline", true),
         new OverlayHotkeyAction("map.toggle", "Karten-Overlay"),
         new OverlayHotkeyAction("pet-scan.toggle", "Pet-Scan-Markierungen"),
         new OverlayHotkeyAction("exploration-scan.toggle", "Erkundungs-Scan")
@@ -86,6 +91,8 @@ public static class OverlayHotkeys
             case "loot.toggle": settings.OverlayEnabled = !settings.OverlayEnabled; break;
             case "boss.toggle": settings.BossOverlayVisible = !settings.BossOverlayVisible; break;
             case "leveling.toggle": settings.LevelingOverlayEnabled = !settings.LevelingOverlayEnabled; break;
+            case "alerts.toggle": settings.AlertsOverlayEnabled = !settings.AlertsOverlayEnabled; break;
+            case "event-timeline.toggle": settings.EventTimelineOverlayEnabled = !settings.EventTimelineOverlayEnabled; break;
             case "map.toggle": settings.MapOverlayEnabled = !settings.MapOverlayEnabled; break;
             case "pet-scan.toggle": settings.PetScanOverlayEnabled = !settings.PetScanOverlayEnabled; break;
             case "exploration-scan.toggle": settings.ExplorationScanOverlayEnabled = !settings.ExplorationScanOverlayEnabled; break;
@@ -99,6 +106,8 @@ public static class OverlayHotkeys
         "loot.toggle" => settings.OverlayEnabled,
         "boss.toggle" => settings.BossOverlayVisible,
         "leveling.toggle" => settings.LevelingOverlayEnabled,
+        "alerts.toggle" => settings.AlertsOverlayEnabled,
+        "event-timeline.toggle" => settings.EventTimelineOverlayEnabled,
         "map.toggle" => settings.MapOverlayEnabled,
         "pet-scan.toggle" => settings.PetScanOverlayEnabled,
         "exploration-scan.toggle" => settings.ExplorationScanOverlayEnabled,

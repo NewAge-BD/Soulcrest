@@ -42,6 +42,7 @@ public sealed class BossRushViewTests
             var clock = new ManualTime();
             services.AddSingleton<TimeProvider>(clock);
             services.AddSingleton<SettingsService>();
+            services.AddSingleton<AlertSoundPlayer>();
             services.AddSingleton<GameCaptureService>();
             services.AddSingleton<ProgressService>();
             services.AddSingleton<NetworkLootService>();
@@ -51,6 +52,7 @@ public sealed class BossRushViewTests
             services.AddSingleton(sp => new BossRushService(sp.GetRequiredService<ProgressService>(),
                 sp.GetRequiredService<SettingsService>(), sp.GetRequiredService<MapTargetsService>(),
                 sp.GetRequiredService<NetworkLootService>(), clock, Path.Combine(folder, "boss-timers.json")));
+            services.AddSingleton(sp => new AlertsService(Path.Combine(folder, "alerts.json"), clock, runTimer: false, bosses: sp.GetRequiredService<BossRushService>(), settings: sp.GetRequiredService<SettingsService>()));
             services.AddSingleton(new ExplorationService(Path.Combine(folder, "exploration.json"), []));
             services.AddSingleton<ExplorationScanService>();
             services.AddSingleton<UiState>();
@@ -86,6 +88,10 @@ public sealed class BossRushViewTests
             var markup = await renderer.Dispatcher.InvokeAsync(bossRoot.ToHtmlString);
             var html = System.Net.WebUtility.HtmlDecode(markup);
             Assert.Contains("Boss Rush Mode", html);
+            Assert.Contains("boss-timer-card", html);
+            Assert.Contains("data-boss=\"1110:111003\" data-selected=\"false\"", html);
+            Assert.Contains(language == "de" ? "Für Erinnerungen auswählen" : "Select for reminders", html);
+            Assert.DoesNotContain("boss-upcoming-schedule", html);
             Assert.Contains(spawned, html);
             Assert.Contains(name, html);
             Assert.Contains(language == "de" ? "Spawn-Overlay" : "Spawn overlay", html);
@@ -214,7 +220,7 @@ public sealed class BossRushViewTests
         Directory.CreateDirectory(output);
         var name = state == "map" ? "boss-map" : state is null ? "boss-rush" : "boss-rush-" + state;
         File.WriteAllText(Path.Combine(output, name + "-" + language + ".html"),
-            "<!doctype html><html><head><meta charset=\"utf-8\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/lib/leaflet/leaflet.css\"></head><body>" + markup + "</body></html>");
+            "<!doctype html><html><head><meta charset=\"utf-8\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/lib/leaflet/leaflet.css\"><link rel=\"stylesheet\" href=\"/css/alerts.css\"><link rel=\"stylesheet\" href=\"/css/boss-timers.css\"></head><body>" + markup + "</body></html>");
     }
 
     private sealed class ManualTime : TimeProvider

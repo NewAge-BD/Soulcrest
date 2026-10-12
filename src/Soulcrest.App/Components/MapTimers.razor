@@ -1,0 +1,25 @@
+@implements IDisposable
+@inject AlertsService Alerts
+@inject UiState Ui
+
+@{
+    var rows = Alerts.MapTimers;
+}
+<section class="tile map-timers" aria-label="@UiText.T("Events & Bosse")">
+    <div class="tile-head"><span class="tile-title">@UiText.T("Events & Bosse")</span><button type="button" class="btn link push" title="@UiText.T("Alerts öffnen")" aria-label="@UiText.T("Alerts öffnen")" @onclick="@(() => Ui.Navigate("alerts"))">↗</button></div>
+    <div class="map-timer-list">
+        @foreach (var row in rows)
+        {
+            <div class="map-timer-row @(row.Provisional ? "provisional" : "")" @key="row.Key" data-timer="@row.Key" style="@($"--alert-color:{row.Color};")" title="@row.Detail">
+                <span class="map-timer-symbol" aria-hidden="true">@row.Symbol</span><span class="map-timer-title">@row.Title<small>@row.State</small></span><strong>@row.Counter</strong>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private bool _disposed;
+    protected override void OnInitialized() { Alerts.Changed += Refresh; }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); }); }
+    public void Dispose() { _disposed = true; Alerts.Changed -= Refresh; }
+}

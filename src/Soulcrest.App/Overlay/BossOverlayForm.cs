@@ -21,6 +21,7 @@ public sealed class BossOverlayForm : Form
     private static readonly Color Muted = Color.FromArgb(154, 173, 189);
     private static readonly Color Amber = Color.FromArgb(250, 204, 111);
     private readonly BossRushService _bosses;
+    private readonly bool _externalAlerts;
     private readonly SettingsService _settings;
     private readonly ProgressService _progress;
     private readonly Dictionary<string, Image?> _icons = [];
@@ -34,9 +35,10 @@ public sealed class BossOverlayForm : Form
     private bool _locked = true, _inRecordings, _showList, _suppressed;
     private long _lastSoundId;
 
-    public BossOverlayForm(BossRushService bosses, SettingsService settings, ProgressService progress)
+    public BossOverlayForm(BossRushService bosses, SettingsService settings, ProgressService progress, bool externalAlerts = false)
     {
         _bosses = bosses;
+        _externalAlerts = externalAlerts;
         _settings = settings;
         _progress = progress;
         FormBorderStyle = FormBorderStyle.None;
@@ -165,7 +167,7 @@ public sealed class BossOverlayForm : Form
         var settings = _settings.Current;
         _showList = ScheduleEnabled(settings);
         _rows = _showList ? _bosses.OverlaySpawns : [];
-        _alerts = _bosses.Alerts;
+        _alerts = _externalAlerts ? [] : _bosses.Alerts;
         var newest = _alerts.LastOrDefault()?.Id ?? _lastSoundId;
         if (newest > _lastSoundId && settings.BossAlertSound) SystemSounds.Exclamation.Play();
         _lastSoundId = newest;

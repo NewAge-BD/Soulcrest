@@ -132,6 +132,49 @@ public sealed class OverlayHotkeyTests : IDisposable
         Assert.False(current.OverlayHotkeys.ContainsKey("removed.action"));
     }
 
+    [Fact]
+    public void TimelineVisibilityAndHotkeysAreIndependentAndPersistWithoutClaimingKeys()
+    {
+        var settings = new SettingsService();
+        Assert.False(settings.Current.EventTimelineOverlayEnabled);
+        Assert.True(settings.Current.EventTimelineFollowMinimap);
+        using var service = new OverlayHotkeyService(settings, new FakeRegistrar());
+        Assert.Null(service.Binding("event-timeline.toggle"));
+        Assert.Null(service.Binding("event-timeline.unlock"));
+        Assert.Null(service.Assign("event-timeline.toggle", new OverlayHotkey(0x54, 6)));
+        settings.Update(s =>
+        {
+            Assert.True(OverlayHotkeys.ToggleVisibility(s, "event-timeline.toggle"));
+            s.EventTimelineFollowMinimap = false;
+            s.EventTimelineHours = 48;
+            s.EventTimelineOverlayScale = 1.5;
+        });
+        var restored = new SettingsService().Current;
+        Assert.True(OverlayHotkeys.IsVisible(restored, "event-timeline.toggle"));
+        Assert.False(restored.EventTimelineFollowMinimap);
+        Assert.Equal(48, restored.EventTimelineHours);
+        Assert.Equal(1.5, restored.EventTimelineOverlayScale);
+        Assert.Equal(new OverlayHotkey(0x54, 6), restored.OverlayHotkeys["event-timeline.toggle"]);
+        Assert.True(restored.AlertsOverlayEnabled);
+        Assert.False(OverlayHotkeys.ToggleVisibility(restored, "event-timeline.unlock"));
+    }
+
+    [Fact]
+    public void MalformedTimelineRangeAndBossPreferencesRecoverWithoutOverwritingExplicitOff()
+    {
+        File.WriteAllText(AppPaths.SettingsFile, """
+            {"EventTimelineHours":13,"EventTimelineOverlayScale":7,"EventTimelineFollowMinimap":false,
+             "BossReminderOverrides":{"disabled":{"Enabled":false,"LeadSeconds":9999},"broken":null}}
+            """);
+        var restored = new SettingsService().Current;
+        Assert.Equal(12, restored.EventTimelineHours);
+        Assert.Equal(2, restored.EventTimelineOverlayScale);
+        Assert.False(restored.EventTimelineFollowMinimap);
+        var reminder = Assert.Single(restored.BossReminderOverrides).Value;
+        Assert.False(reminder.Enabled);
+        Assert.Equal(3600, reminder.LeadSeconds);
+    }
+
     private sealed class FakeRegistrar : IOverlayHotkeyRegistrar
     {
         public bool Accept { get; init; } = true;

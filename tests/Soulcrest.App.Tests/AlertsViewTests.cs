@@ -1,0 +1,506 @@
+using System.Net;
+using System.Reflection;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Soulcrest.App.Capture;
+using Soulcrest.App.Components;
+using Soulcrest.App.Network;
+using Soulcrest.App.Services;
+using Soulcrest.Core.Alerts;
+using Xunit;
+
+namespace Soulcrest.App.Tests;
+
+[Collection("Settings file")]
+public sealed class AlertsViewTests
+{
+    [Theory]
+    [InlineData("de", "Events & Alerts", "Eigener Alert", "Event-Vorlagen")]
+    [InlineData("en", "Events & alerts", "Custom alert", "Event templates")]
+    public async Task EmptyTabOffersTemplatesAndSharedBossSettingsWithoutStartingCapture(string language, string title, string create, string templates)
+    {
+        await using var fixture = new Fixture(language);
+        var html = await fixture.Render();
+        Assert.Contains(title, html);
+        Assert.Contains(create, html);
+        Assert.Contains(templates, html);
+        Assert.Contains("Shugo Festival", html);
+        Assert.Contains("Abyss Siege", html);
+        Assert.Contains("Europe/Berlin", html);
+        Assert.Contains("id=\"boss-alerts-toggle\"", html);
+        Assert.Contains("id=\"alerts-overlay-visible\"", html);
+        Assert.Contains("id=\"event-timeline-visible\"", html);
+        Assert.Contains("id=\"event-timeline-follow-minimap\"", html);
+        Assert.Contains("id=\"event-timeline-hours\"", html);
+        foreach (var overlay in new[] { "alerts-overlay", "alert-notifications", "event-timeline" })
+        {
+            Assert.Contains($"id=\"{overlay}-width\"", html);
+            Assert.Contains($"id=\"{overlay}-scale\"", html);
+        }
+        Assert.Contains(language == "de" ? "Benachrichtigungsbanner" : "Notification banners", html);
+        Assert.Contains(language == "de" ? "unteren rechten Ecke" : "bottom right corner", html);
+        Assert.DoesNotContain("Zeitraum auch direkt im Overlay", html);
+        Assert.Contains("value=\"48\"", html);
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(html, "empty");
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task ConfirmedAbyssTemplateIsReviewedBeforeSavingAndKeepsBerlinWeeklySchedule(string language)
+    {
+        await using var fixture = new Fixture(language);
+        await fixture.Render();
+        var editor = await fixture.Invoke("AddPreset", "abyss");
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.DoesNotContain("id=\"alert-anchor\"", editor);
+        Assert.Contains("alerts-weekdays", editor);
+        Assert.Contains("id=\"alert-times\" type=\"text\" placeholder=\"09:00, 21:00\" value=\"21:00\"", editor);
+        Assert.DoesNotContain("id=\"alert-confirm\"", editor);
+        await fixture.Export(editor, "editor");
+        var saved = await fixture.Invoke("Save");
+        var alert = Assert.Single(fixture.Alerts.Items);
+        Assert.True(alert.Enabled);
+        Assert.Equal(AlertScheduleKind.Weekly, alert.Schedule.Kind);
+        Assert.Equal("Europe/Berlin", alert.Schedule.TimeZoneId);
+        Assert.Equal(new[] { DayOfWeek.Monday, DayOfWeek.Thursday, DayOfWeek.Saturday }, alert.Schedule.Weekdays);
+        Assert.Equal(new DateTimeOffset(2026, 10, 12, 19, 0, 0, TimeSpan.Zero), Assert.Single(fixture.Alerts.Upcoming).At);
+        Assert.Contains("21:00 · Europe/Berlin", saved);
+        Assert.Contains(language == "de" ? "Lokal:" : "Local:", saved);
+        Assert.DoesNotContain("id=\"alert-editor\"", saved);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(saved, "saved");
+        Assert.True(fixture.Alerts.Save(AlertsService.FromPreset("shugo", "Europe/Berlin") with { AlwaysShowOverlay = true, PlaySound = true }));
+        await fixture.Export(await fixture.Render(), "overview");
+    }
+
+    [Theory]
+    [InlineData("de", "Bitte mindestens eine Uhrzeit eintragen.")]
+    [InlineData("en", "Enter at least one time.")]
+    public async Task CustomScheduleEditorStillValidatesRequiredTimes(string language, string error)
+    {
+        await using var fixture = new Fixture(language);
+        await fixture.Render();
+        await fixture.Invoke("Create");
+        fixture.Set("_kind", AlertScheduleKind.Daily);
+        fixture.Set("_times", "");
+        var rejected = await fixture.Invoke("Save");
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.Contains(error, rejected);
+        fixture.Set("_times", "21:00");
+        await fixture.Invoke("Save");
+        Assert.Equal(new TimeOnly(21, 0), Assert.Single(Assert.Single(fixture.Alerts.Items).Schedule.Times));
+    }
+
+    [Theory]
+    [InlineData("de", "Countdown im Overlay", "Ton")]
+    [InlineData("en", "Overlay countdown", "Sound")]
+    public async Task SelectedBossHasIndependentPresentationAndDoesNotCreateAScheduledCopy(string language, string countdown, string sound)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Settings.Current.BossAlertIds = ["1110:111001"];
+        fixture.Alerts.SetBossPresentation("1110:111001", new() { AlwaysShowOverlay = true, PlaySound = true, Sound = "beep" });
+        var html = await fixture.Render();
+        var bossCard = System.Text.RegularExpressions.Regex.Match(html, "<article[^>]+data-boss=\"1110:111001\"[\\s\\S]*?</article>").Value;
+        Assert.NotEmpty(bossCard);
+        Assert.Contains("alerts-boss-presentation", bossCard);
+        Assert.Contains(countdown, bossCard);
+        Assert.Contains(sound, bossCard);
+        Assert.Contains("Synthetic boss", bossCard);
+        Assert.Contains("value=\"True\" selected", bossCard);
+        Assert.Contains("data-sound=\"standard\"", bossCard);
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(html, "boss");
+    }
+
+    [Theory]
+    [InlineData("de", "2026-03-29T02:30", "ungültig oder doppeldeutig")]
+    [InlineData("de", "2026-10-25T02:30", "ungültig oder doppeldeutig")]
+    [InlineData("en", "2026-03-29T02:30", "invalid or ambiguous")]
+    [InlineData("en", "2026-10-25T02:30", "invalid or ambiguous")]
+    public async Task OnceEditorExplainsBothInvalidAndAmbiguousBerlinClockChangeTimes(string language, string localTime, string reason)
+    {
+        await using var fixture = new Fixture(language);
+        await fixture.Render();
+        await fixture.Invoke("Create");
+        fixture.Set("_kind", AlertScheduleKind.Once);
+        fixture.Set("_zone", "Europe/Berlin");
+        fixture.Set("_atLocal", localTime);
+        var html = await fixture.Invoke("Save");
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.Contains(reason, html);
+        Assert.Contains("role=\"alert\"", html);
+    }
+
+
+    [Theory]
+    [InlineData("de", "Event-Zeitachse", "Portal offen")]
+    [InlineData("en", "Event timeline", "Portal open")]
+    public async Task CalendarAppearsImmediatelyWithResetTimesAndActivePortalWithoutCreatingReminders(string language, string timeline, string portal)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Clock.UtcNow = new(2026, 10, 12, 18, 5, 0, TimeSpan.Zero);
+        var html = await fixture.Render();
+        Assert.Contains(timeline, html);
+        Assert.Contains(portal, html);
+        Assert.Contains("12 h", html);
+        Assert.Contains("24 h", html);
+        Assert.Contains("48 h", html);
+        Assert.Contains("event-reset-options", html);
+        Assert.Contains("event-timeline-portal", html);
+        Assert.Equal(6, System.Text.RegularExpressions.Regex.Matches(html, ">" + (language == "de" ? "Overlay-Widget" : "Overlay widget") + "</label>").Count);
+        Assert.Contains("09:00", html); // 07:00 UTC daily reset shown in Berlin daylight time.
+        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(html, "class=\"event-card(?: live| )?\"").Count);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(html, "class=\"event-reset\"").Count);
+        Assert.DoesNotContain("event-schedule-badge", html[..html.IndexOf("event-cards-heading", StringComparison.Ordinal)]);
+        Assert.DoesNotContain("data-boss=", html);
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.Empty(fixture.Alerts.OverlayRows);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(html, "active");
+    }
+
+    [Theory]
+    [InlineData("de", "invasion")]
+    [InlineData("en", "invasion")]
+    [InlineData("de", "rift")]
+    [InlineData("en", "rift")]
+    [InlineData("de", "abyss")]
+    [InlineData("en", "abyss")]
+    public async Task EventSoundOptionsAreVisibleWhileReminderIsOffAndPersistForLaterActivation(string language, string id)
+    {
+        await using var fixture = new Fixture(language);
+        var html = await fixture.Render();
+        static string Card(string markup, string eventId)
+        {
+            var at = markup.IndexOf("data-event=\"" + eventId + "\"", StringComparison.Ordinal);
+            return markup[at..markup.IndexOf("</article>", at, StringComparison.Ordinal)];
+        }
+        var card = Card(html, id);
+        Assert.Contains("data-sound=\"off\"", card);
+        Assert.Contains("data-sound=\"standard\"", card);
+        Assert.Contains(language == "de" ? "MP3 hinzufügen" : "Add MP3", card);
+        Assert.Contains(language == "de" ? "Ton wird bei aktivierter Erinnerung abgespielt." : "Sound plays when the reminder is enabled.", card);
+        Assert.Empty(fixture.Alerts.Items);
+        var sound = fixture.Alerts.GetEventReminder(id) with { PlaySound = true, Sound = "custom", SoundFile = fixture.SoundFile };
+        html = await fixture.Invoke("SaveEventSound", sound);
+        var saved = Assert.Single(fixture.Alerts.Items);
+        Assert.False(saved.Enabled);
+        Assert.True(saved.PlaySound);
+        Assert.Equal(fixture.SoundFile, saved.SoundFile);
+        Assert.Contains(language == "de" ? "Signalton gespeichert." : "Sound saved.", html);
+        Assert.Contains("aria-pressed=\"true\" data-sound=\"custom\"", Card(html, id));
+        await fixture.Invoke("SetEventReminder", new KeyValuePair<string, int>(id, 5));
+        saved = Assert.Single(fixture.Alerts.Items);
+        Assert.True(saved.Enabled);
+        Assert.True(saved.PlaySound);
+        Assert.Equal(fixture.SoundFile, saved.SoundFile);
+        await fixture.Invoke("SaveEventSound", saved with { PlaySound = false });
+        Assert.True(Assert.Single(fixture.Alerts.Items).Enabled);
+        Assert.False(Assert.Single(fixture.Alerts.Items).PlaySound);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(html, "sound-" + id);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task QuickReminderAndWidgetAreIndependentAndNeverDuplicateCustomCards(string language)
+    {
+        await using var fixture = new Fixture(language);
+        await fixture.Render();
+        var enabled = await fixture.Invoke("SetEventReminder", new KeyValuePair<string, int>("shugo", 10));
+        var reminder = Assert.Single(fixture.Alerts.Items);
+        Assert.Equal("catalog:shugo", reminder.Id);
+        Assert.True(reminder.Enabled);
+        Assert.Equal(10, reminder.LeadMinutes);
+        Assert.DoesNotContain("data-alert=\"catalog:shugo\"", enabled);
+        Assert.DoesNotContain(fixture.Alerts.EventTimers, timer => timer.Presentation.ShowOverlay);
+        await fixture.Invoke("SetEventWidget", new KeyValuePair<string, EventTimerPresentation>("shugo", new() { ShowOverlay = true, AlwaysShowOverlay = true }));
+        Assert.True(fixture.Alerts.EventTimers.Single(timer => timer.Definition.Id == "shugo").Presentation.ShowOverlay);
+        Assert.True(Assert.Single(fixture.Alerts.Items).Enabled);
+        await fixture.Invoke("SetEventReminder", new KeyValuePair<string, int>("shugo", -1));
+        Assert.False(Assert.Single(fixture.Alerts.Items).Enabled);
+        Assert.True(fixture.Alerts.EventTimers.Single(timer => timer.Definition.Id == "shugo").Presentation.ShowOverlay);
+        Assert.Single(fixture.Alerts.OverlayRows);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(await fixture.Render(), "widget");
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task EventReminderEditorKeepsCalendarScheduleReadOnlyWhileCustomEditorRemainsFlexible(string language)
+    {
+        await using var fixture = new Fixture(language);
+        await fixture.Render();
+        var editor = await fixture.Invoke("EditEventReminder", "abyss");
+        Assert.Contains("event-editor-schedule", editor);
+        Assert.DoesNotContain("id=\"alert-kind\"", editor);
+        Assert.DoesNotContain("id=\"alert-times\"", editor);
+        Assert.Contains("21:00", editor);
+        Assert.DoesNotContain("Countdown im Overlay", editor);
+        Assert.DoesNotContain("Overlay countdown", editor);
+        Assert.Contains(language == "de" ? "Speichere oder schließe den Editor" : "Save or close the editor", editor);
+        var quickButtons = System.Text.RegularExpressions.Regex.Matches(editor, "<button[^>]+class=\"[^\"]*(?:selected|event-reminder-custom)[^\"]*\"[^>]*>");
+        Assert.Contains(quickButtons.Cast<System.Text.RegularExpressions.Match>(), match => match.Value.Contains("disabled", StringComparison.Ordinal));
+        await fixture.Invoke("SetEventReminder", new KeyValuePair<string, int>("abyss", 5));
+        await fixture.Invoke("SetEventWidget", new KeyValuePair<string, EventTimerPresentation>("abyss", new() { ShowOverlay = true }));
+        Assert.Empty(fixture.Alerts.Items); // Queued actions from the previous render cannot replace the open editor.
+        Assert.False(fixture.Alerts.EventTimers.Single(timer => timer.Definition.Id == "abyss").Presentation.ShowOverlay);
+        fixture.Set("_enabled", true);
+        fixture.Set("_leadMinutes", 9);
+        await fixture.Invoke("Save");
+        var reminder = Assert.Single(fixture.Alerts.Items);
+        Assert.Equal("catalog:abyss", reminder.Id);
+        Assert.Equal(AlertScheduleKind.Weekly, reminder.Schedule.Kind);
+        Assert.Equal(new[] { DayOfWeek.Monday, DayOfWeek.Thursday, DayOfWeek.Saturday }, reminder.Schedule.Weekdays);
+        Assert.Equal(9, reminder.LeadMinutes);
+        await fixture.Export(editor, "event-editor");
+        var custom = await fixture.Invoke("Create");
+        Assert.Contains("id=\"alert-kind\"", custom);
+    }
+
+    [Theory]
+    [InlineData("de", "Erfasst im Spiel")]
+    [InlineData("en", "Captured in game")]
+    public async Task SelectedBossCardsUseCapturedTimerAndRemainOutsideCalendar(string language, string captured)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Settings.Current.BossAlertIds = ["1110:111001"];
+        var now = fixture.Clock.GetUtcNow().ToUnixTimeMilliseconds();
+        fixture.Bosses.OnMessage("fixture", [0, 0x36, .. BitConverter.GetBytes(now)]);
+        fixture.Bosses.OnMessage("fixture", [1, 0x91, 0, 0, 0x56, 4, 0, 0, 1,
+            0, 0x99, 0xe3, 6, 0, .. BitConverter.GetBytes(now + 61000), 0, 0, 0]);
+        Assert.Single(fixture.Bosses.Schedule);
+        var html = await fixture.Render();
+        Assert.Contains("data-boss=\"1110:111001\"", html);
+        Assert.Contains("00:01:01", html);
+        Assert.Contains(captured, html);
+        Assert.DoesNotContain("data-event=\"1110:111001\"", html);
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(html, "captured-boss");
+    }
+
+
+    [Theory]
+    [InlineData("de", false)]
+    [InlineData("en", false)]
+    [InlineData("de", true)]
+    [InlineData("en", true)]
+    public async Task CustomAndCatalogRemindersOfferMp3SelectionWithoutOpeningDialogOrPlayingAudio(string language, bool catalog)
+    {
+        await using var fixture = new Fixture(language);
+        await fixture.Render();
+        if (catalog) await fixture.Invoke("EditEventReminder", "shugo");
+        else await fixture.Invoke("Create");
+        fixture.Set("_playSound", true);
+        fixture.Set("_enabled", true);
+        var editor = await fixture.Invoke("SetSound", new AlertSoundPicker.Selection("custom", fixture.SoundFile));
+        Assert.Contains("data-sound=\"custom\"", editor);
+        Assert.Contains("custom-tone.mp3", editor);
+        Assert.Contains(language == "de" ? "Ton testen" : "Test sound", editor);
+        Assert.DoesNotContain(fixture.SoundFile, editor); // Show the filename; keep the local path out of the markup.
+        await fixture.Export(editor, catalog ? "event-mp3" : "custom-mp3");
+        await fixture.Invoke("Save");
+        var reminder = Assert.Single(fixture.Alerts.Items);
+        Assert.Equal("custom", reminder.Sound);
+        Assert.Equal(fixture.SoundFile, reminder.SoundFile);
+        Assert.True(reminder.PlaySound);
+        Assert.False(fixture.Tracker.Running);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task SelectedBossOffersItsOwnMp3FileAndTestButtonWithoutPlayback(string language)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Settings.Current.BossAlertIds = ["1110:111001"];
+        Assert.True(fixture.Alerts.SetBossPresentation("1110:111001", new() { PlaySound = true, Sound = "custom", SoundFile = fixture.SoundFile }));
+        var html = await fixture.Render();
+        Assert.Contains("data-sound=\"custom\"", html);
+        Assert.Contains("custom-tone.mp3", html);
+        Assert.Contains(language == "de" ? "MP3 hinzufügen" : "Add MP3", html);
+        Assert.Contains(language == "de" ? "Ton testen" : "Test sound", html);
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(html, "boss-mp3");
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task MapShowsSixEventsAndOnlySelectedBossesAndRefreshesCountdowns(string language)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(5);
+        fixture.Settings.Current.BossAlertIds = ["1110:111001"];
+        var html = await fixture.RenderMap();
+        Assert.Equal(6, System.Text.RegularExpressions.Regex.Matches(html, "data-timer=\"event:").Count);
+        Assert.Contains("data-timer=\"boss:1110:111001\"", html);
+        Assert.Contains("Synthetic boss", html);
+        Assert.Contains("00:55:00", html);
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.Empty(fixture.Alerts.OverlayRows);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export("<aside class=\"sidebar mapside mapside-right\" style=\"width:300px;max-width:100%;margin:20px\">" + html + "</aside>", "map-timers");
+        fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddSeconds(1);
+        fixture.Alerts.Tick();
+        await fixture.Flush();
+        Assert.Contains("00:54:59", await fixture.MapMarkup());
+    }
+
+    [Fact]
+    public async Task SoundButtonsAddAReusableMp3WithoutPlaybackAndAllowOff()
+    {
+        await using var fixture = new Fixture("en");
+        var selections = new List<AlertSoundPicker.Selection>();
+        var html = await fixture.RenderPicker(selections.Add);
+        Assert.Contains("data-sound=\"standard\"", html);
+        Assert.Contains("data-sound=\"off\"", html);
+        Assert.Contains("aria-pressed=\"true\" data-sound=\"standard\"", html);
+        Assert.Contains("aria-pressed=\"false\" data-sound=\"off\"", html);
+        await fixture.InvokePicker("Choose");
+        Assert.Equal(new AlertSoundPicker.Selection("custom", fixture.SoundFile), Assert.Single(selections));
+        Assert.Contains(fixture.SoundFile, fixture.Alerts.SoundFiles);
+        Assert.Equal(0, fixture.SoundPlaybacks);
+        html = await fixture.RenderPicker(selections.Add);
+        Assert.Contains("custom-tone", html);
+        Assert.DoesNotContain(fixture.SoundFile, html);
+        await fixture.InvokePicker("Select", new AlertSoundPicker.Selection("standard", null, false));
+        Assert.False(selections[^1].Enabled);
+        Assert.Equal(0, fixture.SoundPlaybacks);
+    }
+
+    private sealed class Fixture : IAsyncDisposable
+    {
+        private readonly string _folder = Path.Combine(Path.GetTempPath(), "soulcrest-alert-view-" + Guid.NewGuid().ToString("N"));
+        private readonly string? _previousMapData = Environment.GetEnvironmentVariable("SOULCREST_MAPDATA");
+        private readonly string _previousLanguage = UiText.Language;
+        private readonly byte[]? _settingsBackup = File.Exists(AppPaths.SettingsFile) ? File.ReadAllBytes(AppPaths.SettingsFile) : null;
+        private readonly ServiceProvider _provider;
+        private readonly HtmlRenderer _renderer;
+        private readonly string _language;
+        private Microsoft.AspNetCore.Components.Web.HtmlRendering.HtmlRootComponent _root;
+        private AlertsView? _view;
+        public SettingsService Settings => _provider.GetRequiredService<SettingsService>();
+        public AlertsService Alerts => _provider.GetRequiredService<AlertsService>();
+        public TrackerService Tracker => _provider.GetRequiredService<TrackerService>();
+        public BossRushService Bosses => _provider.GetRequiredService<BossRushService>();
+        public ManualTime Clock { get; } = new();
+        public int SoundPlaybacks { get; private set; }
+        private AlertSoundPicker? _picker;
+        public string SoundFile => Path.Combine(_folder, "custom-tone.mp3");
+
+        public Fixture(string language)
+        {
+            _language = language;
+            Directory.CreateDirectory(Path.Combine(_folder, "altgard"));
+            File.WriteAllText(Path.Combine(_folder, "manifest.json"), """{"maps":[{"id":"altgard","label":"Altgard","group":"Asmodier"}]}""");
+            File.WriteAllText(Path.Combine(_folder, "altgard", "bosses.json"), """{"mapId":1110,"bosses":[{"spawnId":111001,"npcId":2400017,"en":"Synthetic boss","de":null,"x":100,"y":200}]}""");
+            Environment.SetEnvironmentVariable("SOULCREST_MAPDATA", _folder);
+            var clock = Clock;
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton<SettingsService>();
+            services.AddSingleton(new AlertSoundPlayer(() => throw new InvalidOperationException("No playback expected"), _ => SoundPlaybacks++, () => Task.FromResult(new AlertSoundFileChoice(SoundFile))));
+            services.AddSingleton<UiState>();
+            services.AddSingleton<GameCaptureService>();
+            services.AddSingleton<ProgressService>();
+            services.AddSingleton<NetworkLootService>();
+            services.AddSingleton<TrackerService>();
+            services.AddSingleton<MapTargetsService>();
+            services.AddSingleton(sp => new BossRushService(sp.GetRequiredService<ProgressService>(), sp.GetRequiredService<SettingsService>(), sp.GetRequiredService<MapTargetsService>(), sp.GetRequiredService<NetworkLootService>(), clock, Path.Combine(_folder, "boss-timers.json")));
+            services.AddSingleton(sp => new AlertsService(Path.Combine(_folder, "alerts.json"), clock, runTimer: false, bosses: sp.GetRequiredService<BossRushService>(), settings: sp.GetRequiredService<SettingsService>()));
+            _provider = services.BuildServiceProvider();
+            Settings.Current.UiLanguage = Settings.Current.NameLanguage = UiText.Language = language;
+            Settings.Current.BossRushEnabled = Settings.Current.BossAlertsEnabled = false;
+            Settings.Current.BossAlertIds = [];
+            Settings.Current.BossAlertSound = false;
+            _renderer = new HtmlRenderer(_provider, _provider.GetRequiredService<ILoggerFactory>());
+        }
+
+        public async Task<string> RenderMap()
+        {
+            _root = await _renderer.Dispatcher.InvokeAsync(async () => await _renderer.RenderComponentAsync<MapTimers>());
+            return await Markup();
+        }
+        public Task<string> MapMarkup() => Markup();
+        public Task Flush() => _renderer.Dispatcher.InvokeAsync(() => { });
+        public async Task<string> RenderPicker(Action<AlertSoundPicker.Selection> selection)
+        {
+            _root = await _renderer.Dispatcher.InvokeAsync(async () => await _renderer.RenderComponentAsync<CaptureAlertSoundPicker>(ParameterView.FromDictionary(new Dictionary<string, object?>
+            {
+                [nameof(CaptureAlertSoundPicker.Captured)] = (Action<AlertSoundPicker>)(picker => _picker = picker),
+                [nameof(AlertSoundPicker.Changed)] = EventCallback.Factory.Create<AlertSoundPicker.Selection>(this, selection)
+            })));
+            return await Markup();
+        }
+        public Task InvokePicker(string method, params object[] args) => _renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            var result = typeof(AlertSoundPicker).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_picker, args);
+            if (result is Task task) await task;
+        });
+
+        public async Task<string> Render()
+        {
+            _root = await _renderer.Dispatcher.InvokeAsync(async () => await _renderer.RenderComponentAsync<CaptureAlertsView>(ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(CaptureAlertsView.Captured)] = (Action<AlertsView>)(view => _view = view) })));
+            return await Markup();
+        }
+        public async Task<string> Invoke(string method, params object[] args)
+        {
+            await _renderer.Dispatcher.InvokeAsync(async () =>
+            {
+                var result = typeof(AlertsView).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_view, args);
+                if (result is Task task) await task;
+                await ((CaptureAlertsView)_view!).RefreshNow();
+            });
+            return await Markup();
+        }
+        public void Set(string field, object value) => typeof(AlertsView).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_view, value);
+        private async Task<string> Markup() => WebUtility.HtmlDecode(await _renderer.Dispatcher.InvokeAsync(_root.ToHtmlString));
+        public async Task Export(string html, string state)
+        {
+            if (Environment.GetEnvironmentVariable("SOULCREST_ALERTS_UI_PREVIEW") is not { Length: > 0 } output) return;
+            Directory.CreateDirectory(output);
+            await File.WriteAllTextAsync(Path.Combine(output, $"alerts-{state}-{_language}.html"), "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/css/alerts.css\"><link rel=\"stylesheet\" href=\"/css/boss-timers.css\"></head><body>" + html + "</body></html>");
+        }
+        public async ValueTask DisposeAsync()
+        {
+            await _renderer.DisposeAsync();
+            await _provider.DisposeAsync();
+            Environment.SetEnvironmentVariable("SOULCREST_MAPDATA", _previousMapData);
+            if (_settingsBackup is null) File.Delete(AppPaths.SettingsFile); else File.WriteAllBytes(AppPaths.SettingsFile, _settingsBackup);
+            UiText.Language = _previousLanguage;
+            Directory.Delete(_folder, true);
+        }
+    }
+
+    private sealed class ManualTime : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = new(2026, 10, 12, 18, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => UtcNow;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => UtcNow.UtcTicks;
+    }
+}
+
+public sealed class CaptureAlertsView : AlertsView
+{
+    [Parameter] public Action<AlertsView>? Captured { get; set; }
+    protected override void OnInitialized() { base.OnInitialized(); Captured?.Invoke(this); }
+    public Task RefreshNow() => InvokeAsync(StateHasChanged);
+}
+
+public sealed class CaptureAlertSoundPicker : AlertSoundPicker
+{
+    [Parameter] public Action<AlertSoundPicker>? Captured { get; set; }
+    protected override void OnInitialized() { base.OnInitialized(); Captured?.Invoke(this); }
+}

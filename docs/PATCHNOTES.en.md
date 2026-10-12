@@ -2,6 +2,24 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.5.0 – 2026-10-12
+
+- **New:** **Alerts** tab with event timers for EU servers (German time): Shugo Festival, Dimensional
+  Invasion, Spacetime Rift (with portal phase), Abyss Siege plus daily and weekly reset. Timeline over
+  12, 24 or 48 hours, running and next events, opt-in reminders with a warning ahead.
+- **New:** Your own reminders: hourly, daily, weekly, every N days, at a minute interval or once, each
+  with overlay and/or sound.
+- **New:** Boss reminders from the captured boss timers, shared between Alerts and Boss Rush: per boss
+  a warning off, 2, 5, 10, 15 minutes or a time of your own.
+- **New:** Sounds: a short standard double tone or your own MP3 files from a shared library, chosen and
+  tested right on every event and boss card.
+- **New:** Overlays for timers, short notifications (visible even when the minimap is hidden) and an
+  event timeline (off by default); all compact, freely resizable with a drag handle, with lock, Alt
+  unlock and hotkeys of their own.
+- **New:** The map tab shows a compact timer list of all events and selected bosses.
+- **Fixed:** The interactive map kept jumping back to the Abyss after teleporting away (stale position
+  or capture).
+
 ## 0.4.7 – 2026-10-11
 
 - **Improved:** The installer shows both OCR languages (English and German) with their status; packs

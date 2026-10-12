@@ -179,6 +179,73 @@ public sealed class ExplorationMapNavigationTests
         Assert.DoesNotContain(scenario.Js.Calls, call => call.Name == "soulcrestMap.show");
     }
 
+    [Theory]
+    [InlineData("lost")]
+    [InlineData("expired")]
+    [InlineData("world-map")]
+    [InlineData("instance")]
+    [InlineData("stopped")]
+    public async Task HistoricalAbyssPositionCannotCenterOrAdvertiseAValidPlayer(string state)
+    {
+        await using var scenario = new Scenario();
+        var settings = scenario.Provider.GetRequiredService<SettingsService>();
+        var tracking = scenario.Provider.GetRequiredService<MapTrackingService>();
+        settings.Current.LastMap = "altgard";
+        settings.Current.FollowPlayer = true;
+        settings.Current.ProgressionEnabled = true;
+        var view = await scenario.Render();
+        Field(view, "_trackedMap", AbyssPlace.Map);
+        SetTracked(tracking, AbyssPlace.Map, state == "expired" ? DateTimeOffset.UtcNow.AddSeconds(-20) : null);
+        if (state == "lost") Property(tracking, nameof(MapTrackingService.Found), false);
+        if (state == "stopped") Property(tracking, nameof(MapTrackingService.Running), false);
+        if (state == "instance") Field(tracking, "_inInstance", true);
+        if (state == "world-map")
+        {
+            Field(tracking, "_worldMapOpen", true);
+            Property(tracking, nameof(MapTrackingService.DetectedMap),
+                new DetectedMapContext("altgard", true, DateTimeOffset.UtcNow));
+        }
+
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => (Task)typeof(MapView)
+            .GetMethod("CenterOnPlayer", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(view, null)!);
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => PushPlayer(view));
+
+        Assert.Equal("altgard", settings.Current.LastMap);
+        Assert.DoesNotContain(scenario.Js.Calls, call => call.Name is "soulcrestMap.show" or "soulcrestMap.centerOnPlayer");
+        var marker = Assert.Single(scenario.Js.Calls, call => call.Name == "soulcrestMap.setPlayer");
+        Assert.Equal(false, marker.Arguments[3]); // no following the frozen/expired player
+        Assert.Equal(false, marker.Arguments[4]); // last-known marker is grey
+        Assert.Equal(0, scenario.Provider.GetRequiredService<GameCaptureService>().Diagnostics.Grabs);
+    }
+
+    [Fact]
+    public async Task ReturningFromAbyssUsesFreshAltgardEvidenceAndIgnoresTheOldAbyssPosition()
+    {
+        await using var scenario = new Scenario();
+        var settings = scenario.Provider.GetRequiredService<SettingsService>();
+        var tracking = scenario.Provider.GetRequiredService<MapTrackingService>();
+        settings.Current.LastMap = AbyssPlace.Map;
+        settings.Current.FollowPlayer = true;
+        settings.Current.ProgressionEnabled = true;
+        var view = await scenario.Render();
+        SetTracked(tracking, AbyssPlace.Map);
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => PushPlayer(view));
+        scenario.Js.Calls.Clear();
+
+        SetTracked(tracking, "altgard");
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => PushPlayer(view));
+        Assert.Equal("altgard", settings.Current.LastMap);
+        Assert.Contains(scenario.Js.Calls, call => call.Name == "soulcrestMap.show" && Equals(call.Arguments[0], "altgard"));
+        scenario.Js.Calls.Clear();
+
+        SetTracked(tracking, AbyssPlace.Map, DateTimeOffset.UtcNow.AddSeconds(-20));
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => PushPlayer(view));
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => (Task)typeof(MapView)
+            .GetMethod("CenterOnPlayer", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(view, null)!);
+        Assert.Equal("altgard", settings.Current.LastMap);
+        Assert.DoesNotContain(scenario.Js.Calls, call => call.Name is "soulcrestMap.show" or "soulcrestMap.centerOnPlayer");
+    }
+
     private static ExplorationPlace Place => new("verteron|dungeon|Test Entrance", "verteron", "dungeon", 42, "Test Entrance", null, 400, 500);
     private static ExplorationPlace AbyssPlace => new("abyss-reshanta-a|stronghold|Fixture Stronghold", "abyss-reshanta-a", "stronghold", 17, "Fixture Stronghold", null, 1200, 1300);
     private static void Property(object target, string name, object value) =>
@@ -224,6 +291,7 @@ public sealed class ExplorationMapNavigationTests
             services.AddSingleton<MapTrackingService>();
             services.AddSingleton<MapTargetsService>();
             services.AddSingleton<BossRushService>();
+            services.AddSingleton(sp => new AlertsService(Path.Combine(_folder, "alerts.json"), runTimer: false));
             services.AddSingleton(new ExplorationService(Path.Combine(_folder, "exploration.json"), [Place, AbyssPlace]));
             services.AddSingleton<ExplorationScanService>();
             services.AddSingleton<UiState>();

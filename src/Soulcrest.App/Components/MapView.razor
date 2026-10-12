@@ -186,6 +186,8 @@
             </div>
         </div>
 
+        <MapTimers />
+
         <h3>@UiText.T("Wegführung")</h3>
         <div class="tile boss-rush-tile">
             <div class="tile-head">
@@ -868,8 +870,11 @@
 
     private async Task CenterOnPlayer()
     {
-        if (Tracking.Position is { } position && position.MapId != _mapId)
-            await SwitchMap(position.MapId);
+        var position = ExplorationOverview.FreshPosition(ExplorationOverview.Capture(Tracking), DateTimeOffset.UtcNow);
+        if (position is null) return; // a last-known Abyss position must not undo browsing after teleporting
+        _trackedMap = position.MapId;
+        if (position.MapId != _mapId)
+            await SwitchMap(position.MapId, keepAt: position);
         await PushPlayer(force: true);
         await JS.InvokeVoidAsync("soulcrestMap.centerOnPlayer");
     }
@@ -911,10 +916,10 @@
         // Only a verified minimap identifies a player map change. Opening another world map keeps
         // Position frozen and must not redirect progression (user request 2026-10-11).
         var changedMap = fresh is not null && _trackedMap != fresh.MapId;
-        if (!force && !changedMap && position == _shownPosition && snapshot.Found == _shownFound)
+        if (!force && !changedMap && position == _shownPosition && (fresh is not null) == _shownFound)
             return;
         _shownPosition = position;
-        _shownFound = snapshot.Found;
+        _shownFound = fresh is not null;
         if (fresh is not null) _trackedMap = fresh.MapId;
         if (changedMap && fresh is not null && _maps.Any(m => m.Id == fresh.MapId)
             && (Settings.Current.FollowPlayer || Settings.Current.ProgressionEnabled))
@@ -938,7 +943,7 @@
             }
         }
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
-        await JS.InvokeVoidAsync("soulcrestMap.setPlayer", position.MapId, position.X, position.Y, Settings.Current.FollowPlayer && Active, Tracking.Found);
+        await JS.InvokeVoidAsync("soulcrestMap.setPlayer", position.MapId, position.X, position.Y, Settings.Current.FollowPlayer && Active && fresh is not null, fresh is not null);
         var took = System.Diagnostics.Stopwatch.GetElapsedTime(started);
         if (took > TimeSpan.FromMilliseconds(500))
             UiResponsiveness.Record("Kartenseite", took, $"Spielerposition, Karte {_mapId}, Tab {(Active ? "Karte" : "anderer")}, Vordergrund: {UiResponsiveness.ForegroundProcess()}");

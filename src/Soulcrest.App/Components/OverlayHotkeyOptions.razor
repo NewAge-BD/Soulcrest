@@ -12,8 +12,10 @@
             <div class="overlay-hotkey-group" @key="group.Key">
                 <div class="overlay-hotkey-heading">
                     <strong>@UiText.T(group.Key)</strong>
-                    @{ var visibility = group.First(a => !a.Unlock).Id; }
-                    <label><input type="checkbox" checked="@OverlayHotkeys.IsVisible(Settings.Current, visibility)" @onchange="e => SetVisible(visibility, e.Value is true)" />@UiText.T("Anzeigen")</label>
+                    @if (group.FirstOrDefault(action => !action.Unlock) is { } visibility)
+                    {
+                        <label><input type="checkbox" checked="@OverlayHotkeys.IsVisible(Settings.Current, visibility.Id)" @onchange="e => SetVisible(visibility.Id, e.Value is true)" />@UiText.T("Anzeigen")</label>
+                    }
                 </div>
                 @foreach (var action in group)
                 {

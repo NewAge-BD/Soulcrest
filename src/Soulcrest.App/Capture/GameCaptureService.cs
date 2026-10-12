@@ -100,6 +100,9 @@ public sealed class GameCaptureService : IDisposable
     /// </summary>
     [ThreadStatic] public static long GrabbedFrameAt;
 
+    /// <summary>The actual source of this thread's last frame; a window session can still fall back to GDI.</summary>
+    [ThreadStatic] public static bool GrabbedGameWindowOnly;
+
     /// <summary>Picture of a screen rectangle as BGR image, optionally scaled.</summary>
     public Mat Grab(Rectangle area, double scale = 1.0)
     {
@@ -130,6 +133,7 @@ public sealed class GameCaptureService : IDisposable
                         {
                             _lastFailure = null;
                             GrabbedFrameAt = capture.ReadFrameAt;
+                            GrabbedGameWindowOnly = capture.IsWindow;
                             return picture;
                         }
                     }
@@ -137,6 +141,7 @@ public sealed class GameCaptureService : IDisposable
                 Stage("GDI-Bildschirmkopie");
                 Interlocked.Increment(ref _gdiFallbacks);
                 GrabbedFrameAt = System.Diagnostics.Stopwatch.GetTimestamp();
+                GrabbedGameWindowOnly = false;
                 using var bitmap = scale < 1 ? ScreenCapture.CaptureScaled(area, scale) : ScreenCapture.Capture(area);
                 return BitmapMat.ToBgr(bitmap);
             }

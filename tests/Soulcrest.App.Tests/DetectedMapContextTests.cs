@@ -168,6 +168,93 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.Same(position, tracking.Position);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BackgroundScreenCaptureClearsEvidenceAndRejectsAnAlreadyRunningMatch(bool worldMap)
+    {
+        using var capture = new GameCaptureService();
+        using var tracking = Tracker(capture);
+        using var frame = Frame(worldMap ? "live-2026-10-03-lost-screen.png" : "live-2026-10-03-screen.png");
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, frame, CancellationToken.None);
+        var position = tracking.Position;
+        Assert.NotNull(tracking.DetectedMap);
+
+        Assert.False(tracking.AcceptCaptureContext(gameWindowOnly: false, gameForeground: false, TimeSpan.Zero));
+        Assert.False(tracking.Found);
+        Assert.False(tracking.WorldMapOpen);
+        Assert.Null(tracking.DetectedMap);
+        Assert.Null(tracking.Placement);
+        Assert.Same(position, tracking.Position); // retained for a grey last-known marker only
+        Assert.False(tracking.InInstance); // another foreground window does not establish a dungeon
+
+        // A previous worker must not publish its completed map match after the source was rejected.
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, frame, CancellationToken.None, contextGeneration: 0);
+        Assert.False(tracking.Found);
+        Assert.Null(tracking.DetectedMap);
+        Assert.Equal(0, capture.Diagnostics.Grabs);
+
+        // Recovery uses the new generation and the same image matching, without a tracking restart.
+        Assert.True(tracking.AcceptCaptureContext(gameWindowOnly: true, gameForeground: false, TimeSpan.Zero));
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, frame, CancellationToken.None);
+        Assert.True(tracking.Found);
+        Assert.NotNull(tracking.DetectedMap);
+    }
+
+    [Fact]
+    public void RejectedSourceAlsoInvalidatesTheFirstMatchBeforeAnyContextWasPublished()
+    {
+        using var capture = new GameCaptureService();
+        using var tracking = Tracker(capture);
+        Assert.Null(tracking.DetectedMap);
+        Assert.False(tracking.AcceptCaptureContext(gameWindowOnly: false, gameForeground: false, TimeSpan.Zero));
+        using var frame = Frame("live-2026-10-03-screen.png");
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, frame, CancellationToken.None, contextGeneration: 0);
+        Assert.Null(tracking.Position);
+        Assert.Null(tracking.DetectedMap);
+        Assert.False(tracking.Found);
+        Assert.Equal(0, capture.Diagnostics.Grabs);
+    }
+
+    [Theory]
+    [InlineData(true, false)] // isolated game-window capture stays usable while Soulcrest has focus
+    [InlineData(true, true)]
+    [InlineData(false, true)] // monitor/GDI fallback remains usable with the game in front
+    public void CurrentQualifiedCaptureKeepsVerifiedMapEvidence(bool gameWindowOnly, bool gameForeground)
+    {
+        using var capture = new GameCaptureService();
+        using var tracking = Tracker(capture);
+        using var frame = Frame("live-2026-10-03-screen.png");
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, frame, CancellationToken.None);
+        var identity = Assert.IsType<DetectedMapContext>(tracking.DetectedMap);
+        var position = tracking.Position;
+        Assert.True(tracking.AcceptCaptureContext(gameWindowOnly, gameForeground, TimeSpan.FromMilliseconds(100)));
+        Assert.True(tracking.Found);
+        Assert.Same(identity, tracking.DetectedMap);
+        Assert.Same(position, tracking.Position);
+        Assert.Equal(0, capture.Diagnostics.Grabs);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void OldOrUnknownCaptureCannotRefreshPlayerEvidence(bool gameWindowOnly)
+    {
+        using var capture = new GameCaptureService();
+        using var tracking = Tracker(capture);
+        using var frame = Frame("live-2026-10-03-screen.png");
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, frame, CancellationToken.None);
+        var position = tracking.Position;
+        Assert.False(tracking.AcceptCaptureContext(gameWindowOnly, gameForeground: true,
+            MapTrackingService.MaximumFrameAge + TimeSpan.FromMilliseconds(1)));
+        Assert.Null(tracking.DetectedMap);
+        Assert.False(tracking.Found);
+        Assert.Same(position, tracking.Position);
+        Assert.False(tracking.AcceptCaptureContext(gameWindowOnly, gameForeground: true, TimeSpan.MaxValue));
+        Assert.False(tracking.AcceptCaptureContext(gameWindowOnly, gameForeground: true, TimeSpan.FromMilliseconds(-1)));
+        Assert.Equal(0, capture.Diagnostics.Grabs);
+    }
+
     private static MapTrackingService Tracker(GameCaptureService capture)
     {
         var settings = new SettingsService();

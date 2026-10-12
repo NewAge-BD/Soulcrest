@@ -50,6 +50,7 @@ public sealed class OverlayInteractionPanelTests : IDisposable
     [InlineData("_overlay")]
     [InlineData("_bossOverlay")]
     [InlineData("_levelingOverlay")]
+    [InlineData("_alertsOverlay")]
     public Task AltInteractionChangesNativeHitTestingWithoutShowingPanelsOrSavingSettings(string field) => RunOnSta(() =>
     {
         using var main = new MainForm(); // No Show: capture and WebView startup remain inactive.
@@ -80,6 +81,7 @@ public sealed class OverlayInteractionPanelTests : IDisposable
     [InlineData("_overlay", "_dragStart")]
     [InlineData("_bossOverlay", "_drag")]
     [InlineData("_levelingOverlay", "_drag")]
+    [InlineData("_alertsOverlay", "_drag")]
     public Task ReleasingAltEndsCapturedGesturesAndSavesOnlyTheFinishedDrag(string field, string dragField) => RunOnSta(() =>
     {
         using var main = new MainForm();
@@ -133,6 +135,7 @@ public sealed class OverlayInteractionPanelTests : IDisposable
     [InlineData("_overlay")]
     [InlineData("_bossOverlay")]
     [InlineData("_levelingOverlay")]
+    [InlineData("_alertsOverlay")]
     public Task AltInteractionSurvivesWinFormsStyleRefreshAndHandleRecreation(string field) => RunOnSta(() =>
     {
         using var main = new MainForm();
@@ -155,6 +158,7 @@ public sealed class OverlayInteractionPanelTests : IDisposable
             case PetOverlayForm pet: pet.SetInteractionEnabled(enabled); break;
             case BossOverlayForm boss: boss.SetInteractionEnabled(enabled); break;
             case LevelingOverlayForm leveling: leveling.SetInteractionEnabled(enabled); break;
+            case AlertsOverlayForm alerts: alerts.SetInteractionEnabled(enabled); break;
             default: throw new InvalidOperationException("Unexpected overlay panel.");
         }
     }
@@ -163,6 +167,7 @@ public sealed class OverlayInteractionPanelTests : IDisposable
     [InlineData("_overlay")]
     [InlineData("_bossOverlay")]
     [InlineData("_levelingOverlay")]
+    [InlineData("_alertsOverlay")]
     public Task WindowsRoutesPointerToThePanelOnlyWhileInteractionIsEnabled(string field) => RunOnSta(() =>
     {
         if (InteractiveDesktop.Missing) return; // needs real window hit-testing

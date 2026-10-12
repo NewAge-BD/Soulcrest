@@ -12,6 +12,7 @@ public static class AppPaths
 
     public static string WebViewDirectory => Path.Combine(DataDirectory, "webview2");
     public static string BossTimersFile => Path.Combine(DataDirectory, "cache", "boss-timers.json");
+    public static string AlertsFile => Path.Combine(DataDirectory, "alerts.json");
     public static string SettingsFile => Path.Combine(DataDirectory, "settings.json");
     public static string ProgressFile => Path.Combine(DataDirectory, "progress.json");
     public static string EventsFile => Path.Combine(DataDirectory, "events.jsonl");

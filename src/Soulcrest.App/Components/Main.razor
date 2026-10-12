@@ -14,6 +14,7 @@
             <button type="button" class="@Active("petscan")" aria-current="@Current("petscan")" title="@UiText.T("Fortschritt aus dem Pet-Fenster des Spiels übernehmen")" @onclick="@(() => Ui.Navigate("petscan"))">@UiText.T("Pet Scan")</button>
             <button type="button" class="@Active("exploration")" aria-current="@Current("exploration")" title="@UiText.T("Fortschritt für Dungeons, Garnisonen und Kibelisken verwalten")" @onclick="@(() => Ui.Navigate("exploration"))">@UiText.T("Erkundungsfortschritt")</button>
             <button type="button" class="@Active("bossrush")" aria-current="@Current("bossrush")" @onclick="@(() => Ui.Navigate("bossrush"))">Boss Rush</button>
+            <button type="button" class="@Active("alerts")" aria-current="@Current("alerts")" @onclick="@(() => Ui.Navigate("alerts"))">Alerts</button>
             <span class="tabs-sep" aria-hidden="true"></span>
             <button type="button" class="@Active("options")" aria-current="@Current("options")" @onclick="@(() => Ui.Navigate("options"))">@UiText.T("Optionen")</button>
             <button type="button" class="@Active("patchnotes")" aria-current="@Current("patchnotes")" @onclick="@(() => Ui.Navigate("patchnotes"))">@UiText.T("Patchnotes")</button>
@@ -59,6 +60,10 @@
         else if (Ui.Tab == "bossrush")
         {
             <BossRushView />
+        }
+        else if (Ui.Tab == "alerts")
+        {
+            <AlertsView />
         }
         else if (Ui.Tab == "options")
         {

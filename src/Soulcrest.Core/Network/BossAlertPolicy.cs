@@ -9,12 +9,18 @@ public sealed class BossAlertPolicy
     private readonly Queue<(int Map, int Id, long At, bool Spawned)> _history = [];
 
     public IReadOnlyList<BossAlertTrigger> Evaluate(BossRushSnapshot snapshot, IReadOnlySet<string> selected, int leadSeconds)
+        => Evaluate(snapshot, selected, _ => leadSeconds);
+
+    /// <summary>A null lead disables this boss, including its confirmed-spawn notification.</summary>
+    public IReadOnlyList<BossAlertTrigger> Evaluate(BossRushSnapshot snapshot, IReadOnlySet<string> selected,
+        Func<string, int?> leadSecondsFor)
     {
         if (snapshot.Cached || snapshot.Age > TimeSpan.FromSeconds(15)) return [];
         var alerts = new List<BossAlertTrigger>();
         foreach (var boss in snapshot.Bosses.OrderBy(b => b.SpawnUnixMs).ThenBy(b => b.SpawnId))
         {
-            if (!selected.Contains($"{snapshot.MapId}:{boss.SpawnId}")) continue;
+            var bossKey = $"{snapshot.MapId}:{boss.SpawnId}";
+            if (!selected.Contains(bossKey) || leadSecondsFor(bossKey) is not { } leadSeconds) continue;
             var remaining = boss.SpawnUnixMs - snapshot.ServerUnixMs;
             if (!boss.Spawned && (remaining <= 0 || remaining > Math.Clamp(leadSeconds, 0, 3600) * 1000L)) continue;
             var key = (snapshot.MapId, boss.SpawnId, boss.SpawnUnixMs, boss.Spawned);

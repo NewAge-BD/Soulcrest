@@ -215,3 +215,12 @@ Nutzers bei laufendem Spiel (`CaptureTimingExploration`):
   `DWMWA_EXTENDED_FRAME_BOUNDS`). Darin kommen Overlays nie vor (`WindowCaptureExploration`: Fenster
   ohne, Desktop mit Symbolen). Ohne Spielfenster: Monitor, sonst GDI.
 - Rückfall auf GDI, wenn WGC nicht verfügbar ist. Protokoll und Status zeigen `aufnahme=`.
+
+## 2026-10-12: Quelle und Alter der Aufnahme qualifizieren
+
+Der tatsächliche synchron gelieferte Frame trägt neben seinem Aufnahmezeitpunkt die Information,
+ob er ausschließlich aus dem Spielfenster stammt. Monitor- und GDI-Fallbacks gelten nur mit AION2
+im Vordergrund; isolierte WGC-Fensterbilder bleiben im Hintergrund nutzbar. Aufnahmealter maximal
+zwei Sekunden. Verwerfen invalidiert auch ausstehende erste Matches, ohne daraus einen Dungeon
+abzuleiten. Zentrieren/Follow verwenden ausschließlich FreshPosition; historische Positionen
+bleiben grau und schalten keine Karte um.

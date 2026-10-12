@@ -52,7 +52,7 @@ public sealed record BossChoice(int MapId, string Map, BossPlace Boss)
     public string Key => $"{MapId}:{Boss.SpawnId}";
 }
 public sealed record BossRushEntry(BossChoice Place, bool Spawned, TimeSpan Remaining, TimeSpan Age, bool Cached = false);
-public sealed record BossNotice(long Id, BossPlace Boss, bool Spawned, TimeSpan Remaining, DateTimeOffset Expires, DateTimeOffset CreatedAt);
+public sealed record BossNotice(long Id, BossPlace Boss, bool Spawned, TimeSpan Remaining, DateTimeOffset Expires, DateTimeOffset CreatedAt, string? Key = null, bool Preview = false, long? SpawnUnixMs = null);
 
 public sealed record BossRushView(string? MapId, BossPlace? Boss, bool Spawned, TimeSpan Remaining, TimeSpan Age, int SpawnedCount, bool Cached = false);
 
@@ -147,19 +147,60 @@ public sealed class BossRushService : IDisposable
         get
         {
             lock (_gate) return _settings.Current.BossAlertsEnabled
-                ? _alerts.Where(a => a.CreatedAt <= _time.GetUtcNow() && a.Expires > _time.GetUtcNow()).Take(3)
+                ? _alerts.Where(a => a.CreatedAt <= _time.GetUtcNow() && a.Expires > _time.GetUtcNow() &&
+                    (a.Preview || a.Key is { } key && IsReminderSelected(key))).Take(3)
                     .Select(a => a with { Remaining = TimeSpan.FromTicks(Math.Max(0, (a.Remaining - (_time.GetUtcNow() - a.CreatedAt)).Ticks)) }).ToArray() : [];
         }
     }
 
-    public void PreviewAlert()
+    /// <summary>The saved per-boss wish, inheriting the existing global lead when no override exists.</summary>
+    public BossReminderPreference GetReminder(string key)
+    {
+        var settings = _settings.Current;
+        return settings.BossReminderOverrides.TryGetValue(key, out var preference) ? preference
+            : new() { LeadSeconds = Math.Clamp(settings.BossAlertLeadSeconds, 0, 3600) };
+    }
+
+    /// <summary>Changes only this boss; selecting a timer or enabling the global master is a separate action.</summary>
+    public bool SetReminder(string key, BossReminderPreference preference)
+    {
+        if (_disposed || preference is null || preference.LeadSeconds is < 0 or > 3600 ||
+            !Catalogue.Any(choice => choice.Key == key)) return false;
+        Dictionary<string, BossReminderPreference>? previous = null, updated = null;
+        try
+        {
+            // Merge inside Settings.Update's lock so simultaneous changes from the two tabs
+            // preserve each other's independently configured bosses.
+            _settings.Update(settings =>
+            {
+                previous = settings.BossReminderOverrides;
+                updated = new Dictionary<string, BossReminderPreference>(previous, StringComparer.Ordinal) { [key] = preference };
+                settings.BossReminderOverrides = updated;
+            });
+            return true;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // Settings.Update changes Current before saving. Restore this attempted replacement on failure.
+            if (previous is not null && ReferenceEquals(_settings.Current.BossReminderOverrides, updated)) _settings.Current.BossReminderOverrides = previous;
+            LogFile.Error("Boss reminder", error);
+            return false;
+        }
+    }
+
+    private bool IsReminderSelected(string key) => (_settings.Current.BossAlertIds ?? []).Contains(key, StringComparer.Ordinal)
+        && GetReminder(key).Enabled;
+
+    public void PreviewAlert() => PreviewAlert(null);
+
+    public void PreviewAlert(string? key)
     {
         lock (_gate)
         {
             if (!_settings.Current.BossAlertsEnabled) return;
-            var boss = Catalogue.FirstOrDefault(b => _settings.Current.BossAlertIds.Contains(b.Key))?.Boss
-                ?? Catalogue.FirstOrDefault()?.Boss;
-            if (boss is not null) AddAlert(boss, false, TimeSpan.FromSeconds(_settings.Current.BossAlertLeadSeconds));
+            var choice = key is not null ? Catalogue.FirstOrDefault(b => b.Key == key)
+                : Catalogue.FirstOrDefault(b => _settings.Current.BossAlertIds.Contains(b.Key)) ?? Catalogue.FirstOrDefault();
+            if (choice is not null) AddAlert(choice.Boss, false, TimeSpan.FromSeconds(GetReminder(choice.Key).LeadSeconds), choice.Key, preview: true);
         }
         SafeEvent.Raise(Changed, "Boss Rush");
     }
@@ -199,14 +240,16 @@ public sealed class BossRushService : IDisposable
             _targets.SetBossRush(Target(active, "boss-rush"));
             _targets.SetBossPreview(Target(upcoming, "boss-next") is { } preview
                 ? preview with { After = active is not null ? "boss-rush" : null } : null);
-            _alerts.RemoveAll(a => a.Expires <= _time.GetUtcNow());
+            _alerts.RemoveAll(a => a.Expires <= _time.GetUtcNow() ||
+                !a.Preview && (a.Key is not { } key || !IsReminderSelected(key)));
             if (!settings.BossAlertsEnabled) _alerts.Clear();
             else if (rows.Count > 0 && _state.Snapshot is { } snapshot)
             {
                 var selected = settings.BossAlertIds.ToHashSet(StringComparer.Ordinal);
-                foreach (var trigger in _alertPolicy.Evaluate(snapshot, selected, settings.BossAlertLeadSeconds))
+                foreach (var trigger in _alertPolicy.Evaluate(snapshot, selected,
+                    key => GetReminder(key) is { Enabled: true } preference ? preference.LeadSeconds : (int?)null))
                     AddAlert(_maps[trigger.MapId].Places[trigger.Boss.SpawnId], trigger.Spawned,
-                        TimeSpan.FromMilliseconds(Math.Max(0, trigger.Boss.SpawnUnixMs - snapshot.ServerUnixMs)));
+                        TimeSpan.FromMilliseconds(Math.Max(0, trigger.Boss.SpawnUnixMs - snapshot.ServerUnixMs)), $"{trigger.MapId}:{trigger.Boss.SpawnId}", spawnUnixMs: trigger.Boss.SpawnUnixMs);
             }
         }
         SafeEvent.Raise(Changed, "Boss Rush");
@@ -216,15 +259,15 @@ public sealed class BossRushService : IDisposable
         : new MapTarget(id, row.Place.Map, row.Place.Boss.X, row.Place.Boss.Y,
             row.Place.Boss.Name(_settings.Current.NameLanguage), "Boss Rush Mode", null, Color: "#ef4444");
 
-    private void AddAlert(BossPlace boss, bool spawned, TimeSpan remaining)
+    private void AddAlert(BossPlace boss, bool spawned, TimeSpan remaining, string? key = null, bool preview = false, long? spawnUnixMs = null)
     {
-        _alerts.RemoveAll(a => a.Boss.SpawnId == boss.SpawnId); // confirmation replaces its advance warning
+        _alerts.RemoveAll(a => key is not null ? a.Key == key : a.Boss.SpawnId == boss.SpawnId); // confirmation replaces its advance warning
         // Three visible notices; further selected bosses keep their full display duration in the queue.
         var starts = _time.GetUtcNow();
         if (_alerts.Count >= 3 && _alerts[^3].Expires > starts) starts = _alerts[^3].Expires;
         var atDisplay = TimeSpan.FromTicks(Math.Max(0, (remaining - (starts - _time.GetUtcNow())).Ticks));
         _alerts.Add(new(++_noticeId, boss, spawned, atDisplay,
-            starts.AddSeconds(Math.Clamp(_settings.Current.BossAlertDurationSeconds, 3, 60)), starts));
+            starts.AddSeconds(Math.Clamp(_settings.Current.BossAlertDurationSeconds, 3, 60)), starts, key, preview, spawnUnixMs));
         if (_alerts.Count > 128) _alerts.RemoveAt(0);
     }
 

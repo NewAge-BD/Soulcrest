@@ -1,0 +1,36 @@
+/* Captured boss timers use the event card language; game data is always explicit. */
+.boss-timer-grid { margin-top: 15px; }
+.boss-timer-card { --alert-color: #f87171; display: flex; flex-direction: column; }
+.boss-timer-card .event-symbol > img { width: 34px; height: 34px; border-radius: 8px; object-fit: contain; }
+.boss-timer-card .event-card-heading > div { min-width: 0; }
+.boss-timer-card h4 { overflow-wrap: anywhere; }
+.boss-timer-card .event-schedule-badge { display: inline-flex; align-items: center; gap: 5px; }
+.boss-timer-source-dot { width: 5px; height: 5px; flex: none; border-radius: 50%; background: var(--alert-color); box-shadow: 0 0 5px #f8717140; }
+.boss-timer-card.spawned { --alert-color: #5eead4; }
+.boss-timer-card.provisional { --alert-color: #94a3b8; }
+.boss-timer-card.missing { --alert-color: #64748b; }
+.boss-timer-card .event-countdown { min-height: 76px; }
+.boss-timer-card .event-countdown.boss-timer-waiting > strong { max-width: 100%; font-size: 27px; line-height: 1.25; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.boss-timer-card .event-time-range { margin-bottom: 18px; }
+.boss-timer-capture { margin: 0 0 16px; font-size: 10px; line-height: 1.5; color: var(--muted); }
+.boss-timer-card .event-reminder { margin-top: auto; }
+.boss-timer-select { display: flex; align-items: center; gap: 7px; margin-bottom: 13px; font-size: 10px; color: var(--muted); }
+.boss-timer-select input { margin: 0; accent-color: var(--alert-color); }
+.boss-timer-card .event-quick-reminders { flex-wrap: wrap; }
+.boss-timer-card .event-quick-reminders > button { flex-basis: 36px; }
+.boss-timer-card .event-reminder-custom { flex-basis: 28px !important; }
+.boss-timer-advanced { border-top: 1px solid var(--line); margin-top: 13px; }
+.boss-timer-advanced > summary { padding: 12px 0 0; color: var(--muted); font-size: 10px; cursor: pointer; }
+.boss-timer-advanced[open] > summary { padding-bottom: 13px; color: var(--text); }
+.boss-timer-advanced .alerts-boss-presentation { background: transparent; border: 0; padding: 0; }
+.boss-timer-advanced .alerts-boss-fields label { font-size: 10px; }
+.boss-timer-advanced input[type=number], .boss-timer-advanced select { padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--muted); font: inherit; font-size: 11px; }
+.boss-timer-card .alerts-feedback, .boss-timer-card .alerts-error { margin: 12px 0 0; padding: 9px 10px; font-size: 11px; }
+.boss-timer-master-status { margin: 12px 0 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--panel); font-size: 11px; }
+.boss-timer-card button:disabled { opacity: .45; cursor: progress; }
+.boss-page .event-card button:focus-visible, .boss-page .event-card input:focus-visible, .boss-page .event-card select:focus-visible, .boss-page .boss-timer-advanced > summary:focus-visible { outline: 2px solid var(--alert-color); outline-offset: 2px; }
+.boss-alert-card.compact-selection .boss-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 24rem; }
+.boss-alert-card.compact-selection .alerts-boss-choice > label { min-height: 42px; padding: 8px 10px; }
+.boss-alert-card.compact-selection .boss-alert-details { padding-top: 14px; }
+@media (max-width: 1000px) { .boss-timer-card .event-card-heading { flex-wrap: wrap; gap: 9px; } .boss-timer-card .event-schedule-badge { margin-left: 49px; } }
+@media (max-width: 650px) { .boss-alert-card.compact-selection .boss-choices { grid-template-columns: minmax(0, 1fr); } .boss-timer-advanced .alerts-boss-fields { grid-template-columns: minmax(0, 1fr); } .boss-timer-card .event-countdown.boss-timer-waiting > strong { font-size: 25px; } }

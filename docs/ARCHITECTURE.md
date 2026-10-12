@@ -92,3 +92,55 @@ Speicherorte: `%LOCALAPPDATA%\Soulcrest\` → `settings.json`, `profiles/<id>/pr
 - Schwellen kommen aus der Pet-DB (`thresholds`), Standard aus `data/pets/defaults.json`.
 - Beim Erreichen einer Schwelle: Stufe +1, Rest-Souls übertragen (falls die Ingame-Regel das so
   macht; offen, siehe `PET_SYSTEM.md`).
+
+
+## Alerts (2026-10-12)
+
+`Core.Alerts.AlertSchedules` berechnet aus einer expliziten Zeitzone die nächste UTC-Instanz
+stündlicher, täglicher, wöchentlicher, N-Kalendertage-, Intervall- und Einmalregeln. Der
+`AlertsService` wird im Host unabhängig vom aktiven Tab gestartet, liefert Snapshots und
+dedupliziert Auslösungen in einem atomaren Schema-1-Store `alerts.json`. Die Uhr ist injizierbar.
+Boss-Hinweise konsumieren die vorhandenen `BossRushService.Alerts` einschließlich stabiler
+Karte/Spawn-ID; die vorhandene BossAlertPolicy bleibt die einzige Spawn-Triggerquelle.
+
+`AlertsView` und wiederverwendete `BossAlertsSettings` verwalten Zeitplan und individuelle
+Ausgaben. `AlertsOverlayForm` zeichnet die sichtbaren Countdowns ohne Fokuswechsel und übernimmt
+Schloss, Alt, Capture-Sichtbarkeit und Menü-/Minimap-Unterdrückung. Ton läuft im MainForm über
+`NoticeRaised` unabhängig von Rendern und Sichtbarkeit. Das Boss-Rush-Overlay zeichnet im Host
+nur noch seine Liste; es erzeugt keine zweite Alarmanzeige. Einstellungen und Vorschau stehen im Alerts-Tab.
+
+`EventCatalog` hält sechs lokale Nichtboss-EU-Zeitpläne nach der gewählten Community-Referenz.
+`Core.Alerts.EventWindows` trennt Kalenderstart, Eventlaufzeit und Portalphase und liefert begrenzte
+Vorkommen für die Zeitachse. `AlertsService.EventTimers` ist unabhängig von aktivierten Erinnerungen.
+Stabile `catalog:<id>`-Erinnerungen nutzen denselben Scheduler; optionale `EventPresentation`-Werte
+in Schema 1 steuern die native Anzeige getrennt. Katalogpläne bleiben fest, eigene Alerts editierbar.
+Der native Countdown kann mittels `CountdownLabel` auf Portal-/Eventende zeigen; bestätigte
+Bossmeldungen behalten ihre bisherige Darstellung. Dashboard und erfasste Bosskarten sind getrennt.
+
+`CountdownRows` enthält ausschließlich HUD-Zeilen. `NotificationRows` enthält zeitlich aktive
+Banner unabhängig von Minimap-/Menü-Unterdrückung. `AlertNotificationsForm` zeichnet diese in einem
+separaten, immer klickdurchlässigen Fenster an der Timer-Position. `AlertsOverlayForm` bleibt das
+ausblendbare, interaktive Timer-HUD. `AlertSoundPlayer` liefert asynchrone lokale MP3-Wiedergabe über
+Windows MediaPlayer, mit Dateiauswahl, Abbruch bei neuer Wiedergabe/Dispose und Systemton-Fallback.
+`SoundFile` ist ein optionales Schema-1-Feld; neue Laufzeit-Netzwerkzugriffe entstehen nicht.
+
+
+Boss-Timer verwenden in Alerts und Boss Rush dieselbe `LiveBossTimers`-Komponente. Individuelle
+`BossReminderPreference`-Overrides in AppSettings erben ohne Eintrag die globale Vorwarnzeit.
+`BossAlertPolicy` löst weiterhin allein aus; ein per-key Resolver kann einen Boss pausieren,
+ohne die Timerauswahl zu verändern. Queue- und AlertsService-Prüfungen verwerfen deaktivierte
+echte Hinweise. Bestehende Zyklusidentität und Cache-/Freshness-Grenzen bleiben maßgeblich.
+
+`EventTimelinePresentation` berechnet eine reine Timeline-Projektion aus dem lokalen Katalog
+und erfassten Bossdaten; keine erfundenen Bosszyklen. `EventTimelineOverlayForm` ist ein eigenes
+natives, per Schloss/Alt bedienbares Fenster mit 12/24/48 Stunden. AppSettings speichert Position,
+Skalierung, Zeitraum, separaten Sichtbarkeitsschalter und optionale Kopplung an die Minimap.
+Der Host wendet die HUD-Unterdrückung nur bei aktivierter Kopplung an; kurze Banner bleiben separat.
+
+### Kompakte Alert-Overlay-Größen (2026-10-12)
+
+AppSettings hält separate logische Breite/Skalierung/Position für Timer-HUD, Kurzbanner und
+Timeline. Revision 4 übernimmt beim ersten Laden die frühere gemeinsame HUD-Position/Skalierung
+für Banner; spätere Anpassungen bleiben unabhängig. Größenregler verwenden die physische Breite;
+Monitoranpassung ist vorübergehend. Native Resize/Drag speichert beim Abschluss. Details stehen
+in ALERTS.md; die Scheduler-/Deduplizierungslogik bleibt unverändert.

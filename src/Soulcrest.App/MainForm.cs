@@ -15,6 +15,11 @@ public sealed class MainForm : Form
     private readonly ServiceProvider _services;
     private readonly PetOverlayForm _overlay;
     private readonly BossOverlayForm _bossOverlay;
+    private readonly AlertsOverlayForm _alertsOverlay;
+    private readonly EventTimelineOverlayForm _eventTimelineOverlay;
+    private readonly AlertNotificationsForm _alertNotifications;
+    private readonly AlertSoundPlayer _alertSounds;
+    private readonly AlertsService _alerts;
     private readonly LevelingOverlayForm _levelingOverlay;
     private readonly RouteOverlayForm _routeOverlay;
     private readonly ScanMarkerOverlayForm _scanMarkers;
@@ -65,6 +70,8 @@ public sealed class MainForm : Form
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
         services.AddSingleton<BossRushService>();
+        services.AddSingleton<AlertsService>();
+        services.AddSingleton<AlertSoundPlayer>();
         services.AddSingleton<FarmedTargetCleaner>();
         services.AddSingleton<ExplorationArrivalService>();
         services.AddSingleton<CharacterDetectionService>();
@@ -129,7 +136,13 @@ public sealed class MainForm : Form
             _services.GetRequiredService<Capture.GameCaptureService>());
         _ = _services.GetRequiredService<ExplorationArrivalService>();
         _ = _services.GetRequiredService<FarmedTargetCleaner>(); // removes marks of pets farmed out of view
-        _bossOverlay = new BossOverlayForm(_services.GetRequiredService<BossRushService>(), _settings, progress);
+        _alerts = _services.GetRequiredService<AlertsService>();
+        _alertSounds = _services.GetRequiredService<AlertSoundPlayer>();
+        _alerts.NoticeRaised += DeliverAlertSound;
+        _alertsOverlay = new AlertsOverlayForm(_alerts, _settings);
+        _eventTimelineOverlay = new EventTimelineOverlayForm(_alerts, _services.GetRequiredService<BossRushService>(), _settings, _services.GetRequiredService<ProgressService>());
+        _alertNotifications = new AlertNotificationsForm(_alerts, _settings);
+        _bossOverlay = new BossOverlayForm(_services.GetRequiredService<BossRushService>(), _settings, progress, externalAlerts: true);
         _levelingOverlay = new LevelingOverlayForm(_services.GetRequiredService<MapTargetsService>(),
             _services.GetRequiredService<ExplorationService>(), _settings);
         _ = _services.GetRequiredService<CharacterDetectionService>(); // profile follows the character after loading screens
@@ -178,6 +191,9 @@ public sealed class MainForm : Form
         if (_settings.Current.OverlayEnabled)
             _overlay.Show();
         _ = _bossOverlay.Handle;
+        _ = _alertsOverlay.Handle;
+        _ = _eventTimelineOverlay.Handle;
+        _ = _alertNotifications.Handle;
         _ = _levelingOverlay.Handle;
         _ = _routeOverlay.Handle; // shown by itself while the map is tracked and targets are marked
         _ = _explorationOverlay.Handle;
@@ -214,6 +230,9 @@ public sealed class MainForm : Form
         if (_cleanupStarted) return;
         _overlay.SetInteractionEnabled(enabled);
         _bossOverlay.SetInteractionEnabled(enabled);
+        _alertsOverlay.SetInteractionEnabled(enabled);
+        _eventTimelineOverlay.SetInteractionEnabled(enabled);
+        _alertNotifications.SetInteractionEnabled(enabled);
         _levelingOverlay.SetInteractionEnabled(enabled);
     }
 
@@ -228,6 +247,8 @@ public sealed class MainForm : Form
         _overlay.SetSuppressed(suppressed);
         _levelingOverlay.SetSuppressed(suppressed);
         _bossOverlay.SetSuppressed(minimapHidden || escMenuOpen);
+        _alertsOverlay.SetSuppressed(minimapHidden || escMenuOpen);
+        _eventTimelineOverlay.SetSuppressed(_settings.Current.EventTimelineFollowMinimap && (minimapHidden || escMenuOpen));
         _routeOverlay.SetSuppressed(escMenuOpen);
         var alt = OverlayInteraction.IsAltHeld;
         var shift = OverlayInteraction.IsShiftHeld;
@@ -256,11 +277,28 @@ public sealed class MainForm : Form
         {
             case "loot.toggle": ToggleOverlay(); return;
             case "loot.unlock": if (_overlay.Visible) _overlay.ToggleManualInteractionFromHotkey(); return;
+            case "alerts.unlock": if (_alertsOverlay.Visible) _alertsOverlay.ToggleManualInteractionFromHotkey(); return;
+            case "notifications.unlock": if (_alertNotifications.Visible) _alertNotifications.ToggleManualInteractionFromHotkey(); return;
+            case "event-timeline.unlock": if (_eventTimelineOverlay.Visible) _eventTimelineOverlay.ToggleManualInteractionFromHotkey(); return;
             case "boss.unlock": if (_bossOverlay.Visible) _bossOverlay.ToggleManualInteractionFromHotkey(); return;
             case "leveling.unlock": if (_levelingOverlay.Visible) _levelingOverlay.ToggleManualInteractionFromHotkey(); return;
         }
         _settings.Update(s => OverlayHotkeys.ToggleVisibility(s, action));
         UpdateOverlayState();
+    }
+
+    private void DeliverAlertSound(AlertNotice notice)
+    {
+        if (!notice.PlaySound || SmokeTest.Enabled || _closing || _cleanupStarted || IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (_closing || _cleanupStarted || IsDisposed || notice.Expires <= _alerts.Now) return;
+                _ = _alertSounds.Play(notice.Sound, notice.SoundFile);
+            });
+        }
+        catch (InvalidOperationException) when (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) { }
     }
 
     public void ToggleOverlay()
@@ -326,6 +364,9 @@ public sealed class MainForm : Form
         StopTracking();
         _overlay.Close();
         _bossOverlay.Close();
+        _alertsOverlay.Close();
+        _eventTimelineOverlay.Close();
+        _alertNotifications.Close();
         _levelingOverlay.Close();
         _routeOverlay.Close();
         _scanMarkers.Close();
@@ -359,6 +400,7 @@ public sealed class MainForm : Form
         _overlayInteractionTimer.Dispose();
         StopOverlayKeyboard();
         _settings.Changed -= UpdateLanguage;
+        _alerts.NoticeRaised -= DeliverAlertSound;
         _hotkeys.Invoked -= ExecuteOverlayHotkey;
         _hotkeys.Detach();
         _closing = true;
@@ -367,6 +409,9 @@ public sealed class MainForm : Form
             StopTracking();
             _overlay?.Dispose();
             _bossOverlay?.Dispose();
+            _alertsOverlay?.Dispose();
+            _eventTimelineOverlay?.Dispose();
+            _alertNotifications?.Dispose();
             _levelingOverlay?.Dispose();
             _routeOverlay?.Dispose();
             _scanMarkers?.Dispose();

@@ -1,0 +1,21 @@
+@using System.Globalization
+
+<div class="alert-overlay-size-controls">
+    <label for="@(Id + "-width")">@UiText.T("Breite")<input id="@(Id + "-width")" type="range" min="@((int)Math.Round(MinimumWidth * Scale))" max="@((int)Math.Round(MaximumWidth * Scale))" step="1" value="@PixelWidth" @onchange="SetWidth" /><output for="@(Id + "-width")">@PixelWidth px</output></label>
+    <label for="@(Id + "-scale")">@UiText.T("Skalierung")<input id="@(Id + "-scale")" type="range" min="60" max="200" step="1" value="@((int)Math.Round(Scale * 100))" @onchange="SetScale" /><output for="@(Id + "-scale")">@((int)Math.Round(Scale * 100)) %</output></label>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter] public int Width { get; set; }
+    [Parameter] public double Scale { get; set; } = 1;
+    [Parameter] public int MinimumWidth { get; set; } = 240;
+    [Parameter] public int MaximumWidth { get; set; } = 1000;
+    [Parameter] public EventCallback<int> WidthChanged { get; set; }
+    [Parameter] public EventCallback<double> ScaleChanged { get; set; }
+    private int PixelWidth => (int)Math.Round(Width * Scale);
+    private Task SetWidth(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+        ? WidthChanged.InvokeAsync(Math.Clamp((int)Math.Round(value / Scale), MinimumWidth, MaximumWidth)) : Task.CompletedTask;
+    private Task SetScale(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+        ? ScaleChanged.InvokeAsync(Math.Clamp(value, 60, 200) / 100d) : Task.CompletedTask;
+}

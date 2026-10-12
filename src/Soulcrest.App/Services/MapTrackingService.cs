@@ -158,6 +158,39 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     public string CaptureMethod => capture.MethodText;
 
     private Mat Grab(Rectangle area, double scale) => capture.Grab(area, scale);
+
+    // User diagnosis 2026-10-12: monitor fallback repeatedly reported Abyss without a valid minimap context.
+    // Only isolated game-window frames remain usable while another application has the focus.
+    internal static readonly TimeSpan MaximumFrameAge = TimeSpan.FromSeconds(2);
+
+    internal bool AcceptCaptureContext(bool gameWindowOnly, bool gameForeground, TimeSpan frameAge)
+    {
+        var current = frameAge >= TimeSpan.Zero && frameAge <= MaximumFrameAge;
+        if (current && (gameWindowOnly || gameForeground)) return true;
+        // A first match can be running even when no position has been published yet.
+        InvalidateMapContext();
+        Found = false;
+        DetectedMap = null;
+        Placement = null;
+        _worldMapOpen = false;
+        _worldMisses = 0;
+        _flowBroken = true;
+        _lostSince = 0; // an unavailable/covered capture is not evidence of a dungeon
+        Fps = 0;
+        SetStatus(current
+            ? "Warte auf das Spielfenster – Bildschirmaufnahme ist im Hintergrund nicht eindeutig."
+            : "Kein aktuelles Spielbild – warte auf die Aufnahme.");
+        return false;
+    }
+
+    private bool AcceptLastCapture()
+    {
+        var gameWindowOnly = GameCaptureService.GrabbedGameWindowOnly;
+        var frameAt = GameCaptureService.GrabbedFrameAt;
+        return AcceptCaptureContext(gameWindowOnly,
+            !gameWindowOnly && string.Equals(UiResponsiveness.ForegroundProcess(), "AION2", StringComparison.OrdinalIgnoreCase),
+            frameAt == 0 ? TimeSpan.MaxValue : Stopwatch.GetElapsedTime(frameAt));
+    }
     private readonly object _flowGate = new();
     // A capture begun before a load or stop must never republish its old map as fresh evidence.
     private long _mapContextGeneration;
@@ -452,7 +485,10 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                         var pausedContextGeneration = Interlocked.Read(ref _mapContextGeneration);
                         using var full = CaptureReadback.TryCapture(() => Grab(screen, 1));
                         if (full is not null)
+                        {
+                            if (!AcceptLastCapture()) continue;
                             await Task.Run(() => ProcessMiniMapFrame(region, screen, full, token, pausedContextGeneration), token);
+                        }
                     }
                     if (Found)
                         Resume(null);
@@ -479,6 +515,14 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                     flow.Reset();
                     frames.Clear();
                     ReportBusyFrame();
+                    await Task.Delay(IntervalMs, token);
+                    continue;
+                }
+                if (!AcceptLastCapture())
+                {
+                    frame.Dispose();
+                    flow.Reset();
+                    frames.Clear();
                     await Task.Delay(IntervalMs, token);
                     continue;
                 }
@@ -572,6 +616,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                                         ReportBusyFrame();
                                         return;
                                     }
+                                    if (!AcceptLastCapture()) return;
                                     lock (_flowGate)
                                         _drift = FrameShift.Identity;
                                     ProcessMiniMapFrame(region, screen, full, token, contextGeneration);

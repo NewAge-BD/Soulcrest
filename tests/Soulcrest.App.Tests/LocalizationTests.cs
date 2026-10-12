@@ -28,6 +28,7 @@ public sealed class LocalizationTests
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
         services.AddSingleton<BossRushService>();
+        services.AddSingleton(_ => new AlertsService(Path.Combine(Path.GetTempPath(), "Soulcrest-map-render-" + Guid.NewGuid().ToString("N") + ".json"), runTimer: false));
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<UiState>();
@@ -61,6 +62,8 @@ public sealed class LocalizationTests
             Assert.Contains(language == "de" ? "Overlay-Hotkeys" : "Overlay hotkeys", html);
             Assert.Contains("hotkey-record", html);
             Assert.Contains("hotkey-label-leveling.unlock", html);
+            Assert.Contains("hotkey-label-notifications.unlock", html);
+            Assert.Contains(language == "de" ? "Alert-Benachrichtigungen" : "Alert notifications", html);
             Assert.Contains("hotkey-label-exploration-scan.toggle", html);
             Assert.Contains(language == "de" ? "Nicht belegt" : "Unassigned", html);
             if (Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW") is { Length: > 0 } output)
