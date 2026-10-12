@@ -8,7 +8,7 @@ namespace Soulcrest.App.Overlay;
 
 /// <summary>
 /// Compact in-game overlay: focus pets with souls/next target, toasts for new soul pickups,
-/// tracker status. Click-through unless Alt is held, excluded from screen capture so the OCR never
+/// tracker status. Click-through unless Alt is held, excluded from map capture so the tracker never
 /// reads it (display affinity, as Grindcrest's NativeOverlayForm).
 /// </summary>
 public sealed class PetOverlayForm : Form
@@ -28,7 +28,7 @@ public sealed class PetOverlayForm : Form
     private readonly ProgressService _progress;
     private readonly TrackerService _tracker;
     private readonly SettingsService _settings;
-    private readonly PetScanService _scan;
+
     private readonly MapTargetsService _targets;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 250 };
     private readonly OverlayLockButton _lockButton;
@@ -37,13 +37,11 @@ public sealed class PetOverlayForm : Form
     private bool _locked = true;
     private bool _suppressRequested, _suppressed;
 
-    // No minimap (world map, instance, menus, the pet window itself) hides the loot panel, but never the
-    // pet-scan panel: the scan runs exactly while the pet window covers the minimap (user request 2026-10-10).
-    private bool Suppressed => _suppressRequested && !_scan.Running;
+    private bool Suppressed => _suppressRequested;
     private Point? _dragStart;
     // Size (user request 2026-10-07): everything is laid out for 360 px and drawn scaled; while Alt is held, any
     // corner can be dragged and the opposite one stays put.
-    private const int BaseWidth = 360, ScanWidth = 380, CornerGrip = 16;
+    private const int BaseWidth = 360, CornerGrip = 16;
     private const double MinScale = 0.6, MaxScale = 2.5;
     private double _scale;
     private int _logicalHeight = LootLogicalHeight(0, 0);
@@ -54,17 +52,11 @@ public sealed class PetOverlayForm : Form
 
     [Flags]
     private enum Corner { None = 0, Left = 1, Top = 2, Right = 4, Bottom = 8 }
-    // Scan mode: shown automatically while the pet window is scanned, moved off the card grid.
-    private bool _scanMode;
-    private bool _wasVisibleBeforeScan;
-    private Point _locationBeforeScan;
-
-    public PetOverlayForm(ProgressService progress, TrackerService tracker, SettingsService settings, PetScanService scan, MapTargetsService targets)
+    public PetOverlayForm(ProgressService progress, TrackerService tracker, SettingsService settings, MapTargetsService targets)
     {
         _progress = progress;
         _tracker = tracker;
         _settings = settings;
-        _scan = scan;
         _targets = targets;
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
@@ -107,7 +99,7 @@ public sealed class PetOverlayForm : Form
             return;
         }
         RefreshLayout();
-        if (_settings.Current.OverlayEnabled || (_scanMode && _settings.Current.PetScanOverlayEnabled)) Show();
+        if (_settings.Current.OverlayEnabled) Show();
         else Hide();
     }
 
@@ -205,7 +197,7 @@ public sealed class PetOverlayForm : Form
         base.WndProc(ref message);
     }
 
-    private int LogicalWidth => _scanMode ? ScanWidth : BaseWidth;
+    private int LogicalWidth => BaseWidth;
 
     /// <summary>Window size from the layout size (360 × content height) and the scale.</summary>
     private void ApplySize()
@@ -253,7 +245,7 @@ public sealed class PetOverlayForm : Form
     protected override void OnMouseDown(MouseEventArgs e)
     {
         if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
-        if (_locked || _scanMode || e.Button != MouseButtons.Left)
+        if (_locked || e.Button != MouseButtons.Left)
             return;
         _resizing = CornerAt(e.Location);
         if (_resizing == Corner.None)
@@ -280,7 +272,7 @@ public sealed class PetOverlayForm : Form
             Location = new Point(Location.X + e.X - start.X, Location.Y + e.Y - start.Y);
             return;
         }
-        if (!_locked && !_scanMode)
+        if (!_locked)
             Cursor = CursorFor(CornerAt(e.Location));
     }
 
@@ -335,23 +327,13 @@ public sealed class PetOverlayForm : Form
 
     private void RefreshLayout()
     {
-        // The scan starting or ending changes whether the suppression applies (see Suppressed).
         ApplySuppression();
         if (_suppressed) return;
-        if (_scan.Running != _scanMode)
-            SwitchScanMode(_scan.Running);
         if (!SmokeTest.Enabled && IsHandleCreated)
         {
-            var wanted = _settings.Current.OverlayEnabled || (_scanMode && _settings.Current.PetScanOverlayEnabled);
+            var wanted = _settings.Current.OverlayEnabled;
             if (wanted && !Visible) Show();
             else if (!wanted && Visible) Hide();
-        }
-        if (_scanMode)
-        {
-            var missingLines = Math.Min(6, _scan.Page?.Missing.Count ?? 0);
-            SetLogicalHeight(34 + 44 + missingLines * 20 + 30);
-            Invalidate();
-            return;
         }
         var focus = SelectFocusTarget(_settings.Current, _targets.Targets, _targets.Progression);
         var loot = LootToasts(_progress.Recent(), _progress.Catalog, focus?.PetId, DateTimeOffset.Now);
@@ -366,90 +348,12 @@ public sealed class PetOverlayForm : Form
         Invalidate();
     }
 
-    /// <summary>Enters/leaves scan mode: show the overlay beside the card grid (not over it), restore afterwards.</summary>
-    private void SwitchScanMode(bool scanning)
-    {
-        _scanMode = scanning;
-        if (scanning)
-        {
-            FinishDrag();
-            _wasVisibleBeforeScan = Visible;
-            _locationBeforeScan = Location;
-            var area = _scan.CaptureRegion;
-            // Right of the grid, below the auto-loot hint: an empty area of the pet window.
-            Location = new Point(area.X + (int)(area.Width * 0.255), area.Y + (int)(area.Height * 0.62));
-            ApplySize();
-            if (!Visible && (_settings.Current.OverlayEnabled || _settings.Current.PetScanOverlayEnabled))
-                Show();
-        }
-        else
-        {
-            Location = _locationBeforeScan;
-            ApplySize();
-            if (!_wasVisibleBeforeScan)
-                Hide();
-        }
-    }
-
-    private void PaintScanMode(Graphics g, Font title, Font body, Font small)
-    {
-        using var accent = new SolidBrush(Color.FromArgb(94, 234, 212));
-        using var dim = new SolidBrush(Color.FromArgb(150, 160, 175));
-        using var white = new SolidBrush(Color.FromArgb(235, 240, 245));
-        using var warn = new SolidBrush(Color.FromArgb(250, 204, 21));
-        using var ok = new SolidBrush(Color.FromArgb(34, 197, 94));
-        using var big = new Font("Segoe UI Semibold", 12.5f);
-        g.DrawString(UiText.T("Soulcrest · Pet-Scan"), title, accent, 10, 7);
-        var page = _scan.Page;
-        var y = 34;
-        if (page is null || page.Cards == 0)
-        {
-            g.DrawString(UiText.T("Warte auf das Pet-Fenster …"), big, warn, 10, y + 6);
-            y += 44;
-        }
-        else if (page.Ready)
-        {
-            using var back = new SolidBrush(Color.FromArgb(40, 34, 197, 94));
-            g.FillRectangle(back, 6, y, LogicalWidth - 12, 38);
-            g.DrawString(UiText.T($"✓ Alle {page.Cards} erkannt – weiterscrollen"), big, ok, 12, y + 7);
-            y += 44;
-        }
-        else if (!page.Stable)
-        {
-            g.DrawString(UiText.T($"… Bild bewegt sich – kurz stillhalten ({page.Read}/{page.Cards})"), body, dim, 10, y + 10);
-            y += 44;
-        }
-        else
-        {
-            g.DrawString(UiText.T($"{page.Read}/{page.Cards} erkannt – bitte anklicken:"), big, warn, 10, y + 6);
-            y += 44;
-            foreach (var line in page.Missing.Take(6))
-            {
-                g.DrawString("• " + UiText.T(line), body, white, 16, y);
-                y += 20;
-            }
-        }
-        var collection = page?.Collection is { } c ? UiText.F(" · Sammlung {0}/{1}", c.Owned, c.Total) : "";
-        g.DrawString(UiText.T($"Gelesen gesamt: {page?.TotalPets ?? _scan.Entries.Count} Pets{collection}"), small, dim, 10, _logicalHeight - 22);
-    }
-
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
         g.ScaleTransform((float)_scale, (float)_scale); // laid out at 360 px, everything scales along
-        if (_scanMode)
-        {
-            using var title = new Font("Segoe UI Semibold", 10f);
-            using var body = new Font("Segoe UI", 9.5f);
-            using var small = new Font("Segoe UI", 8.5f);
-            using var border = new Pen(LineColor);
-            using var frame = RoundedRectangle(new RectangleF(.5f, .5f, LogicalWidth - 1, _logicalHeight - 1), 12);
-            g.DrawPath(border, frame);
-            PaintScanMode(g, title, body, small);
-            return;
-        }
         PaintLootPanel(g, _focusRows, _lootRows, _tracker.Running, _locked);
     }
 
@@ -560,13 +464,11 @@ public sealed class PetOverlayForm : Form
     private LootRow BuildRow(string petId, int quantity = 0, int alpha = 255, MapTarget? target = null)
     {
         var pet = _progress.Catalog.Find(petId);
-        var souls = _progress.Souls(petId);
-        var thresholds = _progress.Thresholds;
         var monster = target is not null && _progress.MapDataDirectory is { } data
             ? MapPetMarkers.MonsterAt(data, target.MapId, petId, target.X, target.Y) : null;
         return new LootRow(RowName(_settings.Current, monster ?? MonsterName(petId, target?.MapId), pet, target?.Name ?? petId), pet?.Genus ?? "",
-            thresholds.Level(souls), thresholds.IsMax(souls), thresholds.SoulsInLevel(souls),
-            thresholds.NeededForNextLevel(souls), PetIcon(petId), quantity, alpha,
+            _progress.Level(petId), _progress.IsMax(petId), _progress.SoulsInLevel(petId),
+            _progress.NeededForNextLevel(petId), PetIcon(petId), quantity, alpha,
             pet?.DisplayName(_settings.Current.LootNameLanguage));
     }
 

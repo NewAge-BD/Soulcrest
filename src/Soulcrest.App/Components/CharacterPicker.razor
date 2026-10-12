@@ -1,29 +1,28 @@
 ﻿@inject ExplorationService Exploration
-@inject ExplorationScanService Scan
 @inject CharacterDetectionService Detection
 @implements IDisposable
 
 @{ var renderedCharacter = Exploration.ActiveId; }
 <div class="tile-field @(Compact ? "character-picker-compact" : "")">
     <label>@UiText.T("Charakterprofil")
-        <select disabled="@Scan.Running" value="@renderedCharacter" @onchange="Select">
+        <select value="@renderedCharacter" @onchange="Select">
             @foreach (var c in Exploration.Characters) { <option value="@c.Id">@c.Name</option> }
         </select>
     </label>
     @if (Compact)
     {
         <details class="character-profile-tools"><summary>@UiText.T("Profil verwalten")</summary><div>
-            <input autocomplete="off" spellcheck="false" aria-label="@UiText.T("Charaktername / Server")" placeholder="@UiText.T("Charaktername / Server")" @bind="_name" maxlength="80" disabled="@Scan.Running" />
-            <button class="btn" disabled="@(Scan.Running || string.IsNullOrWhiteSpace(_name))" @onclick="Add">@UiText.T("Profil anlegen")</button>
-            <button class="btn" disabled="@(Scan.Running || string.IsNullOrWhiteSpace(_name))" @onclick="@(() => Rename(renderedCharacter))">@UiText.T("Umbenennen")</button>
+            <input autocomplete="off" spellcheck="false" aria-label="@UiText.T("Charaktername / Server")" placeholder="@UiText.T("Charaktername / Server")" @bind="_name" maxlength="80" />
+            <button class="btn" disabled="@(string.IsNullOrWhiteSpace(_name))" @onclick="Add">@UiText.T("Profil anlegen")</button>
+            <button class="btn" disabled="@(string.IsNullOrWhiteSpace(_name))" @onclick="@(() => Rename(renderedCharacter))">@UiText.T("Umbenennen")</button>
             <p class="note">@(Detection.Status ?? UiText.T("Das Profil wechselt nach jedem Ladebildschirm von selbst zum eingeloggten Charakter, solange das Loot-Tracking läuft."))</p>
         </div></details>
     }
     else
     {
-        <input autocomplete="off" spellcheck="false" aria-label="@UiText.T("Charaktername / Server")" placeholder="@UiText.T("Charaktername / Server")" @bind="_name" maxlength="80" disabled="@Scan.Running" />
-        <button class="btn" disabled="@(Scan.Running || string.IsNullOrWhiteSpace(_name))" @onclick="Add">@UiText.T("Profil anlegen")</button>
-        <button class="btn" disabled="@(Scan.Running || string.IsNullOrWhiteSpace(_name))" @onclick="@(() => Rename(renderedCharacter))">@UiText.T("Umbenennen")</button>
+        <input autocomplete="off" spellcheck="false" aria-label="@UiText.T("Charaktername / Server")" placeholder="@UiText.T("Charaktername / Server")" @bind="_name" maxlength="80" />
+        <button class="btn" disabled="@(string.IsNullOrWhiteSpace(_name))" @onclick="Add">@UiText.T("Profil anlegen")</button>
+        <button class="btn" disabled="@(string.IsNullOrWhiteSpace(_name))" @onclick="@(() => Rename(renderedCharacter))">@UiText.T("Umbenennen")</button>
     }
 </div>
 @if (!Compact)
@@ -33,10 +32,10 @@
 @code {
     [Parameter] public bool Compact { get; set; }
     private string _name = "";
-    protected override void OnInitialized() => Detection.Changed += Refresh;
+    protected override void OnInitialized() { Detection.Changed += Refresh; Exploration.Changed += Refresh; }
     private void Refresh() => InvokeAsync(StateHasChanged);
-    public void Dispose() => Detection.Changed -= Refresh;
-    private void Add() { if (Scan.Running) return; Exploration.Add(_name); _name = ""; }
-    private void Rename(string character) { if (Scan.Running || character != Exploration.ActiveId) return; Exploration.Rename(_name); _name = ""; }
-    private void Select(ChangeEventArgs e) { if (Scan.Running || e.Value?.ToString() is not { } id) return; Exploration.Select(id); }
+    public void Dispose() { Detection.Changed -= Refresh; Exploration.Changed -= Refresh; }
+    private void Add() { Exploration.Add(_name); _name = ""; }
+    private void Rename(string character) { if (character != Exploration.ActiveId) return; Exploration.Rename(_name); _name = ""; }
+    private void Select(ChangeEventArgs e) { if (e.Value?.ToString() is not { } id) return; Exploration.Select(id); }
 }

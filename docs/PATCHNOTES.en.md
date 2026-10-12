@@ -2,6 +2,22 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.6.0 – 2026-10-12
+
+- **New:** Pet levels, available souls and the exploration progress of the logged-in character are
+  detected passively from your own game traffic, without scans. A status card shows whether detection
+  is active. Existing progress is kept (a backup is made before the switch) and manual corrections take
+  precedence.
+- **New:** Boss timers show right at the boss symbols on the interactive map.
+- **New:** The map legend has three columns: minimap, interactive map and world map can be set
+  separately, also for places, NPCs and monsters.
+- **New:** Sealed dungeon stops of the leveling routes carry their name instead of "Stop".
+- **Improved:** Boss Rush, exploration progress and Alerts are laid out more clearly for 16:9; the
+  legend is more compact.
+- **Removed:** The pet scan and exploration scan by text recognition and the Windows OCR language packs
+  in the installer. Dungeons and strongholds are no longer ticked off by approaching or entering them;
+  their status comes from the game and can be corrected in the exploration overview.
+
 ## 0.5.0 – 2026-10-12
 
 - **New:** **Alerts** tab with event timers for EU servers (German time): Shugo Festival, Dimensional

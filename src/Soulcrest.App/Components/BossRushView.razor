@@ -15,20 +15,26 @@
     var lootBosses = LootBosses.ToArray();
 }
 
-<div class="page boss-page">
+<div class="page boss-page boss-dashboard">
+    <div class="boss-dashboard-shell">
     <header class="sv-head boss-page-head">
-        <div class="boss-panel-kicker">SOULCREST / BOSS RUSH</div>
-        <h2>Boss Rush Mode</h2>
-        <p class="sv-lead">@UiText.T("Bestätigten Spawns folgen, kommende Spawns im Blick behalten.")</p>
+        <div class="boss-page-title">
+            <span class="boss-page-symbol" aria-hidden="true">◆</span>
+            <div><span class="boss-panel-kicker">SOULCREST</span><h2>Boss Rush Mode</h2></div>
+            <InfoTip><p>@UiText.T("Bestätigten Spawns folgen, kommende Spawns im Blick behalten.")</p></InfoTip>
+        </div>
+        <label class="opt-toggle boss-mode-toggle"><input type="checkbox" id="boss-rush-mode" role="switch" checked="@Settings.Current.BossRushEnabled" @onchange="ToggleMode" /> @UiText.T("Wegführung")</label>
     </header>
 
-    <div class="boss-layout">
+    <dl class="boss-dashboard-summary">
+        <div class="boss-dashboard-stat spawned"><dt>@UiText.T(view.Cached ? "Zuletzt gemeldete Spawns" : "Gespawnt")</dt><dd>@spawned.Length</dd></div>
+        <div class="boss-dashboard-stat upcoming"><dt>@UiText.T("Geplant")</dt><dd>@upcoming.Length</dd></div>
+        <div class="boss-dashboard-stat selected"><dt>@UiText.T("Alert-Auswahl")</dt><dd>@Settings.Current.BossAlertIds.Length</dd></div>
+    </dl>
+
+    <div class="boss-layout boss-dashboard-columns">
         <div class="boss-main">
             <section class="card sv-card boss-command @(Settings.Current.BossRushEnabled ? "enabled" : "paused")" aria-label="@UiText.T("Wegführung")">
-                <div class="boss-command-head">
-                    <span class="boss-panel-kicker">@UiText.T("Wegführung")</span>
-                    <label class="opt-toggle boss-mode-toggle"><input type="checkbox" id="boss-rush-mode" role="switch" checked="@Settings.Current.BossRushEnabled" @onchange="ToggleMode" /> Boss Rush Mode</label>
-                </div>
                 @if (Settings.Current.BossRushEnabled)
                 {
                     @if (view.Boss is { } boss)
@@ -65,14 +71,9 @@
                 {
                     <div class="boss-empty boss-command-empty"><span class="boss-empty-mark" aria-hidden="true">◷</span><h3>@UiText.T("Boss Rush pausiert")</h3><p>@UiText.T("Aktiviere Boss Rush für Wegführung und Spawn-Overlay. Aktivierte Boss-Alerts bleiben eingeschaltet.")</p></div>
                 }
-                <div class="boss-quick-stats">
-                    <div class="boss-stat"><strong>@spawned.Length</strong><span>@UiText.T(view.Cached ? "Zuletzt gemeldete Spawns" : "Gespawnt")</span></div>
-                    <div class="boss-stat"><strong>@upcoming.Length</strong><span>@UiText.T("Geplant")</span></div>
-                    <div class="boss-stat"><strong>@Settings.Current.BossAlertIds.Length</strong><span>@UiText.T("Alert-Auswahl")</span></div>
-                </div>
             </section>
 
-            <LiveBossTimers IncludeAllCaptured="true" />
+            <LiveBossTimers IncludeAllCaptured="true" Compact="true" />
         </div>
 
         <aside class="boss-settings" aria-label="@UiText.T("Einstellungen")">
@@ -83,15 +84,16 @@
                     <label class="boss-field">@UiText.T("Anzahl der Spawns") <input type="number" min="1" max="12" value="@Settings.Current.BossOverlayCount" @onchange="SetCount" /></label>
                     <label class="boss-field boss-scale-field">@UiText.T("Overlay-Größe") <span><input type="range" min="60" max="200" step="5" value="@((int)(Settings.Current.BossOverlayScale * 100))" @onchange="SetScale" /><output>@((int)(Settings.Current.BossOverlayScale * 100)) %</output></span></label>
                 </div>
-                <p class="sv-hint boss-hotkey-hint"><kbd>Alt</kbd><span>@UiText.T("Gedrückt halten, um Overlays zu bedienen und zu verschieben. Nach dem Loslassen sind sie wieder klickdurchlässig.")</span></p>
+                <div class="boss-overlay-help"><kbd>Alt</kbd><span>@UiText.T("Ingame-Anzeige")</span><InfoTip><p>@UiText.T("Gedrückt halten, um Overlays zu bedienen und zu verschieben. Nach dem Loslassen sind sie wieder klickdurchlässig.")</p></InfoTip></div>
             </section>
 
             <BossAlertsSettings CompactSelectionOnly="true" />
         </aside>
     </div>
 
-    <section class="card sv-card boss-loot-section">
-        <div class="boss-loot-header"><div><span class="boss-panel-kicker">@UiText.T("Lootkatalog")</span><h3>@UiText.T("Boss-Lootpools")</h3><p class="sv-hint">@UiText.T("Veröffentlichte Beutepools aus gaming.tools. Ein Boss öffnet seine Items mit Icons.")</p></div><span class="boss-count-badge">@UiText.F("{0} Bosse im Lootkatalog", lootBosses.Length)</span></div>
+    <details id="boss-loot-catalog" class="card sv-card boss-loot-section">
+        <summary class="boss-loot-header"><div><span class="boss-panel-kicker">@UiText.T("Lootkatalog")</span><h3>@UiText.T("Boss-Lootpools")</h3></div><span class="boss-count-badge">@UiText.F("{0} Bosse im Lootkatalog", lootBosses.Length)</span><span class="boss-loot-chevron" aria-hidden="true">⌄</span></summary>
+        <div class="boss-loot-body">
         <div class="boss-loot-filters">
             <label class="boss-field" for="boss-loot-map">@UiText.T("Karte")
                 <select id="boss-loot-map" @bind="_lootMap">
@@ -99,6 +101,7 @@
                 </select>
             </label>
             <label class="boss-field boss-loot-search" for="boss-loot-search">@UiText.T("Boss oder Item suchen")<input id="boss-loot-search" type="search" placeholder="@UiText.T("Boss oder Item suchen")" @bind="_lootQuery" @bind:event="oninput" /></label>
+            <InfoTip><p>@UiText.T("Veröffentlichte Beutepools aus gaming.tools. Ein Boss öffnet seine Items mit Icons.")</p></InfoTip>
         </div>
         @if (lootBosses.Length > 0)
         {
@@ -113,7 +116,9 @@
         {
             <div class="boss-empty"><h4>@UiText.T("Keine Bosse gefunden.")</h4><p>@UiText.T("Suchbegriff oder Karte ändern.")</p></div>
         }
-    </section>
+        </div>
+    </details>
+    </div>
 </div>
 
 @code {

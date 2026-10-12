@@ -9,21 +9,20 @@ namespace Soulcrest.App.Tests;
 public sealed class CaptureDiagnosticsTests
 {
     [Fact]
-    public void BasicReportIncludesTheStoppedPetScanFailureWithoutWaitingForSystemChecks()
+    public void BasicReportIncludesNetworkProgressWithoutStartingAnOcrWorker()
     {
         var settings = new SettingsService();
         var progress = new ProgressService();
         using var capture = new GameCaptureService();
         using var loot = new TrackerService(settings);
         using var map = new MapTrackingService(settings, progress, capture);
-        using var scan = new PetScanService(settings, progress, capture);
-        typeof(PetScanService).GetProperty(nameof(PetScanService.Status))!.SetValue(scan, "Scan abgebrochen: Testfehler");
-        typeof(PetScanService).GetProperty(nameof(PetScanService.StatusIsError))!.SetValue(scan, true);
-        using var diagnostics = new DiagnosticsService(settings, capture, loot, map, scan);
+        using var network = new Soulcrest.App.Network.NetworkLootService(progress);
+        using var diagnostics = new DiagnosticsService(settings, capture, loot, map, network);
         var report = diagnostics.CaptureReport();
-        Assert.Contains("Pet-Scan: Scan abgebrochen: Testfehler", report);
-        Assert.Contains("Pet-Scan läuft: False", report);
-        Assert.Contains("Pet-Scan Fehler: True", report);
+        Assert.Contains("Netzwerkfortschritt:", report);
+        Assert.Contains("Pet-Baseline:", report);
+        Assert.DoesNotContain("Pet-Scan", report);
+        Assert.False(network.Running);
         Assert.Contains("GPU-bedingt übersprungene Bilder: 0", report);
     }
 

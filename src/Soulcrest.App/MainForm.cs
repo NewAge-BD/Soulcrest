@@ -22,14 +22,10 @@ public sealed class MainForm : Form
     private readonly AlertsService _alerts;
     private readonly LevelingOverlayForm _levelingOverlay;
     private readonly RouteOverlayForm _routeOverlay;
-    private readonly ScanMarkerOverlayForm _scanMarkers;
-    private readonly ExplorationScanOverlayForm _explorationOverlay;
     private readonly SettingsService _settings;
     private readonly TrackerService _tracker;
-    private readonly PetScanService _scan;
     private readonly MapTrackingService _map;
     private readonly Capture.GameCaptureService _gameCapture;
-    private readonly ExplorationScanService _explorationScan;
     private readonly CancellationTokenSource _watchdog = new();
     private readonly System.Windows.Forms.Timer _overlayInteractionTimer = new() { Interval = 25 };
     private bool _closing;
@@ -58,22 +54,19 @@ public sealed class MainForm : Form
         services.AddWindowsFormsBlazorWebView();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<OverlayHotkeyService>();
-        services.AddSingleton<OcrLanguageInstaller>();
         services.AddSingleton<Capture.GameCaptureService>();
         services.AddSingleton<ProgressService>();
         services.AddSingleton<Network.NetworkLootService>();
         services.AddSingleton<Network.INetworkLootSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<TrackerService>();
-        services.AddSingleton<PetScanService>();
         services.AddSingleton<ExplorationService>();
-        services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
         services.AddSingleton<BossRushService>();
         services.AddSingleton<AlertsService>();
         services.AddSingleton<AlertSoundPlayer>();
         services.AddSingleton<FarmedTargetCleaner>();
-        services.AddSingleton<ExplorationArrivalService>();
+        services.AddSingleton<NavigationArrivalService>();
         services.AddSingleton<CharacterDetectionService>();
         services.AddSingleton<DiagnosticsService>();
         services.AddSingleton<UpdateService>();
@@ -85,10 +78,8 @@ public sealed class MainForm : Form
         UpdateLanguage();
         _settings.Changed += UpdateLanguage;
         _tracker = _services.GetRequiredService<TrackerService>();
-        _scan = _services.GetRequiredService<PetScanService>();
         _map = _services.GetRequiredService<MapTrackingService>();
         _gameCapture = _services.GetRequiredService<Capture.GameCaptureService>();
-        _explorationScan = _services.GetRequiredService<ExplorationScanService>();
         var progress = _services.GetRequiredService<ProgressService>();
         RestoreWindowBounds();
 
@@ -128,13 +119,8 @@ public sealed class MainForm : Form
             _services.GetRequiredService<ProgressService>(),
             _services.GetRequiredService<TrackerService>(),
             _settings,
-            _services.GetRequiredService<PetScanService>(),
             _services.GetRequiredService<MapTargetsService>());
-        _scanMarkers = new ScanMarkerOverlayForm(_services.GetRequiredService<PetScanService>(), _settings,
-            _services.GetRequiredService<Capture.GameCaptureService>());
-        _explorationOverlay = new ExplorationScanOverlayForm(_services.GetRequiredService<ExplorationScanService>(), _settings,
-            _services.GetRequiredService<Capture.GameCaptureService>());
-        _ = _services.GetRequiredService<ExplorationArrivalService>();
+        _ = _services.GetRequiredService<NavigationArrivalService>();
         _ = _services.GetRequiredService<FarmedTargetCleaner>(); // removes marks of pets farmed out of view
         _alerts = _services.GetRequiredService<AlertsService>();
         _alertSounds = _services.GetRequiredService<AlertSoundPlayer>();
@@ -196,7 +182,6 @@ public sealed class MainForm : Form
         _ = _alertNotifications.Handle;
         _ = _levelingOverlay.Handle;
         _ = _routeOverlay.Handle; // shown by itself while the map is tracked and targets are marked
-        _ = _explorationOverlay.Handle;
         SetOverlayInteractionEnabled(OverlayInteraction.IsAltHeld);
         _overlayInteractionTimer.Start();
         // Like Grindcrest before tracking: ask Windows for capture without the yellow border (a prompt
@@ -208,7 +193,6 @@ public sealed class MainForm : Form
         updates.StartAutomaticCheck();
         var ui = _services.GetRequiredService<UiState>();
         UiResponsiveness.Watch(this, () => $"Tab {ui.Tab}, Tracking {(_map.Running ? (_map.Found ? "gefunden" : "sucht") : "aus")}", _watchdog.Token);
-        _ = _scanMarkers.Handle; // shown by itself while a pet scan has cards to click
         _tracker.StartIfEnabled();
         if (_settings.Current.MapTrackingActive && _settings.Current.MapRegion is not null)
             _map.Start();
@@ -369,8 +353,6 @@ public sealed class MainForm : Form
         _alertNotifications.Close();
         _levelingOverlay.Close();
         _routeOverlay.Close();
-        _scanMarkers.Close();
-        _explorationOverlay.Close();
     }
 
     private void StopTracking()
@@ -378,8 +360,6 @@ public sealed class MainForm : Form
         if (_trackingStopped) return;
         _trackingStopped = true;
         _tracker?.Dispose();
-        _scan?.Stop();
-        _explorationScan?.Stop(); // resolved up front: the provider may already be disposed here
         _map?.Shutdown();
     }
 
@@ -414,8 +394,6 @@ public sealed class MainForm : Form
             _alertNotifications?.Dispose();
             _levelingOverlay?.Dispose();
             _routeOverlay?.Dispose();
-            _scanMarkers?.Dispose();
-            _explorationOverlay?.Dispose();
         }
         finally
         {

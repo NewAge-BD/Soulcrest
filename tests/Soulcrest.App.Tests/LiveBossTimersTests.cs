@@ -1,5 +1,6 @@
 using System.Net;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,8 @@ public sealed class LiveBossTimersTests
         Assert.Contains(waiting, html);
         Assert.Contains(paused, html);
         Assert.Contains("event-quick-reminders", html);
+        Assert.DoesNotContain("boss-timers-compact", html);
+        Assert.DoesNotContain("boss-timer-options", html);
         Assert.DoesNotContain("00:00:00", html);
         Assert.Empty(fixture.Alerts.Items);
         Assert.False(fixture.Tracker.Running);
@@ -127,6 +130,43 @@ public sealed class LiveBossTimersTests
         Assert.False(fixture.Tracker.Running);
     }
 
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task CompactRowsCollapseAllPersonalControlsAndRetainTheirActions(string language)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Settings.Current.BossAlertIds = ["1110:111001", "1110:111002"];
+        fixture.Settings.Current.BossAlertsEnabled = true;
+        fixture.Capture(false, 610_000);
+        var html = await fixture.Render(includeAll: true, compact: true);
+        Assert.Contains("event-boss-live boss-timers-compact", html);
+        Assert.Equal(2, Regex.Matches(html, "class=\"boss-timer-overview\"").Count);
+        Assert.Contains("00:10:10", html);
+        Assert.Contains("Altgard", html);
+        Assert.DoesNotContain("class=\"event-time-range\"", html);
+        var options = Regex.Matches(html, "<details class=\"boss-timer-options\"[^>]*>");
+        Assert.Equal(2, options.Count);
+        Assert.All(options.Cast<Match>(), option => Assert.DoesNotContain("open", option.Value));
+        Assert.Contains("alert-sound-picker", html);
+        Assert.Contains(language == "de" ? "MP3 hinzufügen" : "Add MP3", html);
+        Assert.Contains("event-quick-reminders", html);
+        Assert.Contains("boss-timer-select", html);
+        Assert.Contains("boss-timer-advanced", html);
+        var expanded = await fixture.Invoke("ToggleOptions", "1110:111001");
+        Assert.Single(Regex.Matches(expanded, "<details class=\"boss-timer-options\"[^>]* open(?:[ >])").Cast<Match>());
+        await fixture.Invoke("SetReminder", "1110:111001", new BossReminderPreference { Enabled = false, LeadSeconds = 300 });
+        Assert.False(fixture.Bosses.GetReminder("1110:111001").Enabled);
+        await fixture.Invoke("SavePresentation", "1110:111001", new BossAlertPresentation { ShowOverlay = false, PlaySound = false });
+        Assert.False(fixture.Alerts.GetBossPresentation("1110:111001").ShowOverlay);
+        Assert.False(fixture.Alerts.GetBossPresentation("1110:111001").PlaySound);
+        await fixture.Invoke("Preview", "1110:111001");
+        Assert.Equal("1110:111001", Assert.Single(fixture.Bosses.Alerts).Key);
+        var collapsed = await fixture.Invoke("ToggleOptions", "1110:111001");
+        Assert.All(Regex.Matches(collapsed, "<details class=\"boss-timer-options\"[^>]*>").Cast<Match>(), option => Assert.DoesNotContain("open", option.Value));
+        Assert.False(fixture.Tracker.Running);
+    }
+
     [Fact]
     public async Task CardPreviewTargetsItsOwnBossEvenWhenItsReminderIsOff()
     {
@@ -207,12 +247,12 @@ public sealed class LiveBossTimersTests
             Assert.Equal(spawned, Assert.Single(Bosses.Schedule).Spawned);
         }
 
-        public async Task<string> Render(bool busy = false, bool includeAll = false)
+        public async Task<string> Render(bool busy = false, bool includeAll = false, bool compact = false)
         {
             _root = await _renderer.Dispatcher.InvokeAsync(async () => await _renderer.RenderComponentAsync<CaptureLiveBossTimers>(ParameterView.FromDictionary(new Dictionary<string, object?>
             {
                 [nameof(CaptureLiveBossTimers.Captured)] = (Action<CaptureLiveBossTimers>)(view => View = view),
-                [nameof(LiveBossTimers.Busy)] = busy, [nameof(LiveBossTimers.IncludeAllCaptured)] = includeAll
+                [nameof(LiveBossTimers.Busy)] = busy, [nameof(LiveBossTimers.IncludeAllCaptured)] = includeAll, [nameof(LiveBossTimers.Compact)] = compact
             })));
             return await Markup();
         }

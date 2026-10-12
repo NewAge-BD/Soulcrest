@@ -1,0 +1,156 @@
+/* Boss Rush workspace. Shared timer/reminder components retain their behaviour and palette. */
+.boss-dashboard { --boss-accent: #fb8585; padding: 24px 28px 36px; }
+.boss-dashboard .boss-dashboard-shell { max-width: 112rem; margin: 0 auto; }
+.boss-dashboard .boss-page-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; max-width: none; margin: 0 0 20px; }
+.boss-dashboard .boss-page-title { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.boss-dashboard .boss-page-title > div { min-width: 0; }
+.boss-dashboard .boss-page-title .boss-panel-kicker { color: var(--muted); font-size: 9px; letter-spacing: .16em; }
+.boss-dashboard .boss-page-title h2 { margin: 3px 0 0; font-size: 25px; line-height: 1.2; font-weight: 650; letter-spacing: -.035em; }
+.boss-dashboard .boss-page-symbol { display: grid; place-items: center; flex: none; width: 42px; height: 42px; border: 1px solid #fb858530; border-radius: 12px; color: var(--boss-accent); background: #fb85850b; font-size: 19px; }
+.boss-dashboard .boss-mode-toggle { flex: none; padding: 10px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); font-size: 12px; }
+.boss-dashboard .boss-dashboard-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 18px; }
+.boss-dashboard .boss-dashboard-stat { display: flex; flex-direction: row-reverse; align-items: center; justify-content: flex-end; gap: 14px; min-width: 0; padding: 14px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.boss-dashboard .boss-dashboard-stat dt { color: var(--muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.boss-dashboard .boss-dashboard-stat dd { flex: none; margin: 0; min-width: 28px; font-size: 27px; font-weight: 600; line-height: 1.1; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
+.boss-dashboard .boss-dashboard-stat.spawned dd { color: #8fd6b6; }
+.boss-dashboard .boss-dashboard-stat.upcoming dd { color: #cfbaf1; }
+.boss-dashboard .boss-dashboard-stat.selected dd { color: var(--boss-accent); }
+.boss-dashboard .boss-dashboard-columns { grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); gap: 18px; max-width: none; }
+.boss-dashboard .boss-main, .boss-dashboard .boss-settings { gap: 18px; }
+.boss-dashboard .card { border-radius: 12px; box-shadow: none; }
+.boss-dashboard .card.sv-card { gap: 14px; padding: 18px; }
+.boss-dashboard .boss-command { border-color: #fb858530; background: linear-gradient(110deg, #fb858509, transparent 65%), var(--panel); }
+.boss-dashboard .boss-command.paused { border-color: var(--line); background: var(--panel); }
+.boss-dashboard .boss-command.card.sv-card { padding: 14px 16px; gap: 10px; }
+.boss-dashboard .boss-command-main { min-height: 64px; padding: 0; gap: 13px; }
+.boss-dashboard .boss-portrait, .boss-dashboard .boss-portrait.boss-icon-fallback { width: 56px; height: 56px; border-radius: 10px; box-shadow: none; }
+.boss-dashboard .boss-target-copy > .boss-panel-kicker { font-size: 9px; letter-spacing: .12em; }
+.boss-dashboard .boss-target-copy h3 { margin: 5px 0 7px; font-size: 23px; font-weight: 600; line-height: 1.2; }
+.boss-dashboard .boss-target-state { font-size: 11px; }
+.boss-dashboard .boss-map-label { font-size: 11px; }
+.boss-dashboard .boss-target-time > span { font-size: 10px; }
+.boss-dashboard .boss-target-time > strong { font-size: 28px; }
+.boss-dashboard .boss-command-footer { padding-top: 9px; gap: 12px; }
+.boss-dashboard .boss-data-state { gap: 9px; }
+.boss-dashboard .boss-data-state strong { font-size: 11px; }
+.boss-dashboard .boss-data-state span { font-size: 10px; }
+.boss-dashboard .boss-command-footer .btn { padding: 8px 12px; font-size: 11px; }
+.boss-dashboard .boss-command-empty { min-height: 118px; padding: 10px 14px; gap: 7px; }
+.boss-dashboard .boss-command-empty h3 { font-size: 16px; }
+.boss-dashboard .boss-command-empty p { font-size: 11px; max-width: 34rem; }
+.boss-dashboard .boss-empty-mark { width: 30px; height: 30px; margin: 0 0 2px; font-size: 19px; }
+.boss-dashboard .boss-settings .boss-panel-heading h3 { margin-top: 4px; font-size: 15px; }
+.boss-dashboard .boss-settings .boss-panel-kicker { font-size: 9px; }
+.boss-dashboard .boss-settings .opt-toggle { font-size: 11px; }
+.boss-dashboard .boss-setting-grid { gap: 13px; padding: 13px; border-color: var(--line); background: var(--bg); }
+.boss-dashboard .boss-field { gap: 10px; font-size: 11px; }
+.boss-dashboard .boss-field input[type=number] { width: 62px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; }
+.boss-dashboard .boss-scale-field > span { gap: 12px; }
+.boss-dashboard .boss-field output { width: 43px; font-size: 11px; }
+.boss-dashboard .boss-overlay-help { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; }
+.boss-dashboard .boss-overlay-help .info-tip { margin-left: auto; }
+.boss-dashboard .boss-overlay-help kbd { padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font: inherit; }
+.boss-dashboard .boss-alert-help { display: flex; justify-content: flex-end; margin: 10px 0; }
+.boss-dashboard .boss-alert-actions { gap: 12px; }
+.boss-dashboard .boss-alert-actions .opt-toggle { max-width: 15rem; }
+.boss-dashboard .boss-alert-actions .btn { padding: 7px 10px; font-size: 10px; }
+.boss-dashboard .boss-alert-card .boss-setting-grid { margin: 13px 0; }
+.boss-dashboard .boss-alert-details { margin-top: 12px; padding-top: 13px; }
+.boss-dashboard .boss-alert-details > summary { font-size: 12px; }
+.boss-dashboard .boss-alert-details > summary .note { font-size: 10px; }
+.boss-dashboard .boss-alert-details .boss-field { margin: 14px 0 10px; }
+.boss-dashboard .boss-alert-card.compact-selection .boss-choices { grid-template-columns: minmax(0, 1fr); gap: 7px; max-height: 20rem; }
+.boss-dashboard .boss-alert-card.compact-selection .alerts-boss-choice > label { min-height: 44px; font-size: 11px; }
+.boss-dashboard .event-boss-live { min-width: 0; }
+.boss-dashboard .alerts-section-heading { margin: 0 0 12px; gap: 12px; }
+.boss-dashboard .alerts-section-heading h3 { margin: 4px 0 0; font-size: 16px; }
+.boss-dashboard .alerts-eyebrow { font-size: 9px; }
+.boss-dashboard .boss-timer-master-status { margin: 0 0 12px; padding: 10px 13px; font-size: 10px; }
+.boss-dashboard .boss-timer-grid { margin: 0; gap: 14px; }
+.boss-dashboard .boss-timer-card { padding: 16px; }
+.boss-dashboard .boss-timer-card .event-card-heading { align-items: flex-start; flex-wrap: wrap; gap: 9px; }
+.boss-dashboard .boss-timer-card .event-card-heading > div { flex: 1; min-width: 8rem; }
+.boss-dashboard .boss-timer-card .event-card-heading h4 { font-size: 15px; line-height: 1.3; }
+.boss-dashboard .boss-timer-card .event-schedule-badge { margin-left: 43px; font-size: 9px; }
+.boss-dashboard .boss-timer-card .event-countdown { min-height: 68px; padding: 15px 0 8px; }
+.boss-dashboard .boss-timer-card .event-countdown > strong { font-size: 35px; }
+.boss-dashboard .boss-timer-card .event-countdown.boss-timer-waiting > strong { font-size: 23px; }
+.boss-dashboard .boss-timer-card .event-time-range { margin-bottom: 12px; gap: 7px; }
+.boss-dashboard .boss-timer-capture { margin-bottom: 12px; }
+.boss-dashboard .boss-timer-card .event-reminder { padding-top: 12px; }
+.boss-dashboard .boss-timer-select { margin-bottom: 10px; }
+.boss-dashboard .boss-timer-card .event-reminder-channels { gap: 10px; }
+/* Compact Boss Rush rows keep capture status visible; personal alert controls expand on demand. */
+.boss-dashboard .boss-timers-compact { margin: 0; }
+.boss-dashboard .boss-timers-compact .boss-timer-grid { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+.boss-dashboard .boss-timers-compact .boss-timer-card { padding: 11px 14px 8px; }
+.boss-dashboard .boss-timer-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 200px); column-gap: 16px; row-gap: 5px; align-items: center; }
+.boss-dashboard .boss-timer-overview .event-card-heading { flex-wrap: nowrap; align-items: center; gap: 10px; min-width: 0; }
+.boss-dashboard .boss-timer-overview .event-card-heading > div { min-width: 0; }
+.boss-dashboard .boss-timer-overview .event-card-heading h4 { margin: 3px 0 0; font-size: 14px; line-height: 1.25; }
+.boss-dashboard .boss-timer-overview .event-symbol { flex: none; width: 34px; height: 34px; }
+.boss-dashboard .boss-timer-overview .event-phase { font-size: 9px; }
+.boss-dashboard .boss-timer-overview .event-countdown { min-height: 0; padding: 0; margin: 0; gap: 3px; text-align: right; }
+.boss-dashboard .boss-timer-overview .event-countdown > span { font-size: 9px; }
+.boss-dashboard .boss-timer-overview .event-countdown > strong { font-size: 25px; white-space: nowrap; }
+.boss-dashboard .boss-timer-overview .event-countdown.boss-timer-waiting > strong { font-size: 16px; white-space: normal; }
+.boss-dashboard .boss-timer-meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-left: 44px; color: var(--muted); font-size: 9px; line-height: 1.4; }
+.boss-dashboard .boss-timer-meta .boss-timer-capture { margin: 0 0 0 auto; font-size: inherit; }
+.boss-dashboard .boss-timer-options { margin-top: 7px; border-top: 1px solid var(--line); }
+.boss-dashboard .boss-timer-options > summary { display: flex; align-items: center; gap: 10px; padding: 7px 0 0; color: var(--muted); font-size: 10px; cursor: pointer; list-style: none; }
+.boss-dashboard .boss-timer-options > summary::-webkit-details-marker { display: none; }
+.boss-dashboard .boss-timer-options > summary > span:nth-child(2) { margin-left: auto; }
+.boss-dashboard .boss-timer-options-chevron { font-size: 15px; line-height: 1; transition: transform .15s; }
+.boss-dashboard .boss-timer-options[open] .boss-timer-options-chevron { transform: rotate(180deg); }
+.boss-dashboard .boss-timer-options > .event-reminder { margin-top: 10px; }
+.boss-dashboard .boss-timer-options > summary:focus-visible { outline: 2px solid var(--alert-color); outline-offset: 3px; }
+.boss-dashboard .boss-loot-section { display: block; max-width: none; margin: 18px 0 0; }
+.boss-dashboard .boss-loot-header { align-items: center; cursor: pointer; list-style: none; gap: 14px; }
+.boss-dashboard .boss-loot-header::-webkit-details-marker { display: none; }
+.boss-dashboard .boss-loot-header > div { flex: 1; }
+.boss-dashboard .boss-loot-header h3 { margin-top: 4px; font-size: 15px; }
+.boss-dashboard .boss-loot-header .boss-panel-kicker { font-size: 9px; }
+.boss-dashboard .boss-loot-chevron { color: var(--muted); font-size: 21px; line-height: 1; transition: transform .15s; }
+.boss-dashboard .boss-loot-section[open] .boss-loot-chevron { transform: rotate(180deg); }
+.boss-dashboard .boss-loot-body { display: grid; gap: 16px; padding-top: 18px; margin-top: 16px; border-top: 1px solid var(--line); }
+.boss-dashboard .boss-loot-filters { padding: 13px; gap: 16px; background: var(--bg); }
+.boss-dashboard .boss-loot-filters .info-tip { align-self: center; }
+.boss-dashboard .boss-loot-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.boss-dashboard .boss-loot-heading { min-height: 60px; padding: 12px; }
+.boss-dashboard .boss-loot-heading strong { font-size: 12px; }
+.boss-dashboard .boss-loot-content { padding: 13px; }
+.boss-dashboard .boss-loot-grid { grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); }
+.boss-dashboard .info-tip-body { font-size: 12px; line-height: 1.6; }
+.boss-dashboard .info-tip-body p { margin: 0; }
+.boss-dashboard .info-tip-body p + p { margin-top: 10px; }
+@media (max-width: 1100px) {
+    .boss-dashboard { padding: 20px; }
+    .boss-dashboard .boss-dashboard-columns { grid-template-columns: minmax(0, 1fr); }
+    .boss-dashboard .boss-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .boss-dashboard .boss-alert-card.compact-selection .boss-choices { max-height: 17rem; }
+}
+@media (max-width: 760px) {
+    .boss-dashboard { padding: 18px 14px 28px; }
+    .boss-dashboard .boss-page-head { align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+    .boss-dashboard .boss-page-title h2 { font-size: 22px; }
+    .boss-dashboard .boss-mode-toggle { margin-left: 55px; }
+    .boss-dashboard .boss-dashboard-summary { gap: 8px; margin-bottom: 14px; }
+    .boss-dashboard .boss-dashboard-stat { flex-direction: column-reverse; align-items: flex-start; gap: 6px; padding: 12px; }
+    .boss-dashboard .boss-dashboard-stat dt { font-size: 10px; }
+    .boss-dashboard .boss-dashboard-stat dd { font-size: 23px; }
+    .boss-dashboard .boss-settings, .boss-dashboard .boss-loot-cards, .boss-dashboard .boss-timer-grid { grid-template-columns: minmax(0, 1fr); }
+    .boss-dashboard .card.sv-card { padding: 15px; }
+    .boss-dashboard .boss-command-main { flex-wrap: wrap; gap: 12px; }
+    .boss-dashboard .boss-target-copy h3 { font-size: 21px; }
+    .boss-dashboard .boss-target-time { flex-basis: 100%; flex-direction: row; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--line); }
+    .boss-dashboard .boss-command-footer { flex-wrap: wrap; }
+    .boss-dashboard .boss-loot-header { flex-wrap: wrap; gap: 10px; }
+    .boss-dashboard .boss-loot-header .boss-count-badge { margin-left: auto; }
+    .boss-dashboard .boss-loot-filters .boss-field { width: 100%; }
+    .boss-dashboard .boss-timer-overview { grid-template-columns: minmax(0, 1fr) minmax(110px, 150px); column-gap: 10px; }
+    .boss-dashboard .boss-timer-meta { padding-left: 0; }
+    .boss-dashboard .boss-timer-meta .boss-timer-capture { margin-left: 0; }
+    .boss-dashboard .boss-timer-overview .event-countdown > strong { font-size: 21px; }
+    .boss-dashboard .boss-timer-overview .event-countdown.boss-timer-waiting > strong { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { .boss-dashboard .boss-loot-chevron, .boss-dashboard .boss-timer-options-chevron { transition: none; } }

@@ -163,10 +163,9 @@ public sealed class RouteOverlayForm : Form
                 onMap[i] = (target with { Name = $"{target.Name} · {DistanceText(pixels * metersPerPixel)}" }, onMap[i].Index);
             }
         }
-        var showPets = _settings.Current.ShowPetsInGame;
-        var pets = placement is not null && (showPets || marked.Count > 0) ? VisiblePets(placement, marked, showPets) : [];
+        var pets = placement is not null ? VisiblePets(placement, marked) : [];
         var souls = placement is not null && marked.Count > 0 ? VisibleSoulMonsters(placement, marked) : [];
-        var resources = placement is not null && _settings.Current.ShowResourcesInGame ? VisibleResources(placement) : [];
+        var resources = placement is not null ? VisibleSymbols(placement) : [];
         // Marked targets keep their symbol when its category is hidden (user request 2026-10-07); pets are
         // drawn above anyway (marked pets always show). Resources and cubes show it beside their ring instead.
         if (placement is not null && _progress.MapDataDirectory is { } mapdata)
@@ -412,32 +411,43 @@ public sealed class RouteOverlayForm : Form
     /// <summary>A monster that drops the soul of a marked pet: a red dot.</summary>
     public sealed record SoulMonster(double X, double Y);
 
-    /// <summary>A resource or hidden cube to draw with its legend icon.</summary>
+    /// <summary>A non-pet map marker to draw with its legend icon.</summary>
     public sealed record ResourceSymbol(double X, double Y, Bitmap? Icon, string? Color = null, float Opacity = 1f);
 
     private const int PetIconSize = 26;
     private const int ResourceIconSize = 20;
     private static readonly Font LabelFont = new("Segoe UI", 8.5f, FontStyle.Bold, GraphicsUnit.Point); // used under the sprite lock only
 
-    /// <summary>
-    /// Resources and hidden cubes of the categories shown in the interactive map's legend for this map,
-    /// inside the marked map area (user request 2026-10-04).
-    /// </summary>
-    private List<ResourceSymbol> VisibleResources(MapPlacement placement)
+    /// <summary>Base symbols selected for this native surface, inside the marked map area.</summary>
+    private List<ResourceSymbol> VisibleSymbols(MapPlacement placement)
     {
-        if (_progress.MapDataDirectory is not { } mapdata
-            || !_settings.Current.MapCategories.TryGetValue(placement.MapId, out var shown) || shown.Length == 0)
-            return [];
-        var wanted = shown.ToHashSet();
-        var hiddenKinds = _settings.Current.MapHiddenKinds.TryGetValue(placement.MapId, out var hidden) ? hidden.ToHashSet() : [];
+        if (_progress.MapDataDirectory is not { } mapdata) return [];
         var area = new RectangleF(placement.Region.X - 12, placement.Region.Y - 12, placement.Region.Width + 24, placement.Region.Height + 24);
+        var surface = SurfaceOf(placement);
         var result = new List<ResourceSymbol>();
-        foreach (var resource in MapPetMarkers.ResourcesFor(mapdata, placement.MapId))
+        foreach (var symbol in MapPetMarkers.SymbolsFor(mapdata, placement.MapId))
         {
-            if (wanted.Contains(resource.Category) && (resource.KindKey is not { } kind || !hiddenKinds.Contains(kind)) && area.Contains(placement.WorldToScreen(resource.X, resource.Y)))
-                result.Add(new ResourceSymbol(resource.X, resource.Y, ResourceIcon(resource.Icon, mapdata)));
+            if (SymbolVisible(_settings.Current, placement.MapId, surface, symbol) && area.Contains(placement.WorldToScreen(symbol.X, symbol.Y)))
+                result.Add(new ResourceSymbol(symbol.X, symbol.Y, ResourceIcon(symbol.Icon, mapdata)));
         }
         return result;
+    }
+
+    internal static MapSurface SurfaceOf(MapPlacement placement) => placement.WorldMap ? MapSurface.Worldmap : MapSurface.Minimap;
+
+    internal static bool SymbolVisible(AppSettings settings, string map, MapSurface surface, MapResource symbol)
+    {
+        var split = symbol.Category.IndexOf('/');
+        return split > 0 && MapLayerVisibility.KindVisible(settings, map, surface,
+            symbol.Category[..split], symbol.Category[(split + 1)..], symbol.Kind);
+    }
+
+    /// <summary>Marked pets remain visible even when their genus or level is hidden.</summary>
+    internal static bool PetVisible(AppSettings settings, string map, MapSurface surface, PetSpawn spawn, bool marked)
+    {
+        if (marked) return true;
+        var split = spawn.Category?.IndexOf('/') ?? -1;
+        return MapLayerVisibility.CategoryVisible(settings, map, surface, "Pets", split >= 0 ? spawn.Category![(split + 1)..] : "");
     }
 
     /// <summary>Legend icon scaled once to the symbol size, aspect kept (drawn up to 60 times per second).</summary>
@@ -532,10 +542,10 @@ public sealed class RouteOverlayForm : Form
     }
 
     /// <summary>
-    /// Pet spawns of the tracked map that lie inside the marked map area: all pets the filters allow
-    /// (<paramref name="all"/>), and the marked pets always.
+    /// Pet spawns of the tracked map that lie inside the marked map area: selected genera that pass
+    /// the progress filters, and the marked pets always.
     /// </summary>
-    private List<PetSymbol> VisiblePets(MapPlacement placement, HashSet<string> marked, bool all)
+    private List<PetSymbol> VisiblePets(MapPlacement placement, HashSet<string> marked)
     {
         if (_progress.MapDataDirectory is not { } mapdata)
             return [];
@@ -544,14 +554,13 @@ public sealed class RouteOverlayForm : Form
         foreach (var spawn in MapPetMarkers.For(mapdata, placement.MapId))
         {
             var isMarked = marked.Contains(spawn.PetId);
-            if ((!all && !isMarked) || !area.Contains(placement.WorldToScreen(spawn.X, spawn.Y)))
+            if (!PetVisible(_settings.Current, placement.MapId, SurfaceOf(placement), spawn, isMarked) || !area.Contains(placement.WorldToScreen(spawn.X, spawn.Y)))
                 continue;
-            var souls = _progress.Souls(spawn.PetId);
-            if (!isMarked && _settings.Current.HidesLevel(_progress.Thresholds.Level(souls)))
+            if (!isMarked && _settings.Current.HidesLevel(_progress.Level(spawn.PetId)))
                 continue;
             if (!isMarked && _settings.Current.ExclusivePetsOnly && _progress.Catalog.Find(spawn.PetId) is { } pet && !pet.IsExclusiveTo(placement.MapId))
                 continue;
-            var done = _progress.Thresholds.IsMax(souls);
+            var done = _progress.IsMax(spawn.PetId);
             result.Add(new PetSymbol(spawn.X, spawn.Y, IconFor(spawn, mapdata), _progress.PetMapLabel(spawn.PetId), done));
         }
         return result;

@@ -224,3 +224,26 @@ im Vordergrund; isolierte WGC-Fensterbilder bleiben im Hintergrund nutzbar. Aufn
 zwei Sekunden. Verwerfen invalidiert auch ausstehende erste Matches, ohne daraus einen Dungeon
 abzuleiten. Zentrieren/Follow verwenden ausschließlich FreshPosition; historische Positionen
 bleiben grau und schalten keine Karte um.
+
+## 2026-10-12: Unabhängige Legende pro Oberfläche
+
+Im Karten-Tab hat jede Gruppe, Kategorie und Ressourcenart drei Checkboxen: Minimap,
+interaktive Karte und Worldmap. Gruppen schalten nur ihre jeweilige Spalte; Unterarten werden
+je Oberfläche getrennt gespeichert. Die Auswahl gilt pro Karte und bleibt nach Neustart erhalten.
+Interaktiv bleiben MapCategories/MapHiddenKinds bestehen. Native Auswahlen liegen getrennt in
+MapMinimapLayers/MapWorldmapLayers (Categories/HiddenKinds); MapPlacement.WorldMap wählt die
+passende native Auswahl. Ein explizites leeres Array blendet alle regulären Symbole dieser
+Oberfläche aus. Explizite Ziele/markierte Pets und separat aktivierte Guard-Zonen behalten ihre
+bisherigen Regeln.
+
+Vor der ersten Legendenänderung werden beide bisherigen nativen Ansichten aus ShowPetsInGame,
+ShowResourcesInGame und den bisherigen Kategorien/Unterarten übernommen. Erst danach wird
+die gewünschte Spalte geändert. Damit verändert ein interaktiver Klick keine noch unmigrierte
+native Ansicht. Neue Auswahlen haben Vorrang vor den alten globalen Schaltern.
+
+Die interaktive Karte verbindet erfasste Boss-Timer ausschließlich über die eindeutige
+Named-Spawn-ID und den exakten Locations/Field-Boss-Katalogpunkt. Der Tooltip gehört zur
+Boss-Ebene und verschwindet zusammen mit ihr. Ein einmaliger Markerindex vermeidet wiederholte
+Scans des gesamten Kartenpakets. Lokale monotone Countdowns aktualisieren nur den Tooltiptext;
+gespeicherte oder mehr als 15 Sekunden alte Daten bleiben sichtbar als unbestätigt. Null bedeutet
+„Warte auf Bestätigung“, bis eine Servernachricht einen Spawn bestätigt.

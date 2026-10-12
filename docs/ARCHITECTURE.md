@@ -2,97 +2,63 @@
 
 ## Lösung
 
-```text
-Soulcrest.slnx
-├─ src/
-│  ├─ Soulcrest.Core          net10.0        Pet-DB-Modelle, Fortschrittslogik, Chat-Parser,
-│  │                                         Scroll-Reconciler, Fuzzy-Matching (plattformneutral)
-│  ├─ Soulcrest.Ocr           net10.0-windows Windows OCR (Pet-Fenster, Listen), Kartenabgleich,
-│  │                                         Farbklassifikation, Tonemapping, OpenCvSharp
-│  ├─ Soulcrest.Vision        net10.0-windows Kartenerkennung: Features, Homographie, opt. Fluss
-│  ├─ Soulcrest.App           net10.0-windows WinForms-Host + Blazor Hybrid (WebView2), Capture,
-│  │                                         native Overlays, Persistenz, Lokalisierung
-│  └─ Soulcrest.BrowserPreview net10.0       UI + Karte mit Beispieldaten im Browser
-├─ tests/
-│  ├─ Soulcrest.Core.Tests     Parser, Reconciler, Fortschritt, Pet-DB-Validierung
-│  ├─ Soulcrest.Ocr.Tests      Pet-Fenster- und Karten-Fixtures
-│  ├─ Soulcrest.Vision.Tests   Homographie gegen synthetisch verzerrte Referenzausschnitte
-│  └─ Soulcrest.App.Tests      Razor-Komponenten, Services, Stores
-├─ data/                       Pet-DB, OCR-Muster, Kartenmanifeste (Kacheln generiert, nicht im Git)
-├─ scripts/                    Import-OpenMapData.ps1, Test-Ui.ps1
-└─ docs/
-```
+- `Soulcrest.Core` (`net10.0`): Pet-Daten, Fortschrittsmodelle, begrenzte Netzwerkparser,
+  Karten-/Textmodelle, Boss-/Alertregeln; unabhängig von Windows und UI.
+- `Soulcrest.Ocr` (`net10.0-windows`): bestehender Assemblyname für OpenCV-Kartenabgleich,
+  Bildkonvertierung und Pixeltracking. Seit 2026-10-12 keine Windows-OCR oder Pet-/Listen-Scans.
+- `Soulcrest.App` (`net10.0-windows`): WinForms + Blazor Hybrid/WebView2, WGC, passive Npcap-
+  Erfassung, native Overlays, lokale Persistenz und DE/EN-Lokalisierung.
+- Entsprechende Core-/Ocr-/App-Testprojekte. `App → Ocr, Core`; `Ocr → Core`.
 
-Abhängigkeiten nur von oben nach unten: `App → Ocr, Vision, Core`; `Ocr → Core`;
-`Vision → Core`. `Core` kennt weder Windows noch UI.
-
-## Laufzeitfluss
+## Laufzeitfluss seit 2026-10-12
 
 ```text
-             ┌──────────────── Soulcrest.App ────────────────────────────────┐
-WGC (HWND) → │ CaptureService ─┬─> LootFeedPipeline + ChatPipeline (Ocr)  │
-             │                 │      └─> CrossCheck ─> SoulEvents ──────┐    │
-             │                 │                                         ▼    │
-             │                 │                          ProgressService (Core)
-             │                 │                          Profil/Server, Ledger
-             │                 │                                         │    │
-             │                 └─> MapOverlayEngine (Vision) ─ Homographie   │
-             │                                                   │       │    │
-             │   NativeOverlayHost: PetProgressOverlay ◄─────────┼───────┤    │
-             │                      MapOverlay ◄─────────────────┘       │    │
-             │   Blazor UI (WebView2): Karte (Leaflet), Pet-Liste, ◄─────┘    │
-             │                         Kalibrierung, Einstellungen            │
-             └────────────────────────────────────────────────────────────────┘
+Npcap (eigener Serverstrom)
+  → TcpReassembler → GameMessageStream (Frames/LZ4)
+  → begrenzte Core-Decoder → NetworkLootService (Identität/Generation/Sequenz)
+  → ProgressService / ExplorationService / BossRushService
+  → UI, Overlays, Farmplanung
+
+WGC (Spielfenster) → OpenCV-Kartenabgleich / MapTrackingService
+  → bestätigte Kartenposition → Navigation / Kartenoverlays
 ```
 
-- **Eine** Capture-Quelle für OCR und Kartenerkennung (WGC auf das Spielfenster), mehrere
-  Verbraucher mit eigenen Raten: Loot-Feed schnell bei Änderung (≤ 150 ms, sonst sparsamer
-  Bereitschaftsmodus), Chat ≤ 500 ms, Gebietsname selten (~5 s oder bei Soul-Drop), Karte nur bei
-  aktivem Karten-Overlay (~15–30 Hz Fluss, Detektion ~2 Hz im Hintergrund).
-- Service-Muster wie Grindcrest: Zustands-Snapshots + `Changed`-Event, UI liest nur Snapshots.
-  Befehle sind asynchron. Keine Controls im Service.
+Pet-/Exploration-OCR, Scantimer, Scanfenster/-Hotkeys und Sprachpaketinstallation sind entfernt.
+Der vorhandene passive Mitschnitt ist die einzige Fortschrittsquelle neben manuellen Korrekturen.
+Nur ein durch eigenen Welteintritt bestätigter Strom darf Charakterfortschritt speichern. Bounded
+Pre-Identity-Puffer überbrücken die Startnachrichten vor dem eigenen Welteintritt. TCP-Lücken,
+Formatfehler, beschädigte Bundles und Verbindungswechsel entwerten den Kontext; Altstände bleiben.
+Netzwerk-Speicherfehler werden geloggt und unterbrechen den restlichen Capture-Batch nicht.
+`NavigationArrivalService` verarbeitet nur Wegpunkte und Leveling-Stationen. Annäherungsring,
+Dungeon-/Stronghold-Clear-Aktion und frühere OCR-Erkundungshelfer sind entfernt. Der kompatibel
+übernommene `TargetArrivalRadius` hat keine Verbindung zum Erkundungsfortschritt.
 
-## Hauptfenster (Blazor)
+Services liefern Snapshots und Changed-Events. UI liest deren Zustände; WGC/OpenCV für Navigation
+ist unabhängig von Netzwerkfortschritt. Leaflet und Kartenkacheln bleiben lokal.
 
-1. **Karte:** Leaflet (lokal in `wwwroot/lib/leaflet`, kein CDN), `CRS.Simple`, Kacheln aus dem
-   Datenpaket. Ebenen:
-   - Pet-Gebiete (Polygone, Gattungsfarbe, Füllgrad = Fortschritt), Klick → Pet-Liste gefiltert
-   - alle offenen Marker nach Kategorie ein-/ausblendbar (Teleporter, Dörfer, Siegel, Hidden
-     Cubes, Empyrean Traces, Ressourcen …), Suche, Zähler pro Kategorie
-   - eigene Pins/Notizen (Klick setzen, Text, Farbe, verschieben, löschen, Export/Import JSON)
-2. **Pets:** Tabelle/Kacheln aller Pets mit Filter (Gattung, Gebiet, Status: fehlt / in Arbeit /
-   max), Fokus-Stern, manuelle Eingabe von Stufe + Souls, „aus Sammlungsfenster lesen“.
-3. **Erfassung:** Start/Pause, Status, Live-Feed der erkannten Zeilen mit Konfidenz,
-   offene/unzugeordnete Ereignisse, Kalibrierung (Rahmen + Autosuche), Prüfansicht.
-4. **Overlays:** Ein/aus, Position, Größe, Inhalt, Hotkeys, Vorschau.
-5. **Einstellungen:** Profil/Server, Sprache UI (DE/EN), Spielsprache OCR (DE/EN), Theme,
-   Diagnose (Aufzeichnung, Debug-Logs mit Aufbewahrung).
+## Fortschritt und Profile
 
-## Datenmodell (Kurzfassung)
+Pet-Stufe und verfügbare Souls sind getrennt; ausreichende Balance behauptet keinen erworbenen
+Levelaufstieg. Farm-Gesamtwerte bleiben für Planung erhalten. Nur echte Gewinne erzeugen
+Ledger-/Sitzungsereignisse; Snapshots, Erwerb und Verbrauch zählen keine neuen Drops.
+Die Pet-Sammlung gilt pro Server. Vorhandene globale Daten werden einmal dem ersten bekannten
+Server zugeordnet; weitere Server besitzen getrennte Sammlungen.
 
-```text
-PetDefinition    id, names{en,de}, genus, monsters[{names{en,de}, aliases[], regionIds[]}],
-                 sources[], thresholds (aus Datei), confirmed, sourceRefs[]
-Profile          id, server, displayName, gameLanguage
-PetProgress      profileId, petId, level, soulsInLevel, manualOverride?, updatedAt
-SoulEvent        id, profileId, capturedAt, source(feed|chat), chatMinute "HH:MM"?,
-                 monsterText, petId?, amount, regionIdSeen?, confidence, iconMatch?,
-                 status(confirmed|open|unmatched|rejected), frameRefs[]
-UserPin          id, map, x, y, title, note, color
-```
+Exploration gilt pro Charakter. Bestehende GUIDs, Labels, Namen, Orts-IDs, Haken und Leveling-
+Routen bleiben bestehen; stabile eigene Charakter-ID und Server-ID ergänzen die Zuordnung.
+Das Fachmodell trennt unentdeckt, entdeckt offen und entdeckt erledigt. Ein unbelegter Zustand
+bleibt unbekannt; Beobachtungsaktualität ist ein separates Feld. Quest-/Teleport-Rohdaten werden
+nicht ohne bestätigte Semantik in Abschlüsse umgedeutet. Radius/Instanzbetreten setzt keine Haken.
+Manuelle Korrekturen bleiben geschützt. Details: [EXPLORATION.md](EXPLORATION.md).
 
-Speicherorte: `%LOCALAPPDATA%\Soulcrest\` → `settings.json`, `profiles/<id>/progress.json`,
-`profiles/<id>/events.jsonl` (append-only), `pins.json`, `calibration.json`,
-`diagnostics/`, `webview2/`. Schreiben immer atomar (`AtomicFile`).
+## Lokale Speicherung
 
-## Fortschrittslogik
-
-- Fortschritt ist **ereignisbasiert**: `progress = Startstand (manuell/OCR) + Σ bestätigte
-  SoulEvents seit Startstand`. Manuelle Korrektur setzt einen neuen Startstand mit Zeitpunkt.
-- Schwellen kommen aus der Pet-DB (`thresholds`), Standard aus `data/pets/defaults.json`.
-- Beim Erreichen einer Schwelle: Stufe +1, Rest-Souls übertragen (falls die Ingame-Regel das so
-  macht; offen, siehe `PET_SYSTEM.md`).
-
+`%LOCALAPPDATA%\Soulcrest`: `settings.json`, `progress.json` (serverweite Pets), `exploration.json`
+(Charakterprofile), `events.jsonl` (append-only), `targets.json`, `routes.soulroute`,
+`leveling-progress.json`, `alerts.json`, `cache/`, `learned/`, `captures/`, `webview2/`.
+Schreiben ist atomar. Vor erstem Schema-2-Schreiben entsteht eine unveränderte Altdatei-Sicherung.
+Tests leiten Nutzerdaten in temporäre Ordner um und laufen wegen gemeinsamem Prozesszustand
+(Sprache, Env, Datenpfad) seriell. Die echte Nutzer-App wird für Entwicklung nicht parallel gestartet.
 
 ## Alerts (2026-10-12)
 

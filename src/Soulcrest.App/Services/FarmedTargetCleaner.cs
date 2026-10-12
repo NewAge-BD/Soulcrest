@@ -28,7 +28,7 @@ public sealed class FarmedTargetCleaner : IDisposable
     private string? PetOf(MapTarget target) =>
         target.PetId ?? (target.Kind.StartsWith("Pets", StringComparison.Ordinal) ? _progress.FindByName(target.Name)?.Id : null);
 
-    private int LevelOf(string petId) => _progress.Thresholds.Level(_progress.Souls(petId));
+    private int LevelOf(string petId) => _progress.Level(petId);
 
     /// <summary>Levels of new marks, so the next pickup can be compared with them.</summary>
     private void Remember()
@@ -54,7 +54,7 @@ public sealed class FarmedTargetCleaner : IDisposable
                     continue;
                 var level = LevelOf(pet);
                 if (_levels.TryGetValue(target.Id, out var before) && level > before
-                    && (ExplorationArrivalService.StaysUntilNextLevel(target) || _settings.Current.HidesLevel(level)))
+                    && (NavigationArrivalService.StaysUntilNextLevel(target) || _settings.Current.HidesLevel(level)))
                     finished.Add(target.Id);
                 _levels[target.Id] = level;
             }

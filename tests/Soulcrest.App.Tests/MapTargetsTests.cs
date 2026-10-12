@@ -2,6 +2,8 @@ using System.Drawing;
 using OpenCvSharp;
 using Soulcrest.App.Overlay;
 using Soulcrest.App.Services;
+using Soulcrest.Core.Network;
+using Soulcrest.Core.Pets;
 using Soulcrest.Ocr.MapTracking;
 using Xunit;
 
@@ -399,6 +401,95 @@ public sealed class MapZoomPlausibilityTests
         {
             File.Delete(AppPaths.TargetsFile);
             File.Delete(AppPaths.ProgressFile);
+        }
+    }
+
+    [Fact]
+    public void AHandMarkedNetworkPetWaitsForAcquisitionEvenWhenItsBalanceCanPayForTheNextLevel()
+    {
+        var previousTargets = File.Exists(AppPaths.TargetsFile) ? File.ReadAllBytes(AppPaths.TargetsFile) : null;
+        var folder = Path.Combine(Path.GetTempPath(), "soulcrest-cleaner-network-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            File.Delete(AppPaths.TargetsFile);
+            var source = PetIdTable.All.Values.First();
+            var petId = source.CatalogId ?? PetCatalog.Slug(source.En);
+            var catalog = new PetCatalog([new PetDefinition { Id = petId, En = source.En,
+                Genus = source.Genus, NumericId = source.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) }]);
+            var progress = new ProgressService(Path.Combine(folder, "progress.json"), catalog);
+            var now = DateTimeOffset.UtcNow;
+            NetworkProgressContext Context(long sequence) => new(new(901, 701, 1701, "Synthetic Cleaner"), 1, sequence, now);
+            Assert.True(progress.BindNetworkContext(Context(1)));
+            Assert.True(progress.ApplyNetworkSnapshot(new(new Dictionary<int, int> { [source.Id] = 1 },
+                new Dictionary<int, int> { [source.Id] = 24 }), Context(2)));
+            using var targets = new MapTargetsService();
+            targets.Clear();
+            using var cleaner = new FarmedTargetCleaner(targets, progress, new SettingsService());
+            targets.Toggle("altgard", 100, 100, source.En, "Pets · Fera", null, petId: petId);
+            var targetId = Assert.Single(targets.Targets).Id;
+
+            Assert.True(progress.ApplyNetworkGain([new(source.Id, 2)], Context(3)));
+            Assert.Equal(2, progress.Thresholds.Level(progress.Souls(petId))); // Enough earned souls, still unspent.
+            Assert.Equal(1, progress.ObservedLevel(petId));
+            Assert.Equal(26, progress.AvailableSouls(petId));
+            Assert.Equal(targetId, Assert.Single(targets.Targets).Id);
+
+            Assert.True(progress.ApplyNetworkSpent([new(source.Id, 25)], Context(4)));
+            Assert.Equal(targetId, Assert.Single(targets.Targets).Id);
+            Assert.True(progress.ApplyNetworkAcquisition(new(1701, source.Id, 2), Context(5)));
+            Assert.Equal(2, progress.ObservedLevel(petId));
+            Assert.Empty(targets.Targets);
+        }
+        finally
+        {
+            if (previousTargets is null) File.Delete(AppPaths.TargetsFile);
+            else File.WriteAllBytes(AppPaths.TargetsFile, previousTargets);
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AHandMarkedPetWithoutANetworkBaselineWaitsForAcquisitionRatherThanALootThreshold()
+    {
+        var previousTargets = File.Exists(AppPaths.TargetsFile) ? File.ReadAllBytes(AppPaths.TargetsFile) : null;
+        var folder = Path.Combine(Path.GetTempPath(), "soulcrest-cleaner-partial-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            File.Delete(AppPaths.TargetsFile);
+            var source = PetIdTable.All.Values.First();
+            var petId = source.CatalogId ?? PetCatalog.Slug(source.En);
+            var catalog = new PetCatalog([new PetDefinition { Id = petId, En = source.En,
+                Genus = source.Genus, NumericId = source.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) }]);
+            var progress = new ProgressService(Path.Combine(folder, "progress.json"), catalog);
+            var now = DateTimeOffset.UtcNow;
+            NetworkProgressContext Context(long sequence) => new(new(901, 701, 1701, "Synthetic Cleaner"), 1, sequence, now);
+            Assert.True(progress.BindNetworkContext(Context(1)));
+            using var targets = new MapTargetsService();
+            targets.Clear();
+            using var cleaner = new FarmedTargetCleaner(targets, progress, new SettingsService());
+            targets.Toggle("altgard", 100, 100, source.En, "Pets · Fera", null, petId: petId);
+            var targetId = Assert.Single(targets.Targets).Id;
+
+            Assert.True(progress.ApplyNetworkGain([new(source.Id, 30)], Context(2)));
+            Assert.Equal(2, progress.Thresholds.Level(progress.Souls(petId)));
+            Assert.Equal(0, progress.Level(petId));
+            Assert.Equal(30, progress.SoulsInLevel(petId));
+            Assert.Null(progress.AvailableSouls(petId));
+            Assert.Null(progress.ObservedLevel(petId));
+            Assert.Null(progress.NetworkBaselineAt);
+            Assert.Equal(targetId, Assert.Single(targets.Targets).Id);
+
+            Assert.True(progress.ApplyNetworkAcquisition(new(1701, source.Id, 2), Context(3)));
+            Assert.Equal(2, progress.ObservedLevel(petId));
+            Assert.Empty(targets.Targets);
+        }
+        finally
+        {
+            if (previousTargets is null) File.Delete(AppPaths.TargetsFile);
+            else File.WriteAllBytes(AppPaths.TargetsFile, previousTargets);
+            Directory.Delete(folder, recursive: true);
         }
     }
 

@@ -33,8 +33,15 @@ public sealed class MapResourceMarkersTests
                 resources);
             Assert.Equal("Resources/Herb/Azpha", resources[0].KindKey); // legend: Herb → Azpha
             Assert.Null(resources[2].KindKey);
-            Assert.Equal([new PetSpawn("klaw", 90, 100, "icons/pet.png")], MapPetMarkers.Load(path));
-            Assert.Equal([new PetSpawn("klaw", 110, 120, null, new MonsterName("Klaw Scout", null))], MapPetMarkers.LoadSoulMonsters(path)); // soul monster of Klaw
+            var symbols = MapPetMarkers.LoadSymbols(path);
+            Assert.Equal(7, symbols.Count); // every non-pet category is opt-in on native surfaces
+            Assert.Contains(new MapResource("Collectibles/Empyrean Trace", 50, 60, "icons/trace.png"), symbols);
+            Assert.Contains(new MapResource("Locations/Kibelisk", 70, 80, "icons/kibelisk.png"), symbols);
+            Assert.Contains(new MapResource("Monsters/Fera", 110, 120, null), symbols);
+            Assert.Contains(new MapResource("Monsters/Fera", 130, 140, null), symbols);
+            Assert.DoesNotContain(symbols, s => s.Category.StartsWith("Pets/", StringComparison.Ordinal));
+            Assert.Equal([new PetSpawn("klaw", 90, 100, "icons/pet.png", Category: "Pets/Cogni")], MapPetMarkers.Load(path));
+            Assert.Equal([new PetSpawn("klaw", 110, 120, null, new MonsterName("Klaw Scout", null), "Monsters/Fera")], MapPetMarkers.LoadSoulMonsters(path)); // soul monster of Klaw
         }
         finally { File.Delete(path); }
     }
@@ -70,14 +77,39 @@ public sealed class MapResourceMarkersTests
     {
         var path = Path.Combine(Path.GetTempPath(), "soulcrest-guards-" + Guid.NewGuid() + ".js");
         File.WriteAllText(path, """
-            window.SoulcrestMaps["test"] = {"categories":[{"name":"npc-other","group":"NPCs","icon":-1},{"name":"Cogni","group":"Monsters","icon":-1}],"icons":[],
+            window.SoulcrestMaps["test"] = {"categories":[{"name":"npc-other","group":"NPCs","icon":0},{"name":"Cogni","group":"Monsters","icon":-1}],"icons":["icons/guard.png"],
              "markers":[[0,10,20,"Guard","Wachmann",-1,null],[0,30,40,"Guard Captain","Wachhauptmann",-1,null],[1,50,60,"Guard","Wachmann",-1,null]]};
             """);
         try
         {
             Assert.Equal([new GuardPost(10, 20)], MapPetMarkers.LoadGuards(path)); // not the captain, not a monster called Guard
+            var symbols = MapPetMarkers.LoadSymbols(path);
+            Assert.Equal(3, symbols.Count); // danger zones do not remove normal NPC icons
+            Assert.Contains(new MapResource("NPCs/npc-other", 10, 20, "icons/guard.png"), symbols);
+            Assert.Contains(new MapResource("NPCs/npc-other", 30, 40, "icons/guard.png"), symbols);
         }
         finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void MarkerCacheDoesNotMixPackagesWithTheSameMapId()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "soulcrest-marker-packages-" + Guid.NewGuid());
+        try
+        {
+            foreach (var (package, icon) in new[] { ("first", "icons/first.png"), ("second", "icons/second.png") })
+            {
+                var map = Path.Combine(directory, package, "test");
+                Directory.CreateDirectory(map);
+                File.WriteAllText(Path.Combine(map, "data.js"), $$"""
+                    window.SoulcrestMaps["test"] = {"categories":[{"name":"Kibelisk","group":"Locations","icon":0}],
+                     "icons":["{{icon}}"],"markers":[[0,10,20,"Kibelisk",null,-1,null]]};
+                    """);
+            }
+            Assert.Equal("icons/first.png", Assert.Single(MapPetMarkers.SymbolsFor(Path.Combine(directory, "first"), "test")).Icon);
+            Assert.Equal("icons/second.png", Assert.Single(MapPetMarkers.SymbolsFor(Path.Combine(directory, "second"), "test")).Icon);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
     }
 
     [Fact]

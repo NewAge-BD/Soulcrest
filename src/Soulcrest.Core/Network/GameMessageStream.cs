@@ -11,20 +11,41 @@ public sealed class GameMessageStream
 {
     private const int MaxMessage = 1 << 20;
     private const int ChainForSync = 4;
+    private const int MaxBundleDepth = 8;
+    private const int MaxExpandedBytes = 16 * 1024 * 1024;
+    private const int MaxDecodedMessages = 65536;
     private readonly List<byte> _buffer = [];
+    private readonly bool _requireVerifiedSync;
+    private int _verifiedScan;
     private bool _synced;
+
+    /// <summary>
+    /// Live progress requires a validated bundle, own-character message or exact server clock to
+    /// establish framing. The default retains the generic chain mode for transport-only consumers.
+    /// </summary>
+    public GameMessageStream(bool requireVerifiedSync = false) => _requireVerifiedSync = requireVerifiedSync;
 
     /// <summary>Messages lost to resynchronisation (diagnosis).</summary>
     public int Resyncs { get; private set; }
+
+    /// <summary>
+    /// Continuity lost while decoding, reported immediately even if resynchronisation needs more bytes.
+    /// The caller must invalidate any live identity/baseline before processing subsequent messages.
+    /// </summary>
+    public long ContinuityBreaks { get; private set; }
 
     /// <summary>A gap in the captured stream: the next bytes do not continue the current message.</summary>
     public void Break()
     {
         _buffer.Clear();
         _synced = false;
+        _verifiedScan = 0;
     }
 
-    /// <summary>Appends stream bytes and returns the complete messages (type + body, without the length).</summary>
+    /// <summary>
+    /// Appends stream bytes and returns complete messages (type + body, without the length).
+    /// A damaged complete frame/bundle discards this append's entire result and increments ContinuityBreaks.
+    /// </summary>
     public IReadOnlyList<byte[]> Append(ReadOnlySpan<byte> data)
     {
         foreach (var b in data)
@@ -34,52 +55,76 @@ public sealed class GameMessageStream
         var pos = 0;
         if (!_synced)
         {
-            var start = FindSync(bytes);
+            var start = _requireVerifiedSync ? FindVerifiedSync(bytes) : FindSync(bytes);
             if (start < 0)
             {
                 // Keep only the tail that could still begin a chain.
                 if (_buffer.Count > MaxMessage * 2)
+                {
+                    _verifiedScan = Math.Max(0, _verifiedScan - (_buffer.Count - MaxMessage));
                     _buffer.RemoveRange(0, _buffer.Count - MaxMessage);
+                    ContinuityBreaks++;
+                }
                 return messages;
             }
             if (start > 0)
+            {
                 Resyncs++;
+                ContinuityBreaks++;
+            }
             pos = start;
             _synced = true;
         }
+        var expandedBytes = 0;
         while (Frame(bytes, pos) is { } frame)
         {
             if (frame.End > bytes.Length)
                 break;
-            Expand(bytes.AsSpan(frame.BodyStart, frame.End - frame.BodyStart), messages);
+            if (!Expand(bytes.AsSpan(frame.BodyStart, frame.End - frame.BodyStart), messages, 0, ref expandedBytes))
+            {
+                // A complete outer frame with a damaged bundle lost messages. Do not deliver a
+                // partial batch (it could contain identity or gains before the damaged part).
+                ContinuityBreaks++;
+                _synced = false;
+                _verifiedScan = 0;
+                _buffer.RemoveRange(0, frame.End);
+                return [];
+            }
             pos = frame.End;
         }
         if (Frame(bytes, pos) is null && pos < bytes.Length && !CouldStartFrame(bytes, pos))
         {
             // Garbage where a message should start: lost sync.
             _synced = false;
+            _verifiedScan = 0;
+            ContinuityBreaks++;
+            messages.Clear();
         }
         _buffer.RemoveRange(0, pos);
         return messages;
     }
 
-    private static void Expand(ReadOnlySpan<byte> message, List<byte[]> into)
+    private static bool Expand(ReadOnlySpan<byte> message, List<byte[]> into, int depth, ref int expandedBytes)
     {
-        if (message.Length >= 6 && message[0] == 0xff && message[1] == 0xff)
+        if (message.Length >= 2 && message[0] == 0xff && message[1] == 0xff)
         {
+            if (message.Length < 6 || depth >= MaxBundleDepth) return false;
             var size = message[2] | (message[3] << 8) | (message[4] << 16) | (message[5] << 24);
-            if (Lz4Block.Decode(message[6..], size) is { } inner)
+            if (size < 0 || size > MaxExpandedBytes - expandedBytes) return false;
+            expandedBytes += size;
+            if (Lz4Block.Decode(message[6..], size) is not { } inner) return false;
+            var pos = 0;
+            while (pos < inner.Length)
             {
-                var pos = 0;
-                while (Frame(inner, pos) is { } frame && frame.End <= inner.Length)
-                {
-                    Expand(inner.AsSpan(frame.BodyStart, frame.End - frame.BodyStart), into);
-                    pos = frame.End;
-                }
+                if (Frame(inner, pos) is not { } frame || frame.End > inner.Length) return false;
+                if (!Expand(inner.AsSpan(frame.BodyStart, frame.End - frame.BodyStart), into, depth + 1, ref expandedBytes)) return false;
+                pos = frame.End;
             }
-            return;
+            return true;
         }
+        if (into.Count >= MaxDecodedMessages) return false;
         into.Add(message.ToArray());
+        return true;
     }
 
     private readonly record struct FrameInfo(int BodyStart, int End);
@@ -116,6 +161,39 @@ public sealed class GameMessageStream
                 return Frame(bytes, pos) is not null;
         }
         return false;
+    }
+
+    /// <summary>
+    /// An arbitrary four-frame chain can occur inside compressed bytes. Keep unconfirmed bytes until
+    /// a complete protocol anchor is validated; in particular, never scan inside an arriving anchor.
+    /// The cursor revisits only a partial candidate or the last five bytes after an unsuccessful scan.
+    /// </summary>
+    private int FindVerifiedSync(byte[] bytes)
+    {
+        for (var start = _verifiedScan; start < bytes.Length; start++)
+        {
+            if (Frame(bytes, start) is not { } frame || frame.BodyStart + 2 > bytes.Length) continue;
+            var opcode = bytes[frame.BodyStart] | bytes[frame.BodyStart + 1] << 8;
+            if (opcode is not (0xffff or 0x3633 or 0x3600)) continue;
+            if (opcode == 0x3600 && frame.End - frame.BodyStart != 10) continue;
+            if (frame.End > bytes.Length) { _verifiedScan = start; return -1; }
+            var message = bytes.AsSpan(frame.BodyStart, frame.End - frame.BodyStart);
+            if (opcode == 0x3600 && BossSpawnMessage.ReadServerClock(message) is not null)
+            { _verifiedScan = 0; return start; }
+            if (opcode == 0x3633 && OwnIdentityMessage.TryParse(message) is not null)
+            { _verifiedScan = 0; return start; }
+            if (opcode == 0xffff)
+            {
+                var inner = new List<byte[]>();
+                var expanded = 0;
+                if (Expand(message, inner, 0, ref expanded) &&
+                    (inner.Count >= ChainForSync || inner.Any(m => OwnIdentityMessage.TryParse(m) is not null)))
+                { _verifiedScan = 0; return start; }
+            }
+        }
+        // A four-byte length and two-byte opcode can straddle the next TCP segment.
+        _verifiedScan = Math.Max(0, bytes.Length - 5);
+        return -1;
     }
 
     /// <summary>

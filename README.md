@@ -11,10 +11,11 @@
   overlay on the in-game map draws lines to your targets with the distance in game metres.
 - **Soul tracker**: counts every soul you pick up and credits it to the right pet. It reads the
   game's network traffic (read-only, see below).
-- **Pet window scan**: reads your current progress from the in-game pet window, so you do not have
-  to type it in.
-- **Exploration scan**: reads the Kibelisk, Sealed Dungeon and Stronghold lists from the world map
-  and checks off what you have bound, per character.
+- **Pet progress**: reads acquired levels and available souls from the passive game stream, shared
+  by characters on the same server. No pet window scan is needed.
+- **Exploration progress**: keeps your character profiles and receives quest and teleport data.
+  Dungeons and Strongholds support undiscovered, discovered incomplete and discovered completed.
+  Unverified network status values remain unknown; existing checks and manual corrections stay intact.
 - **Progression mode**: always leads you to the nearest pet that still needs souls.
 
 The interface is in English and German.
@@ -26,8 +27,8 @@ its own overlay windows. It never reads or writes game memory, injects nothing a
 the game.
 
 The soul tracker reads the game's network traffic **read-only** with Npcap: only the server → client
-stream of the game, nothing is decrypted, and only your own character's name is read (to switch
-profiles). Nothing leaves your PC. You can turn the tracker off in the settings. Details:
+stream of the game. Nothing is decrypted. Your own character identity selects the profile;
+pet, quest and teleport progress are processed locally. Nothing leaves your PC. You can turn the tracker off in the settings. Details:
 [docs/SAFETY.md](docs/SAFETY.md).
 
 Using any third-party tool with an online game is at your own risk.
@@ -38,8 +39,6 @@ Using any third-party tool with an online game is at your own risk.
 - Microsoft Edge WebView2 Runtime (included in Windows 11)
 - [Npcap](https://npcap.com/) for the soul tracker. The setup offers to download and install the
   official installer; Npcap is not bundled.
-- Windows OCR language pack English and/or German for the pet window and exploration scans. The
-  setup checks it and can install it.
 - Aion 2 in **borderless window** mode (not exclusive full screen)
 
 ## Install
@@ -96,7 +95,11 @@ Nur Windows, läuft lokal.
 - **Spieler-Tracking** über die Minimap, mit Overlay auf der Ingame-Karte und Entfernung in Metern.
 - **Soul-Tracker**: zählt jedes aufgesammelte Soul für das richtige Pet (Netzwerkverkehr, nur
   lesend).
-- **Pet-Fenster-Scan** und **Erkundungsscan** übernehmen deinen Stand aus dem Spiel.
+- **Pet-Fortschritt** übernimmt erworbene Stufen und verfügbare Souls passiv aus dem Netzwerk,
+  getrennt nach Server. Der Pet-Fenster-Scan entfällt.
+- **Erkundungsfortschritt** behält Charakterprofile und empfängt Quest- und Teleportdaten.
+  Dungeons und Garnisonen unterstützen drei Zustände: unentdeckt, entdeckt und offen, entdeckt
+  und erledigt. Unbestätigte Netzwerkwerte bleiben unbekannt; vorhandene Haken bleiben erhalten.
 - **Progressionsmodus** führt immer zum nächsten Pet, das noch Souls braucht.
 
 Soulcrest ist **passiv**: nur Bildpunkte des Spielfensters und eigene Overlay-Fenster, kein

@@ -1,4 +1,5 @@
 using Soulcrest.App.Network;
+using Soulcrest.Core.Network;
 
 namespace Soulcrest.App.Services;
 
@@ -10,13 +11,10 @@ namespace Soulcrest.App.Services;
 public sealed class CharacterDetectionService : IDisposable
 {
     private readonly NetworkLootService _network;
-    private readonly ExplorationService _exploration;
-
-    public CharacterDetectionService(NetworkLootService network, ExplorationService exploration)
+    public CharacterDetectionService(NetworkLootService network)
     {
         _network = network;
-        _exploration = exploration;
-        _network.CharacterEntered += OnCharacterEntered;
+        _network.OwnCharacterEntered += OnCharacterEntered;
     }
 
     /// <summary>What the last detection did, for the profile picker ("Name erkannt · neues Profil").</summary>
@@ -24,18 +22,13 @@ public sealed class CharacterDetectionService : IDisposable
 
     public event Action? Changed;
 
-    private void OnCharacterEntered(string name)
+    private void OnCharacterEntered(OwnCharacterIdentity identity)
     {
-        var choice = _exploration.UseCharacter(name);
-        Status = choice switch
-        {
-            CharacterChoice.Selected => UiText.F("{0} erkannt · Profil gewählt", name),
-            CharacterChoice.Adopted => UiText.F("{0} erkannt · Standardprofil übernommen", name),
-            CharacterChoice.Created => UiText.F("{0} erkannt · neues Profil angelegt", name),
-            _ => UiText.F("{0} erkannt", name),
-        };
+        // The source already bound the stable server/DB identity. A second name-only selection
+        // could choose the wrong legacy profile when different servers use the same name.
+        Status = UiText.F("{0} erkannt · Profil gewählt", identity.Name);
         Changed?.Invoke();
     }
 
-    public void Dispose() => _network.CharacterEntered -= OnCharacterEntered;
+    public void Dispose() => _network.OwnCharacterEntered -= OnCharacterEntered;
 }

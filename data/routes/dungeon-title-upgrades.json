@@ -1,0 +1,887 @@
+{
+  "format": "soulcrest.dungeon-title-upgrades",
+  "version": 1,
+  "stops": [
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:10",
+      "map": "altgard",
+      "x": 3409.207,
+      "y": 3129.173,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Treasure Hunter's Residence",
+      "pointId": "object-82309d0e1ff34629",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320011",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:22",
+      "map": "altgard",
+      "x": 3433.994,
+      "y": 3409.518,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Trickster's Den",
+      "pointId": "object-a050b6b32833fea6",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320002",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:26",
+      "map": "altgard",
+      "x": 3123.953,
+      "y": 3567.987,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Smuggler's Cave",
+      "pointId": "object-123ed17bf57b243d",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320023",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:27",
+      "map": "altgard",
+      "x": 2919.524,
+      "y": 3585.586,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Watcher's Temporary Outpost",
+      "pointId": "object-c6b5a1db6df650c4",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320017",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:34",
+      "map": "altgard",
+      "x": 2821.07,
+      "y": 3315.29,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Dusk Pit",
+      "pointId": "object-716015e4ff62f33c",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320006",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:40",
+      "map": "altgard",
+      "x": 2696.875,
+      "y": 3038.76,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Poisonous Plant Habitat",
+      "pointId": "object-d875344981d5a58f",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320008",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:45",
+      "map": "altgard",
+      "x": 2374.224,
+      "y": 3324.245,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Abandoned One's Grave",
+      "pointId": "object-82158a4d3fef27a9",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320003",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:46",
+      "map": "altgard",
+      "x": 2422.633,
+      "y": 3286.147,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Old Graveyard",
+      "pointId": "object-a82c39be8569af17",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320010",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:50",
+      "map": "altgard",
+      "x": 2396.943,
+      "y": 2961.428,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Ossuary of the Noble",
+      "pointId": "object-256d59ac88ead048",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320022",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:51",
+      "map": "altgard",
+      "x": 2511.019,
+      "y": 2760.915,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Lost Ruins",
+      "pointId": "object-1730467303057aba",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320007",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:52",
+      "map": "altgard",
+      "x": 2733.618,
+      "y": 2798.592,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Hidden Vein Cave",
+      "pointId": "object-0573e806079d4b27",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320019",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:78",
+      "map": "altgard",
+      "x": 3699.481,
+      "y": 3153.057,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Dratona Cave",
+      "pointId": "object-2a92fd52f981aaa1",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320004",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "373a3fb90c9596817acb7e16b5d2d581:79",
+      "map": "altgard",
+      "x": 3842.51,
+      "y": 3289.68,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Valka's Nest",
+      "pointId": "object-bb7ac7828ddd89c6",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320009",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:8",
+      "map": "altgard",
+      "x": 2527.021,
+      "y": 3730.492,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Fafnite Storage Room",
+      "pointId": "object-fbe11bfa208e2c45",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320013",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:9",
+      "map": "altgard",
+      "x": 2460.602,
+      "y": 3746.244,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Homish's Prison Compound",
+      "pointId": "object-f3d76432be6b08b0",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320024",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:19",
+      "map": "altgard",
+      "x": 2587.708,
+      "y": 4040.041,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Blue Dragon's Trap",
+      "pointId": "object-8d8f73165e8b9f58",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320018",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:20",
+      "map": "altgard",
+      "x": 2305.496,
+      "y": 4254.74,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Fanatics' Den",
+      "pointId": "object-da64f3c26c3874af",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320046",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:57",
+      "map": "altgard",
+      "x": 3314.778,
+      "y": 4236.77,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Abandoned Archon Jail",
+      "pointId": "object-346b6dcddce67e39",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320012",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:59",
+      "map": "altgard",
+      "x": 3313.022,
+      "y": 4527.214,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Prison of Oblivion",
+      "pointId": "object-91dba89a54d32779",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320016",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:66",
+      "map": "altgard",
+      "x": 3651.022,
+      "y": 4501.012,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Library of Foresight",
+      "pointId": "object-fedc7db786814c86",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320040",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:67",
+      "map": "altgard",
+      "x": 3583.518,
+      "y": 4414.303,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Victims' Cave",
+      "pointId": "object-868f604ede91a90f",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320026",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:69",
+      "map": "altgard",
+      "x": 3755.088,
+      "y": 4364.168,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Fortuneteller's Grave",
+      "pointId": "object-e20bc455f9690c97",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320020",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:70",
+      "map": "altgard",
+      "x": 3902.414,
+      "y": 4603.794,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Howling Den",
+      "pointId": "object-b78b4322c9ccc602",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320021",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "f557635737106fd62e9248f5253ae3bf:77",
+      "map": "altgard",
+      "x": 4006.49,
+      "y": 4383.854,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Bloodsoaked Confessional",
+      "pointId": "object-0cc430b97c600ca9",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320015",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "4b3ff034339bc44060c7e9f0eeeaf6e2:7",
+      "map": "altgard",
+      "x": 3993.419,
+      "y": 3799.552,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Abandoned Memorial Room",
+      "pointId": "object-88225f74e704bb06",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320001",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "4b3ff034339bc44060c7e9f0eeeaf6e2:8",
+      "map": "altgard",
+      "x": 4138.456,
+      "y": 3593.035,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Closed Hideout",
+      "pointId": "object-4e2217a703b39b06",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320029",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "4b3ff034339bc44060c7e9f0eeeaf6e2:10",
+      "map": "altgard",
+      "x": 4376.235,
+      "y": 3664.755,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Worshiper's Underground Cave",
+      "pointId": "object-0e820162af4d7424",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320045",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "4b3ff034339bc44060c7e9f0eeeaf6e2:28",
+      "map": "altgard",
+      "x": 4661.7,
+      "y": 3541.404,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Predator's Lair",
+      "pointId": "object-4c432e2c790cc98c",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320005",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "4b3ff034339bc44060c7e9f0eeeaf6e2:49",
+      "map": "altgard",
+      "x": 4914.819,
+      "y": 3201.416,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Destroyed Scriptorium",
+      "pointId": "object-bea067275301064f",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320033",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "4b3ff034339bc44060c7e9f0eeeaf6e2:60",
+      "map": "altgard",
+      "x": 4347.814,
+      "y": 3081.859,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Unstable Cave",
+      "pointId": "object-336274a9035b6130",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320035",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "2280d7af7d6157b9921eeb9aac6b6038:17",
+      "map": "altgard",
+      "x": 4486.626,
+      "y": 2113.907,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Dark Root Cave",
+      "pointId": "object-0e54664261aea523",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320034",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "2280d7af7d6157b9921eeb9aac6b6038:24",
+      "map": "altgard",
+      "x": 4950.377,
+      "y": 2253.704,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Skurv Laborer Den",
+      "pointId": "object-e0dfa6cbf2a2dba9",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320041",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "2280d7af7d6157b9921eeb9aac6b6038:62",
+      "map": "altgard",
+      "x": 5943.125,
+      "y": 2751.006,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Insectoid Tunnel",
+      "pointId": "object-dc722aad28c3ebb2",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320014",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "2280d7af7d6157b9921eeb9aac6b6038:66",
+      "map": "altgard",
+      "x": 5940.836,
+      "y": 3292.672,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Library of Patience",
+      "pointId": "object-0f6c876b35d6f394",
+      "targetCategory": "activities",
+      "targetId": "dungeon-320059",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1110.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1110.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:9",
+      "map": "verteron",
+      "x": 1495.256,
+      "y": 1837.739,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Chilly Hideout",
+      "pointId": "object-d8baf4b8eb4b05fe",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310024",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:17",
+      "map": "verteron",
+      "x": 1679.802,
+      "y": 1887.408,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Lupyllini Habitat",
+      "pointId": "object-9a1d668a3576bee2",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310016",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:43",
+      "map": "verteron",
+      "x": 1707.384,
+      "y": 1600.452,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Mysterious Mushroom Cave",
+      "pointId": "object-bb90edbf4ff16535",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310004",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:44",
+      "map": "verteron",
+      "x": 1747.702,
+      "y": 1548.062,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Cave of the Desperate",
+      "pointId": "object-fd0bacd1443b9b2d",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310010",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:54",
+      "map": "verteron",
+      "x": 1815.642,
+      "y": 1810.753,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Poacher's Den",
+      "pointId": "object-e7198969d3231222",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310001",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:55",
+      "map": "verteron",
+      "x": 1820.14,
+      "y": 1850.589,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Spirit Flower Cave",
+      "pointId": "object-ed569c58d4ae7a3a",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310002",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:67",
+      "map": "verteron",
+      "x": 2144.562,
+      "y": 1668.051,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Cursed Hideout",
+      "pointId": "object-6883dc18d143aa51",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310003",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:68",
+      "map": "verteron",
+      "x": 2156.971,
+      "y": 1614.221,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Filth Pit",
+      "pointId": "object-7abc7a7d32995e5d",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310006",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:69",
+      "map": "verteron",
+      "x": 2139.859,
+      "y": 1496.079,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Marsh Library",
+      "pointId": "object-40b82e4447c23566",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310021",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:78",
+      "map": "verteron",
+      "x": 1857.069,
+      "y": 1649.283,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Corrupted Spiritmaster's Residence",
+      "pointId": "object-603a7a1b2243e2ad",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310013",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "68c7d5cfaacecd4de774d797c5e62511:112",
+      "map": "verteron",
+      "x": 1601.907,
+      "y": 2029.859,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Anguish Hideout",
+      "pointId": "object-a8f698533c76fecb",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310045",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:1",
+      "map": "verteron",
+      "x": 1968.866,
+      "y": 1917.36,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Looted Repository",
+      "pointId": "object-1fbf03666725c526",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310017",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:2",
+      "map": "verteron",
+      "x": 1874.879,
+      "y": 1935.27,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Bibliophile's Grave",
+      "pointId": "object-1fca4e4eb432d3a6",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310058",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:14",
+      "map": "verteron",
+      "x": 2023.896,
+      "y": 2044.396,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Collapsed Fortress Basement",
+      "pointId": "object-3cea03dc95b487f9",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310060",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:18",
+      "map": "verteron",
+      "x": 2051.725,
+      "y": 2120.082,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Fortress Jail",
+      "pointId": "object-070f9243787697ea",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310034",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:19",
+      "map": "verteron",
+      "x": 2115.679,
+      "y": 2062.557,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Karat's Nest",
+      "pointId": "object-3275d38d8526dceb",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310014",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:21",
+      "map": "verteron",
+      "x": 2107.989,
+      "y": 1997.131,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Fortress Grave",
+      "pointId": "object-35cf2dcf27c55f0a",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310044",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:22",
+      "map": "verteron",
+      "x": 2167.145,
+      "y": 1969.985,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Distorted Cave",
+      "pointId": "object-fee29dbac93c5b0e",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310012",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:23",
+      "map": "verteron",
+      "x": 2257.473,
+      "y": 1925.863,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Experimental Prison Compound",
+      "pointId": "object-6b0689bcb7a93dd5",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310052",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:28",
+      "map": "verteron",
+      "x": 1847.472,
+      "y": 2082.706,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Deep Underground Cave",
+      "pointId": "object-5924fcaddb9b9390",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310033",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    },
+    {
+      "id": "dc087e32bbb2122727951f9e07383eda:34",
+      "map": "verteron",
+      "x": 1954.264,
+      "y": 2155.364,
+      "kind": "Locations · Sealed Dungeon",
+      "previousTitle": "",
+      "title": "Hidden Ruins Altar",
+      "pointId": "object-6d85f34af5c19f67",
+      "targetCategory": "activities",
+      "targetId": "dungeon-310054",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/interactive-map/1010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/maps/1010.d.json"
+      ]
+    }
+  ],
+  "unresolved": []
+}

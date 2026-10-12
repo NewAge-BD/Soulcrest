@@ -8,40 +8,23 @@
     var items = FilteredItems.ToArray();
 }
 
-<div class="page alerts-page">
+<div class="page alerts-page alerts-workspace">
     <header class="alerts-heading">
-        <div><span class="alerts-eyebrow">SOULCREST / ALERTS</span><h2>@UiText.T("Events & Alerts")</h2><p>@UiText.T("Dein Spieltag auf einen Blick. Erinnerungen so, wie du sie brauchst.")</p></div>
-        <button type="button" class="btn primary" id="alert-create" disabled="@_busy" @onclick="Create">+ @UiText.T("Eigener Alert")</button>
+        <div><span class="alerts-eyebrow">SOULCREST / ALERTS</span><h2>@UiText.T("Events & Alerts")</h2></div>
+        <div class="alerts-header-actions"><span class="alerts-local-clock">@UiText.F("Rechnerzeit: {0}", Alerts.Now.ToLocalTime().ToString("HH:mm:ss", Culture))</span><InfoTip><p>@UiText.T("Alerts laufen, solange Soulcrest geöffnet ist.")</p></InfoTip><button type="button" class="btn primary" id="alert-create" disabled="@_busy" @onclick="Create">+ @UiText.T("Eigener Alert")</button></div>
     </header>
-
-    <div class="alerts-context"><span class="alerts-live-dot" aria-hidden="true"></span><span>@UiText.T("Alerts laufen, solange Soulcrest geöffnet ist.")</span><span class="alerts-local-clock">@UiText.F("Rechnerzeit: {0}", Alerts.Now.ToLocalTime().ToString("HH:mm:ss", Culture))</span></div>
-    <div class="alerts-overlay-options-grid">
-        <section class="alerts-overlay-options" aria-label="@UiText.T("Timer-Overlay")">
-            <label class="check"><input id="alerts-overlay-visible" type="checkbox" role="switch" checked="@Settings.Current.AlertsOverlayEnabled" @onchange="@(e => Settings.Update(s => s.AlertsOverlayEnabled = e.Value is true))" /><strong>@UiText.T("Timer-Overlay")</strong></label>
-            <AlertOverlaySizeControls Id="alerts-overlay" Width="@Settings.Current.AlertsOverlayWidth" Scale="@Settings.Current.AlertsOverlayScale" MinimumWidth="240" MaximumWidth="1000" WidthChanged="@(v => Settings.Update(s => s.AlertsOverlayWidth = v))" ScaleChanged="@(v => Settings.Update(s => s.AlertsOverlayScale = v))" />
-            <p>@UiText.T("Folgt der Menü- und Minimap-Ausblendung.")</p>
-        </section>
-        <section class="alerts-overlay-options" aria-label="@UiText.T("Benachrichtigungsbanner")">
-            <strong>@UiText.T("Benachrichtigungsbanner")</strong>
-            <AlertOverlaySizeControls Id="alert-notifications" Width="@Settings.Current.AlertNotificationsWidth" Scale="@Settings.Current.AlertNotificationsScale" MinimumWidth="240" MaximumWidth="1000" WidthChanged="@(v => Settings.Update(s => s.AlertNotificationsWidth = v))" ScaleChanged="@(v => Settings.Update(s => s.AlertNotificationsScale = v))" />
-            <p>@UiText.T("Bleiben bei ausgeblendeter Minimap sichtbar. Ausgabe pro Erinnerung wählen.")</p>
-        </section>
-        <section class="alerts-overlay-options" aria-label="@UiText.T("Timeline-Overlay")">
-            <label class="check"><input id="event-timeline-visible" type="checkbox" role="switch" checked="@Settings.Current.EventTimelineOverlayEnabled" @onchange="@(e => Settings.Update(s => s.EventTimelineOverlayEnabled = e.Value is true))" /><strong>@UiText.T("Timeline-Overlay")</strong></label>
-            <AlertOverlaySizeControls Id="event-timeline" Width="@Settings.Current.EventTimelineOverlayWidth" Scale="@Settings.Current.EventTimelineOverlayScale" MinimumWidth="360" MaximumWidth="1600" WidthChanged="@(v => Settings.Update(s => s.EventTimelineOverlayWidth = v))" ScaleChanged="@(v => Settings.Update(s => s.EventTimelineOverlayScale = v))" />
-            <div class="alerts-timeline-settings">
-                <label class="alerts-field">@UiText.T("Zeitraum")<select id="event-timeline-hours" value="@Settings.Current.EventTimelineHours" @onchange="SetTimelineHours">@foreach (var hours in new[] { 12, 24, 48 }) { <option value="@hours">@hours h</option> }</select></label>
-                <label class="check"><input id="event-timeline-follow-minimap" type="checkbox" role="switch" checked="@Settings.Current.EventTimelineFollowMinimap" @onchange="@(e => Settings.Update(s => s.EventTimelineFollowMinimap = e.Value is true))" />@UiText.T("Minimap-Ausblendung folgen")</label>
-            </div>
-        </section>
-    </div>
-    <p class="alerts-hint">@UiText.T("Mit Schloss oder Alt entsperren, verschieben und an der unteren rechten Ecke in der Größe anpassen. Details beim Darüberfahren.")</p>
     @if (_feedback is not null) { <div class="alerts-feedback" role="status" aria-busy="@_busy">@_feedback</div> }
     @if (_actionError is not null) { <div class="alerts-error" role="alert">@_actionError</div> }
     @if (!_busy && _feedback is null && _error is null && _actionError is null && Alerts.Status is not null) { <div class="alerts-service-status" role="status">@Alerts.Status</div> }
 
-    <EventTimersDashboard Timers="@VisibleEventTimers" Now="@Alerts.Now" Busy="@_busy" EditorOpen="@(_editing is not null)" EditReminder="EditEventReminder" ReminderChanged="SetEventReminder" PresentationChanged="SetEventWidget" ReminderSaved="SaveEventReminder" SoundSaved="SaveEventSound" />
 
+    <div class="alerts-workspace-grid">
+        <main class="alerts-overview-column">
+            <EventTimersDashboard WorkspaceMode="true" SelectedEventId="@SelectedTimer?.Definition.Id" SelectedEventChanged="SelectEvent" Timers="@VisibleEventTimers" Now="@Alerts.Now" Busy="@_busy" EditorOpen="@(_editing is not null)" EditReminder="EditEventReminder" ReminderChanged="SetEventReminder" PresentationChanged="SetEventWidget" ReminderSaved="SaveEventReminder" SoundSaved="SaveEventSound" />
+            @if (_editing is not null) { <p class="alerts-hint alerts-editor-lock" role="status">@UiText.T("Speichere oder schließe den Editor, um Event-Erinnerungen direkt anzupassen.")</p> }
+            <LiveBossTimers Busy="@(_busy || _editing is not null)" />
+        </main>
+        <aside class="alerts-detail-column" aria-label="@UiText.T("Deine Einstellungen")">
     @if (_editing is not null)
     {
         <section class="alerts-editor" id="alert-editor" aria-label="@UiText.T("Alert bearbeiten")">
@@ -121,8 +104,35 @@
         </section>
     }
 
+            else if (SelectedTimer is { } selected)
+            {
+                <EventTimerDetails Timer="@selected" Busy="@_busy" EditReminder="EditEventReminder" ReminderChanged="SetEventReminder" PresentationChanged="SetEventWidget" ReminderSaved="SaveEventReminder" SoundSaved="SaveEventSound" @key="selected.Definition.Id" />
+            }
+            <details class="alerts-settings-section" id="alerts-display-settings"><summary><span>@UiText.T("Overlays & Anzeige")</span><span class="alerts-settings-symbol" aria-hidden="true">▧</span></summary><div class="alerts-settings-body">
+    <div class="alerts-overlay-options-grid">
+        <section class="alerts-overlay-options" aria-label="@UiText.T("Timer-Overlay")">
+            <label class="check"><input id="alerts-overlay-visible" type="checkbox" role="switch" checked="@Settings.Current.AlertsOverlayEnabled" @onchange="@(e => Settings.Update(s => s.AlertsOverlayEnabled = e.Value is true))" /><strong>@UiText.T("Timer-Overlay")</strong></label>
+            <AlertOverlaySizeControls Id="alerts-overlay" Width="@Settings.Current.AlertsOverlayWidth" Scale="@Settings.Current.AlertsOverlayScale" MinimumWidth="240" MaximumWidth="1000" WidthChanged="@(v => Settings.Update(s => s.AlertsOverlayWidth = v))" ScaleChanged="@(v => Settings.Update(s => s.AlertsOverlayScale = v))" />
+            <InfoTip><p>@UiText.T("Folgt der Menü- und Minimap-Ausblendung.")</p></InfoTip>
+        </section>
+        <section class="alerts-overlay-options" aria-label="@UiText.T("Benachrichtigungsbanner")">
+            <strong>@UiText.T("Benachrichtigungsbanner")</strong>
+            <AlertOverlaySizeControls Id="alert-notifications" Width="@Settings.Current.AlertNotificationsWidth" Scale="@Settings.Current.AlertNotificationsScale" MinimumWidth="240" MaximumWidth="1000" WidthChanged="@(v => Settings.Update(s => s.AlertNotificationsWidth = v))" ScaleChanged="@(v => Settings.Update(s => s.AlertNotificationsScale = v))" />
+            <InfoTip><p>@UiText.T("Bleiben bei ausgeblendeter Minimap sichtbar. Ausgabe pro Erinnerung wählen.")</p></InfoTip>
+        </section>
+        <section class="alerts-overlay-options" aria-label="@UiText.T("Timeline-Overlay")">
+            <label class="check"><input id="event-timeline-visible" type="checkbox" role="switch" checked="@Settings.Current.EventTimelineOverlayEnabled" @onchange="@(e => Settings.Update(s => s.EventTimelineOverlayEnabled = e.Value is true))" /><strong>@UiText.T("Timeline-Overlay")</strong></label>
+            <AlertOverlaySizeControls Id="event-timeline" Width="@Settings.Current.EventTimelineOverlayWidth" Scale="@Settings.Current.EventTimelineOverlayScale" MinimumWidth="360" MaximumWidth="1600" WidthChanged="@(v => Settings.Update(s => s.EventTimelineOverlayWidth = v))" ScaleChanged="@(v => Settings.Update(s => s.EventTimelineOverlayScale = v))" />
+            <div class="alerts-timeline-settings">
+                <label class="alerts-field">@UiText.T("Zeitraum")<select id="event-timeline-hours" value="@Settings.Current.EventTimelineHours" @onchange="SetTimelineHours">@foreach (var hours in new[] { 12, 24, 48 }) { <option value="@hours">@hours h</option> }</select></label>
+                <label class="check"><input id="event-timeline-follow-minimap" type="checkbox" role="switch" checked="@Settings.Current.EventTimelineFollowMinimap" @onchange="@(e => Settings.Update(s => s.EventTimelineFollowMinimap = e.Value is true))" />@UiText.T("Minimap-Ausblendung folgen")</label>
+            </div>
+        </section>
+    </div>
+    <div class="alerts-display-help"><span>@UiText.T("Deine Einstellungen")</span><InfoTip><p>@UiText.T("Mit Schloss oder Alt entsperren, verschieben und an der unteren rechten Ecke in der Größe anpassen. Details beim Darüberfahren.")</p></InfoTip></div>
+            </div></details>
+            <details class="alerts-settings-section" id="alerts-custom-settings" open="@CustomItems.Any()"><summary><span>@UiText.T("Meine Alerts")</span><span class="alerts-count">@CustomItems.Count()</span></summary><div class="alerts-settings-body">
     <section class="alerts-library" aria-label="@UiText.T("Meine Alerts")">
-        <div class="alerts-section-heading"><div><span class="alerts-eyebrow">@UiText.T("Deine Erinnerungen")</span><h3>@UiText.T("Meine Alerts")</h3></div><span class="alerts-count">@CustomItems.Count()</span></div>
         <div class="alerts-filters"><input type="search" id="alert-search" placeholder="@UiText.T("Alert suchen …")" aria-label="@UiText.T("Alert suchen")" @bind="_query" @bind:event="oninput" /><div class="alerts-filter-buttons" role="group" aria-label="@UiText.T("Status")">@foreach (var filter in Filters) { <button type="button" class="@(_filter == filter.Key ? "selected" : "")" aria-pressed="@(_filter == filter.Key)" @onclick="@(() => _filter = filter.Key)">@UiText.T(filter.Label)</button> }</div></div>
         @if (items.Length == 0) { <div class="alerts-empty"><p>@UiText.T(!CustomItems.Any() ? "Noch keine eigenen Alerts. Mit einer Vorlage bist du schnell startklar." : "Keine Alerts passen zu diesem Filter.")</p></div> }
         else
@@ -146,15 +156,20 @@
         }
     </section>
 
+            </div></details>
+            <details class="alerts-settings-section" id="alerts-template-settings"><summary><span>@UiText.T("Event-Vorlagen")</span><span class="alerts-settings-symbol" aria-hidden="true">＋</span></summary><div class="alerts-settings-body">
     <section class="alerts-templates" aria-label="@UiText.T("Event-Vorlagen")">
-        <div class="alerts-section-heading"><div><span class="alerts-eyebrow">@UiText.T("Schnell einrichten")</span><h3>@UiText.T("Event-Vorlagen")</h3></div><label class="alerts-template-zone">@UiText.T("Zeitzone für neue Vorlagen")<select @bind="_presetZone">@foreach (var zone in Zones) { <option value="@zone.Id">@ZoneLabel(zone)</option> }</select></label></div>
-        <p class="alerts-hint">@UiText.T("Für persönliche Termine und Cooldowns kannst du einen eigenen Zeitplan anlegen.")</p>
+        <div class="alerts-section-heading"><label class="alerts-template-zone">@UiText.T("Zeitzone für neue Vorlagen")<select @bind="_presetZone">@foreach (var zone in Zones) { <option value="@zone.Id">@ZoneLabel(zone)</option> }</select></label></div>
+        <InfoTip><p>@UiText.T("Für persönliche Termine und Cooldowns kannst du einen eigenen Zeitplan anlegen.")</p></InfoTip>
         <div class="alerts-template-grid">@foreach (var preset in AlertsService.Presets.Where(preset => preset.Id == "cooldown")) { <button type="button" class="alerts-template" disabled="@_busy" @onclick="@(() => AddPreset(preset.Id))"><span class="alerts-template-symbol" aria-hidden="true">＋</span><span><strong>@UiText.T(preset.Title)</strong><small>@UiText.T(preset.Description)</small></span><span aria-hidden="true">↗</span></button> }</div>
     </section>
 
-    <LiveBossTimers Busy="@(_busy || _editing is not null)" />
-
-    <section class="alerts-boss-section" aria-label="@UiText.T("Boss-Alerts")"><div class="alerts-section-heading"><div><span class="alerts-eyebrow">@UiText.T("Live aus dem Spiel")</span><h3>@UiText.T("Boss-Alerts")</h3></div><span class="alerts-count">@UiText.T("Eigene Boss-Auswahl")</span></div><p class="alerts-hint">@UiText.T("Diese Einstellungen sind mit Boss Rush geteilt. Ein Boss löst dadurch keinen doppelten Alert aus.")</p><BossAlertsSettings Busy="@(_busy || _editing is not null)" CompactSelectionOnly="true" /></section>
+            </div></details>
+            <details class="alerts-settings-section" id="alerts-boss-settings"><summary><span>@UiText.T("Boss-Alerts")</span><span class="alerts-settings-symbol" aria-hidden="true">◷</span></summary><div class="alerts-settings-body">
+    <section class="alerts-boss-section" aria-label="@UiText.T("Boss-Alerts")"><div class="alerts-display-help"><span>@UiText.T("Eigene Boss-Auswahl")</span><InfoTip><p>@UiText.T("Diese Einstellungen sind mit Boss Rush geteilt. Ein Boss löst dadurch keinen doppelten Alert aus.")</p></InfoTip></div><BossAlertsSettings Busy="@(_busy || _editing is not null)" CompactSelectionOnly="true" /></section>
+            </div></details>
+        </aside>
+    </div>
 </div>
 
 @code {
@@ -165,6 +180,14 @@
     private static readonly IReadOnlyList<TimeZoneInfo> Zones = BuildZones();
     private string _query = "", _filter = "all", _presetZone = "Europe/Berlin";
     private EventAlert? _editing;
+    private string _selectedEventId = "shugo";
+    private EventTimerSnapshot? SelectedTimer => VisibleEventTimers.FirstOrDefault(timer => timer.Definition.Id == _selectedEventId)
+        ?? VisibleEventTimers.FirstOrDefault();
+    private void SelectEvent(string id)
+    {
+        if (_busy || _editing is not null || !VisibleEventTimers.Any(timer => timer.Definition.Id == id)) return;
+        _selectedEventId = id;
+    }
     private bool _isNew, _disposed, _focusEditor, _busy;
     private IReadOnlyList<EventAlert> _busyItems = [];
     private IReadOnlyList<AlertUpcoming> _busyUpcoming = [];
@@ -220,6 +243,7 @@
     private void EditEventReminder(string id)
     {
         if (_busy || _editing is not null) return;
+        _selectedEventId = id;
         Edit(Alerts.GetEventReminder(id));
     }
     private async Task SetEventReminder(KeyValuePair<string, int> request)

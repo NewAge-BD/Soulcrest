@@ -14,6 +14,8 @@ public static class RouteFile
     public const int Version = 1;
     public const string Coordinates = "map-pixels";
     private const string DefaultResource = "Soulcrest.LevelingRoutes.soulroute";
+    private const string DungeonTitlesResource = "Soulcrest.DungeonTitleUpgrades.json";
+    private static readonly Lazy<IReadOnlyDictionary<string, (string Previous, string Current)>> DungeonTitles = new(LoadDungeonTitles);
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
     private static readonly Regex Levels = new(@" · Level ([1-9][0-9]*)–([1-9][0-9]*)\z",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
@@ -98,19 +100,20 @@ public static class RouteFile
         return confirmed;
     }
 
-    /// <summary>Seed the bundled leveling episodes only for a genuinely new route library.</summary>
+    /// <summary>Seed missing bundled episodes once and upgrade only their reviewed original dungeon titles.</summary>
     public static void EnsureDefaultLibrary(string path, string legacyPath)
     {
         var routes = LoadLibrary(path, legacyPath);
         using var stream = typeof(RouteFile).Assembly.GetManifestResourceStream(DefaultResource)
             ?? throw new InvalidDataException("Das mitgelieferte Soulcrest-Routenpaket fehlt.");
         var bundled = Read(stream);
+        var renamed = UpgradeDefaultDungeonTitles(routes, bundled);
         // Existing libraries get the bundled routes too (an existing routes.json used to skip them for
         // good), but each route only once: a bundled route the user deleted does not come back.
         var seededPath = SeededPath(path);
         var seeded = File.Exists(seededPath) ? JsonFile.Load<List<string>>(seededPath).ToHashSet(StringComparer.Ordinal) : [];
         var missing = bundled.Where(b => !seeded.Contains(b.Id) && routes.All(r => r.Id != b.Id)).ToList();
-        if (missing.Count > 0 || !File.Exists(path))
+        if (renamed || missing.Count > 0 || !File.Exists(path))
             Save(path, [.. routes, .. missing]);
         if (!bundled.All(b => seeded.Contains(b.Id)))
             JsonFile.Save(seededPath, seeded.Union(bundled.Select(b => b.Id)).Order(StringComparer.Ordinal).ToList());
@@ -118,6 +121,53 @@ public static class RouteFile
 
     /// <summary>Ids of the bundled routes already added once (routes.soulroute → routes.seeded.json).</summary>
     internal static string SeededPath(string path) => Path.ChangeExtension(path, ".seeded.json");
+
+    private static IReadOnlyDictionary<string, (string Previous, string Current)> LoadDungeonTitles()
+    {
+        using var stream = typeof(RouteFile).Assembly.GetManifestResourceStream(DungeonTitlesResource)
+            ?? throw new InvalidDataException("Die mitgelieferte Dungeon-Titelzuordnung fehlt.");
+        using var document = JsonDocument.Parse(stream);
+        return document.RootElement.GetProperty("stops").EnumerateArray().ToDictionary(
+            entry => entry.GetProperty("id").GetString()!,
+            entry => (entry.GetProperty("previousTitle").GetString()!, entry.GetProperty("title").GetString()!),
+            StringComparer.Ordinal);
+    }
+
+    /// <summary>Known display-text aliases also preserve legacy running targets without a stop index.</summary>
+    internal static bool MatchesPreviousDungeonTitle(string routeId, int index, string currentTitle, string previousTitle) =>
+        DungeonTitles.Value.TryGetValue(routeId + ":" + index, out var title)
+        // User request 2026-10-12: the original white dungeon stops also used the exact placeholder "Stop".
+        && title.Current == currentTitle && (title.Previous == previousTitle || previousTitle == "Stop");
+
+    private static bool UpgradeDefaultDungeonTitles(List<SavedRoute> routes, IReadOnlyList<SavedRoute> bundled)
+    {
+        var changed = false;
+        for (var routeIndex = 0; routeIndex < routes.Count; routeIndex++)
+        {
+            var route = routes[routeIndex];
+            var original = bundled.FirstOrDefault(candidate => candidate.Id == route.Id);
+            // Index-based stop identity is safe only while the complete ordered route shape matches.
+            // Name-only edits are allowed; a moved, reordered, added or otherwise edited stop opts out.
+            if (original is null || route.Category != original.Category || route.Stops.Count != original.Stops.Count
+                || !route.Stops.Zip(original.Stops).All(pair => (pair.First with { Name = pair.Second.Name }) == pair.Second))
+                continue;
+            RouteStop[]? updated = null;
+            for (var index = 0; index < route.Stops.Count; index++)
+            {
+                var stop = route.Stops[index];
+                var title = original.Stops[index].Name;
+                if (stop.Color != LevelingRouteStyle.Exploration
+                    || !(stop.Kind == "Locations · Sealed Dungeon" || stop.Kind == "Locations · Dungeon")) continue;
+                if (stop.Name == title || !MatchesPreviousDungeonTitle(route.Id, index, title, stop.Name)) continue;
+                updated ??= route.Stops.ToArray();
+                updated[index] = stop with { Name = title };
+            }
+            if (updated is null) continue;
+            routes[routeIndex] = route with { Stops = updated };
+            changed = true;
+        }
+        return changed;
+    }
 
     private static bool SameRoutes(IReadOnlyList<SavedRoute> before, IReadOnlyList<SavedRoute> after) =>
         before.Count == after.Count && before.Zip(after).All(pair =>

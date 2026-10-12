@@ -38,6 +38,7 @@
     </nav>
 
     <section class="pets-main">
+        <NetworkProgressStatus Scope="pet" />
         <header class="pets-head">
             <h2 class="pets-title">Pets</h2>
             <div class="pets-stats">
@@ -108,11 +109,10 @@
                 <div class="pets-grid">
                     @foreach (var pet in shown)
                     {
-                        var souls = Progress.Souls(pet.Id);
-                        var level = Progress.Thresholds.Level(souls);
-                        var inLevel = Progress.Thresholds.SoulsInLevel(souls);
-                        var needed = Progress.Thresholds.NeededForNextLevel(souls);
-                        var isMax = Progress.Thresholds.IsMax(souls);
+                        var level = Progress.Level(pet.Id);
+                        var inLevel = Progress.SoulsInLevel(pet.Id);
+                        var needed = Progress.NeededForNextLevel(pet.Id);
+                        var isMax = Progress.IsMax(pet.Id);
                         var focus = Progress.IsFocus(pet.Id);
                         var name = pet.DisplayName(lang);
                         var petId = pet.Id;
@@ -166,10 +166,10 @@
         {
             var pet = selected;
             var souls = Progress.Souls(pet.Id);
-            var level = Progress.Thresholds.Level(souls);
-            var inLevel = Progress.Thresholds.SoulsInLevel(souls);
-            var needed = Progress.Thresholds.NeededForNextLevel(souls);
-            var isMax = Progress.Thresholds.IsMax(souls);
+            var level = Progress.Level(pet.Id);
+            var inLevel = Progress.SoulsInLevel(pet.Id);
+            var needed = Progress.NeededForNextLevel(pet.Id);
+            var isMax = Progress.IsMax(pet.Id);
             var focus = Progress.IsFocus(pet.Id);
             var name = pet.DisplayName(lang);
             var subname = Settings.Current.NameLanguage == "de" && pet.De is not null && pet.De != pet.En ? pet.En : pet.De;
@@ -222,11 +222,16 @@
                             <span class="pets-step @(level >= l ? "on" : "")" title="@($"{LevelName(l)}: {Progress.Thresholds.Steps[l - 1]} Souls")">@l</span>
                         }
                     </div>
-                    <div class="pets-stage">@(isMax ? UiText.T("fertig") : UiText.F("noch {0} bis {1}", needed - inLevel, LevelName(level + 1))) · @UiText.T("gesamt") @souls/@Progress.Thresholds.Max</div>
+                    <div class="pets-stage">@(isMax ? UiText.T("fertig") : UiText.F("noch {0} bis {1}", Math.Max(0, needed - inLevel), LevelName(level + 1))) · @UiText.F("Verfügbare Souls: {0}", inLevel)</div>
                 </section>
 
                 <section class="pets-detail-section">
                     <h3>@UiText.T("Korrektur")</h3>
+                    @if (Progress.EntrySnapshot(pet.Id).ManualOverride)
+                    {
+                        <p class="note">@UiText.T("Manuelle Korrektur aktiv.")</p>
+                        <button class="btn small" @onclick="@(() => UseNetworkProgress(pet.Id))">@UiText.T("Netzwerkstand übernehmen")</button>
+                    }
                     <div class="pets-correct">
                         <label>
                             <span>@UiText.T("Stufe")</span>
@@ -322,14 +327,14 @@
         switch (_status)
         {
             case "missing" when souls > 0: return false;
-            case "progress" when souls == 0 || Progress.Thresholds.IsMax(souls): return false;
-            case "done" when !Progress.Thresholds.IsMax(souls): return false;
+            case "progress" when souls == 0 || Progress.IsMax(pet.Id): return false;
+            case "done" when !Progress.IsMax(pet.Id): return false;
             case "focus" when !Progress.IsFocus(pet.Id): return false;
         }
         if (_level.Length > 0)
         {
-            var isMax = Progress.Thresholds.IsMax(souls);
-            if (_level == "max" ? !isMax : isMax || Progress.Thresholds.Level(souls).ToString(System.Globalization.CultureInfo.InvariantCulture) != _level)
+            var isMax = Progress.IsMax(pet.Id);
+            if (_level == "max" ? !isMax : isMax || Progress.Level(pet.Id).ToString(System.Globalization.CultureInfo.InvariantCulture) != _level)
                 return false;
         }
         if (_query.Length > 1)
@@ -355,10 +360,9 @@
     /// <summary>Souls missing to the next level; finished pets sort last.</summary>
     private int RemainingToNext(string petId)
     {
-        var souls = Progress.Souls(petId);
-        return Progress.Thresholds.IsMax(souls)
+        return Progress.IsMax(petId)
             ? int.MaxValue
-            : Progress.Thresholds.NeededForNextLevel(souls) - Progress.Thresholds.SoulsInLevel(souls);
+            : Math.Max(0, Progress.NeededForNextLevel(petId) - Progress.SoulsInLevel(petId));
     }
 
     private void ResetFilters()
@@ -382,13 +386,13 @@
     {
         _verifiedPets = Progress.VerifiedPets;
         _total = _verifiedPets.Count;
-        _unlocked = _verifiedPets.Count(p => Progress.Thresholds.Level(Progress.Souls(p.Id)) >= 1);
-        _done = _verifiedPets.Count(p => Progress.Thresholds.IsMax(Progress.Souls(p.Id)));
+        _unlocked = _verifiedPets.Count(p => Progress.Level(p.Id) >= 1);
+        _done = _verifiedPets.Count(p => Progress.IsMax(p.Id));
         _focusCount = _verifiedPets.Count(p => Progress.IsFocus(p.Id));
         if (_selectedId is not null && !_verifiedPets.Any(pet => pet.Id == _selectedId)) _selectedId = null;
         _genusCounts = _verifiedPets
             .GroupBy(p => p.Genus)
-            .ToDictionary(g => g.Key, g => (g.Count(), g.Count(p => Progress.Thresholds.Level(Progress.Souls(p.Id)) >= 1)));
+            .ToDictionary(g => g.Key, g => (g.Count(), g.Count(p => Progress.Level(p.Id) >= 1)));
     }
 
     private void Refresh() => InvokeAsync(() =>
@@ -396,6 +400,8 @@
         Recount();
         StateHasChanged();
     });
+
+    private void UseNetworkProgress(string petId) => Progress.ClearManualOverride(petId);
 
     private void SetLevel(string petId, ChangeEventArgs e, int inLevel)
     {
@@ -424,7 +430,7 @@
 
     private static string StateClass(int level, bool isMax) => isMax ? "is-max" : level == 0 ? "is-locked" : "is-open";
 
-    private static int Percent(int inLevel, int needed, bool isMax) => isMax || needed == 0 ? 100 : inLevel * 100 / needed;
+    private static int Percent(int inLevel, int needed, bool isMax) => isMax || needed == 0 ? 100 : (int)Math.Clamp((long)inLevel * 100 / needed, 0, 100);
 
     private static string IconUrl(string icon) => $"https://{MainForm.MapDataHost}/{icon}";
 

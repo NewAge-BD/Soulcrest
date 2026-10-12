@@ -50,7 +50,7 @@ Icon-Namen („Crestlich 01“), den der Loot-Feed nie zeigt. Echte Namen kommen
 1. `data/pets/name-overrides.json` (im Git, in Soulcrest.Core eingebettet): nur mit `sourceRefs`.
 2. Gelernt aus dem Pet-Fenster (`%LOCALAPPDATA%\Soulcrest\learned\learned-names.json`): Der Name im
    rechten Bereich gehört zur angeklickten Karte. Deren Porträt passt sicher zum Icon des
-   Platzhalters (`PetScanService`).
+   Platzhalters (historischer OCR-Import, seit 2026-10-12 entfernt).
 
 ## Quellenabgleich 2026-10-04
 

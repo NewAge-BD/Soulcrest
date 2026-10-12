@@ -2,6 +2,22 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.6.0 – 2026-10-12
+
+- **Neu:** Pet-Stufen, verfügbare Souls und der Erkundungsfortschritt des eingeloggten Charakters
+  werden passiv aus dem eigenen Spielverkehr erkannt, ohne Scans. Eine Statuskarte zeigt, ob die
+  Erkennung aktiv ist. Bisherige Stände bleiben erhalten (vor der Umstellung wird eine Sicherung
+  angelegt), manuelle Korrekturen haben Vorrang.
+- **Neu:** Boss-Timer stehen direkt an den Boss-Symbolen der interaktiven Karte.
+- **Neu:** Die Kartenlegende hat drei Spalten: Minimap, interaktive Karte und Weltkarte lassen sich
+  getrennt einstellen, auch für Orte, NPCs und Monster.
+- **Neu:** Sealed-Dungeon-Stationen der Leveling-Routen tragen ihren Namen statt „Stop“.
+- **Verbessert:** Boss Rush, Erkundungsfortschritt und Alerts sind übersichtlicher für 16:9
+  aufgebaut; die Legende ist kompakter.
+- **Entfernt:** Pet-Scan und Exploration-Scan per Texterkennung sowie die Windows-OCR-Sprachpakete im
+  Installer. Dungeons und Strongholds werden nicht mehr durch Annäherung oder Betreten abgehakt; der
+  Status kommt aus dem Spiel und lässt sich in der Erkundungsübersicht korrigieren.
+
 ## 0.5.0 – 2026-10-12
 
 - **Neu:** Tab **Alerts** mit Event-Timern für EU-Server (deutsche Zeit): Shugo Festival, Dimensional

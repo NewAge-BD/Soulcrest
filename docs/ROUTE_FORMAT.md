@@ -107,9 +107,11 @@ ungeprüft als dauerhaft positionsunabhängige Identität behandelt werden.
 elf ursprünglichen Routenimporte. Es enthält die zehn geprüften Episodenrouten
 für Asmodian und Elyos, jeweils Episode 2 bis 6, mit insgesamt **867 Stationen**.
 Die 160 bereits entfernten Trace-Punkte und die ursprünglichen
-Anweisungstitel sind nicht enthalten. 458 Stationen besitzen geprüfte
-Questtitel, 409 Stationstitel bleiben leer. Namen alter Charaktere oder Autoren
-gehören nicht zum Paket.
+Anweisungstitel sind nicht enthalten. Seit 2026-10-12 tragen alle 55 weißen
+Sealed-Dungeon-Stationen ihren belegten Dungeonnamen. Insgesamt sind 513 Stationen benannt,
+354 Stationstitel bleiben leer. Die Zuordnung verwendet die exakte Kartenposition, Kategorie
+und die verknüpfte Activity aus dem aktiven Kartendatensatz. Gelbe und grüne Queststationen
+behalten ihre bisherigen Questtitel. Namen alter Charaktere oder Autoren gehören nicht zum Paket.
 
 Die Quest „Empyrean Monolith“ ist erhalten: Sie ist eine Hauptquest und kein
 entfernter Trace-Punkt. Die Entfernung automatisch erzeugter Monsterzweige
@@ -126,9 +128,19 @@ Farben bleiben erhalten; Charakterfortschritt wird gesondert weiterverwendet.
 Eine vorhandene `.soulroute`-Bibliothek hat Vorrang. Unbekannte Versionen oder
 beschädigte Dateien werden nicht mit einer leeren Bibliothek überschrieben.
 
-Nur wenn weder die neue noch die alte Bibliothek existiert, legt die App die
-mitgelieferten Leveling-Episoden an. Bewusst gelöschte Routen oder eine leere
-Bibliothek werden beim nächsten Start nicht wieder aufgefüllt.
+Mitgelieferte Episoden werden je Routen-ID einmal ergänzt, auch in bestehenden
+Bibliotheken. `routes.seeded.json` merkt bereits angebotene IDs; danach gelöschte
+Routen werden beim nächsten Start nicht wieder aufgefüllt.
+
+Die Dungeon-Titelkorrektur aktualisiert bestehende Standardrouten nur bei unveränderter
+Stationsanzahl, Reihenfolge und allen Feldern außer den Namen. Sie ersetzt ausschließlich
+die in `data/routes/dungeon-title-upgrades.json` belegten ursprünglichen Stationstitel sowie
+den vom Nutzer bestätigten generischen Platzhalter „Stop“ an diesen weißen Stationen.
+Individuelle Namen bleiben erhalten. Veränderte Koordinaten, Arten, Icons oder Farben
+schließen die Route vom automatischen Titelupgrade aus. Routen-ID und Stationsindizes
+bleiben gleich, Charakterfortschritt wird nicht neu geschrieben. Laufende historische
+Ziele ohne Stationsindex erkennen zusätzlich die geprüften alten Titel als Alias,
+weiterhin mit Karten- und Koordinatenprüfung.
 
 ## Konvertierung
 
@@ -151,3 +163,9 @@ Unbearbeitete Markerdateien eines anderen Kartenprogramms werden bewusst
 abgelehnt. Sie enthalten weder die geprüften NPC-Positionen noch die
 Questzuordnung und Episodengrenzen des bereinigten Pakets. Für diese Routen ist
 das mitgelieferte `.soulroute`-Paket die maßgebliche Importquelle.
+
+
+Dungeon-Titel lassen sich mit `scripts/name_route_dungeons.py` offline gegen den aktiven
+gaming.tools-Cache und das daraus generierte Kartenpaket prüfen. Ohne `--write` verändert
+das Skript nichts. Geänderte Quellzuordnungen benötigen eine explizite Prüfung; Nähe oder
+ähnlicher Name reichen nicht als Zuordnung.

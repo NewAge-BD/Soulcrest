@@ -113,7 +113,6 @@ public sealed class ExplorationMapNavigationTests
             view.OnProgressionTarget(AbyssPlace.Map, AbyssPlace.Id, AbyssPlace.X, AbyssPlace.Y, AbyssPlace.En));
         var next = Assert.IsType<MapTarget>(targets.Progression);
         Assert.Equal(AbyssPlace.Map, next.MapId);
-        Assert.Equal(AbyssPlace.Id, next.ExplorationId);
         await scenario.Renderer.Dispatcher.InvokeAsync(() =>
         {
             view.OnProgressionTarget("altgard", "old-pet", 10, 20, "Old target");
@@ -246,6 +245,35 @@ public sealed class ExplorationMapNavigationTests
         Assert.DoesNotContain(scenario.Js.Calls, call => call.Name is "soulcrestMap.show" or "soulcrestMap.centerOnPlayer");
     }
 
+    [Fact]
+    public async Task MapStatusCallbacksCannotClearDungeonsAndOnlyCorrectKibelisksForTheRenderedProfile()
+    {
+        await using var scenario = new Scenario();
+        var settings = scenario.Provider.GetRequiredService<SettingsService>();
+        settings.Current.LastMap = "altgard";
+        var exploration = scenario.Provider.GetRequiredService<ExplorationService>();
+        var character = exploration.ActiveId;
+        var view = await scenario.Render();
+        await scenario.Renderer.Dispatcher.InvokeAsync(() =>
+        {
+            view.OnKibeliskBound("altgard", character, AltgardDungeon.Id, true);
+            view.OnKibeliskBound("verteron", character, KibeliskPlace.Id, true);
+            view.OnKibeliskBound("altgard", "other-profile", KibeliskPlace.Id, true);
+        });
+        Assert.Empty(exploration.Completed);
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => view.OnKibeliskBound("altgard", character, KibeliskPlace.Id, true));
+        Assert.Equal(new[] { KibeliskPlace.Id }, exploration.Completed);
+        exploration.Add("Synthetic second profile");
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => view.OnKibeliskBound("altgard", character, KibeliskPlace.Id, false));
+        Assert.Empty(exploration.Completed);
+        exploration.Select(character);
+        Assert.Equal(new[] { KibeliskPlace.Id }, exploration.Completed);
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => view.OnKibeliskBound("altgard", character, KibeliskPlace.Id, false));
+        Assert.Empty(exploration.Completed);
+    }
+
+    private static ExplorationPlace KibeliskPlace => new("altgard|kibelisk|Fixture Kibelisk", "altgard", "kibelisk", 3, "Fixture Kibelisk", null, 100, 200);
+    private static ExplorationPlace AltgardDungeon => new("altgard|dungeon|Fixture Dungeon", "altgard", "dungeon", 4, "Fixture Dungeon", null, 200, 200);
     private static ExplorationPlace Place => new("verteron|dungeon|Test Entrance", "verteron", "dungeon", 42, "Test Entrance", null, 400, 500);
     private static ExplorationPlace AbyssPlace => new("abyss-reshanta-a|stronghold|Fixture Stronghold", "abyss-reshanta-a", "stronghold", 17, "Fixture Stronghold", null, 1200, 1300);
     private static void Property(object target, string name, object value) =>
@@ -290,10 +318,10 @@ public sealed class ExplorationMapNavigationTests
             services.AddSingleton<TrackerService>();
             services.AddSingleton<MapTrackingService>();
             services.AddSingleton<MapTargetsService>();
-            services.AddSingleton<BossRushService>();
+            // This fixture owns synthetic navigation targets; no live boss reducer should replace
+            // them on a settings change. The real boss/map integration is covered by BossRushViewTests.
             services.AddSingleton(sp => new AlertsService(Path.Combine(_folder, "alerts.json"), runTimer: false));
-            services.AddSingleton(new ExplorationService(Path.Combine(_folder, "exploration.json"), [Place, AbyssPlace]));
-            services.AddSingleton<ExplorationScanService>();
+            services.AddSingleton(new ExplorationService(Path.Combine(_folder, "exploration.json"), [Place, AbyssPlace, KibeliskPlace, AltgardDungeon]));
             services.AddSingleton<UiState>();
             services.AddSingleton<UpdateService>();
             services.AddSingleton<IJSRuntime>(Js);

@@ -30,10 +30,8 @@ public sealed class LocalizationTests
         services.AddSingleton<BossRushService>();
         services.AddSingleton(_ => new AlertsService(Path.Combine(Path.GetTempPath(), "Soulcrest-map-render-" + Guid.NewGuid().ToString("N") + ".json"), runTimer: false));
         services.AddSingleton<ExplorationService>();
-        services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<UiState>();
         services.AddSingleton<UpdateService>();
-        services.AddSingleton<OcrLanguageInstaller>();
         services.AddSingleton<IJSRuntime, UnusedJs>();
         await using var provider = services.BuildServiceProvider();
         var settings = provider.GetRequiredService<SettingsService>();
@@ -48,13 +46,13 @@ public sealed class LocalizationTests
                 (await renderer.RenderComponentAsync<Soulcrest.App.Components.Main>()).ToHtmlString());
             var html = System.Net.WebUtility.HtmlDecode(markup);
             Assert.Contains(tab, html);
-            Assert.Contains(">Pet Scan</button>", html);
+            Assert.DoesNotContain(">Pet Scan</button>", html);
             Assert.Contains(label, html);
             Assert.Contains("id=\"ui-language\"", html);
-            Assert.Contains(language == "de" ? "Sprache im Spiel (Scan)" : "Game language (scan)", html);
-            Assert.Contains("value=\"de-DE\"", html);
-            Assert.Contains("value=\"auto\"", html);
             Assert.Contains("id=\"overlay-language\"", html);
+            Assert.Contains("id=\"map-layers-legend-hint\"", html);
+            Assert.Contains(language == "de" ? "getrennt für interaktive Karte, Minimap und Weltkarte" : "separately for the interactive map, minimap and world map", html);
+            Assert.DoesNotContain(language == "de" ? "Pet-Symbole mit Stand" : "Pet symbols with progress", html);
             Assert.Contains(language == "de" ? "Overlay-Sprache" : "Overlay language", html);
             Assert.Contains(language == "de" ? "Automatisch (Spielsprache)" : "Automatic (game language)", html);
             Assert.Contains(language == "de" ? "Schloss im Overlay anklicken" : "Click the overlay lock", html);
@@ -64,7 +62,8 @@ public sealed class LocalizationTests
             Assert.Contains("hotkey-label-leveling.unlock", html);
             Assert.Contains("hotkey-label-notifications.unlock", html);
             Assert.Contains(language == "de" ? "Alert-Benachrichtigungen" : "Alert notifications", html);
-            Assert.Contains("hotkey-label-exploration-scan.toggle", html);
+            Assert.DoesNotContain("hotkey-label-exploration-scan.toggle", html);
+            Assert.DoesNotContain("hotkey-label-pet-scan.toggle", html);
             Assert.Contains(language == "de" ? "Nicht belegt" : "Unassigned", html);
             if (Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW") is { Length: > 0 } output)
             {
@@ -83,9 +82,9 @@ public sealed class LocalizationTests
     }
 
     [Theory]
-    [InlineData("de", "Bestätigte 100 %", "Abschluss-Haken")]
-    [InlineData("en", "A confirmed 100%", "completion check")]
-    public async Task ExplorationInstructionsExplainCategoryCompletionInBothLanguages(string language, string percentage, string check)
+    [InlineData("de", "Netzwerkfortschritt", "Quest-Baseline")]
+    [InlineData("en", "Network progress", "Quest baseline")]
+    public async Task ExplorationExplainsPassiveNetworkProgressInBothLanguages(string language, string percentage, string check)
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -94,12 +93,10 @@ public sealed class LocalizationTests
         services.AddSingleton<GameCaptureService>();
         services.AddSingleton<ProgressService>();
         services.AddSingleton<ExplorationService>();
-        services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<NetworkLootService>();
         services.AddSingleton<CharacterDetectionService>();
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<UiState>();
-        services.AddSingleton<OcrLanguageInstaller>();
         await using var provider = services.BuildServiceProvider();
         provider.GetRequiredService<SettingsService>();
         var previous = UiText.Language;
@@ -112,7 +109,8 @@ public sealed class LocalizationTests
             var html = System.Net.WebUtility.HtmlDecode(markup);
             Assert.Contains(percentage, html);
             Assert.Contains(check, html);
-            Assert.Contains(language == "de" ? "Fehlende Haken setzen nichts zurück" : "Missing checkmarks do not reset progress", html);
+            Assert.Contains("data-progress-source=\"network\"", html);
+            Assert.DoesNotContain(language == "de" ? "Scan starten" : "Start scan", html);
             if (Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW") is { Length: > 0 } output)
             {
                 Directory.CreateDirectory(output);
@@ -142,7 +140,7 @@ public sealed class LocalizationTests
     }
 
     [Fact]
-    public void InterfaceSelectionDoesNotSelectTheOcrEngine()
+    public void InterfaceSelectionPreservesTheLegacyGameLanguagePreference()
     {
         var settings = new AppSettings { UiLanguage = "de", NameLanguage = "de" };
         Assert.Equal("auto", settings.EffectiveOcrLanguage);

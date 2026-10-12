@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Soulcrest.App.Tests;
 
-/// <summary>User request 2026-10-06: one tab "Scan Exploration Progress" for sealed dungeons, strongholds and Kibelisks.</summary>
+/// <summary>User request 2026-10-06: one passive exploration progress tab for sealed dungeons, strongholds and Kibelisks.</summary>
 [Collection("Settings file")] // writes settings.json of the test data folder
 public sealed class ExplorationProgressViewTests
 {
@@ -23,7 +23,6 @@ public sealed class ExplorationProgressViewTests
         services.AddSingleton<SettingsService>();
         services.AddSingleton<GameCaptureService>();
         services.AddSingleton<ProgressService>();
-        services.AddSingleton<PetScanService>();
         services.AddSingleton<NetworkLootService>();
         services.AddSingleton<TrackerService>();
         services.AddSingleton<MapTrackingService>();
@@ -31,9 +30,7 @@ public sealed class ExplorationProgressViewTests
         services.AddSingleton<BossRushService>();
         services.AddSingleton(_ => new AlertsService(Path.Combine(Path.GetTempPath(), "Soulcrest-map-render-" + Guid.NewGuid().ToString("N") + ".json"), runTimer: false));
         services.AddSingleton<ExplorationService>();
-        services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<CharacterDetectionService>();
-        services.AddSingleton<OcrLanguageInstaller>();
         services.AddSingleton<UiState>();
         services.AddSingleton<UpdateService>();
         services.AddSingleton<IJSRuntime, NoJs>();
@@ -49,7 +46,8 @@ public sealed class ExplorationProgressViewTests
                 (await renderer.RenderComponentAsync<Soulcrest.App.Components.Main>()).ToHtmlString());
             html = System.Net.WebUtility.HtmlDecode(html);
             Assert.Contains(title, html);
-            Assert.Contains("value=\"de-DE\"", html);
+            Assert.Contains("data-progress-source=\"network\"", html);
+            Assert.DoesNotContain("data-scan-state", html);
             Assert.DoesNotContain(">Stronghold</button>", html); // the old single tabs are gone
             if (provider.GetRequiredService<ExplorationService>().Places.Any(p => p.Map == "altgard"))
             {
@@ -63,7 +61,7 @@ public sealed class ExplorationProgressViewTests
                 static string Document(string body) => "<!doctype html><html><head><meta charset=\"utf-8\"><link rel=\"stylesheet\" href=\"/css/app.css\"></head><body>" + body + "</body></html>";
                 File.WriteAllText(Path.Combine(output, "exploration-" + language + ".html"), Document(html));
                 var pets = await renderer.Dispatcher.InvokeAsync(async () =>
-                    (await renderer.RenderComponentAsync<Soulcrest.App.Components.PetScanView>()).ToHtmlString());
+                    (await renderer.RenderComponentAsync<Soulcrest.App.Components.PetsView>()).ToHtmlString());
                 File.WriteAllText(Path.Combine(output, "pets-" + language + ".html"), Document(pets));
             }
         }

@@ -50,7 +50,6 @@ public sealed class RouteTileRenderTests
         services.AddSingleton<BossRushService>();
             services.AddSingleton(sp => new AlertsService(characterFile + ".alerts.json", runTimer: false));
         services.AddSingleton(new ExplorationService(characterFile, []));
-        services.AddSingleton<ExplorationScanService>();
         services.AddSingleton<UiState>();
         services.AddSingleton<UpdateService>();
         services.AddSingleton<IJSRuntime, NoJs>();
@@ -69,6 +68,10 @@ public sealed class RouteTileRenderTests
             targets.Toggle("altgard", 200, 200, "B", "Locations", null, chain: true);
             var before = await Render(provider);
             Assert.Contains("Folge speichern (2)", before);
+            Assert.Contains("Ankunftsradius (Kartenpixel)", before);
+            Assert.DoesNotContain("Abschlussradius", before);
+            Assert.DoesNotContain("Strongholds genügt der Radius", before);
+            Assert.DoesNotContain("Ziel als fertig markieren", before);
 
             var route = targets.SaveRoute("altgard", "Runde")!;
             targets.SetRouteRepeat(route.Id, true);

@@ -3,10 +3,9 @@ using Xunit;
 
 namespace Soulcrest.App.Tests;
 
-/// <summary>User request 2026-10-06 (Questrunner Q1): reaching a Kibelisk checks it off for the active character.</summary>
+/// <summary>Kibelisk identities and per-character manually retained progress.</summary>
 public sealed class KibeliskTests
 {
-    private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
     private static readonly ExplorationPlace[] Places =
     [
         new("altgard|kibelisk|Hill", "altgard", "kibelisk", 0, "Hill", null, 100, 100),
@@ -14,15 +13,6 @@ public sealed class KibeliskTests
         new("altgard|dungeon|Cave", "altgard", "dungeon", 2, "Cave", null, 100, 110),
         new("verteron|kibelisk|Hill", "verteron", "kibelisk", 3, "Hill", null, 100, 100),
     ];
-
-    [Fact]
-    public void KibelisksWithinTheRadiusOfTheCurrentMapAreReached()
-    {
-        Assert.Equal(["altgard|kibelisk|Hill"], ExplorationArrivalService.ReachedKibelisks(Places, new("altgard", 110, 105, Now), 15, Now)); // not the dungeon
-        Assert.Empty(ExplorationArrivalService.ReachedKibelisks(Places, new("altgard", 200, 100, Now), 15, Now));
-        Assert.Empty(ExplorationArrivalService.ReachedKibelisks(Places, new("altgard", 100, 100, Now), 0, Now));                   // switched off
-        Assert.Empty(ExplorationArrivalService.ReachedKibelisks(Places, new("altgard", 100, 100, Now.AddSeconds(-3)), 15, Now));  // stale position
-    }
 
     [Fact]
     public void KibelisksSharingANameGetTheirOwnId()

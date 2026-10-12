@@ -1269,3 +1269,18 @@ button.route-color:hover, button.route-color.open { box-shadow: 0 0 0 2px #11192
 .tutorial-scan .tutorial-actions { position: sticky; bottom: -1rem; z-index: 1; margin: 0; padding: .8rem 0; border-top: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
 .tutorial-scan .tutorial-side > .status { margin: 0; }
 @media (max-width: 640px) { .tutorial-scan .tutorial-actions > .btn { flex: 1 1 auto; } }
+
+/* Passive progression status; map pixel tracking remains independent. */
+.network-progress { min-width: 0; padding: 16px; }
+.network-progress-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.network-progress-heading h3 { margin: 0; }
+.network-progress p { overflow-wrap: anywhere; }
+.network-baselines { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 12px 0; }
+.network-baselines div { min-width: 145px; }
+.network-baselines dt { color: var(--muted); font-size: .85rem; }
+.network-baselines dd { margin: 4px 0 0; font-variant-numeric: tabular-nums; }
+.exploration-network-setup { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(300px, 1.1fr); gap: 16px; }
+.exploration-state { max-width: 185px; width: 100%; }
+.exploration-unconfirmed-label { color: var(--muted); }
+.pets-main > .network-progress { margin-bottom: 16px; }
+@media (max-width: 900px) { .exploration-network-setup { grid-template-columns: 1fr; } }

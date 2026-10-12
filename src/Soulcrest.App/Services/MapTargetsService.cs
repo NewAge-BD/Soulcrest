@@ -19,7 +19,7 @@ public sealed record MapTarget(
     [property: JsonPropertyName("icon")] string? Icon,
     [property: JsonPropertyName("after")] string? After = null,
     [property: JsonPropertyName("petId")] string? PetId = null,
-    string? ExplorationId = null, string? CharacterId = null,
+    string? CharacterId = null,
     [property: JsonPropertyName("routeId")] string? RouteId = null,
     [property: JsonPropertyName("color")] string? Color = null,
     [property: JsonPropertyName("leveling")] bool Leveling = false,
@@ -603,7 +603,12 @@ public sealed class MapTargetsService : IDisposable
             if (index < 0)
             {
                 // Align from the end: an NPC can appear several times along the same route.
-                index = searchBefore > 0 ? stops.FindLastIndex(searchBefore - 1, searchBefore, s => SameStop(s, mark)) : -1;
+                for (var candidate = searchBefore - 1; candidate >= 0; candidate--)
+                    if (SameStop(stops[candidate], mark, route.Id, candidate))
+                    {
+                        index = candidate;
+                        break;
+                    }
                 if (index < 0) index = searchBefore - 1;
             }
             if (index < 0 || indexed.ContainsKey(index)) continue;
@@ -626,9 +631,10 @@ public sealed class MapTargetsService : IDisposable
         _targets.InsertRange(insertAt, restored);
     }
 
-    private static bool SameStop(RouteStop stop, MapTarget mark) =>
+    private static bool SameStop(RouteStop stop, MapTarget mark, string routeId, int stopIndex) =>
         stop.MapId == mark.MapId && Math.Abs(stop.X - mark.X) < 0.5 && Math.Abs(stop.Y - mark.Y) < 0.5
-        && stop.Name == mark.Name;
+        && (stop.Name == mark.Name
+            || RouteFile.MatchesPreviousDungeonTitle(routeId, stopIndex, stop.Name, mark.Name));
 
     private void SaveTargets()
     {

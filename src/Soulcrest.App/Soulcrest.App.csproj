@@ -24,11 +24,11 @@
     <EmbeddedResource Include="Localization\en.json" />
     <EmbeddedResource Include="Assets\alert-standard.wav" LogicalName="Soulcrest.AlertStandard.wav" />
     <EmbeddedResource Include="..\..\data\routes\leveling.soulroute" LogicalName="Soulcrest.LevelingRoutes.soulroute" Link="Routes\leveling.soulroute" />
+    <EmbeddedResource Include="..\..\data\routes\dungeon-title-upgrades.json" LogicalName="Soulcrest.DungeonTitleUpgrades.json" Link="Routes\dungeon-title-upgrades.json" />
     <EmbeddedResource Include="..\..\docs\PATCHNOTES.md" LogicalName="Soulcrest.PATCHNOTES.md" Link="PATCHNOTES.md" />
     <EmbeddedResource Include="..\..\docs\PATCHNOTES.en.md" LogicalName="Soulcrest.PATCHNOTES.en.md" Link="PATCHNOTES.en.md" WithCulture="false" />
     <EmbeddedResource Include="Assets\esc-menu-icons.png" LogicalName="Soulcrest.EscMenuIcons.png" />
     <EmbeddedResource Include="Assets\map-window-emblem.png" LogicalName="Soulcrest.MapWindowEmblem.png" />
-    <EmbeddedResource Include="Assets\exploration-complete.png" LogicalName="Soulcrest.ExplorationComplete.png" />
     <InternalsVisibleTo Include="Soulcrest.App.Tests" />
     <ProjectReference Include="..\Soulcrest.Core\Soulcrest.Core.csproj" />
     <ProjectReference Include="..\Soulcrest.Ocr\Soulcrest.Ocr.csproj" />
@@ -36,7 +36,7 @@
 
   <Target Name="ExcludeUnusedOpenCvVideoPlugin" AfterTargets="ComputeFilesToPublish">
     <ItemGroup>
-      <!-- OpenCV is used for still images only (pet window); the FFmpeg plugin is ~25 MB of nothing (as Grindcrest). -->
+      <!-- OpenCV is used for still images only (map tracking); the FFmpeg plugin is ~25 MB of nothing (as Grindcrest). -->
       <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(ResolvedFileToPublish.Filename)', '^opencv_videoio_ffmpeg[0-9]+_64$'))" />
     </ItemGroup>
   </Target>

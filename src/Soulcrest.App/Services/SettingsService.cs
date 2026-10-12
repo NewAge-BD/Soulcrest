@@ -26,8 +26,6 @@ public sealed class AppSettings
 
     public Dictionary<string, OverlayHotkey?> OverlayHotkeys { get; set; } = Services.OverlayHotkeys.Defaults();
     public bool MapOverlayEnabled { get; set; } = true;
-    public bool PetScanOverlayEnabled { get; set; } = true;
-    public bool ExplorationScanOverlayEnabled { get; set; } = true;
     public bool BossOverlayVisible { get; set; } = true;
     public bool OverlayEnabled { get; set; } = true;
     public int OverlayX { get; set; } = 40;
@@ -119,6 +117,12 @@ public sealed class AppSettings
     /// </summary>
     public Dictionary<string, string[]> MapHiddenKinds { get; set; } = [];
 
+    /// <summary>Independent per-map legend selection for the in-game minimap; missing entries retain legacy choices.</summary>
+    public Dictionary<string, MapLayerSelection> MapMinimapLayers { get; set; } = [];
+
+    /// <summary>Independent per-map legend selection for the in-game world map; an empty selection hides all base symbols.</summary>
+    public Dictionary<string, MapLayerSelection> MapWorldmapLayers { get; set; } = [];
+
     /// <summary>Player tracking rests in instances without a world map and comes back by itself (saves power).</summary>
     public bool PauseTrackingInInstances { get; set; } = true;
 
@@ -170,10 +174,26 @@ public sealed class AppSettings
     public Dictionary<string, BossReminderPreference> BossReminderOverrides { get; set; } = new(StringComparer.Ordinal);
     public int BossAlertDurationSeconds { get; set; } = 15;
     public bool BossAlertSound { get; set; }
-    public int ExplorationCompletionRadius { get; set; } = 15;
+    private int? _targetArrivalRadius, _legacyArrivalRadius;
+
+    /// <summary>Radius for advancing navigation stops; never changes game exploration progress.</summary>
+    public int TargetArrivalRadius
+    {
+        get => _targetArrivalRadius ?? _legacyArrivalRadius ?? 15;
+        set => _targetArrivalRadius = value;
+    }
+
+    /// <summary>Read old preferences once; new saves contain only TargetArrivalRadius.</summary>
+    [System.Text.Json.Serialization.JsonPropertyName("ExplorationCompletionRadius")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? LegacyArrivalRadius
+    {
+        get => null;
+        set => _legacyArrivalRadius = value;
+    }
 
     /// <summary>
-    /// One-time adjustments of saved settings (1: completion radius default 40 → 15, 2026-10-05;
+    /// One-time adjustments of saved settings (1: arrival radius default 40 → 15, 2026-10-05;
     /// 2: existing installations count the first-start tutorial as seen, 2026-10-07;
     /// 3: the single progression mode becomes a selection of kinds, 2026-10-10;
     /// 4: notification banners inherit their former shared HUD position and scale, 2026-10-12).
@@ -264,8 +284,8 @@ public sealed class SettingsService
         if (Current.SettingsRevision < 1)
         {
             // The old default was saved with every settings file; a radius the user picked stays.
-            if (Current.ExplorationCompletionRadius == 40)
-                Current.ExplorationCompletionRadius = 15;
+            if (Current.TargetArrivalRadius == 40)
+                Current.TargetArrivalRadius = 15;
             Current.SettingsRevision = 1;
         }
         if (Current.SettingsRevision < 2)
@@ -281,6 +301,8 @@ public sealed class SettingsService
         }
         Current.ProgressionKinds = (Current.ProgressionKinds ?? []).Where(k => k is "pets" or "dungeon" or "stronghold")
             .Distinct(StringComparer.Ordinal).ToArray();
+        Current.MapMinimapLayers = MapLayerVisibility.Normalize(Current.MapMinimapLayers);
+        Current.MapWorldmapLayers = MapLayerVisibility.Normalize(Current.MapWorldmapLayers);
         OverlayHotkeys.Normalize(Current);
         Current.BossOverlayCount = Math.Clamp(Current.BossOverlayCount, 1, 12);
         Current.BossOverlayScale = double.IsFinite(Current.BossOverlayScale) ? Math.Clamp(Current.BossOverlayScale, .6, 2) : 1;

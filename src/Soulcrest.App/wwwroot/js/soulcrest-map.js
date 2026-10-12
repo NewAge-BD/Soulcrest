@@ -26,6 +26,7 @@ window.soulcrestMap = (() => {
     // the category layer, so each kind can be hidden on its own (user request 2026-10-05).
     let kindLayers = [];
     let petRefs = [];
+    let bossTimerRefs = new Map(), bossMarkerBySpawn = new Map(), bossTimerInterval = null;
     let markerRefs = [];         // per marker index -> leaflet layer
     let markerByPos = new Map(); // "x,y" -> marker index (marked targets find their symbol)
     let regionLayer = null, focusLayer = null;
@@ -122,6 +123,7 @@ window.soulcrestMap = (() => {
         const def = manifest.maps.find(m => m.id === mapId);
         if (!def) throw new Error(ui('Unbekannte Karte ', 'Unknown map ') + mapId);
         if (!window.SoulcrestMaps || !window.SoulcrestMaps[mapId]) await loadScript(`${base}${mapId}/data.js?v=${manifest.version || ''}`);
+        clearBossTimers();
         explorationPlaces = [];
         progressionCandidates = null;
         // fitBounds/setView emit move/zoom events synchronously. Their drawing callbacks must
@@ -196,6 +198,7 @@ window.soulcrestMap = (() => {
     function setLanguage(language) {
         lang = language;
         if (!current) return;
+        updateBossTimers();
         // Keep pan, zoom, selected layers and targets. Popup factories read lang on opening.
         const regionsVisible = regionLayer && map.hasLayer(regionLayer);
         if (regionLayer) map.removeLayer(regionLayer);
@@ -204,6 +207,51 @@ window.soulcrestMap = (() => {
         map.closePopup();
         progressionTarget = null;
         updateProgression();
+    }
+
+    function clearBossTimers() {
+        if (bossTimerInterval !== null) clearInterval(bossTimerInterval);
+        bossTimerInterval = null;
+        for (const item of bossTimerRefs.values()) item.layer.unbindTooltip();
+        bossTimerRefs.clear();
+    }
+
+    // Timers are joined by the server's named-spawn ID and the catalogue's exact map point.
+    // No nearby marker, NPC-name guess or countdown reaching zero confirms a spawn.
+    function setBossTimers(mapId, json) {
+        if (!current || current.id !== mapId) return;
+        const rows = JSON.parse(json);
+        const retained = new Set();
+        const now = performance.now();
+        for (const row of rows) {
+            if (!Number.isFinite(row.remaining) || !Number.isFinite(row.age)) continue;
+            const layer = bossMarkerBySpawn.get(row.spawnId);
+            if (!layer || !layer.bindTooltip || retained.has(row.spawnId)) continue;
+            retained.add(row.spawnId);
+            if (!bossTimerRefs.has(row.spawnId))
+                layer.bindTooltip('', { permanent: true, direction: 'right', offset: [18, 0], className: 'boss-map-timer', opacity: 1 });
+            bossTimerRefs.set(row.spawnId, { layer, row, received: now });
+        }
+        for (const [id, item] of bossTimerRefs) if (!retained.has(id)) { item.layer.unbindTooltip(); bossTimerRefs.delete(id); }
+        if (!bossTimerRefs.size) { clearBossTimers(); return; }
+        updateBossTimers();
+        if (bossTimerRefs.size && bossTimerInterval === null) bossTimerInterval = setInterval(updateBossTimers, 1000);
+    }
+
+    function updateBossTimers() {
+        const now = performance.now();
+        for (const { layer, row, received } of bossTimerRefs.values()) {
+            const elapsed = Math.max(0, (now - received) / 1000);
+            const age = Math.max(0, row.age + elapsed);
+            const provisional = row.cached || age > 15;
+            const remaining = Math.max(0, Math.ceil(row.remaining - elapsed));
+            const text = row.spawned ? (provisional ? ui('Unbestätigt', 'Unconfirmed') : ui('Gespawnt', 'Spawned'))
+                : remaining > 0 ? `${Math.floor(remaining / 3600) ? Math.floor(remaining / 3600) + ':' : ''}${String(Math.floor(remaining / 60) % 60).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
+                : ui('Warte auf Bestätigung', 'Awaiting confirmation');
+            const status = provisional ? ui('Gespeichert · unbestätigt', 'Saved · unconfirmed') : ui('Erfasst im Spiel', 'Captured in game');
+            const title = `${status} · ${ui('Letzter Stand vor', 'Last update')} ${Math.floor(age)} s`;
+            layer.setTooltipContent(`<span class="${provisional ? 'provisional' : row.spawned ? 'spawned' : remaining === 0 ? 'waiting' : ''}" title="${esc(title)}">${provisional ? '◷ ' : ''}${esc(text)}</span>`);
+        }
     }
 
     function popupFor(m, cat, index) {
@@ -215,29 +263,32 @@ window.soulcrestMap = (() => {
         return `<b>${esc(nameOf(m) || cat.name)}</b>${de}<br>${esc(cat.group)} · ${esc(lang === 'de' && cat.de ? cat.de : cat.name)}${level}${pet}${source}${link}${explorationLine(index)}<br><span style="color:#8b96a8">${ui('Rechtsklick: als Ziel markieren', 'Right-click: set target')}</span>`;
     }
 
-    // Kibelisk bound / sealed dungeon or stronghold done, and the button that changes it for the active
-    // character (before 2026-10-07 a right-click menu; now right click always marks the target).
+    // Dungeon/stronghold status is read-only here. Manual corrections live in the exploration view.
     function explorationLine(index) {
         const place = explorationPlaces.find(p => p.index === index);
         if (!place) return '';
         const kibelisk = place.kind === 'kibelisk';
-        const state = kibelisk ? (place.done ? ui('Gebunden', 'Bound') : ui('Nicht gebunden', 'Not bound'))
-            : (place.done ? ui('Erledigt', 'Done') : ui('Nicht erledigt', 'Not done'));
-        const action = kibelisk ? (place.done ? ui('Bindung entfernen', 'Remove binding') : ui('Als gebunden markieren', 'Mark as bound'))
-            : (place.done ? ui('Haken entfernen', 'Remove check') : ui('Als erledigt abhaken', 'Mark as done'));
+        const state = kibelisk
+            ? (place.done ? ui('Gebunden', 'Bound') : place.state == null ? ui('Unbestätigt', 'Unconfirmed') : ui('Nicht gebunden', 'Not bound'))
+            : place.done ? ui('Entdeckt · erledigt', 'Discovered · completed')
+            : place.state === 'Undiscovered' ? ui('Unentdeckt', 'Undiscovered')
+            : place.state === 'DiscoveredIncomplete' ? ui('Entdeckt · offen', 'Discovered · incomplete')
+            : ui('Unbestätigt', 'Unconfirmed');
+        const action = kibelisk
+            ? ` · <a href="#" class="exploration-toggle" onclick="window.soulcrestMap.toggleKibelisk(${index});return false;">${place.done ? ui('Bindung entfernen', 'Remove binding') : ui('Als gebunden markieren', 'Mark as bound')}</a>`
+            : '';
         const needs = place.needs || [];
         const locked = !place.done && place.locked && needs.length
             ? `<br><span class="exploration-locked">🔒 ${ui('Öffnet erst nach', 'Opens only after')} ${needs.length <= 3 ? needs.map(esc).join(', ') : ui(`${needs.length} weiteren Sealed Dungeons`, `${needs.length} more sealed dungeons`)}</span>`
             : '';
-        return `<br>${ui('Status:', 'Status:')} <b>${state}</b> · <a href="#" class="exploration-toggle" onclick="window.soulcrestMap.toggleExplored(${index});return false;">${action}</a>${locked}`;
+        return `<br>${ui('Status:', 'Status:')} <b>${state}</b>${action}${locked}`;
     }
 
-    function toggleExplored(index) {
+    function toggleKibelisk(index) {
         const place = explorationPlaces.find(p => p.index === index);
-        if (!place) return;
+        if (!place || place.kind !== 'kibelisk') return;
         map.closePopup();
-        // The symbol changes when the exploration state comes back (setExploration): colour or grey, check mark.
-        dotnet.invokeMethodAsync('OnExplorationDone', place.id, !place.done);
+        dotnet.invokeMethodAsync('OnKibeliskBound', current.id, progression.character, place.id, !place.done);
     }
 
     // Kinds of a resource category for the legend; only listed when there are at least two.
@@ -277,7 +328,7 @@ window.soulcrestMap = (() => {
                 // Shift + right click chains the target to the last one (player → A → B).
                 const chain = !!(e.originalEvent && e.originalEvent.shiftKey);
                 // Every symbol, Kibelisks and sealed dungeons too: right click marks it (user request 2026-10-07).
-                // Binding / done marks are set in the left-click popup.
+                // The left-click popup shows exploration state and allows Kibelisk binding corrections.
                 dotnet.invokeMethodAsync('OnToggleTarget', current.id, m[1], m[2], nameOf(m) || cat.name, `${cat.group} · ${cat.name}`, icon, chain, cat.group === 'Pets' ? (m[6] || null) : null);
             });
             layer.markerIndex = i;
@@ -303,7 +354,26 @@ window.soulcrestMap = (() => {
             }
         });
         catLayers.forEach((layer, i) => { if (catVisible[i]) layer.addTo(map); });
+        indexBossMarkers();
         applyDoneFilter();
+    }
+
+    function indexBossMarkers() {
+        bossMarkerBySpawn = new Map();
+        const markers = new Map();
+        current.markers.forEach((m, i) => {
+            if (current.categories[m[0]].group !== 'Locations' || current.categories[m[0]].name !== 'Field Boss') return;
+            const key = m[1] + ',' + m[2];
+            // Duplicate points are ambiguous, including duplicate markers at the same point.
+            markers.set(key, markers.has(key) ? null : markerRefs[i]);
+        });
+        const seen = new Set();
+        for (const boss of current.bosses || []) {
+            if (seen.has(boss.spawnId)) { bossMarkerBySpawn.delete(boss.spawnId); continue; }
+            seen.add(boss.spawnId);
+            const layer = markers.get(boss.x + ',' + boss.y);
+            if (layer) bossMarkerBySpawn.set(boss.spawnId, layer);
+        }
     }
 
     // Symbols keep one DOM element; their size follows the CSS variables --pet-scale / --place-scale on
@@ -427,15 +497,6 @@ window.soulcrestMap = (() => {
         const here = targets.filter(t => t.map === current.id);
         if (progressionTarget)
             here.push({ id: 'progression', map: current.id, x: progressionTarget.x, y: progressionTarget.y, name: progressionTarget.name, color: '#ffffff', dashed: true, group: progressionTarget.group, petId: progressionTarget.petId });
-        if (progressionTarget && progression.enabled && isPlace(progressionTarget) && progression.completionRadius > 0) {
-            const center = toLatLng(progressionTarget.x, progressionTarget.y);
-            const radius = Math.min(500, progression.completionRadius) / scale();
-            const ring = Array.from({ length: 64 }, (_, i) => {
-                const angle = i * Math.PI * 2 / 64;
-                return [center[0] + Math.sin(angle) * radius, center[1] + Math.cos(angle) * radius];
-            });
-            L.polygon(ring, { pane: 'targets', color: '#5eead4', weight: 1.5, fillOpacity: 0.08, dashArray: '4 4', interactive: false }).addTo(targetLayer);
-        }
         const playerAt = player ? player.getLatLng() : null;
         const view = map.getBounds().pad(0.3);
         for (const t of here) {
@@ -547,9 +608,12 @@ window.soulcrestMap = (() => {
     const includes = kind => (progression.kinds || []).includes(kind);
     const isPlace = target => !!target && target.group === 'Locations';
 
-    function setProgression(enabled, goal, soulsJson, kindsJson = '["pets"]', petsClosest = false, completionRadius = 15, character = '', missingJson = '{}') {
-        if (progression.character !== character) progressionTarget = null;
-        progression = { enabled, goal, souls: JSON.parse(soulsJson || '{}'), kinds: JSON.parse(kindsJson || '[]'), petsClosest, completionRadius, character, missing: JSON.parse(missingJson || '{}') };
+    function setProgression(enabled, goal, soulsJson, kindsJson = '["pets"]', petsClosest = false, character = '', missingJson = '{}') {
+        if (progression.character !== character) {
+            progressionTarget = null;
+            map?.closePopup();
+        }
+        progression = { enabled, goal, souls: JSON.parse(soulsJson || '{}'), kinds: JSON.parse(kindsJson || '[]'), petsClosest, character, missing: JSON.parse(missingJson || '{}') };
         progressionCandidates = null;
         drawTargets();
         updateProgression();
@@ -749,5 +813,5 @@ window.soulcrestMap = (() => {
 
     const debugState = () => ({ center: map.getCenter(), zoom: map.getZoom(), focus: focusLayer ? focusLayer.getLayers().length : 0, map });
 
-    return { debugState, init, show, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, flyToMarker, focusPet, toggleExplored, clearFocus, invalidate, keptZoom };
+    return { debugState, init, show, setBossTimers, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, flyToMarker, focusPet, toggleKibelisk, clearFocus, invalidate, keptZoom };
 })();

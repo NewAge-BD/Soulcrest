@@ -31,10 +31,7 @@ public sealed class MapLayoutExploration
         services.AddSingleton<BossRushService>();
         services.AddSingleton(_ => new AlertsService(Path.Combine(Path.GetTempPath(), "Soulcrest-map-render-" + Guid.NewGuid().ToString("N") + ".json"), runTimer: false));
         services.AddSingleton<ExplorationService>();
-        services.AddSingleton<ExplorationScanService>();
-        services.AddSingleton<PetScanService>();
         services.AddSingleton<CharacterDetectionService>();
-        services.AddSingleton<OcrLanguageInstaller>();
         services.AddSingleton<UiState>();
         services.AddSingleton<UpdateService>();
         services.AddSingleton<IJSRuntime, NoJs>();

@@ -291,26 +291,6 @@ public sealed class OverlaySuppressionTests : IDisposable
             Assert.Equal(bytes, File.Exists(path) ? File.ReadAllBytes(path) : null);
     });
 
-    [Fact]
-    public Task PetScanPanelStaysVisibleWithoutMinimap() => RunSta(() =>
-    {
-        // User request 2026-10-10: the pet window covers the minimap during the scan, so the minimap rule
-        // must not hide the scan panel; after the scan the rule applies again.
-        using var host = new MainForm();
-        var scan = host.Services.GetRequiredService<PetScanService>();
-        var pet = Panel<PetOverlayForm>(host, "_overlay");
-        pet.Show();
-        pet.SetSuppressed(true);
-        Assert.False(pet.Visible);
-
-        Field(scan, "<Running>k__BackingField").SetValue(scan, true);
-        Refresh(pet, "RefreshLayout");
-        Assert.True(pet.Visible);
-
-        Field(scan, "<Running>k__BackingField").SetValue(scan, false);
-        Refresh(pet, "RefreshLayout");
-        Assert.False(pet.Visible);
-    });
 
     private static T Panel<T>(MainForm host, string name) where T : Form =>
         (T)typeof(MainForm).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(host)!;

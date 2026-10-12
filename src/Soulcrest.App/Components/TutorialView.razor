@@ -1,230 +1,61 @@
-@* First-start setup. Pet scanning stays inside the setup and continues to exploration
-   after explicitly saving selected results (user request 2026-10-11). *@
-@implements IDisposable
+@* Passive network progress replaces OCR setup (user request 2026-10-12). *@
 @inject SettingsService Settings
 @inject UiState Ui
 @inject IJSRuntime JS
-@inject ExplorationService Exploration
-@inject PetScanService Scan
 
 <div class="tutorial-backdrop" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
-    <div class="tutorial card @(_stage == SetupStage.PetScan ? "tutorial-scan" : "")" aria-busy="@_advancing" data-setup-step="@_stage.ToString().ToLowerInvariant()">
-        @if (_stage == SetupStage.Overview)
-        {
-            <video @ref="_video" class="tutorial-video" src="media/hud-tutorial.mp4" autoplay loop muted playsinline
-                   aria-label="@UiText.T("Im Spiel: Menü, Edit HUD, Minimap größer ziehen, dann die Minimap markieren")"></video>
-        }
+    <div class="tutorial card" data-setup-step="overview">
+        <video @ref="_video" class="tutorial-video" src="media/hud-tutorial.mp4" autoplay loop muted playsinline
+               aria-label="@UiText.T("Im Spiel: Menü, Edit HUD, Minimap größer ziehen, dann die Minimap markieren")"></video>
         <div class="tutorial-side">
-            <h2 id="tutorial-title">@UiText.T(_stage switch { SetupStage.PetScan => "Pet-Scan im Setup", SetupStage.Exploration => "Erkundung einrichten", _ => "Willkommen bei Soulcrest" })</h2>
-            @if (_stage == SetupStage.PetScan)
-            {
-                <p class="sv-lead">@UiText.T("Schritt 4 von 5 · Pets lesen und prüfen. Weiter übernimmt deine markierten Ergebnisse und führt zur Erkundung.")</p>
-                <div class="tutorial-scan-content"><PetScanView @ref="_petScan" BusyChanged="ScanBusyChanged" /></div>
-                @if (_petFeedback is not null)
-                {
-                    <p class="status error" role="alert">@_petFeedback</p>
-                }
-                <div class="row tutorial-actions">
-                    <button type="button" class="btn" disabled="@TransitionBlocked" @onclick="BackToOverview">@UiText.T("Zurück zur Einrichtung")</button>
-                    <button type="button" class="btn" disabled="@TransitionBlocked" @onclick="SkipPetScan">@UiText.T("Pet-Scan überspringen")</button>
-                    <button type="button" class="btn primary @(_advancing ? "busy" : "")" disabled="@TransitionBlocked" @onclick="ContinueFromPetScan">
-                        @if (_advancing) { <span class="spinner"></span> }
-                        @UiText.T(_advancing ? "Scan wird beendet …" : "Markierte übernehmen & weiter")
-                    </button>
-                </div>
-                <p class="sv-hint" role="status">@UiText.T(Scan.Starting ? "Scan wird vorbereitet. Zum Fortsetzen warten oder den Scan abbrechen." : _petScan?.IsReadingFile == true ? "Bild wird noch gelesen. Bitte warten, bevor du fortfährst." : "Beim Fortsetzen wird der laufende Scan beendet. Ohne markierte Ergebnisse kannst du diesen Schritt ausdrücklich überspringen.")</p>
-            }
-            else
-            {
-                @if (_stage == SetupStage.Overview)
-                {
-                    <p class="sv-lead">@UiText.T("Fünf kurze Schritte, dann findet Soulcrest dich auf der Karte und kennt deine Pets und Erkundung.")</p>
-                }
-                else
-                {
-                    <p class="sv-lead">@UiText.T("Schritt 5 von 5 · Erkundungsfortschritt für diesen Charakter einrichten.")</p>
-                    @if (_petSummary is not null) { <p class="status" role="status">@_petSummary</p> }
-                }
-                <ol class="tutorial-steps" start="@(_stage == SetupStage.Exploration ? 5 : 1)">
-                    @if (_stage == SetupStage.Overview)
+            <h2 id="tutorial-title">@UiText.T("Willkommen bei Soulcrest")</h2>
+            <p class="sv-lead">@UiText.T("Minimap einrichten und Profil wählen. Pets und Erkundung werden passiv über das Netzwerk erkannt.")</p>
+            <ol class="tutorial-steps">
+                <li>
+                    <b>@UiText.T("Minimap bei Bedarf vergrößern")</b>
+                    <p class="sv-hint">@UiText.T("Im Spiel das Menü öffnen, „Edit HUD“ wählen und die Minimap an der Ecke etwas größer ziehen. Eine größere Minimap macht das Tracking sicherer.")</p>
+                </li>
+                <li><b>@UiText.T("Minimap markieren")</b><MapRegionPicker /></li>
+                <li>
+                    <b>@UiText.T("Deine Fraktion")</b>
+                    <p class="sv-hint">@UiText.T("Die Wachen an den Kibelisken töten Spieler der anderen Fraktion mit einem Schlag. Soulcrest zeigt um sie eine rote Gefahrenzone auf der Karte, die für dich gefährlich ist.")</p>
+                    <div class="row faction-choice" role="group" aria-label="@UiText.T("Deine Fraktion")">
+                        <button type="button" class="btn @(Settings.Current.Faction == Factions.Elyos ? "primary" : "")" aria-pressed="@(Settings.Current.Faction == Factions.Elyos)" @onclick="@(() => Factions.Choose(Settings, Factions.Elyos))">Elyos</button>
+                        <button type="button" class="btn @(Settings.Current.Faction == Factions.Asmodian ? "primary" : "")" aria-pressed="@(Settings.Current.Faction == Factions.Asmodian)" @onclick="@(() => Factions.Choose(Settings, Factions.Asmodian))">@UiText.T("Asmodier")</button>
+                    </div>
+                    <p class="sv-hint" role="status">@UiText.T(Settings.Current.Faction switch
                     {
-                        <li>
-                            <b>@UiText.T("Minimap bei Bedarf vergrößern")</b>
-                            <p class="sv-hint">@UiText.T("Im Spiel das Menü öffnen, „Edit HUD“ wählen und die Minimap an der Ecke etwas größer ziehen. Eine größere Minimap macht das Tracking sicherer.")</p>
-                        </li>
-                        <li>
-                            <b>@UiText.T("Minimap markieren")</b>
-                            <MapRegionPicker />
-                        </li>
-                        <li>
-                            <b>@UiText.T("Deine Fraktion")</b>
-                            <p class="sv-hint">@UiText.T("Die Wachen an den Kibelisken töten Spieler der anderen Fraktion mit einem Schlag. Soulcrest zeigt um sie eine rote Gefahrenzone auf der Karte, die für dich gefährlich ist.")</p>
-                            <div class="row faction-choice" role="group" aria-label="@UiText.T("Deine Fraktion")">
-                                <button type="button" class="btn @(Settings.Current.Faction == Factions.Elyos ? "primary" : "")" aria-pressed="@(Settings.Current.Faction == Factions.Elyos)"
-                                        @onclick="@(() => Factions.Choose(Settings, Factions.Elyos))">Elyos</button>
-                                <button type="button" class="btn @(Settings.Current.Faction == Factions.Asmodian ? "primary" : "")" aria-pressed="@(Settings.Current.Faction == Factions.Asmodian)"
-                                        @onclick="@(() => Factions.Choose(Settings, Factions.Asmodian))">@UiText.T("Asmodier")</button>
-                            </div>
-                            <p class="sv-hint" role="status">@UiText.T(Settings.Current.Faction switch
-                            {
-                                Factions.Elyos => "Gefahrenzonen auf Altgard sind an.",
-                                Factions.Asmodian => "Gefahrenzonen auf Verteron sind an.",
-                                _ => "Ohne Auswahl bleiben die Gefahrenzonen aus (änderbar unter Optionen → Overlays).",
-                            })</p>
-                        </li>
-                        <li>
-                            <b>@UiText.T("Pet-Fortschritt einlesen")</b>
-                            <p class="sv-hint">@UiText.T("Soulcrest liest deinen Stand aus dem Pet-Fenster im Spiel: Pet-Fenster öffnen (Reiter ALL), Scan starten, langsam durchscrollen, danach prüfen und übernehmen. Später jederzeit im Reiter „Pet Scan“.")</p>
-                            <div class="row"><button type="button" class="btn" @onclick="OpenPetScan">@UiText.T("Pet-Scan im Setup öffnen")</button></div>
-                        </li>
-                    }
-                    <li>
-                        <b>@UiText.T("Erkundung: Kibelisks, Sealed Dungeons, Strongholds")</b>
-                        <p class="sv-hint">@UiText.F("Hast du mit diesem Charakter ({0}) schon alles zu 100 % erkundet? Dann ist kein Scan nötig.", ActiveCharacter)</p>
-                        <div class="row">
-                            <button type="button" class="btn" @onclick="MarkAllExplored" disabled="@(_explorationUndo is not null)">@UiText.T("Ja, alles erkundet")</button>
-                            <button type="button" class="btn" @onclick="OpenExplorationScan">@UiText.T("Nein – zum Erkundungs-Scan")</button>
-                            @if (_explorationUndo is not null)
-                            {
-                                <button type="button" class="btn" @onclick="UndoAllExplored">@UiText.T("Rückgängig")</button>
-                            }
-                        </div>
-                        @if (_explorationStatus is not null) { <p class="sv-hint" role="status">@_explorationStatus</p> }
-                    </li>
-                </ol>
-                <div class="row tutorial-actions">
-                    @if (_stage == SetupStage.Exploration)
-                    {
-                        <button type="button" class="btn" @onclick="BackToOverview">@UiText.T("Zurück zur Einrichtung")</button>
-                        <button type="button" class="btn" @onclick="OpenPetScan">@UiText.T("Zurück zum Pet-Scan")</button>
-                    }
-                    <button type="button" class="btn" @onclick="Close">@UiText.T("Überspringen")</button>
-                    <button type="button" class="btn primary" @onclick="Close">@UiText.T("Fertig")</button>
-                </div>
-                <p class="sv-hint">@UiText.T("Der Bereich lässt sich später unter Optionen ändern; dort startet „Setup starten“ dieses Setup erneut.")</p>
-            }
+                        Factions.Elyos => "Gefahrenzonen auf Altgard sind an.",
+                        Factions.Asmodian => "Gefahrenzonen auf Verteron sind an.",
+                        _ => "Ohne Auswahl bleiben die Gefahrenzonen aus (änderbar unter Optionen → Overlays).",
+                    })</p>
+                </li>
+                <li>
+                    <b>@UiText.T("Charakterprofil und Netzwerkfortschritt")</b>
+                    <CharacterPicker />
+                    <NetworkProgressStatus />
+                    <p class="sv-hint">@UiText.T("Dungeon- und Garnisonsfortschritt unterscheidet unentdeckt, entdeckt und offen sowie entdeckt und erledigt. Ohne verlässliche Bestätigung bleibt der Zustand unbestätigt.")</p>
+                </li>
+            </ol>
+            <div class="row tutorial-actions">
+                <button type="button" class="btn" @onclick="OpenExploration">@UiText.T("Erkundungsfortschritt öffnen")</button>
+                <button type="button" class="btn primary" @onclick="Close">@UiText.T("Fertig")</button>
+            </div>
+            <p class="sv-hint">@UiText.T("Der Bereich lässt sich später unter Optionen ändern; dort startet „Setup starten“ dieses Setup erneut.")</p>
         </div>
     </div>
 </div>
 
 @code {
-    private enum SetupStage { Overview, PetScan, Exploration }
-    private SetupStage _stage;
     private ElementReference _video;
-    private PetScanView? _petScan;
-    private bool _advancing, _disposed, _playVideo = true;
-    private string? _petFeedback, _petSummary;
-    private bool TransitionBlocked => _advancing || Scan.Starting || Scan.Stopping || _petScan?.IsReadingFile == true;
-
-    protected override void OnInitialized() => Scan.Changed += ScanChanged;
-    private void ScanChanged() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
-    private void ScanBusyChanged(bool busy) { if (!_disposed) StateHasChanged(); }
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_stage == SetupStage.Overview && _playVideo)
-        {
-            _playVideo = false;
-            await JS.InvokeAsync<bool>("soulcrestUi.playMuted", _video);
-        }
+        if (firstRender) await JS.InvokeAsync<bool>("soulcrestUi.playMuted", _video);
     }
-
-    private string[]? _explorationUndo;
-    private string? _explorationCharacter, _explorationStatus;
-    private string ActiveCharacter => Exploration.Characters.FirstOrDefault(c => c.Id == Exploration.ActiveId).Name ?? "";
-
-    private void MarkAllExplored()
-    {
-        var profile = Exploration.Snapshot();
-        _explorationCharacter = profile.CharacterId;
-        var done = profile.Completed;
-        _explorationUndo = Exploration.Places.Select(p => p.Id).Where(id => !done.Contains(id)).ToArray();
-        Exploration.SetDone(_explorationCharacter, _explorationUndo);
-        _explorationStatus = UiText.F("{0} Orte für {1} als erkundet abgehakt.", Exploration.Places.Count, ActiveCharacter);
-    }
-
-    private void UndoAllExplored()
-    {
-        if (_explorationUndo is null || _explorationCharacter is null) return;
-        Exploration.SetDone(_explorationCharacter, _explorationUndo, done: false);
-        _explorationUndo = null;
-        _explorationCharacter = null;
-        _explorationStatus = UiText.T("Zurückgenommen.");
-    }
-
-    private void OpenExplorationScan()
-    {
-        if (_advancing || _stage == SetupStage.PetScan) return;
-        Close();
-        Ui.Navigate("exploration");
-    }
-
-    private void OpenPetScan()
-    {
-        if (_advancing) return;
-        _petFeedback = null;
-        _stage = SetupStage.PetScan;
-    }
-
-    private async Task ContinueFromPetScan()
-    {
-        if (_stage != SetupStage.PetScan || TransitionBlocked) return;
-        _advancing = true;
-        _petFeedback = null;
-        StateHasChanged();
-        try
-        {
-            await Scan.StopAsync();
-            if (Scan.StatusIsError || _petScan?.HasError == true)
-            {
-                _petFeedback = UiText.T("Der Pet-Scan meldet einen Fehler. Bitte prüfen und erneut scannen oder diesen Schritt ausdrücklich überspringen.");
-                return;
-            }
-            var entries = Scan.Entries;
-            if (!entries.Any(entry => entry.Apply && entry.PetId is not null && entry.Reading is not null))
-            {
-                _petFeedback = UiText.T(entries.Count == 0 ? "Noch keine Pets gelesen. Scan starten, ein Bild einlesen oder diesen Schritt überspringen." : "Keine übernehmbaren Pets markiert. Ergebnisse prüfen und markieren oder diesen Schritt überspringen.");
-                return;
-            }
-            var count = Scan.ApplySelected();
-            _petSummary = UiText.F("{0} markierte Pets übernommen. Jetzt die Erkundung einrichten.", count);
-            _stage = SetupStage.Exploration;
-        }
-        catch (Exception exception)
-        {
-            _petFeedback = UiText.T("Ergebnisse konnten nicht übernommen werden: ") + exception.Message;
-        }
-        finally { _advancing = false; }
-    }
-
-    private Task SkipPetScan() => LeavePetScan(SetupStage.Exploration);
-    private Task BackToOverview() => LeavePetScan(SetupStage.Overview);
-    private async Task LeavePetScan(SetupStage next)
-    {
-        if (TransitionBlocked) return;
-        _advancing = true;
-        StateHasChanged();
-        try
-        {
-            if (_stage == SetupStage.PetScan) await Scan.StopAsync();
-            _petFeedback = null;
-            if (next == SetupStage.Exploration) _petSummary = UiText.T("Pet-Scan übersprungen. Deine bisherigen Ergebnisse bleiben im Reiter Pet Scan erhalten.");
-            _stage = next;
-            if (next == SetupStage.Overview) _playVideo = true;
-        }
-        finally { _advancing = false; }
-    }
-
+    private void OpenExploration() { Close(); Ui.Navigate("exploration"); }
     private void Close()
     {
-        if (_advancing || _stage == SetupStage.PetScan) return;
         if (!Settings.Current.TutorialDone) Settings.Update(s => s.TutorialDone = true);
         Ui.CloseTutorial();
-    }
-
-    public void Dispose()
-    {
-        _disposed = true;
-        Scan.Changed -= ScanChanged;
     }
 }

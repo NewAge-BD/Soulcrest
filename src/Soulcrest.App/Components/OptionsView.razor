@@ -15,7 +15,6 @@
         </div>
         <p class="sv-lead">@UiText.T("Änderungen werden sofort gespeichert.")</p>
     </header>
-    <OcrLanguageSetup />
 
     <section class="card sv-card">
         <h3>@UiText.T("Windows-Aufnahmerand")</h3>
@@ -118,8 +117,7 @@
         </select>
         <p class="sv-hint">@UiText.T("Namen im Loot-Overlay sind unabhängig von der Oberfläche. Automatisch nutzt die erkannte oder gewählte Spielsprache; bis dahin die Namenssprache. Fehlende deutsche Namen bleiben Englisch.")</p>
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowRoutesInGame" @onchange="@(e => Settings.Update(s => s.ShowRoutesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Linien zu Zielen")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
-        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowPetsInGame" @onchange="@(e => Settings.Update(s => s.ShowPetsInGame = (bool)e.Value!))" /><span><b>@UiText.T("Pet-Symbole mit Stand")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
-        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowResourcesInGame" @onchange="@(e => Settings.Update(s => s.ShowResourcesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Ressourcen und Versteckte Kuben")</b><small>@UiText.T("auf Minimap und Vollbildkarte – die in der Legende der Karte eingeblendeten")</small></span></label>
+        <p class="sv-hint" id="map-layers-legend-hint">@UiText.T("Kartensymbole wählst du im Karten-Tab in der Legende getrennt für interaktive Karte, Minimap und Weltkarte.")</p>
         <div class="opt-toggle opt-guards">
             <span>
                 <b>@UiText.T("Gefahrenzonen der Wachen")</b>

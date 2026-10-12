@@ -23,7 +23,7 @@ public sealed class QuestMonsterTests
         {
             Assert.True(t.QuestMonster); Assert.False(t.Leveling); Assert.Null(t.RouteId);
             Assert.Equal("#ffffff", t.Color); Assert.Equal("icons/monster.png", t.Icon);
-            Assert.Null(t.After); Assert.Null(t.StopIndex); Assert.Null(t.ExplorationId);
+            Assert.Null(t.After); Assert.Null(t.StopIndex);
         });
         Assert.Equal(2, result.Count(t => t.Name.Contains("Searcher · ×6", StringComparison.Ordinal)));
         Assert.Contains(result, t => t.Name == "Totem · ×1");

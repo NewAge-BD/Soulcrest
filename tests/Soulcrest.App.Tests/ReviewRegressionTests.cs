@@ -18,19 +18,6 @@ public sealed class ReviewRegressionTests
         Assert.Empty(Directory.GetFiles(AppPaths.DataDirectory, "settings.json.*.tmp"));
     }
 
-    [Fact]
-    public void SnapshotDoesNotShareVotesOrPortraitBytes()
-    {
-        var entry = new ScanEntry { Key = "test", ThumbnailDataUrl = "", PortraitPng = [1, 2] };
-        entry.Votes[(1, 2)] = 1;
-        var copy = entry.Snapshot();
-        entry.Votes[(2, 3)] = 2;
-        entry.PortraitPng[0] = 9;
-        copy.Apply = false;
-        Assert.Equal((1, 2), copy.Reading);
-        Assert.Equal(1, copy.PortraitPng[0]);
-        Assert.True(entry.Apply);
-    }
 
     [Fact]
     public void BatchLevelsPersistsAllPetsWithOneNotification()

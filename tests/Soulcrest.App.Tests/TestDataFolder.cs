@@ -1,5 +1,9 @@
 using System.Runtime.CompilerServices;
 
+// Tests share process-wide environment, UI language and a redirected data folder.
+// Run them serially so one fixture cannot replace another fixture's profile/map context.
+[assembly: Xunit.CollectionBehavior(DisableTestParallelization = true)]
+
 namespace Soulcrest.App.Tests;
 
 /// <summary>

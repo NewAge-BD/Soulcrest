@@ -1,4 +1,9 @@
+using System.Reflection;
+using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Soulcrest.App.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -54,9 +59,9 @@ public sealed class BossRushViewTests
                 sp.GetRequiredService<NetworkLootService>(), clock, Path.Combine(folder, "boss-timers.json")));
             services.AddSingleton(sp => new AlertsService(Path.Combine(folder, "alerts.json"), clock, runTimer: false, bosses: sp.GetRequiredService<BossRushService>(), settings: sp.GetRequiredService<SettingsService>()));
             services.AddSingleton(new ExplorationService(Path.Combine(folder, "exploration.json"), []));
-            services.AddSingleton<ExplorationScanService>();
             services.AddSingleton<UiState>();
-            services.AddSingleton<IJSRuntime, NoJs>();
+            var js = new NoJs();
+            services.AddSingleton<IJSRuntime>(js);
             await using var provider = services.BuildServiceProvider();
             var settings = provider.GetRequiredService<SettingsService>();
             settings.Current.UiLanguage = settings.Current.NameLanguage = UiText.Language = language;
@@ -88,7 +93,23 @@ public sealed class BossRushViewTests
             var markup = await renderer.Dispatcher.InvokeAsync(bossRoot.ToHtmlString);
             var html = System.Net.WebUtility.HtmlDecode(markup);
             Assert.Contains("Boss Rush Mode", html);
+            Assert.Contains("boss-dashboard-columns", html);
+            Assert.Contains("<dl class=\"boss-dashboard-summary\">", html);
+            Assert.Matches("boss-dashboard-stat spawned[\\s\\S]*?<dd>2</dd>", html);
+            Assert.Matches("boss-dashboard-stat upcoming[\\s\\S]*?<dd>1</dd>", html);
+            Assert.DoesNotContain("open", Element(markup, "details", "boss-loot-catalog"));
+            Assert.Contains("<summary class=\"boss-loot-header\">", html);
+            Assert.Contains("id=\"boss-loot-map\"", html);
+            Assert.Contains("id=\"boss-loot-search\"", html);
+            Assert.Contains("boss-overlay-help", html);
+            Assert.Contains("boss-alert-help", html);
+            Assert.DoesNotContain("boss-quick-stats", html);
             Assert.Contains("boss-timer-card", html);
+            Assert.Contains("event-boss-live boss-timers-compact", html);
+            Assert.Equal(3, Regex.Matches(html, "class=\"boss-timer-overview\"").Count);
+            var compactOptions = Regex.Matches(html, "<details class=\"boss-timer-options\"[^>]*>");
+            Assert.Equal(3, compactOptions.Count);
+            Assert.All(compactOptions.Cast<Match>(), option => Assert.DoesNotContain("open", option.Value));
             Assert.Contains("data-boss=\"1110:111003\" data-selected=\"false\"", html);
             Assert.Contains(language == "de" ? "Für Erinnerungen auswählen" : "Select for reminders", html);
             Assert.DoesNotContain("boss-upcoming-schedule", html);
@@ -101,8 +122,20 @@ public sealed class BossRushViewTests
             Assert.DoesNotContain(language == "de" ? "Overlay sperren" : "Lock overlay", html);
             Assert.DoesNotContain("<kbd>L</kbd>", html);
             Assert.Contains("min=\"1\" max=\"12\"", html);
+            MapView? mapView = null;
             var mapRoot = await renderer.Dispatcher.InvokeAsync(async () =>
-                await renderer.RenderComponentAsync<Soulcrest.App.Components.MapView>());
+                await renderer.RenderComponentAsync<MapHost>(ParameterView.FromDictionary(new Dictionary<string, object?>
+                {
+                    [nameof(MapHost.Capture)] = (Action<MapView>)(view => mapView = view),
+                })));
+            Assert.NotNull(mapView);
+            await ShowMap(renderer, mapView);
+            AssertBossTimerPayload(js, "altgard", rush.Schedule);
+            typeof(MapView).GetField("_mapId", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(mapView, "verteron");
+            await ShowMap(renderer, mapView);
+            AssertBossTimerPayload(js, "verteron", []);
+            typeof(MapView).GetField("_mapId", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(mapView, "altgard");
+            await ShowMap(renderer, mapView);
             var mapMarkup = await renderer.Dispatcher.InvokeAsync(mapRoot.ToHtmlString);
             Assert.Contains("boss-rush-tile", mapMarkup);
             Assert.Contains("checked", Element(mapMarkup, "input", "boss-rush-toggle"));
@@ -127,6 +160,8 @@ public sealed class BossRushViewTests
             Assert.Contains(language == "de" ? "Aktivierte Boss-Alerts bleiben eingeschaltet." : "Enabled boss alerts stay on.", pausedHtml);
             Assert.Contains(language == "de" ? "auch bei ausgeschaltetem Boss Rush Mode" : "also work with Boss Rush Mode off", pausedHtml);
             Assert.True(settings.Current.BossOverlayEnabled);
+            await ShowMap(renderer, mapView);
+            AssertBossTimerPayload(js, "altgard", rush.Schedule); // Guidance off retains the known schedule on the map.
             Assert.False(provider.GetRequiredService<TrackerService>().Running); // no capture is started by rendering/settings updates
             rush.PreviewAlert();
             Assert.Single(rush.Alerts); // preview remains available while navigation is off
@@ -188,6 +223,9 @@ public sealed class BossRushViewTests
             var cachedMarkup = System.Net.WebUtility.HtmlDecode(await renderer.Dispatcher.InvokeAsync(async () =>
                 (await renderer.RenderComponentAsync<Soulcrest.App.Components.BossRushView>()).ToHtmlString()));
             Assert.Contains(language == "de" ? "Gespeicherter Stand" : "Saved schedule", cachedMarkup);
+            await ShowMap(renderer, mapView);
+            AssertBossTimerPayload(js, "altgard", rush.Schedule);
+            Assert.All(rush.Schedule, row => { Assert.True(row.Cached); Assert.True(row.Age.TotalSeconds >= 16); });
             ExportPreview("cached", language, cachedMarkup);
             using var restarted = new BossRushService(provider.GetRequiredService<ProgressService>(), settings, targets,
                 provider.GetRequiredService<NetworkLootService>(), clock, Path.Combine(folder, "boss-timers.json"));
@@ -207,6 +245,26 @@ public sealed class BossRushViewTests
         }
     }
 
+    private static Task ShowMap(HtmlRenderer renderer, MapView view) => renderer.Dispatcher.InvokeAsync(async () =>
+        await (Task)typeof(MapView).GetMethod("ShowMap", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(view, [null])!);
+
+    private static void AssertBossTimerPayload(NoJs js, string map, IReadOnlyList<BossRushEntry> expected)
+    {
+        var call = js.Calls.Last(call => call.Name == "soulcrestMap.setBossTimers");
+        Assert.Equal(map, call.Arguments[0]);
+        using var document = JsonDocument.Parse(Assert.IsType<string>(call.Arguments[1]));
+        var rows = document.RootElement.EnumerateArray().OrderBy(row => row.GetProperty("spawnId").GetInt32()).ToArray();
+        Assert.Equal(expected.Count, rows.Length);
+        foreach (var (actual, entry) in rows.Zip(expected.OrderBy(row => row.Place.Boss.SpawnId)))
+        {
+            Assert.Equal(entry.Place.Boss.SpawnId, actual.GetProperty("spawnId").GetInt32());
+            Assert.Equal(entry.Spawned, actual.GetProperty("spawned").GetBoolean());
+            Assert.Equal(entry.Remaining.TotalSeconds, actual.GetProperty("remaining").GetDouble());
+            Assert.Equal(entry.Age.TotalSeconds, actual.GetProperty("age").GetDouble());
+            Assert.Equal(entry.Cached, actual.GetProperty("cached").GetBoolean());
+        }
+    }
+
     private static string Element(string markup, string tag, string id)
     {
         var match = Regex.Match(markup, "<" + tag + "\\b[^>]*\\bid=\"" + id + "\"[^>]*>");
@@ -220,7 +278,7 @@ public sealed class BossRushViewTests
         Directory.CreateDirectory(output);
         var name = state == "map" ? "boss-map" : state is null ? "boss-rush" : "boss-rush-" + state;
         File.WriteAllText(Path.Combine(output, name + "-" + language + ".html"),
-            "<!doctype html><html><head><meta charset=\"utf-8\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/lib/leaflet/leaflet.css\"><link rel=\"stylesheet\" href=\"/css/alerts.css\"><link rel=\"stylesheet\" href=\"/css/boss-timers.css\"></head><body>" + markup + "</body></html>");
+            "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/lib/leaflet/leaflet.css\"><link rel=\"stylesheet\" href=\"/css/alerts.css\"><link rel=\"stylesheet\" href=\"/css/boss-timers.css\"><link rel=\"stylesheet\" href=\"/css/boss-rush.css\"></head><body>" + markup + "</body></html>");
     }
 
     private sealed class ManualTime : TimeProvider
@@ -232,9 +290,27 @@ public sealed class BossRushViewTests
         public void Advance(long ms) => _stamp += ms;
     }
 
+    private sealed class MapHost : ComponentBase
+    {
+        [Parameter] public Action<MapView> Capture { get; set; } = default!;
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MapView>(0);
+            builder.AddComponentReferenceCapture(1, value => Capture((MapView)value));
+            builder.CloseComponent();
+        }
+    }
+
     private sealed class NoJs : IJSRuntime
     {
-        public ValueTask<T> InvokeAsync<T>(string identifier, object?[]? args) => ValueTask.FromResult(default(T)!);
-        public ValueTask<T> InvokeAsync<T>(string identifier, CancellationToken cancellationToken, object?[]? args) => ValueTask.FromResult(default(T)!);
+        public List<(string Name, object?[] Arguments)> Calls { get; } = [];
+        public ValueTask<T> InvokeAsync<T>(string identifier, object?[]? args)
+        {
+            Calls.Add((identifier, args ?? []));
+            if (typeof(T) == typeof(string))
+                return ValueTask.FromResult((T)(object)(identifier == "soulcrestMap.show" ? """{"groups":[],"regions":0,"markers":0}""" : "[]"));
+            return ValueTask.FromResult(default(T)!);
+        }
+        public ValueTask<T> InvokeAsync<T>(string identifier, CancellationToken cancellationToken, object?[]? args) => InvokeAsync<T>(identifier, args);
     }
 }

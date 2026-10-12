@@ -155,7 +155,7 @@ class CuratedLevelingBundleTests(unittest.TestCase):
         self.assertEqual([(r["id"], r["episode"]["faction"], r["episode"]["number"], len(r["stops"])) for r in routes], expected)
         stops = [s for r in routes for s in r["stops"]]
         self.assertEqual(len(stops), 867)
-        self.assertEqual(sum(not s["title"] for s in stops), 409)
+        self.assertEqual(sum(not s["title"] for s in stops), 354)
         self.assertEqual(sum(s["title"] == "Empyrean Monolith" for s in stops), 6)
         self.assertFalse(any("empyrean trace" in (s["title"] + " " + s["kind"]).casefold() for s in stops))
         self.assertTrue(all(r["category"] == "Leveling Routes" for r in routes))

@@ -25,8 +25,8 @@ public sealed class ExplorationOverviewTests
     private static ExplorationTrackingSnapshot Tracking(string map = "altgard", bool worldMap = false) =>
         new(true, true, false, worldMap, false, false, new(map, 100, 100, Now), new(map, worldMap, Now));
     private static ExplorationMapSelection Select(ExplorationTrackingSnapshot tracking, string? previous = "altgard",
-        string? fallback = "verteron", string? pinned = null, bool scanning = false, string? scanMap = null) =>
-        ExplorationOverview.SelectMap(Maps, previous, fallback, pinned, scanning, scanMap, tracking, Now);
+        string? fallback = "verteron", string? pinned = null) =>
+        ExplorationOverview.SelectMap(Maps, previous, fallback, pinned, tracking, Now);
     private static ExplorationOverviewSnapshot Overview(IReadOnlySet<string>? done = null, PlayerPosition? position = null,
         string search = "", string kind = "all", string status = "all") =>
         ExplorationOverview.Build(Places, done ?? new HashSet<string>(), "altgard", "en", position, search, kind, status);
@@ -54,21 +54,9 @@ public sealed class ExplorationOverviewTests
     }
 
     [Fact]
-    public void RunningScanKeepsItsMapAheadOfPinAndDetection()
+    public void UnknownPinCannotDisplaceAValidDetectedMap()
     {
-        var tracking = Tracking("elthen");
-        var scanning = Select(tracking, pinned: "altgard", scanning: true, scanMap: "verteron");
-        Assert.Equal("verteron", scanning.MapId);
-        Assert.Equal("scan", scanning.Source);
-        var stopped = Select(tracking, pinned: "altgard", scanning: false, scanMap: "verteron");
-        Assert.Equal("altgard", stopped.MapId);
-        Assert.Equal("pinned", stopped.Source);
-    }
-
-    [Fact]
-    public void UnknownScanMapOrPinCannotDisplaceAValidDetectedMap()
-    {
-        var selected = Select(Tracking("verteron"), pinned: "missing", scanning: true, scanMap: "missing");
+        var selected = Select(Tracking("verteron"), pinned: "missing");
         Assert.Equal("verteron", selected.MapId);
         Assert.Equal("detected", selected.Source);
     }
@@ -139,7 +127,7 @@ public sealed class ExplorationOverviewTests
         Assert.Equal("altgard", Select(tracking, previous: null, fallback: "unknown").MapId);
         Assert.Equal("previous", Select(tracking).Source);
         Assert.Equal("altgard", Select(tracking with { DetectedMap = null, Position = Tracking("verteron").Position }).MapId);
-        Assert.Equal("", ExplorationOverview.SelectMap([], null, null, null, false, null, tracking, Now).MapId);
+        Assert.Equal("", ExplorationOverview.SelectMap([], null, null, null, tracking, Now).MapId);
     }
 
     [Fact]

@@ -16,19 +16,21 @@ public static class SmokeTest
     public static string Describe() =>
         $"ui={UiRendered} map={MapShown} capture={Capture} opencv={OpenCv} error={Error ?? "-"}";
 
-    /// <summary>Loads the native OpenCV library and runs SIFT once (pet window scan), as a single-file build must.</summary>
+    /// <summary>Loads the native OpenCV library and checks image matching once (map tracking), as a single-file build must.</summary>
     public static bool CheckOpenCv()
     {
         try
         {
-            using var matcher = new Soulcrest.Ocr.PetWindow.PortraitMatcher();
             using var image = new OpenCvSharp.Mat(96, 96, OpenCvSharp.MatType.CV_8UC3, OpenCvSharp.Scalar.All(40));
             OpenCvSharp.Cv2.Circle(image, new OpenCvSharp.Point(48, 48), 30, OpenCvSharp.Scalar.White, 3);
             OpenCvSharp.Cv2.Rectangle(image, new OpenCvSharp.Rect(20, 20, 25, 18), OpenCvSharp.Scalar.All(200), -1);
-            matcher.AddReference("probe", image);
-            var match = matcher.Match(image);
-            OpenCv = match.PetId == "probe" ? $"ok ({match.Score})" : "FEHLER: kein Treffer";
-            return match.PetId == "probe";
+            using var gray = new OpenCvSharp.Mat();
+            using var result = new OpenCvSharp.Mat();
+            OpenCvSharp.Cv2.CvtColor(image, gray, OpenCvSharp.ColorConversionCodes.BGR2GRAY);
+            OpenCvSharp.Cv2.MatchTemplate(gray, gray, result, OpenCvSharp.TemplateMatchModes.CCoeffNormed);
+            OpenCvSharp.Cv2.MinMaxLoc(result, out double _, out double score);
+            OpenCv = score > 0.99 ? $"ok ({score:0.000})" : "FEHLER: kein Treffer";
+            return score > 0.99;
         }
         catch (Exception exception)
         {

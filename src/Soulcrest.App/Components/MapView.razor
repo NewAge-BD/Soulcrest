@@ -7,7 +7,7 @@
 @inject MapTargetsService Targets
 @inject TrackerService Loot
 @inject ExplorationService Exploration
-@inject ExplorationScanService ExplorationScan
+@inject IServiceProvider Services
 
 @* Layers on the left, everything else on the right; both fold away (user request 2026-10-06). *@
 <div class="mapview @(_sideCollapsed ? "left-collapsed" : "") @(_rightCollapsed ? "right-collapsed" : "")">
@@ -52,15 +52,17 @@
 
         <h3 class="layers-head"><span>@UiText.T("Ebenen")</span> <small>@_markerCount Marker</small>
             <InfoTip>@UiText.T("Monster-Ebenen sind anfangs ausgeblendet. Ein Pet aus der Pet-Liste („Karte“) hebt seine Spawns und Quellmonster hervor.")</InfoTip></h3>
+        <div class="legend-surfaces" aria-hidden="true"><span>@UiText.T("Anzeigen auf")</span><abbr title="@UiText.T("Minimap")">@UiText.T("Minimap")</abbr><abbr title="@UiText.T("Interaktive Karte")">@UiText.T("Karte")</abbr><abbr title="@UiText.T("Worldmap")">@UiText.T("Worldmap")</abbr></div>
         <div class="layers">
             @foreach (var group in _groups)
             {
                 <div class="group">
-                    <div class="group-head" title="@group.Name" @onclick="@(() => ToggleGroupOpen(group.Name))">
-                        <span class="caret">@(_open.Contains(group.Name) ? "▾" : "▸")</span>
-                        <input type="checkbox" title="@UiText.T("Alle Ebenen der Gruppe ein- oder ausblenden")" checked="@group.Categories.All(c => _visible.Contains(c.Index))" @onclick:stopPropagation="true" @onchange="@(e => SetGroup(group, (bool)e.Value!))" />
-                        <span class="name">@group.Name</span>
-                        <span class="count">@group.Categories.Sum(c => c.Count)</span>
+                    <div class="group-head legend-row">
+                        <button type="button" class="legend-name" aria-expanded="@_open.Contains(group.Name)" @onclick="@(() => ToggleGroupOpen(group.Name))"><span class="caret">@(_open.Contains(group.Name) ? "▾" : "▸")</span><span class="name">@group.Name</span><span class="count">@group.Categories.Sum(c => c.Count)</span></button>
+                        @foreach (var surface in LegendSurfaces)
+                        {
+                            <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", group.Name, SurfaceLabel(surface))" checked="@group.Categories.All(c => CategoryVisible(group, c, surface))" @onchange="@(e => SetSurfaceGroup(group, surface, (bool)e.Value!))" /></label>
+                        }
                     </div>
                     @if (group.Name == "Pets")
                     {
@@ -79,29 +81,26 @@
                         <div class="cats">
                             @foreach (var cat in group.Categories)
                             {
-                                <div class="cat @(_visible.Contains(cat.Index) ? "" : "off")" title="@CategoryLabel(cat)" @onclick="@(() => SetCategory(cat.Index, !_visible.Contains(cat.Index)))">
-                                    @if (cat.Icon is not null)
+                                <div class="cat legend-row" title="@CategoryLabel(cat)">
+                                    <div class="legend-name">
+                                        @if (cat.Icon is not null) { <img src="@cat.Icon" alt="" /> }
+                                        else { <span class="dot" style="background:@cat.Color"></span> }
+                                        <span class="label">@CategoryLabel(cat)</span><span class="count">@cat.Count</span>
+                                    </div>
+                                    @foreach (var surface in LegendSurfaces)
                                     {
-                                        <img src="@cat.Icon" alt="" />
+                                        <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", CategoryLabel(cat), SurfaceLabel(surface))" checked="@CategoryVisible(group, cat, surface)" @onchange="@(e => SetSurfaceCategory(group, cat, surface, (bool)e.Value!))" /></label>
                                     }
-                                    else
-                                    {
-                                        <span class="dot" style="background:@cat.Color"></span>
-                                    }
-                                    <span class="label">@CategoryLabel(cat)</span>
-                                    <span class="count">@cat.Count</span>
                                 </div>
                                 @foreach (var kind in cat.Kinds ?? [])
                                 {
-                                    var key = KindKey(group, cat, kind.Name);
                                     var label = Settings.Current.NameLanguage == "de" ? kind.De ?? kind.Name : kind.Name;
-                                    <div class="cat kind @(_visible.Contains(cat.Index) && !_hiddenKinds.Contains(key) ? "" : "off")" title="@label" @onclick="@(() => SetKind(group, cat, kind.Name, _hiddenKinds.Contains(key) || !_visible.Contains(cat.Index)))">
-                                        @if (kind.Icon is not null)
+                                    <div class="cat kind legend-row" title="@label">
+                                        <div class="legend-name">@if (kind.Icon is not null) { <img src="@kind.Icon" alt="" /> }<span class="label">@label</span><span class="count">@kind.Count</span></div>
+                                        @foreach (var surface in LegendSurfaces)
                                         {
-                                            <img src="@kind.Icon" alt="" />
+                                            <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", label, SurfaceLabel(surface))" checked="@KindVisible(group, cat, kind.Name, surface)" @onchange="@(e => SetSurfaceKind(group, cat, kind.Name, surface, (bool)e.Value!))" /></label>
                                         }
-                                        <span class="label">@label</span>
-                                        <span class="count">@kind.Count</span>
                                     </div>
                                 }
                             }
@@ -211,8 +210,7 @@
                     <p>@UiText.T("Führt zum nächsten offenen Ziel auf dieser Karte. Ohne Spielerposition zählt die Kartenmitte.")</p>
                     <p>@UiText.T("Mehrere Ziele: Das nächstgelegene offene Ziel kommt zuerst.")</p>
                     <p>@UiText.T("Führt zum Pet, dem die wenigsten Souls zur vollen Stufe fehlen; bei Gleichstand zum nächstgelegenen.")</p>
-                    <p>@UiText.T("Bei Ankunft wird das Ziel für diesen Charakter abgeschlossen (Abschlussradius unter „Ziele“).")</p>
-                    <p>@UiText.T("Sealed Dungeons werden beim Betreten abgehakt, auch ohne Progressionsmodus: Nach einer Position im Abschlussradius muss eine Instanz folgen. Strongholds genügt der Radius.")</p>
+                    <p>@UiText.T("Die Wegführung verändert keinen Dungeon- oder Garnisonsfortschritt. Netzwerkdaten und manuelle Korrekturen werden in der Erkundungsübersicht verwaltet; unbestätigte Netzwerkzustände bleiben unbestätigt.")</p>
                 </InfoTip>
             </div>
             <div class="tile-field progression-kinds" role="group" aria-label="@UiText.T("Progressionsziele")">
@@ -242,10 +240,6 @@
             {
                 @if (Targets.Progression is { } next)
                 {
-                    @if (_explorationTarget is not null)
-                    {
-                        <button class="btn" @onclick="CompleteExplorationTarget">@UiText.T("Ziel als fertig markieren")</button>
-                    }
                     <div class="targetlist">
                         <div class="target"><span class="swatch" style="background:#fff"></span>
                             <span class="name" title="@next.Kind" @onclick="FlyToProgression">@UiText.T("Nächstes:") <b>@next.Name</b> <small>· @next.Kind</small></span>
@@ -269,7 +263,7 @@
             </div>
             <div class="route-character">
                 <label for="route-character-profile">@UiText.T("Charakter")</label>
-                <select id="route-character-profile" disabled="@ExplorationScan.Running" value="@Exploration.ActiveId" @onchange="@(e => Exploration.Select(e.Value!.ToString()!))">
+                <select id="route-character-profile" value="@Exploration.ActiveId" @onchange="@(e => Exploration.Select(e.Value!.ToString()!))">
                     @foreach (var character in Exploration.Characters)
                     {
                         <option value="@character.Id">@character.Name</option>
@@ -278,9 +272,9 @@
                 <details class="route-profile-tools">
                     <summary>@UiText.T("Profil verwalten")</summary>
                     <div class="route-profile-editor">
-                        <input type="text" autocomplete="off" spellcheck="false" maxlength="80" aria-label="@UiText.T("Charaktername / Server")" placeholder="@UiText.T("Charaktername / Server")" @bind="_characterName" disabled="@ExplorationScan.Running" />
-                        <button type="button" class="btn small" disabled="@(ExplorationScan.Running || string.IsNullOrWhiteSpace(_characterName))" @onclick="AddRouteCharacter">@UiText.T("Profil anlegen")</button>
-                        <button type="button" class="btn small" disabled="@(ExplorationScan.Running || string.IsNullOrWhiteSpace(_characterName))" @onclick="RenameRouteCharacter">@UiText.T("Umbenennen")</button>
+                        <input type="text" autocomplete="off" spellcheck="false" maxlength="80" aria-label="@UiText.T("Charaktername / Server")" placeholder="@UiText.T("Charaktername / Server")" @bind="_characterName" />
+                        <button type="button" class="btn small" disabled="@(string.IsNullOrWhiteSpace(_characterName))" @onclick="AddRouteCharacter">@UiText.T("Profil anlegen")</button>
+                        <button type="button" class="btn small" disabled="@(string.IsNullOrWhiteSpace(_characterName))" @onclick="RenameRouteCharacter">@UiText.T("Umbenennen")</button>
                     </div>
                 </details>
             </div>
@@ -451,7 +445,7 @@
                 <div class="route-status" role="status">@_routeStatus</div>
             }
             <details class="route-settings">
-                <summary>@UiText.T("Darstellung & Abschluss")</summary>
+                <summary>@UiText.T("Darstellung & Ankunft")</summary>
                 <div class="route-objective-legend" aria-label="@UiText.T("Farben nach Objective")">
                     <span><i style="background:#facc15"></i>@UiText.T("Hauptquest")</span>
                     <span><i style="background:#a78bfa"></i>Kibelisk / Teleport</span>
@@ -459,13 +453,13 @@
                     <span><i style="background:#4ade80"></i>@UiText.T("Regionalquest")</span>
                 </div>
                 <label class="tile-field route-radius">
-                    <span>@UiText.T("Abschlussradius (Kartenpixel)")</span>
-                    <input type="number" min="0" max="500" step="5" value="@Settings.Current.ExplorationCompletionRadius" @onchange="SetCompletionRadius" />
+                    <span>@UiText.T("Ankunftsradius (Kartenpixel)")</span>
+                    <input type="number" min="0" max="500" step="5" value="@Settings.Current.TargetArrivalRadius" @onchange="SetArrivalRadius" />
                 </label>
                 <InfoTip>
                     <p>@UiText.T("Leveling-Routen zeigen die letzten 3 Stationen verblasst und die nächsten 3 farbig.")</p>
                     <p>@UiText.T("Am Ende startet die nächste Episode automatisch.")</p>
-                    <p>@UiText.T("Bei Ankunft geht es automatisch weiter. 0 deaktiviert den automatischen Abschluss.")</p>
+                    <p>@UiText.T("Bei Ankunft an einem markierten Wegpunkt oder einer Leveling-Station geht es automatisch weiter. 0 deaktiviert das automatische Weiterschalten.")</p>
                     <p>@UiText.T("Shift+Rechtsklick hängt ein Ziel an die markierte Folge an.")</p>
                 </InfoTip>
             </details>
@@ -513,15 +507,27 @@
     {
         _maps.AddRange(Progress.Maps.Select(m => new MapDef(m.Id, m.Label, m.Group)));
         _mapId = _maps.Any(m => m.Id == Settings.Current.LastMap) ? Settings.Current.LastMap : _maps.First().Id;
+        _bossRush = Services.GetService(typeof(BossRushService)) as BossRushService;
+        if (_bossRush is not null) _bossRush.Changed += OnBossTimersChanged;
         Progress.Changed += OnProgressChanged;
         Exploration.Changed += OnExplorationChanged;
-        ExplorationScan.Changed += OnRouteScanChanged;
         Tracking.Changed += OnTrackingChanged;
         Targets.Changed += OnTargetsChanged;
         Loot.Changed += OnLootChanged;
         _language = Settings.Current.UiLanguage;
         _nameLanguage = Settings.Current.NameLanguage;
         Settings.Changed += OnSettingsChanged;
+    }
+
+    private BossRushService? _bossRush;
+    private void OnBossTimersChanged() => _ = InvokeAsync(async () => { if (_ready) await PushBossTimers(); });
+    private async Task PushBossTimers()
+    {
+        var rows = _bossRush?.Schedule.Where(row => row.Place.Map == _mapId).Select(row => new {
+            spawnId = row.Place.Boss.SpawnId, spawned = row.Spawned, remaining = row.Remaining.TotalSeconds,
+            age = row.Age.TotalSeconds, cached = row.Cached
+        }).ToArray();
+        await JS.InvokeVoidAsync("soulcrestMap.setBossTimers", _mapId, JsonSerializer.Serialize(rows ?? []));
     }
 
     private string? _language, _nameLanguage;
@@ -570,7 +576,6 @@
             // Enabling progression while browsing another map starts on the actual player map,
             // even when that map was already observed and ordinary player following is off.
             _trackedMap = player.MapId;
-            _explorationTarget = null;
             Targets.SetProgression(null);
             await SwitchMap(player.MapId, keepAt: player);
             return;
@@ -599,10 +604,9 @@
         await PushProgression();
     }
 
-    private async Task SetCompletionRadius(ChangeEventArgs e)
+    private void SetArrivalRadius(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value?.ToString(), out var value)) Settings.Update(s => s.ExplorationCompletionRadius = Math.Clamp(value, 0, 500));
-        await PushProgression();
+        if (int.TryParse(e.Value?.ToString(), out var value)) Settings.Update(s => s.TargetArrivalRadius = Math.Clamp(value, 0, 500));
     }
 
     private bool PetMode => Settings.Current.ProgressionIncludes("pets");
@@ -612,31 +616,27 @@
     {
         if (Targets.Progression is { } previous && previous.MapId != _mapId)
         {
-            _explorationTarget = null;
             Targets.SetProgression(null);
         }
         var souls = Progress.Catalog.Pets.ToDictionary(p => p.Id, p => Progress.Souls(p.Id));
         // Souls still missing to finish each pet's current level (0 = max), for "closest to completion".
-        var missing = souls.ToDictionary(p => p.Key, p => Progress.Thresholds.NeededForNextLevel(p.Value) - Progress.Thresholds.SoulsInLevel(p.Value));
-        var done = Exploration.Completed;
+        var missing = souls.ToDictionary(p => p.Key, p => Math.Max(0, Progress.NeededForNextLevel(p.Key) - Progress.SoulsInLevel(p.Key)));
+        var profile = Exploration.Snapshot();
+        var done = profile.Completed;
         // locked/needs: sealed dungeons that open only after others (progression skips them, the popup names them).
         var places = Exploration.Places.Where(p => p.Map == _mapId).Select(p =>
         {
             var needs = Exploration.MissingFor(p, done);
-            return new { index = p.Marker, id = p.Id, kind = p.Kind, done = done.Contains(p.Id), locked = needs.Count > 0,
+            return new { index = p.Marker, id = p.Id, kind = p.Kind, done = done.Contains(p.Id),
+                state = profile.Progress.GetValueOrDefault(p.Id)?.State?.ToString(), locked = needs.Count > 0,
                 needs = needs.Select(n => n.Name(Settings.Current.NameLanguage)).ToArray() };
         });
         await JS.InvokeVoidAsync("soulcrestMap.setExploration", JsonSerializer.Serialize(places));
-        await JS.InvokeVoidAsync("soulcrestMap.setProgression", Settings.Current.ProgressionEnabled, Settings.Current.ProgressionGoal, JsonSerializer.Serialize(souls), JsonSerializer.Serialize(Settings.Current.ProgressionKinds), Settings.Current.ProgressionPetsClosest, Math.Clamp(Settings.Current.ExplorationCompletionRadius, 0, 500), Exploration.ActiveId, JsonSerializer.Serialize(missing));
+        await JS.InvokeVoidAsync("soulcrestMap.setProgression", Settings.Current.ProgressionEnabled, Settings.Current.ProgressionGoal, JsonSerializer.Serialize(souls), JsonSerializer.Serialize(Settings.Current.ProgressionKinds), Settings.Current.ProgressionPetsClosest, profile.CharacterId, JsonSerializer.Serialize(missing));
         if (!Settings.Current.ProgressionEnabled)
             Targets.SetProgression(null);
     }
 
-    private string? _explorationTarget;
-    private void CompleteExplorationTarget()
-    {
-        if (_explorationTarget is { } id) Exploration.SetDone(Exploration.ActiveId, [id]);
-    }
     private async Task FlyToProgression() => await JS.InvokeVoidAsync("soulcrestMap.flyToProgression");
 
     [JSInvokable]
@@ -648,7 +648,6 @@
         var player = ExplorationOverview.FreshPosition(ExplorationOverview.Capture(Tracking), DateTimeOffset.UtcNow);
         if (player is not null && player.MapId != mapId) return;
         if (petId is not null && (!double.IsFinite(x) || !double.IsFinite(y))) return;
-        _explorationTarget = null;
         if (petId is null || !Settings.Current.ProgressionEnabled)
         {
             Targets.SetProgression(null);
@@ -657,8 +656,7 @@
         var place = Exploration.Places.FirstOrDefault(p => p.Id == petId && p.Map == mapId);
         if (place is not null)
         {
-            _explorationTarget = place.Id;
-            Targets.SetProgression(new MapTarget("progression", mapId, x, y, place.Name(Settings.Current.NameLanguage), place.Kind == "dungeon" ? "Sealed Dungeon" : "Stronghold", null, ExplorationId: place.Id, CharacterId: Exploration.ActiveId));
+            Targets.SetProgression(new MapTarget("progression", mapId, x, y, place.Name(Settings.Current.NameLanguage), place.Kind == "dungeon" ? "Sealed Dungeon" : "Stronghold", null));
             return;
         }
         var pet = Progress.Catalog.Find(petId);
@@ -851,9 +849,14 @@
     public void OnToggleTarget(string mapId, double x, double y, string name, string kind, string? icon, bool chain, string? petId) =>
         Targets.Toggle(mapId, x, y, name, kind, icon, chain, petId);
 
-    /// <summary>Right-click menu of a sealed dungeon or stronghold: set or take back its done mark.</summary>
+    /// <summary>Manual Kibelisk binding correction for the map and character rendered by the popup.</summary>
     [JSInvokable]
-    public void OnExplorationDone(string placeId, bool done) => Exploration.SetDone(Exploration.ActiveId, [placeId], done);
+    public void OnKibeliskBound(string mapId, string characterId, string placeId, bool bound)
+    {
+        if (mapId != _mapId || characterId != Exploration.ActiveId ||
+            !Exploration.Places.Any(place => place.Id == placeId && place.Map == mapId && place.Kind == "kibelisk")) return;
+        Exploration.SetDone(characterId, [placeId], bound);
+    }
 
     private string PetLabel(string petId) => Progress.PetMapLabel(petId);
 
@@ -926,7 +929,6 @@
         {
             if (Settings.Current.ProgressionEnabled)
             {
-                _explorationTarget = null;
                 Targets.SetProgression(null);
             }
             if (fresh.MapId != _mapId)
@@ -1020,6 +1022,7 @@
             SmokeTest.MapShown = _markerCount > 0;
             _shownPosition = null;
             await PushTargets();
+            await PushBossTimers();
             await PushProgression();
             await PushPlayer(force: true);
         }
@@ -1054,6 +1057,62 @@
         SaveCategories();
     }
 
+    private static readonly MapSurface[] LegendSurfaces = [MapSurface.Minimap, MapSurface.Interactive, MapSurface.Worldmap];
+    private static string SurfaceLabel(MapSurface surface) => UiText.T(surface switch { MapSurface.Minimap => "Minimap", MapSurface.Worldmap => "Worldmap", _ => "Interaktive Karte" });
+    private bool CategoryVisible(Group group, Category cat, MapSurface surface) => surface == MapSurface.Interactive
+        ? _visible.Contains(cat.Index) : MapLayerVisibility.CategoryVisible(Settings.Current, _mapId, surface, group.Name, cat.Name);
+    private bool KindVisible(Group group, Category cat, string kind, MapSurface surface) => surface == MapSurface.Interactive
+        ? _visible.Contains(cat.Index) && !_hiddenKinds.Contains(KindKey(group, cat, kind))
+        : MapLayerVisibility.KindVisible(Settings.Current, _mapId, surface, group.Name, cat.Name, kind);
+
+    // Freeze both legacy native views before the first legend edit. Changing the interactive view
+    // must never change a native view still using its legacy fallback.
+    private void EnsureNativeSelections()
+    {
+        var settings = Settings.Current;
+        if (settings.MapMinimapLayers.ContainsKey(_mapId) && settings.MapWorldmapLayers.ContainsKey(_mapId)) return;
+        MapLayerSelection Snapshot(MapSurface surface) => new(
+            _groups.SelectMany(g => g.Categories.Where(c => MapLayerVisibility.CategoryVisible(settings, _mapId, surface, g.Name, c.Name))
+                .Select(c => MapPetMarkers.CategoryKey(g.Name, c.Name))).Distinct(StringComparer.Ordinal).ToArray(),
+            settings.MapHiddenKinds.GetValueOrDefault(_mapId) ?? []);
+        var mini = Snapshot(MapSurface.Minimap); var world = Snapshot(MapSurface.Worldmap); var map = _mapId;
+        Settings.Update(s => {
+            if (!s.MapMinimapLayers.ContainsKey(map)) s.MapMinimapLayers = new(s.MapMinimapLayers) { [map] = mini };
+            if (!s.MapWorldmapLayers.ContainsKey(map)) s.MapWorldmapLayers = new(s.MapWorldmapLayers) { [map] = world };
+        });
+    }
+
+    private async Task SetSurfaceCategory(Group group, Category cat, MapSurface surface, bool visible)
+    {
+        if (surface == MapSurface.Interactive) { await SetCategory(cat.Index, visible); return; }
+        ChangeNative(surface, (categories, _) => { if (visible) categories.Add(MapPetMarkers.CategoryKey(group.Name, cat.Name)); else categories.Remove(MapPetMarkers.CategoryKey(group.Name, cat.Name)); });
+    }
+    private async Task SetSurfaceGroup(Group group, MapSurface surface, bool visible)
+    {
+        if (surface == MapSurface.Interactive) { await SetGroup(group, visible); return; }
+        ChangeNative(surface, (categories, _) => { foreach (var cat in group.Categories) { var key = MapPetMarkers.CategoryKey(group.Name, cat.Name); if (visible) categories.Add(key); else categories.Remove(key); } });
+    }
+    private async Task SetSurfaceKind(Group group, Category cat, string kind, MapSurface surface, bool visible)
+    {
+        if (surface == MapSurface.Interactive) { await SetKind(group, cat, kind, visible); return; }
+        ChangeNative(surface, (categories, hidden) => {
+            var key = KindKey(group, cat, kind); var category = MapPetMarkers.CategoryKey(group.Name, cat.Name);
+            if (visible) {
+                hidden.Remove(key);
+                if (categories.Add(category)) foreach (var other in cat.Kinds ?? []) if (other.Name != kind) hidden.Add(KindKey(group, cat, other.Name));
+            } else hidden.Add(key);
+        });
+    }
+    private void ChangeNative(MapSurface surface, Action<HashSet<string>, HashSet<string>> change)
+    {
+        EnsureNativeSelections();
+        var selection = MapLayerVisibility.Selection(Settings.Current, _mapId, surface)!;
+        var categories = selection.Categories.ToHashSet(StringComparer.Ordinal); var hidden = selection.HiddenKinds.ToHashSet(StringComparer.Ordinal);
+        change(categories, hidden);
+        var next = new MapLayerSelection(categories.Order(StringComparer.Ordinal).ToArray(), hidden.Order(StringComparer.Ordinal).ToArray()); var map = _mapId;
+        Settings.Update(s => { if (surface == MapSurface.Minimap) s.MapMinimapLayers = new(s.MapMinimapLayers) { [map] = next }; else s.MapWorldmapLayers = new(s.MapWorldmapLayers) { [map] = next }; });
+    }
+
     private async Task ShowCategory(int index, bool visible)
     {
         if (visible) _visible.Add(index); else _visible.Remove(index);
@@ -1061,11 +1120,11 @@
     }
 
     /// <summary>
-    /// The legend selection is kept per map: it survives restarts and tells the in-game overlay which
-    /// resources and hidden cubes to draw (RouteOverlayForm.VisibleResources).
+    /// The interactive legend selection is kept per map, independently of both native surfaces.
     /// </summary>
     private void SaveCategories()
     {
+        EnsureNativeSelections();
         var shown = _groups.SelectMany(g => g.Categories.Where(c => _visible.Contains(c.Index)).Select(c => MapPetMarkers.CategoryKey(g.Name, c.Name)))
             .Distinct().ToArray();
         var map = _mapId;
@@ -1095,6 +1154,7 @@
 
     private void SaveKinds()
     {
+        EnsureNativeSelections();
         var hidden = _hiddenKinds.Order(StringComparer.Ordinal).ToArray();
         var map = _mapId;
         Settings.Update(s => s.MapHiddenKinds = new Dictionary<string, string[]>(s.MapHiddenKinds) { [map] = hidden });
@@ -1199,9 +1259,9 @@
 
     private async Task PushDone(bool includeLabels = true)
     {
-        var done = Progress.Catalog.Pets.Where(p => Progress.Thresholds.IsMax(Progress.Souls(p.Id))).Select(p => p.Id).ToList();
+        var done = Progress.Catalog.Pets.Where(p => Progress.IsMax(p.Id)).Select(p => p.Id).ToList();
         var hidden = Progress.Catalog.Pets
-            .Where(p => Settings.Current.HidesLevel(Progress.Thresholds.Level(Progress.Souls(p.Id)))
+            .Where(p => Settings.Current.HidesLevel(Progress.Level(p.Id))
                 || Settings.Current.ExclusivePetsOnly && !p.IsExclusiveTo(_mapId))
             .Select(p => p.Id).ToList();
         var labels = includeLabels ? JsonSerializer.Serialize(Progress.Catalog.Pets.ToDictionary(p => p.Id, p => PetLabel(p.Id))) : null;
@@ -1241,7 +1301,6 @@
         });
     }
 
-    private void OnRouteScanChanged() => InvokeAsync(StateHasChanged);
 
     [JSInvokable]
     public void OnCategoryShown(int index)
@@ -1277,11 +1336,11 @@
     {
         Progress.Changed -= OnProgressChanged;
         Exploration.Changed -= OnExplorationChanged;
-        ExplorationScan.Changed -= OnRouteScanChanged;
         Tracking.Changed -= OnTrackingChanged;
         Targets.Changed -= OnTargetsChanged;
         Loot.Changed -= OnLootChanged;
         Settings.Changed -= OnSettingsChanged;
+        if (_bossRush is not null) _bossRush.Changed -= OnBossTimersChanged;
         _self?.Dispose();
         return ValueTask.CompletedTask;
     }

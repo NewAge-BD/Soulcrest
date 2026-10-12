@@ -1,0 +1,37 @@
+@implements IDisposable
+@inject Soulcrest.App.Network.NetworkLootService Network
+@inject SettingsService Settings
+
+<section class="card network-progress" aria-label="@UiText.T("Netzwerkfortschritt")" data-progress-source="network" data-progress-live="@IsLive.ToString().ToLowerInvariant()">
+    <div class="network-progress-heading">
+        <h3>@UiText.T("Netzwerkfortschritt")</h3>
+        <span class="pill @(IsLive ? "live" : "warn")">@UiText.T(IsLive ? "Aktuell" : "Wartet auf Bestätigung")</span>
+    </div>
+    <p role="status">@UiText.T(Network.ProgressStatus)</p>
+    <dl class="network-baselines">
+        @if (Scope != "exploration")
+        {
+            <div><dt>@UiText.T("Pet-Baseline")</dt><dd>@Baseline(Network.PetBaselineAt)</dd></div>
+        }
+        @if (Scope != "pet")
+        {
+            <div><dt>@UiText.T("Quest-Baseline")</dt><dd>@Baseline(Network.QuestBaselineAt)</dd></div>
+            <div><dt>@UiText.T("Kibelisk-Baseline")</dt><dd>@Baseline(Network.TeleportBaselineAt)</dd></div>
+        }
+    </dl>
+    <p class="note">@UiText.T(Scope == "pet"
+        ? "Pet-Fortschritt wird passiv aus dem Spielverkehr gelesen und pro Server geteilt. Gespeicherte Werte bleiben bis zur Bestätigung erhalten."
+        : "Fortschritt wird passiv aus dem Spielverkehr gelesen. Gespeicherte Profile bleiben erhalten; unbestätigte Zustände werden nicht als erledigt übernommen.")</p>
+</section>
+
+@code {
+    [Parameter] public string Scope { get; set; } = "all";
+    private bool _disposed;
+    private bool IsLive => Network.ProgressIsLive && (Scope == "pet" ? Network.PetBaselineAt is not null : Network.QuestBaselineAt is not null && Network.TeleportBaselineAt is not null);
+    private static string Baseline(DateTimeOffset? at) => at is { } timestamp
+        ? timestamp.ToLocalTime().ToString("g", System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US"))
+        : UiText.T("In dieser Sitzung noch nicht bestätigt");
+    protected override void OnInitialized() { Network.Changed += Refresh; Settings.Changed += Refresh; }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
+    public void Dispose() { _disposed = true; Network.Changed -= Refresh; Settings.Changed -= Refresh; }
+}

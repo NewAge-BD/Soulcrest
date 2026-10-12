@@ -60,16 +60,16 @@ public sealed class LevelingRoutesTests : IDisposable
         Assert.Equal(new RouteProgress(0, 3), service.GetRouteProgress("route"));
         var now = DateTimeOffset.UtcNow;
         var armed = new HashSet<string>();
-        var first = Assert.Single(ExplorationArrivalService.ArrivedTargets(service.Targets, new("altgard", 100, 100, now), 15, armed, now));
+        var first = Assert.Single(NavigationArrivalService.ArrivedTargets(service.Targets, new("altgard", 100, 100, now), 15, armed, now));
         service.Arrive(first);
         Assert.Equal(new RouteProgress(1, 3), service.GetRouteProgress("route"));
         var reloaded = new MapTargetsService();
         now = now.AddMilliseconds(100);
-        var next = Assert.Single(ExplorationArrivalService.ArrivedTargets(reloaded.Targets, new("altgard", 100, 100, now), 15, armed, now));
+        var next = Assert.Single(NavigationArrivalService.ArrivedTargets(reloaded.Targets, new("altgard", 100, 100, now), 15, armed, now));
         reloaded.Arrive(next);
         Assert.Equal(new RouteProgress(2, 3), reloaded.GetRouteProgress("route"));
         Assert.Equal(new RouteProgress(2, 3), new MapTargetsService().GetRouteProgress("route"));
-        Assert.Empty(ExplorationArrivalService.ArrivedTargets(reloaded.Targets, new("altgard", 100, 100, now), 15, armed, now));
+        Assert.Empty(NavigationArrivalService.ArrivedTargets(reloaded.Targets, new("altgard", 100, 100, now), 15, armed, now));
     }
 
     [Fact]
@@ -84,9 +84,9 @@ public sealed class LevelingRoutesTests : IDisposable
             new("altgard", 100, 100, now.AddSeconds(-3)), new("altgard", 100, 100, now.AddSeconds(1)),
             new("altgard", double.NaN, 100, now), new("altgard", 100, double.PositiveInfinity, now)
         })
-            Assert.Empty(ExplorationArrivalService.ArrivedTargets([target], position, 15, armed, now));
-        Assert.Empty(ExplorationArrivalService.ArrivedTargets([target], new("altgard", 100, 100, now), 0, armed, now));
-        Assert.Equal(new[] { "head" }, ExplorationArrivalService.ArrivedTargets([target], new("altgard", 115, 100, now), 15, armed, now));
+            Assert.Empty(NavigationArrivalService.ArrivedTargets([target], position, 15, armed, now));
+        Assert.Empty(NavigationArrivalService.ArrivedTargets([target], new("altgard", 100, 100, now), 0, armed, now));
+        Assert.Equal(new[] { "head" }, NavigationArrivalService.ArrivedTargets([target], new("altgard", 115, 100, now), 15, armed, now));
     }
 
     [Fact]
@@ -202,6 +202,36 @@ public sealed class LevelingRoutesTests : IDisposable
         service.RewindRoute("route");
         Assert.Equal(4, service.Targets[0].StopIndex);
         Assert.Equal(515, service.Targets[0].X);
+    }
+
+    [Theory]
+    [InlineData(false, "")]
+    [InlineData(true, "")]
+    [InlineData(false, "Stop")]
+    [InlineData(true, "Stop")]
+    public void DungeonRenameRetainsRunningTargetIdentityAndLevelingPosition(bool hasStopIndex, string oldTitle)
+    {
+        using var bundled = typeof(RouteFile).Assembly.GetManifestResourceStream("Soulcrest.LevelingRoutes.soulroute");
+        var route = RouteFile.Read(bundled!)[0];
+        const int index = 10;
+        var stop = route.Stops[index];
+        Assert.Equal("Treasure Hunter's Residence", stop.Name);
+        RouteFile.Save(AppPaths.RoutesFile, [route]);
+        JsonFile.Save(AppPaths.TargetsFile, new[]
+        {
+            new MapTarget("retained-dungeon-target", stop.MapId, stop.X, stop.Y, oldTitle, stop.Kind, stop.Icon,
+                RouteId: route.Id, Color: stop.Color, Leveling: true, StopIndex: hasStopIndex ? index : null)
+        });
+        using var service = new MapTargetsService();
+        Assert.Equal(new RouteProgress(index, route.Stops.Count), service.GetRouteProgress(route.Id));
+        Assert.Equal("retained-dungeon-target", service.Targets[0].Id);
+        Assert.Equal(index, service.Targets[0].StopIndex);
+        Assert.Equal(stop.Name, service.Targets[0].Name);
+        service.RewindRoute(route.Id);
+        Assert.Equal(new RouteProgress(index - 1, route.Stops.Count), service.GetRouteProgress(route.Id));
+        using var restarted = new MapTargetsService();
+        Assert.Equal(new RouteProgress(index - 1, route.Stops.Count), restarted.GetRouteProgress(route.Id));
+        Assert.Equal("retained-dungeon-target", restarted.Targets[1].Id);
     }
 
     [Fact]

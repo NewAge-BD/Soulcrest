@@ -30,7 +30,7 @@ public sealed class UiState
 
     public void Navigate(string tab)
     {
-        Tab = tab;
+        Tab = tab == "petscan" ? "pets" : tab;
         Changed?.Invoke();
     }
 

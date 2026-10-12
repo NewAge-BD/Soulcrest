@@ -18,8 +18,7 @@ public sealed class DiagnosticsExploration(ITestOutputHelper output)
         using var capture = new GameCaptureService();
         var loot = new TrackerService(settings);
         using var map = new MapTrackingService(settings, progress, capture);
-        using var scan = new PetScanService(settings, progress, capture);
-        using var diagnostics = new DiagnosticsService(settings, capture, loot, map, scan);
+        using var diagnostics = new DiagnosticsService(settings, capture, loot, map);
         using (capture.Grab(new System.Drawing.Rectangle(0, 0, 200, 200))) { }
         diagnostics.Check();
         output.WriteLine(File.ReadAllText(diagnostics.ReportPath));

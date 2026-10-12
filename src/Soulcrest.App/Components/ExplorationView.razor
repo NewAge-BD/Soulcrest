@@ -1,10 +1,10 @@
 @implements IDisposable
 @inject ExplorationService Exploration
-@inject ExplorationScanService Scan
 @inject ProgressService Progress
 @inject SettingsService Settings
 @inject MapTrackingService Tracking
 @inject UiState Ui
+@inject Soulcrest.App.Network.NetworkLootService Network
 
 @{
     var renderedCharacter = _renderedCharacter;
@@ -12,16 +12,22 @@
 }
 <div class="page exploration-page exploration-overview">
     <header class="exploration-heading">
-        <span class="exploration-eyebrow">SOULCREST / @UiText.T("Charakterfortschritt")</span>
-        <h2>@UiText.T(Title(Kind))</h2>
-        <p>@UiText.T("Deine Erkundung im Blick. Offene Orte finden und Fortschritt verwalten.")</p>
+        <div class="exploration-heading-copy">
+            <span class="exploration-eyebrow">SOULCREST / @UiText.T("Charakterfortschritt")</span>
+            <h2>@UiText.T(Title(Kind))</h2>
+            <p>@UiText.T("Deine Erkundung im Blick. Offene Orte finden und Fortschritt verwalten.")</p>
+        </div>
+        <div class="exploration-headline-progress" aria-label="@UiText.T("Gesamtübersicht")">
+            <div class="exploration-headline-count"><strong>@_overview.Completed <small>/ @_overview.Total</small></strong><span>@UiText.T("Erledigt auf dieser Karte")</span></div>
+            <div class="exploration-completion-ring" style="--completion: @(CompletionPercent)%" aria-hidden="true"><span>@CompletionPercent<small>%</small></span></div>
+        </div>
     </header>
 
-    <section class="exploration-scan-setup" aria-label="@UiText.T("Fortschritt aus dem Spiel einlesen")">
+    <section class="exploration-network-setup" aria-label="@UiText.T("Charakter und Karte")">
         <section class="card exploration-context" aria-label="@UiText.T("Charakter und Karte")">
             <CharacterPicker Compact="true" />
             <label class="exploration-map-field">@UiText.T("Karte")
-                <select aria-label="@UiText.T("Karte wählen")" value="@_map" @onchange="PinMap" disabled="@Scan.Running">
+                <select aria-label="@UiText.T("Karte wählen")" value="@_map" @onchange="PinMap">
                     @foreach (var group in Progress.Maps.GroupBy(m => m.Group))
                     {
                         <optgroup label="@UiText.T(group.Key)">
@@ -31,94 +37,147 @@
                 </select>
             </label>
             <div class="exploration-follow">
-                <button type="button" class="btn @(Settings.Current.ExplorationPinnedMap is null ? "following" : "")" disabled="@(Scan.Running || string.IsNullOrEmpty(_map))" @onclick="TogglePin" aria-pressed="@(Settings.Current.ExplorationPinnedMap is not null)">
-                    @UiText.T(Settings.Current.ExplorationPinnedMap is null ? "Karte fixieren" : "Spielkarte folgen")
+                <button type="button" class="btn @(Settings.Current.ExplorationPinnedMap is null ? "following" : "")" disabled="@(string.IsNullOrEmpty(_map))" @onclick="TogglePin" aria-pressed="@(Settings.Current.ExplorationPinnedMap is not null)">
+                    <span class="exploration-follow-icon" aria-hidden="true">@(Settings.Current.ExplorationPinnedMap is null ? "◎" : "⌖")</span>@UiText.T(Settings.Current.ExplorationPinnedMap is null ? "Karte fixieren" : "Spielkarte folgen")
                 </button>
                 <span class="exploration-map-source @(_selection.Source == "detected" ? "detected" : "")">@UiText.T(MapSource)</span>
             </div>
             <span class="exploration-context-note">@UiText.T("Fortschritt gilt für den gewählten Charakter.")</span>
         </section>
-        <ExplorationScanPanel Map="@_map" Kind="@Kind" HasPlaces="@(_overview.Total > 0)" />
+        <details class="exploration-status-details">
+            <summary><span class="exploration-network-dot @(NetworkConfirmed ? "live" : "")" aria-hidden="true"></span><span>@UiText.T("Netzwerkfortschritt")</span><strong>@UiText.T(NetworkConfirmed ? "Aktuell" : "Wartet auf Bestätigung")</strong><span class="exploration-disclosure-arrow" aria-hidden="true"></span></summary>
+            <NetworkProgressStatus Scope="exploration" />
+        </details>
     </section>
 
     <section class="exploration-summary" aria-label="@UiText.T("Gesamtübersicht")">
-        <div class="exploration-total">
-            <span class="exploration-eyebrow">@UiText.T("Gesamtübersicht")</span>
-            <strong>@_overview.Completed <small>/ @_overview.Total</small></strong>
-            <span>@UiText.F("Offene Orte: {0}", _overview.Total - _overview.Completed)</span>
-        </div>
         @foreach (var category in _overview.Categories)
         {
             <button type="button" class="exploration-category-chip @(_kind == category.Kind ? "selected" : "")" aria-pressed="@(_kind == category.Kind)" @onclick="@(() => SelectKind(category.Kind))">
-                <span class="exploration-category-heading"><span class="exploration-kind-symbol @category.Kind" aria-hidden="true">@KindSymbol(category.Kind)</span><strong>@UiText.T(Title(category.Kind))</strong></span>
+                <span class="exploration-category-heading"><span class="exploration-kind-symbol @category.Kind" aria-hidden="true">@KindSymbol(category.Kind)</span><strong>@UiText.T(Title(category.Kind))</strong><span class="exploration-category-check" aria-hidden="true">@(_kind == category.Kind ? "✓" : "")</span></span>
                 <span class="exploration-category-value">@category.Completed <small>/ @category.Total @UiText.T("fertig")</small></span>
-                @if (category.Total > 0) { <progress value="@category.Completed" max="@category.Total" aria-label="@UiText.T(Title(category.Kind))"></progress> }
+                <progress value="@category.Completed" max="@Math.Max(1, category.Total)" aria-label="@UiText.T(Title(category.Kind))"></progress>
+                <small>@UiText.F("Entdeckt: {0} · unbestätigt: {1}", category.Discovered, category.Unknown)</small>
             </button>
         }
     </section>
+    <div class="exploration-state-summary" aria-label="@UiText.T("Status")">
+        <span class="exploration-known-count"><i aria-hidden="true"></i>@UiText.F("Bestätigt, nicht erledigt: {0}", _overview.Total - _overview.Completed - UnknownCount)</span>
+        <span class="exploration-unknown-count"><i aria-hidden="true"></i>@UiText.F("Unbestätigt: {0}", UnknownCount)</span>
+    </div>
 
-    <section class="card exploration-next" aria-label="@UiText.T("Nächstes offenes Ziel")">
-        <div class="exploration-next-copy">
-            <span class="exploration-eyebrow">@UiText.T("Nächstes offenes Ziel")</span>
-            @if (_overview.Next is { } next)
+    <div class="exploration-workspace">
+        <section class="card exploration-checklist" aria-label="@UiText.T("Erkundungs-Checkliste")">
+            <div class="exploration-checklist-heading">
+                <div><span class="exploration-eyebrow">@UiText.T("Orte auf dieser Karte")</span><h3>@UiText.T("Erkundungs-Checkliste")</h3></div>
+                <span class="exploration-result-count">@UiText.F("Angezeigte Einträge: {0}", _overview.Rows.Count)</span>
+            </div>
+            <div class="exploration-filters">
+                <div class="exploration-search-field"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5"></circle><path d="m13 13 4 4"></path></svg><input class="exploration-search" type="search" autocomplete="off" spellcheck="false" aria-label="@UiText.T("Ort suchen")" placeholder="@UiText.T("Ort suchen …")" @bind="_search" @bind:event="oninput" @bind:after="Rebuild" /></div>
+                <label class="exploration-status-filter"><span>@UiText.T("Status")</span><select @bind="_status" @bind:after="Rebuild"><option value="all">@UiText.T("Alle")</option><option value="open">@UiText.T("Ohne Abschluss")</option><option value="undiscovered">@UiText.T("Unentdeckt")</option><option value="discovered">@UiText.T("Entdeckt · offen")</option><option value="unknown">@UiText.T("Unbestätigt")</option><option value="done">@UiText.T("Erledigt")</option><option value="locked">@UiText.T("Gesperrt")</option></select></label>
+                @if (_search.Length > 0 || _kind != "all" || _status != "all") { <button class="btn exploration-reset" @onclick="ResetFilters">@UiText.T("Filter zurücksetzen")</button> }
+            </div>
+            @if (_kind != "all") { <div class="exploration-active-filter"><span>@UiText.T(Title(_kind))</span><button type="button" @onclick="@(() => SelectKind(_kind))" aria-label="@UiText.T("Alle Kategorien")">×</button></div> }
+            @if (_overview.Rows.Count == 0)
             {
-                <strong>@next.Place.Name(Settings.Current.NameLanguage)</strong>
-                <span>@UiText.T(Title(next.Place.Kind)) @if (next.Distance is { } distance) { <span aria-hidden="true">·</span> @DistanceLabel(distance) }</span>
+                <div class="exploration-list-empty"><span aria-hidden="true">◇</span><strong>@UiText.T(_overview.Total == 0 ? "Für diese Karte sind keine Erkundungsorte hinterlegt." : "Keine Orte passen zu deinen Filtern.")</strong></div>
             }
             else
             {
-                <strong>@UiText.T(NextEmptyMessage)</strong>
+                <ul class="exploration-rows" tabindex="0" aria-label="@UiText.T("Erkundungs-Checkliste")">
+                    @foreach (var row in _overview.Rows)
+                    {
+                        <li @key="row.Place.Id" class="exploration-place @(row.Done ? "done" : row.Locked ? "locked" : "")" data-place="@row.Place.Id">
+                            <span class="exploration-kind-symbol @row.Place.Kind" aria-hidden="true">@KindSymbol(row.Place.Kind)</span>
+                            <div class="exploration-place-copy">
+                                <strong>@row.Place.Name(Settings.Current.NameLanguage)</strong>
+                                <span class="exploration-place-meta"><span>@UiText.T(Title(row.Place.Kind))</span><span class="exploration-state-badge @StateTone(row)">@UiText.T(StateLabel(row))</span>
+                                    @if (row.Locked) { <span class="exploration-locked-label">@UiText.T("Gesperrt")</span> }
+                                    @if (row.Progress.ManualOverride) { <span class="exploration-manual-label">@UiText.T("Manuell")</span> }
+                                    @if (row.State is not null && row.Freshness != Soulcrest.Core.Progress.ProgressFreshness.Fresh) { <span class="exploration-saved-label">@UiText.T("Gespeicherter Fortschritt")</span> }
+                                </span>
+                                @if (row.Locked) { <small>@UiText.F("Benötigt: {0}", string.Join(", ", row.Missing.Select(p => p.Name(Settings.Current.NameLanguage))))</small> }
+                            </div>
+                            <div class="exploration-place-actions">
+                                @if (row.Distance is { } distance) { <span class="exploration-place-distance">@DistanceLabel(distance)</span> }
+                                @if (row.Place.Kind == "kibelisk")
+                                {
+                                    <label class="exploration-kibelisk-toggle"><input type="checkbox" checked="@row.Done" aria-label="@UiText.F("{0} abgeschlossen", row.Place.Name(Settings.Current.NameLanguage))" @onchange="@(e => SetDone(row.Place, e, renderedCharacter, renderedMap))" /><span>@UiText.T("Erledigt")</span></label>
+                                }
+                                else
+                                {
+                                    <select class="exploration-state" aria-label="@UiText.F("Zustand für {0}", row.Place.Name(Settings.Current.NameLanguage))" value="@(row.State?.ToString() ?? "unknown")" @onchange="@(e => SetState(row.Place, e, renderedCharacter, renderedMap))">
+                                        <option value="unknown">@UiText.T("Unbestätigt")</option>
+                                        <option value="Undiscovered">@UiText.T("Unentdeckt")</option>
+                                        <option value="DiscoveredIncomplete">@UiText.T("Entdeckt · offen")</option>
+                                        <option value="DiscoveredCompleted">@UiText.T("Entdeckt · erledigt")</option>
+                                    </select>
+                                }
+                                <button type="button" class="btn exploration-place-focus" title="@UiText.T("Auf Karte anzeigen")" aria-label="@UiText.F("{0} auf Karte anzeigen", row.Place.Name(Settings.Current.NameLanguage))" @onclick="@(() => Ui.ShowExplorationOnMap(row.Place))"><span>@UiText.T("Karte")</span><span aria-hidden="true">↗</span></button>
+                            </div>
+                        </li>
+                    }
+                </ul>
             }
-        </div>
-        @if (_overview.Next is { } target)
-        {
-            <button class="btn primary" @onclick="@(() => Ui.ShowExplorationOnMap(target.Place))">@UiText.T("Auf Karte anzeigen") <span aria-hidden="true">↗</span></button>
-        }
-        else if (!_trackingRunning && _overview.Completed < _overview.Total)
-        {
-            <button class="btn" @onclick="@(() => Ui.Navigate("map"))">@UiText.T("Zum Spielertracking")</button>
-        }
-    </section>
+            <div class="exploration-checklist-footer"><span class="exploration-edit-symbol" aria-hidden="true">✎</span><p>@UiText.T("Änderungen gelten nur für dieses Charakterprofil.")</p></div>
+        </section>
 
-    <section class="card exploration-checklist" aria-label="@UiText.T("Erkundungs-Checkliste")">
-        <div class="exploration-checklist-heading"><h3>@UiText.T("Erkundungs-Checkliste")</h3><span>@UiText.F("Angezeigte Einträge: {0}", _overview.Rows.Count)</span></div>
-        <div class="exploration-filters">
-            <input class="exploration-search" type="search" autocomplete="off" spellcheck="false" aria-label="@UiText.T("Ort suchen")" placeholder="@UiText.T("Ort suchen …")" @bind="_search" @bind:event="oninput" @bind:after="Rebuild" />
-            <label>@UiText.T("Kategorie")<select @bind="_kind" @bind:after="Rebuild"><option value="all">@UiText.T("Alle Kategorien")</option>@foreach (var category in _overview.Categories) { <option value="@category.Kind">@UiText.T(Title(category.Kind))</option> }</select></label>
-            <label>@UiText.T("Status")<select @bind="_status" @bind:after="Rebuild"><option value="all">@UiText.T("Alle")</option><option value="open">@UiText.T("Offen")</option><option value="done">@UiText.T("Erledigt")</option><option value="locked">@UiText.T("Gesperrt")</option></select></label>
-            @if (_search.Length > 0 || _kind != "all" || _status != "all") { <button class="btn link" @onclick="ResetFilters">@UiText.T("Filter zurücksetzen")</button> }
-        </div>
-        @if (_overview.Rows.Count == 0)
-        {
-            <div class="exploration-list-empty">@UiText.T(_overview.Total == 0 ? "Für diese Karte sind keine Erkundungsorte hinterlegt." : "Keine Orte passen zu deinen Filtern.")</div>
-        }
-        else
-        {
-            <ul class="exploration-rows" tabindex="0" aria-label="@UiText.T("Erkundungs-Checkliste")">
-                @foreach (var row in _overview.Rows)
+        <aside class="exploration-sidebar" aria-label="@UiText.T("Erkundung planen")">
+            <section class="card exploration-next" aria-label="@UiText.T("Nächstes Ziel ohne Abschluss")">
+                <div class="exploration-next-heading"><span class="exploration-next-symbol" aria-hidden="true">⌖</span><span class="exploration-eyebrow">@UiText.T("Nächstes Ziel ohne Abschluss")</span></div>
+                <div class="exploration-next-copy">
+                    @if (_overview.Next is { } next)
+                    {
+                        <strong>@next.Place.Name(Settings.Current.NameLanguage)</strong>
+                        <span>@UiText.T(Title(next.Place.Kind)) @if (next.Distance is { } distance) { <span aria-hidden="true">·</span> @DistanceLabel(distance) }</span>
+                    }
+                    else
+                    {
+                        <strong>@UiText.T(NextEmptyMessage)</strong>
+                    }
+                </div>
+                @if (_overview.Next is { } target)
                 {
-                    <li @key="row.Place.Id" class="exploration-place @(row.Done ? "done" : row.Locked ? "locked" : "")" data-place="@row.Place.Id">
-                        <input type="checkbox" checked="@row.Done" disabled="@Scan.Running" aria-label="@UiText.F("{0} abgeschlossen", row.Place.Name(Settings.Current.NameLanguage))" @onchange="@(e => SetDone(row.Place, e, renderedCharacter, renderedMap))" />
-                        <span class="exploration-kind-symbol @row.Place.Kind" aria-hidden="true">@KindSymbol(row.Place.Kind)</span>
-                        <div class="exploration-place-copy"><strong>@row.Place.Name(Settings.Current.NameLanguage)</strong><span>@UiText.T(Title(row.Place.Kind))
-                            @if (row.Locked) { <span class="exploration-locked-label">@UiText.T("Gesperrt")</span> }
-                            else if (row.Done) { <span class="exploration-done-label">@UiText.T("Erledigt")</span> }
-                        </span>
-                            @if (row.Locked) { <small>@UiText.F("Benötigt: {0}", string.Join(", ", row.Missing.Select(p => p.Name(Settings.Current.NameLanguage))))</small> }
-                        </div>
-                        @if (row.Distance is { } distance) { <span class="exploration-place-distance">@DistanceLabel(distance)</span> }
-                        <button type="button" class="btn exploration-place-focus" title="@UiText.T("Auf Karte anzeigen")" aria-label="@UiText.F("{0} auf Karte anzeigen", row.Place.Name(Settings.Current.NameLanguage))" @onclick="@(() => Ui.ShowExplorationOnMap(row.Place))"><span>@UiText.T("Karte")</span><span aria-hidden="true">↗</span></button>
-                    </li>
+                    <button class="btn primary" @onclick="@(() => Ui.ShowExplorationOnMap(target.Place))">@UiText.T("Auf Karte anzeigen") <span aria-hidden="true">↗</span></button>
                 }
-            </ul>
-        }
-        <p class="exploration-checklist-note">@UiText.T(Scan.Running ? "Manuelle Änderungen sind während des Scans gesperrt." : "Haken setzen oder entfernen, um den gespeicherten Fortschritt zu korrigieren.")</p>
-    </section>
-
+                else if (!_trackingRunning && _overview.Completed < _overview.Total)
+                {
+                    <button class="btn" @onclick="@(() => Ui.Navigate("map"))">@UiText.T("Zum Spielertracking") <span aria-hidden="true">↗</span></button>
+                }
+            </section>
+            <section class="exploration-state-guide" aria-label="@UiText.T("Fortschritt verstehen")">
+                <h3>@UiText.T("Fortschritt verstehen")</h3>
+                <ul>
+                    <li><span class="exploration-state-badge undiscovered">@UiText.T("Unentdeckt")</span></li>
+                    <li><span class="exploration-state-badge discovered">@UiText.T("Entdeckt · offen")</span></li>
+                    <li><span class="exploration-state-badge complete">@UiText.T("Entdeckt · erledigt")</span></li>
+                </ul>
+                <p class="exploration-checklist-note">@UiText.T("Dungeon- und Garnisonszustände lassen sich manuell korrigieren. Unbestätigt bedeutet, dass noch kein verlässlicher Zustand vorliegt.")</p>
+                <div class="exploration-guide-unknown"><span class="exploration-state-badge unknown">@UiText.T("Unbestätigt")</span><span>@UiText.T("Gespeicherte Werte bleiben erhalten.")</span></div>
+            </section>
+        </aside>
+    </div>
 </div>
 @code {
     [Parameter] public string Kind { get; set; } = "all";
     internal static string Title(string kind) => kind switch { "dungeon" => "Versiegelte Dungeons", "stronghold" => "Garnisonen", "kibelisk" => "Kibelisk", _ => "Erkundungsfortschritt" };
+    private int UnknownCount => _overview.Categories.Sum(category => category.Unknown);
+    private int CompletionPercent => _overview.Total == 0 ? 0 : (int)Math.Round(100d * _overview.Completed / _overview.Total);
+    private bool NetworkConfirmed => Network.ProgressIsLive && Network.QuestBaselineAt is not null && Network.TeleportBaselineAt is not null;
+    private static string StateLabel(ExplorationOverviewRow row) => row.State switch
+    {
+        ExplorationProgressState.Undiscovered => "Unentdeckt",
+        ExplorationProgressState.DiscoveredIncomplete => "Entdeckt · offen",
+        ExplorationProgressState.DiscoveredCompleted => row.Place.Kind == "kibelisk" ? "Erledigt" : "Entdeckt · erledigt",
+        _ => "Unbestätigt"
+    };
+    private static string StateTone(ExplorationOverviewRow row) => row.State switch
+    {
+        ExplorationProgressState.Undiscovered => "undiscovered",
+        ExplorationProgressState.DiscoveredIncomplete => "discovered",
+        ExplorationProgressState.DiscoveredCompleted => "complete",
+        _ => "unknown"
+    };
     private string _map = "", _search = "", _kind = "all", _status = "all", _parameterKind = "";
     private ExplorationOverviewSnapshot _overview = null!;
     private ExplorationMapSelection _selection = null!;
@@ -135,14 +194,14 @@
     private int _trackingQueued;
     private DateTime _lastTrackingRender;
     private volatile bool _disposed;
-    private string MapSource => _selection.Source switch { "scan" => "Karte des laufenden Scans", "pinned" => "Manuell fixiert", "detected" => _selection.WorldMap ? "Automatisch erkannt · Weltkarte" : "Automatisch erkannt · Spielkarte", _ => "Zuletzt gewählt · warte auf Erkennung" };
+    private string MapSource => _selection.Source switch { "pinned" => "Manuell fixiert", "detected" => _selection.WorldMap ? "Automatisch erkannt · Weltkarte" : "Automatisch erkannt · Spielkarte", _ => "Zuletzt gewählt · warte auf Erkennung" };
     private static string KindSymbol(string kind) => kind switch { "dungeon" => "▣", "stronghold" => "⚑", _ => "◇" };
     private string DistanceLabel(double pixels) => Progress.Maps.FirstOrDefault(m => m.Id == _map)?.MetersPerPixel is { } meters ? UiText.F("{0} m", Math.Round(pixels * meters)) : UiText.F("{0} Kartenpixel", Math.Round(pixels));
     protected override void OnInitialized()
     {
         Exploration.Changed += Refresh;
+        Network.Changed += Refresh;
         Settings.Changed += Refresh;
-        Scan.Changed += Refresh;
         Tracking.Changed += RefreshTracking;
         _freshnessTimer = new System.Threading.Timer(_ => RefreshTracking(), null, 1000, 1000);
     }
@@ -156,31 +215,36 @@
         var tracking = ExplorationOverview.Capture(Tracking);
         var profile = Exploration.Snapshot();
         var now = DateTimeOffset.UtcNow;
-        _selection = ExplorationOverview.SelectMap(Progress.Maps, _map, Settings.Current.LastMap, Settings.Current.ExplorationPinnedMap, Scan.Running, Scan.ScanMap, tracking, now);
+        _selection = ExplorationOverview.SelectMap(Progress.Maps, _map, Settings.Current.LastMap, Settings.Current.ExplorationPinnedMap, tracking, now);
         _map = _selection.MapId;
         var position = ExplorationOverview.FreshPosition(tracking, now);
         _trackingRunning = tracking.Running;
         _playerOnOtherMap = position is not null && position.MapId != _map;
         _position = position?.MapId == _map ? position : null;
         _renderedCharacter = profile.CharacterId;
-        _overview = ExplorationOverview.Build(Exploration.Places, profile.Completed, _map, Settings.Current.NameLanguage, _position, _search, _kind, _status);
+        _overview = ExplorationOverview.Build(Exploration.Places, profile, _map, Settings.Current.NameLanguage, _position, _search, _kind, _status);
     }
     private void PinMap(ChangeEventArgs e)
     {
-        if (Scan.Running || e.Value?.ToString() is not { } map || !Progress.Maps.Any(m => m.Id == map)) return;
+        if (e.Value?.ToString() is not { } map || !Progress.Maps.Any(m => m.Id == map)) return;
         Settings.Update(s => s.ExplorationPinnedMap = map);
     }
     private void TogglePin()
     {
-        if (Scan.Running) return;
         Settings.Update(s => s.ExplorationPinnedMap = s.ExplorationPinnedMap is null ? _map : null);
     }
     private void SelectKind(string kind) { _kind = _kind == kind ? "all" : kind; Rebuild(); }
     private void ResetFilters() { _search = ""; _kind = "all"; _status = "all"; Rebuild(); }
     private void SetDone(ExplorationPlace place, ChangeEventArgs e, string character, string map)
     {
-        if (Scan.Running || character != Exploration.ActiveId || map != _map || place.Map != map) return;
+        if (character != Exploration.ActiveId || map != _map || place.Map != map) return;
         Exploration.SetDone(character, [place.Id], e.Value is true);
+    }
+    private void SetState(ExplorationPlace place, ChangeEventArgs e, string character, string map)
+    {
+        if (character != Exploration.ActiveId || map != _map || place.Map != map) return;
+        ExplorationProgressState? state = Enum.TryParse<ExplorationProgressState>(e.Value?.ToString(), out var parsed) ? parsed : null;
+        Exploration.SetState(character, [place.Id], state);
     }
     private void Refresh()
     {
@@ -207,6 +271,6 @@
     public void Dispose()
     {
         _disposed = true; _freshnessTimer?.Dispose();
-        Exploration.Changed -= Refresh; Settings.Changed -= Refresh; Scan.Changed -= Refresh; Tracking.Changed -= RefreshTracking;
+        Exploration.Changed -= Refresh; Network.Changed -= Refresh; Settings.Changed -= Refresh; Tracking.Changed -= RefreshTracking;
     }
 }

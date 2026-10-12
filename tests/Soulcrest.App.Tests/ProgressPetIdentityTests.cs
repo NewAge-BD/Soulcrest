@@ -158,24 +158,6 @@ public sealed class ProgressPetIdentityTests
     }
 
     [Fact]
-    public void ManualScanAssignmentResolvesTheImportedLegacyId()
-    {
-        if (AppPaths.FindMapData() is null) return;
-        using var kept = KeepFiles();
-        Seed();
-        var progress = new ProgressService();
-        using var scan = new PetScanService(new SettingsService(), progress);
-        var card = new Soulcrest.Ocr.PetWindow.PetCardScan(0, System.Drawing.Rectangle.Empty,
-            new Soulcrest.Core.PetWindow.PetCardProgress(1, 5, 25, false), "5/25",
-            new Soulcrest.Ocr.PetWindow.PortraitMatch(null, 0, null, 0), false, [], 0);
-        scan.Merge(card);
-
-        scan.Assign(Assert.Single(scan.Entries), Legacy);
-
-        Assert.Equal(Primary, Assert.Single(scan.Entries).PetId);
-    }
-
-    [Fact]
     public void ReportedLearnedMistakesRepairOnlyProvenIdentitiesAndKeepUnresolvedRawProgress()
     {
         if (AppPaths.FindMapData() is null) return;

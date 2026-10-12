@@ -151,13 +151,15 @@ public sealed class AlertsViewTests
         Assert.Contains("12 h", html);
         Assert.Contains("24 h", html);
         Assert.Contains("48 h", html);
-        Assert.Contains("event-reset-options", html);
+        Assert.Contains("workspace-reset-grid", html);
+        Assert.Contains("data-event-details=\"shugo\"", html);
         Assert.Contains("event-timeline-portal", html);
-        Assert.Equal(6, System.Text.RegularExpressions.Regex.Matches(html, ">" + (language == "de" ? "Overlay-Widget" : "Overlay widget") + "</label>").Count);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, ">" + (language == "de" ? "Overlay-Widget" : "Overlay widget") + "</label>"));
         Assert.Contains("09:00", html); // 07:00 UTC daily reset shown in Berlin daylight time.
-        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(html, "class=\"event-card(?: live| )?\"").Count);
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(html, "class=\"event-reset\"").Count);
-        Assert.DoesNotContain("event-schedule-badge", html[..html.IndexOf("event-cards-heading", StringComparison.Ordinal)]);
+        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(html, "class=\"event-card(?: [^\"]*)?\"").Count);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(html, "class=\"event-reset(?: [^\"]*)?\"").Count);
+        // The event calendar stays free of schedule badges; the separate boss overview keeps its selection badge.
+        Assert.DoesNotContain("event-schedule-badge", html[..html.IndexOf("<section class=\"event-boss-live\"", StringComparison.Ordinal)]);
         Assert.DoesNotContain("data-boss=", html);
         Assert.Empty(fixture.Alerts.Items);
         Assert.Empty(fixture.Alerts.OverlayRows);
@@ -175,11 +177,12 @@ public sealed class AlertsViewTests
     public async Task EventSoundOptionsAreVisibleWhileReminderIsOffAndPersistForLaterActivation(string language, string id)
     {
         await using var fixture = new Fixture(language);
-        var html = await fixture.Render();
+        await fixture.Render();
+        var html = await fixture.Invoke("SelectEvent", id);
         static string Card(string markup, string eventId)
         {
-            var at = markup.IndexOf("data-event=\"" + eventId + "\"", StringComparison.Ordinal);
-            return markup[at..markup.IndexOf("</article>", at, StringComparison.Ordinal)];
+            var at = markup.IndexOf("data-event-details=\"" + eventId + "\"", StringComparison.Ordinal);
+            return markup[at..markup.IndexOf("</section>", at, StringComparison.Ordinal)];
         }
         var card = Card(html, id);
         Assert.Contains("data-sound=\"off\"", card);
@@ -205,6 +208,53 @@ public sealed class AlertsViewTests
         Assert.False(Assert.Single(fixture.Alerts.Items).PlaySound);
         Assert.False(fixture.Tracker.Running);
         await fixture.Export(html, "sound-" + id);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task DefaultDashboardKeepsAllReminderControlsWithoutWorkspaceOptIn(string language)
+    {
+        await using var fixture = new Fixture(language);
+        var html = await fixture.RenderDashboard();
+        Assert.Contains("event-reset-options", html);
+        Assert.DoesNotContain("workspace-event-select", html);
+        Assert.Equal(6, System.Text.RegularExpressions.Regex.Matches(html, ">" + (language == "de" ? "Overlay-Widget" : "Overlay widget") + "</label>").Count);
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.False(fixture.Tracker.Running);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task SelectingEventAndResetOnlyChangesDetailsAndPreservesIndependentPreferences(string language)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Alerts.Save(fixture.Alerts.GetEventReminder("shugo") with { Enabled = false, PlaySound = true, Sound = "custom", SoundFile = fixture.SoundFile });
+        fixture.Alerts.SetEventPresentation("shugo", new() { ShowOverlay = true, AlwaysShowOverlay = true });
+        var html = await fixture.Render();
+        Assert.Contains("alerts-workspace-grid", html);
+        Assert.Contains("data-event-details=\"shugo\"", html);
+        Assert.Contains("aria-pressed=\"true\" data-sound=\"custom\"", html);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "data-event-details="));
+        var before = System.Text.Json.JsonSerializer.Serialize(fixture.Alerts.Items);
+        var reset = await fixture.Invoke("SelectEvent", "daily-reset");
+        Assert.Contains("data-event-details=\"daily-reset\"", reset);
+        Assert.DoesNotContain("data-event-details=\"shugo\"", reset);
+        Assert.Contains("data-sound=\"standard\"", reset);
+        Assert.Contains(language == "de" ? "MP3 hinzufügen" : "Add MP3", reset);
+        await fixture.Export(reset, "reset-details");
+        await fixture.Invoke("SelectEvent", "not-a-catalog-event");
+        Assert.Equal("daily-reset", fixture.Field("_selectedEventId"));
+        var restored = await fixture.Invoke("SelectEvent", "shugo");
+        Assert.Contains("aria-pressed=\"true\" data-sound=\"custom\"", restored);
+        Assert.Contains("value=\"True\" selected", restored);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(fixture.Alerts.Items));
+        Assert.False(Assert.Single(fixture.Alerts.Items).Enabled);
+        Assert.True(fixture.Alerts.EventTimers.Single(timer => timer.Definition.Id == "shugo").Presentation.ShowOverlay);
+        Assert.Equal(0, fixture.SoundPlaybacks);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(restored, "selected-details");
     }
 
     [Theory]
@@ -247,8 +297,12 @@ public sealed class AlertsViewTests
         Assert.DoesNotContain("Countdown im Overlay", editor);
         Assert.DoesNotContain("Overlay countdown", editor);
         Assert.Contains(language == "de" ? "Speichere oder schließe den Editor" : "Save or close the editor", editor);
-        var quickButtons = System.Text.RegularExpressions.Regex.Matches(editor, "<button[^>]+class=\"[^\"]*(?:selected|event-reminder-custom)[^\"]*\"[^>]*>");
-        Assert.Contains(quickButtons.Cast<System.Text.RegularExpressions.Match>(), match => match.Value.Contains("disabled", StringComparison.Ordinal));
+        var selectionButtons = System.Text.RegularExpressions.Regex.Matches(editor, "<button[^>]+class=\"workspace-(?:event|reset)-select\"[^>]*>");
+        Assert.Equal(6, selectionButtons.Count);
+        Assert.All(selectionButtons.Cast<System.Text.RegularExpressions.Match>(), match => Assert.Contains("disabled", match.Value));
+        Assert.DoesNotContain("data-event-details=", editor);
+        await fixture.Invoke("SelectEvent", "shugo");
+        Assert.Equal("abyss", fixture.Field("_selectedEventId"));
         await fixture.Invoke("SetEventReminder", new KeyValuePair<string, int>("abyss", 5));
         await fixture.Invoke("SetEventWidget", new KeyValuePair<string, EventTimerPresentation>("abyss", new() { ShowOverlay = true }));
         Assert.Empty(fixture.Alerts.Items); // Queued actions from the previous render cannot replace the open editor.
@@ -427,6 +481,15 @@ public sealed class AlertsViewTests
             _renderer = new HtmlRenderer(_provider, _provider.GetRequiredService<ILoggerFactory>());
         }
 
+        public async Task<string> RenderDashboard()
+        {
+            _root = await _renderer.Dispatcher.InvokeAsync(async () => await _renderer.RenderComponentAsync<EventTimersDashboard>(ParameterView.FromDictionary(new Dictionary<string, object?>
+            {
+                [nameof(EventTimersDashboard.Timers)] = Alerts.EventTimers,
+                [nameof(EventTimersDashboard.Now)] = Clock.GetUtcNow()
+            })));
+            return await Markup();
+        }
         public async Task<string> RenderMap()
         {
             _root = await _renderer.Dispatcher.InvokeAsync(async () => await _renderer.RenderComponentAsync<MapTimers>());
@@ -464,13 +527,15 @@ public sealed class AlertsViewTests
             });
             return await Markup();
         }
+        public object? Field(string field) => typeof(AlertsView).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_view);
         public void Set(string field, object value) => typeof(AlertsView).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_view, value);
         private async Task<string> Markup() => WebUtility.HtmlDecode(await _renderer.Dispatcher.InvokeAsync(_root.ToHtmlString));
         public async Task Export(string html, string state)
         {
             if (Environment.GetEnvironmentVariable("SOULCREST_ALERTS_UI_PREVIEW") is not { Length: > 0 } output) return;
             Directory.CreateDirectory(output);
-            await File.WriteAllTextAsync(Path.Combine(output, $"alerts-{state}-{_language}.html"), "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/css/alerts.css\"><link rel=\"stylesheet\" href=\"/css/boss-timers.css\"></head><body>" + html + "</body></html>");
+            await File.WriteAllTextAsync(Path.Combine(output, "alerts-preview-viewports.json"), """{"viewports":[{"width":1600,"height":900},{"width":1280,"height":720}],"languages":["de","en"],"pattern":"alerts-*-{language}.html","note":"Static HtmlRenderer output; no app, capture, playback or network startup."}""");
+            await File.WriteAllTextAsync(Path.Combine(output, $"alerts-{state}-{_language}.html"), "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/css/alerts.css\"><link rel=\"stylesheet\" href=\"/css/boss-timers.css\"><link rel=\"stylesheet\" href=\"/css/alerts-workspace.css\"></head><body>" + html + "</body></html>");
         }
         public async ValueTask DisposeAsync()
         {

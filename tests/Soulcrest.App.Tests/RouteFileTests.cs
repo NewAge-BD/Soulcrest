@@ -262,7 +262,7 @@ public sealed class RouteFileTests : IDisposable
         Assert.Equal(867, routes.Sum(route => route.Stops.Count));
         Assert.All(routes, route => Assert.True(route.IsLeveling));
         Assert.DoesNotContain(routes.SelectMany(route => route.Stops), LevelingRouteStyle.IsTrace);
-        Assert.Equal(409, routes.Sum(route => route.Stops.Count(stop => stop.Name.Length == 0)));
+        Assert.Equal(354, routes.Sum(route => route.Stops.Count(stop => stop.Name.Length == 0)));
         var firstBytes = File.ReadAllBytes(Library);
         RouteFile.EnsureDefaultLibrary(Library, Legacy);
         Assert.Equal(firstBytes, File.ReadAllBytes(Library));

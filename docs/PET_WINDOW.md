@@ -1,3 +1,7 @@
+# Historisch: Pet-Fenster-OCR
+
+Seit Nutzerauftrag vom 2026-10-12 entfernt. Aktuell gilt [EXPLORATION.md](EXPLORATION.md). Die folgenden Notizen beschreiben den früheren Scan.
+
 # Startstand aus dem Ingame-Pet-Fenster
 
 Stand: 2026-10-08. Grundlage sind Screenshots des Pet-Fensters vom Nutzer (englischer Client),

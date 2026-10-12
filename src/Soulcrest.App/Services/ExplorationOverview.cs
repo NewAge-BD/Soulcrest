@@ -1,3 +1,5 @@
+using Soulcrest.Core.Progress;
+
 namespace Soulcrest.App.Services;
 
 /// <summary>Read-only inputs from the existing tracker; never starts a capture or changes tracking.</summary>
@@ -5,11 +7,18 @@ public sealed record ExplorationTrackingSnapshot(bool Running, bool Found, bool 
     bool InInstance, bool EscMenuOpen, PlayerPosition? Position, DetectedMapContext? DetectedMap);
 
 public sealed record ExplorationMapSelection(string MapId, string Source, bool WorldMap = false);
-public sealed record ExplorationCategorySummary(string Kind, int Completed, int Total);
+public sealed record ExplorationCategorySummary(string Kind, int Completed, int Total)
+{
+    public int Discovered { get; init; }
+    public int Unknown { get; init; }
+}
 public sealed record ExplorationOverviewRow(ExplorationPlace Place, bool Done,
     IReadOnlyList<ExplorationPlace> Missing, double? Distance)
 {
     public bool Locked => !Done && Missing.Count > 0;
+    public ExplorationPlaceProgress Progress { get; init; } = ExplorationPlaceProgress.Unknown;
+    public ExplorationProgressState? State => Progress.State;
+    public ProgressFreshness Freshness => Progress.Freshness;
 }
 public sealed record ExplorationOverviewSnapshot(string MapId, int Completed, int Total,
     IReadOnlyList<ExplorationCategorySummary> Categories, IReadOnlyList<ExplorationOverviewRow> Rows,
@@ -29,11 +38,10 @@ public static class ExplorationOverview
         tracking.EscMenuOpen, tracking.Position, tracking.DetectedMap);
 
     public static ExplorationMapSelection SelectMap(IReadOnlyList<MapInfo> maps, string? previousMap,
-        string? fallbackMap, string? pinnedMap, bool scanning, string? scanMap,
+        string? fallbackMap, string? pinnedMap,
         ExplorationTrackingSnapshot tracking, DateTimeOffset now)
     {
         bool Known(string? id) => id is not null && maps.Any(m => m.Id == id);
-        if (scanning && Known(scanMap)) return new(scanMap!, "scan");
         if (Known(pinnedMap)) return new(pinnedMap!, "pinned");
         if (CurrentMap(tracking, now) is { } detected && Known(detected.MapId))
             return new(detected.MapId, "detected", detected.WorldMap);
@@ -88,6 +96,37 @@ public static class ExplorationOverview
             .OrderBy(r => r.Done).ThenBy(r => r.Locked).ThenBy(r => r.Distance ?? double.MaxValue)
             .ThenBy(r => r.Place.Name(language), StringComparer.CurrentCulture).ThenBy(r => r.Place.Id, StringComparer.Ordinal).ToArray();
         return new(map, mapPlaces.Count(p => done.Contains(p.Id)), mapPlaces.Length, categories, visible, next);
+    }
+
+    public static ExplorationOverviewSnapshot Build(IReadOnlyList<ExplorationPlace> places, ExplorationCharacterSnapshot snapshot,
+        string map, string language, PlayerPosition? position = null, string search = "", string kind = "all", string status = "all")
+    {
+        // Existing completion/prerequisite behavior remains a projection; discovery is independent.
+        var basic = Build(places, snapshot.Completed, map, language, position, search, kind, "all");
+        var all = basic.Rows.Select(row => row with { Progress = snapshot.Progress.GetValueOrDefault(row.Place.Id)
+            ?? (row.Done ? new(ExplorationProgressState.DiscoveredCompleted, ProgressFreshness.Unknown, "legacy", null)
+                : ExplorationPlaceProgress.Unknown) }).ToArray();
+        var mapPlaces = places.Where(place => place.Map == map && Kinds.Contains(place.Kind)).DistinctBy(place => place.Id).ToArray();
+        ExplorationProgressState? StateOf(ExplorationPlace place) => snapshot.Progress.GetValueOrDefault(place.Id)?.State
+            ?? (snapshot.Completed.Contains(place.Id) ? ExplorationProgressState.DiscoveredCompleted : null);
+        var categories = basic.Categories.Select(category => category with
+        {
+            Discovered = mapPlaces.Count(place => place.Kind == category.Kind && StateOf(place) is
+                ExplorationProgressState.DiscoveredIncomplete or ExplorationProgressState.DiscoveredCompleted),
+            Unknown = mapPlaces.Count(place => place.Kind == category.Kind && StateOf(place) is null),
+        }).ToArray();
+        var visible = all.Where(row => status switch
+        {
+            "open" => !row.Done,
+            "done" => row.Done,
+            "locked" => row.Locked,
+            "undiscovered" => row.State == ExplorationProgressState.Undiscovered,
+            "discovered" => row.State == ExplorationProgressState.DiscoveredIncomplete,
+            "unknown" => row.State is null,
+            _ => true,
+        }).ToArray();
+        var next = basic.Next is { } target ? all.FirstOrDefault(row => row.Place.Id == target.Place.Id) : null;
+        return basic with { Categories = categories, Rows = visible, Next = next };
     }
 
     private static double? Distance(PlayerPosition origin, ExplorationPlace place)

@@ -31,7 +31,7 @@ public sealed record NetworkSoul(DateTimeOffset At, int PetNumber, string PetId,
 /// soul message (0d90) adds its souls to the progress. Follows connection changes (zone change,
 /// reconnect) by looking at the game's connections every few seconds.
 /// </summary>
-public sealed class NetworkLootService(ProgressService progress) : INetworkLootSource, IDisposable
+public sealed class NetworkLootService(ProgressService progress, ExplorationService? exploration = null) : INetworkLootSource, IDisposable
 {
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
     private readonly object _gate = new();
@@ -41,6 +41,19 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
     private ILiveDevice? _device;
     private CaptureTarget? _target;
     private System.Threading.Timer? _check;
+    private readonly Dictionary<string, List<(byte[] Message, DateTimeOffset At)>> _pendingProgress = [];
+    private int _pendingProgressBytes;
+    private bool _pendingProgressOverflow;
+    private string? _identityStream;
+    private OwnCharacterIdentity? _identity;
+    private long _progressGeneration;
+    private long _progressSequence;
+
+    public DateTimeOffset? PetBaselineAt { get; private set; }
+    public DateTimeOffset? QuestBaselineAt { get; private set; }
+    public DateTimeOffset? TeleportBaselineAt { get; private set; }
+    public bool ProgressIsLive => Running && _identity is not null && PetBaselineAt is not null;
+    public string ProgressStatus { get; private set; } = "Warte auf die eigene Charaktererkennung.";
 
     public bool Running { get; private set; }
     public string Status { get; private set; } = "Netzwerk-Quelle aus.";
@@ -58,12 +71,13 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
 
     /// <summary>The own character entered the world (after a loading screen): its name.</summary>
     public event Action<string>? CharacterEntered;
+    public event Action<OwnCharacterIdentity>? OwnCharacterEntered;
 
     /// <summary>Only unencrypted clock/boss messages; the stream key is transient and never persisted.</summary>
     public event Action<string, byte[]>? BossMessageReceived;
     public event Action? BossSessionReset;
     private long _generation;
-    private sealed record ReceivedMessage(string Stream, byte[] Data);
+    private sealed record ReceivedMessage(string Stream, byte[] Data, bool Gap = false);
 
     /// <summary>The own character seen last after a loading screen, null before the first one.</summary>
     public string? Character { get; private set; }
@@ -214,6 +228,7 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
             _target = null;
             _streams.Clear();
             _generation++;
+            ResetProgressContext();
         }
         BossSessionReset?.Invoke();
         if (device is null)
@@ -241,28 +256,25 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
                 return;
             Packets++;
             messages = Feed(_streams, raw, target.ServerPorts, target.GamePorts);
-            Messages += messages.Count;
+            Messages += messages.Count(m => m.Data.Length > 0);
             Resyncs = _streams.Values.Sum(s => s.Messages.Resyncs);
             generation = _generation;
         }
         foreach (var received in messages)
         {
-            var message = received.Data;
-            if (LootMessage.TryParse(message) is { } gains)
-                Count(gains);
-            else if (CharacterMessage.TryParseName(message) is { } name)
+            lock (_gate)
             {
-                Character = name;
-                BossSessionReset?.Invoke();
-                CharacterEntered?.Invoke(name);
-            }
-            if (message.Length >= 2 && (message[0] == 0 && message[1] == 0x36 || message[0] == 1 && message[1] == 0x91))
-            {
-                lock (_gate)
+                if (!Running || generation != _generation)
+                    break;
+                if (received.Gap)
                 {
-                    if (Running && generation == _generation)
-                        BossMessageReceived?.Invoke(received.Stream, message);
+                    ProcessProgressGap(received.Stream);
+                    continue;
                 }
+                ProcessProgressMessage(received.Stream, received.Data, DateTimeOffset.UtcNow);
+                var message = received.Data;
+                if (message.Length >= 2 && (message[0] == 0 && message[1] == 0x36 || message[0] == 1 && message[1] == 0x91))
+                    BossMessageReceived?.Invoke(received.Stream, message);
             }
         }
     }
@@ -282,18 +294,213 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
             return result;
         var key = (ip.SourceAddress.ToString(), (int)tcp.SourcePort, (int)tcp.DestinationPort);
         if (!streams.TryGetValue(key, out var stream))
-            streams[key] = stream = (new TcpReassembler(), new GameMessageStream());
+        {
+            // A capture may span many reconnects; old TCP contexts must not accumulate forever.
+            if (streams.Count >= 64)
+            {
+                streams.Clear();
+                result.Add(new ReceivedMessage("*", [], Gap: true));
+            }
+            streams[key] = stream = (new TcpReassembler(), new GameMessageStream(requireVerifiedSync: true));
+        }
         foreach (var chunk in stream.Tcp.Add(tcp.SequenceNumber, payload))
         {
             if (chunk.Gap)
+            {
                 stream.Messages.Break();
+                result.Add(new ReceivedMessage($"{key.Item1}:{key.Item2}:{key.Item3}", [], Gap: true));
+            }
             if (chunk.Data.Length > 0)
-                result.AddRange(stream.Messages.Append(chunk.Data).Select(message => new ReceivedMessage($"{key.Item1}:{key.Item2}:{key.Item3}", message)));
+            {
+                var before = (stream.Messages.Resyncs, stream.Messages.ContinuityBreaks);
+                var decoded = stream.Messages.Append(chunk.Data);
+                if (stream.Messages.Resyncs > before.Resyncs || stream.Messages.ContinuityBreaks > before.ContinuityBreaks)
+                    result.Add(new ReceivedMessage($"{key.Item1}:{key.Item2}:{key.Item3}", [], Gap: true));
+                result.AddRange(decoded.Select(message => new ReceivedMessage($"{key.Item1}:{key.Item2}:{key.Item3}", message)));
+            }
         }
         return result;
     }
 
-    private void Count(IReadOnlyList<SoulGain> gains)
+    /// <summary>Invalidates the bound stream immediately and refreshes the passive status card.</summary>
+    internal void ProcessProgressGap(string stream)
+    {
+        lock (_gate)
+        {
+            if (_pendingProgress.Remove(stream, out var pending))
+                _pendingProgressBytes -= pending.Sum(p => p.Message.Length);
+            if (stream != "*" && _identityStream != stream) return;
+            ResetProgressContext();
+            SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+        }
+    }
+
+    /// <summary>Pure message dispatch used by the live source and isolated integration tests.</summary>
+    internal void ProcessProgressMessage(string stream, byte[] message, DateTimeOffset at)
+    {
+        lock (_gate)
+        {
+            if (OwnIdentityMessage.IsWorldEntryPreparation(message))
+            {
+                if (_identity is not null && _identityStream != stream) return;
+                ResetProgressContext();
+                BossSessionReset?.Invoke();
+                SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+                return;
+            }
+            if (OwnIdentityMessage.TryParse(message) is { } identity)
+            {
+                ObserveIdentity(stream, identity, at);
+                return;
+            }
+            if (message.Length < 2)
+                return;
+            var opcode = message[0] | message[1] << 8;
+            if (opcode is 0x3633 or 0x3621)
+            {
+                // A known world-entry opcode with an unsupported schema must not leave the old
+                // character trusted. Never bind a partial prefix or invalidate another stream.
+                if (_identityStream == stream)
+                {
+                    ResetProgressContext();
+                    ProgressStatus = "Netzwerkformat nicht unterstützt. Gespeicherter Fortschritt bleibt erhalten.";
+                    SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+                }
+                return;
+            }
+            if (opcode is not (0x9000 or 0x9009 or 0x900D or 0x900E or 0x9232 or 0x8D09))
+                return;
+            if (_identity is null)
+            {
+                if (_pendingProgressOverflow) return;
+                if (!_pendingProgress.TryGetValue(stream, out var pending))
+                {
+                    if (_pendingProgress.Count >= 8) { OverflowPending(); return; }
+                    _pendingProgress[stream] = pending = [];
+                }
+                // Bound the complete pre-identity prefix, not an arbitrary surviving tail.
+                if (pending.Count >= 256 || pending.Sum(p => p.Message.Length) + message.Length > 2 * 1024 * 1024
+                    || _pendingProgressBytes + message.Length > 4 * 1024 * 1024)
+                    OverflowPending();
+                else
+                {
+                    pending.Add((message.ToArray(), at));
+                    _pendingProgressBytes += message.Length;
+                    SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+                }
+                return;
+            }
+            if (_identityStream != stream)
+                return;
+            var context = new NetworkProgressContext(_identity, _progressGeneration, ++_progressSequence, at);
+            var accepted = false;
+            var parsed = false;
+            switch (opcode)
+            {
+                case 0x9000 when PetProgressMessage.TryParseSnapshot(message) is { } snapshot:
+                    parsed = true;
+                    accepted = progress.ApplyNetworkSnapshot(snapshot, context);
+                    if (accepted) PetBaselineAt = at;
+                    break;
+                case 0x9009 when PetProgressMessage.TryParseAcquired(message) is { } acquired:
+                    parsed = true;
+                    if (acquired.EntityKey == _identity.EntityKey)
+                        accepted = progress.ApplyNetworkAcquisition(acquired, context);
+                    break;
+                case 0x900D when LootMessage.TryParse(message) is { } gains:
+                    parsed = true;
+                    accepted = progress.ApplyNetworkGain(gains, context);
+                    if (accepted) Count(gains, at);
+                    break;
+                case 0x900E when PetProgressMessage.TryParseSpent(message) is { } spent:
+                    parsed = true;
+                    accepted = progress.ApplyNetworkSpent(spent, context);
+                    break;
+                case 0x9232 when ExplorationProgressMessage.TryParseTeleports(message) is { } teleports:
+                    parsed = true;
+                    accepted = exploration?.ApplyNetworkTeleports(teleports, context) == true;
+                    if (accepted) TeleportBaselineAt = at;
+                    break;
+                case 0x8D09 when ExplorationProgressMessage.TryParseQuests(message) is { } quests:
+                    parsed = true;
+                    accepted = exploration?.ApplyNetworkQuests(quests, context) == true;
+                    if (accepted) QuestBaselineAt = at;
+                    break;
+            }
+            if (!parsed)
+            {
+                ResetProgressContext();
+                ProgressStatus = "Netzwerkformat nicht unterstützt. Gespeicherter Fortschritt bleibt erhalten.";
+                SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+                return;
+            }
+            ProgressStatus = PetBaselineAt is null
+                ? "Charakter erkannt. Warte auf den vollständigen Pet-Fortschritt."
+                : QuestBaselineAt is not null && TeleportBaselineAt is not null
+                    ? "Netzwerkdaten aktuell. Der Erkundungsstatus ist noch unbestätigt."
+                    : "Pet-Fortschritt aktuell. Warte auf die Erkundungsdaten.";
+            if (accepted) SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+        }
+    }
+
+    private void OverflowPending()
+    {
+        _pendingProgress.Clear();
+        _pendingProgressBytes = 0;
+        _pendingProgressOverflow = true;
+        ProgressStatus = "Charakter noch unbekannt. Bitte das Gebiet wechseln, um den Fortschritt einzulesen.";
+        SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+    }
+
+    internal void ObserveIdentity(string stream, OwnCharacterIdentity identity, DateTimeOffset at)
+    {
+        lock (_gate)
+        {
+            // A world-entry message begins a new logical session even on the same TCP connection.
+            var pending = _identity is null && _pendingProgress.TryGetValue(stream, out var buffered)
+                ? buffered.ToArray() : [];
+            ResetProgressContext();
+            _identity = identity;
+            _identityStream = stream;
+            Character = identity.Name;
+            var context = new NetworkProgressContext(identity, _progressGeneration, 0, at);
+            if (!progress.BindNetworkContext(context))
+            {
+                ResetProgressContext();
+                return;
+            }
+            exploration?.BindNetworkContext(context);
+            BossSessionReset?.Invoke();
+            OwnCharacterEntered?.Invoke(identity);
+            CharacterEntered?.Invoke(identity.Name);
+            foreach (var item in pending)
+                ProcessProgressMessage(stream, item.Message, item.At);
+            if (pending.Length == 0)
+                ProgressStatus = "Charakter erkannt. Warte auf den vollständigen Pet-Fortschritt.";
+            SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+        }
+    }
+
+    internal void ResetProgressContext()
+    {
+        lock (_gate)
+        {
+            _progressGeneration++;
+            _progressSequence = 0;
+            _identity = null;
+            _identityStream = null;
+            Character = null;
+            _pendingProgress.Clear();
+            _pendingProgressBytes = 0;
+            _pendingProgressOverflow = false;
+            PetBaselineAt = QuestBaselineAt = TeleportBaselineAt = null;
+            progress.MarkNetworkStale();
+            exploration?.MarkNetworkStale();
+            ProgressStatus = "Warte auf die eigene Charaktererkennung.";
+        }
+    }
+
+    private void Count(IReadOnlyList<SoulGain> gains, DateTimeOffset at)
     {
         var unknown = new List<int>();
         foreach (var gain in gains)
@@ -306,8 +513,7 @@ public sealed class NetworkLootService(ProgressService progress) : INetworkLootS
                 unknown.Add(gain.PetNumber);
                 continue;
             }
-            var soul = new NetworkSoul(DateTimeOffset.Now, gain.PetNumber, petId, name, gain.Souls);
-            progress.AddSouls(petId, gain.Souls, "network", $"0d90 #{gain.PetNumber} {name} x{gain.Souls}");
+            var soul = new NetworkSoul(at, gain.PetNumber, petId, name, gain.Souls);
             lock (_gate)
             {
                 _recent.Insert(0, soul);

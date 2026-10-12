@@ -112,7 +112,9 @@ public sealed class OverlayHotkeyTests : IDisposable
         var current = new SettingsService().Current;
         Assert.False(current.OverlayEnabled); Assert.False(current.BossOverlayVisible);
         Assert.False(current.LevelingOverlayEnabled); Assert.False(current.MapOverlayEnabled);
-        Assert.False(current.PetScanOverlayEnabled); Assert.False(current.ExplorationScanOverlayEnabled);
+        Assert.DoesNotContain(OverlayHotkeys.Actions, action => action.Id is "pet-scan.toggle" or "exploration-scan.toggle");
+        Assert.False(OverlayHotkeys.ToggleVisibility(current, "pet-scan.toggle"));
+        Assert.False(OverlayHotkeys.ToggleVisibility(current, "exploration-scan.toggle"));
         Assert.False(BossOverlayForm.PanelVisible(new AppSettings { BossRushEnabled = true, BossAlertsEnabled = true, BossOverlayVisible = false }, 3));
         Assert.False(OverlayHotkeys.ToggleVisibility(current, "leveling.unlock"));
         Assert.True(current.BossOverlayEnabled); // preserve the boss list and alert configuration

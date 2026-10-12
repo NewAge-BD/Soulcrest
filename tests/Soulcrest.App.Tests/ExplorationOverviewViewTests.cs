@@ -18,7 +18,7 @@ public sealed class ExplorationOverviewViewTests
     [Theory]
     [InlineData("de", "Gesamtübersicht", "Erkundungs-Checkliste", "Manuell fixiert", "Spielkarte folgen")]
     [InlineData("en", "Overview", "Exploration checklist", "Manually pinned", "Follow game map")]
-    public async Task PinnedOverviewKeepsTheScanVisibleAboveSavedCompletionAndTheLockedChecklist(string language, string overview, string checklist, string source, string follow)
+    public async Task PinnedOverviewShowsPassiveStatusAboveSavedCompletionAndTheLockedChecklist(string language, string overview, string checklist, string source, string follow)
     {
         await using var fixture = new Fixture(language);
         fixture.Settings.Current.ExplorationPinnedMap = "altgard";
@@ -29,11 +29,13 @@ public sealed class ExplorationOverviewViewTests
         Assert.Contains(follow, html);
         Assert.Contains("<progress value=\"1\" max=\"3\"", html);
         Assert.Contains("data-place=\"rift\"", html);
+        Assert.Contains(language == "de" ? "Bestätigt, nicht erledigt: 0" : "Confirmed, incomplete: 0", html);
+        Assert.Contains(language == "de" ? "Unbestätigt: 4" : "Unconfirmed: 4", html);
         Assert.Contains("exploration-place locked", html);
         Assert.Contains("Twisted Pit Entrance", html);
         Assert.Contains("class=\"exploration-rows\" tabindex=\"0\"", html);
-        AssertVisibleScanAboveOverview(html);
-        Assert.Contains(language == "de" ? "Scan starten" : "Start scan", html);
+        AssertNetworkAboveOverview(html);
+        Assert.DoesNotContain(language == "de" ? "Scan starten" : "Start scan", html);
         Assert.False(fixture.Tracking.Running);
         Assert.Equal(new[] { "lost" }, fixture.Exploration.Completed);
         await fixture.Export(html, "pinned");
@@ -59,43 +61,68 @@ public sealed class ExplorationOverviewViewTests
     }
 
     [Theory]
-    [InlineData("de", "Karte des laufenden Scans", "Manuelle Änderungen sind während des Scans gesperrt.")]
-    [InlineData("en", "Map locked by the running scan", "Manual changes are locked during a scan.")]
-    public async Task RunningScanKeepsItsMapLocksCorrectionsAndRemainsVisibleAtTheTop(string language, string source, string locked)
+    [InlineData("de", "Unentdeckt", "Entdeckt · offen", "Entdeckt · erledigt", "Unbestätigt")]
+    [InlineData("en", "Undiscovered", "Discovered · incomplete", "Discovered · completed", "Unconfirmed")]
+    public async Task ThreeExplorationStatesRemainSeparateFromUnconfirmedData(string language, string undiscovered, string incomplete, string complete, string unknown)
     {
         await using var fixture = new Fixture(language);
-        fixture.Settings.Current.ExplorationPinnedMap = null;
-        fixture.Detect("verteron");
-        fixture.SetScan("ScanMap", "altgard");
-        fixture.SetScan("ScanKind", "all");
-        fixture.SetScan("Status", "Liste wird gelesen – kurz stillhalten.");
-        fixture.SetRunning(true);
+        fixture.Settings.Current.ExplorationPinnedMap = "altgard";
+        fixture.Exploration.SetState(fixture.Exploration.ActiveId, ["twisted"], ExplorationProgressState.DiscoveredIncomplete);
+        fixture.Exploration.SetState(fixture.Exploration.ActiveId, ["rift"], ExplorationProgressState.Undiscovered);
         var html = await fixture.Render();
-        Assert.Contains(source, html);
-        Assert.Contains(locked, html);
-        Assert.Contains("data-place=\"rift\"", html);
-        Assert.DoesNotContain("data-place=\"verteron-open\"", html);
-        AssertVisibleScanAboveOverview(html);
-        Assert.Contains(language == "de" ? "Scan stoppen" : "Stop scan", html);
-        Assert.Contains("data-scan-state=\"running\"", html);
-        var checkboxes = Regex.Matches(html, "<input type=\"checkbox\"[^>]*>").Select(match => match.Value).ToArray();
-        Assert.NotEmpty(checkboxes);
-        Assert.All(checkboxes, checkbox => Assert.Contains("disabled", checkbox));
+        Assert.Contains(undiscovered, html);
+        Assert.Contains(incomplete, html);
+        Assert.Contains(complete, html);
+        Assert.Contains(unknown, html);
+        Assert.Contains("value=\"DiscoveredIncomplete\"", html);
+        Assert.Contains("value=\"Undiscovered\"", html);
+        AssertNetworkAboveOverview(html);
+        Assert.DoesNotContain("data-scan-state", html);
+        Assert.False(fixture.Tracking.Running);
         Assert.Equal(new[] { "lost" }, fixture.Exploration.Completed);
-        await fixture.Export(html, "scanning");
     }
 
-    private static void AssertVisibleScanAboveOverview(string html)
+    [Theory]
+    [InlineData("de", "Manuell", "Gespeicherter Fortschritt", "Unbestätigt")]
+    [InlineData("en", "Manual", "Saved progress", "Unconfirmed")]
+    public async Task CompactWorkspaceKeepsOneEditableRowPerPlaceAndDistinctSavedAndUnknownStates(
+        string language, string manual, string saved, string unknown)
     {
-        Assert.Contains("class=\"exploration-scan-setup\"", html);
-        Assert.DoesNotContain("exploration-scan-drawer", html);
-        Assert.Single(Regex.Matches(html, "data-scan-state="));
-        var setup = html.IndexOf("class=\"exploration-scan-setup\"", StringComparison.Ordinal);
+        await using var fixture = new Fixture(language);
+        fixture.Settings.Current.ExplorationPinnedMap = "altgard";
+        fixture.Exploration.SetState(fixture.Exploration.ActiveId, ["twisted"], ExplorationProgressState.DiscoveredIncomplete);
+        fixture.Exploration.SetState(fixture.Exploration.ActiveId, ["rift"], ExplorationProgressState.Undiscovered);
+        fixture.Detect("altgard");
+        var html = await fixture.Render();
+        Assert.Contains("class=\"exploration-workspace\"", html);
+        Assert.Contains("class=\"exploration-sidebar\"", html);
+        Assert.Contains("<details class=\"exploration-status-details\">", html); // Details start collapsed.
+        AssertNetworkAboveOverview(html);
+        foreach (var id in new[] { "lost", "twisted", "rift", "stronghold", "kibelisk" })
+            Assert.Single(Regex.Matches(html, "data-place=\"" + id + "\""));
+        var incomplete = Regex.Match(html, "<li[^>]*data-place=\"twisted\".*?</li>", RegexOptions.Singleline).Value;
+        Assert.Contains("exploration-state-badge discovered", incomplete);
+        Assert.Contains(manual, incomplete);
+        Assert.Contains(saved, incomplete);
+        Assert.Contains("value=\"DiscoveredIncomplete\"", incomplete);
+        var unconfirmed = Regex.Match(html, "<li[^>]*data-place=\"stronghold\".*?</li>", RegexOptions.Singleline).Value;
+        Assert.Contains("exploration-state-badge unknown", unconfirmed);
+        Assert.Contains(unknown, unconfirmed);
+        Assert.DoesNotContain("exploration-state-badge undiscovered", unconfirmed);
+        Assert.Contains("class=\"exploration-kibelisk-toggle\"", html);
+        Assert.Equal(new[] { "lost" }, fixture.Exploration.Completed);
+        await fixture.Export(html, "workspace");
+    }
+
+    private static void AssertNetworkAboveOverview(string html)
+    {
+        Assert.Contains("class=\"exploration-network-setup\"", html);
+        Assert.Single(Regex.Matches(html, "data-progress-source="));
         var context = html.IndexOf("class=\"card exploration-context\"", StringComparison.Ordinal);
-        var scan = html.IndexOf("data-scan-state=", StringComparison.Ordinal);
+        var network = html.IndexOf("data-progress-source=", StringComparison.Ordinal);
         var overview = html.IndexOf("class=\"exploration-summary\"", StringComparison.Ordinal);
         var checklist = html.IndexOf("class=\"card exploration-checklist\"", StringComparison.Ordinal);
-        Assert.True(setup < context && context < scan && scan < overview && overview < checklist);
+        Assert.True(context < network && network < overview && overview < checklist);
     }
 
     private sealed class Fixture : IAsyncDisposable
@@ -105,15 +132,19 @@ public sealed class ExplorationOverviewViewTests
         private readonly string _profile = Path.Combine(AppPaths.DataDirectory, "exploration-overview-view-" + Guid.NewGuid().ToString("N") + ".json");
         private readonly (string Ui, string Names, string Map, string? Pin) _previous;
         private readonly string _previousLanguage;
+        private readonly string? _previousMapData = Environment.GetEnvironmentVariable("SOULCREST_MAPDATA");
+        private readonly string _mapData = Path.Combine(AppPaths.DataDirectory, "overview-mapdata-" + Guid.NewGuid().ToString("N"));
         public SettingsService Settings { get; }
         public ExplorationService Exploration { get; }
         public MapTrackingService Tracking => _provider.GetRequiredService<MapTrackingService>();
-        private ExplorationScanService Scan => _provider.GetRequiredService<ExplorationScanService>();
 
         public Fixture(string language)
         {
             _language = language;
             _previousLanguage = UiText.Language;
+            Directory.CreateDirectory(_mapData);
+            File.WriteAllText(Path.Combine(_mapData, "manifest.json"), """{"maps":[{"id":"altgard","label":"Altgard","group":"Asmodian"},{"id":"verteron","label":"Verteron","group":"Elyos"}]}""");
+            Environment.SetEnvironmentVariable("SOULCREST_MAPDATA", _mapData);
             Exploration = new ExplorationService(_profile,
             [new("lost", "altgard", "dungeon", 0, "Lost Ruin Entrance", null, 100, 100),
              new("twisted", "altgard", "dungeon", 1, "Twisted Pit Entrance", null, 200, 100),
@@ -130,16 +161,13 @@ public sealed class ExplorationOverviewViewTests
             services.AddSingleton<MapTrackingService>();
             services.AddSingleton<NetworkLootService>();
             services.AddSingleton(Exploration);
-            services.AddSingleton<ExplorationScanService>();
             services.AddSingleton<CharacterDetectionService>();
-            services.AddSingleton<OcrLanguageInstaller>();
             services.AddSingleton<UiState>();
             _provider = services.BuildServiceProvider();
             Settings = _provider.GetRequiredService<SettingsService>();
             _previous = (Settings.Current.UiLanguage, Settings.Current.NameLanguage, Settings.Current.LastMap, Settings.Current.ExplorationPinnedMap);
             Settings.Current.UiLanguage = Settings.Current.NameLanguage = UiText.Language = language;
             Settings.Current.LastMap = "altgard";
-            typeof(OcrLanguageInstaller).GetProperty(nameof(OcrLanguageInstaller.CheckedAt))!.SetValue(_provider.GetRequiredService<OcrLanguageInstaller>(), DateTime.UtcNow);
         }
         public void Detect(string map)
         {
@@ -149,8 +177,6 @@ public sealed class ExplorationOverviewViewTests
             typeof(MapTrackingService).GetProperty(nameof(MapTrackingService.Position))!.SetValue(Tracking, new PlayerPosition(map, 100, 100, at));
             typeof(MapTrackingService).GetProperty(nameof(MapTrackingService.DetectedMap))!.SetValue(Tracking, new DetectedMapContext(map, false, at));
         }
-        public void SetScan(string name, object value) => typeof(ExplorationScanService).GetProperty(name)!.SetValue(Scan, value);
-        public void SetRunning(bool running) => typeof(ExplorationScanService).GetField("_running", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Scan, running ? 1 : 0);
         public async Task<string> Render()
         {
             await using var renderer = new HtmlRenderer(_provider, _provider.GetRequiredService<ILoggerFactory>());
@@ -158,14 +184,26 @@ public sealed class ExplorationOverviewViewTests
         }
         public async Task Export(string html, string state)
         {
-            if (Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW") is not { Length: > 0 } output) return;
+            var output = Environment.GetEnvironmentVariable("SOULCREST_EXPLORATION_UI_PREVIEW")
+                ?? Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW");
+            if (string.IsNullOrWhiteSpace(output)) return;
             Directory.CreateDirectory(output);
-            await File.WriteAllTextAsync(Path.Combine(output, "exploration-overview-" + state + "-" + _language + ".html"),
-                "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"/css/app.css\"></head><body>" + html + "</body></html>");
+            foreach (var (width, height) in new[] { (1600, 900), (1280, 720) })
+            {
+                var name = $"exploration-{state}-{_language}-{width}x{height}.html";
+                var document = "<!doctype html><html lang=\"" + _language + "\"><head><meta charset=\"utf-8\">"
+                    + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+                    + "<link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/css/exploration.css\">"
+                    + "</head><body data-preview-width=\"" + width + "\" data-preview-height=\"" + height + "\">"
+                    + "<div class=\"shell\"><header class=\"topbar\"><div class=\"brand\">Soulcrest</div><nav class=\"tabs\">"
+                    + "<button>" + UiText.T("Karte") + "</button><button>Pets</button><button class=\"active\">"
+                    + UiText.T("Erkundungsfortschritt") + "</button><button>Boss Rush</button><button>Alerts</button></nav></header>"
+                    + "<main class=\"content\">" + html + "</main></div></body></html>";
+                await File.WriteAllTextAsync(Path.Combine(output, name), document);
+            }
         }
         public async ValueTask DisposeAsync()
         {
-            SetRunning(false);
             typeof(MapTrackingService).GetProperty(nameof(MapTrackingService.Running))!.SetValue(Tracking, false);
             Settings.Current.UiLanguage = _previous.Ui;
             Settings.Current.NameLanguage = _previous.Names;
@@ -174,6 +212,9 @@ public sealed class ExplorationOverviewViewTests
             UiText.Language = _previousLanguage;
             await _provider.DisposeAsync();
             File.Delete(_profile);
+            Environment.SetEnvironmentVariable("SOULCREST_MAPDATA", _previousMapData);
+            File.Delete(Path.Combine(_mapData, "manifest.json"));
+            Directory.Delete(_mapData);
         }
     }
 }

@@ -65,9 +65,7 @@ public static class OverlayHotkeys
         new OverlayHotkeyAction("notifications.unlock", "Alert-Benachrichtigungen", true),
         new OverlayHotkeyAction("event-timeline.toggle", "Event-Timeline"),
         new OverlayHotkeyAction("event-timeline.unlock", "Event-Timeline", true),
-        new OverlayHotkeyAction("map.toggle", "Karten-Overlay"),
-        new OverlayHotkeyAction("pet-scan.toggle", "Pet-Scan-Markierungen"),
-        new OverlayHotkeyAction("exploration-scan.toggle", "Erkundungs-Scan")
+        new OverlayHotkeyAction("map.toggle", "Karten-Overlay")
     });
 
     public static Dictionary<string, OverlayHotkey?> Defaults() => new(StringComparer.Ordinal)
@@ -94,8 +92,6 @@ public static class OverlayHotkeys
             case "alerts.toggle": settings.AlertsOverlayEnabled = !settings.AlertsOverlayEnabled; break;
             case "event-timeline.toggle": settings.EventTimelineOverlayEnabled = !settings.EventTimelineOverlayEnabled; break;
             case "map.toggle": settings.MapOverlayEnabled = !settings.MapOverlayEnabled; break;
-            case "pet-scan.toggle": settings.PetScanOverlayEnabled = !settings.PetScanOverlayEnabled; break;
-            case "exploration-scan.toggle": settings.ExplorationScanOverlayEnabled = !settings.ExplorationScanOverlayEnabled; break;
             default: return false;
         }
         return true;
@@ -109,8 +105,6 @@ public static class OverlayHotkeys
         "alerts.toggle" => settings.AlertsOverlayEnabled,
         "event-timeline.toggle" => settings.EventTimelineOverlayEnabled,
         "map.toggle" => settings.MapOverlayEnabled,
-        "pet-scan.toggle" => settings.PetScanOverlayEnabled,
-        "exploration-scan.toggle" => settings.ExplorationScanOverlayEnabled,
         _ => false
     };
 }

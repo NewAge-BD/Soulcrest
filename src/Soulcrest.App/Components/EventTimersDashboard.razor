@@ -7,6 +7,63 @@
     var live = events.Count(timer => timer.Window.IsActive);
 }
 
+@if (WorkspaceMode)
+{
+<section class="event-dashboard workspace-event-dashboard" aria-label="@UiText.T("Event-Übersicht")">
+    <div class="alerts-section-heading workspace-event-heading">
+        <div class="event-region"><span class="event-region-badge">EU</span><div><h3>@UiText.T("Events im Blick")</h3><span>@UiText.T("Deutsche Ortszeit · Europe/Berlin")</span></div></div>
+        <span class="event-live-summary"><span class="alerts-live-dot" aria-hidden="true"></span>@UiText.F("{0} Events laufen", live)</span>
+    </div>
+    <div class="event-cards workspace-event-cards">
+        @foreach (var timer in events)
+        {
+            var window = timer.Window;
+            var countdownAt = window.IsActive ? window.PortalEndsAt is { } portal && portal > Now ? portal : window.EndsAt : window.StartsAt;
+            var label = window.IsActive ? window.PortalEndsAt is { } close && close > Now ? "Portal schließt in" : "Endet in" : "Startet in";
+            <article class="event-card @(window.IsActive ? "live" : "") @(SelectedEventId == timer.Definition.Id ? "event-selected" : "")" style="@Accent(timer)" data-event="@timer.Definition.Id" @key="timer.Definition.Id">
+                <button type="button" class="workspace-event-select" disabled="@(Busy || EditorOpen)" aria-pressed="@(SelectedEventId == timer.Definition.Id)" aria-controls="alerts-event-details" aria-label="@UiText.F("Details für {0}", UiText.T(timer.Definition.Title))" @onclick="@(() => SelectedEventChanged.InvokeAsync(timer.Definition.Id))">
+                    <div class="event-card-heading"><span class="event-symbol" aria-hidden="true">@timer.Definition.Symbol</span><div><span class="event-phase @(window.IsActive ? "live" : "")">@UiText.T(window.IsActive ? window.PortalEndsAt is { } closes && closes > Now ? "Portal offen" : "Läuft" : "Als Nächstes")</span><h4>@UiText.T(timer.Definition.Title)</h4></div><span class="workspace-event-arrow" aria-hidden="true">↗</span></div>
+                    <div class="event-countdown"><span>@UiText.T(label)</span><strong>@Countdown(countdownAt)</strong></div>
+                    <div class="workspace-event-time"><span>@UiText.T("Start")</span><b>@At(window.StartsAt)</b></div>
+                    @if (window.PortalEndsAt is { } portalAt) { <div class="event-portal">@UiText.T("Portal") <span>@ShortAt(window.StartsAt) – @ShortAt(portalAt)</span></div> }
+                    <div class="workspace-event-preferences"><span class="@(timer.Reminder?.Enabled == true ? "enabled" : "")">◷ @UiText.T("Erinnerung") · @UiText.T(timer.Reminder?.Enabled == true ? "Aktiv" : "Aus")</span><span class="@(timer.Presentation.ShowOverlay ? "enabled" : "")">@UiText.T("Overlay-Widget") · @UiText.T(timer.Presentation.ShowOverlay ? "Aktiv" : "Aus")</span></div>
+                </button>
+                @if (window.IsActive) { <div class="event-active-progress" role="progressbar" aria-label="@UiText.T("Event-Fortschritt")" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Progress(timer)"><span style="@($"width:{Progress(timer)}%;")"></span></div> }
+            </article>
+        }
+    </div>
+    <div class="event-reset-grid workspace-reset-grid">
+        @foreach (var timer in resets)
+        {
+            <article class="event-reset @(SelectedEventId == timer.Definition.Id ? "event-selected" : "")" style="@Accent(timer)" data-event="@timer.Definition.Id">
+                <button type="button" class="workspace-reset-select" disabled="@(Busy || EditorOpen)" aria-pressed="@(SelectedEventId == timer.Definition.Id)" aria-controls="alerts-event-details" aria-label="@UiText.F("Details für {0}", UiText.T(timer.Definition.Title))" @onclick="@(() => SelectedEventChanged.InvokeAsync(timer.Definition.Id))"><span class="event-reset-symbol" aria-hidden="true">↻</span><span><strong>@UiText.T(timer.Definition.Title)</strong><small>@At(timer.Window.StartsAt)</small></span><b>@Countdown(timer.Window.StartsAt)</b></button>
+            </article>
+        }
+    </div>
+    <section class="event-schedule" aria-label="@UiText.T("Event-Zeitachse")">
+        <div class="alerts-section-heading"><div><span class="alerts-eyebrow">@UiText.T("Dein Tag im Spiel")</span><h3>@UiText.T("Event-Zeitachse")</h3></div><div class="event-range-switch" role="group" aria-label="@UiText.T("Zeitraum")">@foreach (var hours in new[] { 12, 24, 48 }) { <button type="button" class="@(_hours == hours ? "selected" : "")" aria-pressed="@(_hours == hours)" @onclick="@(() => _hours = hours)">@hours h</button> }</div></div>
+        <div class="event-timeline-scroll">
+            <div class="event-timeline" style="@TimelineGrid">
+                <div class="event-timeline-heading"><span>@UiText.T("Events")</span><div class="event-timeline-axis">@foreach (var tick in Ticks) { <span style="@($"left:{Percent(tick)}%;")">@TickLabel(tick)</span> }</div></div>
+                @foreach (var timer in events)
+                {
+                    var starts = TimelineStarts(timer);
+                    <div class="event-timeline-row" style="@Accent(timer)"><span class="event-timeline-label"><i aria-hidden="true">@timer.Definition.Symbol</i>@UiText.T(timer.Definition.Title)</span><div class="event-timeline-track"><span class="event-timeline-now" style="@($"left:{Percent(Now)}%;")" title="@UiText.T("Jetzt")"></span>
+                        @foreach (var at in starts)
+                        {
+                            <button type="button" class="event-timeline-slot @(at <= Now && at.AddMinutes(timer.Definition.DurationMinutes) > Now ? "live" : "")" style="@SlotStyle(at, timer.Definition.DurationMinutes)" title="@UiText.F("{0}: {1}", UiText.T(timer.Definition.Title), Range(at, at.AddMinutes(timer.Definition.DurationMinutes)))" aria-label="@UiText.F("{0}: {1}", UiText.T(timer.Definition.Title), Range(at, at.AddMinutes(timer.Definition.DurationMinutes)))" disabled="@(Busy || EditorOpen)" @onclick="@(() => SelectedEventChanged.InvokeAsync(timer.Definition.Id))">@if (timer.Definition.PortalMinutes > 0) { <span class="event-timeline-portal" style="@PortalStyle(at, timer.Definition.DurationMinutes, timer.Definition.PortalMinutes)"></span> }</button>
+                        }
+                    </div></div>
+                }
+            </div>
+        </div>
+        <div class="event-timeline-legend"><span><i class="event-now-key"></i>@UiText.T("Jetzt")</span><span><i></i>@UiText.T("Event-Dauer")</span><span><i class="event-portal-key"></i>@UiText.T("Portalphase")</span><InfoTip><p>@UiText.T("Zeiten folgen dem Kalender, unabhängig von Erinnerungen.")</p></InfoTip></div>
+    </section>
+
+</section>
+}
+else
+{
 <section class="event-dashboard" aria-label="@UiText.T("Event-Übersicht")">
     <div class="event-region"><span class="event-region-badge">EU</span><div><strong>@UiText.T("Event-Übersicht")</strong><span>@UiText.T("Deutsche Ortszeit · Europe/Berlin")</span></div></div>
 
@@ -75,8 +132,12 @@
         }
     </div>
 </section>
+}
 
 @code {
+    [Parameter] public bool WorkspaceMode { get; set; }
+    [Parameter] public string? SelectedEventId { get; set; }
+    [Parameter] public EventCallback<string> SelectedEventChanged { get; set; }
     [Parameter, EditorRequired] public IReadOnlyList<EventTimerSnapshot> Timers { get; set; } = [];
     [Parameter] public DateTimeOffset Now { get; set; }
     [Parameter] public bool Busy { get; set; }

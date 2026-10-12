@@ -29,7 +29,7 @@ eine Bildschirmaufnahme- plus Overlay-Software.
   Der einmalige Kartendatenimport ist ein Entwicklerskript, kein App-Pfad;
 - bisheriger Kartenanbieter abrufen, scrapen oder deren Token nachbauen (siehe `MAP_DATA.md`).
 
-## Ausnahme: Netzwerk-Mitschnitt für das Loot-Tracking (Nutzerentscheidung 2026-10-03)
+## Ausnahme: passiver Netzwerk-Mitschnitt (Nutzerentscheidungen 2026-10-03/12)
 
 Der Nutzer hat entschieden, dass das Loot-Tracking den eigenen Spielverkehr als Alternative zur OCR
 auswerten darf (DPS-Meter sind für Aion 2 laut Nutzer erlaubt). Dafür gilt:
@@ -40,10 +40,15 @@ auswerten darf (DPS-Meter sind für Aion 2 laut Nutzer erlaubt). Dafür gilt:
 - **keine Entschlüsselung**, kein Auslesen von Schlüsseln aus Client, Speicher oder Dateien, kein
   Senden oder Verändern von Paketen. Ist der Verkehr verschlüsselt, ist dieser Weg zu Ende;
 - Mitschnitte liegen nur lokal unter `%LOCALAPPDATA%\Soulcrest\captures`.
-- **Charaktererkennung (Nutzerentscheidung 2026-10-06):** Aus demselben Mitschnitt wird nur der
-  **eigene** Charaktername gelesen, aus einer Servernachricht beim Betreten der Welt. Damit folgt
-  das Erkundungsprofil dem eingeloggten Charakter. Namen oder Positionen anderer Spieler werden
-  nicht ausgewertet. Echte Charakternamen kommen nicht ins Repository.
+- **Charakter- und Fortschrittserkennung (Nutzerauftrag 2026-10-12):** Derselbe Serverstrom
+  liefert die eigene Charakter-ID, Server-ID, den eigenen Namen und den Entity-Key beim Welteintritt.
+  Nur dieser bestätigte Verbindungs-/Charakterkontext darf Pet-Stufen, verfügbare Souls, Soul-Gewinne
+  und -Verbrauch sowie Quest-/Teleportfortschritt zuordnen. Pet-Daten gelten serverweit, Exploration
+  pro Charakter. Andere Spieler, deren Namen und Positionen werden nicht ausgewertet. Die Parser
+  überspringen fremde/ungenutzte Felder der eigenen Welteintrittsnachricht ohne sie zu speichern.
+  Echte Charakternamen kommen nicht ins Repository. Die bisherigen OCR-Scans entfallen.
+  Formatfehler, Lücken, Ladebildschirme und Verbindungswechsel entwerten den aktuellen Kontext;
+  gespeicherte Stände bleiben erhalten.
 - **Boss Rush Mode (Nutzerauftrag 2026-10-09):** Derselbe passive Serverstrom liefert die
   Boss-Spawn-IDs, Status und Zeitstempel (`0191`) sowie die Serverzeit (`0036`). Optionale
   Zusatzblöcke werden übersprungen; es werden keine Spielerpositionen ausgewertet. Keine

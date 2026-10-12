@@ -2,16 +2,37 @@ using System.Text.Json.Serialization;
 
 namespace Soulcrest.Core.Progress;
 
+public enum ProgressFreshness { Unknown, Stale, Fresh }
+
+public sealed class NetworkPetProgress
+{
+    public int Level { get; set; }
+    public int AvailableSouls { get; set; }
+    public int EarnedTotal { get; set; }
+    public bool HasBaseline { get; set; }
+    public bool LevelObserved { get; set; }
+    public bool BalanceObserved { get; set; }
+}
+
 public sealed class PetProgressEntry
 {
     [JsonPropertyName("souls")] public int Souls { get; set; }
     [JsonPropertyName("focus")] public bool Focus { get; set; }
     [JsonPropertyName("updatedAt")] public DateTimeOffset UpdatedAt { get; set; }
+    public string Source { get; set; } = "legacy";
+    public ProgressFreshness Freshness { get; set; }
+    public bool ManualOverride { get; set; }
 }
 
 public sealed class ProgressProfile
 {
+    public int SchemaVersion { get; set; }
     [JsonPropertyName("server")] public string Server { get; set; } = "Standard";
+    public int? ServerId { get; set; }
+    public int? ActiveServerId { get; set; }
+    public Dictionary<int, ProgressProfile> Servers { get; set; } = [];
+    public Dictionary<int, NetworkPetProgress> NetworkPets { get; set; } = [];
+    public DateTimeOffset? NetworkBaselineAt { get; set; }
     [JsonPropertyName("pets")] public Dictionary<string, PetProgressEntry> Pets { get; set; } = new(StringComparer.Ordinal);
 
     public PetProgressEntry Get(string petId) =>

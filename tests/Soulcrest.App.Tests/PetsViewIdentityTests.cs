@@ -93,6 +93,65 @@ public sealed class PetsViewIdentityTests
         Assert.Equal(before, fixture.ProfileBytes);
     }
 
+    [Theory]
+    [InlineData(0, 5, 5)]
+    [InlineData(1, 100, 25)]
+    [InlineData(2, 75, 75)]
+    public async Task AvailableSoulsDoNotPromoteTheAcquiredLevelInThePetView(int level, int balance, int needed)
+    {
+        var pet = Sourced(1146);
+        await using var fixture = new Fixture([pet]);
+        var at = new DateTimeOffset(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
+        var context = new NetworkProgressContext(new(101, 501, 1001, "Synthetic Alpha"), 1, 1, at);
+        Assert.True(fixture.Progress.BindNetworkContext(context));
+        Assert.True(fixture.Progress.ApplyNetworkSnapshot(new PetProgressSnapshot(
+            new Dictionary<int, int> { [1146] = level }, new Dictionary<int, int> { [1146] = balance }),
+            context with { Sequence = 2, At = at.AddSeconds(1) }));
+        var before = fixture.ProfileBytes;
+
+        var html = await fixture.Render();
+
+        Assert.Equal(level == 0 ? 0 : 1, fixture.Count("_unlocked"));
+        Assert.Equal(0, fixture.Count("_done"));
+        Assert.Contains($"class=\"pets-count\">{balance}/{needed}</span>", html);
+        Assert.DoesNotContain("class=\"pets-count is-max\"", html);
+        Assert.Contains($"Verfügbare Souls: {balance}", html);
+        if (level > 0) Assert.Contains($"class=\"pets-badge\">{level}</span>", html);
+        else Assert.DoesNotContain("class=\"pets-badge\"", html);
+        Assert.DoesNotContain("width:400%", html);
+        Assert.Equal(before, fixture.ProfileBytes);
+    }
+
+    [Theory]
+    [InlineData("de", "Netzwerkstand übernehmen", "Manuelle Korrektur aktiv.")]
+    [InlineData("en", "Use network progress", "Manual correction active.")]
+    public async Task AManualCorrectionCanReturnToObservedNetworkProgress(string language, string action, string notice)
+    {
+        var pet = Sourced(1146);
+        await using var fixture = new Fixture([pet], language: language);
+        var at = new DateTimeOffset(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
+        var context = new NetworkProgressContext(new(101, 501, 1001, "Synthetic Alpha"), 1, 1, at);
+        Assert.True(fixture.Progress.BindNetworkContext(context));
+        Assert.True(fixture.Progress.ApplyNetworkSnapshot(new PetProgressSnapshot(
+            new Dictionary<int, int> { [1146] = 1 }, new Dictionary<int, int> { [1146] = 3 }),
+            context with { Sequence = 2, At = at.AddSeconds(1) }));
+        fixture.Progress.SetSouls(pet.Id, fixture.Progress.Thresholds.Max);
+        var html = await fixture.Render();
+        Assert.Contains(action, html);
+        Assert.Contains(notice, html);
+        Assert.Equal(1, fixture.Count("_done"));
+
+        await fixture.UseNetworkProgress(pet.Id);
+        html = await fixture.Html();
+
+        Assert.False(fixture.Progress.EntrySnapshot(pet.Id).ManualOverride);
+        Assert.DoesNotContain(action, html);
+        Assert.DoesNotContain(notice, html);
+        Assert.Contains("class=\"pets-count\">3/25</span>", html);
+        Assert.Contains("class=\"pets-badge\">1</span>", html);
+        Assert.Equal(0, fixture.Count("_done"));
+    }
+
     private static PetDefinition Sourced(int soulId)
     {
         var source = PetIdTable.Find(soulId);
@@ -119,7 +178,7 @@ public sealed class PetsViewIdentityTests
             (Dictionary<string, (int Total, int Unlocked)>)typeof(PetsView)
                 .GetField("_genusCounts", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_view)!;
 
-        public Fixture(IReadOnlyList<PetDefinition> pets, ProgressProfile? profile = null, IReadOnlyList<PetDefinition>? learned = null)
+        public Fixture(IReadOnlyList<PetDefinition> pets, ProgressProfile? profile = null, IReadOnlyList<PetDefinition>? learned = null, string language = "de")
         {
             Assert.StartsWith(Path.GetTempPath(), AppPaths.DataDirectory, StringComparison.OrdinalIgnoreCase);
             Directory.CreateDirectory(_folder);
@@ -135,10 +194,11 @@ public sealed class PetsViewIdentityTests
             services.AddLogging();
             services.AddSingleton<ProgressService>();
             services.AddSingleton<SettingsService>();
+            services.AddSingleton<Soulcrest.App.Network.NetworkLootService>();
             services.AddSingleton<UiState>();
             _provider = services.BuildServiceProvider();
             var settings = _provider.GetRequiredService<SettingsService>();
-            settings.Current.NameLanguage = settings.Current.UiLanguage = UiText.Language = "de";
+            settings.Current.NameLanguage = settings.Current.UiLanguage = UiText.Language = language;
             Progress = _provider.GetRequiredService<ProgressService>();
             _renderer = new HtmlRenderer(_provider, _provider.GetRequiredService<ILoggerFactory>());
         }
@@ -152,6 +212,11 @@ public sealed class PetsViewIdentityTests
         }
 
         public async Task<string> Html() => WebUtility.HtmlDecode(await _renderer.Dispatcher.InvokeAsync(_root.ToHtmlString));
+        public async Task UseNetworkProgress(string id) => await _renderer.Dispatcher.InvokeAsync(() =>
+        {
+            typeof(PetsView).GetMethod("UseNetworkProgress", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_view, [id]);
+        });
+
         public async Task SelectUnverified(string id) => await _renderer.Dispatcher.InvokeAsync(() =>
         {
             typeof(PetsView).GetField("_selectedId", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_view, id);

@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Soulcrest.App.Tests;
 
-/// <summary>The completion radius default went from 40 to 15 map pixels (2026-10-05); the tutorial is for new installations (2026-10-07).</summary>
+/// <summary>The arrival radius default went from 40 to 15 map pixels (2026-10-05); the tutorial is for new installations (2026-10-07).</summary>
 [Collection("Settings file")] // both write settings.json of the test data folder
 public sealed class SettingsMigrationTests
 {
@@ -96,12 +96,41 @@ public sealed class SettingsMigrationTests
         {
             File.WriteAllText(path, $$"""{"ExplorationCompletionRadius":{{saved}}}""");
             var settings = new SettingsService();
-            Assert.Equal(expected, settings.Current.ExplorationCompletionRadius);
+            Assert.Equal(expected, settings.Current.TargetArrivalRadius);
             Assert.Equal(4, settings.Current.SettingsRevision);
         }
         finally
         {
             if (backup is null) File.Delete(path); else File.WriteAllText(path, backup);
+        }
+    }
+
+    [Theory]
+    [InlineData("{\"ExplorationCompletionRadius\":0}", 0)]
+    [InlineData("{\"ExplorationCompletionRadius\":60}", 60)]
+    [InlineData("{\"TargetArrivalRadius\":90}", 90)]
+    [InlineData("{\"ExplorationCompletionRadius\":60,\"TargetArrivalRadius\":90}", 90)]
+    [InlineData("{\"TargetArrivalRadius\":90,\"ExplorationCompletionRadius\":60}", 90)]
+    [InlineData("{\"TargetArrivalRadius\":0,\"ExplorationCompletionRadius\":500}", 0)]
+    public void NavigationRadiusRetainsOldChoicesAndNewNameWinsRegardlessOfJsonOrder(string json, int expected)
+    {
+        var path = AppPaths.SettingsFile;
+        var backup = File.Exists(path) ? File.ReadAllBytes(path) : null;
+        try
+        {
+            File.WriteAllText(path, json);
+            var settings = new SettingsService();
+            Assert.Equal(expected, settings.Current.TargetArrivalRadius);
+            settings.Update(s => s.UiLanguage = "en");
+            using var saved = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+            Assert.Equal(expected, saved.RootElement.GetProperty("TargetArrivalRadius").GetInt32());
+            Assert.False(saved.RootElement.TryGetProperty("ExplorationCompletionRadius", out _));
+            Assert.Equal(expected, new SettingsService().Current.TargetArrivalRadius);
+        }
+        finally
+        {
+            if (backup is null) File.Delete(path); else File.WriteAllBytes(path, backup);
+            _ = new SettingsService();
         }
     }
 

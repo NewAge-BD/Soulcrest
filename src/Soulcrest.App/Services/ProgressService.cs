@@ -2,6 +2,7 @@ using System.Text.Json;
 using Soulcrest.Core.Pets;
 using Soulcrest.Core.PetWindow;
 using Soulcrest.Core.Progress;
+using Soulcrest.Core.Network;
 
 namespace Soulcrest.App.Services;
 
@@ -17,19 +18,34 @@ public sealed record MapInfo(string Id, string Label, string Group, double? Mete
 public sealed class ProgressService
 {
     private readonly object _gate = new();
-    private readonly ProgressProfile _profile;
+    private ProgressProfile _profile;
+    private readonly ProgressProfile _storageProfile;
+    private readonly string _progressPath;
+    private bool _needsMigrationBackup;
+    private NetworkProgressContext? _networkContext;
+    private long _networkSequence = -1;
+    private long _invalidatedGeneration = -1;
     private readonly List<LoggedSoul> _recent = [];
 
-    public ProgressService()
+    public ProgressService() : this(AppPaths.ProgressFile) { }
+
+    internal ProgressService(string path, PetCatalog? catalog = null)
     {
+        _progressPath = path;
         MapDataDirectory = AppPaths.FindMapData();
-        var mapCatalog = MapDataDirectory is not null && File.Exists(Path.Combine(MapDataDirectory, "pets.json"))
-            ? PetCatalog.Load(Path.Combine(MapDataDirectory, "pets.json")) : new PetCatalog([]);
+        var mapCatalog = catalog ?? (MapDataDirectory is not null && File.Exists(Path.Combine(MapDataDirectory, "pets.json"))
+            ? PetCatalog.Load(Path.Combine(MapDataDirectory, "pets.json")) : new PetCatalog([]));
         _mapPets = mapCatalog.Pets.ToList();
         _aliases = new Dictionary<string, string>(mapCatalog.Aliases, StringComparer.Ordinal);
         _learned = JsonFile.Load<List<PetDefinition>>(AppPaths.LearnedPetsFile);
         _learnedNames = JsonFile.Load<Dictionary<string, string>>(AppPaths.LearnedNamesFile);
-        _profile = JsonFile.Load<ProgressProfile>(AppPaths.ProgressFile);
+        _storageProfile = JsonFile.Load<ProgressProfile>(_progressPath);
+        _needsMigrationBackup = File.Exists(_progressPath) && _storageProfile.SchemaVersion < 2;
+        _profile = _storageProfile.ActiveServerId is { } active && active != _storageProfile.ServerId
+            && _storageProfile.Servers.TryGetValue(active, out var stored) ? stored : _storageProfile;
+        foreach (var profile in _storageProfile.Servers.Values.Prepend(_storageProfile))
+            foreach (var entry in profile.Pets.Values)
+                if (entry.Freshness == ProgressFreshness.Fresh) entry.Freshness = ProgressFreshness.Stale;
         RepairLearnedNames();
         Catalog = BuildCatalog();
         Maps = LoadMaps(MapDataDirectory);
@@ -243,7 +259,13 @@ public sealed class ProgressService
         if (alias == target || !_profile.Pets.Remove(alias, out var moved)) return false;
         var existing = _profile.Get(target);
         // Alias snapshots describe the same collection: keep the greatest value, never add them.
+        if (moved.Souls > existing.Souls)
+        {
+            existing.Source = moved.Source;
+            existing.Freshness = moved.Freshness;
+        }
         existing.Souls = Math.Max(existing.Souls, moved.Souls);
+        existing.ManualOverride |= moved.ManualOverride;
         existing.Focus |= moved.Focus;
         if (moved.UpdatedAt > existing.UpdatedAt) existing.UpdatedAt = moved.UpdatedAt;
         return true;
@@ -319,6 +341,7 @@ public sealed class ProgressService
             var entry = EntryForWrite(petId);
             entry.Souls += quantity;
             entry.UpdatedAt = logged.At;
+            entry.Source = source;
             _recent.Insert(0, logged);
             if (_recent.Count > 200)
                 _recent.RemoveAt(_recent.Count - 1);
@@ -346,6 +369,9 @@ public sealed class ProgressService
             var entry = EntryForWrite(petId);
             entry.Souls = Math.Max(0, souls);
             entry.UpdatedAt = DateTimeOffset.Now;
+            entry.Source = "manual";
+            entry.ManualOverride = true;
+            entry.Freshness = ProgressFreshness.Unknown;
             Persist();
         }
         Changed?.Invoke();
@@ -362,6 +388,9 @@ public sealed class ProgressService
                 var entry = EntryForWrite(petId);
                 entry.Souls = Thresholds.Total(level, inLevel);
                 entry.UpdatedAt = DateTimeOffset.Now;
+                entry.Source = "manual";
+                entry.ManualOverride = true;
+                entry.Freshness = ProgressFreshness.Unknown;
             }
             Persist();
         }
@@ -377,7 +406,9 @@ public sealed class ProgressService
             if (Catalog.Find(id) is { } known) return known.Id;
             _learned.Add(new PetDefinition { Id = id, En = source.En, Genus = source.Genus.ToLowerInvariant(),
                 NumericId = source.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) });
-            JsonFile.Save(AppPaths.LearnedPetsFile, _learned);
+            try { JsonFile.Save(AppPaths.LearnedPetsFile, _learned); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            { LogFile.Error("Netzwerk-Pet nicht gespeichert", error); }
             Catalog = BuildCatalog();
             return id;
         }
@@ -390,31 +421,66 @@ public sealed class ProgressService
     /// <summary>"St. 1 · 6/25" (level reached, souls towards the next level) or "St. 3 · max": beside the pet
     /// symbols on the interactive map and on the in-game map.</summary>
     /// <summary>Souls of the current level, "24/25", or "max": shown beside marked pet targets in game.</summary>
-    public string SoulCount(string petId)
-    {
-        var total = Souls(petId);
-        return Thresholds.IsMax(total) ? "max" : $"{Thresholds.SoulsInLevel(total)}/{Thresholds.NeededForNextLevel(total)}";
-    }
+    public string SoulCount(string petId) => IsMax(petId) ? "max" : $"{SoulsInLevel(petId)}/{NeededForNextLevel(petId)}";
 
-    public string PetMapLabel(string petId)
-    {
-        var total = Souls(petId);
-        return Thresholds.IsMax(total)
-            ? UiText.F("St. {0} · max", Thresholds.MaxLevel)
-            : UiText.F("St. {0} · {1}/{2}", Thresholds.Level(total), Thresholds.SoulsInLevel(total), Thresholds.NeededForNextLevel(total));
-    }
+    public string PetMapLabel(string petId) => IsMax(petId)
+        ? UiText.F("St. {0} · max", Thresholds.MaxLevel)
+        : UiText.F("St. {0} · {1}/{2}", Level(petId), SoulsInLevel(petId), NeededForNextLevel(petId));
 
-    /// <summary>"Stufe 2 · 12/75" or "max" – shared by list, overlay and toasts.</summary>
     public string LevelText(string petId)
     {
-        var total = Souls(petId);
-        var level = Thresholds.Level(total);
-        if (Thresholds.IsMax(total))
-            return "max";
-        return level == 0
-            ? $"{Thresholds.SoulsInLevel(total)}/{Thresholds.NeededForNextLevel(total)}"
-            : UiText.F("St. {0} · {1}/{2}", level, Thresholds.SoulsInLevel(total), Thresholds.NeededForNextLevel(total));
+        if (IsMax(petId)) return "max";
+        var level = Level(petId);
+        return level == 0 ? $"{SoulsInLevel(petId)}/{NeededForNextLevel(petId)}"
+            : UiText.F("St. {0} · {1}/{2}", level, SoulsInLevel(petId), NeededForNextLevel(petId));
     }
+
+    /// <summary>Acquired level and unspent balance stay independent; enough souls do not acquire a level.</summary>
+    public int? ObservedLevel(string petId)
+    {
+        lock (_gate)
+            return !EntrySnapshot(petId).ManualOverride && RawFor(petId) is { LevelObserved: true } raw ? raw.Level : null;
+    }
+
+    public int? AvailableSouls(string petId)
+    {
+        lock (_gate)
+            return !EntrySnapshot(petId).ManualOverride && RawFor(petId) is { BalanceObserved: true } raw ? raw.AvailableSouls : null;
+    }
+
+    /// <summary>A partial network delta keeps the stored level seed until acquisition or a full snapshot arrives.</summary>
+    public int Level(string petId)
+    {
+        lock (_gate)
+            return !EntrySnapshot(petId).ManualOverride && RawFor(petId) is { } raw
+                ? raw.Level : Thresholds.Level(Souls(petId));
+    }
+    public int SoulsInLevel(string petId)
+    {
+        lock (_gate)
+        {
+            if (AvailableSouls(petId) is { } observed) return observed;
+            var level = Level(petId);
+            // A partial balance is only an estimate, relative to the unchanged displayed level.
+            return level >= Thresholds.MaxLevel ? 0 : Math.Max(0, Souls(petId) - Thresholds.TotalForLevel(level));
+        }
+    }
+    public bool IsMax(string petId) => Level(petId) >= Thresholds.MaxLevel;
+    public int NeededForNextLevel(string petId) => IsMax(petId) ? 0 : Thresholds.Steps[Level(petId)];
+
+    public PetProgressEntry EntrySnapshot(string petId)
+    {
+        lock (_gate)
+        {
+            var entries = ProfileIds(CanonicalId(petId)).Select(id => _profile.Pets.GetValueOrDefault(id))
+                .OfType<PetProgressEntry>().ToArray();
+            var entry = entries.OrderByDescending(e => e.Souls).ThenByDescending(e => e.UpdatedAt).FirstOrDefault() ?? new();
+            return new PetProgressEntry { Souls = entry.Souls, Focus = entries.Any(e => e.Focus), UpdatedAt = entry.UpdatedAt,
+                Source = entry.Source, Freshness = entry.Freshness, ManualOverride = entries.Any(e => e.ManualOverride) };
+        }
+    }
+
+    private NetworkPetProgress? RawFor(string petId) => SoulId(petId) is { } number ? _profile.NetworkPets.GetValueOrDefault(number) : null;
 
     public void ToggleFocus(string petId)
     {
@@ -427,5 +493,239 @@ public sealed class ProgressService
         Changed?.Invoke();
     }
 
-    private void Persist() => JsonFile.Save(AppPaths.ProgressFile, _profile);
+    public int? ActiveServerId { get { lock (_gate) return _profile.ServerId; } }
+    public DateTimeOffset? NetworkBaselineAt { get { lock (_gate) return _profile.NetworkBaselineAt; } }
+
+    /// <summary>Adopts the old server-wide collection once; character switches on that server share it.</summary>
+    public bool BindNetworkContext(NetworkProgressContext context)
+    {
+        lock (_gate)
+        {
+            if (!ValidContext(context) || context.Generation <= _invalidatedGeneration || _networkContext is { } prior &&
+                (context.Generation < prior.Generation || context.Generation == prior.Generation && context.Sequence < prior.Sequence)) return false;
+            if (_networkContext is { } same && same.Generation == context.Generation &&
+                same.CharacterId == context.CharacterId && same.ServerId == context.ServerId) return true;
+            foreach (var entry in _profile.Pets.Values)
+                if (entry.Freshness == ProgressFreshness.Fresh) entry.Freshness = ProgressFreshness.Stale;
+            if (_storageProfile.ServerId is null) _storageProfile.ServerId = context.ServerId;
+            _profile = _storageProfile.ServerId == context.ServerId ? _storageProfile :
+                _storageProfile.Servers.TryGetValue(context.ServerId, out var profile) ? profile :
+                _storageProfile.Servers[context.ServerId] = new ProgressProfile { ServerId = context.ServerId,
+                    Server = context.ServerId.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+            foreach (var raw in _profile.NetworkPets.Values) raw.HasBaseline = false;
+            _storageProfile.ActiveServerId = context.ServerId;
+            _networkContext = context;
+            _networkSequence = -1;
+            _recent.Clear();
+            PersistNetwork();
+        }
+        SafeEvent.Raise(Changed, "Server-Fortschritt");
+        return true;
+    }
+
+    private static bool ValidContext(NetworkProgressContext c) =>
+        c.ServerId > 0 && c.CharacterId > 0 && c.Generation >= 0 && c.Sequence >= 0 && !string.IsNullOrWhiteSpace(c.Name);
+
+    private bool AcceptContext(NetworkProgressContext c) => _networkContext is { } current &&
+        current.Generation == c.Generation && current.ServerId == c.ServerId && current.CharacterId == c.CharacterId &&
+        c.Sequence >= current.Sequence && c.Sequence > _networkSequence;
+
+    public bool ApplyNetworkSnapshot(PetProgressSnapshot snapshot, NetworkProgressContext context)
+    {
+        if (snapshot.Levels.Any(p => p.Key <= 0 || p.Value is < 0 or > 3) ||
+            snapshot.AvailableSouls.Any(p => p.Key <= 0 || p.Value < 0 || p.Value > int.MaxValue - Thresholds.Max)) return false;
+        lock (_gate)
+        {
+            if (!AcceptContext(context)) return false;
+            var numbers = snapshot.Levels.Keys.Union(snapshot.AvailableSouls.Keys)
+                .Union(_profile.NetworkPets.Keys).Union(VerifiedPets.Select(p => SoulId(p.Id)).OfType<int>()).ToArray();
+            foreach (var number in numbers)
+            {
+                var level = snapshot.Levels.GetValueOrDefault(number);
+                var available = snapshot.AvailableSouls.GetValueOrDefault(number);
+                var total = Thresholds.TotalForLevel(level) + available;
+                _profile.NetworkPets[number] = new NetworkPetProgress { Level = level, AvailableSouls = available,
+                    EarnedTotal = total, HasBaseline = true, LevelObserved = true, BalanceObserved = true };
+                if (ResolveNetworkPet(number) is not { } id) continue;
+                var entry = EntryForWrite(id);
+                if (!entry.ManualOverride)
+                {
+                    entry.Souls = total;
+                    entry.Source = "network-snapshot";
+                    entry.UpdatedAt = context.At;
+                    entry.Freshness = ProgressFreshness.Fresh;
+                }
+            }
+            _profile.NetworkBaselineAt = context.At;
+            _networkSequence = context.Sequence;
+            PersistNetwork();
+        }
+        SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
+        return true;
+    }
+
+    /// <summary>Absolute acquisition updates raw level only: spending may arrive before or after it.</summary>
+    public bool ApplyNetworkAcquisition(PetAcquisition acquisition, NetworkProgressContext context)
+    {
+        if (acquisition.EntityKey != context.Identity.EntityKey || acquisition.PetNumber <= 0 || acquisition.Level is < 0 or > 3) return false;
+        lock (_gate)
+        {
+            if (!AcceptContext(context)) return false;
+            var raw = NetworkEntry(acquisition.PetNumber);
+            raw.Level = acquisition.Level;
+            raw.LevelObserved = true;
+            raw.EarnedTotal = Math.Max(raw.EarnedTotal, Thresholds.TotalForLevel(raw.Level));
+            WriteNetworkTotal(acquisition.PetNumber, raw, context);
+            _networkSequence = context.Sequence;
+            PersistNetwork();
+        }
+        SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
+        return true;
+    }
+
+    public bool ApplyNetworkSpent(IReadOnlyList<SoulGain> spent, NetworkProgressContext context) =>
+        ApplyNetworkPoints(spent, context, gain: false);
+
+    /// <summary>Logs accepted pickups once; the capture dispatcher owns session events.</summary>
+    public bool ApplyNetworkGain(IReadOnlyList<SoulGain> gains, NetworkProgressContext context) =>
+        ApplyNetworkPoints(gains, context, gain: true);
+
+    private bool ApplyNetworkPoints(IReadOnlyList<SoulGain> points, NetworkProgressContext context, bool gain)
+    {
+        if (points.Any(p => p.PetNumber <= 0 || p.Souls < 0)) return false;
+        var totals = points.GroupBy(p => p.PetNumber).ToDictionary(g => g.Key, g => g.Sum(p => (long)p.Souls));
+        lock (_gate)
+        {
+            if (!AcceptContext(context)) return false;
+            if (totals.Any(p => p.Value > int.MaxValue || gain &&
+                ((_profile.NetworkPets.GetValueOrDefault(p.Key)?.EarnedTotal ?? 0) > int.MaxValue - p.Value ||
+                 (_profile.NetworkPets.GetValueOrDefault(p.Key)?.AvailableSouls ?? 0) > int.MaxValue - p.Value ||
+                 ResolveNetworkPet(p.Key) is { } id && Souls(id) > int.MaxValue - p.Value))) return false;
+            foreach (var (number, amount) in totals)
+            {
+                var raw = NetworkEntry(number);
+                raw.AvailableSouls = gain ? checked(raw.AvailableSouls + (int)amount) : Math.Max(0, raw.AvailableSouls - (int)amount);
+                if (gain)
+                {
+                    raw.EarnedTotal += (int)amount;
+                    if (ResolveNetworkPet(number) is { } id && EntryForWrite(id) is { ManualOverride: true } manual)
+                    {
+                        manual.Souls += (int)amount;
+                        manual.UpdatedAt = context.At;
+                        manual.Source = "manual+network";
+                    }
+                    else WriteNetworkTotal(number, raw, context);
+                }
+            }
+            _networkSequence = context.Sequence;
+            if (gain)
+            {
+                var logged = points.Where(p => p.Souls > 0).Select(p => new LoggedSoul(context.At,
+                    ResolveNetworkPet(p.PetNumber) ?? p.PetNumber.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    p.Souls, "network", $"pet:{p.PetNumber};generation:{context.Generation};sequence:{context.Sequence}")).ToArray();
+                foreach (var row in logged) _recent.Insert(0, row);
+                if (_recent.Count > 200) _recent.RemoveRange(200, _recent.Count - 200);
+                try
+                {
+                    Persist();
+                    var eventPath = Path.Combine(Path.GetDirectoryName(_progressPath)!, "events.jsonl");
+                    if (logged.Length > 0) JsonFile.Retry(() => File.AppendAllText(eventPath, string.Concat(logged.Select(row => JsonSerializer.Serialize(row) + Environment.NewLine))));
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                { LogFile.Error("Netzwerk-Souls nicht gespeichert", error); }
+            }
+            else PersistNetwork();
+        }
+        SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
+        return true;
+    }
+
+    private NetworkPetProgress NetworkEntry(int number)
+    {
+        if (_profile.NetworkPets.TryGetValue(number, out var raw)) return raw;
+        var id = ResolveNetworkPet(number);
+        var total = id is not null ? Souls(id) : 0;
+        // Preserve the pre-delta legacy estimate separately from the growing earned total.
+        // LevelObserved stays false until the game actually supplies an acquired level.
+        raw = new NetworkPetProgress { Level = Thresholds.Level(total), EarnedTotal = total };
+        _profile.NetworkPets[number] = raw;
+        return raw;
+    }
+
+    private string? ResolveNetworkPet(int number)
+    {
+        var known = VerifiedPets.FirstOrDefault(p => SoulId(p.Id) == number);
+        return known?.Id ?? (PetIdTable.Find(number) is { } source ? EnsureNetworkPet(source) : null);
+    }
+
+    private void WriteNetworkTotal(int number, NetworkPetProgress raw, NetworkProgressContext context)
+    {
+        if (ResolveNetworkPet(number) is not { } id) return;
+        var entry = EntryForWrite(id);
+        if (entry.ManualOverride) return;
+        entry.Souls = raw.EarnedTotal;
+        entry.UpdatedAt = context.At;
+        entry.Source = "network";
+        entry.Freshness = raw.HasBaseline ? ProgressFreshness.Fresh : ProgressFreshness.Unknown;
+    }
+
+    public void ClearManualOverride(string petId)
+    {
+        lock (_gate)
+        {
+            var entry = EntryForWrite(petId);
+            entry.ManualOverride = false;
+            if (SoulId(petId) is { } number && _profile.NetworkPets.TryGetValue(number, out var raw))
+            {
+                entry.Souls = raw.EarnedTotal;
+                entry.Source = "network";
+                entry.Freshness = ProgressFreshness.Stale;
+            }
+            Persist();
+        }
+        SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
+    }
+
+    public void MarkNetworkStale()
+    {
+        lock (_gate)
+        {
+            foreach (var entry in _profile.Pets.Values)
+                if (entry.Freshness == ProgressFreshness.Fresh) entry.Freshness = ProgressFreshness.Stale;
+            foreach (var raw in _profile.NetworkPets.Values) raw.HasBaseline = false;
+            if (_networkContext is { } current) _invalidatedGeneration = Math.Max(_invalidatedGeneration, current.Generation);
+            _networkContext = null;
+        }
+        SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
+    }
+
+    /// <summary>A locked profile must not abort the remaining messages of a captured packet.</summary>
+    private void PersistNetwork()
+    {
+        try { Persist(); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { LogFile.Error("Pet-Netzwerkstand nicht gespeichert", error); }
+    }
+
+    private void Persist()
+    {
+        if (_needsMigrationBackup)
+        {
+            ProgressMigrationBackup.Create(_progressPath);
+            _needsMigrationBackup = false;
+        }
+        _storageProfile.SchemaVersion = 2;
+        JsonFile.Save(_progressPath, _storageProfile);
+    }
+}
+
+
+internal static class ProgressMigrationBackup
+{
+    /// <summary>Exact old bytes, unique path, no overwrite; only called immediately before a migration write.</summary>
+    internal static void Create(string path)
+    {
+        if (File.Exists(path))
+            JsonFile.Retry(() => File.Copy(path, path + ".pre-network-" + Guid.NewGuid().ToString("N") + ".bak", overwrite: false));
+    }
 }

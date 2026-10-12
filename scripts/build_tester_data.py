@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 from fetch_gamingtools import decode
 from pet_source_markers import add_pet_source_markers, source_groups
+from exploration_network_ids import point_network_ids
 
 ROOT = Path(__file__).resolve().parents[1]
 GAMINGTOOLS = ROOT / 'imports/gamingtools'
@@ -255,6 +256,8 @@ def boss_loot(npc_id, icons):
 
 def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
     en, de = data('interactive-map', mid), data('interactive-map', mid, 'de')
+    map_details = data('maps', mid)
+    exploration_ids = point_network_ids(en['points'], map_details, data('quests'))
     index, de_index = data('interactive-map'), data('interactive-map', locale='de')
     types = {t['id']: (GROUPS[c['id']], t) for c in index['categories'] for t in c.get('types', [])}
     de_types = {t['id']: t for c in de_index['categories'] for t in c.get('types', [])}
@@ -293,7 +296,8 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
         translated = de_points.get(point['id'], {})
         append(choose_type(point['types']), point['x'], point['y'],
                point.get('name') or point.get('entity', {}).get('name'),
-               translated.get('name') or translated.get('entity', {}).get('name'), point.get('iconPath'))
+               translated.get('name') or translated.get('entity', {}).get('name'), point.get('iconPath'),
+               extra=exploration_ids.get(str(point['id'])))
     for label in en['labels']:
         append(label['type'], label['x'], label['y'], label.get('name'), de_points.get(label['id'], {}).get('name'))
     for group in en['groups']:
@@ -312,7 +316,7 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
     name_kibelisks_by_village(payload)
     # Network boss lists use named-spawn IDs, not NPC IDs. Join only by the source's exact entity ID.
     spawn_refs = collections.defaultdict(set)
-    for spawn in data('maps', mid).get('namedSpawns', []):
+    for spawn in map_details.get('namedSpawns', []):
         spawn_refs[str(spawn['npc']['id'])].add(int(spawn['id']))
     spawn_ids = {npc: next(iter(ids)) for npc, ids in spawn_refs.items() if len(ids) == 1}
     payload['bosses'] = []

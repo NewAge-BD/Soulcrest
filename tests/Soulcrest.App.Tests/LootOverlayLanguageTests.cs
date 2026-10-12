@@ -80,27 +80,4 @@ public sealed class LootOverlayLanguageTests
         }
     }
 
-    [Fact]
-    public async Task PetScanFeedsTheDetectedLanguageWithoutChangingOverlayOrInterfacePreferences()
-    {
-        var backup = File.Exists(AppPaths.SettingsFile) ? File.ReadAllText(AppPaths.SettingsFile) : null;
-        try
-        {
-            var settings = new SettingsService();
-            settings.Update(s => { s.UiLanguage = s.NameLanguage = "de"; s.AutoOcrLanguage = true;
-                s.OverlayLanguage = "de"; s.DetectedGameLanguage = null; });
-            using var scan = new PetScanService(settings, new ProgressService());
-            await scan.ScanFileAsync(Path.Combine(AppContext.BaseDirectory, "fixtures", "pet-window", "en-2026-10-03-all.png"));
-            Assert.Equal("en", settings.Current.DetectedGameLanguage);
-            Assert.Equal("en", new SettingsService().Current.DetectedGameLanguage);
-            Assert.Equal("de", settings.Current.OverlayLanguage);
-            Assert.Equal("de", settings.Current.UiLanguage);
-            Assert.Equal("Dranamutant", PetOverlayForm.RowName(settings.Current, Monster, Pet, Pet.Id));
-        }
-        finally
-        {
-            if (backup is null) File.Delete(AppPaths.SettingsFile); else File.WriteAllText(AppPaths.SettingsFile, backup);
-            _ = new SettingsService();
-        }
-    }
 }

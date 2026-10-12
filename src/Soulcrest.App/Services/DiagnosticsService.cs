@@ -7,7 +7,6 @@ using System.Text;
 using Microsoft.Win32;
 using Soulcrest.App.Capture;
 using Soulcrest.App.Network;
-using Soulcrest.Ocr;
 
 namespace Soulcrest.App.Services;
 
@@ -28,8 +27,7 @@ public sealed class DiagnosticsService : IDisposable
     private readonly GameCaptureService _capture;
     private readonly TrackerService _loot;
     private readonly MapTrackingService _map;
-    private readonly PetScanService _scan;
-    private readonly ExplorationScanService? _explorationScan;
+    private readonly NetworkLootService? _network;
     private readonly System.Threading.Timer _timer;
     private readonly object _gate = new();
     private long _framesBefore = -1;
@@ -38,14 +36,13 @@ public sealed class DiagnosticsService : IDisposable
     private string? _lastReport;
     private string? _checkError;
 
-    public DiagnosticsService(SettingsService settings, GameCaptureService capture, TrackerService loot, MapTrackingService map, PetScanService scan, ExplorationScanService? explorationScan = null)
+    public DiagnosticsService(SettingsService settings, GameCaptureService capture, TrackerService loot, MapTrackingService map, NetworkLootService? network = null)
     {
         _settings = settings;
         _capture = capture;
         _loot = loot;
         _map = map;
-        _scan = scan;
-        _explorationScan = explorationScan;
+        _network = network;
         _timer = new System.Threading.Timer(_ => Check(), null, TimeSpan.FromSeconds(10), Every);
     }
 
@@ -90,7 +87,7 @@ public sealed class DiagnosticsService : IDisposable
     /// <summary>ZIP with report, logs, settings and pictures of the chosen areas on the desktop; returns its path.</summary>
     public string CreatePackage()
     {
-        // System/OCR/process queries may be stuck. Export the independent capture snapshot now.
+        // System/process queries may be stuck. Export the independent capture snapshot now.
         _ = Task.Run(Check);
         var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         var path = Path.Combine(desktop, $"Soulcrest-Diagnose-{DateTime.Now:yyyyMMdd-HHmmss}.zip");
@@ -106,10 +103,6 @@ public sealed class DiagnosticsService : IDisposable
         // Use already produced previews: a fresh Grab could hang on the very driver/lock
         // this package is meant to diagnose. Missing previews are useful evidence too.
         AddPreview(zip, "karten-bereich", _map.PreviewDataUrl);
-        AddPicture(zip, "pet-scan-letztes-bild", _scan.LastFrameJpeg());
-        AddPreview(zip, "erkundung-letzte-liste", _explorationScan?.LastFrameDataUrl);
-        using (var writer = new StreamWriter(zip.CreateEntry("erkundung-ocr.txt").Open(), Encoding.UTF8))
-            writer.Write(_explorationScan?.LastOcrReport ?? "Seit dem Start wurde noch keine Erkundungsliste gelesen.");
         return path;
     }
 
@@ -124,10 +117,8 @@ public sealed class DiagnosticsService : IDisposable
             $"Aufnahmefehler: {capture.LastProblem ?? "keiner gemeldet"}\n" +
             $"Loot: {_loot.Status}\nLoot-Quelle: Netzwerk\n" +
             $"Karte: {_map.Status}\nKarten-FPS: {_map.Fps}\n" +
-            $"Pet-Scan: {_scan.Status}\nPet-Scan läuft: {_scan.Running}\nPet-Scan Fehler: {_scan.StatusIsError}\nPet-Scan Bilder: {_scan.Frames}\n" +
-            $"Erkundungsscan: {_explorationScan?.Status ?? "noch nicht gestartet"}\nErkundungsscan läuft: {_explorationScan?.Running ?? false}\n" +
-            $"Erkundungsscan Karte: {_explorationScan?.ScanMap}; Kategorie: {_explorationScan?.DetectedKind ?? _explorationScan?.ScanKind}\n" +
-            $"Erkundungsscan Bilder: {_explorationScan?.Frames ?? 0}; Kontrastansicht: {_explorationScan?.ContrastEnhanced ?? false}\n" +
+            $"Netzwerkfortschritt: {_network?.ProgressStatus ?? "nicht gestartet"}\n" +
+            $"Pet-Baseline: {_network?.PetBaselineAt:O}\nQuest-Baseline: {_network?.QuestBaselineAt:O}\nTeleport-Baseline: {_network?.TeleportBaselineAt:O}\n" +
             $"Erweiterte Pruefung aktiv: {Volatile.Read(ref _checking) != 0}\n";
     }
 
@@ -150,7 +141,7 @@ public sealed class DiagnosticsService : IDisposable
             return;
         }
         using var note = new StreamWriter(zip.CreateEntry($"bilder/{name}-fehlt.txt").Open());
-        note.Write("Seit dem Start von Soulcrest lief kein Pet-Scan.");
+        note.Write("Seit dem Start von Soulcrest wurde kein Bild gespeichert.");
     }
 
     internal static void AddPreview(ZipArchive zip, string name, string? dataUrl)
@@ -194,11 +185,7 @@ public sealed class DiagnosticsService : IDisposable
         var elevated = IsCurrentProcessElevated();
         Line($"Soulcrest mit Administratorrechten: {(elevated ? "ja" : "nein")}");
         Line($"WebView2: {WebView2Version()}");
-        var ocr = WindowsOcrLineReader.AvailableLanguages();
-        Line($"Oberflächensprache: {_settings.Current.UiLanguage}; OCR: {_settings.Current.EffectiveOcrLanguage}");
-        Line($"Windows-OCR-Sprachen: {(ocr.Count == 0 ? "keine" : string.Join(", ", ocr))}");
-        if (!ocr.Any(language => language.StartsWith("en", StringComparison.OrdinalIgnoreCase) || language.StartsWith("de", StringComparison.OrdinalIgnoreCase)))
-            hints.Add(new(true, "Kein englisches oder deutsches Windows-OCR-Paket installiert. Bitte unter Windows → Sprache hinzufügen."));
+        Line($"Oberflächensprache: {_settings.Current.UiLanguage}");
         Line($"Npcap: {(NetworkLootService.NpcapInstalled ? "installiert" : "nicht installiert")}");
         Line("");
 
@@ -258,7 +245,7 @@ public sealed class DiagnosticsService : IDisposable
         _framesBefore = capture.FramesArrived;
         _gdiBefore = capture.GdiFallbacks;
         Line($"Seit der letzten Prüfung: {framesDelta} Bilder, {gdiDelta} GDI-Abrufe");
-        var capturing = _map.Running || _scan.Running || _explorationScan?.Running == true;
+        var capturing = _map.Running;
         if (capture.Method != "Spielfenster (WGC)" && games.Count > 0)
         {
             hints.Add(new(true, $"Soulcrest nimmt nicht das Spielfenster auf, sondern {(capture.Method == "GDI" ? "per GDI-Bildschirmkopie" : "den ganzen Monitor (gelber Rahmen um den Bildschirm)")}. Grund: {capture.LastProblem ?? "unbekannt"}"));
@@ -289,19 +276,13 @@ public sealed class DiagnosticsService : IDisposable
             hints.Add(new(true, "Der Kartenbereich liegt außerhalb aller Monitore – neu markieren."));
         Line("");
 
-        Line("[Pet-Fenster-Scan]");
-        Line($"läuft: {_scan.Running}, Bereich: {_scan.CaptureRegion}, Bilder: {_scan.Frames}, Status: {_scan.Status}");
-        if (_scan.StatusIsError) hints.Add(new(true, _scan.Status));
+        Line("[Netzwerkfortschritt]");
+        Line($"Status: {_network?.ProgressStatus ?? "nicht gestartet"}; aktuell: {_network?.ProgressIsLive ?? false}");
+        Line($"Pet-Baseline: {_network?.PetBaselineAt:O}; Quest-Baseline: {_network?.QuestBaselineAt:O}; Teleport-Baseline: {_network?.TeleportBaselineAt:O}");
         if (_map.StatusIsError) hints.Add(new(true, _map.Status));
         if (_loot.StatusIsError) hints.Add(new(true, _loot.Status));
-        if (_scan.Status == CaptureReadback.Waiting || _map.Status == CaptureReadback.Waiting || _loot.Status == CaptureReadback.Waiting)
+        if (_map.Status == CaptureReadback.Waiting || _loot.Status == CaptureReadback.Waiting)
             hints.Add(new(false, CaptureReadback.Waiting));
-        Line("");
-
-        Line("[Erkundungsscan]");
-        Line($"läuft: {_explorationScan?.Running ?? false}, Karte: {_explorationScan?.ScanMap}, Kategorie: {_explorationScan?.DetectedKind ?? _explorationScan?.ScanKind}, Bilder: {_explorationScan?.Frames ?? 0}");
-        Line($"Status: {_explorationScan?.Status ?? "noch nicht gestartet"}; Kontrastansicht: {_explorationScan?.ContrastEnhanced ?? false}");
-        if (_explorationScan?.StatusIsError == true) hints.Add(new(true, _explorationScan.Status));
         Line("");
 
         Line("[Hinweise]");

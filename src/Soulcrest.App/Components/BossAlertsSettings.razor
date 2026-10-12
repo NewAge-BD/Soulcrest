@@ -14,8 +14,10 @@
         <label class="boss-field">@UiText.T("Anzeigedauer (Sekunden)") <input type="number" min="3" max="60" value="@Settings.Current.BossAlertDurationSeconds" @onchange="SetDuration" /></label>
     </div>
     <div class="boss-alert-actions"><label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.BossAlertSound" @onchange="@(e => Settings.Update(s => s.BossAlertSound = (bool)e.Value!))" /> @UiText.T("Signalton für Bosse ohne eigene Einstellung")</label><button class="btn small" id="boss-alert-test" disabled="@(!Settings.Current.BossAlertsEnabled)" @onclick="BossRush.PreviewAlert">@UiText.T("Alert testen")</button></div>
-    <p class="sv-hint">@UiText.T("Je Spawn eine Vorwarnung und ein Alert bei bestätigtem Spawn. 0 Sekunden bedeutet nur Spawn-Alert. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p>
-    <p class="sv-hint">@UiText.T(CompactSelectionOnly ? "Individuelle Erinnerungen stellst du direkt an den Boss-Kacheln ein. Die Standard-Vorwarnzeit gilt für Bosse ohne eigene Einstellung." : "Anzeige und Ton lassen sich pro ausgewähltem Boss anpassen.")</p>
+    <div class="boss-alert-help"><InfoTip>
+        <p>@UiText.T("Je Spawn eine Vorwarnung und ein Alert bei bestätigtem Spawn. 0 Sekunden bedeutet nur Spawn-Alert. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p>
+        <p>@UiText.T(CompactSelectionOnly ? "Individuelle Erinnerungen stellst du direkt an den Boss-Kacheln ein. Die Standard-Vorwarnzeit gilt für Bosse ohne eigene Einstellung." : "Anzeige und Ton lassen sich pro ausgewähltem Boss anpassen.")</p>
+    </InfoTip></div>
     @if (_presentationBusy) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Wird gespeichert …")</p> }
     else if (_presentationError is not null) { <p class="alerts-error" role="alert">@_presentationError</p> }
     else if (_presentationSaved) { <p class="alerts-feedback" role="status">@UiText.T("Boss-Alert gespeichert.")</p> }
