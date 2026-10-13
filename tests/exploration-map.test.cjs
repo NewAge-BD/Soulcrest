@@ -61,7 +61,7 @@ test('exploration guidance has no completion radius and profile switches refresh
     assert.equal(api.target().petId, 'd');
 });
 
-test('dungeon and stronghold popups expose states without any clear or reset action', () => {
+test('dungeon and stronghold popups show completion without discovery or reset actions', () => {
     const {api, calls, places} = fixture();
     for (const language of ['de', 'en']) {
         api.language(language);
@@ -74,8 +74,15 @@ test('dungeon and stronghold popups expose states without any clear or reset act
         places[0].state = 'DiscoveredIncomplete';
         places[1].state = 'Undiscovered';
         api.setExploration(JSON.stringify(places));
-        assert.match(api.popup(0), new RegExp(language === 'de' ? 'Entdeckt · offen' : 'Discovered · incomplete'));
-        assert.match(api.popup(1), new RegExp(language === 'de' ? 'Unentdeckt' : 'Undiscovered'));
+        for (const index of [0, 1]) {
+            assert.match(api.popup(index), new RegExp(language === 'de' ? 'Ohne Abschluss' : 'Without completion'));
+            assert.doesNotMatch(api.popup(index), /Entdeckt|Unentdeckt|Discovered|Undiscovered|exploration-toggle|onclick/);
+        }
+        places[0].done = true;
+        api.setExploration(JSON.stringify(places));
+        assert.match(api.popup(0), new RegExp(language === 'de' ? 'Erledigt' : 'Completed'));
+        assert.doesNotMatch(api.popup(0), /Unbestätigt|Unconfirmed|exploration-toggle|onclick/);
+        places[0].done = false;
         places[0].state = places[1].state = null;
         api.setExploration(JSON.stringify(places));
     }

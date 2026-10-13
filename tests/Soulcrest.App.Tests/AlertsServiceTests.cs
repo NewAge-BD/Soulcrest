@@ -548,6 +548,8 @@ public sealed class AlertsServiceTests : IDisposable
         _time.Advance(TimeSpan.FromSeconds(10));
         service.Tick();
         Assert.Single(notices); // An expired countdown alone does not prove a spawn.
+        Assert.True(Assert.Single(service.OverlayRows).Provisional);
+        Assert.False(Assert.Single(service.OverlayRows).Started);
         fixture.Spawned();
         Assert.Equal(2, notices.Count);
         Assert.True(Assert.Single(service.OverlayRows).Started);
@@ -578,7 +580,7 @@ public sealed class AlertsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CachedOrStaleBossRowsRemainProvisionalAndSilent()
+    public async Task CachedBossRowsStaySilentAndConfirmedRowsDoNotExpireWithListAge()
     {
         var cache = Path.Combine(_folder, "boss-cache.json");
         Assert.True(new BossTimerCache(cache, _time).Save(new(1110,
@@ -598,8 +600,54 @@ public sealed class AlertsServiceTests : IDisposable
         fixture.Upcoming(600);
         _time.Advance(TimeSpan.FromSeconds(16));
         service.Tick();
-        Assert.True(Assert.Single(service.OverlayRows).Provisional);
+        Assert.False(Assert.Single(service.OverlayRows).Provisional);
         Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task ConfirmedScheduleDeliversLeadAfterMinutesAndOnlyItsOwnGapInvalidatesIt()
+    {
+        await using var fixture = new BossFixture(_folder, _time);
+        using var service = new AlertsService(StorePath, _time, bosses: fixture.Bosses, settings: fixture.Settings);
+        Assert.True(service.SetBossPresentation("1110:111001", new() { AlwaysShowOverlay = true, PlaySound = true }));
+        List<AlertNotice> notices = [];
+        service.NoticeRaised += notices.Add;
+        fixture.Upcoming(600);
+        _time.Advance(TimeSpan.FromMinutes(9));
+        // Refresh the actual service without injecting a replacement boss list.
+        fixture.Settings.Update(settings => settings.BossRushEnabled = false);
+        service.Tick();
+        Assert.Single(notices);
+        Assert.True(notices[0].PlaySound);
+        var row = Assert.Single(service.CountdownRows);
+        Assert.False(row.Provisional);
+        Assert.False(row.Started);
+        fixture.Network.ProcessProgressGap("other-stream");
+        Assert.False(Assert.Single(fixture.Bosses.Schedule).Cached);
+        fixture.Network.ProcessProgressGap("fixture");
+        Assert.True(Assert.Single(fixture.Bosses.Schedule).Cached);
+        Assert.True(Assert.Single(service.CountdownRows).Provisional);
+        Assert.Empty(fixture.Bosses.Alerts);
+        Assert.Empty(service.NotificationRows);
+        Assert.Empty(service.Active);
+        fixture.ClockMessage();
+        Assert.True(Assert.Single(fixture.Bosses.Schedule).Cached);
+        fixture.Upcoming(60);
+        Assert.False(Assert.Single(fixture.Bosses.Schedule).Cached);
+        Assert.Single(notices); // The same cycle's lead is never delivered twice.
+        fixture.Network.ProcessProgressGap("*");
+        Assert.True(Assert.Single(fixture.Bosses.Schedule).Cached);
+        fixture.Upcoming(60);
+        _time.Advance(TimeSpan.FromMinutes(1));
+        service.Tick();
+        Assert.Single(notices);
+        Assert.True(Assert.Single(service.CountdownRows).Provisional);
+        Assert.False(Assert.Single(service.CountdownRows).Started);
+        fixture.Spawned();
+        Assert.Equal(2, notices.Count);
+        _time.Advance(TimeSpan.FromMinutes(2));
+        Assert.False(Assert.Single(service.CountdownRows).Provisional);
+        Assert.True(Assert.Single(service.CountdownRows).Started);
     }
 
     [Fact]
@@ -1021,6 +1069,8 @@ public sealed class AlertsServiceTests : IDisposable
         private readonly ManualTime _time;
         public SettingsService Settings { get; }
         public BossRushService Bosses { get; }
+        public NetworkLootService Network => _provider.GetRequiredService<NetworkLootService>();
+        public void ClockMessage() => Bosses.OnMessage("fixture", [0, 0x36, .. BitConverter.GetBytes(_time.GetUtcNow().ToUnixTimeMilliseconds())]);
         public BossFixture(string folder, ManualTime time, string? cache = null)
         {
             _time = time;

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -109,6 +110,7 @@ public sealed class DiagnosticsService : IDisposable
     internal string CaptureReport()
     {
         var capture = _capture.Diagnostics;
+        var networkDiagnostics = _network?.ProgressDiagnostics;
         return $"Soulcrest-Aufnahmestatus {DateTime.Now:O}\nVersion: {AppPaths.Version}\n" +
             $"Methode: {capture.Method}\nBereich: {capture.Bounds}\n" +
             $"Schritt: {capture.Stage}\nSchritt seit (UTC): {capture.StageSince:O}\n" +
@@ -119,7 +121,27 @@ public sealed class DiagnosticsService : IDisposable
             $"Karte: {_map.Status}\nKarten-FPS: {_map.Fps}\n" +
             $"Netzwerkfortschritt: {_network?.ProgressStatus ?? "nicht gestartet"}\n" +
             $"Pet-Baseline: {_network?.PetBaselineAt:O}\nQuest-Baseline: {_network?.QuestBaselineAt:O}\nTeleport-Baseline: {_network?.TeleportBaselineAt:O}\n" +
-            $"Erweiterte Pruefung aktiv: {Volatile.Read(ref _checking) != 0}\n";
+            $"Erweiterte Pruefung aktiv: {Volatile.Read(ref _checking) != 0}\n" +
+            FormatNetworkProgressDiagnostics(networkDiagnostics);
+    }
+
+    /// <summary>Formats one atomic counter snapshot; arbitrary strings cannot enter this diagnostic block.</summary>
+    internal static string FormatNetworkProgressDiagnostics(NetworkProgressDiagnostics? snapshot)
+    {
+        if (snapshot is null) return "[Anonyme Netzwerkdiagnose]\nNicht verfügbar.\n";
+        var reason = snapshot.LastResetReason is "none" or "manual" or "capture-closed" or "capture-stopped"
+            or "stream-gap" or "world-entry-preparation" or "world-entry" or "unsupported-own-entry" or "identity-bind-rejected"
+            ? snapshot.LastResetReason : "unknown";
+        static string Utc(DateTimeOffset? at) => at?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) ?? "none";
+        var opcode = snapshot.LastRejectedOpcode is { } code ? $"0x{code:X4}" : "none";
+        return FormattableString.Invariant($"""
+            [Anonyme Netzwerkdiagnose]
+            IdentityBound: {snapshot.IdentityBound.ToString().ToLowerInvariant()}; IdentityBindings: {snapshot.IdentityBindings}
+            ContextResets: {snapshot.ContextResets}; LastResetReason: {reason}; LastResetAtUtc: {Utc(snapshot.LastResetAt)}
+            RejectedProgressMessages: {snapshot.RejectedProgressMessages}; LastRejectedOpcode: {opcode}; LastRejectedAtUtc: {Utc(snapshot.LastRejectedAt)}
+            AcceptedSoulMessages: {snapshot.AcceptedSoulMessages}; AcceptedSoulPoints: {snapshot.AcceptedSoulPoints}; LastSoulAtUtc: {Utc(snapshot.LastSoulAt)}
+            PendingMessages: {snapshot.PendingMessages}; PendingBytes: {snapshot.PendingBytes}; PendingOverflow: {snapshot.PendingOverflow.ToString().ToLowerInvariant()}
+            """) + "\n";
     }
 
     internal static void AddReport(ZipArchive zip, string captureReport, string? fullReport, string? error)
@@ -279,6 +301,7 @@ public sealed class DiagnosticsService : IDisposable
         Line("[Netzwerkfortschritt]");
         Line($"Status: {_network?.ProgressStatus ?? "nicht gestartet"}; aktuell: {_network?.ProgressIsLive ?? false}");
         Line($"Pet-Baseline: {_network?.PetBaselineAt:O}; Quest-Baseline: {_network?.QuestBaselineAt:O}; Teleport-Baseline: {_network?.TeleportBaselineAt:O}");
+        Line(FormatNetworkProgressDiagnostics(_network?.ProgressDiagnostics).TrimEnd());
         if (_map.StatusIsError) hints.Add(new(true, _map.Status));
         if (_loot.StatusIsError) hints.Add(new(true, _loot.Status));
         if (_map.Status == CaptureReadback.Waiting || _loot.Status == CaptureReadback.Waiting)

@@ -1,5 +1,8 @@
 namespace Soulcrest.Core.Network;
 
+/// <summary>A confirmed connection-bound list, or a retained cached list after explicit invalidation.</summary>
+/// <param name="Age">Elapsed time since the full list was observed; an information age, not a validity timeout.</param>
+/// <param name="Cached">True after restoration or invalidation; only a new list with its own connection clock confirms it.</param>
 public sealed record BossRushSnapshot(int MapId, IReadOnlyList<BossSpawn> Bosses, long ServerUnixMs, TimeSpan Age, bool Cached = false)
 {
     // A timer expiring alone does not prove a spawn. The server's Spawned flag has priority.
@@ -21,6 +24,7 @@ public sealed class BossRushState(TimeProvider? timeProvider = null)
         {
             _clocks[stream] = (time, now);
             if (_latest is { Cached: false } latest && latest.Stream == stream)
+                // Clock updates rebase countdowns without changing the list's observation age or confirming cached data.
                 _latest = latest with { UnixMs = time, ClockAt = now };
             return false; // 20 Hz clocks must not cause UI refreshes or disk writes.
         }
@@ -46,6 +50,22 @@ public sealed class BossRushState(TimeProvider? timeProvider = null)
     {
         if (Snapshot is { } snapshot) Restore(snapshot);
         _clocks.Clear();
+    }
+
+    /// <summary>Discard a broken stream's clock; only a gap in the schedule's own stream makes it cached.</summary>
+    /// <returns>True only when the confirmed schedule changed to cached; unrelated or repeated gaps are silent.</returns>
+    public bool Invalidate(string stream)
+    {
+        if (stream == "*")
+        {
+            var changed = _latest is { Cached: false };
+            Invalidate();
+            return changed;
+        }
+        _clocks.Remove(stream);
+        if (_latest is not { Cached: false } latest || latest.Stream != stream) return false;
+        if (Snapshot is { } snapshot) Restore(snapshot);
+        return true;
     }
 
     /// <summary>Restores an extrapolated disk snapshot; from now on elapsed time is monotonic.</summary>

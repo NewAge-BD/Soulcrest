@@ -24,13 +24,13 @@ public sealed class BossAlertTests
     }
 
     [Fact]
-    public void IgnoresUnselectedMapsStaleListsAndWaitingTimersWithZeroLead()
+    public void IgnoresUnselectedMapsCachedListsAndWaitingTimersWithZeroLead()
     {
         var policy = new BossAlertPolicy();
         var selected = new HashSet<string> { "1110:111001" };
         Assert.Empty(policy.Evaluate(Snapshot(true, Now - 1000), new HashSet<string>(), 60));
         Assert.Empty(policy.Evaluate(Snapshot(true, Now - 1000, map: 1010), selected, 60));
-        Assert.Empty(policy.Evaluate(Snapshot(true, Now - 1000, age: 16), selected, 60));
+        Assert.Empty(policy.Evaluate(Snapshot(true, Now - 1000) with { Cached = true }, selected, 60));
         Assert.Empty(policy.Evaluate(Snapshot(false, Now + 1000), selected, 0));
         Assert.Single(policy.Evaluate(Snapshot(true, Now - 1000), selected, 0));
     }
@@ -71,13 +71,42 @@ public sealed class BossAlertTests
     {
         var policy = new BossAlertPolicy();
         var selected = new HashSet<string> { "1110:111001" };
-        var upcoming = Snapshot(false, Now + 120000);
+        var upcoming = Snapshot(false, Now + 120000, age: 600);
         Assert.Empty(policy.Evaluate(upcoming with { Cached = true }, selected, _ => 900));
-        Assert.Empty(policy.Evaluate(upcoming with { Age = TimeSpan.FromSeconds(16) }, selected, _ => 900));
         Assert.Single(policy.Evaluate(upcoming, selected, _ => 120));
         Assert.Empty(policy.Evaluate(upcoming, selected, _ => 900));
         Assert.Empty(policy.Evaluate(upcoming with { Bosses = [new(111001, true, Now + 120000)] }, selected, _ => null));
         Assert.True(Assert.Single(policy.Evaluate(upcoming with { Bosses = [new(111001, true, Now + 120000)] }, selected, _ => 0)).Spawned);
+    }
+
+    [Theory]
+    [InlineData(16)]
+    [InlineData(3600)]
+    public void ConfirmedSpawnDoesNotExpireWithTheListObservationAge(int age)
+    {
+        var policy = new BossAlertPolicy();
+        var selected = new HashSet<string> { "1110:111001" };
+        var snapshot = Snapshot(true, Now - 1000, age: age);
+        Assert.True(Assert.Single(policy.Evaluate(snapshot, selected, 0)).Spawned);
+        Assert.Empty(policy.Evaluate(snapshot with { Age = TimeSpan.FromSeconds(age + 60) }, selected, 0));
+    }
+
+    [Fact]
+    public void LongUnchangedScheduleWarnsAtItsLeadWindowAndTimerExpiryDoesNotProveSpawn()
+    {
+        var policy = new BossAlertPolicy();
+        var selected = new HashSet<string> { "1110:111001" };
+        var upcoming = Snapshot(false, Now + 600000);
+        Assert.Empty(policy.Evaluate(upcoming, selected, 60));
+        var near = upcoming with { ServerUnixMs = Now + 540000, Age = TimeSpan.FromSeconds(540) };
+        Assert.False(Assert.Single(policy.Evaluate(near, selected, 60)).Spawned);
+        Assert.Empty(policy.Evaluate(near with { ServerUnixMs = Now + 550000, Age = TimeSpan.FromSeconds(550) }, selected, 60));
+        var elapsed = near with { ServerUnixMs = Now + 600000, Age = TimeSpan.FromMinutes(10) };
+        Assert.Empty(policy.Evaluate(elapsed, selected, 60));
+        Assert.Empty(new BossAlertPolicy().Evaluate(elapsed, selected, 60)); // no warning was seen, but zero is still no spawn
+        Assert.Empty(new BossAlertPolicy().Evaluate(elapsed with { ServerUnixMs = Now + 610000 }, selected, 60));
+        Assert.Empty(policy.Evaluate(elapsed with { Bosses = [new(111001, true, Now + 600000)], Cached = true }, selected, 60));
+        Assert.True(Assert.Single(policy.Evaluate(elapsed with { Bosses = [new(111001, true, Now + 600000)], Age = TimeSpan.Zero }, selected, 60)).Spawned);
     }
 
     [Fact]

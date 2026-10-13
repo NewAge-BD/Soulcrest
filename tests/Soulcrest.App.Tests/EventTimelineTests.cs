@@ -113,12 +113,14 @@ public sealed class EventTimelineTests
     [Theory]
     [InlineData(true, 0, 600, false, true)]
     [InlineData(false, 15, 600, false, false)]
-    [InlineData(false, 16, 600, false, true)]
+    [InlineData(false, 16, 600, false, false)]
+    [InlineData(false, 3600, 600, false, false)]
+    [InlineData(false, 3600, 0, true, false)]
     [InlineData(false, 0, 0, false, true)]
     [InlineData(false, 0, -1, false, true)]
     [InlineData(false, 0, 0, true, false)]
     [InlineData(true, 0, 0, true, true)]
-    public void CachedOldAndExpiredBossTimesRemainUnconfirmed(bool cached, int age, int seconds, bool spawned, bool provisional)
+    public void OnlyCachedOrElapsedUnconfirmedSpawnsAreProvisional(bool cached, int age, int seconds, bool spawned, bool provisional)
     {
         var boss = Boss(1, TimeSpan.FromSeconds(seconds)) with { Cached = cached, Age = TimeSpan.FromSeconds(age), Spawned = spawned };
         var lane = Assert.Single(Create([boss], [boss.Place.Key]).Lanes, item => item.Bosses);

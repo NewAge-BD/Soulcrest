@@ -25,8 +25,11 @@ WGC (Spielfenster) → OpenCV-Kartenabgleich / MapTrackingService
 
 Pet-/Exploration-OCR, Scantimer, Scanfenster/-Hotkeys und Sprachpaketinstallation sind entfernt.
 Der vorhandene passive Mitschnitt ist die einzige Fortschrittsquelle neben manuellen Korrekturen.
-Nur ein durch eigenen Welteintritt bestätigter Strom darf Charakterfortschritt speichern. Bounded
-Pre-Identity-Puffer überbrücken die Startnachrichten vor dem eigenen Welteintritt. TCP-Lücken,
+Nur ein durch eigenen Welteintritt bestätigter Strom darf Charakterfortschritt speichern.
+Ein früher unbestätigter Login-Kandidat suspendiert die alte Zuordnung; streng geprüfte volle
+Startlisten werden nur bis genau einer Prepare und der passenden Own-Identität vorgemerkt.
+Charakter-ID und Entity-Key müssen übereinstimmen, Server/Name kommen ausschließlich aus Own.
+Unverankerte Prefixe und vor Own empfangene Deltas werden verworfen. TCP-Lücken,
 Formatfehler, beschädigte Bundles und Verbindungswechsel entwerten den Kontext; Altstände bleiben.
 Netzwerk-Speicherfehler werden geloggt und unterbrechen den restlichen Capture-Batch nicht.
 `NavigationArrivalService` verarbeitet nur Wegpunkte und Leveling-Stationen. Annäherungsring,
@@ -46,9 +49,12 @@ Server zugeordnet; weitere Server besitzen getrennte Sammlungen.
 
 Exploration gilt pro Charakter. Bestehende GUIDs, Labels, Namen, Orts-IDs, Haken und Leveling-
 Routen bleiben bestehen; stabile eigene Charakter-ID und Server-ID ergänzen die Zuordnung.
-Das Fachmodell trennt unentdeckt, entdeckt offen und entdeckt erledigt. Ein unbelegter Zustand
-bleibt unbekannt; Beobachtungsaktualität ist ein separates Feld. Quest-/Teleport-Rohdaten werden
-nicht ohne bestätigte Semantik in Abschlüsse umgedeutet. Radius/Instanzbetreten setzt keine Haken.
+Die Oberfläche zeigt für Dungeons/Strongholds Abschluss-Haken (Nutzerpräzisierung 2026-10-13).
+Die bisherige Dreistufen-Enum bleibt speicherkompatibel; fehlende Belege bleiben intern unbekannt.
+Eigene direkte Erfolge sowie das belegte positive Muster einer neuen eigenen Questliste
+(Status4, Stage1, [1,0,0,0,0,0]) bestätigen Abschlüsse. Positive eigene Kibelisk-Listen bestätigen
+Bindungen. Absenz setzt keine Haken zurück; Beobachtungsaktualität ist ein separates Feld.
+Radius/Instanzbetreten setzt keine Haken.
 Manuelle Korrekturen bleiben geschützt. Details: [EXPLORATION.md](EXPLORATION.md).
 
 ## Lokale Speicherung

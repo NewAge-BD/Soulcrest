@@ -43,7 +43,7 @@ test('captured timer joins exact spawn and boss point, persists without marker r
     assert.equal(f.refs[0].options.permanent, true);
 });
 
-test('zero countdown awaits server confirmation; aged or cached spawns stay unconfirmed', () => {
+test('zero countdown awaits server confirmation; confirmed spawns persist until invalidation', () => {
     const f = fixture();
     f.send([{ spawnId: 101, remaining: 1, age: 0, spawned: false, cached: false }]);
     f.advance(1);
@@ -51,12 +51,25 @@ test('zero countdown awaits server confirmation; aged or cached spawns stay unco
     assert.doesNotMatch(f.refs[0].content, />Spawned</);
     f.send([{ spawnId: 101, remaining: 0, age: 0, spawned: true, cached: false }]);
     assert.match(f.refs[0].content, />Spawned</);
-    f.advance(16);
-    assert.match(f.refs[0].content, /Unconfirmed/);
+    f.advance(120);
+    assert.match(f.refs[0].content, />Spawned</);
+    assert.doesNotMatch(f.refs[0].content, /unconfirmed/i);
     f.api.language('de');
-    assert.match(f.refs[0].content, /Unbestätigt/);
+    assert.match(f.refs[0].content, />Gespawnt</);
     f.send([{ spawnId: 101, remaining: 0, age: 0, spawned: true, cached: true }]);
     assert.match(f.refs[0].content, /Unbestätigt/);
+});
+
+test('an old captured schedule keeps counting down until the stream is invalidated', () => {
+    const f = fixture();
+    f.send([{ spawnId: 101, remaining: 3600, age: 600, spawned: false, cached: false }]);
+    f.advance(60);
+    assert.match(f.refs[0].content, />59:00</);
+    assert.doesNotMatch(f.refs[0].content, /class="provisional"/);
+    f.send([{ spawnId: 101, remaining: 3540, age: 660, spawned: false, cached: true }]);
+    assert.match(f.refs[0].content, /class="provisional"/);
+    assert.match(f.refs[0].content, /Saved · unconfirmed/);
+    assert.equal(f.refs[0].bound, 1);
 });
 
 test('wrong map, unknown IDs, ambiguous catalogue and duplicate points never get a timer', () => {

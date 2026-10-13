@@ -82,8 +82,8 @@ public sealed class LocalizationTests
     }
 
     [Theory]
-    [InlineData("de", "Netzwerkfortschritt", "Quest-Baseline")]
-    [InlineData("en", "Network progress", "Quest baseline")]
+    [InlineData("de", "Netzwerkfortschritt", "Exploration Progress")]
+    [InlineData("en", "Network progress", "Exploration Progress")]
     public async Task ExplorationExplainsPassiveNetworkProgressInBothLanguages(string language, string percentage, string check)
     {
         var services = new ServiceCollection();

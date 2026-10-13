@@ -9,6 +9,29 @@ namespace Soulcrest.Core.Network;
 /// </summary>
 public static class OwnIdentityMessage
 {
+    /// <summary>
+    /// Reads only an untrusted entry candidate from the observed 0x3620 envelope. Its opaque tail
+    /// is not schema-validated. This never supplies own authority, a server or a profile context;
+    /// a subsequent completely validated own message must independently confirm the candidate.
+    /// </summary>
+    public static OwnEntryCandidate? TryParseEntryCandidate(ReadOnlySpan<byte> message)
+    {
+        // These are the complete observed envelope lengths, not a recovered tail schema.
+        // The entity varint moves the character field; a fixed offset would misread one variant.
+        if (message.Length - 2 is not (1361 or 1362 or 1373 or 2279)
+            || !PetProgressMessage.HasOpcode(message, 0x3620)) return null;
+        try
+        {
+            var r = new ProgressPacketReader(message[2..]);
+            if (r.U16() != 0) return null;
+            var entityKey = r.Vi32();
+            r.Skip(4); // Opaque prefix field; no server or flags semantics are established.
+            var characterId = r.I64();
+            return entityKey > 0 && characterId > 0 ? new(characterId, entityKey) : null;
+        }
+        catch (InvalidDataException) { return null; }
+    }
+
     /// <summary>Invalidate live identity before any zone-entry snapshots, including same-map entries.</summary>
     public static bool IsWorldEntryPreparation(ReadOnlySpan<byte> message)
     {

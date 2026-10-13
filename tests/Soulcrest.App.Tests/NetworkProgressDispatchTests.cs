@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using Soulcrest.App.Network;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Network;
@@ -37,6 +38,23 @@ public sealed class NetworkProgressDispatchTests
         writer.Write(opcode); write(writer); return bytes.ToArray();
     }
 
+    private static byte[] EntryCandidate(OwnCharacterIdentity identity) => Packet(0x3620, writer =>
+    {
+        var bodyStart = writer.BaseStream.Position;
+        writer.Write((ushort)0);
+        var entity = (uint)identity.EntityKey;
+        while (entity >= 0x80)
+        {
+            writer.Write((byte)(entity | 0x80));
+            entity >>= 7;
+        }
+        writer.Write((byte)entity);
+        writer.Write(new byte[4]);
+        writer.Write(identity.CharacterId);
+        writer.Write(new byte[2279 - (int)(writer.BaseStream.Position - bodyStart)]);
+    });
+    private static byte[] Preparation() => Packet(0x3621, writer => writer.Write(new byte[46]));
+
     private static byte[] PetSnapshot() => Packet(0x9000, w =>
     {
         w.Write(0); w.Write((byte)1); w.Write(999); w.Write(1004); w.Write(1);
@@ -51,12 +69,17 @@ public sealed class NetworkProgressDispatchTests
     });
 
     [Fact]
-    public void BaselinesWaitForTheirOwnStreamIdentityAndNeverProduceSessionLoot()
+    public void AnchoredBaselinesWaitForMatchingPreparationAndOwnIdentityAndNeverProduceSessionLoot()
     {
         using var f = new Fixture();
         var gains = new List<NetworkSoul>(); f.Network.SoulGained += gains.Add;
+        f.Network.ProcessProgressMessage("game", EntryCandidate(Identity), At);
         f.Network.ProcessProgressMessage("game", PetSnapshot(), At);
         f.Network.ProcessProgressMessage("game", Quests(), At);
+        Assert.Null(f.Network.PetBaselineAt);
+        Assert.Equal(0, f.Progress.Souls("fossa"));
+        f.Network.ProcessProgressMessage("game", Preparation(), At.AddMilliseconds(500));
+        Assert.Null(f.Network.Character);
         Assert.Null(f.Network.PetBaselineAt);
         Assert.Equal(0, f.Progress.Souls("fossa"));
         f.Network.ObserveIdentity("game", Identity, At.AddSeconds(1));
@@ -92,17 +115,70 @@ public sealed class NetworkProgressDispatchTests
         Assert.Single(gains);
     }
 
-    [Fact]
-    public void UnsupportedVariantMakesTheContextStaleWithoutOverwritingSavedProgress()
+    [Theory]
+    [InlineData((ushort)0x9000)]
+    [InlineData((ushort)0x9009)]
+    [InlineData((ushort)0x900D)]
+    [InlineData((ushort)0x900E)]
+    [InlineData((ushort)0x9232)]
+    [InlineData((ushort)0x8D09)]
+    public void UnsupportedProgressRejectsOnlyItsSourceAndLaterSoulsStillCountOnce(ushort opcode)
     {
         using var f = new Fixture();
+        var gains = new List<NetworkSoul>(); f.Network.SoulGained += gains.Add;
         f.Network.ObserveIdentity("game", Identity, At);
         f.Network.ProcessProgressMessage("game", PetSnapshot(), At);
-        f.Network.ProcessProgressMessage("game", [.. Quests(), 0], At);
-        Assert.Null(f.Network.PetBaselineAt);
-        Assert.Null(f.Network.Character);
-        Assert.Equal(8, f.Progress.Souls("fossa"));
+        f.Network.ProcessProgressMessage("game", Quests(), At);
+        f.Network.ProcessProgressMessage("game", Packet(0x9232, w => { w.Write((byte)1); w.Write(1052026); }), At);
+        f.Network.ProcessProgressMessage("game", Points(0x900D), At.AddSeconds(1));
+        var generation = f.Network.ProgressDiagnostics.ContextResets;
+        byte[] malformed = opcode switch
+        {
+            0x9000 => [.. PetSnapshot(), 0],
+            0x900D or 0x900E => [.. Points(opcode), 0],
+            0x8D09 => [.. Quests(), 0],
+            _ => Packet(opcode, w => w.Write(new byte[] { 0, 0 })),
+        };
+        f.Network.ProcessProgressMessage("game", malformed, At.AddSeconds(2));
+        Assert.Equal(Identity.Name, f.Network.Character);
+        Assert.Equal(generation, f.Network.ProgressDiagnostics.ContextResets);
+        Assert.Equal(10, f.Progress.Souls("fossa"));
         Assert.Contains("nicht unterstützt", f.Network.ProgressStatus);
+        Assert.Equal(opcode is 0x9000 or 0x9009 or 0x900D or 0x900E ? null : At, f.Network.PetBaselineAt);
+        Assert.Equal(opcode == 0x8D09 ? null : At, f.Network.QuestBaselineAt);
+        Assert.Equal(opcode == 0x9232 ? null : At, f.Network.TeleportBaselineAt);
+
+        f.Network.ProcessProgressMessage("other", Points(0x900D), At.AddSeconds(3));
+        f.Network.ProcessProgressMessage("game", Points(0x900D), At.AddSeconds(3));
+        Assert.Equal(12, f.Progress.Souls("fossa"));
+        Assert.Equal(2, gains.Count);
+        Assert.All(gains, gain => Assert.Equal(2, gain.Souls));
+        Assert.Equal(2, f.Progress.Recent().Count);
+        Assert.Equal(4, f.Progress.Recent().Sum(row => row.Quantity));
+        Assert.Contains("nicht unterstützt", f.Network.ProgressStatus); // an unrelated/delta message cannot re-confirm the rejected source
+        var diagnostics = f.Network.ProgressDiagnostics;
+        Assert.True(diagnostics.IdentityBound);
+        Assert.Equal(1, diagnostics.RejectedProgressMessages);
+        Assert.Equal(opcode, diagnostics.LastRejectedOpcode);
+        Assert.Equal(2, diagnostics.AcceptedSoulMessages);
+        Assert.Equal(4, diagnostics.AcceptedSoulPoints);
+        Assert.Equal(At.AddSeconds(3), diagnostics.LastSoulAt);
+        Assert.Equal(0, diagnostics.PendingMessages);
+        if (opcode is 0x9000 or 0x9009 or 0x900D or 0x900E)
+            Assert.Null(f.Progress.AvailableSouls("fossa"));
+
+        // Only a complete valid baseline of the affected source restores confirmation.
+        f.Network.ProcessProgressMessage("game", opcode switch
+        {
+            0x8D09 => Quests(),
+            0x9232 => Packet(0x9232, w => { w.Write((byte)1); w.Write(1052026); }),
+            _ => PetSnapshot(),
+        }, At.AddSeconds(4));
+        Assert.NotNull(f.Network.PetBaselineAt);
+        Assert.NotNull(f.Network.QuestBaselineAt);
+        Assert.NotNull(f.Network.TeleportBaselineAt);
+        Assert.DoesNotContain("nicht unterstützt", f.Network.ProgressStatus);
+        Assert.Equal(2, gains.Count); // full snapshots never create pickup events
     }
     [Theory]
     [InlineData((ushort)0x3633)]
@@ -125,9 +201,18 @@ public sealed class NetworkProgressDispatchTests
     public void PendingOverflowDoesNotReplayAnArbitraryTailAsACompleteBaseline()
     {
         using var f = new Fixture();
+        f.Network.ProcessProgressMessage("game", EntryCandidate(Identity), At);
+        f.Network.ProcessProgressMessage("game", Quests(), At);
+        Assert.Equal(1, f.Network.ProgressDiagnostics.PendingMessages);
+        // This must be a different source: a second 9000 is rejected as a duplicate before the byte-cap check.
+        var oversizedSnapshot = new byte[2 * 1024 * 1024 + 1];
+        BinaryPrimitives.WriteUInt16LittleEndian(oversizedSnapshot, 0x9000);
+        f.Network.ProcessProgressMessage("game", oversizedSnapshot, At);
+        Assert.True(f.Network.ProgressDiagnostics.PendingOverflow);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
         f.Network.ProcessProgressMessage("game", PetSnapshot(), At);
-        for (var i = 0; i < 256; i++) f.Network.ProcessProgressMessage("game", Points(0x900D), At);
-        f.Network.ProcessProgressMessage("game", PetSnapshot(), At);
+        f.Network.ProcessProgressMessage("game", Preparation(), At);
         f.Network.ObserveIdentity("game", Identity, At);
         Assert.Null(f.Network.PetBaselineAt);
         Assert.Equal(0, f.Progress.Souls("fossa"));
@@ -178,10 +263,12 @@ public sealed class NetworkProgressDispatchTests
     }
 
     [Fact]
-    public void PendingStreamCountIsBoundedGlobally()
+    public void UnanchoredStreamsNeverQueueProgressOrProduceABaseline()
     {
         using var f = new Fixture();
         for (var i = 0; i < 9; i++) f.Network.ProcessProgressMessage("stream-" + i, PetSnapshot(), At);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
         f.Network.ObserveIdentity("stream-0", Identity, At);
         Assert.Null(f.Network.PetBaselineAt);
         Assert.Equal(0, f.Progress.Souls("fossa"));

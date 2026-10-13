@@ -347,7 +347,7 @@ public sealed class NetworkProgressServiceTests
     }
 
     [Fact]
-    public void RawQuestAndTeleportPresenceNeverInventsCompletionOrClearsLegacyMarks()
+    public void RawQuestStatesAndTeleportAbsencePreserveMarksWhileKnownTeleportPresenceConfirmsBinding()
     {
         using var folder = new Folder();
         var service = folder.Exploration();
@@ -364,7 +364,7 @@ public sealed class NetworkProgressServiceTests
         Assert.Equal((byte)2, snapshot.Progress["stronghold"].QuestStatus);
         Assert.True(snapshot.Progress["teleport-a"].TeleportPresent);
         Assert.True(snapshot.Progress["teleport-b"].TeleportPresent);
-        Assert.Null(snapshot.Progress["teleport-b"].State);
+        Assert.Equal(ExplorationProgressState.DiscoveredCompleted, snapshot.Progress["teleport-b"].State);
         Assert.False(service.ApplyNetworkQuests(new([]), Context(2)));
         Assert.Equal(2, events);
         Assert.True(service.ApplyNetworkTeleports(new(new HashSet<int>()), Context(3)));

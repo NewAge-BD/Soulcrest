@@ -2,6 +2,18 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.6.1 – 2026-10-13
+
+- **Neu:** Abgeschlossene Sealed Dungeons und Strongholds werden aus dem Spiel übernommen: direkt beim
+  Abschluss und beim Login aus dem vollständigen Erkundungsstand. Kibelisken werden beim Binden und
+  beim Login abgehakt. Erkundung zeigt nur noch „abgeschlossen“ oder „ohne Abschluss“.
+- **Behoben:** Die Soul-Zählung stoppte manchmal nach wenigen Souls, wenn das Spiel eine zusätzliche
+  Verbindung öffnete. Unbekannte Datenformate halten die Zählung nicht mehr an.
+- **Behoben:** Boss-Timer wurden kurz nach dem Empfang als unbestätigt angezeigt; sie bleiben jetzt
+  für die ganze Sitzung gültig, bis die Verbindung abbricht.
+- **Verbessert:** Das Setup erklärt, dass für Pets und Erkundung einmal die Charakterauswahl (erneuter
+  Login) nötig ist, und zeigt je Bereich, ob die Daten schon da sind.
+
 ## 0.6.0 – 2026-10-12
 
 - **Neu:** Pet-Stufen, verfügbare Souls und der Erkundungsfortschritt des eingeloggten Charakters

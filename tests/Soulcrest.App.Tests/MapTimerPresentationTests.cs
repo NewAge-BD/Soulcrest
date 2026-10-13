@@ -27,12 +27,14 @@ public sealed class MapTimerPresentationTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void OnlySelectedBossesAppearAndCachedCountdownsStayProvisional(bool cached)
+    [InlineData(false, 0)]
+    [InlineData(false, 3600)]
+    [InlineData(true, 0)]
+    [InlineData(true, 3600)]
+    public void OnlySelectedBossesAppearAndCachedCountdownsStayProvisional(bool cached, int age)
     {
         var other = new BossChoice(1, "fixture", new(9, 3, "Other synthetic boss", null, 0, 0));
-        var captured = new[] { new BossRushEntry(Choice, false, TimeSpan.FromMinutes(2), TimeSpan.Zero, cached),
+        var captured = new[] { new BossRushEntry(Choice, false, TimeSpan.FromMinutes(2), TimeSpan.FromSeconds(age), cached),
             new BossRushEntry(other, false, TimeSpan.FromMinutes(1), TimeSpan.Zero) };
         var rows = MapTimerPresentation.Create(Events, captured, [Choice, other], [Choice.Key], Now, "de");
         var boss = Assert.Single(rows, row => row.Key.StartsWith("boss:", StringComparison.Ordinal));

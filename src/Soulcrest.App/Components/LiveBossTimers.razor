@@ -158,7 +158,7 @@
             StateHasChanged();
         });
     }
-    private static bool Provisional(BossRushEntry row) => row.Cached || row.Age > TimeSpan.FromSeconds(15);
+    private static bool Provisional(BossRushEntry row) => row.Cached;
     private static string Counter(BossRushEntry? row) => row is null ? UiText.T("Warte auf Boss-Timer")
         : row.Spawned ? UiText.T(Provisional(row) ? "Unbestätigt" : "Gespawnt")
         : row.Remaining > TimeSpan.Zero ? BossRushService.Countdown(row.Remaining) : UiText.T("Warte auf Bestätigung");

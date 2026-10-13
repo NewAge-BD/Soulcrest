@@ -73,7 +73,7 @@ public sealed class LiveBossTimersTests
         fixture.Capture(false, 1_000);
         fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddSeconds(17);
         var expired = await fixture.Render();
-        Assert.Contains(provisional, expired);
+        Assert.DoesNotContain(provisional, expired);
         Assert.Contains(language == "de" ? "Warte auf Bestätigung" : "Waiting for confirmation", expired);
         Assert.DoesNotContain(">" + (language == "de" ? "Gespawnt" : "Spawned") + "</strong>", expired);
         fixture.Capture(true, -1_000);
@@ -83,6 +83,25 @@ public sealed class LiveBossTimersTests
         Assert.Contains(">" + unconfirmed + "</strong>", cached);
         Assert.DoesNotContain(">" + (language == "de" ? "Gespawnt" : "Spawned") + "</strong>", cached);
         Assert.Empty(fixture.Alerts.NotificationRows);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task ConfirmedTimerAndSpawnRemainConfirmedAfterMinutesWithoutAnotherList(string language)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Settings.Current.BossAlertIds = ["1110:111001"];
+        fixture.Capture(false, 610_000);
+        fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(2);
+        var countdown = await fixture.Render();
+        Assert.Contains("00:08:10", countdown);
+        Assert.DoesNotContain(language == "de" ? "Gespeichert · unbestätigt" : "Saved · unconfirmed", countdown);
+        fixture.Capture(true, -1_000);
+        fixture.Clock.UtcNow = fixture.Clock.UtcNow.AddMinutes(2);
+        var spawned = await fixture.Render();
+        Assert.Contains(">" + (language == "de" ? "Gespawnt" : "Spawned") + "</strong>", spawned);
+        Assert.DoesNotContain(language == "de" ? "Gespeichert · unbestätigt" : "Saved · unconfirmed", spawned);
     }
 
     [Fact]

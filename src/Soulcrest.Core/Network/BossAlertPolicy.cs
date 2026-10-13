@@ -15,7 +15,9 @@ public sealed class BossAlertPolicy
     public IReadOnlyList<BossAlertTrigger> Evaluate(BossRushSnapshot snapshot, IReadOnlySet<string> selected,
         Func<string, int?> leadSecondsFor)
     {
-        if (snapshot.Cached || snapshot.Age > TimeSpan.FromSeconds(15)) return [];
+        // Lists are not retransmitted on every clock tick. Age measures the last full observation;
+        // explicit session invalidation, rather than elapsed list age, makes a schedule unconfirmed.
+        if (snapshot.Cached) return [];
         var alerts = new List<BossAlertTrigger>();
         foreach (var boss in snapshot.Bosses.OrderBy(b => b.SpawnUnixMs).ThenBy(b => b.SpawnId))
         {

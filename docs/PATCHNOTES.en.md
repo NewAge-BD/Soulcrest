@@ -2,6 +2,18 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.6.1 – 2026-10-13
+
+- **New:** Completed sealed dungeons and strongholds are taken over from the game: right when you
+  complete them and at login from the full exploration state. Kibelisks are ticked off when you bind
+  them and at login. Exploration now only shows "completed" or "not completed".
+- **Fixed:** Soul counting sometimes stopped after a few souls when the game opened an additional
+  connection. Unknown data formats no longer stop the counting.
+- **Fixed:** Boss timers showed as unconfirmed shortly after they arrived; they now stay valid for the
+  whole session until the connection drops.
+- **Improved:** The setup explains that pets and exploration need the character selection once (log in
+  again) and shows per area whether the data has arrived.
+
 ## 0.6.0 – 2026-10-12
 
 - **New:** Pet levels, available souls and the exploration progress of the logged-in character are

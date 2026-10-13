@@ -243,7 +243,7 @@ window.soulcrestMap = (() => {
         for (const { layer, row, received } of bossTimerRefs.values()) {
             const elapsed = Math.max(0, (now - received) / 1000);
             const age = Math.max(0, row.age + elapsed);
-            const provisional = row.cached || age > 15;
+            const provisional = row.cached;
             const remaining = Math.max(0, Math.ceil(row.remaining - elapsed));
             const text = row.spawned ? (provisional ? ui('Unbestätigt', 'Unconfirmed') : ui('Gespawnt', 'Spawned'))
                 : remaining > 0 ? `${Math.floor(remaining / 3600) ? Math.floor(remaining / 3600) + ':' : ''}${String(Math.floor(remaining / 60) % 60).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
@@ -270,10 +270,10 @@ window.soulcrestMap = (() => {
         const kibelisk = place.kind === 'kibelisk';
         const state = kibelisk
             ? (place.done ? ui('Gebunden', 'Bound') : place.state == null ? ui('Unbestätigt', 'Unconfirmed') : ui('Nicht gebunden', 'Not bound'))
-            : place.done ? ui('Entdeckt · erledigt', 'Discovered · completed')
-            : place.state === 'Undiscovered' ? ui('Unentdeckt', 'Undiscovered')
-            : place.state === 'DiscoveredIncomplete' ? ui('Entdeckt · offen', 'Discovered · incomplete')
-            : ui('Unbestätigt', 'Unconfirmed');
+            : place.done ? ui('Erledigt', 'Completed')
+            : ui('Ohne Abschluss', 'Without completion');
+        const confirmation = !kibelisk && !place.done && place.state == null
+            ? ` · ${ui('Unbestätigt', 'Unconfirmed')}` : '';
         const action = kibelisk
             ? ` · <a href="#" class="exploration-toggle" onclick="window.soulcrestMap.toggleKibelisk(${index});return false;">${place.done ? ui('Bindung entfernen', 'Remove binding') : ui('Als gebunden markieren', 'Mark as bound')}</a>`
             : '';
@@ -281,7 +281,7 @@ window.soulcrestMap = (() => {
         const locked = !place.done && place.locked && needs.length
             ? `<br><span class="exploration-locked">🔒 ${ui('Öffnet erst nach', 'Opens only after')} ${needs.length <= 3 ? needs.map(esc).join(', ') : ui(`${needs.length} weiteren Sealed Dungeons`, `${needs.length} more sealed dungeons`)}</span>`
             : '';
-        return `<br>${ui('Status:', 'Status:')} <b>${state}</b>${action}${locked}`;
+        return `<br>${ui('Status:', 'Status:')} <b>${state}</b>${confirmation}${action}${locked}`;
     }
 
     function toggleKibelisk(index) {

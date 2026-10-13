@@ -25,6 +25,20 @@ public static class ExplorationProgressMessage
         catch (InvalidDataException) { return null; }
     }
 
+    /// <summary>Observed own-bound Kibelisk binding add: exactly one positive little-endian teleport ID.</summary>
+    public static int? TryParseTeleportBinding(ReadOnlySpan<byte> message)
+    {
+        if (!PetProgressMessage.HasOpcode(message, 0x9233)) return null;
+        try
+        {
+            var r = new ProgressPacketReader(message[2..]);
+            var id = r.I32();
+            r.Exact();
+            return id > 0 ? id : null;
+        }
+        catch (InvalidDataException) { return null; }
+    }
+
     public static QuestProgressSnapshot? TryParseQuests(ReadOnlySpan<byte> message)
     {
         if (!PetProgressMessage.HasOpcode(message, 0x8D09)) return null;
@@ -39,7 +53,7 @@ public static class ExplorationProgressMessage
                 var id = r.I32();
                 var status = r.U8();
                 var stage = r.U8();
-                // The raw values 2/4 are observed, their enum/bit and completion semantics are not proven.
+                // Keep wire values raw; exact catalogue/own/freshness completion policy belongs to the service.
                 if (id <= 0 || !ids.Add(id) || status is not (2 or 4) || stage >= 128) return null;
                 var counters = new int[6];
                 for (var j = 0; j < counters.Length; j++) counters[j] = r.Vi32();

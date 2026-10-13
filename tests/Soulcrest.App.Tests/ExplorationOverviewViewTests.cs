@@ -1,6 +1,9 @@
 using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -12,6 +15,7 @@ using Xunit;
 
 namespace Soulcrest.App.Tests;
 
+#pragma warning disable BL0006 // Inspect the actual Razor checkbox callback without starting the app.
 [Collection("Settings file")]
 public sealed class ExplorationOverviewViewTests
 {
@@ -29,7 +33,7 @@ public sealed class ExplorationOverviewViewTests
         Assert.Contains(follow, html);
         Assert.Contains("<progress value=\"1\" max=\"3\"", html);
         Assert.Contains("data-place=\"rift\"", html);
-        Assert.Contains(language == "de" ? "Bestätigt, nicht erledigt: 0" : "Confirmed, incomplete: 0", html);
+        Assert.Contains(language == "de" ? "Ohne Abschluss: 4" : "Without completion: 4", html);
         Assert.Contains(language == "de" ? "Unbestätigt: 4" : "Unconfirmed: 4", html);
         Assert.Contains("exploration-place locked", html);
         Assert.Contains("Twisted Pit Entrance", html);
@@ -61,21 +65,26 @@ public sealed class ExplorationOverviewViewTests
     }
 
     [Theory]
-    [InlineData("de", "Unentdeckt", "Entdeckt · offen", "Entdeckt · erledigt", "Unbestätigt")]
-    [InlineData("en", "Undiscovered", "Discovered · incomplete", "Discovered · completed", "Unconfirmed")]
-    public async Task ThreeExplorationStatesRemainSeparateFromUnconfirmedData(string language, string undiscovered, string incomplete, string complete, string unknown)
+    [InlineData("de", "Ohne Abschluss", "Erledigt", "Unbestätigt")]
+    [InlineData("en", "Without completion", "Completed", "Unconfirmed")]
+    public async Task CompletionCheckboxesHideDiscoveryStatesWithoutChangingLegacyProfiles(string language, string incomplete, string complete, string unknown)
     {
         await using var fixture = new Fixture(language);
         fixture.Settings.Current.ExplorationPinnedMap = "altgard";
         fixture.Exploration.SetState(fixture.Exploration.ActiveId, ["twisted"], ExplorationProgressState.DiscoveredIncomplete);
         fixture.Exploration.SetState(fixture.Exploration.ActiveId, ["rift"], ExplorationProgressState.Undiscovered);
         var html = await fixture.Render();
-        Assert.Contains(undiscovered, html);
         Assert.Contains(incomplete, html);
         Assert.Contains(complete, html);
         Assert.Contains(unknown, html);
-        Assert.Contains("value=\"DiscoveredIncomplete\"", html);
-        Assert.Contains("value=\"Undiscovered\"", html);
+        Assert.Equal(5, Regex.Matches(html, "type=\"checkbox\"").Count);
+        Assert.DoesNotContain("class=\"exploration-state\"", html);
+        Assert.DoesNotContain("value=\"DiscoveredIncomplete\"", html);
+        Assert.DoesNotContain("value=\"Undiscovered\"", html);
+        Assert.DoesNotContain("value=\"undiscovered\"", html);
+        Assert.DoesNotContain("value=\"discovered\"", html);
+        Assert.Equal(ExplorationProgressState.DiscoveredIncomplete, fixture.Exploration.Snapshot().Progress["twisted"].State);
+        Assert.Equal(ExplorationProgressState.Undiscovered, fixture.Exploration.Snapshot().Progress["rift"].State);
         AssertNetworkAboveOverview(html);
         Assert.DoesNotContain("data-scan-state", html);
         Assert.False(fixture.Tracking.Running);
@@ -101,17 +110,88 @@ public sealed class ExplorationOverviewViewTests
         foreach (var id in new[] { "lost", "twisted", "rift", "stronghold", "kibelisk" })
             Assert.Single(Regex.Matches(html, "data-place=\"" + id + "\""));
         var incomplete = Regex.Match(html, "<li[^>]*data-place=\"twisted\".*?</li>", RegexOptions.Singleline).Value;
-        Assert.Contains("exploration-state-badge discovered", incomplete);
+        Assert.Contains("exploration-state-badge undiscovered", incomplete);
         Assert.Contains(manual, incomplete);
         Assert.Contains(saved, incomplete);
-        Assert.Contains("value=\"DiscoveredIncomplete\"", incomplete);
+        Assert.Contains("type=\"checkbox\"", incomplete);
+        Assert.DoesNotContain("checked", Regex.Match(incomplete, "<input[^>]*>").Value);
         var unconfirmed = Regex.Match(html, "<li[^>]*data-place=\"stronghold\".*?</li>", RegexOptions.Singleline).Value;
-        Assert.Contains("exploration-state-badge unknown", unconfirmed);
+        Assert.Contains("exploration-state-badge undiscovered", unconfirmed);
         Assert.Contains(unknown, unconfirmed);
-        Assert.DoesNotContain("exploration-state-badge undiscovered", unconfirmed);
+        Assert.Contains("type=\"checkbox\"", unconfirmed);
+        Assert.DoesNotContain("checked", Regex.Match(unconfirmed, "<input[^>]*>").Value);
         Assert.Contains("class=\"exploration-kibelisk-toggle\"", html);
         Assert.Equal(new[] { "lost" }, fixture.Exploration.Completed);
         await fixture.Export(html, "workspace");
+    }
+
+    [Fact]
+    public async Task CompletionCheckboxUsesTheRenderedCharacterAndMapAndKeepsManualProfileCompatibility()
+    {
+        await using var fixture = new Fixture("en");
+        fixture.Settings.Current.ExplorationPinnedMap = "altgard";
+        var original = fixture.Exploration.ActiveId;
+        await fixture.WithView(async view =>
+        {
+            var rift = CheckboxCallback(view, "Rift Fissure Entrance completed");
+            await Change(rift, true);
+            Assert.Contains("rift", fixture.Exploration.Completed);
+            Assert.True(fixture.Exploration.Snapshot().Progress["rift"].ManualOverride);
+            await Change(rift, false);
+            Assert.DoesNotContain("rift", fixture.Exploration.Completed);
+            Assert.Equal(ExplorationProgressState.DiscoveredIncomplete, fixture.Exploration.Snapshot().Progress["rift"].State);
+            Assert.True(fixture.Exploration.Snapshot().Progress["rift"].ManualOverride);
+
+            var stronghold = CheckboxCallback(view, "Synthetic stronghold completed");
+            fixture.Exploration.Add("Synthetic alternate profile");
+            await Change(stronghold, true);
+            Assert.DoesNotContain("stronghold", fixture.Exploration.Completed);
+            Assert.Null(fixture.Exploration.Snapshot().Progress["stronghold"].State);
+            fixture.Exploration.Select(original);
+            Assert.DoesNotContain("stronghold", fixture.Exploration.Completed);
+
+            fixture.Settings.Current.ExplorationPinnedMap = "verteron";
+            await view.SetParametersAsync(ParameterView.Empty);
+            await Change(rift, true);
+            Assert.DoesNotContain("rift", fixture.Exploration.Completed);
+            Assert.Equal(new[] { "lost" }, fixture.Exploration.Completed);
+        });
+    }
+
+    private static object CheckboxCallback(ExplorationView view, string label)
+    {
+        using var builder = new RenderTreeBuilder();
+        typeof(ExplorationView).GetMethod("BuildRenderTree", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(view, [builder]);
+        var frames = builder.GetFrames();
+        for (var i = 0; i < frames.Count; i++)
+        {
+            if (frames.Array[i].FrameType != RenderTreeFrameType.Element || frames.Array[i].ElementName != "input") continue;
+            string? type = null, name = null;
+            object? callback = null;
+            for (var j = i + 1; j < frames.Count && frames.Array[j].FrameType == RenderTreeFrameType.Attribute; j++)
+            {
+                var attribute = frames.Array[j];
+                if (attribute.AttributeName == "type") type = attribute.AttributeValue as string;
+                if (attribute.AttributeName == "aria-label") name = attribute.AttributeValue as string;
+                if (attribute.AttributeName == "onchange") callback = attribute.AttributeValue;
+            }
+            if (type == "checkbox" && name == label) return Assert.IsAssignableFrom<object>(callback);
+        }
+        throw new InvalidOperationException("Completion checkbox not rendered: " + label);
+    }
+
+    private static async Task Change(object callback, bool value)
+    {
+        var args = new ChangeEventArgs { Value = value };
+        switch (callback)
+        {
+            case EventCallback<ChangeEventArgs> typed: await typed.InvokeAsync(args); break;
+            case EventCallback untyped: await untyped.InvokeAsync(args); break;
+            case MulticastDelegate handler:
+                if (handler.DynamicInvoke(args) is Task task) await task;
+                break;
+            default: throw new InvalidOperationException("Unexpected checkbox callback: " + callback.GetType().Name);
+        }
     }
 
     private static void AssertNetworkAboveOverview(string html)
@@ -182,6 +262,17 @@ public sealed class ExplorationOverviewViewTests
             await using var renderer = new HtmlRenderer(_provider, _provider.GetRequiredService<ILoggerFactory>());
             return WebUtility.HtmlDecode(await renderer.Dispatcher.InvokeAsync(async () => (await renderer.RenderComponentAsync<ExplorationView>()).ToHtmlString()));
         }
+        public async Task WithView(Func<ExplorationView, Task> inspect)
+        {
+            await using var renderer = new HtmlRenderer(_provider, _provider.GetRequiredService<ILoggerFactory>());
+            await renderer.Dispatcher.InvokeAsync(async () =>
+            {
+                ExplorationView? view = null;
+                _ = await renderer.RenderComponentAsync<CaptureExplorationView>(ParameterView.FromDictionary(new Dictionary<string, object?>
+                { [nameof(CaptureExplorationView.Capture)] = (Action<ExplorationView>)(value => view = value) }));
+                await inspect(Assert.IsType<ExplorationView>(view));
+            });
+        }
         public async Task Export(string html, string state)
         {
             var output = Environment.GetEnvironmentVariable("SOULCREST_EXPLORATION_UI_PREVIEW")
@@ -217,4 +308,16 @@ public sealed class ExplorationOverviewViewTests
             Directory.Delete(_mapData);
         }
     }
+
+    private sealed class CaptureExplorationView : ComponentBase
+    {
+        [Parameter] public Action<ExplorationView> Capture { get; set; } = default!;
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ExplorationView>(0);
+            builder.AddComponentReferenceCapture(1, value => Capture((ExplorationView)value));
+            builder.CloseComponent();
+        }
+    }
 }
+#pragma warning restore BL0006

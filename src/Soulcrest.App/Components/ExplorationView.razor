@@ -57,12 +57,12 @@
                 <span class="exploration-category-heading"><span class="exploration-kind-symbol @category.Kind" aria-hidden="true">@KindSymbol(category.Kind)</span><strong>@UiText.T(Title(category.Kind))</strong><span class="exploration-category-check" aria-hidden="true">@(_kind == category.Kind ? "✓" : "")</span></span>
                 <span class="exploration-category-value">@category.Completed <small>/ @category.Total @UiText.T("fertig")</small></span>
                 <progress value="@category.Completed" max="@Math.Max(1, category.Total)" aria-label="@UiText.T(Title(category.Kind))"></progress>
-                <small>@UiText.F("Entdeckt: {0} · unbestätigt: {1}", category.Discovered, category.Unknown)</small>
+                <small>@UiText.F("Ohne Abschluss: {0}", category.Total - category.Completed)</small>
             </button>
         }
     </section>
     <div class="exploration-state-summary" aria-label="@UiText.T("Status")">
-        <span class="exploration-known-count"><i aria-hidden="true"></i>@UiText.F("Bestätigt, nicht erledigt: {0}", _overview.Total - _overview.Completed - UnknownCount)</span>
+        <span class="exploration-known-count"><i aria-hidden="true"></i>@UiText.F("Ohne Abschluss: {0}", _overview.Total - _overview.Completed)</span>
         <span class="exploration-unknown-count"><i aria-hidden="true"></i>@UiText.F("Unbestätigt: {0}", UnknownCount)</span>
     </div>
 
@@ -74,7 +74,7 @@
             </div>
             <div class="exploration-filters">
                 <div class="exploration-search-field"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5"></circle><path d="m13 13 4 4"></path></svg><input class="exploration-search" type="search" autocomplete="off" spellcheck="false" aria-label="@UiText.T("Ort suchen")" placeholder="@UiText.T("Ort suchen …")" @bind="_search" @bind:event="oninput" @bind:after="Rebuild" /></div>
-                <label class="exploration-status-filter"><span>@UiText.T("Status")</span><select @bind="_status" @bind:after="Rebuild"><option value="all">@UiText.T("Alle")</option><option value="open">@UiText.T("Ohne Abschluss")</option><option value="undiscovered">@UiText.T("Unentdeckt")</option><option value="discovered">@UiText.T("Entdeckt · offen")</option><option value="unknown">@UiText.T("Unbestätigt")</option><option value="done">@UiText.T("Erledigt")</option><option value="locked">@UiText.T("Gesperrt")</option></select></label>
+                <label class="exploration-status-filter"><span>@UiText.T("Status")</span><select @bind="_status" @bind:after="Rebuild"><option value="all">@UiText.T("Alle")</option><option value="open">@UiText.T("Ohne Abschluss")</option><option value="unknown">@UiText.T("Unbestätigt")</option><option value="done">@UiText.T("Erledigt")</option><option value="locked">@UiText.T("Gesperrt")</option></select></label>
                 @if (_search.Length > 0 || _kind != "all" || _status != "all") { <button class="btn exploration-reset" @onclick="ResetFilters">@UiText.T("Filter zurücksetzen")</button> }
             </div>
             @if (_kind != "all") { <div class="exploration-active-filter"><span>@UiText.T(Title(_kind))</span><button type="button" @onclick="@(() => SelectKind(_kind))" aria-label="@UiText.T("Alle Kategorien")">×</button></div> }
@@ -93,6 +93,7 @@
                                 <strong>@row.Place.Name(Settings.Current.NameLanguage)</strong>
                                 <span class="exploration-place-meta"><span>@UiText.T(Title(row.Place.Kind))</span><span class="exploration-state-badge @StateTone(row)">@UiText.T(StateLabel(row))</span>
                                     @if (row.Locked) { <span class="exploration-locked-label">@UiText.T("Gesperrt")</span> }
+                                    @if (row.State is null) { <span class="exploration-saved-label">@UiText.T("Unbestätigt")</span> }
                                     @if (row.Progress.ManualOverride) { <span class="exploration-manual-label">@UiText.T("Manuell")</span> }
                                     @if (row.State is not null && row.Freshness != Soulcrest.Core.Progress.ProgressFreshness.Fresh) { <span class="exploration-saved-label">@UiText.T("Gespeicherter Fortschritt")</span> }
                                 </span>
@@ -100,19 +101,7 @@
                             </div>
                             <div class="exploration-place-actions">
                                 @if (row.Distance is { } distance) { <span class="exploration-place-distance">@DistanceLabel(distance)</span> }
-                                @if (row.Place.Kind == "kibelisk")
-                                {
-                                    <label class="exploration-kibelisk-toggle"><input type="checkbox" checked="@row.Done" aria-label="@UiText.F("{0} abgeschlossen", row.Place.Name(Settings.Current.NameLanguage))" @onchange="@(e => SetDone(row.Place, e, renderedCharacter, renderedMap))" /><span>@UiText.T("Erledigt")</span></label>
-                                }
-                                else
-                                {
-                                    <select class="exploration-state" aria-label="@UiText.F("Zustand für {0}", row.Place.Name(Settings.Current.NameLanguage))" value="@(row.State?.ToString() ?? "unknown")" @onchange="@(e => SetState(row.Place, e, renderedCharacter, renderedMap))">
-                                        <option value="unknown">@UiText.T("Unbestätigt")</option>
-                                        <option value="Undiscovered">@UiText.T("Unentdeckt")</option>
-                                        <option value="DiscoveredIncomplete">@UiText.T("Entdeckt · offen")</option>
-                                        <option value="DiscoveredCompleted">@UiText.T("Entdeckt · erledigt")</option>
-                                    </select>
-                                }
+                                <label class="exploration-kibelisk-toggle"><input type="checkbox" checked="@row.Done" aria-label="@UiText.F("{0} abgeschlossen", row.Place.Name(Settings.Current.NameLanguage))" @onchange="@(e => SetDone(row.Place, e, renderedCharacter, renderedMap))" /><span>@UiText.T("Erledigt")</span></label>
                                 <button type="button" class="btn exploration-place-focus" title="@UiText.T("Auf Karte anzeigen")" aria-label="@UiText.F("{0} auf Karte anzeigen", row.Place.Name(Settings.Current.NameLanguage))" @onclick="@(() => Ui.ShowExplorationOnMap(row.Place))"><span>@UiText.T("Karte")</span><span aria-hidden="true">↗</span></button>
                             </div>
                         </li>
@@ -148,12 +137,11 @@
             <section class="exploration-state-guide" aria-label="@UiText.T("Fortschritt verstehen")">
                 <h3>@UiText.T("Fortschritt verstehen")</h3>
                 <ul>
-                    <li><span class="exploration-state-badge undiscovered">@UiText.T("Unentdeckt")</span></li>
-                    <li><span class="exploration-state-badge discovered">@UiText.T("Entdeckt · offen")</span></li>
-                    <li><span class="exploration-state-badge complete">@UiText.T("Entdeckt · erledigt")</span></li>
+                    <li><span class="exploration-state-badge complete">@UiText.T("Erledigt")</span></li>
+                    <li><span class="exploration-state-badge undiscovered">@UiText.T("Ohne Abschluss")</span></li>
                 </ul>
-                <p class="exploration-checklist-note">@UiText.T("Dungeon- und Garnisonszustände lassen sich manuell korrigieren. Unbestätigt bedeutet, dass noch kein verlässlicher Zustand vorliegt.")</p>
-                <div class="exploration-guide-unknown"><span class="exploration-state-badge unknown">@UiText.T("Unbestätigt")</span><span>@UiText.T("Gespeicherte Werte bleiben erhalten.")</span></div>
+                <p class="exploration-checklist-note">@UiText.T("Für Dungeons und Strongholds zählt der Abschluss-Haken. Fehlende oder unbestätigte Einträge bleiben ohne Haken; daraus lässt sich kein früherer Nichtabschluss ableiten. Gespeicherte und manuelle Abschlüsse bleiben erhalten.")</p>
+                <div class="exploration-guide-unknown"><span class="exploration-saved-label">@UiText.T("Unbestätigt")</span><span>@UiText.T("Gespeicherte Werte bleiben erhalten.")</span></div>
             </section>
         </aside>
     </div>
@@ -163,21 +151,11 @@
     internal static string Title(string kind) => kind switch { "dungeon" => "Versiegelte Dungeons", "stronghold" => "Garnisonen", "kibelisk" => "Kibelisk", _ => "Erkundungsfortschritt" };
     private int UnknownCount => _overview.Categories.Sum(category => category.Unknown);
     private int CompletionPercent => _overview.Total == 0 ? 0 : (int)Math.Round(100d * _overview.Completed / _overview.Total);
-    private bool NetworkConfirmed => Network.ProgressIsLive && Network.QuestBaselineAt is not null && Network.TeleportBaselineAt is not null;
-    private static string StateLabel(ExplorationOverviewRow row) => row.State switch
-    {
-        ExplorationProgressState.Undiscovered => "Unentdeckt",
-        ExplorationProgressState.DiscoveredIncomplete => "Entdeckt · offen",
-        ExplorationProgressState.DiscoveredCompleted => row.Place.Kind == "kibelisk" ? "Erledigt" : "Entdeckt · erledigt",
-        _ => "Unbestätigt"
-    };
-    private static string StateTone(ExplorationOverviewRow row) => row.State switch
-    {
-        ExplorationProgressState.Undiscovered => "undiscovered",
-        ExplorationProgressState.DiscoveredIncomplete => "discovered",
-        ExplorationProgressState.DiscoveredCompleted => "complete",
-        _ => "unknown"
-    };
+    private bool NetworkConfirmed => Network.ProgressSources is { IdentityIsLive: true, QuestBaselineAt: not null,
+        TeleportBaselineAt: not null, QuestFormatRejected: false, TeleportFormatRejected: false,
+        DungeonFormatRejected: false, KibeliskFormatRejected: false };
+    private static string StateLabel(ExplorationOverviewRow row) => row.Done ? "Erledigt" : "Ohne Abschluss";
+    private static string StateTone(ExplorationOverviewRow row) => row.Done ? "complete" : "undiscovered";
     private string _map = "", _search = "", _kind = "all", _status = "all", _parameterKind = "";
     private ExplorationOverviewSnapshot _overview = null!;
     private ExplorationMapSelection _selection = null!;
@@ -239,12 +217,6 @@
     {
         if (character != Exploration.ActiveId || map != _map || place.Map != map) return;
         Exploration.SetDone(character, [place.Id], e.Value is true);
-    }
-    private void SetState(ExplorationPlace place, ChangeEventArgs e, string character, string map)
-    {
-        if (character != Exploration.ActiveId || map != _map || place.Map != map) return;
-        ExplorationProgressState? state = Enum.TryParse<ExplorationProgressState>(e.Value?.ToString(), out var parsed) ? parsed : null;
-        Exploration.SetState(character, [place.Id], state);
     }
     private void Refresh()
     {

@@ -63,7 +63,7 @@ public static class EventTimelinePresentation
         {
             var at = row.Spawned || row.Remaining <= TimeSpan.Zero ? now : Add(now, row.Remaining);
             return new EventTimelineOccurrence(row.Place.Key, row.Place.Boss.Name(nameLanguage), "#f87171", at, at,
-                Provisional: row.Cached || row.Age > TimeSpan.FromSeconds(15) || (!row.Spawned && row.Remaining <= TimeSpan.Zero),
+                Provisional: row.Cached || (!row.Spawned && row.Remaining <= TimeSpan.Zero),
                 Spawned: row.Spawned, Icon: row.Place.Boss.Icon);
         }).Where(row => row.StartsAt < until).OrderBy(row => row.StartsAt).ThenBy(row => row.Key, StringComparer.Ordinal).ToArray();
         // Reminder Off retains selection and its visible timer. No boss selection means no boss lane.

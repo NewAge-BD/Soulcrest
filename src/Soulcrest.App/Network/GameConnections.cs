@@ -5,21 +5,42 @@ using System.Runtime.InteropServices;
 
 namespace Soulcrest.App.Network;
 
+/// <summary>An incoming endpoint covered by an installed kernel filter.</summary>
+public readonly record struct CaptureEndpoint(string Address, int Port);
+
+/// <summary>One connection owned by the game process in the same Windows TCP-table snapshot.</summary>
+public readonly record struct CaptureConnection(int GamePid, string LocalAddress, int LocalPort, string RemoteAddress, int RemotePort)
+{
+    public CaptureEndpoint RemoteEndpoint => new(RemoteAddress, RemotePort);
+    // Include both addresses and the owner: a reused port must never inherit another session.
+    public string StreamKey => $"{GamePid}:{RemoteAddress}:{RemotePort}>{LocalAddress}:{LocalPort}";
+    public bool MatchesIncoming(IPAddress source, int sourcePort, IPAddress destination, int destinationPort) =>
+        RemotePort == sourcePort && LocalPort == destinationPort &&
+        RemoteAddress == source.ToString() && LocalAddress == destination.ToString();
+}
+
 /// <summary>
 /// What to capture for the network loot source: the game's server connections, or - when the game runs
 /// through a local relay like ExitLag (AION2 → 127.0.0.1:&lt;port&gt; → tunnel) - its connections to that relay
 /// on the loopback adapter. Only the game's own traffic, decided from the Windows TCP table (process ids).
 /// </summary>
-public sealed record CaptureTarget(string Device, string Filter, IReadOnlySet<int> ServerPorts, IReadOnlySet<int> GamePorts, string Description)
+public sealed record CaptureTarget(string Device, string Filter, IReadOnlySet<int> ServerPorts, IReadOnlySet<int> GamePorts, string Description,
+    IReadOnlySet<CaptureConnection>? Connections = null)
 {
     public const string LoopbackDevice = @"\Device\NPF_Loopback";
+    public IReadOnlySet<CaptureEndpoint> RemoteEndpoints => Connections is { } connections
+        ? connections.Select(connection => connection.RemoteEndpoint).ToHashSet() : new HashSet<CaptureEndpoint>();
 
     public static CaptureTarget? Find()
     {
         var gamePids = Process.GetProcessesByName("AION2").Select(p => { using (p) return p.Id; }).ToHashSet();
-        if (gamePids.Count == 0)
-            return null;
-        var table = TcpTable.Read();
+        return gamePids.Count == 0 ? null : FromRows(gamePids, TcpTable.Read(), DeviceFor, ProcessName);
+    }
+
+    /// <summary>Pure target construction; duplicate/reordered TCP-table rows do not change the filter.</summary>
+    internal static CaptureTarget? FromRows(IReadOnlySet<int> gamePids, IReadOnlyList<TcpTable.Row> table,
+        Func<IPAddress, string?> deviceFor, Func<int, string> processName)
+    {
         var game = table.Where(r => gamePids.Contains(r.Pid) && r.Established).ToList();
 
         // Relay: a loopback connection whose other end belongs to another process.
@@ -28,22 +49,30 @@ public sealed record CaptureTarget(string Device, string Filter, IReadOnlySet<in
             .ToList();
         if (relay.Count > 0)
         {
-            var ports = relay.Select(r => r.Remote.Port).ToHashSet();
+            var ports = relay.Select(r => r.Remote.Port).Distinct().Order().ToArray();
             var owner = table.First(o => o.Local.Port == relay[0].Remote.Port && !gamePids.Contains(o.Pid)).Pid;
-            var name = ProcessName(owner);
-            return new CaptureTarget(LoopbackDevice, "tcp and (" + string.Join(" or ", ports.Select(p => $"port {p}")) + ")",
-                ports, relay.Select(r => r.Local.Port).ToHashSet(), $"über lokalen Relay {name} (Port {string.Join(", ", ports)})");
+            var name = processName(owner);
+            return Create(LoopbackDevice, relay, $"über lokalen Relay {name} (Port {string.Join(", ", ports)})");
         }
 
         var remote = game.Where(r => !IPAddress.IsLoopback(r.Remote.Address)).ToList();
         if (remote.Count == 0)
             return null;
-        var device = DeviceFor(remote[0].Remote.Address);
+        var device = deviceFor(remote[0].Remote.Address);
         if (device is null)
             return null;
-        var filter = "tcp and (" + string.Join(" or ", remote.Select(r => $"(host {r.Remote.Address} and port {r.Remote.Port})")) + ")";
-        return new CaptureTarget(device, filter, remote.Select(r => r.Remote.Port).ToHashSet(), remote.Select(r => r.Local.Port).ToHashSet(),
-            $"direkt ({string.Join(", ", remote.Select(r => r.Remote.ToString()))})");
+        return Create(device, remote, "direkt (" + string.Join(", ", remote.Select(r => r.Remote.ToString()).Distinct().Order()) + ")");
+    }
+
+    private static CaptureTarget Create(string device, IReadOnlyList<TcpTable.Row> rows, string description)
+    {
+        var connections = rows.Select(row => new CaptureConnection(row.Pid, row.Local.Address.ToString(), row.Local.Port,
+            row.Remote.Address.ToString(), row.Remote.Port)).ToHashSet();
+        var endpoints = connections.Select(connection => connection.RemoteEndpoint).Distinct()
+            .OrderBy(endpoint => endpoint.Address, StringComparer.Ordinal).ThenBy(endpoint => endpoint.Port);
+        var filter = "tcp and (" + string.Join(" or ", endpoints.Select(endpoint => $"(host {endpoint.Address} and port {endpoint.Port})")) + ")";
+        return new(device, filter, rows.Select(row => row.Remote.Port).ToHashSet(), rows.Select(row => row.Local.Port).ToHashSet(),
+            description, connections);
     }
 
     private static string ProcessName(int pid)

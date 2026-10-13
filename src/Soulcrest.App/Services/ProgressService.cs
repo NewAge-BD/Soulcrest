@@ -686,6 +686,27 @@ public sealed class ProgressService
         SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
     }
 
+    /// <summary>A rejected pet packet invalidates that source, not the own identity or later loot deltas.</summary>
+    public void MarkNetworkPetSourceStale()
+    {
+        var changed = false;
+        lock (_gate)
+        {
+            foreach (var entry in _profile.Pets.Values)
+                if (!entry.ManualOverride && entry.Freshness == ProgressFreshness.Fresh)
+                { entry.Freshness = ProgressFreshness.Stale; changed = true; }
+            foreach (var raw in _profile.NetworkPets.Values)
+            {
+                changed |= raw.HasBaseline || raw.BalanceObserved || raw.LevelObserved;
+                raw.HasBaseline = raw.BalanceObserved = raw.LevelObserved = false;
+            }
+            changed |= _profile.NetworkBaselineAt is not null;
+            _profile.NetworkBaselineAt = null;
+            if (changed) PersistNetwork();
+        }
+        if (changed) SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
+    }
+
     public void MarkNetworkStale()
     {
         lock (_gate)

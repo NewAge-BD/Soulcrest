@@ -103,6 +103,7 @@ public sealed class BossRushService : IDisposable
         if (_cache.Load() is { } saved && KnownList(saved)) _state.Restore(saved);
         _network.BossMessageReceived += OnMessage;
         _network.BossSessionReset += Reset;
+        _network.BossStreamGap += InvalidateStream;
         _settings.Changed += Refresh;
         _timer = new System.Threading.Timer(_ => { if (_settings.Current.BossRushEnabled || _settings.Current.BossAlertsEnabled) Refresh(); }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
@@ -222,6 +223,16 @@ public sealed class BossRushService : IDisposable
     private bool KnownList(BossRushSnapshot snapshot) => _maps.TryGetValue(snapshot.MapId, out var map)
         && snapshot.Bosses.All(b => map.Places.ContainsKey(b.SpawnId));
 
+    private void InvalidateStream(string stream)
+    {
+        lock (_gate)
+        {
+            if (!_state.Invalidate(stream)) return;
+            _alerts.Clear();
+        }
+        Refresh();
+    }
+
     private void Reset()
     {
         lock (_gate) { _state.Invalidate(); _alerts.Clear(); }
@@ -277,6 +288,7 @@ public sealed class BossRushService : IDisposable
         _timer.Dispose();
         _network.BossMessageReceived -= OnMessage;
         _network.BossSessionReset -= Reset;
+        _network.BossStreamGap -= InvalidateStream;
         _settings.Changed -= Refresh;
         _targets.SetBossRush(null);
         _targets.SetBossPreview(null);

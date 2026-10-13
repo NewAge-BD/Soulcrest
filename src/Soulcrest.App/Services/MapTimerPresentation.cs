@@ -28,7 +28,7 @@ public static class MapTimerPresentation
         foreach (var choice in catalogue.Where(choice => ids.Contains(choice.Key)))
         {
             var timer = timers.GetValueOrDefault(choice.Key);
-            var provisional = timer is null || timer.Cached || timer.Age > TimeSpan.FromSeconds(15);
+            var provisional = timer is null || timer.Cached;
             var state = UiText.T(timer is null ? "Warte auf Boss-Timer" : provisional ? "Unbestätigt" : timer.Spawned ? "Gespawnt" : timer.Remaining > TimeSpan.Zero ? "Startet in" : "Warte auf Bestätigung");
             DateTimeOffset? at = timer is { Remaining: var remaining } && remaining > TimeSpan.Zero ? now + remaining : null;
             var counter = timer is null ? "—" : timer.Spawned ? UiText.T(provisional ? "Unbestätigt" : "Gespawnt") : timer.Remaining > TimeSpan.Zero ? Countdown(timer.Remaining) : "—";

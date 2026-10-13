@@ -77,6 +77,37 @@ public sealed class BossRushTests
         Assert.False(state.Accept("a", List(new BossSpawn(111001, false, Now + 1000))));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnchangedListRemainsConfirmedUntilInvalidationWithOrWithoutClockUpdates(bool updateClocks)
+    {
+        var time = new ManualTime();
+        var state = new BossRushState(time);
+        var bosses = new[] { new BossSpawn(111001, false, Now + 300000), new BossSpawn(111002, true, Now - 1000) };
+        state.Accept("game", Clock(Now));
+        Assert.True(state.Accept("game", List(bosses)));
+        for (var minute = 1; minute <= 10; minute++)
+        {
+            time.Advance(60000);
+            if (updateClocks) Assert.False(state.Accept("game", Clock(Now + minute * 60000)));
+            var snapshot = state.Snapshot!;
+            Assert.False(snapshot.Cached);
+            Assert.Equal(TimeSpan.FromMinutes(minute), snapshot.Age); // clocks do not pretend the list was freshly observed
+            Assert.Equal(Now + minute * 60000, snapshot.ServerUnixMs);
+            Assert.Equal(bosses, snapshot.Bosses);
+            Assert.False(snapshot.Bosses.Single(boss => boss.SpawnId == 111001).Spawned); // even after its countdown expires
+        }
+        state.Invalidate();
+        Assert.True(state.Snapshot!.Cached);
+        Assert.Equal(TimeSpan.FromMinutes(10), state.Snapshot.Age);
+        Assert.False(state.Accept("game", Clock(Now + 600000)));
+        Assert.True(state.Snapshot.Cached); // clocks alone cannot reconfirm a retained list
+        Assert.True(state.Accept("game", List(bosses)));
+        Assert.False(state.Snapshot!.Cached);
+        Assert.Equal(TimeSpan.Zero, state.Snapshot.Age);
+    }
+
     [Fact]
     public void StableTieUsesSpawnIdInsteadOfPacketOrder()
     {
@@ -102,13 +133,86 @@ public sealed class BossRushTests
         Assert.False(state.Snapshot.Next.Spawned);
         state.Accept("other", Clock(Now + 86400000));
         Assert.Equal(Now + 15000, state.Snapshot.ServerUnixMs); // unrelated clock cannot rebase retained timers
-        state.Accept("new", Clock(Now + 15000));
+        Assert.False(state.Accept("new", Clock(Now + 15000)));
+        Assert.True(state.Snapshot.Cached); // its clock alone is not a new list confirmation
         Assert.True(state.Accept("new", List(new BossSpawn(111001, false, Now + 120000))));
         Assert.False(state.Snapshot!.Cached);
         Assert.Equal(Now + 120000, state.Snapshot.Next!.SpawnUnixMs);
         state.Invalidate();
         time.Advance(200000);
         Assert.False(state.Snapshot!.Next!.Spawned); // cached countdown expiry is never a confirmation
+    }
+
+    [Fact]
+    public void UnrelatedStreamGapDiscardsOnlyItsClockAndKeepsTheConfirmedSchedule()
+    {
+        var time = new ManualTime();
+        var state = new BossRushState(time);
+        state.Accept("game", Clock(Now));
+        state.Accept("game", List(new BossSpawn(111001, false, Now + 60000)));
+        state.Accept("other", Clock(Now + 86400000));
+        time.Advance(2000);
+        Assert.False(state.Invalidate("other"));
+        Assert.False(state.Snapshot!.Cached);
+        Assert.Equal(Now + 2000, state.Snapshot.ServerUnixMs);
+        Assert.Equal(TimeSpan.FromSeconds(2), state.Snapshot.Age);
+        Assert.False(state.Accept("other", List(new BossSpawn(111001, true, Now)))); // only the broken stream lost its clock
+        Assert.False(state.Snapshot.Next!.Spawned);
+        Assert.True(state.Accept("game", List(new BossSpawn(111001, true, Now))));
+        Assert.False(state.Snapshot!.Cached);
+        Assert.True(state.Snapshot.Next!.Spawned);
+    }
+
+    [Fact]
+    public void BoundStreamGapCachesOnceAndRequiresItsNewClockAndList()
+    {
+        var time = new ManualTime();
+        var state = new BossRushState(time);
+        var list = List(new BossSpawn(111001, false, Now + 60000));
+        state.Accept("game", Clock(Now));
+        state.Accept("game", list);
+        time.Advance(2000);
+        Assert.True(state.Invalidate("game"));
+        Assert.True(state.Snapshot!.Cached);
+        Assert.Equal(TimeSpan.FromSeconds(2), state.Snapshot.Age);
+        Assert.False(state.Invalidate("game"));
+        Assert.False(state.Accept("game", list)); // the former clock cannot confirm the next list
+        Assert.False(state.Accept("other", Clock(Now + 86400000)));
+        Assert.False(state.Accept("game", list)); // another stream's clock is not its own clock
+        Assert.True(state.Snapshot.Cached);
+        Assert.Equal(Now + 2000, state.Snapshot.ServerUnixMs);
+        Assert.False(state.Accept("game", Clock(Now + 2000)));
+        Assert.True(state.Snapshot.Cached); // a clock alone still does not confirm the list
+        Assert.True(state.Accept("game", list));
+        Assert.False(state.Snapshot!.Cached);
+        Assert.Equal(TimeSpan.Zero, state.Snapshot.Age);
+    }
+
+    [Fact]
+    public void GlobalGapCachesTheScheduleAndDiscardsAllClocksEvenWhenAlreadyCached()
+    {
+        var state = new BossRushState(new ManualTime());
+        var list = List(new BossSpawn(111001, false, Now + 60000));
+        state.Accept("game", Clock(Now));
+        state.Accept("game", list);
+        state.Accept("other", Clock(Now + 86400000));
+        Assert.True(state.Invalidate("*"));
+        Assert.True(state.Snapshot!.Cached);
+        Assert.False(state.Accept("game", list));
+        Assert.False(state.Accept("other", list));
+        Assert.False(state.Invalidate("*"));
+        state.Accept("other", Clock(Now));
+        Assert.False(state.Invalidate("*")); // unchanged cached state, but a newly received clock is also discarded
+        Assert.False(state.Accept("other", list));
+        state.Accept("game", Clock(Now));
+        Assert.True(state.Snapshot.Cached);
+        Assert.True(state.Accept("game", list));
+        Assert.False(state.Snapshot!.Cached);
+        state.Reset();
+        state.Accept("game", Clock(Now));
+        Assert.False(state.Invalidate("*")); // even without a schedule, every clock must be discarded
+        Assert.False(state.Accept("game", list));
+        Assert.Null(state.Snapshot);
     }
 
     [Fact]
@@ -121,6 +225,12 @@ public sealed class BossRushTests
         Assert.True(state.Snapshot!.Cached);
         Assert.Equal(Now + 10000, state.Snapshot.ServerUnixMs);
         Assert.Equal(TimeSpan.FromSeconds(70), state.Snapshot.Age);
+        Assert.False(state.Accept("game", Clock(Now + 10000)));
+        Assert.True(state.Snapshot.Cached);
+        Assert.Equal(TimeSpan.FromSeconds(70), state.Snapshot.Age);
+        Assert.True(state.Accept("game", List(new BossSpawn(111001, false, Now + 60000))));
+        Assert.False(state.Snapshot!.Cached);
+        Assert.Equal(TimeSpan.Zero, state.Snapshot.Age);
     }
 
     private static byte[] Clock(long value) => [0, 0x36, .. BitConverter.GetBytes(value)];

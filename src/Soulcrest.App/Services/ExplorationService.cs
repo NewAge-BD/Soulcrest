@@ -7,13 +7,13 @@ namespace Soulcrest.App.Services;
 
 /// <summary>A sealed dungeon, stronghold or Kibelisk (Kind "dungeon", "stronghold", "kibelisk") at map position X/Y.</summary>
 public sealed record ExplorationPlace(string Id, string Map, string Kind, int Marker, string En, string? De, double X = 0, double Y = 0,
-    int? QuestId = null, int? TeleportId = null)
+    int? QuestId = null, int? TeleportId = null, int? DungeonId = null, int? StrongholdInstanceId = null)
 {
     public string Name(string language) => language == "de" && !string.IsNullOrWhiteSpace(De) ? De : En;
 }
 public enum ExplorationProgressState { Undiscovered, DiscoveredIncomplete, DiscoveredCompleted }
 
-/// <summary>Three game states; null means no confirmed interpretation, independent of observation freshness.</summary>
+/// <summary>Persisted legacy states; the UI uses completion only, with independent evidence freshness.</summary>
 public sealed record ExplorationPlaceProgress(ExplorationProgressState? State, ProgressFreshness Freshness,
     string Source, DateTimeOffset? ObservedAt, byte? QuestStatus = null, byte? QuestStage = null,
     bool? TeleportPresent = null, string? RawSource = null, DateTimeOffset? RawObservedAt = null,
@@ -33,6 +33,10 @@ public sealed class CharacterExploration
     public Dictionary<string, ExplorationPlaceProgress> Progress { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<int, QuestProgressRecord> RawQuests { get; set; } = [];
     public HashSet<int> RawTeleportIds { get; set; } = [];
+    // Successful wire-result evidence for sealed dungeons and stronghold instances; keep the persisted property name.
+    public Dictionary<int, DateTimeOffset> DungeonCompletedAt { get; set; } = [];
+    // First own-bound binding evidence; a later full-list observation cannot undo it.
+    public Dictionary<int, DateTimeOffset> TeleportBoundAt { get; set; } = [];
 }
 public sealed class ExplorationProfiles
 {
@@ -60,7 +64,7 @@ public sealed partial class ExplorationService
     private NetworkProgressContext? _networkContext;
     private string? _networkCharacter;
     private long _invalidatedGeneration = -1;
-    private long _questSequence = -1, _teleportSequence = -1;
+    private long _questSequence = -1, _teleportSequence = -1, _teleportBindingSequence = -1, _dungeonSequence = -1;
     public IReadOnlyList<ExplorationPlace> Places { get; }
     public event Action? Changed;
     public ExplorationService(ProgressService progress) : this(Path.Combine(AppPaths.DataDirectory, "exploration.json"), LoadPlaces(progress)) { }
@@ -172,7 +176,7 @@ public sealed partial class ExplorationService
         lock (_gate) { _state.Characters.Single(c => c.Id == _state.Active).Name = name.Trim(); Persist(); }
         Changed?.Invoke();
     }
-    /// <summary>Compatibility action: unchecking a discovered place does not make it undiscovered.</summary>
+    /// <summary>Completion checkbox action; retain the existing noncompleted enum value for storage compatibility.</summary>
     public void SetDone(string character, IEnumerable<string> ids, bool done = true) =>
         SetState(character, ids, done ? ExplorationProgressState.DiscoveredCompleted : ExplorationProgressState.DiscoveredIncomplete);
 
@@ -227,7 +231,7 @@ public sealed partial class ExplorationService
             _state.Active = c.Id;
             _networkCharacter = c.Id;
             _networkContext = context;
-            _questSequence = _teleportSequence = -1;
+            _questSequence = _teleportSequence = _teleportBindingSequence = _dungeonSequence = -1;
             PersistNetwork();
         }
         SafeEvent.Raise(Changed, "Charakterprofil");
@@ -239,7 +243,7 @@ public sealed partial class ExplorationService
         current.CharacterId == context.CharacterId && context.Sequence >= current.Sequence && context.Sequence > lastSequence
             ? _state.Characters.SingleOrDefault(c => c.Id == _networkCharacter) : null;
 
-    /// <summary>Raw quest state only: status 2/4 and absence are not yet proven discovery/completion semantics.</summary>
+    /// <summary>Only a fresh own-bound, exactly mapped positive quest record confirms completion; other shapes and absence clear no state.</summary>
     public bool ApplyNetworkQuests(QuestProgressSnapshot snapshot, NetworkProgressContext context)
     {
         if (snapshot.Quests.Any(q => q.QuestId <= 0) || snapshot.Quests.Select(q => q.QuestId).Distinct().Count() != snapshot.Quests.Count) return false;
@@ -252,20 +256,38 @@ public sealed partial class ExplorationService
             {
                 var old = c.Progress.GetValueOrDefault(place.Id) ?? ExplorationPlaceProgress.Unknown;
                 if (quests.TryGetValue(place.QuestId!.Value, out var quest))
-                    c.Progress[place.Id] = old with { QuestStatus = quest.Status, QuestStage = quest.Stage,
+                {
+                    var observed = old with { QuestStatus = quest.Status, QuestStage = quest.Stage,
                         QuestCounters = quest.Counters.ToArray(), QuestOrdinal = quest.Ordinal,
                         RawSource = "network-quest-unconfirmed", RawObservedAt = context.At, RawFreshness = ProgressFreshness.Fresh };
+                    // Live-verified completion shape (2026-10-13). Apply only when a new own-bound
+                    // list arrives, never by replaying stored raw values. Status 2 remains raw only.
+                    if (place.Kind is "dungeon" or "stronghold" && IsConfirmedQuestCompletion(quest) && !old.ManualOverride)
+                    {
+                        var alreadyCompleted = old.State == ExplorationProgressState.DiscoveredCompleted;
+                        observed = observed with { State = ExplorationProgressState.DiscoveredCompleted,
+                            Freshness = ProgressFreshness.Fresh,
+                            Source = alreadyCompleted ? old.Source : "network-quest-baseline",
+                            ObservedAt = alreadyCompleted ? old.ObservedAt : context.At };
+                    }
+                    c.Progress[place.Id] = observed;
+                }
                 else c.Progress[place.Id] = old with { QuestStatus = null, QuestStage = null, QuestCounters = null, QuestOrdinal = null,
                     RawSource = "network-quest-absent-unconfirmed", RawObservedAt = context.At, RawFreshness = ProgressFreshness.Fresh };
             }
             _questSequence = context.Sequence;
+            RefreshDone(c);
             PersistNetwork();
         }
         SafeEvent.Raise(Changed, "Erkundungs-Netzwerkstand");
         return true;
     }
 
-    /// <summary>Presence is preserved separately until engraved/bound semantics are verified; absence clears no legacy/manual state.</summary>
+    private static bool IsConfirmedQuestCompletion(QuestProgressRecord quest) =>
+        quest.Status == 4 && quest.Stage == 1 && quest.Ordinal >= 0 && quest.Counters.Count == 6 &&
+        quest.Counters[0] == 1 && quest.Counters.Skip(1).All(counter => counter == 0);
+
+    /// <summary>Positive known Kibelisk presence confirms binding; absence clears no historical or manual state.</summary>
     public bool ApplyNetworkTeleports(TeleportProgressSnapshot snapshot, NetworkProgressContext context)
     {
         if (snapshot.TeleportIds.Any(id => id <= 0)) return false;
@@ -276,14 +298,123 @@ public sealed partial class ExplorationService
             foreach (var place in Places.Where(p => p.Kind == "kibelisk" && p.TeleportId is not null).DistinctBy(p => p.Id))
             {
                 var old = c.Progress.GetValueOrDefault(place.Id) ?? ExplorationPlaceProgress.Unknown;
-                c.Progress[place.Id] = old with { TeleportPresent = snapshot.TeleportIds.Contains(place.TeleportId!.Value),
-                    RawSource = "network-teleport-unconfirmed", RawObservedAt = context.At, RawFreshness = ProgressFreshness.Fresh };
+                var teleportId = place.TeleportId!.Value;
+                var present = snapshot.TeleportIds.Contains(teleportId);
+                var observed = old with { TeleportPresent = present, RawSource = "network-teleport-unconfirmed",
+                    RawObservedAt = context.At, RawFreshness = ProgressFreshness.Fresh };
+                if (present)
+                {
+                    // Live-verified list/add namespace: positive known Kibelisk IDs confirm binding.
+                    // Absence remains a raw observation and never reverses historical/manual state.
+                    c.TeleportBoundAt.TryAdd(teleportId, context.At);
+                    if (!old.ManualOverride)
+                    {
+                        var alreadyConfirmed = old.State == ExplorationProgressState.DiscoveredCompleted &&
+                            old.Source is "network-kibelisk-binding" or "network-kibelisk-baseline";
+                        observed = observed with { State = ExplorationProgressState.DiscoveredCompleted,
+                            Freshness = ProgressFreshness.Fresh,
+                            Source = alreadyConfirmed ? old.Source : "network-kibelisk-baseline",
+                            ObservedAt = alreadyConfirmed ? old.ObservedAt : c.TeleportBoundAt[teleportId] };
+                    }
+                }
+                c.Progress[place.Id] = observed;
             }
             _teleportSequence = context.Sequence;
+            RefreshDone(c);
             PersistNetwork();
         }
         SafeEvent.Raise(Changed, "Erkundungs-Netzwerkstand");
         return true;
+    }
+
+    /// <summary>An own-bound binding add confirms only exactly mapped Kibelisks, independently of a full teleport list.</summary>
+    public bool ApplyNetworkTeleportBinding(int teleportId, NetworkProgressContext context)
+    {
+        if (teleportId <= 0) return false;
+        var places = Places.Where(p => p.Kind == "kibelisk" && p.TeleportId == teleportId).DistinctBy(p => p.Id).ToArray();
+        if (places.Length == 0) return false;
+        lock (_gate)
+        {
+            if (NetworkCharacter(context, _teleportBindingSequence) is not { } character) return false;
+            character.TeleportBoundAt.TryAdd(teleportId, context.At);
+            // A single add is not a complete baseline. Keep its provenance distinct from the list.
+            character.RawTeleportIds.Add(teleportId);
+            foreach (var place in places)
+            {
+                var old = character.Progress.GetValueOrDefault(place.Id) ?? ExplorationPlaceProgress.Unknown;
+                var observed = old with { TeleportPresent = true, RawSource = "network-teleport-binding",
+                    RawObservedAt = context.At, RawFreshness = ProgressFreshness.Fresh };
+                character.Progress[place.Id] = old.ManualOverride ? observed : observed with {
+                    State = ExplorationProgressState.DiscoveredCompleted, Freshness = ProgressFreshness.Fresh,
+                    Source = "network-kibelisk-binding", ObservedAt = context.At };
+            }
+            _teleportBindingSequence = context.Sequence;
+            RefreshDone(character);
+            PersistNetwork();
+        }
+        SafeEvent.Raise(Changed, "Erkundungsfortschritt");
+        return true;
+    }
+
+    /// <summary>A successful result for an exactly mapped sealed dungeon or stronghold instance confirms its completion.</summary>
+    public bool ApplyNetworkDungeonCompletion(DungeonCompletion completion, NetworkProgressContext context)
+    {
+        if (!completion.Succeeded || completion.DungeonId <= 0) return false;
+        var places = Places.Where(p => p.Kind == "dungeon" && p.DungeonId == completion.DungeonId
+            || p.Kind == "stronghold" && p.StrongholdInstanceId == completion.DungeonId).DistinctBy(p => p.Id).ToArray();
+        if (places.Length == 0) return false;
+        var changed = false;
+        lock (_gate)
+        {
+            if (NetworkCharacter(context, _dungeonSequence) is not { } character) return false;
+            // Preserve the first confirmed one-time completion even when a manual state takes precedence.
+            changed = character.DungeonCompletedAt.TryAdd(completion.DungeonId, context.At);
+            foreach (var place in places)
+            {
+                var old = character.Progress.GetValueOrDefault(place.Id) ?? ExplorationPlaceProgress.Unknown;
+                if (old.ManualOverride) continue;
+                character.Progress[place.Id] = old with { State = ExplorationProgressState.DiscoveredCompleted,
+                    Freshness = ProgressFreshness.Fresh, Source = place.Kind == "stronghold"
+                        ? "network-stronghold-completion" : "network-dungeon-completion", ObservedAt = character.DungeonCompletedAt[completion.DungeonId] };
+                changed = true;
+            }
+            _dungeonSequence = context.Sequence;
+            if (changed) { RefreshDone(character); PersistNetwork(); }
+        }
+        if (changed) SafeEvent.Raise(Changed, "Erkundungsfortschritt");
+        return true;
+    }
+
+    /// <summary>Keep quest values and the own session, but require a new complete quest source observation.</summary>
+    public void MarkNetworkQuestSourceStale() => MarkNetworkSourceStale(quest: true);
+
+    /// <summary>Keep teleport values and the own session, independently of the quest source.</summary>
+    public void MarkNetworkTeleportSourceStale() => MarkNetworkSourceStale(quest: false);
+
+    private void MarkNetworkSourceStale(bool quest)
+    {
+        var changed = false;
+        lock (_gate)
+        {
+            if (_state.Characters.FirstOrDefault(c => c.Id == _networkCharacter) is not { } character) return;
+            foreach (var (id, entry) in character.Progress.ToArray())
+            {
+                var matches = quest
+                    ? entry.RawSource is "network-quest-unconfirmed" or "network-quest-absent-unconfirmed"
+                    : entry.RawSource is "network-teleport-unconfirmed" or "network-teleport-binding";
+                var staleRaw = matches && entry.RawFreshness == ProgressFreshness.Fresh;
+                var staleCompletion = quest && entry.Source == "network-quest-baseline" && entry.Freshness == ProgressFreshness.Fresh;
+                if (!staleRaw && !staleCompletion) continue;
+                character.Progress[id] = entry with
+                {
+                    RawFreshness = staleRaw ? ProgressFreshness.Stale : entry.RawFreshness,
+                    Freshness = staleCompletion ? ProgressFreshness.Stale : entry.Freshness,
+                };
+                changed = true;
+            }
+            if (changed) PersistNetwork();
+        }
+        if (changed) SafeEvent.Raise(Changed, "Erkundungs-Netzwerkstand");
     }
 
     public void MarkNetworkStale()
@@ -343,7 +474,7 @@ public sealed partial class ExplorationService
                 // User request 2026-10-12: game progress comes from own network observations, not proximity.
                 var kind = cats[m[0].GetInt32()] switch { "Sealed Dungeon" => "dungeon", "Stronghold" => "stronghold", "Kibelisk" => "kibelisk", _ => null };
                 if (kind is not null && m[3].GetString() is { Length: > 0 } en)
-                    result.Add(new($"{map.Id}|{kind}|{en}", map.Id, kind, index, en, m[4].GetString(), m[1].GetDouble(), m[2].GetDouble(), MarkerId(m, "questId"), MarkerId(m, "teleportId")));
+                    result.Add(new($"{map.Id}|{kind}|{en}", map.Id, kind, index, en, m[4].GetString(), m[1].GetDouble(), m[2].GetDouble(), MarkerId(m, "questId"), MarkerId(m, "teleportId"), MarkerId(m, "dungeonId"), MarkerId(m, "strongholdInstanceId")));
                 index++;
             }
         }
@@ -351,7 +482,8 @@ public sealed partial class ExplorationService
     }
 
     private static int? MarkerId(JsonElement marker, string name) => marker.GetArrayLength() > 7 &&
-        marker[7].ValueKind == JsonValueKind.Object && marker[7].TryGetProperty(name, out var id) && id.TryGetInt32(out var value) && value > 0 ? value : null;
+        marker[7].ValueKind == JsonValueKind.Object && marker[7].TryGetProperty(name, out var id) &&
+        id.ValueKind == JsonValueKind.Number && id.TryGetInt32(out var value) && value > 0 ? value : null;
 
     /// <summary>
     /// Some Kibelisks share a name at places far apart (Verteron "Cantas Valley Mushroom Tree Peak",

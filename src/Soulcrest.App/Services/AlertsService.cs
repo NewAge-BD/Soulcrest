@@ -309,7 +309,7 @@ public sealed class AlertsService : IDisposable
                         (boss.Spawned || boss.Remaining > TimeSpan.FromMinutes(presentation.OverlayLeadMinutes))) continue;
                     var owner = "boss:" + boss.Place.Key;
                     rows[owner] = new(owner, BossName(boss.Place.Boss), "", "#ef4444",
-                        SafeAdd(now, boss.Remaining), boss.Spawned, boss.Cached || boss.Age > TimeSpan.FromSeconds(15));
+                        SafeAdd(now, boss.Remaining), boss.Spawned, boss.Cached || (!boss.Spawned && boss.Remaining <= TimeSpan.Zero));
                 }
             }
             if (includeNotifications)
@@ -318,8 +318,9 @@ public sealed class AlertsService : IDisposable
                 {
                     if (!BossNoticeAllowed(active)) continue;
                     var notice = active.Notice;
-                    // A catalog widget already carries its live phase and must not be replaced by a start banner.
-                    if (rows.ContainsKey(active.Owner) && active.Owner.StartsWith("event:catalog:", StringComparison.Ordinal)) continue;
+                    // Captured boss state and catalog phase take precedence over an older notification.
+                    if (rows.ContainsKey(active.Owner) && (active.Owner.StartsWith("event:catalog:", StringComparison.Ordinal) ||
+                        active.Owner.StartsWith("boss:", StringComparison.Ordinal) && !active.Notice.Preview)) continue;
                     rows[active.Owner] = new(active.Owner, notice.Title, notice.Message, notice.Color, notice.At, notice.At <= now);
                 }
             }
@@ -440,7 +441,7 @@ public sealed class AlertsService : IDisposable
         {
             if (_disposed) return;
             var now = Now;
-            _active.RemoveAll(row => row.Notice.Expires <= now || row.Notice.CreatedAt > now);
+            _active.RemoveAll(row => row.Notice.Expires <= now || row.Notice.CreatedAt > now || !BossNoticeAllowed(row));
             var from = _lastTick > now ? now : _lastTick < SafeAdd(now, -Grace) ? SafeAdd(now, -Grace) : _lastTick;
             var receipts = _receipts.ToList();
             var keys = receipts.Select(receipt => receipt.Key).ToHashSet(StringComparer.Ordinal);
@@ -495,7 +496,7 @@ public sealed class AlertsService : IDisposable
                     if (!keys.Add(key)) continue;
                     receipts.Add(new(key, now));
                     // Cache and elapsed countdowns never infer a spawn or generate a fresh warning.
-                    if (!entries.TryGetValue(bossKey, out var entry) || entry.Cached || entry.Age > TimeSpan.FromSeconds(15) ||
+                    if (!entries.TryGetValue(bossKey, out var entry) || entry.Cached ||
                         !(_settings.Current.BossAlertIds ?? []).Contains(bossKey, StringComparer.Ordinal)) continue;
                     var presentation = BossPresentation(bossKey);
                     generated.Add((new(key, BossName(source.Boss), "", "#ef4444", now, source.Expires,
@@ -537,7 +538,8 @@ public sealed class AlertsService : IDisposable
         !row.Owner.StartsWith("boss:", StringComparison.Ordinal) ||
         _settings?.Current.BossAlertsEnabled == true && (row.Notice.Preview ||
             (_settings.Current.BossAlertIds ?? []).Contains(row.Owner[5..], StringComparer.Ordinal) &&
-            _bosses?.GetReminder(row.Owner[5..]).Enabled == true);
+            _bosses?.GetReminder(row.Owner[5..]).Enabled == true &&
+            _bosses.Schedule.Any(entry => entry.Place.Key == row.Owner[5..] && !entry.Cached));
 
     private void AddNotice(AlertNotice notice, string owner)
     {

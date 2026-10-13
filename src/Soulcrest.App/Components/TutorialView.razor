@@ -33,8 +33,10 @@
                 <li>
                     <b>@UiText.T("Charakterprofil und Netzwerkfortschritt")</b>
                     <CharacterPicker />
+                    @* User confirmation 2026-10-13: region changes alone do not initialize pet data. *@
+                    <p class="sv-hint"><b>@UiText.T("Fortschritt einmal einlesen")</b><br />@UiText.T("Lass Soulcrest geöffnet und die Netzwerkquelle laufen. Öffne im Spiel einmal die Charakterauswahl und logge dich mit deinem Charakter wieder ein. Soulcrest liest dabei die verfügbaren Pet-, Dungeon-, Stronghold- und Kibelisk-Daten ein. Warte auf die Bestätigung unten. Ein einfacher Gebietswechsel reicht dafür nicht.")</p>
                     <NetworkProgressStatus />
-                    <p class="sv-hint">@UiText.T("Dungeon- und Garnisonsfortschritt unterscheidet unentdeckt, entdeckt und offen sowie entdeckt und erledigt. Ohne verlässliche Bestätigung bleibt der Zustand unbestätigt.")</p>
+                    <p class="sv-hint">@UiText.T("Für Dungeons und Strongholds zählt der Abschluss-Haken. Fehlende oder unbestätigte Einträge bleiben ohne Haken; daraus lässt sich kein früherer Nichtabschluss ableiten. Gespeicherte und manuelle Abschlüsse bleiben erhalten.")</p>
                 </li>
             </ol>
             <div class="row tutorial-actions">
