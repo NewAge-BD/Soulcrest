@@ -53,6 +53,13 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     private IReadOnlySet<CaptureEndpoint> _installedCoverage = new HashSet<CaptureEndpoint>();
     private readonly List<NetworkSoul> _recent = [];
     private ILiveDevice? _device;
+    // Filters are immutable after capture starts: Npcap clears the handle's packet buffer on
+    // pcap_setfilter. Additional, disjoint game endpoints get an independent narrow handle.
+    private readonly Dictionary<ILiveDevice, IReadOnlySet<CaptureEndpoint>> _additionalDevices = new(ReferenceEqualityComparer.Instance);
+    private const int MaxCaptureHandles = 32;
+    internal Func<string, ILiveDevice> CaptureDeviceFactory { get; set; } = name =>
+        CaptureDeviceList.New().FirstOrDefault(device => string.Equals(device.Name, name, StringComparison.OrdinalIgnoreCase))
+        ?? throw new InvalidOperationException($"Npcap-Gerät {name} nicht gefunden (Loopback-Unterstützung von Npcap aktiv?).");
     private CaptureTarget? _target;
     private System.Threading.Timer? _check;
     private static readonly TimeSpan IncomingProbeInterval = TimeSpan.FromMilliseconds(100);
@@ -182,7 +189,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     public event Action? BossSessionReset;
     public event Action<string>? BossStreamGap;
     private long _generation;
-    private sealed record ReceivedMessage(string Stream, byte[] Data, bool Gap = false, GameMessageStream? Transport = null, bool EndStream = false);
+    private sealed record ReceivedMessage(string Stream, byte[] Data, bool Gap = false, GameMessageStream? Transport = null,
+        bool EndStream = false, string GapReason = "stream-gap");
 
     /// <summary>The own character seen last after a loading screen, null before the first one.</summary>
     public string? Character { get; private set; }
@@ -290,64 +298,146 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         current.Connections is not null && next.Connections is { Count: > 0 } &&
         next.RemoteEndpoints.All(installedCoverage.Contains);
 
-    /// <summary>Retain the live handle and surviving streams, expanding only proven endpoint coverage when necessary.</summary>
+    /// <summary>Keep running filters unchanged; capture newly proven endpoints on a disjoint handle.</summary>
     internal bool TryRetainCapture(CaptureTarget next) => TryRetainCapture(next, out _);
 
     private bool TryRetainCapture(CaptureTarget next, out bool filterRetry)
     {
         filterRetry = false;
+        CaptureTarget current;
+        CaptureConnection[] removed;
+        IReadOnlySet<CaptureEndpoint> oldCoverage;
+        HashSet<CaptureEndpoint> added;
+        long generation, revision;
         lock (_gate)
         {
-            _ownershipRevision++;
-            if (_target is not { } current || !string.Equals(current.Device, next.Device, StringComparison.OrdinalIgnoreCase) ||
-                current.Connections is null || next.Connections is not { Count: > 0 }) return false;
-            var removed = current.Connections.Except(next.Connections).ToArray();
-            if (!next.RemoteEndpoints.All(_installedCoverage.Contains))
+            revision = ++_ownershipRevision;
+            if (_target is not { Connections: not null } existing || !string.Equals(existing.Device, next.Device, StringComparison.OrdinalIgnoreCase) ||
+                next.Connections is not { Count: > 0 }) return false;
+            current = existing;
+            removed = current.Connections!.Except(next.Connections).ToArray();
+            added = next.RemoteEndpoints.Except(_installedCoverage).ToHashSet();
+            if (added.Count == 0)
             {
-                if (_device is null) return false;
-                var coverage = _installedCoverage.Union(next.RemoteEndpoints).ToHashSet();
-                var filter = "tcp and (" + string.Join(" or ", coverage.OrderBy(endpoint => endpoint.Address, StringComparer.Ordinal)
-                    .ThenBy(endpoint => endpoint.Port).Select(endpoint => $"(host {endpoint.Address} and port {endpoint.Port})")) + ")";
-                try
+                _target = next;
+                RemoveCapturedConnections(removed);
+                return true;
+            }
+            if (_device is null) return false;
+            oldCoverage = _installedCoverage;
+            generation = _generation;
+        }
+        ILiveDevice? device = null;
+        var claimed = false;
+        var handleLimit = false;
+        try
+        {
+            // Never run native open/start/close under the packet gate. A callback may need it
+            // while StartCapture/StopCapture waits for the capture thread.
+            lock (_gate)
+                if (_additionalDevices.Count >= MaxCaptureHandles - 1)
                 {
-                    // SharpPcap permits updating an open capture's filter. Keep the old endpoint
-                    // coverage in the union; a native filter change does not guarantee zero drops,
-                    // so actual TCP/framing gaps must still invalidate their bound stream.
-                    _device.Filter = filter;
+                    handleLimit = true;
+                    throw new InvalidOperationException("Capture handle limit reached.");
                 }
-                catch (Exception error) when (error is PcapException or DllNotFoundException or InvalidOperationException or System.ComponentModel.Win32Exception)
+            device = CaptureDeviceFactory(next.Device);
+            lock (_gate)
+                if (IsCaptureDeviceLocked(device)) throw new InvalidOperationException("Capture factory reused a live handle.");
+            device.Open(new DeviceConfiguration { Mode = DeviceModes.None, ReadTimeout = 250 });
+            device.Filter = "tcp and (" + string.Join(" or ", added.OrderBy(endpoint => endpoint.Address, StringComparer.Ordinal)
+                .ThenBy(endpoint => endpoint.Port).Select(endpoint => $"(host {endpoint.Address} and port {endpoint.Port})")) + ")";
+            lock (_gate)
+            {
+                if (!Running || generation != _generation || revision != _ownershipRevision || !ReferenceEquals(current, _target))
                 {
-                    // Do not trust SharpPcap's Filter getter after failure: its cached text changes
-                    // before pcap_setfilter succeeds. Preserve our last verified kernel coverage.
-                    // Known removed tuples still lose authority, and cannot rebind from queued data.
-                    if (removed.Length > 0)
-                    {
-                        var surviving = current.Connections.Except(removed).ToHashSet();
-                        _target = current with { Connections = surviving,
-                            GamePorts = surviving.Select(connection => connection.LocalPort).ToHashSet(),
-                            ServerPorts = surviving.Select(connection => connection.RemotePort).ToHashSet() };
-                        RemoveCapturedConnections(removed);
-                    }
                     filterRetry = true;
-                    RecordProgressEvent(new(DateTimeOffset.UtcNow, NetworkProgressEventKind.FilterFailed));
-                    SetStatus("Mitschnittfilter konnte nicht erweitert werden. Bestehende Spielverbindungen werden weiter gelesen; ein neuer Versuch folgt.", error: true);
                     return false;
                 }
-                _installedCoverage = coverage;
-                RecordProgressEvent(new(DateTimeOffset.UtcNow, NetworkProgressEventKind.FilterExpanded));
+                device.OnPacketArrival += OnPacketArrival;
+                device.OnCaptureStopped += OnCaptureStopped;
+                _additionalDevices.Add(device, added);
+                claimed = true;
+                _installedCoverage = oldCoverage.Union(added).ToHashSet();
+                _target = next;
+                RemoveCapturedConnections(removed);
+                if (!Running || generation != _generation || !IsCaptureDeviceLocked(device)) return false;
             }
-            _target = next;
-            RemoveCapturedConnections(removed);
-            return true;
+            device.StartCapture();
+            lock (_gate)
+            {
+                if (!Running || generation != _generation || !IsCaptureDeviceLocked(device)) return false;
+                RecordProgressEvent(new(DateTimeOffset.UtcNow, NetworkProgressEventKind.FilterExpanded));
+                return true;
+            }
+        }
+        catch (Exception error) when (error is PcapException or DllNotFoundException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            lock (_gate)
+            {
+                if (!Running || generation != _generation) return false;
+                if (claimed && device is not null)
+                {
+                    // A capture-stopped callback may already own the failed handle's cleanup.
+                    if (!_additionalDevices.Remove(device)) return false;
+                    claimed = false;
+                    foreach (var flow in _incomingPackets.Where(packet => ReferenceEquals(packet.Device, device)).Select(packet => packet.Flow).Distinct().ToArray())
+                    {
+                        DropIncomingFlowLocked(flow, invalidate: true);
+                        if (!Running || generation != _generation) return false;
+                    }
+                    // Another existing handle may have failed during StartCapture. Never restore
+                    // coverage from the pre-start snapshot and resurrect that failed sender.
+                    var remaining = _installedCoverage.Except(added).ToHashSet();
+                    _installedCoverage = remaining.SetEquals(oldCoverage) ? oldCoverage : remaining;
+                    if (_target is { Connections: not null } active)
+                    {
+                        var retained = active.Connections.Where(connection => _installedCoverage.Contains(connection.RemoteEndpoint)).ToHashSet();
+                        _target = active with { Connections = retained,
+                            GamePorts = retained.Select(connection => connection.LocalPort).ToHashSet(),
+                            ServerPorts = retained.Select(connection => connection.RemotePort).ToHashSet() };
+                        RemoveCapturedConnections(active.Connections.Except(retained));
+                        if (!Running || generation != _generation) return false;
+                    }
+                }
+                // Removed native tuples lose authority even when adding a handle fails.
+                if (ReferenceEquals(current, _target) && removed.Length > 0)
+                {
+                    var surviving = current.Connections!.Except(removed).ToHashSet();
+                    _target = current with { Connections = surviving,
+                        GamePorts = surviving.Select(connection => connection.LocalPort).ToHashSet(),
+                        ServerPorts = surviving.Select(connection => connection.RemotePort).ToHashSet() };
+                    RemoveCapturedConnections(removed);
+                    if (!Running || generation != _generation) return false;
+                }
+                filterRetry = true;
+                RecordProgressEvent(new(DateTimeOffset.UtcNow, NetworkProgressEventKind.FilterFailed,
+                    ResetReason: handleLimit ? "capture-handle-limit" : null));
+                SetStatus("Mitschnittfilter konnte nicht erweitert werden. Bestehende Spielverbindungen werden weiter gelesen; ein neuer Versuch folgt.", error: true);
+                return false;
+            }
+        }
+        finally
+        {
+            if (device is not null && !claimed)
+            {
+                bool active;
+                lock (_gate) active = IsCaptureDeviceLocked(device);
+                if (!active) CloseDetachedDevice(device);
+            }
         }
     }
 
+    private bool IsCaptureDeviceLocked(object device) => ReferenceEquals(device, _device) ||
+        device is ILiveDevice live && _additionalDevices.ContainsKey(live);
+
     private void RemoveCapturedConnections(IEnumerable<CaptureConnection> removed)
     {
+        var generation = _generation;
         foreach (var connection in removed)
         {
+            if (generation != _generation) break;
             _streams.Remove(connection);
-            ProcessProgressGap(connection.StreamKey);
+            ProcessProgressGap(connection.StreamKey, "ownership-removed");
         }
     }
 
@@ -388,6 +478,14 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             TryRetainCapture(target);
             return;
         }
+        if (_target is { Connections: not null } retained && target is { Connections.Count: > 0 } &&
+            string.Equals(retained.Device, target.Device, StringComparison.OrdinalIgnoreCase))
+        {
+            var epoch = _generation;
+            var observation = _ownershipRevision;
+            QueueDeviceLifecycle(() => UpdateCaptureTargetIfCurrent(target, retained, epoch, observation));
+            return;
+        }
         CloseDevice();
         var generation = _generation;
         QueueDeviceLifecycle(() =>
@@ -418,13 +516,17 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                         if (StatusIsError && _device is not null) SetStatus($"Liest den Spielverkehr {target.Description}.");
                         return;
                     }
-                    if (TryRetainCapture(target, out var filterRetry))
-                    {
-                        SetStatus($"Liest den Spielverkehr {target.Description}.");
-                        return;
-                    }
-                    if (filterRetry) return;
                 }
+            }
+            if (target is not null)
+            {
+                if (TryRetainCapture(target, out var filterRetry))
+                {
+                    lock (_gate)
+                        if (Running && generation == _generation) SetStatus($"Liest den Spielverkehr {target.Description}.");
+                    return;
+                }
+                if (filterRetry) return;
             }
             // Detach atomically, but never hold _gate while StopCapture can wait for its callback.
             if (current is not null && !CloseDeviceIfCurrent(current, generation)) return;
@@ -442,14 +544,14 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     {
         lock (_gate)
             if (!Running || expectedGeneration != _generation || _device is not null || _target is not null) return;
-        var device = CaptureDeviceList.New().FirstOrDefault(d => string.Equals(d.Name, target.Device, StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException($"Npcap-Gerät {target.Device} nicht gefunden (Loopback-Unterstützung von Npcap aktiv?).");
+        var device = CaptureDeviceFactory(target.Device);
         lock (_gate)
         {
             // Enumeration runs outside the gate. Stop or a reentrant reset may have won since
             // the first check; an unopened device must not be claimed by that obsolete request.
             if (!Running || expectedGeneration != _generation || _device is not null || _target is not null) return;
             device.OnPacketArrival += OnPacketArrival;
+            device.OnCaptureStopped += OnCaptureStopped;
             _device = device;
             _target = target;
             _installedCoverage = target.RemoteEndpoints.ToHashSet();
@@ -481,12 +583,13 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     private bool CloseDeviceIfCurrent(CaptureTarget? expected, long? expectedGeneration, long? expectedRevision = null)
     {
         var reentrant = Monitor.IsEntered(_gate);
-        ILiveDevice? device;
+        ILiveDevice[] devices;
         lock (_gate)
         {
             if (expectedGeneration is { } epoch && (epoch != _generation || !ReferenceEquals(expected, _target)) ||
                 expectedRevision is { } observation && observation != _ownershipRevision) return false;
-            device = _device;
+            devices = (_device is { } primary ? _additionalDevices.Keys.Append(primary) : _additionalDevices.Keys).ToArray();
+            _additionalDevices.Clear();
             _device = null;
             _target = null;
             _installedCoverage = new HashSet<CaptureEndpoint>();
@@ -497,9 +600,10 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             ResetProgressContext(Running ? "capture-closed" : "capture-stopped");
         }
         BossSessionReset?.Invoke();
-        if (device is null) return true;
-        if (reentrant) QueueDeviceLifecycle(() => CloseDetachedDevice(device));
-        else CloseDetachedDevice(device);
+        if (devices.Length == 0) return true;
+        void CloseAll() { foreach (var device in devices) CloseDetachedDevice(device); }
+        if (reentrant) QueueDeviceLifecycle(CloseAll);
+        else CloseAll();
         return true;
     }
 
@@ -514,21 +618,69 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
 
     private void CloseDetachedDevice(ILiveDevice device)
     {
+        device.OnPacketArrival -= OnPacketArrival;
+        device.OnCaptureStopped -= OnCaptureStopped;
         try
         {
             device.StopCapture();
-            device.Close();
         }
         catch (PcapException)
         {
             // already closed
         }
-        device.OnPacketArrival -= OnPacketArrival;
+        // Closing must still be attempted when stopping a partially opened/failed handle fails.
+        try { device.Close(); }
+        catch (PcapException) { }
     }
 
     private void OnPacketArrival(object sender, PacketCapture capture)
     {
         ProcessDevicePacket(sender, capture.GetPacket());
+    }
+
+    private void OnCaptureStopped(object sender, CaptureStoppedEventStatus status)
+    {
+        if (status != CaptureStoppedEventStatus.ErrorWhileCapturing) return;
+        lock (_gate)
+        {
+            if (!Running || sender is not ILiveDevice device || !IsCaptureDeviceLocked(device)) return;
+            RecordProgressEvent(new(DateTimeOffset.UtcNow, NetworkProgressEventKind.FilterFailed,
+                ResetReason: "capture-handle-error"));
+            if (ReferenceEquals(device, _device))
+            {
+                // This callback is on the native capture thread. Detach now, join only afterwards.
+                CloseDevice();
+            }
+            else if (_additionalDevices.Remove(device, out var coverage))
+            {
+                var generation = _generation;
+                // Cleanup ownership is transferred before any invalidation callback can Stop.
+                QueueDeviceLifecycle(() => CloseDetachedDevice(device));
+                _ownershipRevision++;
+                _installedCoverage = _installedCoverage.Except(coverage).ToHashSet();
+                foreach (var flow in _incomingPackets.Where(packet => ReferenceEquals(packet.Device, device))
+                    .Select(packet => packet.Flow).Distinct().ToArray())
+                {
+                    DropIncomingFlowLocked(flow, invalidate: true);
+                    if (!Running || generation != _generation) return;
+                }
+                if (_target is { Connections: not null } target)
+                {
+                    var surviving = target.Connections.Where(connection => !coverage.Contains(connection.RemoteEndpoint)).ToHashSet();
+                    _target = target with { Connections = surviving,
+                        GamePorts = surviving.Select(connection => connection.LocalPort).ToHashSet(),
+                        ServerPorts = surviving.Select(connection => connection.RemotePort).ToHashSet() };
+                    foreach (var connection in target.Connections.Except(surviving))
+                    {
+                        _streams.Remove(connection);
+                        ProcessProgressGap(connection.StreamKey, "capture-handle-error");
+                        if (!Running || generation != _generation) return;
+                    }
+                }
+            }
+            if (Running)
+                SetStatus("Mitschnittfilter konnte nicht erweitert werden. Bestehende Spielverbindungen werden weiter gelesen; ein neuer Versuch folgt.", error: true);
+        }
     }
 
     /// <summary>
@@ -539,10 +691,10 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     {
         lock (_gate)
         {
-            if (!Running || !ReferenceEquals(sender, _device) || _target is not { Connections: not null } target) return;
+            if (!Running || !IsCaptureDeviceLocked(sender) || _target is not { Connections: not null } target) return;
             Packets++;
             DropExpiredIncomingPacketsLocked(IncomingOwnershipUtcNow());
-            if (!Running || !ReferenceEquals(sender, _device) || _target is not { Connections: not null } current) return;
+            if (!Running || !IsCaptureDeviceLocked(sender) || _target is not { Connections: not null } current) return;
             target = current;
             var packet = Packet.ParsePacket(raw.LinkLayerType, raw.Data);
             if (packet.Extract<TcpPacket>() is not { } tcp || packet.Extract<IPPacket>() is not { } ip) return;
@@ -625,7 +777,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                     {
                         var covered = native.Connections.Where(connection => _installedCoverage.Contains(connection.RemoteEndpoint)).ToHashSet();
                         // A consistent native snapshot is usable only after it proves an actual queued incoming tuple.
-                        if (_incomingPackets.Any(pending => pending.Generation == generation && ReferenceEquals(pending.Device, device)
+                        if (_incomingPackets.Any(pending => pending.Generation == generation && IsCaptureDeviceLocked(pending.Device)
                             && covered.Any(pending.Flow.Matches)))
                         {
                             var removed = target.Connections!.Except(covered).ToArray();
@@ -661,7 +813,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         for (var index = 0; index < _incomingPackets.Count;)
         {
             var pending = _incomingPackets[index];
-            if (!Running || pending.Generation != _generation || !ReferenceEquals(pending.Device, _device))
+            if (!Running || pending.Generation != _generation || !IsCaptureDeviceLocked(pending.Device))
             {
                 DropIncomingFlowLocked(pending.Flow, invalidate: false);
                 index = 0;
@@ -694,7 +846,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         foreach (var connection in _target?.Connections?.Where(flow.Matches).ToArray() ?? [])
         {
             _streams.Remove(connection);
-            ProcessProgressGap(connection.StreamKey);
+            ProcessProgressGap(connection.StreamKey, "incoming-dropped");
         }
     }
 
@@ -730,7 +882,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                     if (received.EndStream)
                         foreach (var connection in _streams.Keys.Where(connection => connection.StreamKey == received.Stream).ToArray())
                             _streams.Remove(connection);
-                    ProcessProgressGap(received.Stream);
+                    ProcessProgressGap(received.Stream, received.GapReason);
                     continue;
                 }
                 ProcessProgressMessage(received.Stream, received.Data, DateTimeOffset.UtcNow);
@@ -775,7 +927,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         if (tcp.Reset)
         {
             streams.Remove(key);
-            result.Add(new ReceivedMessage(streamKey, [], Gap: true));
+            result.Add(new ReceivedMessage(streamKey, [], Gap: true, GapReason: "tcp-reset"));
             return result;
         }
         var payload = tcp.PayloadData;
@@ -784,17 +936,19 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             if (tcp.Finished)
             {
                 streams.Remove(key);
-                result.Add(new ReceivedMessage(streamKey, [], Gap: true));
+                result.Add(new ReceivedMessage(streamKey, [], Gap: true, GapReason: "tcp-finished"));
             }
             return result;
         }
+        var startedHere = false;
         if (!streams.TryGetValue(key, out var stream))
         {
+            startedHere = true;
             // A capture may span many reconnects; old TCP contexts must not accumulate forever.
             if (streams.Count >= 64)
             {
                 streams.Clear();
-                result.Add(new ReceivedMessage("*", [], Gap: true));
+                result.Add(new ReceivedMessage("*", [], Gap: true, GapReason: "stream-limit"));
             }
             streams[key] = stream = (new TcpReassembler(), new GameMessageStream(requireVerifiedSync: true));
         }
@@ -803,14 +957,16 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             if (chunk.Gap)
             {
                 stream.Messages.Break();
-                result.Add(new ReceivedMessage(streamKey, [], Gap: true));
+                result.Add(new ReceivedMessage(streamKey, [], Gap: true,
+                    GapReason: startedHere ? "tcp-start" : "tcp-pending-overflow"));
+                startedHere = false;
             }
             if (chunk.Data.Length > 0)
             {
                 var before = (stream.Messages.Resyncs, stream.Messages.ContinuityBreaks);
                 var decoded = stream.Messages.Append(chunk.Data);
                 if (stream.Messages.Resyncs > before.Resyncs || stream.Messages.ContinuityBreaks > before.ContinuityBreaks)
-                    result.Add(new ReceivedMessage(streamKey, [], Gap: true));
+                    result.Add(new ReceivedMessage(streamKey, [], Gap: true, GapReason: "framing-gap"));
                 result.AddRange(decoded.Select(message => new ReceivedMessage(streamKey, message, Transport: stream.Messages)));
             }
         }
@@ -818,13 +974,13 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         if (tcp.Finished)
         {
             if (!deferFinish) streams.Remove(key);
-            result.Add(new ReceivedMessage(streamKey, [], Gap: true, EndStream: deferFinish));
+            result.Add(new ReceivedMessage(streamKey, [], Gap: true, EndStream: deferFinish, GapReason: "tcp-finished"));
         }
         return result;
     }
 
     /// <summary>Invalidates the bound stream immediately and refreshes the passive status card.</summary>
-    internal void ProcessProgressGap(string stream)
+    internal void ProcessProgressGap(string stream, string reason = "stream-gap")
     {
         // Boss schedules can belong to a different stream than the character baseline.
         BossStreamGap?.Invoke(stream);
@@ -832,7 +988,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         {
             if (stream != "*" && _identityStream != stream && _entryCandidate?.Stream != stream &&
                 _petContinuity?.Stream != stream && _petContinuityFlight?.Stream != stream) return;
-            ResetProgressContext("stream-gap");
+            ResetProgressContext(DiagnosticResetReason(reason));
             SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
         }
     }
@@ -1083,6 +1239,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     private static string DiagnosticResetReason(string reason) => reason switch
     {
         "manual" or "capture-closed" or "capture-stopped" or "stream-gap" or "world-entry-candidate" or
+        "tcp-start" or "tcp-pending-overflow" or "tcp-reset" or "tcp-finished" or "stream-limit" or
+        "framing-gap" or "ownership-removed" or "incoming-dropped" or "capture-handle-error" or
         "world-entry-preparation" or "unsupported-own-entry" or "entry-candidate-expired" or
         "duplicate-entry-baseline" or "unsupported-entry-baseline" or "world-entry" or "identity-bind-rejected" or
         "pet-continuity-expired" or "pet-continuity-unread" => reason,

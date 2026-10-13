@@ -160,7 +160,7 @@ public sealed class CaptureTargetRetentionTests
         Assert.Same(expanded, fixture.CurrentTarget);
         Assert.Equal(3, fixture.InstalledCoverage.Count);
         Assert.Equal(Own.Name, fixture.Network.Character);
-        Assert.Equal(1, fixture.HandleCalls.Count("set_Filter"));
+        Assert.Equal(0, fixture.HandleCalls.Count("set_Filter"));
         foreach (var method in new[] { "Open", "Close", "StartCapture", "StopCapture" })
             Assert.Equal(0, fixture.HandleCalls.Count(method));
     }
@@ -357,6 +357,7 @@ public sealed class CaptureTargetRetentionTests
             Progress = new(Path.Combine(_folder, "progress.json"), new PetCatalog([
                 new PetDefinition { Id = "fossa", En = "Fossa", Genus = "Fera", NumericId = "1004" }]));
             Network = new(Progress);
+            Network.CaptureDeviceFactory = _ => DispatchProxy.Create<ILiveDevice, CountingDeviceProxy>();
             var target = Target(World, Web);
             var handle = DispatchProxy.Create<ILiveDevice, CountingDeviceProxy>();
             HandleCalls = (CountingDeviceProxy)(object)handle;

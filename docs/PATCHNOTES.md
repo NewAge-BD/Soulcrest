@@ -2,6 +2,13 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.6.3 – 2026-10-13
+
+- **Behoben:** Im Rift (und bei anderen neuen Server-Verbindungen) stoppte die Soul-Zählung nach etwa
+  13 Sekunden. Neue Verbindungen werden jetzt zusätzlich erfasst, ohne die laufende Erfassung
+  zurückzusetzen.
+- **Verbessert:** Das Diagnosepaket unterscheidet die Ursachen von Erfassungslücken genauer.
+
 ## 0.6.2 – 2026-10-13
 
 - **Behoben:** Pet-Stufen und Erkundung wurden nach dem Login manchmal nicht übernommen (weitere

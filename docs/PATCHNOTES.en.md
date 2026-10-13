@@ -2,6 +2,12 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.6.3 – 2026-10-13
+
+- **Fixed:** In the Rift (and on other new server connections) soul counting stopped after about
+  13 seconds. New connections are now captured in addition, without resetting the running capture.
+- **Improved:** The diagnostics package tells the causes of capture gaps apart more precisely.
+
 ## 0.6.2 – 2026-10-13
 
 - **Fixed:** Pet levels and exploration were sometimes not taken over after login (more login variants,

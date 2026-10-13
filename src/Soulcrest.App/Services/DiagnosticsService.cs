@@ -131,6 +131,9 @@ public sealed class DiagnosticsService : IDisposable
         if (snapshot is null) return "[Anonyme Netzwerkdiagnose]\nNicht verfügbar.\n";
         static string Reason(string? value) => value is "none" or "manual" or "capture-closed" or "capture-stopped"
             or "stream-gap" or "world-entry-preparation" or "world-entry" or "unsupported-own-entry" or "identity-bind-rejected"
+            or "tcp-start" or "tcp-pending-overflow" or "tcp-reset" or "tcp-finished" or "stream-limit"
+            or "framing-gap" or "ownership-removed" or "incoming-dropped"
+            or "capture-handle-error" or "capture-handle-limit"
             or "world-entry-candidate" or "entry-candidate-expired" or "duplicate-entry-baseline" or "unsupported-entry-baseline"
             or "pet-continuity-expired" or "pet-continuity-unread"
             ? value : "unknown";
