@@ -129,19 +129,33 @@ public sealed class DiagnosticsService : IDisposable
     internal static string FormatNetworkProgressDiagnostics(NetworkProgressDiagnostics? snapshot)
     {
         if (snapshot is null) return "[Anonyme Netzwerkdiagnose]\nNicht verfügbar.\n";
-        var reason = snapshot.LastResetReason is "none" or "manual" or "capture-closed" or "capture-stopped"
+        static string Reason(string? value) => value is "none" or "manual" or "capture-closed" or "capture-stopped"
             or "stream-gap" or "world-entry-preparation" or "world-entry" or "unsupported-own-entry" or "identity-bind-rejected"
-            ? snapshot.LastResetReason : "unknown";
+            or "world-entry-candidate" or "entry-candidate-expired" or "duplicate-entry-baseline" or "unsupported-entry-baseline"
+            or "pet-continuity-expired" or "pet-continuity-unread"
+            ? value : "unknown";
+        var reason = Reason(snapshot.LastResetReason);
         static string Utc(DateTimeOffset? at) => at?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) ?? "none";
+        static string Number(int? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "none";
         var opcode = snapshot.LastRejectedOpcode is { } code ? $"0x{code:X4}" : "none";
-        return FormattableString.Invariant($"""
+        var result = FormattableString.Invariant($"""
             [Anonyme Netzwerkdiagnose]
             IdentityBound: {snapshot.IdentityBound.ToString().ToLowerInvariant()}; IdentityBindings: {snapshot.IdentityBindings}
             ContextResets: {snapshot.ContextResets}; LastResetReason: {reason}; LastResetAtUtc: {Utc(snapshot.LastResetAt)}
             RejectedProgressMessages: {snapshot.RejectedProgressMessages}; LastRejectedOpcode: {opcode}; LastRejectedAtUtc: {Utc(snapshot.LastRejectedAt)}
             AcceptedSoulMessages: {snapshot.AcceptedSoulMessages}; AcceptedSoulPoints: {snapshot.AcceptedSoulPoints}; LastSoulAtUtc: {Utc(snapshot.LastSoulAt)}
             PendingMessages: {snapshot.PendingMessages}; PendingBytes: {snapshot.PendingBytes}; PendingOverflow: {snapshot.PendingOverflow.ToString().ToLowerInvariant()}
+            UnboundSoulMessages: {snapshot.UnboundSoulMessages}; UnboundSoulPoints: {snapshot.UnboundSoulPoints}
             """) + "\n";
+        var events = snapshot.Events.TakeLast(128).ToArray();
+        result += FormattableString.Invariant($"[Letzte anonyme Netzwerkereignisse: {events.Length}]\n");
+        foreach (var item in events)
+        {
+            var kind = Enum.IsDefined(item.Kind) ? item.Kind.ToString() : "unknown";
+            var eventOpcode = item.Opcode is { } eventCode ? $"0x{eventCode:X4}" : "none";
+            result += FormattableString.Invariant($"{Utc(item.At)} Kind:{kind}; Opcode:{eventOpcode}; Pet:{Number(item.PetNumber)}; Level:{Number(item.Level)}; Souls:{Number(item.Souls)}; Count:{Number(item.Count)}; Reason:{Reason(item.ResetReason ?? "none")}\n");
+        }
+        return result;
     }
 
     internal static void AddReport(ZipArchive zip, string captureReport, string? fullReport, string? error)

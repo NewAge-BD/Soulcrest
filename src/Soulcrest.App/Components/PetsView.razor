@@ -116,6 +116,7 @@
                         var focus = Progress.IsFocus(pet.Id);
                         var name = pet.DisplayName(lang);
                         var petId = pet.Id;
+                        var progressEntry = Progress.EntrySnapshot(petId);
                         <div @key="petId" data-pet-id="@petId"
                              class="pets-card pets-g-@pet.Genus @StateClass(level, isMax) @(petId == selected?.Id ? "is-selected" : "")"
                              role="button" tabindex="0"
@@ -134,6 +135,10 @@
                             </div>
                             <button class="pets-card-star @(focus ? "on" : "")" title="@UiText.T("Fokus (Overlay)")" @onclick="@(() => Progress.ToggleFocus(petId))" @onclick:stopPropagation="true">★</button>
                             <div class="pets-card-name">@name</div>
+                            @if (!progressEntry.ManualOverride && progressEntry.Freshness != ProgressFreshness.Fresh)
+                            {
+                                <div class="pets-card-name"><span class="pill" data-pet-progress-unconfirmed="true" title="@UiText.T("In dieser Sitzung noch nicht durch eine vollständige Pet-Liste bestätigt. Gespeicherte Werte bleiben erhalten.")">@UiText.T("Unbestätigt")</span></div>
+                            }
                             <div class="pets-card-foot">
                                 @if (level >= 1)
                                 {
@@ -174,6 +179,7 @@
             var name = pet.DisplayName(lang);
             var subname = Settings.Current.NameLanguage == "de" && pet.De is not null && pet.De != pet.En ? pet.En : pet.De;
             var genusIcon = GenusIcon(pet.Genus);
+            var progressEntry = Progress.EntrySnapshot(pet.Id);
             <div class="pets-detail-body pets-g-@pet.Genus @StateClass(level, isMax)" @key="pet.Id">
                 <div class="pets-detail-hero">
                     <div class="pets-detail-portrait">
@@ -223,11 +229,15 @@
                         }
                     </div>
                     <div class="pets-stage">@(isMax ? UiText.T("fertig") : UiText.F("noch {0} bis {1}", Math.Max(0, needed - inLevel), LevelName(level + 1))) · @UiText.F("Verfügbare Souls: {0}", inLevel)</div>
+                    @if (!progressEntry.ManualOverride && progressEntry.Freshness != ProgressFreshness.Fresh)
+                    {
+                        <p class="note" data-pet-progress-note="unconfirmed">@UiText.T("Stufe und verfügbare Souls sind noch nicht frisch bestätigt. Neue Soul-Gewinne allein bestätigen den gespeicherten Ausgangsstand nicht.")</p>
+                    }
                 </section>
 
                 <section class="pets-detail-section">
                     <h3>@UiText.T("Korrektur")</h3>
-                    @if (Progress.EntrySnapshot(pet.Id).ManualOverride)
+                    @if (progressEntry.ManualOverride)
                     {
                         <p class="note">@UiText.T("Manuelle Korrektur aktiv.")</p>
                         <button class="btn small" @onclick="@(() => UseNetworkProgress(pet.Id))">@UiText.T("Netzwerkstand übernehmen")</button>

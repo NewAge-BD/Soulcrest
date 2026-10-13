@@ -24,6 +24,9 @@ public sealed record PetProgressSnapshot(IReadOnlyDictionary<int, int> Levels, I
 /// <summary>Filter EntityKey against the current own identity before applying this event.</summary>
 public sealed record PetAcquisition(int EntityKey, int PetNumber, int Level);
 
+/// <summary>Explicit upgrade result without an entity field; only an own-bound stream may apply a successful result.</summary>
+public sealed record PetUpgradeResult(ushort Result, int PetNumber, int Level);
+
 public sealed record TeleportProgressSnapshot(IReadOnlySet<int> TeleportIds);
 
 /// <summary>Raw quest fields. Only exact catalogue joins and own-bound fresh observations may supply positive completion evidence.</summary>

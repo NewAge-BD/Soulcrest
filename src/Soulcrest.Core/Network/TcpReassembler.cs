@@ -8,7 +8,7 @@ namespace Soulcrest.Core.Network;
 public sealed class TcpReassembler
 {
     private const int MaxPending = 256;
-    private readonly SortedDictionary<uint, byte[]> _pending = [];
+    private readonly Dictionary<uint, byte[]> _pending = [];
     private uint? _next;
 
     /// <summary>Ordered bytes, or a gap (Gap = true, then the data after it).</summary>
@@ -25,11 +25,11 @@ public sealed class TcpReassembler
             _next = sequence;
             output.Add(new Chunk([], true));
         }
-        var offset = (int)(sequence - _next.Value);
+        var offset = Distance(sequence, _next.Value);
         if (offset < 0)
         {
             // Retransmission or overlap: keep only what is new.
-            if (-offset >= payload.Length)
+            if (-(long)offset >= payload.Length)
                 return output;
             payload = payload[-offset..];
             sequence = _next.Value;
@@ -37,11 +37,18 @@ public sealed class TcpReassembler
         }
         if (offset > 0)
         {
-            _pending[sequence] = payload.ToArray();
+            if (!_pending.TryGetValue(sequence, out var existing) || payload.Length > existing.Length)
+            {
+                var retained = payload.ToArray();
+                // A retransmission can cover a longer or shorter part of the same TCP interval.
+                // Keep all received bytes and retain the first copy of the shared prefix.
+                existing?.CopyTo(retained, 0);
+                _pending[sequence] = retained;
+            }
             if (_pending.Count > MaxPending)
             {
                 // The missing segment will not come (dropped by the capture): skip the gap.
-                var first = _pending.First();
+                var first = FirstPending();
                 _next = first.Key;
                 output.Add(new Chunk([], true));
                 Drain(output);
@@ -49,7 +56,7 @@ public sealed class TcpReassembler
             return output;
         }
         output.Add(new Chunk(payload.ToArray(), false));
-        _next = sequence + (uint)payload.Length;
+        _next = unchecked(sequence + (uint)payload.Length);
         Drain(output);
         return output;
     }
@@ -58,16 +65,23 @@ public sealed class TcpReassembler
     {
         while (_pending.Count > 0)
         {
-            var (sequence, data) = _pending.First();
-            var offset = (int)(sequence - _next!.Value);
+            var (sequence, data) = FirstPending();
+            var offset = Distance(sequence, _next!.Value);
             if (offset > 0)
                 break;
             _pending.Remove(sequence);
-            if (-offset >= data.Length)
+            if (-(long)offset >= data.Length)
                 continue;
             var fresh = data[-offset..];
             output.Add(new Chunk(fresh, false));
-            _next = _next.Value + (uint)fresh.Length;
+            _next = unchecked(_next.Value + (uint)fresh.Length);
         }
     }
+
+    // uint's numeric order changes at wrap-around; TCP order is relative to the next byte.
+    // Scan the bounded queue using signed distances, including intervals that cross zero.
+    private KeyValuePair<uint, byte[]> FirstPending() =>
+        _pending.OrderBy(p => Distance(p.Key, _next!.Value)).First();
+
+    private static int Distance(uint sequence, uint next) => unchecked((int)(sequence - next));
 }

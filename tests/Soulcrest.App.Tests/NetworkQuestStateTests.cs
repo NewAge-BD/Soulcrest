@@ -150,6 +150,48 @@ public sealed class NetworkQuestStateTests
     }
 
     [Fact]
+    public void RawStatusThreeNeverCompletesSyntheticDungeonOrStrongholdEvenWithOtherwisePositiveCounters()
+    {
+        using var folder = new Folder();
+        const int dungeonQuest = 91001, strongholdQuest = 91002, controlQuest = 91003;
+        ExplorationPlace[] places = [
+            new("dungeon", "synthetic-map", "dungeon", 0, "Synthetic Dungeon", null, QuestId: dungeonQuest),
+            new("stronghold", "synthetic-map", "stronghold", 1, "Synthetic Stronghold", null, QuestId: strongholdQuest),
+            new("control", "synthetic-map", "dungeon", 2, "Synthetic Complete Control", null, QuestId: controlQuest)
+        ];
+        var service = new ExplorationService(folder.File, places);
+        service.BindNetworkContext(Context(1));
+        QuestProgressRecord[] rawOnly = [
+            new(dungeonQuest, 3, 1, [1, 0, 0, 0, 0, 0], 1),
+            new(strongholdQuest, 3, 1, [1, 0, 0, 0, 0, 0], 2)
+        ];
+        Assert.True(service.ApplyNetworkQuests(new(rawOnly), Context(2)));
+        Assert.Empty(service.Completed);
+        foreach (var id in new[] { "dungeon", "stronghold" })
+        {
+            var entry = service.Snapshot().Progress[id];
+            Assert.Null(entry.State);
+            Assert.Equal(ProgressFreshness.Unknown, entry.Freshness);
+            Assert.Equal((byte)3, entry.QuestStatus);
+            Assert.Equal((byte)1, entry.QuestStage);
+            Assert.Equal(new[] { 1, 0, 0, 0, 0, 0 }, entry.QuestCounters!.ToArray());
+            Assert.Equal(ProgressFreshness.Fresh, entry.RawFreshness);
+        }
+        // Identical stage/counters only become a completion when the independently proven status is four.
+        Assert.True(service.ApplyNetworkQuests(new([.. rawOnly,
+            new(controlQuest, 4, 1, [1, 0, 0, 0, 0, 0], 3)]), Context(3)));
+        Assert.Equal(new[] { "control" }, service.Completed);
+        Assert.Empty(Assert.Single(folder.Read().Characters).DungeonCompletedAt);
+        var reloaded = new ExplorationService(folder.File, places);
+        Assert.Equal(new[] { "control" }, reloaded.Completed);
+        foreach (var id in new[] { "dungeon", "stronghold" })
+        {
+            Assert.Null(reloaded.Snapshot().Progress[id].State);
+            Assert.Equal((byte)3, reloaded.Snapshot().Progress[id].QuestStatus);
+        }
+    }
+
+    [Fact]
     public void AbsenceAndLaterOpenOrUnrecognizedRecordsNeverUndoAnExistingCompletion()
     {
         using var folder = new Folder();

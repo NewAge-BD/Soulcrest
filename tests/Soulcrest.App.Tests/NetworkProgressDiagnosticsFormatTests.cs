@@ -41,6 +41,12 @@ public sealed class NetworkProgressDiagnosticsFormatTests
     [InlineData("world-entry")]
     [InlineData("unsupported-own-entry")]
     [InlineData("identity-bind-rejected")]
+    [InlineData("pet-continuity-expired")]
+    [InlineData("pet-continuity-unread")]
+    [InlineData("world-entry-candidate")]
+    [InlineData("entry-candidate-expired")]
+    [InlineData("duplicate-entry-baseline")]
+    [InlineData("unsupported-entry-baseline")]
     public void OnlyFixedResetReasonsAreIncluded(string reason)
     {
         var text = DiagnosticsService.FormatNetworkProgressDiagnostics(Snapshot with { LastResetReason = reason });
@@ -89,9 +95,54 @@ public sealed class NetworkProgressDiagnosticsFormatTests
     public void SnapshotHasNoFieldsForNamesProfileIdsEndpointsOrPacketContent()
     {
         var properties = typeof(NetworkProgressDiagnostics).GetProperties();
-        Assert.Equal(14, properties.Length);
+        Assert.Equal(17, properties.Length);
         Assert.Equal(nameof(NetworkProgressDiagnostics.LastResetReason), Assert.Single(properties, property => property.PropertyType == typeof(string)).Name);
         Assert.All(properties, property => Assert.Contains(property.PropertyType,
-            new[] { typeof(bool), typeof(long), typeof(string), typeof(DateTimeOffset?), typeof(ushort?), typeof(int) }));
+            new[] { typeof(bool), typeof(long), typeof(string), typeof(DateTimeOffset?), typeof(ushort?), typeof(int),
+                typeof(IReadOnlyList<NetworkProgressDiagnosticEvent>) }));
+    }
+
+    [Fact]
+    public void RecentEventsIncludePublicPetNumbersAndOnlyFixedReasonsInUtc()
+    {
+        const string privateText = "Synthetic private character 9999999";
+        var snapshot = Snapshot with
+        {
+            UnboundSoulMessages = 2, UnboundSoulPoints = 3,
+            Events = [new(At, NetworkProgressEventKind.Acquired, 0x9009, 1135, 2),
+                new(At.AddSeconds(1), NetworkProgressEventKind.Gained, 0x900D, 1163, Souls: 2),
+                new(At.AddSeconds(2), NetworkProgressEventKind.Reset, ResetReason: privateText),
+                new(At.AddSeconds(3), (NetworkProgressEventKind)999)],
+        };
+        var text = DiagnosticsService.FormatNetworkProgressDiagnostics(snapshot);
+        Assert.Contains("UnboundSoulMessages: 2; UnboundSoulPoints: 3", text);
+        Assert.Contains("[Letzte anonyme Netzwerkereignisse: 4]", text);
+        Assert.Contains("2026-10-13T00:55:34.0000000+00:00 Kind:Acquired; Opcode:0x9009; Pet:1135; Level:2;", text);
+        Assert.Contains("Kind:Gained; Opcode:0x900D; Pet:1163; Level:none; Souls:2;", text);
+        Assert.Contains("Kind:Reset; Opcode:none; Pet:none; Level:none; Souls:none; Count:none; Reason:unknown", text);
+        Assert.Contains("Kind:unknown;", text);
+        Assert.DoesNotContain(privateText, text);
+    }
+
+    [Fact]
+    public void ExportIsBoundedEvenIfAnExternalSnapshotContainsTooManyEvents()
+    {
+        var snapshot = Snapshot with { Events = Enumerable.Range(0, 200)
+            .Select(i => new NetworkProgressDiagnosticEvent(At.AddSeconds(i), NetworkProgressEventKind.Gained,
+                0x900D, 1135, Souls: 1)).ToArray() };
+        var text = DiagnosticsService.FormatNetworkProgressDiagnostics(snapshot);
+        Assert.Contains("[Letzte anonyme Netzwerkereignisse: 128]", text);
+        Assert.Equal(128, text.Split("Kind:Gained;").Length - 1);
+        Assert.DoesNotContain("2026-10-13T00:55:34.0000000+00:00 Kind:", text);
+        Assert.Contains("2026-10-13T00:58:53.0000000+00:00 Kind:", text);
+    }
+
+    [Fact]
+    public void EventSchemaHasNoIdentityEndpointPayloadOrArbitraryMessageFields()
+    {
+        var properties = typeof(NetworkProgressDiagnosticEvent).GetProperties();
+        Assert.Equal(new[] { "At", "Kind", "Opcode", "PetNumber", "Level", "Souls", "ResetReason", "Count" },
+            properties.Select(property => property.Name));
+        Assert.Equal("ResetReason", Assert.Single(properties, property => property.PropertyType == typeof(string)).Name);
     }
 }

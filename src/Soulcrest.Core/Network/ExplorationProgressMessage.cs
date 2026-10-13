@@ -53,8 +53,9 @@ public static class ExplorationProgressMessage
                 var id = r.I32();
                 var status = r.U8();
                 var stage = r.U8();
+                // Status 3 was observed in the same complete bounded layout (2026-10-13).
                 // Keep wire values raw; exact catalogue/own/freshness completion policy belongs to the service.
-                if (id <= 0 || !ids.Add(id) || status is not (2 or 4) || stage >= 128) return null;
+                if (id <= 0 || !ids.Add(id) || status is not (2 or 3 or 4) || stage >= 128) return null;
                 var counters = new int[6];
                 for (var j = 0; j < counters.Length; j++) counters[j] = r.Vi32();
                 var ordinal = r.I64();

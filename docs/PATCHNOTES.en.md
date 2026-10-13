@@ -2,6 +2,16 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.6.2 – 2026-10-13
+
+- **Fixed:** Pet levels and exploration were sometimes not taken over after login (more login variants,
+  lost first packets of a new connection). Now confirmed live after several direct character switches.
+- **Fixed:** Soul counting could stop for a while; pet level-ups and the first acquisition of a pet are
+  taken over reliably, also at max level.
+- **Fixed:** A faulty partial list at login now only discards itself; pets, quests and Kibelisks are
+  confirmed independently of each other.
+- **Fixed:** After an instance (e.g. Abyss → Altgard) the new map was sometimes not recognised.
+
 ## 0.6.1 – 2026-10-13
 
 - **New:** Completed sealed dungeons and strongholds are taken over from the game: right when you

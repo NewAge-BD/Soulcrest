@@ -9,6 +9,7 @@ using Soulcrest.App.Network;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Network;
 using Soulcrest.Core.Pets;
+using Soulcrest.Core.Progress;
 using Xunit;
 
 namespace Soulcrest.App.Tests;
@@ -84,6 +85,72 @@ public sealed class NetworkWorldEntryInitializationTests
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
         Assert.True(f.Network.ProgressSources.HasAllBaselines);
         Assert.True(f.Network.ProgressSources.InitialProgressConfirmed);
+    }
+
+    [Theory]
+    [InlineData(2283, "match")]
+    [InlineData(2283, "wrong-character")]
+    [InlineData(2283, "wrong-entity")]
+    [InlineData(2283, "wrong-stream")]
+    [InlineData(2286, "match")]
+    [InlineData(2286, "wrong-character")]
+    [InlineData(2286, "wrong-entity")]
+    [InlineData(2286, "wrong-stream")]
+    [InlineData(4000, "match")]
+    [InlineData(4000, "wrong-character")]
+    [InlineData(4000, "wrong-entity")]
+    [InlineData(4000, "wrong-stream")]
+    [InlineData(15, "match")]
+    [InlineData(15, "wrong-character")]
+    [InlineData(15, "wrong-entity")]
+    [InlineData(15, "wrong-stream")]
+    public void StructuralEntryPrefixOnlyAuthorizesFullBaselinesAfterOnePrepareAndItsMatchingOwn(int bodyLength, string variant)
+    {
+        using var f = new Fixture();
+        // The syntactic minimum has a one-byte entity key and no opaque tail.
+        var expected = bodyLength == 15 ? Alpha with { EntityKey = 1 } : Alpha;
+        f.Send(Candidate(expected, bodyLength), 0);
+        f.Send(Quests(), 1); f.Send(Teleports(), 1);
+        f.Send(Prepare(), 2); f.Send(Pets(), 3);
+        Assert.Null(f.Network.Character);
+        Assert.False(f.Network.ProgressSources.InitialProgressConfirmed);
+        Assert.Equal(3, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.False(File.Exists(f.ProgressPath));
+        Assert.False(File.Exists(f.ExplorationPath));
+        Assert.Empty(f.Gains);
+        var own = variant switch {
+            "wrong-character" => expected with { CharacterId = expected.CharacterId + 1 },
+            "wrong-entity" => expected with { EntityKey = expected.EntityKey + 1 },
+            _ => expected
+        };
+        f.Enter(own, 4, variant == "wrong-stream" ? "other-world" : Game);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+        if (variant == "match")
+        {
+            Assert.True(f.Network.ProgressSources.InitialProgressConfirmed);
+            Assert.Equal(expected.CharacterId, f.Exploration.Snapshot().NetworkCharacterId);
+            Assert.Equal(expected.ServerId, f.Exploration.Snapshot().ServerId);
+            Assert.Equal(At.AddSeconds(3), f.Network.PetBaselineAt);
+            Assert.Equal(At.AddSeconds(1), f.Network.QuestBaselineAt);
+            Assert.Equal(At.AddSeconds(1), f.Network.TeleportBaselineAt);
+            Assert.Equal(8, f.Progress.Souls("fossa"));
+            Assert.Equal(new[] { "fort", "pillar" }, f.Exploration.Completed.Order());
+            f.Send(Points(0x900D), 5);
+            Assert.Equal(10, f.Progress.Souls("fossa"));
+            Assert.Equal(2, Assert.Single(f.Gains).Souls);
+            Assert.Single(f.Progress.Recent());
+        }
+        else
+        {
+            Assert.False(f.Network.ProgressSources.HasAnyBaseline);
+            Assert.False(f.Network.ProgressSources.InitialProgressConfirmed);
+            Assert.Equal(0, f.Progress.Souls("fossa"));
+            Assert.Empty(f.Exploration.Completed);
+            Assert.All(f.Exploration.Snapshot().Progress.Values, progress => Assert.Null(progress.State));
+        }
     }
 
     [Theory]
@@ -168,7 +235,7 @@ public sealed class NetworkWorldEntryInitializationTests
     }
 
     [Theory]
-    [InlineData("length")]
+    [InlineData("prefix-cut")]
     [InlineData("result")]
     [InlineData("character-zero")]
     [InlineData("entity-zero")]
@@ -179,7 +246,7 @@ public sealed class NetworkWorldEntryInitializationTests
         var candidate = Candidate(Beta);
         switch (variant)
         {
-            case "length": candidate = candidate[..^1]; break;
+            case "prefix-cut": candidate = candidate[..17]; break; // Beta's two-byte entity requires 18 message bytes.
             case "result": candidate[2] = 1; break;
             case "character-zero": candidate.AsSpan(10, 8).Clear(); break;
             case "entity-zero": candidate[4] = 0; break;
@@ -232,7 +299,8 @@ public sealed class NetworkWorldEntryInitializationTests
         f.Send(Pets(), 5); f.Send(Prepare(), 6);
         foreach (var delta in Deltas()) f.Send(delta, 6);
         f.Enter(second: 7);
-        Assert.Equal(8, f.Progress.Souls("fossa"));
+        Assert.Equal(0, f.Progress.Souls("fossa"));
+        Assert.Null(f.Network.PetBaselineAt);
         Assert.Null(f.Network.ProgressSources.DungeonActivityAt);
         Assert.Null(f.Network.ProgressSources.KibeliskActivityAt);
         Assert.Null(f.Network.QuestBaselineAt);
@@ -240,10 +308,151 @@ public sealed class NetworkWorldEntryInitializationTests
         Assert.Empty(f.Exploration.Completed);
         Assert.Empty(f.Gains);
         f.Send(Points(0x900D), 8);
-        Assert.Equal(10, f.Progress.Souls("fossa"));
+        Assert.Equal(2, f.Progress.Souls("fossa"));
+        Assert.Equal(ProgressFreshness.Unknown, f.Progress.EntrySnapshot("fossa").Freshness);
         Assert.Equal(2, Assert.Single(f.Gains).Souls);
         Assert.Single(f.Progress.Recent());
         Assert.Single(f.Network.Recent);
+    }
+
+    [Theory]
+    [InlineData(0x9009, false)]
+    [InlineData(0x900D, false)]
+    [InlineData(0x900E, false)]
+    [InlineData(0x9014, false)]
+    [InlineData(0x9009, true)]
+    [InlineData(0x900D, true)]
+    [InlineData(0x900E, true)]
+    [InlineData(0x9014, true)]
+    public void PetDeltaAfterTheBufferedSnapshotDiscardsOnlyThatSourceAndItsBytes(ushort opcode, bool malformed)
+    {
+        using var f = new Fixture();
+        f.Start(); f.Full();
+        var bytes = f.Network.ProgressDiagnostics.PendingBytes;
+        f.Send(PetDelta(opcode, malformed), 2);
+        Assert.Equal(2, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(bytes - Pets().Length, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.Null(f.Network.Character);
+        Assert.False(File.Exists(f.ProgressPath));
+        Assert.False(File.Exists(f.ExplorationPath));
+        f.Send(Prepare(), 3); f.Enter(second: 4);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.Null(f.Network.PetBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.QuestBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.TeleportBaselineAt);
+        Assert.False(f.Network.ProgressSources.InitialProgressConfirmed);
+        Assert.Equal(0, f.Progress.Souls("fossa"));
+        Assert.Null(f.Progress.ObservedLevel("fossa"));
+        Assert.Equal(new[] { "fort", "pillar" }, f.Exploration.Completed.Order());
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+        f.Send(Points(0x900D), 5);
+        Assert.Equal(2, f.Progress.Souls("fossa"));
+        Assert.Equal(ProgressFreshness.Unknown, f.Progress.EntrySnapshot("fossa").Freshness);
+        Assert.Equal(2, Assert.Single(f.Gains).Souls);
+        Assert.Single(f.Progress.Recent());
+    }
+
+    [Theory]
+    [InlineData(0x9009, false)]
+    [InlineData(0x900D, false)]
+    [InlineData(0x900E, false)]
+    [InlineData(0x9014, false)]
+    [InlineData(0x9009, true)]
+    [InlineData(0x900D, true)]
+    [InlineData(0x900E, true)]
+    [InlineData(0x9014, true)]
+    public void PetDeltaBeforeTheFirstFullSnapshotIsSupersededByThatAuthoritativeSnapshot(ushort opcode, bool malformed)
+    {
+        using var f = new Fixture();
+        f.Start(); f.Send(Quests(), 1); f.Send(Teleports(), 1);
+        var bytes = f.Network.ProgressDiagnostics.PendingBytes;
+        f.Send(PetDelta(opcode, malformed), 2);
+        Assert.Equal(2, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(bytes, f.Network.ProgressDiagnostics.PendingBytes);
+        f.Send(Pets(), 3); f.Send(Prepare(), 4);
+        Assert.Equal(3, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.False(File.Exists(f.ProgressPath));
+        f.Enter(second: 5);
+        Assert.True(f.Network.ProgressSources.InitialProgressConfirmed);
+        Assert.Equal(At.AddSeconds(3), f.Network.PetBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.QuestBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.TeleportBaselineAt);
+        Assert.Equal(8, f.Progress.Souls("fossa"));
+        Assert.Equal(1, f.Progress.ObservedLevel("fossa"));
+        Assert.Equal(3, f.Progress.AvailableSouls("fossa"));
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot("fossa").Freshness);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+    }
+
+    [Theory]
+    [InlineData(0x9009, false)]
+    [InlineData(0x900D, false)]
+    [InlineData(0x900E, false)]
+    [InlineData(0x9014, false)]
+    [InlineData(0x9009, true)]
+    [InlineData(0x900D, true)]
+    [InlineData(0x900E, true)]
+    [InlineData(0x9014, true)]
+    public void ANewStrictSnapshotAfterTheDiscardedPetSourceRestoresFreshnessWithoutReplayingDeltas(ushort opcode, bool malformed)
+    {
+        using var f = new Fixture();
+        f.Start(); f.Full(); f.Send(Prepare(), 2);
+        f.Send(PetDelta(opcode, malformed), 3);
+        Assert.Equal(2, f.Network.ProgressDiagnostics.PendingMessages);
+        var remaining = Quests().Length + Teleports().Length;
+        Assert.Equal(remaining, f.Network.ProgressDiagnostics.PendingBytes);
+        // A second unread delta must not remove or decrement unrelated source data again.
+        f.Send(PetDelta(opcode, malformed), 4);
+        Assert.Equal(remaining, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.Equal(2, f.Network.ProgressDiagnostics.PendingMessages);
+        f.Send(Pets(9), 5);
+        Assert.Equal(3, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(remaining + Pets(9).Length, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.False(File.Exists(f.ProgressPath));
+        f.Enter(second: 6);
+        Assert.True(f.Network.ProgressSources.InitialProgressConfirmed);
+        Assert.Equal(At.AddSeconds(5), f.Network.PetBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.QuestBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.TeleportBaselineAt);
+        Assert.Equal(14, f.Progress.Souls("fossa"));
+        Assert.Equal(1, f.Progress.ObservedLevel("fossa"));
+        Assert.Equal(9, f.Progress.AvailableSouls("fossa"));
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot("fossa").Freshness);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
+    }
+
+    [Theory]
+    [InlineData(0x9009, false)]
+    [InlineData(0x900D, false)]
+    [InlineData(0x900E, false)]
+    [InlineData(0x9014, false)]
+    [InlineData(0x9009, true)]
+    [InlineData(0x900D, true)]
+    [InlineData(0x900E, true)]
+    [InlineData(0x9014, true)]
+    public void ForeignPetDeltasAfterTheBufferedSnapshotCannotDiscardTheActualCandidatesPetSource(ushort opcode, bool malformed)
+    {
+        using var f = new Fixture();
+        f.Start(); f.Full(); f.Send(Prepare(), 2);
+        var bytes = f.Network.ProgressDiagnostics.PendingBytes;
+        f.Send(PetDelta(opcode, malformed), 3, "foreign-world");
+        Assert.Equal(3, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(bytes, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.False(File.Exists(f.ProgressPath));
+        f.Enter(second: 4);
+        Assert.True(f.Network.ProgressSources.InitialProgressConfirmed);
+        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
+        Assert.Equal(8, f.Progress.Souls("fossa"));
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot("fossa").Freshness);
+        Assert.Equal(new[] { "fort", "pillar" }, f.Exploration.Completed.Order());
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
     }
 
     [Fact]
@@ -281,14 +490,199 @@ public sealed class NetworkWorldEntryInitializationTests
     [InlineData(0x9000)]
     [InlineData(0x8D09)]
     [InlineData(0x9232)]
-    public void MalformedFullSourceCannotLeaveAPartialCandidateForTheNextOwn(ushort opcode)
+    public void MalformedFullSourceRetainsTheAnchorAndOnlyConfirmsIndependentHealthySources(ushort opcode)
     {
         using var f = new Fixture();
         f.Start();
-        var valid = opcode switch { 0x9000 => Pets(), 0x8D09 => Quests(), _ => Teleports() };
-        f.Send([.. valid, 0], 1);
-        f.Send(Prepare(), 2); f.Enter();
+        f.Send([.. FullSource(opcode), 0], 1);
+        foreach (var source in new ushort[] { 0x9000, 0x8D09, 0x9232 }.Where(source => source != opcode))
+            f.Send(FullSource(source), 2);
+        Assert.Equal(2, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(new ushort[] { 0x9000, 0x8D09, 0x9232 }.Where(source => source != opcode)
+            .Sum(source => FullSource(source).Length), f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.Null(f.Network.Character);
+        Assert.False(File.Exists(f.ProgressPath));
+        Assert.False(File.Exists(f.ExplorationPath));
+        f.Send(Prepare(), 3); f.Enter(second: 4);
+        var sources = f.Network.ProgressSources;
+        Assert.Equal(Alpha.Name, f.Network.Character);
+        Assert.Equal(opcode == 0x9000 ? (DateTimeOffset?)null : At.AddSeconds(2), sources.PetBaselineAt);
+        Assert.Equal(opcode == 0x8D09 ? (DateTimeOffset?)null : At.AddSeconds(2), sources.QuestBaselineAt);
+        Assert.Equal(opcode == 0x9232 ? (DateTimeOffset?)null : At.AddSeconds(2), sources.TeleportBaselineAt);
+        Assert.True(sources.HasAnyBaseline);
+        Assert.False(sources.InitialProgressConfirmed);
+        AssertSourceRejected(sources, opcode, true);
+        Assert.Equal(opcode == 0x9000 ? 0 : 8, f.Progress.Souls("fossa"));
+        Assert.Equal(opcode != 0x8D09, f.Exploration.Completed.Contains("fort"));
+        Assert.Equal(opcode != 0x9232, f.Exploration.Completed.Contains("pillar"));
+        Assert.Equal(1, f.Network.ProgressDiagnostics.RejectedProgressMessages);
+        Assert.Equal(opcode, f.Network.ProgressDiagnostics.LastRejectedOpcode);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+    }
+
+    [Theory]
+    [InlineData(0x9000)]
+    [InlineData(0x8D09)]
+    [InlineData(0x9232)]
+    public void AValidFullAfterMalformedSourceRepairsItsPendingWarningAndConfirmsAllSources(ushort opcode)
+    {
+        using var f = new Fixture();
+        f.Start(); f.Send([.. FullSource(opcode), 0], 1); f.Full(2);
+        Assert.Equal(3, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.False(File.Exists(f.ProgressPath));
+        f.Send(Prepare(), 3); f.Enter(second: 4);
+        Assert.True(f.Network.ProgressSources.InitialProgressConfirmed);
+        AssertSourceRejected(f.Network.ProgressSources, opcode, false);
+        Assert.Equal(At.AddSeconds(2), f.Network.PetBaselineAt);
+        Assert.Equal(At.AddSeconds(2), f.Network.QuestBaselineAt);
+        Assert.Equal(At.AddSeconds(2), f.Network.TeleportBaselineAt);
+        Assert.Equal(8, f.Progress.Souls("fossa"));
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot("fossa").Freshness);
+        Assert.Equal(new[] { "fort", "pillar" }, f.Exploration.Completed.Order());
+        Assert.Equal(1, f.Network.ProgressDiagnostics.RejectedProgressMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+    }
+
+    [Theory]
+    [InlineData(0x9000)]
+    [InlineData(0x8D09)]
+    [InlineData(0x9232)]
+    public void ForeignMalformedFullCannotRemoveActualCandidateSourcesOrImportAWarning(ushort opcode)
+    {
+        using var f = new Fixture();
+        f.Start(); f.Full();
+        var bytes = f.Network.ProgressDiagnostics.PendingBytes;
+        f.Send([.. FullSource(opcode), 0], 2, "foreign-world");
+        Assert.Equal(3, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(bytes, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.False(File.Exists(f.ProgressPath));
+        f.Send(Prepare(), 3); f.Enter(second: 4);
+        Assert.True(f.Network.ProgressSources.InitialProgressConfirmed);
+        AssertSourceRejected(f.Network.ProgressSources, opcode, false);
+        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.QuestBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.TeleportBaselineAt);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.RejectedProgressMessages);
+        Assert.Equal(8, f.Progress.Souls("fossa"));
+        Assert.Equal(new[] { "fort", "pillar" }, f.Exploration.Completed.Order());
+        Assert.Empty(f.Gains);
+    }
+
+    [Theory]
+    [InlineData("wrong-character")]
+    [InlineData("wrong-entity")]
+    [InlineData("wrong-stream")]
+    [InlineData("missing-prepare")]
+    [InlineData("two-prepares")]
+    [InlineData("unsupported-prepare")]
+    public void SourceIsolationNeverWeakensTheOwnAndPrepareAuthorizationGuards(string variant)
+    {
+        using var f = new Fixture();
+        f.Start(); f.Send([.. Quests(), 0], 1); f.Send(Pets(), 2); f.Send(Teleports(), 2);
+        if (variant != "missing-prepare") f.Send(Prepare(), 3);
+        if (variant == "two-prepares") f.Send(Prepare(), 3);
+        if (variant == "unsupported-prepare") f.Send([0x21, 0x36, 0], 3);
+        var own = variant switch {
+            "wrong-character" => Alpha with { CharacterId = Alpha.CharacterId + 1 },
+            "wrong-entity" => Alpha with { EntityKey = Alpha.EntityKey + 1 },
+            _ => Alpha
+        };
+        f.Enter(own, 4, variant == "wrong-stream" ? "foreign-world" : Game);
         AssertNoBaseline(f);
+        AssertSourceRejected(f.Network.ProgressSources, 0x8D09, false);
+        Assert.Equal(0, f.Progress.Souls("fossa"));
+        Assert.Empty(f.Exploration.Completed);
+        Assert.All(f.Exploration.Snapshot().Progress.Values, progress => Assert.Null(progress.State));
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+    }
+
+    [Theory]
+    [InlineData(0x9000, false)]
+    [InlineData(0x8D09, false)]
+    [InlineData(0x9232, false)]
+    [InlineData(0x9000, true)]
+    [InlineData(0x8D09, true)]
+    [InlineData(0x9232, true)]
+    public void NewerOwnCallbackSourceWinsOverItsOlderBufferedFullWithoutDiscardingOtherSources(ushort opcode, bool malformed)
+    {
+        using var f = new Fixture();
+        f.Start(); f.Full(); f.Send(Prepare(), 2);
+        var callback = false;
+        f.Network.OwnCharacterEntered += _ =>
+        {
+            if (callback) return;
+            callback = true;
+            // A fresh empty exploration list is distinguishable from the old positive prefix.
+            var newer = opcode == 0x9000 ? Pets(9) : Packet(opcode, w => w.Write((byte)0));
+            f.Send(malformed ? [.. FullSource(opcode), 0] : newer, 5);
+        };
+        f.Enter(second: 4);
+        Assert.True(callback);
+        Assert.Equal(Alpha.Name, f.Network.Character);
+        var sources = f.Network.ProgressSources;
+        var selectedAt = malformed ? (DateTimeOffset?)null : At.AddSeconds(5);
+        Assert.Equal(opcode == 0x9000 ? selectedAt : At.AddSeconds(1), sources.PetBaselineAt);
+        Assert.Equal(opcode == 0x8D09 ? selectedAt : At.AddSeconds(1), sources.QuestBaselineAt);
+        Assert.Equal(opcode == 0x9232 ? selectedAt : At.AddSeconds(1), sources.TeleportBaselineAt);
+        Assert.Equal(!malformed, sources.InitialProgressConfirmed);
+        AssertSourceRejected(sources, opcode, malformed);
+        Assert.Equal(opcode == 0x9000 ? malformed ? 0 : 14 : 8, f.Progress.Souls("fossa"));
+        Assert.Equal(opcode != 0x8D09, f.Exploration.Completed.Contains("fort"));
+        Assert.Equal(opcode != 0x9232, f.Exploration.Completed.Contains("pillar"));
+        if (opcode == 0x9000)
+        {
+            Assert.Equal(malformed ? ProgressFreshness.Unknown : ProgressFreshness.Fresh, f.Progress.EntrySnapshot("fossa").Freshness);
+            Assert.Equal(malformed ? (int?)null : 9, f.Progress.AvailableSouls("fossa"));
+        }
+        else if (opcode == 0x8D09 && !malformed)
+            Assert.Empty(Assert.Single(f.StoredExploration().Characters).RawQuests);
+        else if (opcode == 0x9232 && !malformed)
+            Assert.Empty(Assert.Single(f.StoredExploration().Characters).RawTeleportIds);
+        Assert.Equal(malformed ? 1 : 0, f.Network.ProgressDiagnostics.RejectedProgressMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+    }
+
+    [Fact]
+    public void PetGainInOwnCallbackIsCountedOnceAndPreventsOlderPetBaselineFromReplacingTheUnknownTotal()
+    {
+        using var f = new Fixture();
+        f.Start(); f.Full(); f.Send(Prepare(), 2);
+        var callback = false;
+        f.Network.OwnCharacterEntered += _ =>
+        {
+            if (callback) return;
+            callback = true;
+            f.Send(Points(0x900D), 5);
+        };
+        f.Enter(second: 4);
+        Assert.True(callback);
+        Assert.Null(f.Network.PetBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.QuestBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Network.TeleportBaselineAt);
+        Assert.Equal(At.AddSeconds(5), f.Network.ProgressSources.PetActivityAt);
+        Assert.False(f.Network.ProgressSources.InitialProgressConfirmed);
+        Assert.False(f.Network.ProgressSources.PetFormatRejected);
+        Assert.Equal(2, f.Progress.Souls("fossa"));
+        Assert.Null(f.Progress.ObservedLevel("fossa"));
+        Assert.Null(f.Progress.AvailableSouls("fossa"));
+        Assert.Equal(ProgressFreshness.Unknown, f.Progress.EntrySnapshot("fossa").Freshness);
+        Assert.Equal(new[] { "fort", "pillar" }, f.Exploration.Completed.Order());
+        Assert.Equal(2, Assert.Single(f.Gains).Souls);
+        Assert.Single(f.Progress.Recent());
+        Assert.Single(f.Network.Recent);
+        Assert.Equal(1, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Equal(2, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
     }
 
@@ -379,6 +773,18 @@ public sealed class NetworkWorldEntryInitializationTests
         AssertNoBaseline(f);
     }
 
+    private static byte[] FullSource(ushort opcode) => opcode switch {
+        0x9000 => Pets(), 0x8D09 => Quests(), 0x9232 => Teleports(),
+        _ => throw new ArgumentOutOfRangeException(nameof(opcode))
+    };
+
+    private static void AssertSourceRejected(NetworkProgressSources sources, ushort opcode, bool rejected)
+    {
+        Assert.Equal(rejected && opcode == 0x9000, sources.PetFormatRejected);
+        Assert.Equal(rejected && opcode == 0x8D09, sources.QuestFormatRejected);
+        Assert.Equal(rejected && opcode == 0x9232, sources.TeleportFormatRejected);
+    }
+
     private static void AssertNoBaseline(Fixture f)
     {
         Assert.Null(f.Network.PetBaselineAt);
@@ -387,10 +793,10 @@ public sealed class NetworkWorldEntryInitializationTests
         Assert.False(f.Network.ProgressSources.InitialProgressConfirmed);
     }
 
-    private static byte[] Candidate(OwnCharacterIdentity identity) => Packet(0x3620, w =>
+    private static byte[] Candidate(OwnCharacterIdentity identity, int bodyLength = 2279) => Packet(0x3620, w =>
     {
         w.Write((ushort)0); V(w, (uint)identity.EntityKey); w.Write(new byte[4]); w.Write(identity.CharacterId);
-        w.Write(new byte[2279 - (int)(w.BaseStream.Position - 2)]); // Observed envelope, deliberately opaque tail.
+        w.Write(new byte[bodyLength - (int)(w.BaseStream.Position - 2)]); // Observed envelope, deliberately opaque tail.
     });
     private static byte[] Prepare() => Packet(0x3621, w => w.Write(new byte[46]));
     private static byte[] Pets(int balance = 3) => Packet(0x9000, w =>
@@ -405,11 +811,21 @@ public sealed class NetworkWorldEntryInitializationTests
     });
     private static byte[] Teleports() => Packet(0x9232, w => { w.Write((byte)1); w.Write(1052020); });
     private static byte[] Points(ushort opcode) => Packet(opcode, w => { w.Write((byte)1); w.Write(1004); w.Write(2); });
+    private static byte[] PetDelta(ushort opcode, bool malformed = false)
+    {
+        if (malformed) return Packet(opcode, _ => { });
+        return opcode switch {
+            0x9009 => Packet(opcode, w => { V(w, (uint)Alpha.EntityKey); w.Write(1004); w.Write(2); w.Write(new byte[13]); }),
+            0x9014 => Packet(opcode, w => { w.Write((ushort)0); w.Write(1004); w.Write(2); w.Write(new byte[13]); }),
+            _ => Points(opcode)
+        };
+    }
     private static IEnumerable<byte[]> Deltas()
     {
         yield return Points(0x900D);
         yield return Points(0x900E);
-        yield return Packet(0x9009, w => { V(w, 300); w.Write(1004); w.Write(2); w.Write(new byte[13]); });
+        yield return PetDelta(0x9009);
+        yield return PetDelta(0x9014);
         yield return Packet(0x6101, w => { w.Write((byte)0); w.Write(142005); w.Write(true); w.Write((byte)0); });
         yield return Packet(0x9233, w => w.Write(1052020));
     }

@@ -4,6 +4,21 @@ Stand der Recherche: 2026-10-02. Öffentliche Quellen widersprechen sich in Deta
 **unbestätigt**, bis es ingame geprüft wurde. Soulcrest hält Schwellenwerte deshalb in Daten
 (`data/pets/`), nicht im Code.
 
+## Aktueller Netzwerkabgleich (2026-10-13)
+
+Die nachfolgende Recherche ist historisch; Pet-/Loot-OCR ist entfernt. Soulcrest speichert eine
+Pet-Sammlung pro Server und liest vollständige Stufe/Balance beim Charakterlogin über die passive
+Netzwerkquelle. Dafür Soulcrest öffnen, einmal die Charakterauswahl betreten und wieder einloggen.
+Gewinne, Verbrauch und absolute Stufenmeldungen werden getrennt übernommen. Ein automatischer
+Aufstieg ist beim Erreichen der Schwelle live bestätigt, einschließlich Stufe3/Maximalstufe.
+
+Explizite erfolgreiche Levelup-Ergebnisse korrigieren die Stufe auch ohne Erwerbsmeldung. Sie
+verbrauchen selbst keine Souls und zählen nicht als Pickup. Eine sicher kontinuierliche
+Prepare/Own-Folge auf demselben Strom/Server erhält die vorher bestätigte Pet-Liste mit originaler
+Belegzeit. Nach echter Lücke bleiben gespeicherte Balances sichtbar unbestätigt, bis ein voller
+Abgleich erfolgt. Manuelle Korrekturen bleiben geschützt. Historisch verdiente Gesamt-Souls werden
+nach einem Verbrauch nicht als aktuelle Balance ausgegeben.
+
 ## Was als gesichert gilt (mehrere Quellen)
 
 - Pets werden **gesammelt**: Monster töten → Soul-Pickups am Boden → aufheben →

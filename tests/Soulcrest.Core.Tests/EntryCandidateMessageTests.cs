@@ -28,6 +28,8 @@ public sealed class EntryCandidateMessageTests
     [InlineData(1362, 300)]
     [InlineData(1373, 300)]
     [InlineData(2279, 300)]
+    [InlineData(2283, 300)]
+    [InlineData(2286, 300)]
     public void AllObservedEnvelopesReadTheVariablePrefixWithoutFixedCharacterOffsets(int length, int entity)
     {
         var message = Candidate(length, entity);
@@ -63,19 +65,60 @@ public sealed class EntryCandidateMessageTests
     public void NonzeroResultCannotStartAnInitializationCandidate(int result) =>
         Assert.Null(OwnIdentityMessage.TryParseEntryCandidate(Candidate(result: (ushort)result)));
 
-    [Fact]
-    public void UnknownLengthsAndForeignOpcodesFailClosed()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(127)]
+    [InlineData(128)]
+    [InlineData(16384)]
+    [InlineData(2097152)]
+    [InlineData(int.MaxValue)]
+    public void EveryCutInsideTheVariablePrefixIsRejectedWithoutInventingATailSchema(int entity)
     {
-        var message = Candidate();
-        // The tail is opaque: only the explicitly observed full envelope lengths are accepted.
-        for (var length = 0; length < message.Length; length++)
-            if (length - 2 is not (1361 or 1362 or 1373))
-                Assert.Null(OwnIdentityMessage.TryParseEntryCandidate(message.AsSpan(0, length)));
-        Assert.Null(OwnIdentityMessage.TryParseEntryCandidate([.. message, 0]));
-        Assert.Null(OwnIdentityMessage.TryParseEntryCandidate([.. message, 0, 0]));
-        foreach (var opcode in new ushort[] { 0x3615, 0x3621, 0x3633, 0x3645, 0x8D09, 0x9000 })
-            Assert.Null(OwnIdentityMessage.TryParseEntryCandidate(Candidate(opcode: opcode)));
+        var width = 1;
+        for (var value = entity; (value >>= 7) != 0;) width++;
+        var prefixBytes = 16 + width;
+        var message = Candidate(prefixBytes - 2, entity);
+        for (var length = 0; length < prefixBytes; length++)
+            Assert.Null(OwnIdentityMessage.TryParseEntryCandidate(message.AsSpan(0, length)));
+        Assert.Equal(new OwnEntryCandidate(123456789, entity), OwnIdentityMessage.TryParseEntryCandidate(message));
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(255)]
+    [InlineData(4096)]
+    [InlineData(65536)]
+    public void ArbitraryOpaqueTailsAreEligiblePrefixesOnlyAndAreNeverChanged(int tailBytes)
+    {
+        var message = Candidate(16 + tailBytes); // two-byte canonical entity: 18-byte prefix including opcode
+        message.AsSpan(18).Fill(0xFF); // deliberately arbitrary; no tail schema is assumed
+        var original = message.ToArray();
+        Assert.Equal(new OwnEntryCandidate(123456789, 300), OwnIdentityMessage.TryParseEntryCandidate(message));
+        Assert.Null(OwnIdentityMessage.TryParse(message));
+        Assert.False(OwnIdentityMessage.IsWorldEntryPreparation(message));
+        Assert.Equal(original, message);
+    }
+
+    [Fact]
+    public void CandidateResourceCapIsIndependentOfAnyObservedGameEnvelopeLength()
+    {
+        var maximum = Candidate(OwnIdentityMessage.MaximumEntryCandidateMessageBytes - 2);
+        Assert.Equal(1 << 20, maximum.Length);
+        Assert.Equal(new OwnEntryCandidate(123456789, 300), OwnIdentityMessage.TryParseEntryCandidate(maximum));
+        Assert.Null(OwnIdentityMessage.TryParseEntryCandidate([.. maximum, 0]));
+    }
+
+    [Theory]
+    [InlineData(0x3615)]
+    [InlineData(0x3621)]
+    [InlineData(0x3633)]
+    [InlineData(0x3645)]
+    [InlineData(0x8D09)]
+    [InlineData(0x9000)]
+    public void ForeignOpcodesCannotSupplyAnEntryPrefix(int opcode) =>
+        Assert.Null(OwnIdentityMessage.TryParseEntryCandidate(Candidate(opcode: (ushort)opcode)));
 
     [Fact]
     public void NoncanonicalAndOverflowingEntityVarintsCannotMoveTheCharacterField()
@@ -89,6 +132,21 @@ public sealed class EntryCandidateMessageTests
         var unterminated = Candidate();
         unterminated.AsSpan(4, 5).Fill(0x80);
         Assert.Null(OwnIdentityMessage.TryParseEntryCandidate(unterminated));
+    }
+
+    [Fact]
+    public void NewlyObserved2286EnvelopeStillRequiresAnIndependentFullOwnAndKeepsItsTailOpaque()
+    {
+        var message = Candidate(bodyLength: 2286);
+        message.AsSpan(18).Fill(0x5A);
+        var original = message.ToArray();
+        Assert.Equal(new OwnEntryCandidate(123456789, 300), OwnIdentityMessage.TryParseEntryCandidate(message));
+        Assert.Null(OwnIdentityMessage.TryParse(message));
+        Assert.False(OwnIdentityMessage.IsWorldEntryPreparation(message));
+        Assert.Equal(original, message);
+        Assert.Null(OwnIdentityMessage.TryParseEntryCandidate(Candidate(bodyLength: 2286, result: 1)));
+        Assert.Null(OwnIdentityMessage.TryParseEntryCandidate(Candidate(bodyLength: 2286, entityKey: 0)));
+        Assert.Null(OwnIdentityMessage.TryParseEntryCandidate(Candidate(bodyLength: 2286, characterId: 0)));
     }
 
     [Fact]

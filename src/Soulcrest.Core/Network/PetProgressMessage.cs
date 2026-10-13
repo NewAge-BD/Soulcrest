@@ -77,6 +77,24 @@ public static class PetProgressMessage
         catch (InvalidDataException) { return null; }
     }
 
+    /// <summary>Reads the independently captured 0x9014 result. Its unused 13-byte tail remains opaque.</summary>
+    public static PetUpgradeResult? TryParseUpgrade(ReadOnlySpan<byte> message)
+    {
+        if (!HasOpcode(message, 0x9014)) return null;
+        try
+        {
+            var r = new ProgressPacketReader(message[2..]);
+            var result = r.U16();
+            var pet = r.I32();
+            var level = r.I32();
+            r.Skip(13);
+            r.Exact();
+            if (result == 0 && (pet <= 0 || level is < 1 or > 3)) return null;
+            return new(result, pet, level);
+        }
+        catch (InvalidDataException) { return null; }
+    }
+
     public static IReadOnlyList<SoulGain>? TryParseSpent(ReadOnlySpan<byte> message) => ParsePoints(message, 0x900E);
 
     internal static IReadOnlyList<SoulGain>? ParsePoints(ReadOnlySpan<byte> message, ushort opcode)

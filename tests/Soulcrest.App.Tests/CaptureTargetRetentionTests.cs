@@ -149,17 +149,20 @@ public sealed class CaptureTargetRetentionTests
     }
 
     [Fact]
-    public void NewRemoteEndpointAndAdapterChangeCannotReuseInstalledCoverage()
+    public void NewRemoteEndpointExpandsCoverageButAdapterChangeRequiresAReplacement()
     {
         using var fixture = new Fixture();
         fixture.BeginWorld();
-        var current = fixture.CurrentTarget;
+        var expanded = Target(World, Web with { RemoteAddress = "203.0.113.1" });
 
-        Assert.False(fixture.Network.TryRetainCapture(Target(World, Web with { RemoteAddress = "203.0.113.1" })));
+        Assert.True(fixture.Network.TryRetainCapture(expanded));
         Assert.False(fixture.Network.TryRetainCapture(Target(World, Web) with { Device = "other-adapter" }));
-        Assert.Same(current, fixture.CurrentTarget);
+        Assert.Same(expanded, fixture.CurrentTarget);
+        Assert.Equal(3, fixture.InstalledCoverage.Count);
         Assert.Equal(Own.Name, fixture.Network.Character);
-        AssertHandleUntouched(fixture);
+        Assert.Equal(1, fixture.HandleCalls.Count("set_Filter"));
+        foreach (var method in new[] { "Open", "Close", "StartCapture", "StopCapture" })
+            Assert.Equal(0, fixture.HandleCalls.Count(method));
     }
 
     [Theory]

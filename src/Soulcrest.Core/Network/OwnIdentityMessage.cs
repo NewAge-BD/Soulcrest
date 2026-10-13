@@ -3,22 +3,27 @@ using System.Text;
 namespace Soulcrest.Core.Network;
 
 /// <summary>
-/// Reads only MyCharAppear (0x3633), validates its whole known schema, and returns the own identity.
+/// Validates the whole known MyCharAppear (0x3633) schema and returns the own identity.
 /// Other strings and coordinates are skipped without decoding or retaining them. Unknown flag
 /// variants fail closed, so a partial name prefix cannot bind subsequent progress to a profile.
 /// </summary>
 public static class OwnIdentityMessage
 {
+    // Decoded messages from the bounded framer fit within this cap. This is also a resource
+    // guard for direct callers, not a recovered game-packet length or opaque-tail schema.
+    internal const int MaximumEntryCandidateMessageBytes = 1 << 20;
+
     /// <summary>
-    /// Reads only an untrusted entry candidate from the observed 0x3620 envelope. Its opaque tail
-    /// is not schema-validated. This never supplies own authority, a server or a profile context;
-    /// a subsequent completely validated own message must independently confirm the candidate.
+    /// Reads only an untrusted prefix from a complete, transport-framed 0x3620 message. The caller
+    /// must establish frame completeness; the variable opaque tail is neither read nor validated.
+    /// This never supplies own authority, a server or a profile context; a subsequent completely
+    /// validated own message must independently confirm the candidate.
     /// </summary>
     public static OwnEntryCandidate? TryParseEntryCandidate(ReadOnlySpan<byte> message)
     {
-        // These are the complete observed envelope lengths, not a recovered tail schema.
-        // The entity varint moves the character field; a fixed offset would misread one variant.
-        if (message.Length - 2 is not (1361 or 1362 or 1373 or 2279)
+        // Opcode + result + at least one entity-varint byte + four opaque bytes + character i64.
+        // The bounded reader rejects cuts inside a longer canonical entity prefix as well.
+        if (message.Length is < 17 or > MaximumEntryCandidateMessageBytes
             || !PetProgressMessage.HasOpcode(message, 0x3620)) return null;
         try
         {

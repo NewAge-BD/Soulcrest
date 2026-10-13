@@ -2,6 +2,17 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.6.2 – 2026-10-13
+
+- **Behoben:** Pet-Stufen und Erkundung wurden nach dem Login manchmal nicht übernommen (weitere
+  Login-Varianten, verlorene erste Pakete einer neuen Verbindung). Jetzt live nach mehreren direkten
+  Charakterwechseln bestätigt.
+- **Behoben:** Die Soul-Zählung konnte zeitweise stoppen; Pet-Aufstiege und der erste Erwerb eines Pets
+  werden zuverlässig übernommen, auch auf Maximalstufe.
+- **Behoben:** Eine fehlerhafte Teilliste beim Login verwirft nur noch sich selbst; Pets, Quests und
+  Kibelisken werden unabhängig voneinander bestätigt.
+- **Behoben:** Nach einer Instanz (z. B. Abyss → Altgard) wurde die neue Karte manchmal nicht erkannt.
+
 ## 0.6.1 – 2026-10-13
 
 - **Neu:** Abgeschlossene Sealed Dungeons und Strongholds werden aus dem Spiel übernommen: direkt beim

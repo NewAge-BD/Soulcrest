@@ -55,6 +55,36 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     private ILiveDevice? _device;
     private CaptureTarget? _target;
     private System.Threading.Timer? _check;
+    private static readonly TimeSpan IncomingProbeInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan IncomingPacketLifetime = TimeSpan.FromMilliseconds(250);
+    private const int MaxIncomingFlows = 16, MaxIncomingPackets = 128, MaxIncomingBytes = 512 * 1024;
+    private readonly record struct IncomingFlow(string RemoteAddress, int RemotePort, string LocalAddress, int LocalPort)
+    {
+        public bool Matches(CaptureConnection connection) => connection.RemoteAddress == RemoteAddress
+            && connection.RemotePort == RemotePort && connection.LocalAddress == LocalAddress && connection.LocalPort == LocalPort;
+    }
+    private sealed record PendingIncoming(IncomingFlow Flow, RawCapture Raw, object Device, long Generation, DateTimeOffset At);
+    private readonly List<PendingIncoming> _incomingPackets = [];
+    // A flow remains a barrier while its current packet is being dispatched, including reentrant callbacks.
+    private readonly HashSet<IncomingFlow> _incomingBarriers = [];
+    private int _incomingBytes;
+    private bool _incomingProbeRunning;
+    private Task _incomingProbeTask = Task.CompletedTask;
+    private DateTimeOffset? _lastIncomingProbeAt;
+    private long _incomingProbes, _incomingDroppedPackets;
+    private long _ownershipRevision;
+    private Task _deviceLifecycleTask = Task.CompletedTask;
+    internal Task DeviceLifecycleTask { get { lock (_gate) return _deviceLifecycleTask; } }
+    internal Func<CaptureTarget?> IncomingOwnershipReader { get; set; } = CaptureTarget.Find;
+    internal Func<CaptureTarget?> PeriodicOwnershipReader { get; set; } = CaptureTarget.Find;
+    internal Func<DateTimeOffset> IncomingOwnershipUtcNow { get; set; } = () => DateTimeOffset.UtcNow;
+    internal Func<TimeSpan, Task> IncomingOwnershipWait { get; set; } = delay => Task.Delay(delay);
+    internal Task IncomingOwnershipTask { get { lock (_gate) return _incomingProbeTask; } }
+    internal (int Flows, int Packets, int Bytes, bool ProbeRunning, long Probes, long DroppedPackets) IncomingOwnershipQueue
+    {
+        get { lock (_gate) return (_incomingBarriers.Count, _incomingPackets.Count, _incomingBytes,
+            _incomingProbeRunning, _incomingProbes, _incomingDroppedPackets); }
+    }
     private static readonly TimeSpan EntryCandidateLifetime = TimeSpan.FromMinutes(2);
     // A tentative login transaction, never an identity. Only a matching complete Own after one
     // Prepare can authorize its fresh full snapshots; unrelated/unanchored prefixes are discarded.
@@ -67,17 +97,34 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         public bool Prepared { get; set; }
         public List<(byte[] Message, DateTimeOffset At)> Baselines { get; } = [];
         public HashSet<ushort> Sources { get; } = [];
+        public HashSet<ushort> RejectedSources { get; } = [];
         public int Bytes { get; set; }
     }
     private EntryCandidate? _entryCandidate;
+    private sealed record PetContinuity(string Stream, int ServerId, long CaptureGeneration, DateTimeOffset PreparedAt,
+        DateTimeOffset BaselineAt, DateTimeOffset? ActivityAt, ProgressService.NetworkPetContinuityToken Token);
+    private PetContinuity? _petContinuity;
+    // Reset/Bind/Restore notify synchronously. Keep this single scoped guard visible while
+    // their callbacks run, even when the saved token itself exists only in a local variable.
+    private sealed class PetContinuityFlight(string stream)
+    {
+        public string Stream { get; } = stream;
+        public bool UnreadPet { get; set; }
+    }
+    private PetContinuityFlight? _petContinuityFlight;
     private bool _pendingProgressOverflow;
     private string? _identityStream;
     private OwnCharacterIdentity? _identity;
     private long _progressGeneration;
     private long _progressSequence;
+    // Monotone source revisions also cover rejected messages. Reentrant service/Own callbacks
+    // must never let an older login-prefix snapshot overwrite a newer observation of that source.
+    private readonly long[] _sourceRevisions = new long[3];
     private bool _petFormatRejected, _questFormatRejected, _teleportFormatRejected, _dungeonFormatRejected, _kibeliskFormatRejected;
     private DateTimeOffset? _dungeonActivityAt, _kibeliskActivityAt;
     private long _identityBindings, _contextResets, _rejectedProgressMessages, _acceptedSoulMessages, _acceptedSoulPoints;
+    private long _unboundSoulMessages, _unboundSoulPoints;
+    private readonly Queue<NetworkProgressDiagnosticEvent> _progressEvents = new();
     private string _lastResetReason = "none";
     private DateTimeOffset? _lastResetAt, _lastRejectedAt, _lastSoulAt;
     private ushort? _lastRejectedOpcode;
@@ -89,7 +136,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         {
             lock (_gate) return new(_identity is not null, _identityBindings, _contextResets, _lastResetReason, _lastResetAt,
                 _rejectedProgressMessages, _lastRejectedOpcode, _lastRejectedAt, _acceptedSoulMessages, _acceptedSoulPoints,
-                _lastSoulAt, _entryCandidate?.Baselines.Count ?? 0, _entryCandidate?.Bytes ?? 0, _pendingProgressOverflow);
+                _lastSoulAt, _entryCandidate?.Baselines.Count ?? 0, _entryCandidate?.Bytes ?? 0, _pendingProgressOverflow)
+            { Events = _progressEvents.ToArray(), UnboundSoulMessages = _unboundSoulMessages, UnboundSoulPoints = _unboundSoulPoints };
         }
     }
 
@@ -134,7 +182,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     public event Action? BossSessionReset;
     public event Action<string>? BossStreamGap;
     private long _generation;
-    private sealed record ReceivedMessage(string Stream, byte[] Data, bool Gap = false);
+    private sealed record ReceivedMessage(string Stream, byte[] Data, bool Gap = false, GameMessageStream? Transport = null, bool EndStream = false);
 
     /// <summary>The own character seen last after a loading screen, null before the first one.</summary>
     public string? Character { get; private set; }
@@ -150,6 +198,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
 
     public void Start()
     {
+        if (Monitor.IsEntered(_gate)) { QueueDeviceLifecycle(StartCore); return; }
         lock (_connectionGate) StartCore();
     }
 
@@ -170,6 +219,9 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
 
     public void Stop()
     {
+        // Synchronous subscribers run under _gate. Invalidate immediately, but never acquire
+        // _connectionGate or join the capture callback from that reentrant call.
+        if (Monitor.IsEntered(_gate)) { StopCore(); return; }
         lock (_connectionGate) StopCore();
     }
 
@@ -223,8 +275,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
 
     private void CheckConnection()
     {
-        // Timer callbacks may overlap. Stop and connection replacement share this gate.
-        lock (_connectionGate) CheckConnectionCore();
+        CheckConnectionCore();
     }
 
     internal static bool SameConnection(CaptureTarget current, CaptureTarget next) =>
@@ -239,89 +290,230 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         current.Connections is not null && next.Connections is { Count: > 0 } &&
         next.RemoteEndpoints.All(installedCoverage.Contains);
 
-    /// <summary>Updates ownership atomically without touching the live handle or surviving partial frames.</summary>
-    internal bool TryRetainCapture(CaptureTarget next)
+    /// <summary>Retain the live handle and surviving streams, expanding only proven endpoint coverage when necessary.</summary>
+    internal bool TryRetainCapture(CaptureTarget next) => TryRetainCapture(next, out _);
+
+    private bool TryRetainCapture(CaptureTarget next, out bool filterRetry)
     {
+        filterRetry = false;
         lock (_gate)
         {
-            if (_target is not { } current || !CanRetainCapture(current, next, _installedCoverage)) return false;
-            var removed = current.Connections!.Except(next.Connections!).ToArray();
-            _target = next;
-            foreach (var connection in removed)
+            _ownershipRevision++;
+            if (_target is not { } current || !string.Equals(current.Device, next.Device, StringComparison.OrdinalIgnoreCase) ||
+                current.Connections is null || next.Connections is not { Count: > 0 }) return false;
+            var removed = current.Connections.Except(next.Connections).ToArray();
+            if (!next.RemoteEndpoints.All(_installedCoverage.Contains))
             {
-                _streams.Remove(connection);
-                ProcessProgressGap(connection.StreamKey);
+                if (_device is null) return false;
+                var coverage = _installedCoverage.Union(next.RemoteEndpoints).ToHashSet();
+                var filter = "tcp and (" + string.Join(" or ", coverage.OrderBy(endpoint => endpoint.Address, StringComparer.Ordinal)
+                    .ThenBy(endpoint => endpoint.Port).Select(endpoint => $"(host {endpoint.Address} and port {endpoint.Port})")) + ")";
+                try
+                {
+                    // SharpPcap permits updating an open capture's filter. Keep the old endpoint
+                    // coverage in the union; a native filter change does not guarantee zero drops,
+                    // so actual TCP/framing gaps must still invalidate their bound stream.
+                    _device.Filter = filter;
+                }
+                catch (Exception error) when (error is PcapException or DllNotFoundException or InvalidOperationException or System.ComponentModel.Win32Exception)
+                {
+                    // Do not trust SharpPcap's Filter getter after failure: its cached text changes
+                    // before pcap_setfilter succeeds. Preserve our last verified kernel coverage.
+                    // Known removed tuples still lose authority, and cannot rebind from queued data.
+                    if (removed.Length > 0)
+                    {
+                        var surviving = current.Connections.Except(removed).ToHashSet();
+                        _target = current with { Connections = surviving,
+                            GamePorts = surviving.Select(connection => connection.LocalPort).ToHashSet(),
+                            ServerPorts = surviving.Select(connection => connection.RemotePort).ToHashSet() };
+                        RemoveCapturedConnections(removed);
+                    }
+                    filterRetry = true;
+                    RecordProgressEvent(new(DateTimeOffset.UtcNow, NetworkProgressEventKind.FilterFailed));
+                    SetStatus("Mitschnittfilter konnte nicht erweitert werden. Bestehende Spielverbindungen werden weiter gelesen; ein neuer Versuch folgt.", error: true);
+                    return false;
+                }
+                _installedCoverage = coverage;
+                RecordProgressEvent(new(DateTimeOffset.UtcNow, NetworkProgressEventKind.FilterExpanded));
             }
+            _target = next;
+            RemoveCapturedConnections(removed);
             return true;
         }
     }
 
-    private void CheckConnectionCore()
+    private void RemoveCapturedConnections(IEnumerable<CaptureConnection> removed)
     {
-        if (!Running)
-            return;
-        try
+        foreach (var connection in removed)
         {
-            var target = CaptureTarget.Find();
-            if (target is null)
-            {
-                if (_target is not null)
-                    CloseDevice();
-                SetStatus("Keine Verbindung von AION2 gefunden – läuft das Spiel?");
-                return;
-            }
-            if (_target is { } current && SameConnection(current, target))
-                return;
-            if (TryRetainCapture(target))
-            {
-                SetStatus($"Liest den Spielverkehr {target.Description}.");
-                return;
-            }
-            CloseDevice();
-            OpenDevice(target);
-        }
-        catch (Exception exception) when (exception is PcapException or DllNotFoundException or InvalidOperationException or System.ComponentModel.Win32Exception)
-        {
-            CloseDevice();
-            SetStatus("Mitschnitt nicht möglich: " + exception.Message, error: true);
+            _streams.Remove(connection);
+            ProcessProgressGap(connection.StreamKey);
         }
     }
 
-    private void OpenDevice(CaptureTarget target)
+    internal void CheckConnectionCore()
     {
-        var device = CaptureDeviceList.New().FirstOrDefault(d => string.Equals(d.Name, target.Device, StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException($"Npcap-Gerät {target.Device} nicht gefunden (Loopback-Unterstützung von Npcap aktiv?).");
-        device.OnPacketArrival += OnPacketArrival;
+        CaptureTarget? before;
+        long generation, revision;
         lock (_gate)
         {
+            if (!Running) return;
+            before = _target; generation = _generation; revision = ++_ownershipRevision;
+        }
+        try
+        {
+            // Both periodic and first-packet native reads run outside both locks. A newer proof
+            // adopted while this read was in flight must not be revoked by its stale result.
+            var target = PeriodicOwnershipReader();
+            UpdateCaptureTargetIfCurrent(target, before, generation, revision);
+        }
+        catch (Exception exception) when (exception is PcapException or DllNotFoundException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            lock (_connectionGate)
+            {
+                if (!CloseDeviceIfCurrent(before, generation, revision)) return;
+                SetStatus("Mitschnitt nicht möglich: " + exception.Message, error: true);
+            }
+        }
+    }
+
+    /// <summary>Apply one TCP ownership snapshot without opening a device in synthetic retention tests.</summary>
+    internal void UpdateCaptureTarget(CaptureTarget? target)
+    {
+        if (!Monitor.IsEntered(_gate)) { UpdateCaptureTargetIfCurrent(target, null, null); return; }
+        _ownershipRevision++;
+        if (!Running) return;
+        if (_target is { } current && target is not null && CanRetainCapture(current, target, _installedCoverage))
+        {
+            TryRetainCapture(target);
+            return;
+        }
+        CloseDevice();
+        var generation = _generation;
+        QueueDeviceLifecycle(() =>
+        {
+            lock (_gate) if (!Running || generation != _generation || _target is not null) return;
+            if (target is not null) OpenDevice(target, generation);
+        });
+    }
+
+    private void UpdateCaptureTargetIfCurrent(CaptureTarget? target, CaptureTarget? expected, long? expectedGeneration, long? expectedRevision = null)
+    {
+        lock (_connectionGate)
+        {
+            CaptureTarget? current;
+            long generation;
+            lock (_gate)
+            {
+                if (!Running || expectedGeneration is { } epoch &&
+                    (epoch != _generation || !ReferenceEquals(expected, _target)) ||
+                    expectedRevision is { } observation && observation != _ownershipRevision) return;
+                // Even a same/null snapshot is a newer native observation than an in-flight probe.
+                _ownershipRevision++;
+                current = _target; generation = _generation;
+                if (target is not null)
+                {
+                    if (current is not null && SameConnection(current, target))
+                    {
+                        if (StatusIsError && _device is not null) SetStatus($"Liest den Spielverkehr {target.Description}.");
+                        return;
+                    }
+                    if (TryRetainCapture(target, out var filterRetry))
+                    {
+                        SetStatus($"Liest den Spielverkehr {target.Description}.");
+                        return;
+                    }
+                    if (filterRetry) return;
+                }
+            }
+            // Detach atomically, but never hold _gate while StopCapture can wait for its callback.
+            if (current is not null && !CloseDeviceIfCurrent(current, generation)) return;
+            if (target is null)
+            {
+                SetStatus("Keine Verbindung von AION2 gefunden – läuft das Spiel?");
+                return;
+            }
+            if (current is null && !CloseDeviceIfCurrent(null, generation)) return;
+            OpenDevice(target, generation + 1);
+        }
+    }
+
+    private void OpenDevice(CaptureTarget target, long expectedGeneration)
+    {
+        lock (_gate)
+            if (!Running || expectedGeneration != _generation || _device is not null || _target is not null) return;
+        var device = CaptureDeviceList.New().FirstOrDefault(d => string.Equals(d.Name, target.Device, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"Npcap-Gerät {target.Device} nicht gefunden (Loopback-Unterstützung von Npcap aktiv?).");
+        lock (_gate)
+        {
+            // Enumeration runs outside the gate. Stop or a reentrant reset may have won since
+            // the first check; an unopened device must not be claimed by that obsolete request.
+            if (!Running || expectedGeneration != _generation || _device is not null || _target is not null) return;
+            device.OnPacketArrival += OnPacketArrival;
             _device = device;
             _target = target;
             _installedCoverage = target.RemoteEndpoints.ToHashSet();
             _streams.Clear();
         }
-        // Register before capture starts; CloseDevice also cleans up a failed open.
-        device.Open(new DeviceConfiguration { Mode = DeviceModes.None, ReadTimeout = 250 });
-        device.Filter = target.Filter;
-        device.StartCapture();
-        SetStatus($"Liest den Spielverkehr {target.Description}.");
+        // Native operations stay outside the gate. A callback can stop the source while an
+        // operation is in flight; the detached handle is then closed by its queued lifecycle.
+        try
+        {
+            device.Open(new DeviceConfiguration { Mode = DeviceModes.None, ReadTimeout = 250 });
+            device.Filter = target.Filter;
+            lock (_gate)
+                if (!Running || expectedGeneration != _generation || !ReferenceEquals(device, _device)) return;
+            device.StartCapture();
+            lock (_gate)
+                if (Running && expectedGeneration == _generation && ReferenceEquals(device, _device))
+                    SetStatus($"Liest den Spielverkehr {target.Description}.");
+        }
+        catch (Exception error)
+        {
+            if (CloseDeviceIfCurrent(target, expectedGeneration) && Running)
+                SetStatus("Mitschnitt nicht möglich: " + error.Message, error: true);
+            throw;
+        }
     }
 
-    private void CloseDevice()
+    private void CloseDevice() => CloseDeviceIfCurrent(null, null);
+
+    private bool CloseDeviceIfCurrent(CaptureTarget? expected, long? expectedGeneration, long? expectedRevision = null)
     {
+        var reentrant = Monitor.IsEntered(_gate);
         ILiveDevice? device;
         lock (_gate)
         {
+            if (expectedGeneration is { } epoch && (epoch != _generation || !ReferenceEquals(expected, _target)) ||
+                expectedRevision is { } observation && observation != _ownershipRevision) return false;
             device = _device;
             _device = null;
             _target = null;
             _installedCoverage = new HashSet<CaptureEndpoint>();
             _streams.Clear();
+            ClearIncomingPacketsLocked(invalidate: false);
             _generation++;
+            _ownershipRevision++;
             ResetProgressContext(Running ? "capture-closed" : "capture-stopped");
         }
         BossSessionReset?.Invoke();
-        if (device is null)
-            return;
+        if (device is null) return true;
+        if (reentrant) QueueDeviceLifecycle(() => CloseDetachedDevice(device));
+        else CloseDetachedDevice(device);
+        return true;
+    }
+
+    private void QueueDeviceLifecycle(Action action)
+    {
+        lock (_gate)
+            _deviceLifecycleTask = _deviceLifecycleTask.ContinueWith(_ =>
+            {
+                lock (_connectionGate) action();
+            }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+    }
+
+    private void CloseDetachedDevice(ILiveDevice device)
+    {
         try
         {
             device.StopCapture();
@@ -336,23 +528,192 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
 
     private void OnPacketArrival(object sender, PacketCapture capture)
     {
-        var raw = capture.GetPacket();
+        ProcessDevicePacket(sender, capture.GetPacket());
+    }
+
+    /// <summary>
+    /// Preserve an eligible first packet until a fresh native snapshot proves its exact game-owned tuple.
+    /// Native reads and waits never hold either capture lock; this path never changes the device/filter.
+    /// </summary>
+    internal void ProcessDevicePacket(object sender, RawCapture raw)
+    {
         lock (_gate)
         {
-            if (!Running || !ReferenceEquals(sender, _device)) return;
-            ProcessCapturedPacket(raw);
+            if (!Running || !ReferenceEquals(sender, _device) || _target is not { Connections: not null } target) return;
+            Packets++;
+            DropExpiredIncomingPacketsLocked(IncomingOwnershipUtcNow());
+            if (!Running || !ReferenceEquals(sender, _device) || _target is not { Connections: not null } current) return;
+            target = current;
+            var packet = Packet.ParsePacket(raw.LinkLayerType, raw.Data);
+            if (packet.Extract<TcpPacket>() is not { } tcp || packet.Extract<IPPacket>() is not { } ip) return;
+            var flow = new IncomingFlow(ip.SourceAddress.ToString(), tcp.SourcePort, ip.DestinationAddress.ToString(), tcp.DestinationPort);
+            var owned = target.Connections.Any(flow.Matches);
+            if (owned && !_incomingBarriers.Contains(flow))
+            {
+                DispatchCapturedPacket(raw, countPacket: false);
+                return;
+            }
+            if (!_incomingBarriers.Contains(flow) &&
+                (tcp.PayloadData is not { Length: > 0 } || !_installedCoverage.Contains(new(flow.RemoteAddress, flow.RemotePort)))) return;
+            if (raw.Data.Length > MaxIncomingBytes - _incomingBytes || _incomingPackets.Count >= MaxIncomingPackets ||
+                !_incomingBarriers.Contains(flow) && _incomingBarriers.Count >= MaxIncomingFlows)
+            {
+                _incomingDroppedPackets++;
+                ClearIncomingPacketsLocked(invalidate: true);
+                return;
+            }
+            _incomingBarriers.Add(flow);
+            var retained = new RawCapture(raw.LinkLayerType, raw.Timeval, raw.Data.ToArray(), null);
+            _incomingPackets.Add(new(flow, retained, sender, _generation, IncomingOwnershipUtcNow()));
+            _incomingBytes += retained.Data.Length;
+            StartIncomingProbeLocked();
         }
     }
 
+    private void StartIncomingProbeLocked()
+    {
+        if (_incomingProbeRunning || _incomingPackets.Count == 0 || !Running) return;
+        _incomingProbeRunning = true;
+        _incomingProbeTask = Task.Run(ProbeIncomingOwnership);
+    }
+
+    private async Task ProbeIncomingOwnership()
+    {
+        try
+        {
+            while (true)
+            {
+                CaptureTarget target;
+                object device;
+                long generation, revision;
+                TimeSpan delay;
+                Func<CaptureTarget?> reader;
+                Func<TimeSpan, Task> wait;
+                lock (_gate)
+                {
+                    DropExpiredIncomingPacketsLocked(IncomingOwnershipUtcNow());
+                    DrainOwnedIncomingPacketsLocked();
+                    if (!Running || _device is null || _target is null || _incomingPackets.Count == 0) return;
+                    target = _target; device = _device; generation = _generation;
+                    var now = IncomingOwnershipUtcNow();
+                    if (_lastIncomingProbeAt is { } previous && now < previous) _lastIncomingProbeAt = null;
+                    delay = _lastIncomingProbeAt is { } last ? IncomingProbeInterval - (now - last) : TimeSpan.Zero;
+                    var remaining = _incomingPackets.Min(packet => packet.At) + IncomingPacketLifetime - now;
+                    if (delay > remaining) delay = remaining;
+                    reader = IncomingOwnershipReader;
+                    wait = IncomingOwnershipWait;
+                    revision = _ownershipRevision;
+                    if (delay <= TimeSpan.Zero) { _lastIncomingProbeAt = now; _incomingProbes++; revision = ++_ownershipRevision; }
+                }
+                if (delay > TimeSpan.Zero)
+                {
+                    await wait(delay).ConfigureAwait(false);
+                    continue;
+                }
+                CaptureTarget? native = null;
+                try { native = reader(); }
+                catch (Exception)
+                {
+                    // A failed/empty native lookup cannot revoke the independently established old ownership.
+                }
+                lock (_gate)
+                {
+                    DropExpiredIncomingPacketsLocked(IncomingOwnershipUtcNow());
+                    if (!Running || generation != _generation || !ReferenceEquals(device, _device)) continue;
+                    if (revision == _ownershipRevision && ReferenceEquals(target, _target) && native is { Connections: not null } &&
+                        string.Equals(native.Device, target.Device, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var covered = native.Connections.Where(connection => _installedCoverage.Contains(connection.RemoteEndpoint)).ToHashSet();
+                        // A consistent native snapshot is usable only after it proves an actual queued incoming tuple.
+                        if (_incomingPackets.Any(pending => pending.Generation == generation && ReferenceEquals(pending.Device, device)
+                            && covered.Any(pending.Flow.Matches)))
+                        {
+                            var removed = target.Connections!.Except(covered).ToArray();
+                            _target = target with { Connections = covered,
+                                GamePorts = covered.Select(connection => connection.LocalPort).ToHashSet(),
+                                ServerPorts = covered.Select(connection => connection.RemotePort).ToHashSet() };
+                            RemoveCapturedConnections(removed);
+                        }
+                    }
+                    // A periodic native refresh may already own the flow. Never adopt the now-stale probe snapshot.
+                    DrainOwnedIncomingPacketsLocked();
+                }
+            }
+        }
+        catch
+        {
+            // A failing injected wait or unexpected callback must not cause a finally/restart hot loop.
+            lock (_gate) ClearIncomingPacketsLocked(invalidate: true);
+            throw;
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _incomingProbeRunning = false;
+                StartIncomingProbeLocked();
+            }
+        }
+    }
+
+    private void DrainOwnedIncomingPacketsLocked()
+    {
+        for (var index = 0; index < _incomingPackets.Count;)
+        {
+            var pending = _incomingPackets[index];
+            if (!Running || pending.Generation != _generation || !ReferenceEquals(pending.Device, _device))
+            {
+                DropIncomingFlowLocked(pending.Flow, invalidate: false);
+                index = 0;
+                continue;
+            }
+            if (_target?.Connections?.Any(pending.Flow.Matches) != true) { index++; continue; }
+            _incomingPackets.RemoveAt(index);
+            _incomingBytes -= pending.Raw.Data.Length;
+            // Keep its barrier during dispatch: callbacks may supply the next bytes of this same flow.
+            DispatchCapturedPacket(pending.Raw, countPacket: false);
+            if (!_incomingPackets.Any(item => item.Flow == pending.Flow)) _incomingBarriers.Remove(pending.Flow);
+            index = 0;
+        }
+    }
+
+    private void DropExpiredIncomingPacketsLocked(DateTimeOffset now)
+    {
+        foreach (var flow in _incomingPackets.Where(packet => now < packet.At || now - packet.At >= IncomingPacketLifetime)
+            .Select(packet => packet.Flow).Distinct().ToArray()) DropIncomingFlowLocked(flow, invalidate: true);
+    }
+
+    private void DropIncomingFlowLocked(IncomingFlow flow, bool invalidate)
+    {
+        var dropped = _incomingPackets.Where(packet => packet.Flow == flow).ToArray();
+        _incomingPackets.RemoveAll(packet => packet.Flow == flow);
+        _incomingBytes -= dropped.Sum(packet => packet.Raw.Data.Length);
+        _incomingDroppedPackets += dropped.Length;
+        _incomingBarriers.Remove(flow);
+        if (!invalidate) return;
+        foreach (var connection in _target?.Connections?.Where(flow.Matches).ToArray() ?? [])
+        {
+            _streams.Remove(connection);
+            ProcessProgressGap(connection.StreamKey);
+        }
+    }
+
+    private void ClearIncomingPacketsLocked(bool invalidate)
+    {
+        foreach (var flow in _incomingBarriers.ToArray()) DropIncomingFlowLocked(flow, invalidate);
+    }
+
     /// <summary>Strict live dispatch, also usable with synthetic packets without opening a capture device.</summary>
-    internal void ProcessCapturedPacket(RawCapture raw)
+    internal void ProcessCapturedPacket(RawCapture raw) => DispatchCapturedPacket(raw, countPacket: true);
+
+    private void DispatchCapturedPacket(RawCapture raw, bool countPacket)
     {
         // Keep Feed and dispatch under the same gate as target refresh. An already decoded identity
         // from a removed connection must not be rebound after its scoped invalidation.
         lock (_gate)
         {
             if (!Running || _target is not { } target) return;
-            Packets++;
+            if (countPacket) Packets++;
             var messages = FeedOwn(_streams, raw, target);
             Messages += messages.Count(message => message.Data.Length > 0);
             Resyncs = _streams.Values.Sum(stream => stream.Messages.Resyncs);
@@ -362,8 +723,13 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 if (!Running || generation != _generation) break;
                 // Event handlers may refresh ownership reentrantly on this thread as well.
                 if (received.Stream != "*" && _target?.Connections?.Any(connection => connection.StreamKey == received.Stream) != true) break;
+                if (received.Transport is not null && !_streams.Any(pair => pair.Key.StreamKey == received.Stream &&
+                    ReferenceEquals(pair.Value.Messages, received.Transport))) break;
                 if (received.Gap)
                 {
+                    if (received.EndStream)
+                        foreach (var connection in _streams.Keys.Where(connection => connection.StreamKey == received.Stream).ToArray())
+                            _streams.Remove(connection);
                     ProcessProgressGap(received.Stream);
                     continue;
                 }
@@ -383,7 +749,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             return [];
         foreach (var connection in target.Connections)
             if (connection.MatchesIncoming(ip.SourceAddress, tcp.SourcePort, ip.DestinationAddress, tcp.DestinationPort))
-                return FeedPacket(streams, tcp, connection, connection.StreamKey);
+                return FeedPacket(streams, tcp, connection, connection.StreamKey, deferFinish: true);
         return [];
     }
 
@@ -402,7 +768,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     }
 
     private static List<ReceivedMessage> FeedPacket<TKey>(Dictionary<TKey, (TcpReassembler Tcp, GameMessageStream Messages)> streams,
-        TcpPacket tcp, TKey key, string streamKey) where TKey : notnull
+        TcpPacket tcp, TKey key, string streamKey, bool deferFinish = false) where TKey : notnull
     {
         var result = new List<ReceivedMessage>();
         // A reset has no deliverable tail. Report closure even when the control packet has no payload.
@@ -445,14 +811,14 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 var decoded = stream.Messages.Append(chunk.Data);
                 if (stream.Messages.Resyncs > before.Resyncs || stream.Messages.ContinuityBreaks > before.ContinuityBreaks)
                     result.Add(new ReceivedMessage(streamKey, [], Gap: true));
-                result.AddRange(decoded.Select(message => new ReceivedMessage(streamKey, message)));
+                result.AddRange(decoded.Select(message => new ReceivedMessage(streamKey, message, Transport: stream.Messages)));
             }
         }
-        // FIN may carry the final complete messages; their resulting state is invalidated afterwards.
+        // Live dispatch retains this transport until its complete FIN payload has been delivered.
         if (tcp.Finished)
         {
-            streams.Remove(key);
-            result.Add(new ReceivedMessage(streamKey, [], Gap: true));
+            if (!deferFinish) streams.Remove(key);
+            result.Add(new ReceivedMessage(streamKey, [], Gap: true, EndStream: deferFinish));
         }
         return result;
     }
@@ -464,7 +830,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         BossStreamGap?.Invoke(stream);
         lock (_gate)
         {
-            if (stream != "*" && _identityStream != stream && _entryCandidate?.Stream != stream) return;
+            if (stream != "*" && _identityStream != stream && _entryCandidate?.Stream != stream &&
+                _petContinuity?.Stream != stream && _petContinuityFlight?.Stream != stream) return;
             ResetProgressContext("stream-gap");
             SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
         }
@@ -476,14 +843,20 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         lock (_gate)
         {
             ExpireEntryCandidate(at);
+            ExpirePetContinuity(at);
             if (message.Length < 2) return;
             var opcode = (ushort)(message[0] | message[1] << 8);
+            if (_identity is null && _petContinuityFlight is { } flight && flight.Stream == stream &&
+                opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014)
+                flight.UnreadPet = true;
             if (opcode == 0x3620)
             {
                 // An unknown entry shape also suspends old authority on this same stream. It must
                 // never let the next character's snapshots mutate the previously bound profile.
                 if (_identity is not null && _identityStream != stream ||
-                    _entryCandidate is { } other && other.Stream != stream) return;
+                    _entryCandidate is { } other && other.Stream != stream ||
+                    _petContinuity is { } carriedOther && carriedOther.Stream != stream ||
+                    _petContinuityFlight is { } inFlightOther && inFlightOther.Stream != stream) return;
                 ResetProgressContext("world-entry-candidate", at);
                 if (OwnIdentityMessage.TryParseEntryCandidate(message) is { } tentative)
                     _entryCandidate = new(stream, tentative.CharacterId, tentative.EntityKey, at);
@@ -498,16 +871,33 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             if (OwnIdentityMessage.IsWorldEntryPreparation(message))
             {
                 if (_identity is not null && _identityStream != stream ||
-                    _entryCandidate is { } other && other.Stream != stream) return;
+                    _entryCandidate is { } other && other.Stream != stream ||
+                    _petContinuity is { } carriedOther && carriedOther.Stream != stream ||
+                    _petContinuityFlight is { } inFlightOther && inFlightOther.Stream != stream) return;
                 var candidate = _entryCandidate;
-                ResetProgressContext("world-entry-preparation", at);
-                // This is deliberately not a generic prefix carry: only the separately anchored
-                // transaction survives its first Prepare, and a second Prepare discards it.
-                if (candidate is { Prepared: false })
+                PetContinuity? petCarry = null;
+                if (_identity is { } current && _identityStream == stream && PetBaselineAt is { } baselineAt && !_petFormatRejected &&
+                    progress.CaptureNetworkContinuity(new(current, _progressGeneration, _progressSequence, at)) is { } token)
+                    petCarry = new(stream, current.ServerId, _generation, at, baselineAt, _petActivityAt, token);
+                var preparedGeneration = _progressGeneration + 1;
+                var carryFlight = BeginPetContinuityFlight(petCarry);
+                try
                 {
-                    candidate.Prepared = true;
-                    _entryCandidate = candidate;
+                    ResetProgressContext("world-entry-preparation", at);
+                    // This is deliberately not a generic prefix carry: only the separately anchored
+                    // transaction survives its first Prepare, and a second Prepare discards it.
+                    if (_progressGeneration == preparedGeneration && _identity is null)
+                    {
+                        if (candidate is { Prepared: false })
+                        {
+                            candidate.Prepared = true;
+                            _entryCandidate = candidate;
+                        }
+                        if (PetContinuityFlightMatches(carryFlight))
+                            _petContinuity = petCarry;
+                    }
                 }
+                finally { EndPetContinuityFlight(carryFlight); }
                 BossSessionReset?.Invoke();
                 SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
                 return;
@@ -519,7 +909,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             }
             if (opcode is 0x3633 or 0x3621)
             {
-                if (_identityStream == stream || _entryCandidate?.Stream == stream)
+                if (_identityStream == stream || _entryCandidate?.Stream == stream || _petContinuity?.Stream == stream ||
+                    _petContinuityFlight?.Stream == stream)
                 {
                     RecordProgressRejection(opcode, at);
                     ResetProgressContext("unsupported-own-entry", at);
@@ -528,15 +919,31 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 }
                 return;
             }
-            if (opcode is not (0x9000 or 0x9009 or 0x900D or 0x900E or 0x9232 or 0x9233 or 0x8D09 or 0x6101))
+            // An unread pet update means the saved balance/level could have changed during
+            // the unbound transition, including an explicit automatic level-up result.
+            if (_identity is null && _petContinuity?.Stream == stream && opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014)
+                ResetProgressContext("pet-continuity-unread", at);
+            if (opcode is not (0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014 or 0x9232 or 0x9233 or 0x8D09 or 0x6101))
                 return;
             if (_identity is null)
             {
+                // A later delta invalidates only the earlier pet snapshot in this tentative
+                // transaction. Never replay the delta or discard independent quest/teleport lists.
+                if (opcode is 0x9009 or 0x900D or 0x900E or 0x9014 &&
+                    _entryCandidate is { } pending && pending.Stream == stream)
+                    RemoveEntryBaseline(pending, 0x9000);
+                if (opcode == 0x900D && LootMessage.TryParse(message) is { } unboundGains)
+                {
+                    _unboundSoulMessages++;
+                    _unboundSoulPoints += unboundGains.Sum(gain => (long)gain.Souls);
+                }
                 BufferEntryBaseline(stream, opcode, message, at);
                 return;
             }
             if (_identityStream != stream)
                 return;
+            var sourceIndex = ProgressSourceIndex(opcode);
+            if (sourceIndex >= 0) _sourceRevisions[sourceIndex]++;
             var context = new NetworkProgressContext(_identity, _progressGeneration, ++_progressSequence, at);
             var accepted = false;
             var parsed = false;
@@ -545,12 +952,23 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 case 0x9000 when PetProgressMessage.TryParseSnapshot(message) is { } snapshot:
                     parsed = true;
                     accepted = progress.ApplyNetworkSnapshot(snapshot, context);
-                    if (accepted) { PetBaselineAt = at; _petFormatRejected = false; }
+                    if (accepted)
+                    {
+                        PetBaselineAt = at; _petFormatRejected = false;
+                        RecordProgressEvent(new(at, NetworkProgressEventKind.Snapshot, opcode,
+                            Count: snapshot.Levels.Keys.Concat(snapshot.AvailableSouls.Keys).Distinct().Count()));
+                    }
                     break;
                 case 0x9009 when PetProgressMessage.TryParseAcquired(message) is { } acquired:
                     parsed = true;
                     if (acquired.EntityKey == _identity.EntityKey)
                         accepted = progress.ApplyNetworkAcquisition(acquired, context);
+                    if (accepted) RecordProgressEvent(new(at, NetworkProgressEventKind.Acquired, opcode, acquired.PetNumber, acquired.Level));
+                    break;
+                case 0x9014 when PetProgressMessage.TryParseUpgrade(message) is { } upgrade:
+                    parsed = true;
+                    accepted = progress.ApplyNetworkUpgrade(upgrade, context);
+                    if (accepted) RecordProgressEvent(new(at, NetworkProgressEventKind.Upgraded, opcode, upgrade.PetNumber, upgrade.Level));
                     break;
                 case 0x900D when LootMessage.TryParse(message) is { } gains:
                     parsed = true;
@@ -560,12 +978,17 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                         _acceptedSoulMessages++;
                         _acceptedSoulPoints += gains.Sum(gain => (long)gain.Souls);
                         _lastSoulAt = at;
+                        foreach (var gain in gains)
+                            RecordProgressEvent(new(at, NetworkProgressEventKind.Gained, opcode, gain.PetNumber, Souls: gain.Souls));
                         Count(gains, at);
                     }
                     break;
                 case 0x900E when PetProgressMessage.TryParseSpent(message) is { } spent:
                     parsed = true;
                     accepted = progress.ApplyNetworkSpent(spent, context);
+                    if (accepted)
+                        foreach (var spend in spent)
+                            RecordProgressEvent(new(at, NetworkProgressEventKind.Spent, opcode, spend.PetNumber, Souls: spend.Souls));
                     break;
                 case 0x9232 when ExplorationProgressMessage.TryParseTeleports(message) is { } teleports:
                     parsed = true;
@@ -625,19 +1048,46 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             }
             if (accepted)
             {
-                if (opcode is 0x9000 or 0x9009 or 0x900D or 0x900E) _petActivityAt = at;
+                if (opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014) _petActivityAt = at;
                 UpdateProgressStatus();
                 SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
             }
         }
     }
 
+    private static int ProgressSourceIndex(ushort opcode) => opcode switch
+    {
+        0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014 => 0,
+        0x8D09 => 1,
+        0x9232 or 0x9233 => 2,
+        _ => -1,
+    };
+
     private void RecordProgressRejection(int opcode, DateTimeOffset at)
     {
         _rejectedProgressMessages++;
         _lastRejectedOpcode = (ushort)opcode;
         _lastRejectedAt = at;
+        RecordProgressEvent(new(at, NetworkProgressEventKind.Rejected, (ushort)opcode));
     }
+
+    private void RecordProgressEvent(NetworkProgressDiagnosticEvent entry)
+    {
+        lock (_gate)
+        {
+            if (_progressEvents.Count >= 128) _progressEvents.Dequeue();
+            _progressEvents.Enqueue(entry with { At = entry.At.ToUniversalTime() });
+        }
+    }
+
+    private static string DiagnosticResetReason(string reason) => reason switch
+    {
+        "manual" or "capture-closed" or "capture-stopped" or "stream-gap" or "world-entry-candidate" or
+        "world-entry-preparation" or "unsupported-own-entry" or "entry-candidate-expired" or
+        "duplicate-entry-baseline" or "unsupported-entry-baseline" or "world-entry" or "identity-bind-rejected" or
+        "pet-continuity-expired" or "pet-continuity-unread" => reason,
+        _ => "other",
+    };
 
     private void UpdateProgressStatus()
     {
@@ -670,18 +1120,19 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
     }
 
+    private void ExpirePetContinuity(DateTimeOffset at)
+    {
+        if (_petContinuity is not { } carry || at >= carry.PreparedAt && at - carry.PreparedAt <= EntryCandidateLifetime) return;
+        ResetProgressContext("pet-continuity-expired", at);
+        SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+    }
+
     private void BufferEntryBaseline(string stream, ushort opcode, byte[] message, DateTimeOffset at)
     {
         if (_entryCandidate is not { } candidate || candidate.Stream != stream || _pendingProgressOverflow ||
             opcode is not (0x9000 or 0x8D09 or 0x9232)) return;
         // One candidate globally and one packet per full source are stricter than the former
         // eight-stream/256-message/4 MiB caps; keep the former 2 MiB per-stream bound as well.
-        if (candidate.Sources.Contains(opcode))
-        {
-            ResetProgressContext("duplicate-entry-baseline", at);
-            SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
-            return;
-        }
         if (candidate.Baselines.Count >= 256 || message.Length > 2 * 1024 * 1024 - candidate.Bytes ||
             message.Length > 4 * 1024 * 1024 - candidate.Bytes)
         {
@@ -698,15 +1149,37 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         if (!decoded)
         {
             RecordProgressRejection(opcode, at);
-            ResetProgressContext("unsupported-entry-baseline", at);
+            // A schema failure is source-specific. It cannot invalidate the independent identity
+            // correlation or discard another fully decoded source; this source never gets replayed.
+            RemoveEntryBaseline(candidate, opcode);
+            candidate.RejectedSources.Add(opcode); // only the three bounded full-source opcodes enter here
             ProgressStatus = "Netzwerkformat nicht unterstützt. Gespeicherter Fortschritt bleibt erhalten.";
             SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
             return;
         }
+        if (candidate.Sources.Contains(opcode))
+        {
+            ResetProgressContext("duplicate-entry-baseline", at);
+            SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+            return;
+        }
+        candidate.RejectedSources.Remove(opcode);
         candidate.Baselines.Add((message.ToArray(), at));
         candidate.Sources.Add(opcode);
         candidate.Bytes += message.Length;
         SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+    }
+
+    private static void RemoveEntryBaseline(EntryCandidate candidate, ushort opcode)
+    {
+        if (!candidate.Sources.Remove(opcode)) return;
+        for (var index = candidate.Baselines.Count - 1; index >= 0; index--)
+        {
+            var item = candidate.Baselines[index];
+            if (item.Message.Length < 2 || item.Message[0] != (byte)(opcode & 0xFF) || item.Message[1] != (byte)(opcode >> 8)) continue;
+            candidate.Bytes -= item.Message.Length;
+            candidate.Baselines.RemoveAt(index);
+        }
     }
 
     private void OverflowPending()
@@ -717,38 +1190,90 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
     }
 
+    private PetContinuityFlight? BeginPetContinuityFlight(PetContinuity? carry)
+    {
+        if (carry is null) return null;
+        return _petContinuityFlight = new(carry.Stream);
+    }
+
+    private bool PetContinuityFlightMatches(PetContinuityFlight? flight) =>
+        flight is not null && ReferenceEquals(_petContinuityFlight, flight) && !flight.UnreadPet;
+
+    private void EndPetContinuityFlight(PetContinuityFlight? flight)
+    {
+        if (flight is not null && ReferenceEquals(_petContinuityFlight, flight)) _petContinuityFlight = null;
+    }
+
+    private bool OwnBindingMatches(string stream, OwnCharacterIdentity identity, NetworkProgressContext context, long captureGeneration) =>
+        _generation == captureGeneration && _progressGeneration == context.Generation && _identity == identity && _identityStream == stream;
+
     internal void ObserveIdentity(string stream, OwnCharacterIdentity identity, DateTimeOffset at)
     {
         lock (_gate)
         {
             ExpireEntryCandidate(at);
+            ExpirePetContinuity(at);
+            var captureGeneration = _generation;
+            var petCarry = _petContinuity is { } carry && carry.Stream == stream && carry.ServerId == identity.ServerId &&
+                carry.CaptureGeneration == captureGeneration ? carry : null;
             // The full Own supplies the server/name and must confirm the tentative character id.
             // No arbitrary prefix, delta or previous transaction is ever replayed on a new Own.
-            var pending = _entryCandidate is { Prepared: true } candidate && candidate.Stream == stream &&
-                candidate.CharacterId == identity.CharacterId && candidate.EntityKey == identity.EntityKey
-                ? candidate.Baselines.ToArray() : [];
-            ResetProgressContext("world-entry", at);
-            _identity = identity;
-            _identityStream = stream;
-            Character = identity.Name;
-            var context = new NetworkProgressContext(identity, _progressGeneration, 0, at);
-            if (!progress.BindNetworkContext(context))
+            var transaction = _entryCandidate is { Prepared: true } candidate && candidate.Stream == stream &&
+                candidate.CharacterId == identity.CharacterId && candidate.EntityKey == identity.EntityKey ? candidate : null;
+            var pending = transaction?.Baselines.ToArray() ?? [];
+            var rejectedSources = transaction?.RejectedSources.ToArray() ?? [];
+            var ownGeneration = _progressGeneration + 1;
+            var carryFlight = BeginPetContinuityFlight(petCarry);
+            try
             {
-                ResetProgressContext("identity-bind-rejected", at);
-                return;
+                ResetProgressContext("world-entry", at);
+                if (_generation != captureGeneration || _progressGeneration != ownGeneration || _identity is not null) return;
+                _identity = identity;
+                _identityStream = stream;
+                Character = identity.Name;
+                // Carry only warnings from the matching transaction, before any synchronous service
+                // or Own callbacks. A newer valid nested full source is then free to heal its flag.
+                _petFormatRejected = rejectedSources.Contains((ushort)0x9000);
+                _questFormatRejected = rejectedSources.Contains((ushort)0x8D09);
+                _teleportFormatRejected = rejectedSources.Contains((ushort)0x9232);
+                var sourceRevisions = _sourceRevisions.ToArray();
+                var context = new NetworkProgressContext(identity, ownGeneration, 0, at);
+                if (!progress.BindNetworkContext(context))
+                {
+                    ResetProgressContext("identity-bind-rejected", at);
+                    return;
+                }
+                if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
+                exploration?.BindNetworkContext(context);
+                if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
+                var petRestored = petCarry is not null && PetContinuityFlightMatches(carryFlight) &&
+                    progress.TryRestoreNetworkContinuity(petCarry.Token, context);
+                // Restore raises Changed too. A callback may reset the session or reject this
+                // source; neither can be overwritten by the old token's confirmation timestamp.
+                if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
+                petRestored &= PetContinuityFlightMatches(carryFlight) && !_petFormatRejected;
+                if (petRestored)
+                {
+                    // A valid nested snapshot/activity is newer than the carried observation.
+                    PetBaselineAt ??= petCarry!.BaselineAt;
+                    _petActivityAt ??= petCarry!.ActivityAt;
+                }
+                _identityBindings++;
+                ProgressStatus = "Charakter erkannt. Warte auf Netzwerk-Fortschrittsdaten.";
+                if (petRestored || PetBaselineAt is not null || rejectedSources.Length > 0) UpdateProgressStatus();
+                BossSessionReset?.Invoke();
+                OwnCharacterEntered?.Invoke(identity);
+                CharacterEntered?.Invoke(identity.Name);
+                foreach (var item in pending)
+                {
+                    if (!OwnBindingMatches(stream, identity, context, captureGeneration)) break;
+                    var sourceIndex = ProgressSourceIndex((ushort)(item.Message[0] | item.Message[1] << 8));
+                    if (sourceIndex >= 0 && _sourceRevisions[sourceIndex] != sourceRevisions[sourceIndex]) continue;
+                    ProcessProgressMessage(stream, item.Message, item.At);
+                }
+                SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
             }
-            exploration?.BindNetworkContext(context);
-            _identityBindings++;
-            ProgressStatus = "Charakter erkannt. Warte auf Netzwerk-Fortschrittsdaten.";
-            BossSessionReset?.Invoke();
-            OwnCharacterEntered?.Invoke(identity);
-            CharacterEntered?.Invoke(identity.Name);
-            foreach (var item in pending)
-            {
-                if (_progressGeneration != context.Generation || _identity != identity || _identityStream != stream) break;
-                ProcessProgressMessage(stream, item.Message, item.At);
-            }
-            SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+            finally { EndPetContinuityFlight(carryFlight); }
         }
     }
 
@@ -756,9 +1281,11 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     {
         lock (_gate)
         {
+            if (reason == "manual") ClearIncomingPacketsLocked(invalidate: false);
             _contextResets++;
             _lastResetReason = reason;
             _lastResetAt = at ?? DateTimeOffset.UtcNow;
+            RecordProgressEvent(new(_lastResetAt.Value, NetworkProgressEventKind.Reset, ResetReason: DiagnosticResetReason(reason)));
             _petFormatRejected = _questFormatRejected = _teleportFormatRejected = _dungeonFormatRejected = _kibeliskFormatRejected = false;
             _dungeonActivityAt = _kibeliskActivityAt = null;
             _progressGeneration++;
@@ -767,6 +1294,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             _identityStream = null;
             Character = null;
             _entryCandidate = null;
+            _petContinuity = null;
             _pendingProgressOverflow = false;
             PetBaselineAt = QuestBaselineAt = TeleportBaselineAt = null;
             _petActivityAt = null;

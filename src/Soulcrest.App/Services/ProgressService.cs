@@ -15,7 +15,7 @@ public sealed record LoggedSoul(DateTimeOffset At, string PetId, int Quantity, s
 public sealed record MapInfo(string Id, string Label, string Group, double? MetersPerPixel = null);
 
 /// <summary>Pet catalog plus the per-server progress profile. Thread-safe; UI listens to Changed.</summary>
-public sealed class ProgressService
+public sealed partial class ProgressService
 {
     private readonly object _gate = new();
     private ProgressProfile _profile;
@@ -459,9 +459,11 @@ public sealed class ProgressService
     {
         lock (_gate)
         {
-            if (AvailableSouls(petId) is { } observed) return observed;
+            // Confirmation and the stored balance are independent. A rejected packet must not
+            // reconstruct spent souls from EarnedTotal, which intentionally never falls on spend.
+            if (!EntrySnapshot(petId).ManualOverride && RawFor(petId) is { } raw) return raw.AvailableSouls;
             var level = Level(petId);
-            // A partial balance is only an estimate, relative to the unchanged displayed level.
+            // Legacy-only and manual values retain their existing cumulative-total display.
             return level >= Thresholds.MaxLevel ? 0 : Math.Max(0, Souls(petId) - Thresholds.TotalForLevel(level));
         }
     }
@@ -572,10 +574,31 @@ public sealed class ProgressService
         {
             if (!AcceptContext(context)) return false;
             var raw = NetworkEntry(acquisition.PetNumber);
+            if (raw.LevelObserved && acquisition.Level < raw.Level) return false;
             raw.Level = acquisition.Level;
             raw.LevelObserved = true;
             raw.EarnedTotal = Math.Max(raw.EarnedTotal, Thresholds.TotalForLevel(raw.Level));
             WriteNetworkTotal(acquisition.PetNumber, raw, context);
+            _networkSequence = context.Sequence;
+            PersistNetwork();
+        }
+        SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
+        return true;
+    }
+
+    /// <summary>An own-bound successful result supplies the absolute level; its spending remains a separate message.</summary>
+    public bool ApplyNetworkUpgrade(PetUpgradeResult upgrade, NetworkProgressContext context)
+    {
+        if (upgrade.Result != 0 || upgrade.PetNumber <= 0 || upgrade.Level is < 1 or > 3) return false;
+        lock (_gate)
+        {
+            if (!AcceptContext(context)) return false;
+            var raw = NetworkEntry(upgrade.PetNumber);
+            if (raw.LevelObserved && upgrade.Level < raw.Level) return false;
+            raw.Level = upgrade.Level;
+            raw.LevelObserved = true;
+            raw.EarnedTotal = Math.Max(raw.EarnedTotal, Thresholds.TotalForLevel(raw.Level));
+            WriteNetworkTotal(upgrade.PetNumber, raw, context);
             _networkSequence = context.Sequence;
             PersistNetwork();
         }
@@ -647,7 +670,8 @@ public sealed class ProgressService
         var total = id is not null ? Souls(id) : 0;
         // Preserve the pre-delta legacy estimate separately from the growing earned total.
         // LevelObserved stays false until the game actually supplies an acquired level.
-        raw = new NetworkPetProgress { Level = Thresholds.Level(total), EarnedTotal = total };
+        raw = new NetworkPetProgress { Level = Thresholds.Level(total), EarnedTotal = total,
+            AvailableSouls = Thresholds.SoulsInLevel(total) };
         _profile.NetworkPets[number] = raw;
         return raw;
     }

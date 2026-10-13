@@ -760,7 +760,27 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         // so its local search stays consistent; the coarse search for a lost position keeps full size.
         var fix = LocateAt(locator, frame, locator == fineLocator ? FineFrameScaleFor(region.Size) : 1.0);
         if (fix is not null && candidate != _currentMap && fix.Inliers < SwitchMinInliers)
-            fix = null;
+        {
+            // A detailed minimap can be too weak against the coarse reference to confirm a switch
+            // (Altgard after Abyss: 26 coarse pairs, 73 fine pairs; diagnosis 2026-10-13). Verify the
+            // same candidate and capture at the finer zoom before rejecting it. Keep the 30-pair
+            // switch requirement: a weak coarse hint alone must never publish a position or wake
+            // an inferred instance. Loading here is cancellable and only needed once per map.
+            if (definition.FineZoom > definition.CoarseZoom)
+            {
+                locator = Ready(_fine, candidate) ?? Load(definition, definition.FineZoom, _fine, token);
+                if (watch.Elapsed > MaximumFrameAge)
+                {
+                    // First-time reference building can take seconds. Retry this candidate with a
+                    // new capture instead of publishing the picture from before preparation.
+                    _searchTick--;
+                    return;
+                }
+                fix = LocateAt(locator, frame, FineFrameScaleFor(region.Size));
+            }
+            if (fix is not null && fix.Inliers < SwitchMinInliers)
+                fix = null;
+        }
         // A narrow fix (few pairs) must fit the zoom of the last good one: while the in-game map fades,
         // 14–15 pairs at scale 0.55 instead of 0.89 came up (live log 2026-10-03) and would make the
         // position jump. Zoom is compared in screen pixels per map unit (fine and coarse alike).
@@ -815,8 +835,9 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         if (_currentMap != definition.Id)
         {
             _currentMap = definition.Id;
-            // Prepare the fine reference of the new map in the background.
-            _ = Task.Run(() => Load(definition, definition.FineZoom, _fine, token), token);
+            // A weak coarse candidate may already have needed its fine reference for confirmation.
+            if (Ready(_fine, definition.Id) is null)
+                _ = Task.Run(() => Load(definition, definition.FineZoom, _fine, token), token);
         }
         lock (_flowGate)
         {
@@ -836,6 +857,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             // The map moved on while this frame was being matched: carry the result by the flow since then.
             Placement = new MapPlacement(definition.Id, _drift.Apply(fix), world, region, anchor) { CapturedAt = _flowFrameAt };
         }
+        if (Paused) Resume(null);
         PlacementMoved?.Invoke();
         SetStatus($"{definition.Label}: Position {Position.X:0}, {Position.Y:0} · {fix.Inliers} Treffer · Erkennung {LocateMs} ms · Overlay {Fps} fps · {CaptureMethod}");
     }
@@ -964,6 +986,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         Found = true;
         _inInstance = false;
         DetectedMap = new DetectedMapContext(definition.Id, true, DateTimeOffset.UtcNow);
+        if (Paused) Resume(null);
         PlacementMoved?.Invoke();
         SetStatus($"Weltkarte {definition.Label} offen – Overlay folgt ihr, Position eingefroren · {fix.Inliers} Treffer · Overlay {Fps} fps");
     }
