@@ -19,7 +19,7 @@ public sealed class NetworkInitialSetupStatusTests
 {
     private static readonly DateTimeOffset At = new(2026, 10, 13, 2, 0, 0, TimeSpan.Zero);
     private static readonly OwnCharacterIdentity Own = new(101, 501, 100, "Synthetic setup profile");
-    private const string Confirmation = "Die verfügbaren Daten zu Sealed Dungeons, Strongholds, Kibelisken und Pets wurden für diesen Charakter eingelesen.";
+    private const string Confirmation = "Die gemeinsame Pet-Sammlung und die verfügbaren Erkundungsdaten dieses Charakters wurden eingelesen.";
 
     [Theory]
     [InlineData("de", "Fortschritt einmal einlesen", "Charakterauswahl", "logge dich mit deinem Charakter wieder ein", "Warte auf die Bestätigung unten")]
@@ -83,7 +83,7 @@ public sealed class NetworkInitialSetupStatusTests
     [Theory]
     [InlineData("de")]
     [InlineData("en")]
-    public async Task OwnStreamBindingAndSessionResetGuardTheAvailableDataConfirmation(string language)
+    public async Task ExplorationOwnBindingGuardsSetupWhileTheGlobalPetBaselineAlreadyApplies(string language)
     {
         await using var f = new Fixture(language);
         f.Running();
@@ -97,11 +97,11 @@ public sealed class NetworkInitialSetupStatusTests
         f.Receive(EntryCandidate());
         foreach (var source in new[] { "pet", "quest", "teleport" }) f.Receive(Source(source));
         AssertUnconfirmed(await f.Render<TutorialView>());
-        Assert.Equal(0, f.Progress.Souls("fossa"));
+        Assert.Equal(8, f.Progress.Souls("fossa"));
         Assert.Empty(f.Exploration.Completed);
         f.Receive(Preparation(), At.AddSeconds(1));
         AssertUnconfirmed(await f.Render<TutorialView>());
-        Assert.Equal(0, f.Progress.Souls("fossa"));
+        Assert.Equal(8, f.Progress.Souls("fossa"));
         f.Network.ObserveIdentity("own", Own, At.AddSeconds(2));
         Assert.Contains(UiText.T(Confirmation), await f.Render<TutorialView>());
         Assert.True(f.Network.ProgressSources.InitialProgressConfirmed);
@@ -131,16 +131,16 @@ public sealed class NetworkInitialSetupStatusTests
     [InlineData("en", "expired")]
     [InlineData("de", "duplicate-source")]
     [InlineData("en", "duplicate-source")]
-    public async Task UnsafeInitialBaselineSequencesNeverConfirmSetupOrWriteProgress(string language, string boundary)
+    public async Task UnsafeExplorationSequencesNeverConfirmSetupOrContaminateCharacterProgress(string language, string boundary)
     {
         await using var f = new Fixture(language);
         f.Running();
         if (boundary != "unanchored") f.Receive(EntryCandidate());
         foreach (var source in new[] { "pet", "quest", "teleport" }) f.Receive(Source(source));
         AssertUnconfirmed(await f.Render<TutorialView>());
-        Assert.Equal(0, f.Progress.Souls("fossa"));
+        Assert.Equal(8, f.Progress.Souls("fossa"));
         Assert.Empty(f.Exploration.Completed);
-        if (boundary == "duplicate-source") f.Receive(Source("pet"));
+        if (boundary == "duplicate-source") f.Receive(Source("quest"));
         if (boundary != "no-prepare") f.Receive(Preparation(), At.AddSeconds(1));
         if (boundary == "second-prepare") f.Receive(Preparation(), At.AddSeconds(2));
         if (boundary == "gap") f.Network.ProcessProgressGap("own");
@@ -155,8 +155,11 @@ public sealed class NetworkInitialSetupStatusTests
         f.Network.ObserveIdentity(stream, identity, ownAt);
         AssertUnconfirmed(await f.Render<TutorialView>());
         Assert.False(f.Network.ProgressSources.InitialProgressConfirmed);
-        Assert.False(f.Network.ProgressSources.HasAnyBaseline);
-        Assert.Equal(0, f.Progress.Souls("fossa"));
+        if (boundary == "gap") Assert.Null(f.Network.PetBaselineAt);
+        else Assert.NotNull(f.Network.PetBaselineAt);
+        Assert.Null(f.Network.QuestBaselineAt);
+        Assert.Null(f.Network.TeleportBaselineAt);
+        Assert.Equal(8, f.Progress.Souls("fossa"));
         Assert.Empty(f.Exploration.Completed);
         Assert.Empty(f.Progress.Recent());
     }

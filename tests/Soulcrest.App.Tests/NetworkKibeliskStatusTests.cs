@@ -79,9 +79,11 @@ public sealed class NetworkKibeliskStatusTests
             Assert.Contains(warning, html);
             Assert.Contains("data-progress-state=\"partial\"", html);
             Assert.Contains("data-progress-live=\"true\"", html);
+            Assert.Contains("data-progress-initialized=\"false\"", html);
         }
         var pet = await f.Render("pet");
         Assert.Contains("data-progress-state=\"current\"", pet);
+        Assert.Contains("data-progress-initialized=\"true\"", pet);
         Assert.DoesNotContain(warning, pet);
         f.Receive(Gain(), At.AddSeconds(2));
         Assert.Equal(10, f.Progress.Souls("fossa"));
@@ -97,7 +99,18 @@ public sealed class NetworkKibeliskStatusTests
         f.BindOwn(At.AddSeconds(5));
         Assert.False(f.Network.ProgressSources.KibeliskFormatRejected);
         Assert.Null(f.Network.ProgressSources.KibeliskActivityAt);
-        Assert.False(f.Network.ProgressSources.HasAnyBaseline);
+        // Rebinding the exploration character clears only its own sources. The global pet
+        // baseline and the two subsequently gained souls remain confirmed and unchanged.
+        Assert.Equal(At, f.Network.PetBaselineAt);
+        Assert.Null(f.Network.QuestBaselineAt);
+        Assert.Null(f.Network.TeleportBaselineAt);
+        Assert.False(f.Network.ProgressSources.InitialProgressConfirmed);
+        Assert.Equal(10, f.Progress.Souls("fossa"));
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot("fossa").Freshness);
+        var retainedPet = await f.Render("pet");
+        Assert.Contains("data-progress-state=\"current\"", retainedPet);
+        Assert.Contains("data-progress-initialized=\"true\"", retainedPet);
+        Assert.DoesNotContain(warning, retainedPet);
         Assert.DoesNotContain(warning, await f.Render("exploration"));
         Assert.Contains("data-progress-state=\"waiting\"", await f.Render("exploration"));
         Assert.Contains("pillar", f.Exploration.Completed);

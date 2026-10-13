@@ -4,6 +4,7 @@ using SharpPcap;
 using SharpPcap.LibPcap;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Network;
+using Soulcrest.Core.Progress;
 
 namespace Soulcrest.App.Network;
 
@@ -32,6 +33,7 @@ public sealed record NetworkProgressSources(bool IdentityIsLive, string? Charact
     DateTimeOffset? DungeonActivityAt = null, bool DungeonFormatRejected = false,
     DateTimeOffset? KibeliskActivityAt = null, bool KibeliskFormatRejected = false)
 {
+    public bool PetCanCount { get; init; } = IdentityIsLive;
     public bool HasAnyBaseline => PetBaselineAt is not null || QuestBaselineAt is not null || TeleportBaselineAt is not null;
     public bool HasAllBaselines => PetBaselineAt is not null && QuestBaselineAt is not null && TeleportBaselineAt is not null;
     public bool InitialProgressConfirmed => IdentityIsLive && HasAllBaselines && !PetFormatRejected
@@ -44,7 +46,7 @@ public sealed record NetworkProgressSources(bool IdentityIsLive, string? Charact
 /// soul message (0d90) adds its souls to the progress. Follows connection changes (zone change,
 /// reconnect) by looking at the game's connections every few seconds.
 /// </summary>
-public sealed class NetworkLootService(ProgressService progress, ExplorationService? exploration = null) : INetworkLootSource, IDisposable
+public sealed class NetworkLootService(ProgressService progress, ExplorationService? exploration = null) : INetworkLootSource, INetworkMerchantSource, IDisposable
 {
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
     private readonly object _gate = new();
@@ -108,29 +110,25 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         public int Bytes { get; set; }
     }
     private EntryCandidate? _entryCandidate;
-    private sealed record PetContinuity(string Stream, int ServerId, long CaptureGeneration, DateTimeOffset PreparedAt,
-        DateTimeOffset BaselineAt, DateTimeOffset? ActivityAt, ProgressService.NetworkPetContinuityToken Token);
-    private PetContinuity? _petContinuity;
-    // Reset/Bind/Restore notify synchronously. Keep this single scoped guard visible while
-    // their callbacks run, even when the saved token itself exists only in a local variable.
-    private sealed class PetContinuityFlight(string stream)
-    {
-        public string Stream { get; } = stream;
-        public bool UnreadPet { get; set; }
-    }
-    private PetContinuityFlight? _petContinuityFlight;
     private bool _pendingProgressOverflow;
     private string? _identityStream;
     private OwnCharacterIdentity? _identity;
-    private long _progressGeneration;
+    private long _progressGeneration, _merchantGeneration;
     private long _progressSequence;
+    private long _petGeneration, _petSequence;
+    private readonly HashSet<string> _petStreams = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _merchantStreams = new(StringComparer.Ordinal);
+    private bool _petDispatching;
+    private readonly Queue<PendingPetMessage> _petDispatchQueue = new();
+    private int _petDispatchBytes;
+    private sealed record PendingPetMessage(string Stream, ushort Opcode, byte[] Message, DateTimeOffset At,
+        long CaptureGeneration, long PetGeneration);
     // Monotone source revisions also cover rejected messages. Reentrant service/Own callbacks
     // must never let an older login-prefix snapshot overwrite a newer observation of that source.
     private readonly long[] _sourceRevisions = new long[3];
     private bool _petFormatRejected, _questFormatRejected, _teleportFormatRejected, _dungeonFormatRejected, _kibeliskFormatRejected;
     private DateTimeOffset? _dungeonActivityAt, _kibeliskActivityAt;
     private long _identityBindings, _contextResets, _rejectedProgressMessages, _acceptedSoulMessages, _acceptedSoulPoints;
-    private long _unboundSoulMessages, _unboundSoulPoints;
     private readonly Queue<NetworkProgressDiagnosticEvent> _progressEvents = new();
     private string _lastResetReason = "none";
     private DateTimeOffset? _lastResetAt, _lastRejectedAt, _lastSoulAt;
@@ -144,7 +142,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             lock (_gate) return new(_identity is not null, _identityBindings, _contextResets, _lastResetReason, _lastResetAt,
                 _rejectedProgressMessages, _lastRejectedOpcode, _lastRejectedAt, _acceptedSoulMessages, _acceptedSoulPoints,
                 _lastSoulAt, _entryCandidate?.Baselines.Count ?? 0, _entryCandidate?.Bytes ?? 0, _pendingProgressOverflow)
-            { Events = _progressEvents.ToArray(), UnboundSoulMessages = _unboundSoulMessages, UnboundSoulPoints = _unboundSoulPoints };
+            { Events = _progressEvents.ToArray(), UnboundSoulMessages = 0, UnboundSoulPoints = 0 };
         }
     }
 
@@ -160,10 +158,11 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             lock (_gate) return new(Running && _identity is not null, Character, PetBaselineAt,
                 QuestBaselineAt, TeleportBaselineAt, _petActivityAt, ProgressStatus,
                 _petFormatRejected, _questFormatRejected, _teleportFormatRejected, _dungeonActivityAt, _dungeonFormatRejected,
-                _kibeliskActivityAt, _kibeliskFormatRejected);
+                _kibeliskActivityAt, _kibeliskFormatRejected) { PetCanCount = Running };
         }
     }
-    public bool ProgressIsLive => ProgressSources is { IdentityIsLive: true, HasAnyBaseline: true };
+    public bool ProgressIsLive => ProgressSources is { PetCanCount: true, PetBaselineAt: not null } or
+        { IdentityIsLive: true, HasAnyBaseline: true };
     public string ProgressStatus { get; private set; } = "Warte auf die eigene Charaktererkennung.";
 
     public bool Running { get; private set; }
@@ -186,6 +185,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
 
     /// <summary>Only unencrypted clock/boss messages; the stream key is transient and never persisted.</summary>
     public event Action<string, byte[]>? BossMessageReceived;
+    public event Action<MerchantNetworkMessage>? MerchantMessageReceived;
+    public event Action? MerchantSessionReset;
     public event Action? BossSessionReset;
     public event Action<string>? BossStreamGap;
     private long _generation;
@@ -982,15 +983,29 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     /// <summary>Invalidates the bound stream immediately and refreshes the passive status card.</summary>
     internal void ProcessProgressGap(string stream, string reason = "stream-gap")
     {
-        // Boss schedules can belong to a different stream than the character baseline.
-        BossStreamGap?.Invoke(stream);
         lock (_gate)
         {
-            if (stream != "*" && _identityStream != stream && _entryCandidate?.Stream != stream &&
-                _petContinuity?.Stream != stream && _petContinuityFlight?.Stream != stream) return;
-            ResetProgressContext(DiagnosticResetReason(reason));
-            SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+            var characterAffected = stream == "*" || _identityStream == stream || _entryCandidate?.Stream == stream;
+            var characterGeneration = _progressGeneration;
+            var petAffected = stream == "*" || _petStreams.Remove(stream);
+            var merchantAffected = stream == "*" || _merchantStreams.Remove(stream);
+            // Revoke the entity proof before any service event can reenter with a broadcast.
+            if (characterAffected)
+            {
+                _identity = null;
+                _identityStream = null;
+                Character = null;
+                _entryCandidate = null;
+            }
+            if (petAffected) ResetPetContext(forgetStreams: stream == "*");
+            // A nested new Own has already reset and rebound the character sources.
+            if (characterAffected && characterGeneration == _progressGeneration)
+                ResetProgressContext(DiagnosticResetReason(reason));
+            else if (!characterAffected && merchantAffected) ResetMerchantContext();
+            if (characterAffected || petAffected) SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
         }
+        // Boss schedules can belong to a different stream; notify only after revoking stale Own authority.
+        BossStreamGap?.Invoke(stream);
     }
 
     /// <summary>Pure message dispatch used by the live source and isolated integration tests.</summary>
@@ -999,20 +1014,28 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         lock (_gate)
         {
             ExpireEntryCandidate(at);
-            ExpirePetContinuity(at);
             if (message.Length < 2) return;
             var opcode = (ushort)(message[0] | message[1] << 8);
-            if (_identity is null && _petContinuityFlight is { } flight && flight.Stream == stream &&
-                opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014)
-                flight.UnreadPet = true;
+            if (opcode is 0x5691 or 0x5693)
+            {
+                _merchantStreams.Add(stream);
+                // Native socket ownership is verified by the shared capture path. The pet collection
+                // no longer needs the merchant connection to supply a character or server binding.
+                SafeEvent.Raise(MerchantMessageReceived, new MerchantNetworkMessage(stream, _merchantGeneration,
+                    _identityStream == stream ? _identity?.ServerId : null, at, message.ToArray()), "Händler-Netzwerkdaten");
+                return;
+            }
+            if (opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014)
+            {
+                ProcessPetMessage(stream, opcode, message, at);
+                return;
+            }
             if (opcode == 0x3620)
             {
                 // An unknown entry shape also suspends old authority on this same stream. It must
                 // never let the next character's snapshots mutate the previously bound profile.
                 if (_identity is not null && _identityStream != stream ||
-                    _entryCandidate is { } other && other.Stream != stream ||
-                    _petContinuity is { } carriedOther && carriedOther.Stream != stream ||
-                    _petContinuityFlight is { } inFlightOther && inFlightOther.Stream != stream) return;
+                    _entryCandidate is { } other && other.Stream != stream) return;
                 ResetProgressContext("world-entry-candidate", at);
                 if (OwnIdentityMessage.TryParseEntryCandidate(message) is { } tentative)
                     _entryCandidate = new(stream, tentative.CharacterId, tentative.EntityKey, at);
@@ -1027,33 +1050,15 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             if (OwnIdentityMessage.IsWorldEntryPreparation(message))
             {
                 if (_identity is not null && _identityStream != stream ||
-                    _entryCandidate is { } other && other.Stream != stream ||
-                    _petContinuity is { } carriedOther && carriedOther.Stream != stream ||
-                    _petContinuityFlight is { } inFlightOther && inFlightOther.Stream != stream) return;
+                    _entryCandidate is { } other && other.Stream != stream) return;
                 var candidate = _entryCandidate;
-                PetContinuity? petCarry = null;
-                if (_identity is { } current && _identityStream == stream && PetBaselineAt is { } baselineAt && !_petFormatRejected &&
-                    progress.CaptureNetworkContinuity(new(current, _progressGeneration, _progressSequence, at)) is { } token)
-                    petCarry = new(stream, current.ServerId, _generation, at, baselineAt, _petActivityAt, token);
                 var preparedGeneration = _progressGeneration + 1;
-                var carryFlight = BeginPetContinuityFlight(petCarry);
-                try
+                ResetProgressContext("world-entry-preparation", at);
+                if (_progressGeneration == preparedGeneration && _identity is null && candidate is { Prepared: false })
                 {
-                    ResetProgressContext("world-entry-preparation", at);
-                    // This is deliberately not a generic prefix carry: only the separately anchored
-                    // transaction survives its first Prepare, and a second Prepare discards it.
-                    if (_progressGeneration == preparedGeneration && _identity is null)
-                    {
-                        if (candidate is { Prepared: false })
-                        {
-                            candidate.Prepared = true;
-                            _entryCandidate = candidate;
-                        }
-                        if (PetContinuityFlightMatches(carryFlight))
-                            _petContinuity = petCarry;
-                    }
+                    candidate.Prepared = true;
+                    _entryCandidate = candidate;
                 }
-                finally { EndPetContinuityFlight(carryFlight); }
                 BossSessionReset?.Invoke();
                 SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
                 return;
@@ -1065,8 +1070,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             }
             if (opcode is 0x3633 or 0x3621)
             {
-                if (_identityStream == stream || _entryCandidate?.Stream == stream || _petContinuity?.Stream == stream ||
-                    _petContinuityFlight?.Stream == stream)
+                if (_identityStream == stream || _entryCandidate?.Stream == stream)
                 {
                     RecordProgressRejection(opcode, at);
                     ResetProgressContext("unsupported-own-entry", at);
@@ -1075,24 +1079,9 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 }
                 return;
             }
-            // An unread pet update means the saved balance/level could have changed during
-            // the unbound transition, including an explicit automatic level-up result.
-            if (_identity is null && _petContinuity?.Stream == stream && opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014)
-                ResetProgressContext("pet-continuity-unread", at);
-            if (opcode is not (0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014 or 0x9232 or 0x9233 or 0x8D09 or 0x6101))
-                return;
+            if (opcode is not (0x9232 or 0x9233 or 0x8D09 or 0x6101)) return;
             if (_identity is null)
             {
-                // A later delta invalidates only the earlier pet snapshot in this tentative
-                // transaction. Never replay the delta or discard independent quest/teleport lists.
-                if (opcode is 0x9009 or 0x900D or 0x900E or 0x9014 &&
-                    _entryCandidate is { } pending && pending.Stream == stream)
-                    RemoveEntryBaseline(pending, 0x9000);
-                if (opcode == 0x900D && LootMessage.TryParse(message) is { } unboundGains)
-                {
-                    _unboundSoulMessages++;
-                    _unboundSoulPoints += unboundGains.Sum(gain => (long)gain.Souls);
-                }
                 BufferEntryBaseline(stream, opcode, message, at);
                 return;
             }
@@ -1105,47 +1094,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             var parsed = false;
             switch (opcode)
             {
-                case 0x9000 when PetProgressMessage.TryParseSnapshot(message) is { } snapshot:
-                    parsed = true;
-                    accepted = progress.ApplyNetworkSnapshot(snapshot, context);
-                    if (accepted)
-                    {
-                        PetBaselineAt = at; _petFormatRejected = false;
-                        RecordProgressEvent(new(at, NetworkProgressEventKind.Snapshot, opcode,
-                            Count: snapshot.Levels.Keys.Concat(snapshot.AvailableSouls.Keys).Distinct().Count()));
-                    }
-                    break;
-                case 0x9009 when PetProgressMessage.TryParseAcquired(message) is { } acquired:
-                    parsed = true;
-                    if (acquired.EntityKey == _identity.EntityKey)
-                        accepted = progress.ApplyNetworkAcquisition(acquired, context);
-                    if (accepted) RecordProgressEvent(new(at, NetworkProgressEventKind.Acquired, opcode, acquired.PetNumber, acquired.Level));
-                    break;
-                case 0x9014 when PetProgressMessage.TryParseUpgrade(message) is { } upgrade:
-                    parsed = true;
-                    accepted = progress.ApplyNetworkUpgrade(upgrade, context);
-                    if (accepted) RecordProgressEvent(new(at, NetworkProgressEventKind.Upgraded, opcode, upgrade.PetNumber, upgrade.Level));
-                    break;
-                case 0x900D when LootMessage.TryParse(message) is { } gains:
-                    parsed = true;
-                    accepted = progress.ApplyNetworkGain(gains, context);
-                    if (accepted)
-                    {
-                        _acceptedSoulMessages++;
-                        _acceptedSoulPoints += gains.Sum(gain => (long)gain.Souls);
-                        _lastSoulAt = at;
-                        foreach (var gain in gains)
-                            RecordProgressEvent(new(at, NetworkProgressEventKind.Gained, opcode, gain.PetNumber, Souls: gain.Souls));
-                        Count(gains, at);
-                    }
-                    break;
-                case 0x900E when PetProgressMessage.TryParseSpent(message) is { } spent:
-                    parsed = true;
-                    accepted = progress.ApplyNetworkSpent(spent, context);
-                    if (accepted)
-                        foreach (var spend in spent)
-                            RecordProgressEvent(new(at, NetworkProgressEventKind.Spent, opcode, spend.PetNumber, Souls: spend.Souls));
-                    break;
                 case 0x9232 when ExplorationProgressMessage.TryParseTeleports(message) is { } teleports:
                     parsed = true;
                     accepted = exploration?.ApplyNetworkTeleports(teleports, context) == true;
@@ -1204,12 +1152,135 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             }
             if (accepted)
             {
-                if (opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014) _petActivityAt = at;
                 UpdateProgressStatus();
                 SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
             }
         }
     }
+
+    private void ResetPetContext(bool forgetStreams = true)
+    {
+        _petGeneration++;
+        _petSequence = 0;
+        if (forgetStreams) _petStreams.Clear();
+        PetBaselineAt = null;
+        _petActivityAt = null;
+        _petFormatRejected = false;
+        progress.MarkPetNetworkStale();
+    }
+
+    /// <summary>Entity-free own-pet messages belong to one collection, independently of character/realm.</summary>
+    private void ProcessPetMessage(string stream, ushort opcode, byte[] message, DateTimeOffset at)
+    {
+        if (IgnoreAcquisition(stream, opcode, message)) return;
+        _petStreams.Add(stream);
+        if (_petDispatching)
+        {
+            if (_petDispatchQueue.Count >= MaxIncomingPackets || message.Length > MaxIncomingBytes - _petDispatchBytes)
+            {
+                _petDispatchQueue.Clear();
+                _petDispatchBytes = 0;
+                ResetPetContext();
+                RecordProgressEvent(new(at, NetworkProgressEventKind.Reset, ResetReason: "other"));
+                return;
+            }
+            _petDispatchQueue.Enqueue(new(stream, opcode, message.ToArray(), at, _generation, _petGeneration));
+            _petDispatchBytes += message.Length;
+            return;
+        }
+        _petDispatching = true;
+        try
+        {
+            DispatchPetMessage(stream, opcode, message, at);
+            while (_petDispatchQueue.TryDequeue(out var pending))
+            {
+                _petDispatchBytes -= pending.Message.Length;
+                if (pending.CaptureGeneration == _generation && pending.PetGeneration == _petGeneration &&
+                    (_target is null || _target.Connections?.Any(connection => connection.StreamKey == pending.Stream) == true))
+                    DispatchPetMessage(pending.Stream, pending.Opcode, pending.Message, pending.At);
+            }
+        }
+        finally
+        {
+            _petDispatching = false;
+            _petDispatchQueue.Clear();
+            _petDispatchBytes = 0;
+        }
+    }
+
+    private void DispatchPetMessage(string stream, ushort opcode, byte[] message, DateTimeOffset at)
+    {
+        if (IgnoreAcquisition(stream, opcode, message)) return;
+        var revision = ++_sourceRevisions[0];
+        var generation = _petGeneration;
+        _petStreams.Add(stream); // Bind/apply notify synchronously; a reentrant gap must already see its scope.
+        if (!progress.BindPetSession(new(generation, 0, at)) || generation != _petGeneration) return;
+        var context = new PetProgressContext(generation, ++_petSequence, at);
+        var parsed = false;
+        var accepted = false;
+        switch (opcode)
+        {
+            case 0x9000 when PetProgressMessage.TryParseSnapshot(message) is { } snapshot:
+                parsed = true;
+                accepted = progress.ApplyPetSnapshot(snapshot, context);
+                if (accepted && generation == _petGeneration && revision == _sourceRevisions[0])
+                {
+                    PetBaselineAt = at;
+                    _petFormatRejected = false;
+                    RecordProgressEvent(new(at, NetworkProgressEventKind.Snapshot, opcode,
+                        Count: snapshot.Levels.Keys.Concat(snapshot.AvailableSouls.Keys).Distinct().Count()));
+                }
+                break;
+            case 0x9009 when PetProgressMessage.TryParseAcquired(message) is { } acquired:
+                parsed = true;
+                // CharRideAcquire is broadcast: the entity still needs its own independent proof.
+                if (_identityStream == stream && _identity?.EntityKey == acquired.EntityKey)
+                    accepted = progress.ApplyPetAcquisition(acquired, context);
+                if (accepted) RecordProgressEvent(new(at, NetworkProgressEventKind.Acquired, opcode, acquired.PetNumber, acquired.Level));
+                break;
+            case 0x9014 when PetProgressMessage.TryParseUpgrade(message) is { } upgrade:
+                parsed = true;
+                accepted = progress.ApplyPetUpgrade(upgrade, context);
+                if (accepted) RecordProgressEvent(new(at, NetworkProgressEventKind.Upgraded, opcode, upgrade.PetNumber, upgrade.Level));
+                break;
+            case 0x900D when LootMessage.TryParse(message) is { } gains:
+                parsed = true;
+                accepted = progress.ApplyPetGain(gains, context);
+                if (accepted)
+                {
+                    _acceptedSoulMessages++;
+                    _acceptedSoulPoints += gains.Sum(gain => (long)gain.Souls);
+                    _lastSoulAt = at;
+                    foreach (var gain in gains) RecordProgressEvent(new(at, NetworkProgressEventKind.Gained, opcode, gain.PetNumber, Souls: gain.Souls));
+                    Count(gains, at);
+                }
+                break;
+            case 0x900E when PetProgressMessage.TryParseSpent(message) is { } spent:
+                parsed = true;
+                accepted = progress.ApplyPetSpent(spent, context);
+                if (accepted)
+                    foreach (var spend in spent) RecordProgressEvent(new(at, NetworkProgressEventKind.Spent, opcode, spend.PetNumber, Souls: spend.Souls));
+                break;
+        }
+        if (generation != _petGeneration) return;
+        if (!parsed)
+        {
+            RecordProgressRejection(opcode, at);
+            PetBaselineAt = null;
+            _petFormatRejected = true;
+            progress.MarkNetworkPetSourceStale();
+        }
+        else if (accepted)
+        {
+            if (revision == _sourceRevisions[0]) _petActivityAt = at;
+        }
+        UpdateProgressStatus();
+        SafeEvent.Raise(Changed, "Pet-Netzwerkfortschritt");
+    }
+
+    private bool IgnoreAcquisition(string stream, ushort opcode, byte[] message) => opcode == 0x9009 &&
+        (_identityStream != stream || _identity is null || PetProgressMessage.TryParseAcquired(message) is { } broadcast &&
+            broadcast.EntityKey != _identity.EntityKey);
 
     private static int ProgressSourceIndex(ushort opcode) => opcode switch
     {
@@ -1261,7 +1332,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                         : _kibeliskFormatRejected
                             ? "Netzwerkformat für Kibelisk-Bindungen nicht unterstützt. Bereits bestätigte Bindungen bleiben erhalten."
                             : PetBaselineAt is not null && QuestBaselineAt is not null && TeleportBaselineAt is not null
-                                ? "Die verfügbaren Daten zu Sealed Dungeons, Strongholds, Kibelisken und Pets wurden für diesen Charakter eingelesen."
+                                ? "Die gemeinsame Pet-Sammlung und die verfügbaren Erkundungsdaten dieses Charakters wurden eingelesen."
                                 : PetBaselineAt is not null || QuestBaselineAt is not null || TeleportBaselineAt is not null
                                     ? "Ein Teil der Netzwerkdaten wurde empfangen. Weitere Quellen stehen noch aus."
                                     : _kibeliskActivityAt is not null
@@ -1278,17 +1349,10 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
     }
 
-    private void ExpirePetContinuity(DateTimeOffset at)
-    {
-        if (_petContinuity is not { } carry || at >= carry.PreparedAt && at - carry.PreparedAt <= EntryCandidateLifetime) return;
-        ResetProgressContext("pet-continuity-expired", at);
-        SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
-    }
-
     private void BufferEntryBaseline(string stream, ushort opcode, byte[] message, DateTimeOffset at)
     {
         if (_entryCandidate is not { } candidate || candidate.Stream != stream || _pendingProgressOverflow ||
-            opcode is not (0x9000 or 0x8D09 or 0x9232)) return;
+            opcode is not (0x8D09 or 0x9232)) return;
         // One candidate globally and one packet per full source are stricter than the former
         // eight-stream/256-message/4 MiB caps; keep the former 2 MiB per-stream bound as well.
         if (candidate.Baselines.Count >= 256 || message.Length > 2 * 1024 * 1024 - candidate.Bytes ||
@@ -1299,7 +1363,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         }
         var decoded = opcode switch
         {
-            0x9000 => PetProgressMessage.TryParseSnapshot(message) is not null,
             0x8D09 => ExplorationProgressMessage.TryParseQuests(message) is not null,
             0x9232 => ExplorationProgressMessage.TryParseTeleports(message) is not null,
             _ => false,
@@ -1348,20 +1411,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
     }
 
-    private PetContinuityFlight? BeginPetContinuityFlight(PetContinuity? carry)
-    {
-        if (carry is null) return null;
-        return _petContinuityFlight = new(carry.Stream);
-    }
-
-    private bool PetContinuityFlightMatches(PetContinuityFlight? flight) =>
-        flight is not null && ReferenceEquals(_petContinuityFlight, flight) && !flight.UnreadPet;
-
-    private void EndPetContinuityFlight(PetContinuityFlight? flight)
-    {
-        if (flight is not null && ReferenceEquals(_petContinuityFlight, flight)) _petContinuityFlight = null;
-    }
-
     private bool OwnBindingMatches(string stream, OwnCharacterIdentity identity, NetworkProgressContext context, long captureGeneration) =>
         _generation == captureGeneration && _progressGeneration == context.Generation && _identity == identity && _identityStream == stream;
 
@@ -1370,68 +1419,36 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         lock (_gate)
         {
             ExpireEntryCandidate(at);
-            ExpirePetContinuity(at);
             var captureGeneration = _generation;
-            var petCarry = _petContinuity is { } carry && carry.Stream == stream && carry.ServerId == identity.ServerId &&
-                carry.CaptureGeneration == captureGeneration ? carry : null;
-            // The full Own supplies the server/name and must confirm the tentative character id.
-            // No arbitrary prefix, delta or previous transaction is ever replayed on a new Own.
             var transaction = _entryCandidate is { Prepared: true } candidate && candidate.Stream == stream &&
                 candidate.CharacterId == identity.CharacterId && candidate.EntityKey == identity.EntityKey ? candidate : null;
             var pending = transaction?.Baselines.ToArray() ?? [];
             var rejectedSources = transaction?.RejectedSources.ToArray() ?? [];
             var ownGeneration = _progressGeneration + 1;
-            var carryFlight = BeginPetContinuityFlight(petCarry);
-            try
+            ResetProgressContext("world-entry", at);
+            if (_generation != captureGeneration || _progressGeneration != ownGeneration || _identity is not null) return;
+            _identity = identity;
+            _identityStream = stream;
+            Character = identity.Name;
+            _questFormatRejected = rejectedSources.Contains((ushort)0x8D09);
+            _teleportFormatRejected = rejectedSources.Contains((ushort)0x9232);
+            var sourceRevisions = _sourceRevisions.ToArray();
+            var context = new NetworkProgressContext(identity, ownGeneration, 0, at);
+            exploration?.BindNetworkContext(context);
+            if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
+            _identityBindings++;
+            UpdateProgressStatus();
+            BossSessionReset?.Invoke();
+            OwnCharacterEntered?.Invoke(identity);
+            CharacterEntered?.Invoke(identity.Name);
+            foreach (var item in pending)
             {
-                ResetProgressContext("world-entry", at);
-                if (_generation != captureGeneration || _progressGeneration != ownGeneration || _identity is not null) return;
-                _identity = identity;
-                _identityStream = stream;
-                Character = identity.Name;
-                // Carry only warnings from the matching transaction, before any synchronous service
-                // or Own callbacks. A newer valid nested full source is then free to heal its flag.
-                _petFormatRejected = rejectedSources.Contains((ushort)0x9000);
-                _questFormatRejected = rejectedSources.Contains((ushort)0x8D09);
-                _teleportFormatRejected = rejectedSources.Contains((ushort)0x9232);
-                var sourceRevisions = _sourceRevisions.ToArray();
-                var context = new NetworkProgressContext(identity, ownGeneration, 0, at);
-                if (!progress.BindNetworkContext(context))
-                {
-                    ResetProgressContext("identity-bind-rejected", at);
-                    return;
-                }
-                if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
-                exploration?.BindNetworkContext(context);
-                if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
-                var petRestored = petCarry is not null && PetContinuityFlightMatches(carryFlight) &&
-                    progress.TryRestoreNetworkContinuity(petCarry.Token, context);
-                // Restore raises Changed too. A callback may reset the session or reject this
-                // source; neither can be overwritten by the old token's confirmation timestamp.
-                if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
-                petRestored &= PetContinuityFlightMatches(carryFlight) && !_petFormatRejected;
-                if (petRestored)
-                {
-                    // A valid nested snapshot/activity is newer than the carried observation.
-                    PetBaselineAt ??= petCarry!.BaselineAt;
-                    _petActivityAt ??= petCarry!.ActivityAt;
-                }
-                _identityBindings++;
-                ProgressStatus = "Charakter erkannt. Warte auf Netzwerk-Fortschrittsdaten.";
-                if (petRestored || PetBaselineAt is not null || rejectedSources.Length > 0) UpdateProgressStatus();
-                BossSessionReset?.Invoke();
-                OwnCharacterEntered?.Invoke(identity);
-                CharacterEntered?.Invoke(identity.Name);
-                foreach (var item in pending)
-                {
-                    if (!OwnBindingMatches(stream, identity, context, captureGeneration)) break;
-                    var sourceIndex = ProgressSourceIndex((ushort)(item.Message[0] | item.Message[1] << 8));
-                    if (sourceIndex >= 0 && _sourceRevisions[sourceIndex] != sourceRevisions[sourceIndex]) continue;
-                    ProcessProgressMessage(stream, item.Message, item.At);
-                }
-                SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+                if (!OwnBindingMatches(stream, identity, context, captureGeneration)) break;
+                var sourceIndex = ProgressSourceIndex((ushort)(item.Message[0] | item.Message[1] << 8));
+                if (sourceIndex >= 0 && _sourceRevisions[sourceIndex] != sourceRevisions[sourceIndex]) continue;
+                ProcessProgressMessage(stream, item.Message, item.At);
             }
-            finally { EndPetContinuityFlight(carryFlight); }
+            SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
         }
     }
 
@@ -1444,7 +1461,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             _lastResetReason = reason;
             _lastResetAt = at ?? DateTimeOffset.UtcNow;
             RecordProgressEvent(new(_lastResetAt.Value, NetworkProgressEventKind.Reset, ResetReason: DiagnosticResetReason(reason)));
-            _petFormatRejected = _questFormatRejected = _teleportFormatRejected = _dungeonFormatRejected = _kibeliskFormatRejected = false;
+            _questFormatRejected = _teleportFormatRejected = _dungeonFormatRejected = _kibeliskFormatRejected = false;
             _dungeonActivityAt = _kibeliskActivityAt = null;
             _progressGeneration++;
             _progressSequence = 0;
@@ -1452,14 +1469,26 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             _identityStream = null;
             Character = null;
             _entryCandidate = null;
-            _petContinuity = null;
             _pendingProgressOverflow = false;
-            PetBaselineAt = QuestBaselineAt = TeleportBaselineAt = null;
-            _petActivityAt = null;
-            progress.MarkNetworkStale();
-            exploration?.MarkNetworkStale();
+            QuestBaselineAt = TeleportBaselineAt = null;
             ProgressStatus = "Warte auf die eigene Charaktererkennung.";
+            var resetGeneration = _progressGeneration;
+            if (reason is "manual" or "capture-closed" or "capture-stopped")
+            {
+                _merchantStreams.Clear();
+                ResetPetContext();
+                if (_progressGeneration != resetGeneration) return;
+            }
+            ResetMerchantContext();
+            if (_progressGeneration != resetGeneration) return;
+            exploration?.MarkNetworkStale();
         }
+    }
+
+    private void ResetMerchantContext()
+    {
+        _merchantGeneration++;
+        SafeEvent.Raise(MerchantSessionReset, "Händler-Sitzung");
     }
 
     private void Count(IReadOnlyList<SoulGain> gains, DateTimeOffset at)

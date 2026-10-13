@@ -134,3 +134,64 @@ Freigabe. Auf Abschluss/Capture-Verlust/Relock/Alt-Release wird eine Änderung b
 Die Timeline verzichtet auf Titelkopf, Zeitraumbuttons und Fußzeile. Resetlinien statt Resetspuren,
 Siege in der Invasionsspur; ausgewählte Bosse als lokale Icons in einer optionalen Einzelspur.
 Zeitpunkte und kollidierende Inhalte bleiben per Tooltip zugänglich. Siehe ALERTS.md.
+
+## Händler-Soulcounter (2026-10-13)
+
+Ein eigenes stets durchklickbares Layered Window ergänzt aktuelle Pet-Soulcounter im Kartenfuß
+unter den Preisen des Black Cloud Merchant. Special behält seine gemischten Slots; Skins bekommen
+keine Ergänzung. „Owned“/„Sold Out“ beeinflussen die Anzeige nicht. Schalter unter Optionen →
+Overlays, standardmäßig an. Frische Counter sind warmweiß, bestätigtes `MAX` hellgrün,
+gespeicherte/unbekannte Stände gedämpft graugold; `?` ersetzt eine unbekannte Balance.
+
+Gestaltung auf Nutzerwunsch 2026-10-13: Der Kartenfuß setzt die vorhandenen Seiten mit einer
+offenen goldgrauen Haarkontur und kleiner Spitze fort, statt ein rundes Status-Badge anzuhängen.
+Ein fast deckender warmgrauer Verlauf verdeckt die alte schräge Unterkante und deren Ornament.
+Keine obere Querlinie; Preis, Name und Auswahlkasten bleiben frei. Die Fläche beginnt auf Höhe
+der Preisoberkante und spart die native Preis-Pille mit einem erweiterten Capsule-Clip aus
+(2 skalierte plus 1 physischer Pixel Sicherheitszugabe). So verdeckt sie die alten schrägen Ränder ohne sichtbare angehängte Oberkante.
+Bei Referenzskala 1 ist der Fuß 212 px breit und reicht 52 px unter den Preis (36 px ohne Farmzeile).
+Segoe UI in physischen Pixeln: normale Counter 16 px, Farmregionen 12 px, schwarzer Schatten
+um 1 px nach unten. Lange Texte werden anhand ihrer gemessenen Breite eingepasst. Bestätigtes
+`0/5` bleibt ein kräftiger goldener Counter; gespeichertes `0/5` gedämpft. Spätere `0/25` oder
+`0/75` erhalten keine Freischaltbetonung.
+
+Nutzerpräzisierung 2026-10-13: Special und MAX müssen direkt auffallen, farbige Hervorhebung ist
+erwünscht. MAX steht allein in 19 px Bold mit hellem Grün und erhält ohne Special einen grünen
+Kartenfuß sowie kräftigere salbeigrüne Kontur. Gespeichertes MAX bleibt weniger gesättigt.
+Special steht in 14 px Bold in hellem Bernstein, flankiert von kleinen Rauten entsprechend den
+Shop-Ornamenten. Dazu ein warmbraun getönter Fuß und eine deutlichere Goldkontur. Bei Special
+plus MAX bleiben Bernsteinfläche/Special-Zeile und grünes MAX gemeinsam sichtbar. Der Verlauf
+beginnt am Preis neutral und färbt erst den Fuß stärker ein; Preis-Pille und Geometrie bleiben
+frei. `Special` bezieht sich weiterhin ausschließlich auf die Farmzuordnung, nicht Gattung
+oder Shop-Tab. Alle Maße folgen ausschließlich der bereits
+zurückgerechneten Ankerskala; weder Fensterauflösung noch Monitor-DPI skalieren zusätzlich.
+Die fünf Referenzen und zusätzliche 1920×1080-/1280×720-Varianten werden offline mit dem echten Renderer
+geprüft; das Werkzeug unter `scripts/merchant-preview/` startet keine App/Erfassung. Es prüft auch
+den auf 1920 px verkleinerten Analysepfad mit Rückprojektion und identische Pixel bei 96/144/192 DPI.
+Reine Geometrie-Regressionen decken zusätzlich 120 DPI ab.
+
+Die vorhandene gemeinsame WGC-Sitzung liefert ausschließlich Spielfensterpixel: dieser Pfad hat
+keinen Monitor-/GDI-Fallback. MerchantCardLocator erkennt Siegel, Preis-Pillen und Kartenränder,
+ohne OCR oder Spielbild-Templates. Erst zwei verschiedene frische Frames mit zehn bestätigten
+Kartenplätzen erlauben die Anzeige. Alle fünf gelieferten UI-Skalen sind offline im produktiven
+C#-Locator geprüft, zusätzlich in der auf 1920 Pixel Breite reduzierten Analyseauflösung.
+Bei Siegelmangel darf dort ein zweites 5×5-Closing ausschließlich Kandidatenkonturen reparieren.
+Ein gültiges gemeinsames Layout darf bei fehlgeschlagenen Ränderprüfungen um höchstens einen
+Analysepixel gemeinsam verschoben werden. Acht Siegel sowie alle zehn Preise und Kartenränder
+bleiben mit denselben Schwellen Pflicht. Scheitert ein kleineres Bild (960–1919 px Breite),
+wird einmal linear auf 1920 px normalisiert und anschließend genau einmal zurückgerechnet;
+bereits akzeptierte Originalanker bleiben unverändert. Keine Capture- oder Quellenänderung.
+Physische Fensterkoordinaten werden genau einmal umgerechnet, ohne zusätzlichen DPI-Faktor.
+
+Die Händleranzeige ist unabhängig von Minimap-Fund, Instanzruhe und Kartenrouting. Sie verschwindet
+bei fehlendem Layout, Kontext-/Seitenwechsel, Fensterbewegung, Minimierung, Vordergrundverlust oder
+veraltetem Bild. Ein vorübergehender Kaufdialog sperrt die Angebotsseite nicht: nach zwei neuen
+stabilen Bildern erscheinen die Counter wieder. Eine echte Transportlücke entfernt die
+Netzwerkseite auch ohne Charakterbindung. Wartende UI-Updates verwenden nur die neueste Beobachtung; ein verworfenes Altbild
+kann keine Counter erneut einblenden. Ausschließlich vorhandener Fortschritt wird gelesen.
+
+Die kleinere zweite Zeile nennt Farmregionen: Abyss, Altgard, Verteron, bei mehreren Regionen alle
+in dieser Reihenfolge. „Special“ bezeichnet Pets ohne Fundort auf diesen Karten im vollständigen
+aktuellen Quellenabgleich, unabhängig von Pet-Gattung und Händler-Tab. Fehlende Zuordnung bleibt
+`?`. Die Offline-Tabelle verknüpft Kartenmarker und explizite Pet-NPC-Orte; so werden auch Pets
+ohne platzierten Kartenmarker korrekt eingeordnet (Elite Klaw und Elite Guardite: Verteron).

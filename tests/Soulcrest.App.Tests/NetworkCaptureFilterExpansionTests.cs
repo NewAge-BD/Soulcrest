@@ -8,6 +8,7 @@ using Soulcrest.App.Network;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Network;
 using Soulcrest.Core.Pets;
+using Soulcrest.Core.Progress;
 using Xunit;
 
 namespace Soulcrest.App.Tests;
@@ -167,10 +168,12 @@ public sealed class NetworkCaptureFilterExpansionTests
         f.Send(World, Frame(Gain()));
         Assert.Null(f.Network.Character);
         Assert.False(f.Network.ProgressSources.HasAnyBaseline);
-        Assert.Equal(8, f.Progress.Souls("fossa"));
-        Assert.Equal(1, f.Network.ProgressDiagnostics.UnboundSoulMessages);
-        Assert.Equal(2, f.Network.ProgressDiagnostics.UnboundSoulPoints);
-        Assert.Empty(f.Gains);
+        Assert.Equal(10, f.Progress.Souls("fossa"));
+        Assert.Equal(ProgressFreshness.Unknown, f.Progress.EntrySnapshot("fossa").Freshness);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.UnboundSoulMessages);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.UnboundSoulPoints);
+        Assert.Equal(2, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
+        Assert.Single(f.Gains);
         AssertHandleNeverRestarted(f);
     }
 

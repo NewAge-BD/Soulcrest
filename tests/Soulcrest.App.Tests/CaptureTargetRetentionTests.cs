@@ -196,7 +196,7 @@ public sealed class CaptureTargetRetentionTests
     [Theory]
     [InlineData("pid")]
     [InlineData("local-port")]
-    public void ReplacedWorldConnectionNeverInheritsTheOldStreamOrIdentity(string replacementKind)
+    public void ReplacedWorldConnectionCountsGlobalSoulsWithoutInheritingTheOldStreamOrIdentity(string replacementKind)
     {
         using var fixture = new Fixture();
         fixture.BeginWorld();
@@ -212,7 +212,11 @@ public sealed class CaptureTargetRetentionTests
         fixture.Send(replacement, [.. Frame(Clock()), .. Frame(Gain())]);
         Assert.True(fixture.Streams.ContainsKey(replacement));
         Assert.Null(fixture.Network.Character);
-        Assert.Equal(before, fixture.Progress.Souls("fossa"));
+        Assert.Null(fixture.Network.PetBaselineAt);
+        Assert.False(fixture.Network.ProgressIsLive);
+        Assert.Equal(before + 2, fixture.Progress.Souls("fossa"));
+        Assert.Equal(2, Assert.Single(fixture.Network.Recent).Souls);
+        Assert.Single(fixture.Progress.Recent());
         Assert.NotEqual(World.StreamKey, replacement.StreamKey);
         AssertHandleUntouched(fixture);
     }

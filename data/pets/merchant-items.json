@@ -1,0 +1,3699 @@
+{
+  "schemaVersion": 1,
+  "source": "Public gaming.tools CDN pet details; explicit IDs only, no arithmetic",
+  "items": [
+    {
+      "itemId": 534660001,
+      "petNumber": 1002,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1002.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660002,
+      "petNumber": 1003,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1003.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660003,
+      "petNumber": 1004,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1004.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660004,
+      "petNumber": 1005,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1005.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660005,
+      "petNumber": 1006,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1006.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660006,
+      "petNumber": 1007,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1007.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660007,
+      "petNumber": 1008,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1008.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660008,
+      "petNumber": 1009,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1009.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660009,
+      "petNumber": 1010,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1010.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660010,
+      "petNumber": 1011,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1011.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660011,
+      "petNumber": 1012,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1012.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660012,
+      "petNumber": 1013,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1013.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660013,
+      "petNumber": 1014,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1014.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660014,
+      "petNumber": 1015,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1015.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660015,
+      "petNumber": 1016,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1016.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660016,
+      "petNumber": 1017,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1017.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660017,
+      "petNumber": 1018,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1018.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660019,
+      "petNumber": 1114,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1114.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660020,
+      "petNumber": 1025,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1025.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660021,
+      "petNumber": 1022,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1022.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660023,
+      "petNumber": 1116,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1116.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660024,
+      "petNumber": 1021,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1021.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660025,
+      "petNumber": 1026,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1026.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660026,
+      "petNumber": 1027,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1027.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660027,
+      "petNumber": 1028,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1028.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660029,
+      "petNumber": 1029,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1029.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660030,
+      "petNumber": 1030,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1030.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660031,
+      "petNumber": 1031,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1031.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660032,
+      "petNumber": 1032,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1032.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660033,
+      "petNumber": 1033,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1033.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660034,
+      "petNumber": 1034,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1034.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660035,
+      "petNumber": 1035,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1035.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660037,
+      "petNumber": 1036,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1036.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660038,
+      "petNumber": 1037,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1037.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660039,
+      "petNumber": 1038,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1038.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660040,
+      "petNumber": 1039,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1039.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660041,
+      "petNumber": 1040,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1040.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660042,
+      "petNumber": 1041,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1041.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660043,
+      "petNumber": 1042,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1042.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660044,
+      "petNumber": 1043,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1043.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660045,
+      "petNumber": 1044,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1044.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660046,
+      "petNumber": 1045,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1045.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660047,
+      "petNumber": 1046,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1046.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660048,
+      "petNumber": 1047,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1047.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660049,
+      "petNumber": 1048,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1048.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660050,
+      "petNumber": 1049,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1049.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660051,
+      "petNumber": 1050,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1050.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660052,
+      "petNumber": 1051,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1051.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660053,
+      "petNumber": 1052,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1052.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660054,
+      "petNumber": 1053,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1053.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660055,
+      "petNumber": 1054,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1054.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660056,
+      "petNumber": 1055,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1055.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660057,
+      "petNumber": 1056,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1056.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660058,
+      "petNumber": 1057,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1057.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660059,
+      "petNumber": 1058,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1058.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660060,
+      "petNumber": 1059,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1059.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660061,
+      "petNumber": 1060,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1060.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660062,
+      "petNumber": 1061,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1061.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660063,
+      "petNumber": 1062,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1062.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660064,
+      "petNumber": 1063,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1063.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660065,
+      "petNumber": 1064,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1064.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660066,
+      "petNumber": 1065,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1065.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660067,
+      "petNumber": 1066,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1066.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660068,
+      "petNumber": 1067,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1067.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660069,
+      "petNumber": 1068,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1068.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660070,
+      "petNumber": 1069,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1069.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660072,
+      "petNumber": 1071,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1071.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660073,
+      "petNumber": 1072,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1072.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660074,
+      "petNumber": 1073,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1073.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660075,
+      "petNumber": 1074,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1074.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660076,
+      "petNumber": 1075,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1075.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660077,
+      "petNumber": 1115,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1115.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660078,
+      "petNumber": 1077,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1077.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660079,
+      "petNumber": 1078,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1078.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660080,
+      "petNumber": 1079,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1079.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660081,
+      "petNumber": 1080,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1080.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660082,
+      "petNumber": 1081,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1081.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660083,
+      "petNumber": 1082,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1082.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660084,
+      "petNumber": 1083,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1083.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660085,
+      "petNumber": 1084,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1084.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660086,
+      "petNumber": 1117,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1117.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660087,
+      "petNumber": 1086,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1086.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660088,
+      "petNumber": 1087,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1087.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660089,
+      "petNumber": 1088,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1088.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660090,
+      "petNumber": 1089,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1089.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660091,
+      "petNumber": 1090,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1090.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660092,
+      "petNumber": 1091,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1091.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660093,
+      "petNumber": 1092,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1092.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660094,
+      "petNumber": 1093,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1093.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660095,
+      "petNumber": 1094,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1094.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660096,
+      "petNumber": 1095,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1095.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660097,
+      "petNumber": 1096,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1096.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660098,
+      "petNumber": 1097,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1097.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660099,
+      "petNumber": 1098,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1098.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660100,
+      "petNumber": 1099,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1099.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660101,
+      "petNumber": 1100,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1100.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660102,
+      "petNumber": 1101,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1101.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660103,
+      "petNumber": 1102,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1102.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660104,
+      "petNumber": 1103,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1103.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660105,
+      "petNumber": 1104,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1104.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660106,
+      "petNumber": 1105,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1105.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660107,
+      "petNumber": 1106,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1106.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660108,
+      "petNumber": 1107,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1107.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660109,
+      "petNumber": 1108,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1108.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660110,
+      "petNumber": 1109,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1109.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660111,
+      "petNumber": 1110,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1110.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660112,
+      "petNumber": 1159,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1159.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660113,
+      "petNumber": 1209,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1209.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660114,
+      "petNumber": 1140,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1140.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660115,
+      "petNumber": 1214,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1214.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660116,
+      "petNumber": 1153,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1153.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660117,
+      "petNumber": 1219,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1219.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660118,
+      "petNumber": 1215,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1215.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660119,
+      "petNumber": 1200,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1200.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660120,
+      "petNumber": 1146,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1146.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660121,
+      "petNumber": 1124,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1124.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660122,
+      "petNumber": 1168,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1168.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660123,
+      "petNumber": 1169,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1169.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660124,
+      "petNumber": 1155,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1155.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660125,
+      "petNumber": 1164,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1164.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660126,
+      "petNumber": 1165,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1165.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660127,
+      "petNumber": 1166,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1166.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660128,
+      "petNumber": 1213,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1213.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660129,
+      "petNumber": 1187,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1187.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660130,
+      "petNumber": 1192,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1192.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660131,
+      "petNumber": 1199,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1199.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660132,
+      "petNumber": 1167,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1167.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660133,
+      "petNumber": 1191,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1191.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660134,
+      "petNumber": 1188,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1188.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660135,
+      "petNumber": 1147,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1147.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660136,
+      "petNumber": 1163,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1163.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660138,
+      "petNumber": 1182,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1182.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660139,
+      "petNumber": 1172,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1172.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660140,
+      "petNumber": 1173,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1173.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660141,
+      "petNumber": 1194,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1194.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660142,
+      "petNumber": 1184,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1184.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660143,
+      "petNumber": 1195,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1195.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660144,
+      "petNumber": 1162,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1162.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660145,
+      "petNumber": 1170,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1170.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660146,
+      "petNumber": 1178,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1178.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660149,
+      "petNumber": 1216,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1216.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660152,
+      "petNumber": 1118,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1118.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660153,
+      "petNumber": 1119,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1119.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660154,
+      "petNumber": 1120,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1120.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660155,
+      "petNumber": 1121,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1121.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660156,
+      "petNumber": 1122,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1122.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660157,
+      "petNumber": 1123,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1123.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660159,
+      "petNumber": 1125,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1125.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660160,
+      "petNumber": 1126,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1126.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660161,
+      "petNumber": 1127,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1127.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660162,
+      "petNumber": 1128,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1128.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660163,
+      "petNumber": 1129,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1129.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660164,
+      "petNumber": 1130,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1130.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660165,
+      "petNumber": 1131,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1131.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660166,
+      "petNumber": 1132,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1132.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660167,
+      "petNumber": 1133,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1133.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660168,
+      "petNumber": 1134,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1134.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660169,
+      "petNumber": 1135,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1135.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660170,
+      "petNumber": 1136,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1136.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660171,
+      "petNumber": 1137,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1137.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660172,
+      "petNumber": 1138,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1138.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660173,
+      "petNumber": 1139,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1139.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660175,
+      "petNumber": 1141,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1141.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660176,
+      "petNumber": 1142,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1142.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660177,
+      "petNumber": 1143,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1143.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660178,
+      "petNumber": 1144,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1144.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660179,
+      "petNumber": 1145,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1145.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660182,
+      "petNumber": 1148,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1148.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660187,
+      "petNumber": 1177,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1177.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660188,
+      "petNumber": 1186,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1186.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660189,
+      "petNumber": 1160,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1160.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660190,
+      "petNumber": 1217,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1217.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660191,
+      "petNumber": 1157,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1157.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660192,
+      "petNumber": 1190,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1190.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660193,
+      "petNumber": 1196,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1196.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660194,
+      "petNumber": 1156,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1156.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660195,
+      "petNumber": 1158,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1158.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660199,
+      "petNumber": 1207,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1207.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660200,
+      "petNumber": 1181,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1181.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660201,
+      "petNumber": 1201,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1201.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660202,
+      "petNumber": 1174,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1174.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660203,
+      "petNumber": 1175,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1175.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660204,
+      "petNumber": 1180,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1180.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660205,
+      "petNumber": 1154,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1154.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660206,
+      "petNumber": 1161,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1161.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660207,
+      "petNumber": 1179,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1179.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660209,
+      "petNumber": 1193,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1193.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660210,
+      "petNumber": 1206,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1206.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660211,
+      "petNumber": 1197,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1197.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660212,
+      "petNumber": 1171,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1171.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660214,
+      "petNumber": 1202,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1202.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660215,
+      "petNumber": 1218,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1218.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660216,
+      "petNumber": 1176,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1176.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660217,
+      "petNumber": 1208,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1208.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660218,
+      "petNumber": 1198,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1198.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660219,
+      "petNumber": 1203,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1203.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660220,
+      "petNumber": 1185,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1185.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660224,
+      "petNumber": 1183,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1183.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660225,
+      "petNumber": 1210,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1210.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534660226,
+      "petNumber": 1189,
+      "kind": "soul",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1189.d.json"
+      ],
+      "field": "soulItem.id"
+    },
+    {
+      "itemId": 534760001,
+      "petNumber": 1002,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1002.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760002,
+      "petNumber": 1003,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1003.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760003,
+      "petNumber": 1004,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1004.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760004,
+      "petNumber": 1005,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1005.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760005,
+      "petNumber": 1006,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1006.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760006,
+      "petNumber": 1007,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1007.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760007,
+      "petNumber": 1008,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1008.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760008,
+      "petNumber": 1009,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1009.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760009,
+      "petNumber": 1010,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1010.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760010,
+      "petNumber": 1011,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1011.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760011,
+      "petNumber": 1012,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1012.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760012,
+      "petNumber": 1013,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1013.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760013,
+      "petNumber": 1014,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1014.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760014,
+      "petNumber": 1015,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1015.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760015,
+      "petNumber": 1016,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1016.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760016,
+      "petNumber": 1017,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1017.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760017,
+      "petNumber": 1018,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1018.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760019,
+      "petNumber": 1114,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1114.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760020,
+      "petNumber": 1025,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1025.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760021,
+      "petNumber": 1022,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1022.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760023,
+      "petNumber": 1116,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1116.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760024,
+      "petNumber": 1021,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1021.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760025,
+      "petNumber": 1026,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1026.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760026,
+      "petNumber": 1027,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1027.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760027,
+      "petNumber": 1028,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1028.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760028,
+      "petNumber": 1029,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1029.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760029,
+      "petNumber": 1030,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1030.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760030,
+      "petNumber": 1031,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1031.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760031,
+      "petNumber": 1032,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1032.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760032,
+      "petNumber": 1033,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1033.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760033,
+      "petNumber": 1034,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1034.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760034,
+      "petNumber": 1035,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1035.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760035,
+      "petNumber": 1036,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1036.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760036,
+      "petNumber": 1037,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1037.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760037,
+      "petNumber": 1038,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1038.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760038,
+      "petNumber": 1039,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1039.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760039,
+      "petNumber": 1040,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1040.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760040,
+      "petNumber": 1041,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1041.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760041,
+      "petNumber": 1042,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1042.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760042,
+      "petNumber": 1043,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1043.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760043,
+      "petNumber": 1044,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1044.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760044,
+      "petNumber": 1045,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1045.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760045,
+      "petNumber": 1046,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1046.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760046,
+      "petNumber": 1047,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1047.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760047,
+      "petNumber": 1048,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1048.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760048,
+      "petNumber": 1049,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1049.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760049,
+      "petNumber": 1050,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1050.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760050,
+      "petNumber": 1051,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1051.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760051,
+      "petNumber": 1052,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1052.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760052,
+      "petNumber": 1053,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1053.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760053,
+      "petNumber": 1054,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1054.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760054,
+      "petNumber": 1055,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1055.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760055,
+      "petNumber": 1056,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1056.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760056,
+      "petNumber": 1057,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1057.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760057,
+      "petNumber": 1058,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1058.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760058,
+      "petNumber": 1059,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1059.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760059,
+      "petNumber": 1060,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1060.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760060,
+      "petNumber": 1061,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1061.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760061,
+      "petNumber": 1062,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1062.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760062,
+      "petNumber": 1063,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1063.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760063,
+      "petNumber": 1064,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1064.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760064,
+      "petNumber": 1065,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1065.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760065,
+      "petNumber": 1066,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1066.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760066,
+      "petNumber": 1067,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1067.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760067,
+      "petNumber": 1068,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1068.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760068,
+      "petNumber": 1069,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1069.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760070,
+      "petNumber": 1071,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1071.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760071,
+      "petNumber": 1072,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1072.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760072,
+      "petNumber": 1073,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1073.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760073,
+      "petNumber": 1074,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1074.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760074,
+      "petNumber": 1075,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1075.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760075,
+      "petNumber": 1115,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1115.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760076,
+      "petNumber": 1077,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1077.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760077,
+      "petNumber": 1078,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1078.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760078,
+      "petNumber": 1079,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1079.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760079,
+      "petNumber": 1080,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1080.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760080,
+      "petNumber": 1081,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1081.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760081,
+      "petNumber": 1082,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1082.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760082,
+      "petNumber": 1083,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1083.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760083,
+      "petNumber": 1084,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1084.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760084,
+      "petNumber": 1117,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1117.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760085,
+      "petNumber": 1086,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1086.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760086,
+      "petNumber": 1087,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1087.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760087,
+      "petNumber": 1088,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1088.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760088,
+      "petNumber": 1089,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1089.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760089,
+      "petNumber": 1090,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1090.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760090,
+      "petNumber": 1091,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1091.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760091,
+      "petNumber": 1092,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1092.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760092,
+      "petNumber": 1093,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1093.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760093,
+      "petNumber": 1094,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1094.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760094,
+      "petNumber": 1095,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1095.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760095,
+      "petNumber": 1096,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1096.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760096,
+      "petNumber": 1097,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1097.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760097,
+      "petNumber": 1098,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1098.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760098,
+      "petNumber": 1099,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1099.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760099,
+      "petNumber": 1100,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1100.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760100,
+      "petNumber": 1101,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1101.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760101,
+      "petNumber": 1102,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1102.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760102,
+      "petNumber": 1103,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1103.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760103,
+      "petNumber": 1104,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1104.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760104,
+      "petNumber": 1105,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1105.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760105,
+      "petNumber": 1106,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1106.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760106,
+      "petNumber": 1107,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1107.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760107,
+      "petNumber": 1108,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1108.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760108,
+      "petNumber": 1109,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1109.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760109,
+      "petNumber": 1110,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1110.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760110,
+      "petNumber": 1159,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1159.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760111,
+      "petNumber": 1209,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1209.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760112,
+      "petNumber": 1140,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1140.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760113,
+      "petNumber": 1214,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1214.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760114,
+      "petNumber": 1153,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1153.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760115,
+      "petNumber": 1219,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1219.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760116,
+      "petNumber": 1215,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1215.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760117,
+      "petNumber": 1200,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1200.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760118,
+      "petNumber": 1146,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1146.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760119,
+      "petNumber": 1124,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1124.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760120,
+      "petNumber": 1168,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1168.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760121,
+      "petNumber": 1169,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1169.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760122,
+      "petNumber": 1155,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1155.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760123,
+      "petNumber": 1164,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1164.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760124,
+      "petNumber": 1165,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1165.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760125,
+      "petNumber": 1166,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1166.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760126,
+      "petNumber": 1213,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1213.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760127,
+      "petNumber": 1187,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1187.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760128,
+      "petNumber": 1192,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1192.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760129,
+      "petNumber": 1199,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1199.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760130,
+      "petNumber": 1167,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1167.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760131,
+      "petNumber": 1191,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1191.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760132,
+      "petNumber": 1188,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1188.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760133,
+      "petNumber": 1147,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1147.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760134,
+      "petNumber": 1163,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1163.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760136,
+      "petNumber": 1182,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1182.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760137,
+      "petNumber": 1172,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1172.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760138,
+      "petNumber": 1173,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1173.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760139,
+      "petNumber": 1194,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1194.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760140,
+      "petNumber": 1184,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1184.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760141,
+      "petNumber": 1195,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1195.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760142,
+      "petNumber": 1162,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1162.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760143,
+      "petNumber": 1170,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1170.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760144,
+      "petNumber": 1178,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1178.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760146,
+      "petNumber": 1111,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1111.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760147,
+      "petNumber": 1216,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1216.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760148,
+      "petNumber": 1112,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1112.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760149,
+      "petNumber": 1118,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1118.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760150,
+      "petNumber": 1119,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1119.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760151,
+      "petNumber": 1120,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1120.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760152,
+      "petNumber": 1121,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1121.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760153,
+      "petNumber": 1122,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1122.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760154,
+      "petNumber": 1123,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1123.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760156,
+      "petNumber": 1125,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1125.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760157,
+      "petNumber": 1126,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1126.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760158,
+      "petNumber": 1127,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1127.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760159,
+      "petNumber": 1128,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1128.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760160,
+      "petNumber": 1129,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1129.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760161,
+      "petNumber": 1130,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1130.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760162,
+      "petNumber": 1131,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1131.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760163,
+      "petNumber": 1132,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1132.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760164,
+      "petNumber": 1133,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1133.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760165,
+      "petNumber": 1134,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1134.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760166,
+      "petNumber": 1135,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1135.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760167,
+      "petNumber": 1136,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1136.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760168,
+      "petNumber": 1137,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1137.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760169,
+      "petNumber": 1138,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1138.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760170,
+      "petNumber": 1139,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1139.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760172,
+      "petNumber": 1141,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1141.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760173,
+      "petNumber": 1142,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1142.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760174,
+      "petNumber": 1143,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1143.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760175,
+      "petNumber": 1144,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1144.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760176,
+      "petNumber": 1145,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1145.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760179,
+      "petNumber": 1148,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1148.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760184,
+      "petNumber": 1177,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1177.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760185,
+      "petNumber": 1186,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1186.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760186,
+      "petNumber": 1160,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1160.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760187,
+      "petNumber": 1217,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1217.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760188,
+      "petNumber": 1157,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1157.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760189,
+      "petNumber": 1190,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1190.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760190,
+      "petNumber": 1196,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1196.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760191,
+      "petNumber": 1156,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1156.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760192,
+      "petNumber": 1158,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1158.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760196,
+      "petNumber": 1207,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1207.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760197,
+      "petNumber": 1181,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1181.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760198,
+      "petNumber": 1201,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1201.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760199,
+      "petNumber": 1174,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1174.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760200,
+      "petNumber": 1175,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1175.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760201,
+      "petNumber": 1180,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1180.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760202,
+      "petNumber": 1154,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1154.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760203,
+      "petNumber": 1161,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1161.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760204,
+      "petNumber": 1179,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1179.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760206,
+      "petNumber": 1193,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1193.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760207,
+      "petNumber": 1206,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1206.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760208,
+      "petNumber": 1197,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1197.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760209,
+      "petNumber": 1171,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1171.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760211,
+      "petNumber": 1202,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1202.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760212,
+      "petNumber": 1218,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1218.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760213,
+      "petNumber": 1176,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1176.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760214,
+      "petNumber": 1208,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1208.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760215,
+      "petNumber": 1198,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1198.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760216,
+      "petNumber": 1203,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1203.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760217,
+      "petNumber": 1185,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1185.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760221,
+      "petNumber": 1183,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1183.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760222,
+      "petNumber": 1210,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1210.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760223,
+      "petNumber": 1189,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1189.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760225,
+      "petNumber": 1204,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1204.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760244,
+      "petNumber": 1240,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1240.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760265,
+      "petNumber": 1278,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1278.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 534760316,
+      "petNumber": 1299,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1299.d.json"
+      ],
+      "field": "unlockItem.id"
+    },
+    {
+      "itemId": 574760001,
+      "petNumber": 1001,
+      "kind": "unlock",
+      "sourceRefs": [
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1001.d.json"
+      ],
+      "field": "unlockItem.id"
+    }
+  ],
+  "missing": [
+    {
+      "petNumber": 1001,
+      "kind": "soul"
+    },
+    {
+      "petNumber": 1111,
+      "kind": "soul"
+    },
+    {
+      "petNumber": 1112,
+      "kind": "soul"
+    },
+    {
+      "petNumber": 1204,
+      "kind": "soul"
+    },
+    {
+      "petNumber": 1240,
+      "kind": "soul"
+    },
+    {
+      "petNumber": 1278,
+      "kind": "soul"
+    },
+    {
+      "petNumber": 1299,
+      "kind": "soul"
+    }
+  ]
+}

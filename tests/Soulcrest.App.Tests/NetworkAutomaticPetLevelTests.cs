@@ -174,7 +174,7 @@ public sealed class NetworkAutomaticPetLevelTests
     }
 
     [Fact]
-    public void UpgradeRemainsServerWideAndAnAuthoritativeSnapshotCanCorrectAnOlderObservedLevel()
+    public void UpgradeRemainsGlobalAndAnAuthoritativeSnapshotCanCorrectAnOlderObservedLevel()
     {
         using var f = new Fixture(1143);
         var service = f.Load();
@@ -187,10 +187,10 @@ public sealed class NetworkAutomaticPetLevelTests
         Assert.Equal(1, service.AvailableSouls(f.PetId));
         Assert.False(service.ApplyNetworkUpgrade(new(0, 1143, 1), Context(6, character: 202)));
         Assert.True(service.BindNetworkContext(Context(7, character: 303, server: 502)));
-        Assert.Equal(0, service.Souls(f.PetId));
-        Assert.True(service.ApplyNetworkUpgrade(new(0, 1143, 1), Context(8, character: 303, server: 502)));
-        Assert.Equal(1, service.ObservedLevel(f.PetId));
-        Assert.Equal(5, service.Souls(f.PetId));
+        Assert.Equal(31, service.Souls(f.PetId));
+        Assert.False(service.ApplyNetworkUpgrade(new(0, 1143, 1), Context(8, character: 303, server: 502)));
+        Assert.Equal(2, service.ObservedLevel(f.PetId));
+        Assert.Equal(31, service.Souls(f.PetId));
         Assert.True(service.BindNetworkContext(Context(9, character: 404)));
         Assert.Equal(2, service.ObservedLevel(f.PetId));
         Assert.Equal(31, service.Souls(f.PetId));

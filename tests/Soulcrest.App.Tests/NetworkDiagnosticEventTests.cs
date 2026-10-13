@@ -37,17 +37,39 @@ public sealed class NetworkDiagnosticEventTests
     }
 
     [Fact]
-    public void UnboundSoulMessagesRemainDiagnosticOnlyAndDoNotFloodTheEventHistory()
+    public void GainsWithoutOwnCountGloballyAndKeepOnlyABoundedDiagnosticHistory()
     {
         using var f = new Fixture();
         for (var i = 0; i < 200; i++) f.Send(Points(0x900D, 2), i);
         var diagnostics = f.Network.ProgressDiagnostics;
-        Assert.Equal(200, diagnostics.UnboundSoulMessages);
-        Assert.Equal(400, diagnostics.UnboundSoulPoints);
-        Assert.Equal(0, diagnostics.AcceptedSoulMessages);
-        Assert.Empty(diagnostics.Events);
-        Assert.Empty(f.Progress.Recent());
-        Assert.Equal(0, f.Progress.Souls("ashen-dionae"));
+        Assert.False(diagnostics.IdentityBound);
+        Assert.Equal(0, diagnostics.UnboundSoulMessages);
+        Assert.Equal(0, diagnostics.UnboundSoulPoints);
+        Assert.Equal(200, diagnostics.AcceptedSoulMessages);
+        Assert.Equal(400, diagnostics.AcceptedSoulPoints);
+        Assert.Equal(128, diagnostics.Events.Count);
+        Assert.All(diagnostics.Events, entry =>
+        {
+            Assert.Equal(NetworkProgressEventKind.Gained, entry.Kind);
+            Assert.Equal((ushort)0x900D, entry.Opcode);
+            Assert.Equal(1135, entry.PetNumber);
+            Assert.Equal(2, entry.Souls);
+        });
+        Assert.Equal(At.AddSeconds(72), diagnostics.Events[0].At);
+        Assert.Equal(At.AddSeconds(199), diagnostics.Events[^1].At);
+        Assert.Equal(200, f.Progress.Recent().Count);
+        Assert.All(f.Progress.Recent(), soul => Assert.Equal(2, soul.Quantity));
+        Assert.Equal(100, f.Network.Recent.Count);
+        Assert.Equal(400, f.Progress.Souls("ashen-dionae"));
+        Assert.Null(f.Progress.ObservedLevel("ashen-dionae"));
+        Assert.Null(f.Progress.AvailableSouls("ashen-dionae"));
+        Assert.Null(f.Network.PetBaselineAt);
+
+        f.Network.ObserveIdentity("synthetic-world", Own, At.AddSeconds(200));
+        Assert.Equal(400, f.Progress.Souls("ashen-dionae"));
+        Assert.Equal(200, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Equal(400, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
+        Assert.Equal(200, f.Progress.Recent().Count);
     }
 
     [Fact]

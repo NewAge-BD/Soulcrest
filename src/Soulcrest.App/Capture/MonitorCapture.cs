@@ -148,7 +148,11 @@ public sealed unsafe class MonitorCapture : IDisposable
     /// Starts capturing the Aion 2 window (process AION2) when it covers <paramref name="screenArea"/>,
     /// otherwise the monitor; null when WGC is unavailable.
     /// </summary>
-    public static MonitorCapture? TryStartForGame(Rectangle screenArea)
+    public static MonitorCapture? TryStartForGame(Rectangle screenArea) =>
+        TryStartGameWindowOnly(screenArea) ?? TryStart(screenArea);
+
+    /// <summary>Starts only the game's WGC window session; unavailable windows never capture the monitor.</summary>
+    internal static MonitorCapture? TryStartGameWindowOnly(Rectangle screenArea)
     {
         var window = FindGameWindow();
         if (window == 0)
@@ -180,7 +184,7 @@ public sealed unsafe class MonitorCapture : IDisposable
                 Trace.TraceWarning("Game window capture unavailable: {0}", error.Message);
             }
         }
-        return TryStart(screenArea);
+        return null;
     }
 
     /// <summary>Main window of the game process (AION2.exe), the largest visible one.</summary>
@@ -189,6 +193,17 @@ public sealed unsafe class MonitorCapture : IDisposable
         var window = FindGameWindow();
         NativeRect rect;
         if (window == 0 || IsIconic(window) || DwmGetWindowAttribute(window, 9, &rect, sizeof(NativeRect)) < 0) return null;
+        var result = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        return result.Width > 0 && result.Height > 0 ? result : null;
+    }
+
+    /// <summary>Physical bounds only while the exact visible main game window is foreground and not minimized.</summary>
+    internal static Rectangle? ForegroundGameWindowBounds()
+    {
+        var window = FindGameWindow();
+        NativeRect rect;
+        if (window == 0 || IsIconic(window) || GetForegroundWindow() != window ||
+            DwmGetWindowAttribute(window, 9, &rect, sizeof(NativeRect)) < 0) return null;
         var result = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
         return result.Width > 0 && result.Height > 0 ? result : null;
     }
@@ -703,6 +718,9 @@ public sealed unsafe class MonitorCapture : IDisposable
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool IsIconic(nint window);
+
+    [DllImport("user32.dll")]
+    private static extern nint GetForegroundWindow();
 
     [DllImport("d3d11.dll", ExactSpelling = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]

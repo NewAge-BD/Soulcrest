@@ -2,6 +2,16 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.7.0 – 2026-10-14
+
+- **Neu:** Beim Black Cloud Merchant steht unter jedem Pet-Angebot dein Soul-Stand (z. B. 0/5, MAX) und
+  wo das Pet gefarmt wird (Abyss, Altgard, Verteron oder „Special“ ohne Farmort auf diesen Karten).
+  MAX ist grün, Special bernsteinfarben, fehlende Pets (0/5) hellgold hervorgehoben. Ein- und
+  ausschaltbar unter Optionen → Overlays; das Overlay ist immer durchklickbar.
+- **Geändert:** Pets bilden eine gemeinsame Sammlung ohne Trennung nach Server. Der bisherige Stand
+  wird übernommen (mit Sicherung vorher), manuelle Korrekturen bleiben.
+- **Verbessert:** Souls zählen jetzt auch, wenn Soulcrest mitten im Spiel gestartet wird.
+
 ## 0.6.3 – 2026-10-13
 
 - **Behoben:** Im Rift (und bei anderen neuen Server-Verbindungen) stoppte die Soul-Zählung nach etwa

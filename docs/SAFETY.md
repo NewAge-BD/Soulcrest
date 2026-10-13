@@ -42,13 +42,16 @@ auswerten darf (DPS-Meter sind für Aion 2 laut Nutzer erlaubt). Dafür gilt:
 - Mitschnitte liegen nur lokal unter `%LOCALAPPDATA%\Soulcrest\captures`.
 - **Charakter- und Fortschrittserkennung (Nutzerauftrag 2026-10-12):** Derselbe Serverstrom
   liefert die eigene Charakter-ID, Server-ID, den eigenen Namen und den Entity-Key beim Welteintritt.
-  Nur dieser bestätigte Verbindungs-/Charakterkontext darf Pet-Stufen, verfügbare Souls, Soul-Gewinne
-  und -Verbrauch sowie Quest-/Teleportfortschritt zuordnen. Pet-Daten gelten serverweit, Exploration
-  pro Charakter. Andere Spieler, deren Namen und Positionen werden nicht ausgewertet. Die Parser
+  Nur dieser bestätigte Verbindungs-/Charakterkontext darf Quest-/Teleportfortschritt zuordnen.
+  Nutzerentscheidung 2026-10-13: Petdaten bilden eine gemeinsame Sammlung ohne Servertracking;
+  eigene Pet-Vollstände, Gewinne, Verbrauch und absolute Aufstiegsergebnisse dürfen direkt aus
+  den exakt nativ zugeordneten Spielverbindungen übernommen werden, auch vor Own. 9009 ist ein
+  Broadcast und benötigt weiterhin den bestätigten eigenen Entity-Key. Exploration gilt pro
+  Charakter. Andere Spieler, deren Namen und Positionen werden nicht ausgewertet. Die Parser
   überspringen fremde/ungenutzte Felder der eigenen Welteintrittsnachricht ohne sie zu speichern.
   Echte Charakternamen kommen nicht ins Repository. Die bisherigen OCR-Scans entfallen.
-  Formatfehler, Lücken, Ladebildschirme und Verbindungswechsel entwerten den aktuellen Kontext;
-  gespeicherte Stände bleiben erhalten.
+  Formatfehler und echte Transportlücken entwerten die betroffene Bestätigung; gespeicherte Stände
+  bleiben erhalten. Ladebildschirme entwerten die Charakterzuordnung, nicht die globale Pet-Liste.
 - **Boss Rush Mode (Nutzerauftrag 2026-10-09):** Derselbe passive Serverstrom liefert die
   Boss-Spawn-IDs, Status und Zeitstempel (`0191`) sowie die Serverzeit (`0036`). Optionale
   Zusatzblöcke werden übersprungen; es werden keine Spielerpositionen ausgewertet. Keine

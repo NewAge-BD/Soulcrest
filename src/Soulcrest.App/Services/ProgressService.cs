@@ -14,7 +14,7 @@ public sealed record LoggedSoul(DateTimeOffset At, string PetId, int Quantity, s
 /// </summary>
 public sealed record MapInfo(string Id, string Label, string Group, double? MetersPerPixel = null);
 
-/// <summary>Pet catalog plus the per-server progress profile. Thread-safe; UI listens to Changed.</summary>
+/// <summary>Pet catalog plus global pet progress. Thread-safe; UI listens to Changed.</summary>
 public sealed partial class ProgressService
 {
     private readonly object _gate = new();
@@ -23,6 +23,7 @@ public sealed partial class ProgressService
     private readonly string _progressPath;
     private bool _needsMigrationBackup;
     private NetworkProgressContext? _networkContext;
+    private PetProgressContext? _petContext;
     private long _networkSequence = -1;
     private long _invalidatedGeneration = -1;
     private readonly List<LoggedSoul> _recent = [];
@@ -39,16 +40,43 @@ public sealed partial class ProgressService
         _aliases = new Dictionary<string, string>(mapCatalog.Aliases, StringComparer.Ordinal);
         _learned = JsonFile.Load<List<PetDefinition>>(AppPaths.LearnedPetsFile);
         _learnedNames = JsonFile.Load<Dictionary<string, string>>(AppPaths.LearnedNamesFile);
-        _storageProfile = JsonFile.Load<ProgressProfile>(_progressPath);
-        _needsMigrationBackup = File.Exists(_progressPath) && _storageProfile.SchemaVersion < 2;
-        _profile = _storageProfile.ActiveServerId is { } active && active != _storageProfile.ServerId
-            && _storageProfile.Servers.TryGetValue(active, out var stored) ? stored : _storageProfile;
-        foreach (var profile in _storageProfile.Servers.Values.Prepend(_storageProfile))
-            foreach (var entry in profile.Pets.Values)
-                if (entry.Freshness == ProgressFreshness.Fresh) entry.Freshness = ProgressFreshness.Stale;
+        var loaded = JsonFile.Load<ProgressProfile>(_progressPath);
+        _needsMigrationBackup = File.Exists(_progressPath) && loaded.SchemaVersion < 3;
+        _storageProfile = GlobalProfile(loaded, _progressPath);
+        _profile = _storageProfile;
+        foreach (var entry in _profile.Pets.Values)
+            if (entry.Freshness == ProgressFreshness.Fresh) entry.Freshness = ProgressFreshness.Stale;
+        foreach (var raw in _profile.NetworkPets.Values) raw.HasBaseline = false;
         RepairLearnedNames();
         Catalog = BuildCatalog();
         Maps = LoadMaps(MapDataDirectory);
+    }
+
+    /// <summary>Select once, never sum collections; preserve the complete old file before any repair mutates it.</summary>
+    private static ProgressProfile GlobalProfile(ProgressProfile loaded, string path)
+    {
+        if (loaded.SchemaVersion >= 3) return loaded;
+        var selected = loaded.ActiveServerId is { } active && active != loaded.ServerId &&
+            loaded.Servers.TryGetValue(active, out var server) ? server : loaded;
+        var global = JsonSerializer.Deserialize<ProgressProfile>(JsonSerializer.Serialize(selected))!;
+        if (File.Exists(path))
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(File.ReadAllText(path));
+                global.LegacyServerSnapshot = document.RootElement.Clone();
+            }
+            catch (JsonException)
+            {
+                // JsonFile.Load already retained the unreadable file. The migration backup also keeps its exact bytes.
+                global.LegacyServerSnapshot = JsonSerializer.SerializeToElement(loaded);
+            }
+        }
+        global.SchemaVersion = 3;
+        global.Server = "Global";
+        global.ServerId = global.ActiveServerId = null;
+        global.Servers = [];
+        return global;
     }
 
     private readonly List<PetDefinition> _mapPets;
@@ -423,6 +451,19 @@ public sealed partial class ProgressService
     /// <summary>Souls of the current level, "24/25", or "max": shown beside marked pet targets in game.</summary>
     public string SoulCount(string petId) => IsMax(petId) ? "max" : $"{SoulsInLevel(petId)}/{NeededForNextLevel(petId)}";
 
+    /// <summary>A read-only projection of the global collection under one profile lock.</summary>
+    internal (string Counter, bool IsFresh, bool IsMax) ReadMerchantCounter(string petId)
+    {
+        lock (_gate)
+        {
+            var entry = EntrySnapshot(petId);
+            var raw = RawFor(petId);
+            var observedMax = !entry.ManualOverride && raw is { LevelObserved: true } && raw.Level >= Thresholds.MaxLevel;
+            var known = entry.ManualOverride || observedMax || raw is { LevelObserved: true, BalanceObserved: true };
+            return (known ? SoulCount(petId) : "?", known && entry.Freshness == ProgressFreshness.Fresh, observedMax);
+        }
+    }
+
     public string PetMapLabel(string petId) => IsMax(petId)
         ? UiText.F("St. {0} · max", Thresholds.MaxLevel)
         : UiText.F("St. {0} · {1}/{2}", Level(petId), SoulsInLevel(petId), NeededForNextLevel(petId));
@@ -495,50 +536,107 @@ public sealed partial class ProgressService
         Changed?.Invoke();
     }
 
-    public int? ActiveServerId { get { lock (_gate) return _profile.ServerId; } }
+    /// <summary>Pet progress no longer has a server profile; retained for compatibility with older callers.</summary>
+    public int? ActiveServerId => null;
     public DateTimeOffset? NetworkBaselineAt { get { lock (_gate) return _profile.NetworkBaselineAt; } }
 
-    /// <summary>Adopts the old server-wide collection once; character switches on that server share it.</summary>
-    public bool BindNetworkContext(NetworkProgressContext context)
+    /// <summary>Bind a validated passive source without requiring a character or server identity.</summary>
+    public bool BindPetSession(PetProgressContext context)
     {
+        bool changed;
         lock (_gate)
         {
-            if (!ValidContext(context) || context.Generation <= _invalidatedGeneration || _networkContext is { } prior &&
-                (context.Generation < prior.Generation || context.Generation == prior.Generation && context.Sequence < prior.Sequence)) return false;
-            if (_networkContext is { } same && same.Generation == context.Generation &&
-                same.CharacterId == context.CharacterId && same.ServerId == context.ServerId) return true;
-            foreach (var entry in _profile.Pets.Values)
-                if (entry.Freshness == ProgressFreshness.Fresh) entry.Freshness = ProgressFreshness.Stale;
-            if (_storageProfile.ServerId is null) _storageProfile.ServerId = context.ServerId;
-            _profile = _storageProfile.ServerId == context.ServerId ? _storageProfile :
-                _storageProfile.Servers.TryGetValue(context.ServerId, out var profile) ? profile :
-                _storageProfile.Servers[context.ServerId] = new ProgressProfile { ServerId = context.ServerId,
-                    Server = context.ServerId.ToString(System.Globalization.CultureInfo.InvariantCulture) };
-            foreach (var raw in _profile.NetworkPets.Values) raw.HasBaseline = false;
-            _storageProfile.ActiveServerId = context.ServerId;
-            _networkContext = context;
-            _networkSequence = -1;
-            _recent.Clear();
-            PersistNetwork();
+            if (!BindPetSessionLocked(context, out changed)) return false;
         }
-        SafeEvent.Raise(Changed, "Server-Fortschritt");
+        if (changed) SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
+        return true;
+    }
+
+    private bool BindPetSessionLocked(PetProgressContext context, out bool changed)
+    {
+        changed = false;
+        if (context.Generation < 0 || context.Sequence < 0 || context.Generation <= _invalidatedGeneration ||
+            _petContext is { } prior && (context.Generation < prior.Generation ||
+                context.Generation == prior.Generation && context.Sequence < prior.Sequence)) return false;
+        if (_petContext is { } same && same.Generation == context.Generation) return true;
+        foreach (var entry in _profile.Pets.Values)
+            if (entry.Freshness == ProgressFreshness.Fresh) entry.Freshness = ProgressFreshness.Stale;
+        foreach (var raw in _profile.NetworkPets.Values) raw.HasBaseline = false;
+        _petContext = context;
+        _networkContext = null;
+        _networkSequence = -1;
+        changed = true;
+        PersistNetwork();
+        return true;
+    }
+
+    /// <summary>Legacy own-bound wrapper; its identity never selects or creates a pet collection.</summary>
+    public bool BindNetworkContext(NetworkProgressContext context)
+    {
+        bool changed;
+        lock (_gate)
+        {
+            if (!ValidContext(context) || _networkContext is { } prior &&
+                (context.Generation < prior.Generation || context.Generation == prior.Generation && context.Sequence < prior.Sequence)) return false;
+            if (!BindPetSessionLocked(PetContext(context), out changed)) return false;
+            _networkContext = context;
+        }
+        if (changed) SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
         return true;
     }
 
     private static bool ValidContext(NetworkProgressContext c) =>
         c.ServerId > 0 && c.CharacterId > 0 && c.Generation >= 0 && c.Sequence >= 0 && !string.IsNullOrWhiteSpace(c.Name);
 
-    private bool AcceptContext(NetworkProgressContext c) => _networkContext is { } current &&
-        current.Generation == c.Generation && current.ServerId == c.ServerId && current.CharacterId == c.CharacterId &&
-        c.Sequence >= current.Sequence && c.Sequence > _networkSequence;
+    private static PetProgressContext PetContext(NetworkProgressContext context) =>
+        new(context.Generation, context.Sequence, context.At);
 
-    public bool ApplyNetworkSnapshot(PetProgressSnapshot snapshot, NetworkProgressContext context)
+    private bool AcceptPetContext(PetProgressContext context, NetworkProgressContext? legacy = null) =>
+        _petContext is { } current && current.Generation == context.Generation && context.Sequence >= current.Sequence &&
+        context.Sequence > _networkSequence && (legacy is null || AcceptLegacyContext(legacy));
+
+    private bool AcceptLegacyContext(NetworkProgressContext context) => ValidContext(context) && _networkContext is { } current &&
+        current.Generation == context.Generation && current.ServerId == context.ServerId && current.CharacterId == context.CharacterId &&
+        current.Identity.EntityKey == context.Identity.EntityKey && context.Sequence >= current.Sequence;
+
+    public bool ApplyNetworkSnapshot(PetProgressSnapshot snapshot, NetworkProgressContext context) =>
+        ApplyPetSnapshot(snapshot, PetContext(context), context);
+
+    public bool ApplyNetworkAcquisition(PetAcquisition acquisition, NetworkProgressContext context) =>
+        acquisition.EntityKey == context.Identity.EntityKey && ApplyPetAcquisition(acquisition, PetContext(context), context);
+
+    public bool ApplyNetworkUpgrade(PetUpgradeResult upgrade, NetworkProgressContext context) =>
+        ApplyPetUpgrade(upgrade, PetContext(context), context);
+
+    public bool ApplyNetworkSpent(IReadOnlyList<SoulGain> spent, NetworkProgressContext context) =>
+        ApplyPetPoints(spent, PetContext(context), gain: false, context);
+
+    public bool ApplyNetworkGain(IReadOnlyList<SoulGain> gains, NetworkProgressContext context) =>
+        ApplyPetPoints(gains, PetContext(context), gain: true, context);
+
+    public bool ApplyPetSnapshot(PetProgressSnapshot snapshot, PetProgressContext context) =>
+        ApplyPetSnapshot(snapshot, context, legacy: null);
+
+    public bool ApplyPetAcquisition(PetAcquisition acquisition, PetProgressContext context) =>
+        ApplyPetAcquisition(acquisition, context, legacy: null);
+
+    public bool ApplyPetUpgrade(PetUpgradeResult upgrade, PetProgressContext context) =>
+        ApplyPetUpgrade(upgrade, context, legacy: null);
+
+    public bool ApplyPetSpent(IReadOnlyList<SoulGain> spent, PetProgressContext context) =>
+        ApplyPetPoints(spent, context, gain: false);
+
+    /// <summary>Validated new pickups count immediately; they do not confirm an unknown level or balance.</summary>
+    public bool ApplyPetGain(IReadOnlyList<SoulGain> gains, PetProgressContext context) =>
+        ApplyPetPoints(gains, context, gain: true);
+
+    private bool ApplyPetSnapshot(PetProgressSnapshot snapshot, PetProgressContext context, NetworkProgressContext? legacy)
     {
         if (snapshot.Levels.Any(p => p.Key <= 0 || p.Value is < 0 or > 3) ||
             snapshot.AvailableSouls.Any(p => p.Key <= 0 || p.Value < 0 || p.Value > int.MaxValue - Thresholds.Max)) return false;
         lock (_gate)
         {
-            if (!AcceptContext(context)) return false;
+            if (!AcceptPetContext(context, legacy)) return false;
             var numbers = snapshot.Levels.Keys.Union(snapshot.AvailableSouls.Keys)
                 .Union(_profile.NetworkPets.Keys).Union(VerifiedPets.Select(p => SoulId(p.Id)).OfType<int>()).ToArray();
             foreach (var number in numbers)
@@ -567,12 +665,12 @@ public sealed partial class ProgressService
     }
 
     /// <summary>Absolute acquisition updates raw level only: spending may arrive before or after it.</summary>
-    public bool ApplyNetworkAcquisition(PetAcquisition acquisition, NetworkProgressContext context)
+    private bool ApplyPetAcquisition(PetAcquisition acquisition, PetProgressContext context, NetworkProgressContext? legacy)
     {
-        if (acquisition.EntityKey != context.Identity.EntityKey || acquisition.PetNumber <= 0 || acquisition.Level is < 0 or > 3) return false;
+        if (acquisition.PetNumber <= 0 || acquisition.Level is < 0 or > 3) return false;
         lock (_gate)
         {
-            if (!AcceptContext(context)) return false;
+            if (!AcceptPetContext(context, legacy)) return false;
             var raw = NetworkEntry(acquisition.PetNumber);
             if (raw.LevelObserved && acquisition.Level < raw.Level) return false;
             raw.Level = acquisition.Level;
@@ -586,13 +684,13 @@ public sealed partial class ProgressService
         return true;
     }
 
-    /// <summary>An own-bound successful result supplies the absolute level; its spending remains a separate message.</summary>
-    public bool ApplyNetworkUpgrade(PetUpgradeResult upgrade, NetworkProgressContext context)
+    /// <summary>A successful result supplies the absolute level; its spending remains a separate message.</summary>
+    private bool ApplyPetUpgrade(PetUpgradeResult upgrade, PetProgressContext context, NetworkProgressContext? legacy)
     {
         if (upgrade.Result != 0 || upgrade.PetNumber <= 0 || upgrade.Level is < 1 or > 3) return false;
         lock (_gate)
         {
-            if (!AcceptContext(context)) return false;
+            if (!AcceptPetContext(context, legacy)) return false;
             var raw = NetworkEntry(upgrade.PetNumber);
             if (raw.LevelObserved && upgrade.Level < raw.Level) return false;
             raw.Level = upgrade.Level;
@@ -606,20 +704,13 @@ public sealed partial class ProgressService
         return true;
     }
 
-    public bool ApplyNetworkSpent(IReadOnlyList<SoulGain> spent, NetworkProgressContext context) =>
-        ApplyNetworkPoints(spent, context, gain: false);
-
-    /// <summary>Logs accepted pickups once; the capture dispatcher owns session events.</summary>
-    public bool ApplyNetworkGain(IReadOnlyList<SoulGain> gains, NetworkProgressContext context) =>
-        ApplyNetworkPoints(gains, context, gain: true);
-
-    private bool ApplyNetworkPoints(IReadOnlyList<SoulGain> points, NetworkProgressContext context, bool gain)
+    private bool ApplyPetPoints(IReadOnlyList<SoulGain> points, PetProgressContext context, bool gain, NetworkProgressContext? legacy = null)
     {
         if (points.Any(p => p.PetNumber <= 0 || p.Souls < 0)) return false;
         var totals = points.GroupBy(p => p.PetNumber).ToDictionary(g => g.Key, g => g.Sum(p => (long)p.Souls));
         lock (_gate)
         {
-            if (!AcceptContext(context)) return false;
+            if (!AcceptPetContext(context, legacy)) return false;
             if (totals.Any(p => p.Value > int.MaxValue || gain &&
                 ((_profile.NetworkPets.GetValueOrDefault(p.Key)?.EarnedTotal ?? 0) > int.MaxValue - p.Value ||
                  (_profile.NetworkPets.GetValueOrDefault(p.Key)?.AvailableSouls ?? 0) > int.MaxValue - p.Value ||
@@ -682,7 +773,7 @@ public sealed partial class ProgressService
         return known?.Id ?? (PetIdTable.Find(number) is { } source ? EnsureNetworkPet(source) : null);
     }
 
-    private void WriteNetworkTotal(int number, NetworkPetProgress raw, NetworkProgressContext context)
+    private void WriteNetworkTotal(int number, NetworkPetProgress raw, PetProgressContext context)
     {
         if (ResolveNetworkPet(number) is not { } id) return;
         var entry = EntryForWrite(id);
@@ -731,14 +822,18 @@ public sealed partial class ProgressService
         if (changed) SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
     }
 
-    public void MarkNetworkStale()
+    public void MarkNetworkStale() => MarkPetNetworkStale();
+
+    /// <summary>Only a reset of the pet source invalidates its generation; stored counts remain intact.</summary>
+    public void MarkPetNetworkStale()
     {
         lock (_gate)
         {
             foreach (var entry in _profile.Pets.Values)
                 if (entry.Freshness == ProgressFreshness.Fresh) entry.Freshness = ProgressFreshness.Stale;
             foreach (var raw in _profile.NetworkPets.Values) raw.HasBaseline = false;
-            if (_networkContext is { } current) _invalidatedGeneration = Math.Max(_invalidatedGeneration, current.Generation);
+            if (_petContext is { } current) _invalidatedGeneration = Math.Max(_invalidatedGeneration, current.Generation);
+            _petContext = null;
             _networkContext = null;
         }
         SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
@@ -759,7 +854,7 @@ public sealed partial class ProgressService
             ProgressMigrationBackup.Create(_progressPath);
             _needsMigrationBackup = false;
         }
-        _storageProfile.SchemaVersion = 2;
+        _storageProfile.SchemaVersion = 3;
         JsonFile.Save(_progressPath, _storageProfile);
     }
 }

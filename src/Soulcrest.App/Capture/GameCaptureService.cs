@@ -18,6 +18,7 @@ public sealed class GameCaptureService : IDisposable
     private readonly object _gate = new();
     private MonitorCapture? _capture;
     private DateTime _nextTry = DateTime.MinValue;
+    private DateTime _nextWindowOnlyTry = DateTime.MinValue;
     private long _grabs, _gdiFallbacks, _busyFrames;
     private sealed record Operation(string Stage, DateTime Since);
     private Operation _operation = new("Bereit", DateTime.UtcNow);
@@ -161,6 +162,68 @@ public sealed class GameCaptureService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Reads only the shared WGC game-window session. Missing/unavailable window pictures return null;
+    /// this path never starts a monitor session or copies desktop pixels through GDI. Native failures
+    /// retain the same diagnostics/exception behavior as <see cref="Grab"/>.
+    /// </summary>
+    public Mat? TryGrabGameWindowOnly(Rectangle area, double scale = 1.0)
+    {
+        GrabbedFrameAt = 0;
+        GrabbedGameWindowOnly = false;
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        Interlocked.Increment(ref _grabs);
+        lock (_gate)
+        {
+            try
+            {
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+                if (area.Width <= 0 || area.Height <= 0) return null;
+                if (_capture is { IsWindow: true } stale && stale.Bounds.IsEmpty)
+                {
+                    Stage("WGC schließen");
+                    _capture = null;
+                    _nextWindowOnlyTry = DateTime.MinValue;
+                    stale.Dispose();
+                }
+                if (_capture is not { IsWindow: true } && DateTime.Now >= _nextWindowOnlyTry)
+                {
+                    Stage("WGC starten / Fenster suchen");
+                    _nextWindowOnlyTry = DateTime.Now + RetryInterval;
+                    var started = MonitorCapture.TryStartGameWindowOnly(area);
+                    if (started is not null)
+                    {
+                        // A failed strict start leaves an existing monitor capture untouched. A
+                        // successful one becomes the same shared window session used by Grab.
+                        var previous = _capture;
+                        _capture = started;
+                        previous?.Dispose();
+                    }
+                }
+                if (_capture is not { IsWindow: true } capture || !capture.Bounds.Contains(area)) return null;
+                Stage("WGC-Bild / GPU-Lesekopie");
+                if (capture.CaptureMat(area, scale, Stage) is not { } picture) return null;
+                _lastFailure = null;
+                GrabbedFrameAt = capture.ReadFrameAt;
+                GrabbedGameWindowOnly = true;
+                return picture;
+            }
+            catch (Exception error)
+            {
+                if (CaptureReadback.IsBusy(error)) Interlocked.Increment(ref _busyFrames);
+                var failedStage = error.Data["CaptureStage"] as string ?? Volatile.Read(ref _operation).Stage;
+                _lastFailure = $"{failedStage}: {error.GetType().Name} (0x{error.HResult:X8}): {error.Message}";
+                System.Diagnostics.Trace.TraceWarning("Window capture failed: {0}", _lastFailure);
+                throw;
+            }
+            finally
+            {
+                UpdateSnapshot();
+                Stage("Bereit");
+            }
+        }
+    }
+
     /// <summary>Like <see cref="Grab"/>, as 32-bit bitmap (OCR, previews).</summary>
     public Bitmap GrabBitmap(Rectangle area)
     {
@@ -220,6 +283,7 @@ public sealed class GameCaptureService : IDisposable
                 return;
             _capture = null;
             _nextTry = DateTime.MinValue; // the next Grab starts a new, borderless session
+            _nextWindowOnlyTry = DateTime.MinValue;
             UpdateSnapshot();
             bordered.Dispose();
         }

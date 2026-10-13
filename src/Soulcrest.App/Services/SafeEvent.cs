@@ -7,6 +7,19 @@ namespace Soulcrest.App.Services;
 /// </summary>
 public static class SafeEvent
 {
+    public static void Raise<T>(Action<T>? handler, T value, string source)
+    {
+        if (handler is null) return;
+        foreach (var subscriber in handler.GetInvocationList().Cast<Action<T>>())
+        {
+            try { subscriber(value); }
+            catch (Exception e)
+            {
+                LogFile.Error($"{source} → {subscriber.Method.DeclaringType?.Name}.{subscriber.Method.Name}", e);
+            }
+        }
+    }
+
     public static void Raise(Action? handler, string source)
     {
         if (handler is null)

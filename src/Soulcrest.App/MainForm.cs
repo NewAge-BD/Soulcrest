@@ -22,6 +22,7 @@ public sealed class MainForm : Form
     private readonly AlertsService _alerts;
     private readonly LevelingOverlayForm _levelingOverlay;
     private readonly RouteOverlayForm _routeOverlay;
+    private readonly MerchantOverlayForm _merchantOverlay;
     private readonly SettingsService _settings;
     private readonly TrackerService _tracker;
     private readonly MapTrackingService _map;
@@ -58,6 +59,8 @@ public sealed class MainForm : Form
         services.AddSingleton<ProgressService>();
         services.AddSingleton<Network.NetworkLootService>();
         services.AddSingleton<Network.INetworkLootSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkMerchantSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<MerchantService>();
         services.AddSingleton<TrackerService>();
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<MapTrackingService>();
@@ -81,6 +84,7 @@ public sealed class MainForm : Form
         _map = _services.GetRequiredService<MapTrackingService>();
         _gameCapture = _services.GetRequiredService<Capture.GameCaptureService>();
         var progress = _services.GetRequiredService<ProgressService>();
+        _merchantOverlay = new MerchantOverlayForm(_services.GetRequiredService<MerchantService>(), _settings, _gameCapture);
         RestoreWindowBounds();
 
         var webView = new BlazorWebView
@@ -182,6 +186,7 @@ public sealed class MainForm : Form
         _ = _alertNotifications.Handle;
         _ = _levelingOverlay.Handle;
         _ = _routeOverlay.Handle; // shown by itself while the map is tracked and targets are marked
+        _merchantOverlay.Start();
         SetOverlayInteractionEnabled(OverlayInteraction.IsAltHeld);
         _overlayInteractionTimer.Start();
         // Like Grindcrest before tracking: ask Windows for capture without the yellow border (a prompt
@@ -353,6 +358,7 @@ public sealed class MainForm : Form
         _alertNotifications.Close();
         _levelingOverlay.Close();
         _routeOverlay.Close();
+        _merchantOverlay.Close();
     }
 
     private void StopTracking()
@@ -394,6 +400,7 @@ public sealed class MainForm : Form
             _alertNotifications?.Dispose();
             _levelingOverlay?.Dispose();
             _routeOverlay?.Dispose();
+            _merchantOverlay?.Dispose();
         }
         finally
         {

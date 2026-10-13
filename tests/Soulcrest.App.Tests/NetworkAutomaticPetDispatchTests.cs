@@ -15,10 +15,10 @@ public sealed class NetworkAutomaticPetDispatchTests
     private const string PetId = "contaminated-slime";
 
     [Fact]
-    public void OwnBoundExplicitUpgradeAndSeparateSpendingMatchTheObservedSixGainSequence()
+    public void UnboundExplicitUpgradeAndSeparateSpendingMatchTheObservedSixGainSequence()
     {
         using var f = new Fixture();
-        f.Network.ObserveIdentity("own", Own, At);
+        Assert.Null(f.Network.Character);
         f.Send(Snapshot(1, 21), 1);
         for (var i = 0; i < 4; i++) f.Send(Points(0x900D, 1), i + 2);
         Assert.Equal("25/25", f.Progress.SoulCount(PetId));
@@ -49,29 +49,24 @@ public sealed class NetworkAutomaticPetDispatchTests
     }
 
     [Fact]
-    public void UnboundAndForeignStreamUpgradeResultsNeverInitializeOrChangeThePet()
+    public void UnboundAndOtherNativeOwnedStreamUpgradeResultsApplyWithoutCountingLoot()
     {
         using var f = new Fixture();
         f.Send(Upgrade(), 1);
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
-        Assert.Null(f.Progress.ObservedLevel(PetId));
-        f.Network.ObserveIdentity("own", Own, At.AddSeconds(2));
-        Assert.Null(f.Progress.ObservedLevel(PetId));
+        Assert.Equal(2, f.Progress.ObservedLevel(PetId));
+        Assert.Null(f.Network.Character);
         Assert.Null(f.Network.PetBaselineAt);
+        f.Network.ObserveIdentity("own", Own, At.AddSeconds(2));
+        Assert.Equal(2, f.Progress.ObservedLevel(PetId));
         f.Send(Snapshot(1, 21), 3);
-        f.Network.ProcessProgressMessage("foreign", Upgrade(), At.AddSeconds(4));
-        f.Network.ProcessProgressMessage("foreign", [.. Upgrade(), 0], At.AddSeconds(4));
-        Assert.Equal(1, f.Progress.ObservedLevel(PetId));
-        Assert.Equal(21, f.Progress.AvailableSouls(PetId));
-        Assert.Equal(26, f.Progress.Souls(PetId));
-        Assert.False(f.Network.ProgressSources.PetFormatRejected);
-        Assert.DoesNotContain(f.Network.ProgressDiagnostics.Events, e => e.Kind == NetworkProgressEventKind.Upgraded);
-        Assert.Empty(f.Gains);
-        Assert.Empty(f.Progress.Recent());
-        f.Send(Upgrade(), 5);
+        f.Network.ProcessProgressMessage("another-owned-stream", Upgrade(), At.AddSeconds(4));
         Assert.Equal(2, f.Progress.ObservedLevel(PetId));
         Assert.Equal(21, f.Progress.AvailableSouls(PetId));
+        Assert.False(f.Network.ProgressSources.PetFormatRejected);
+        Assert.Equal(2, f.Network.ProgressDiagnostics.Events.Count(e => e.Kind == NetworkProgressEventKind.Upgraded));
         Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
     }
 
     [Fact]

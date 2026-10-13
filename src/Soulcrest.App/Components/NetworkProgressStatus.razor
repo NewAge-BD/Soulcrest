@@ -5,15 +5,16 @@
 @{
     var sources = Network.ProgressSources;
     var state = SourceState(sources);
-    var isLive = sources.IdentityIsLive && HasScopedBaseline(sources);
+    var isLive = HasScopedBaseline(sources);
+    var initialized = ScopedComplete(sources);
 }
-<section class="card network-progress" aria-label="@UiText.T("Netzwerkfortschritt")" data-progress-source="network" data-progress-live="@isLive.ToString().ToLowerInvariant()" data-progress-state="@state" data-progress-initialized="@sources.InitialProgressConfirmed.ToString().ToLowerInvariant()">
+<section class="card network-progress" aria-label="@UiText.T("Netzwerkfortschritt")" data-progress-source="network" data-progress-live="@isLive.ToString().ToLowerInvariant()" data-progress-state="@state" data-progress-initialized="@initialized.ToString().ToLowerInvariant()" data-pet-counting="@sources.PetCanCount.ToString().ToLowerInvariant()">
     <div class="network-progress-heading">
         <h3>@UiText.T("Netzwerkfortschritt")</h3>
-        <span class="pill @(state == "current" ? "live" : "warn")">@UiText.T(state switch { "current" => "Aktuell", "partial" => "Teilweise empfangen", _ => "Wartet auf Bestätigung" })</span>
+        <span class="pill @(state == "current" ? "live" : "warn")">@UiText.T(state switch { "current" => "Aktuell", "partial" => "Teilweise empfangen", _ => Scope == "pet" && sources.PetCanCount ? "Bereit zum Empfang" : "Wartet auf Bestätigung" })</span>
     </div>
     <p role="status">@UiText.T(StatusText(sources, state))</p>
-    @if (sources.IdentityIsLive && sources.Character is { } character)
+    @if (Scope != "pet" && sources.IdentityIsLive && sources.Character is { } character)
     {
         <p class="note">@UiText.F("Erkanntes Charakterprofil: {0}", character)</p>
     }
@@ -29,7 +30,7 @@
         }
     </dl>
     <p class="note">@UiText.T(Scope == "pet"
-        ? "Pet-Fortschritt wird passiv aus dem Spielverkehr gelesen und pro Server geteilt. Gespeicherte Werte bleiben bis zur Bestätigung erhalten."
+        ? "Pets nutzen eine gemeinsame Sammlung in Soulcrest. Neue Soul-Gewinne werden ohne Charakter- oder Serverauswahl erfasst. Gespeicherte Werte bleiben bis zum vollständigen Abgleich erhalten."
         : "Fortschritt wird passiv aus dem Spielverkehr gelesen. Gespeicherte Profile bleiben erhalten; unbestätigte Zustände werden nicht als erledigt übernommen.")</p>
 </section>
 
@@ -38,30 +39,41 @@
     private bool _disposed;
     private bool HasScopedBaseline(Soulcrest.App.Network.NetworkProgressSources sources) => Scope switch
     {
-        "pet" => sources.PetBaselineAt is not null,
-        "exploration" => sources.QuestBaselineAt is not null || sources.TeleportBaselineAt is not null,
-        _ => sources.HasAnyBaseline,
+        "pet" => sources.PetCanCount && sources.PetBaselineAt is not null,
+        "exploration" => sources.IdentityIsLive && (sources.QuestBaselineAt is not null || sources.TeleportBaselineAt is not null),
+        _ => sources.PetCanCount && sources.PetBaselineAt is not null
+            || sources.IdentityIsLive && (sources.QuestBaselineAt is not null || sources.TeleportBaselineAt is not null),
+    };
+    private bool ScopedComplete(Soulcrest.App.Network.NetworkProgressSources sources) => Scope switch
+    {
+        "pet" => sources.PetCanCount && sources.PetBaselineAt is not null && !sources.PetFormatRejected,
+        "exploration" => sources.IdentityIsLive && sources.QuestBaselineAt is not null && sources.TeleportBaselineAt is not null
+            && !sources.QuestFormatRejected && !sources.TeleportFormatRejected && !sources.DungeonFormatRejected && !sources.KibeliskFormatRejected,
+        _ => sources.InitialProgressConfirmed,
     };
     private string SourceState(Soulcrest.App.Network.NetworkProgressSources sources)
     {
-        if (!sources.IdentityIsLive) return "waiting";
-        var complete = Scope switch
-        {
-            "pet" => sources.PetBaselineAt is not null,
-            "exploration" => sources.QuestBaselineAt is not null && sources.TeleportBaselineAt is not null,
-            _ => sources.InitialProgressConfirmed,
-        };
-        if (complete && (Scope == "pet" || !sources.DungeonFormatRejected && !sources.KibeliskFormatRejected)) return "current";
-        var hasActivity = Scope != "exploration" && sources.PetActivityAt is not null
-            || Scope != "pet" && (sources.DungeonActivityAt is not null || sources.KibeliskActivityAt is not null);
+        if (ScopedComplete(sources)) return "current";
+        var hasActivity = Scope != "exploration" && sources.PetCanCount && sources.PetActivityAt is not null
+            || Scope != "pet" && sources.IdentityIsLive && (sources.DungeonActivityAt is not null || sources.KibeliskActivityAt is not null);
         return HasScopedBaseline(sources) || hasActivity ? "partial" : "waiting";
     }
     private string StatusText(Soulcrest.App.Network.NetworkProgressSources sources, string state)
     {
-        // Preserve transport/format errors and reset explanations while the identity is invalid.
+        if (Scope == "pet")
+        {
+            if (!sources.PetCanCount) return "Pet-Netzwerkquelle aus. Aktiviere das Loot-Tracking, um neue Souls zu erfassen.";
+            if (sources.PetFormatRejected)
+                return "Pet-Netzwerkformat nicht unterstützt. Neue Soul-Gewinne werden weiter erfasst; der vollständige Pet-Stand muss erneut empfangen werden.";
+            return state switch
+            {
+                "current" => "Pet-Fortschritt aktuell.",
+                "partial" => "Pet-Daten empfangen. Der vollständige Pet-Stand steht noch aus.",
+                _ => "Pet-Erkennung bereit. Neue Souls zählen ohne Charaktererkennung; der vollständige Pet-Stand steht noch aus.",
+            };
+        }
+        // Exploration still requires its own character context; pet readiness is independent.
         if (!sources.IdentityIsLive) return sources.Status;
-        if (Scope == "pet" && sources.PetFormatRejected)
-            return "Pet-Netzwerkformat nicht unterstützt. Neue Soul-Gewinne werden weiter erfasst; der vollständige Pet-Stand muss erneut empfangen werden.";
         if (Scope == "exploration")
         {
             if (sources.QuestFormatRejected) return "Quest-Netzwerkformat nicht unterstützt. Pet-Erkennung läuft weiter.";
@@ -73,19 +85,15 @@
             if (sources.DungeonActivityAt is not null && sources.QuestBaselineAt is null && sources.TeleportBaselineAt is null)
                 return "Instanzabschluss über das Netzwerk erfasst. Weitere Erkundungsdaten stehen noch aus.";
         }
-        if (Scope == "pet") return state switch
-        {
-            "current" => "Pet-Fortschritt aktuell.",
-            "partial" => "Pet-Daten empfangen. Der vollständige Pet-Stand steht noch aus.",
-            _ => "Charakter erkannt. Warte auf den vollständigen Pet-Fortschritt.",
-        };
         if (Scope == "exploration") return state switch
         {
             "current" => "Verfügbare Erkundungsdaten eingelesen. Bestätigte Abschlüsse und Kibelisk-Bindungen werden angezeigt.",
             "partial" => "Ein Teil der Erkundungsdaten wurde empfangen. Weitere Quellen stehen noch aus.",
             _ => "Charakter erkannt. Warte auf die Erkundungsdaten.",
         };
-        return sources.Status;
+        return state == "current"
+            ? "Die gemeinsame Pet-Sammlung und die verfügbaren Erkundungsdaten dieses Charakters wurden eingelesen."
+            : sources.Status;
     }
     private static string Baseline(DateTimeOffset? at) => at is { } timestamp
         ? timestamp.ToLocalTime().ToString("g", System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US"))

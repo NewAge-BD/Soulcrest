@@ -267,7 +267,7 @@ public sealed class NetworkProgressServiceTests
     }
 
     [Fact]
-    public void PetsRemainServerWideAndExistingServerProfilesReturnWithTheirTotals()
+    public void PetsRemainGlobalAcrossLegacyCharacterAndServerBindings()
     {
         using var folder = new Folder();
         var service = folder.Progress();
@@ -278,17 +278,18 @@ public sealed class NetworkProgressServiceTests
         Assert.Equal(8, service.Souls(PetId));
         Assert.True(service.IsFocus(PetId));
         service.BindNetworkContext(Context(4, character: 201, server: 502, name: "Synthetic Gamma"));
-        Assert.Equal(0, service.Souls(PetId));
-        Assert.False(service.IsFocus(PetId));
-        service.ApplyNetworkSnapshot(PetSnapshot(2, 7), Context(5, character: 201, server: 502, name: "Synthetic Gamma"));
-        service.BindNetworkContext(Context(6));
         Assert.Equal(8, service.Souls(PetId));
         Assert.True(service.IsFocus(PetId));
-        Assert.Equal(501, service.ActiveServerId);
+        service.ApplyNetworkSnapshot(PetSnapshot(2, 7), Context(5, character: 201, server: 502, name: "Synthetic Gamma"));
+        service.BindNetworkContext(Context(6));
+        Assert.Equal(37, service.Souls(PetId));
+        Assert.True(service.IsFocus(PetId));
+        Assert.Null(service.ActiveServerId);
         var loaded = folder.Progress();
-        Assert.Equal(8, loaded.Souls(PetId));
+        Assert.Equal(37, loaded.Souls(PetId));
         loaded.BindNetworkContext(Context(7, character: 201, server: 502, name: "Synthetic Gamma"));
         Assert.Equal(37, loaded.Souls(PetId));
+        Assert.Null(loaded.ActiveServerId);
     }
 
     [Fact]

@@ -8,7 +8,7 @@ public sealed partial class ProgressService
     internal sealed record NetworkPetContinuityRaw(int Level, int AvailableSouls, int EarnedTotal);
     internal sealed record NetworkPetContinuityEntry(int Souls, DateTimeOffset UpdatedAt, string Source);
 
-    /// <summary>Transient, single-use proof of the previously confirmed server state; never persisted or exported.</summary>
+    /// <summary>Legacy, single-use proof of a previously confirmed source state; never persisted or exported.</summary>
     internal sealed class NetworkPetContinuityToken(ProgressProfile profile, int serverId, DateTimeOffset baselineAt,
         IReadOnlyDictionary<int, NetworkPetContinuityRaw> raw, IReadOnlyDictionary<string, NetworkPetContinuityEntry> entries)
     {
@@ -27,7 +27,7 @@ public sealed partial class ProgressService
             if (_networkContext is not { } bound || bound.Generation != context.Generation ||
                 bound.ServerId != context.ServerId || bound.CharacterId != context.CharacterId ||
                 bound.Identity.EntityKey != context.Identity.EntityKey || context.Sequence < bound.Sequence ||
-                context.Sequence < _networkSequence || _profile.ServerId != context.ServerId ||
+                context.Sequence < _networkSequence ||
                 _profile.NetworkBaselineAt is not { } at) return null;
             var raw = _profile.NetworkPets.Where(pair => pair.Value.HasBaseline && pair.Value.LevelObserved && pair.Value.BalanceObserved)
                 .ToDictionary(pair => pair.Key, pair => new NetworkPetContinuityRaw(pair.Value.Level, pair.Value.AvailableSouls, pair.Value.EarnedTotal));
@@ -52,7 +52,7 @@ public sealed partial class ProgressService
                 token.ServerId != context.ServerId || !ReferenceEquals(token.Profile, _profile) ||
                 _profile.NetworkBaselineAt != token.BaselineAt) return false;
             // MarkNetworkStale/Bind change HasBaseline only. Any changed raw value or source
-            // confirmation means the saved token no longer describes this server's current state.
+            // confirmation means the saved token no longer describes the current collection.
             foreach (var (number, previous) in token.Raw)
                 if (!_profile.NetworkPets.TryGetValue(number, out var raw) || !raw.LevelObserved || !raw.BalanceObserved ||
                     raw.Level != previous.Level || raw.AvailableSouls != previous.AvailableSouls || raw.EarnedTotal != previous.EarnedTotal)

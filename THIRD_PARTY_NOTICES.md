@@ -54,6 +54,8 @@ Bildvergleich und den Erkennungstests. Spielgrafik © NCSOFT; keine freie Grafik
 | PacketDotNet 1.4.8 | MPL-2.0 | Netzwerk-Loot-Quelle: TCP/IP-Pakete zerlegen |
 | Npcap (nicht mitgeliefert, vom Nutzer installiert) | Npcap-Lizenz | Paketmitschnitt unter Windows |
 | Pet-IDs von aion2.gaming.tools (`data/pets/pet-ids.json`, Namen + Nummern) | Faktendaten, Quelle genannt | Zuordnung der Soul-Meldungen |
+| Explizite Pet-Artikel-IDs von aion2.gaming.tools (`data/pets/merchant-items.json`) | Faktendaten, CDN-Quelle je Eintrag | Händlerartikel → Pet, offline |
+| Pet-Farmregionen von aion2.gaming.tools (`data/pets/merchant-farm-regions.json`) | Faktendaten, Quellen je Eintrag | Karten-/NPC-Orte → Händler-Farmkarten, offline |
 | Soul-Beute der Abyss-Monster von aion2.gaming.tools (`data/pets/abyss-soul-sources.json`) | Faktendaten, Quelle je Eintrag | Monster → Pet auf den Abyss-Karten |
 
 Lizenztexte werden mit der jeweiligen Komponente unter `licenses/` abgelegt (Muster: Grindcrest).

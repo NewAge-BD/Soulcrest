@@ -117,6 +117,7 @@
         </select>
         <p class="sv-hint">@UiText.T("Namen im Loot-Overlay sind unabhängig von der Oberfläche. Automatisch nutzt die erkannte oder gewählte Spielsprache; bis dahin die Namenssprache. Fehlende deutsche Namen bleiben Englisch.")</p>
         <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowRoutesInGame" @onchange="@(e => Settings.Update(s => s.ShowRoutesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Linien zu Zielen")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
+        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.MerchantOverlayEnabled" @onchange="@(e => Settings.Update(s => s.MerchantOverlayEnabled = (bool)e.Value!))" /><span><b>@UiText.T("Händler-Soulcounter")</b><small>@UiText.T("Soul-Zähler und Farmkarten direkt an den Pet-Angeboten des Black Cloud Merchants.")</small></span></label>
         <p class="sv-hint" id="map-layers-legend-hint">@UiText.T("Kartensymbole wählst du im Karten-Tab in der Legende getrennt für interaktive Karte, Minimap und Weltkarte.")</p>
         <div class="opt-toggle opt-guards">
             <span>

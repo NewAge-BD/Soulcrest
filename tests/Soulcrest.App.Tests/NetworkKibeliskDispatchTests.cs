@@ -73,7 +73,7 @@ public sealed class NetworkKibeliskDispatchTests
     [InlineData(0x3633, true)]
     [InlineData(0x3621, false)]
     [InlineData(0x3633, false)]
-    public void UnboundBindingsAndSoulsNeverReplayAcrossAnUnsupportedOwnBoundary(ushort opcode, bool bindAffectedStream)
+    public void GlobalSoulsCountOnceWhileUnboundKibelisksNeverReplayAcrossAnUnsupportedOwnBoundary(ushort opcode, bool bindAffectedStream)
     {
         using var f = new Fixture();
         var affectedBinding = Binding();
@@ -83,6 +83,14 @@ public sealed class NetworkKibeliskDispatchTests
         f.Network.ProcessProgressMessage("affected", gain, At);
         f.Network.ProcessProgressMessage("unrelated", unrelatedBinding, At);
         f.Network.ProcessProgressMessage("unrelated", gain, At);
+        Assert.Equal(4, f.Progress.Souls("fossa"));
+        Assert.Equal(2, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Equal(4, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
+        Assert.Equal(2, f.Progress.Recent().Count);
+        Assert.Equal(2, f.Network.Recent.Count);
+        Assert.Empty(f.Exploration.Completed);
+        Assert.Null(f.Network.ProgressSources.KibeliskActivityAt);
+        Assert.Null(f.Network.PetBaselineAt);
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
         f.Network.ProcessProgressMessage("affected", Packet(opcode, writer => writer.Write((byte)0)), At.AddSeconds(1));
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
@@ -94,13 +102,27 @@ public sealed class NetworkKibeliskDispatchTests
         Assert.Equal(nextOwn.CharacterId, f.Exploration.Snapshot().NetworkCharacterId);
         Assert.DoesNotContain("pillar", f.Exploration.Completed);
         Assert.DoesNotContain("other", f.Exploration.Completed);
-        Assert.Equal(0, f.Progress.Souls("fossa"));
+        // The two earlier pickups already counted globally. Own binding must neither lose
+        // them nor replay them; the two unbound Kibelisk singletons still have no authority.
+        Assert.Equal(4, f.Progress.Souls("fossa"));
+        Assert.Equal(2, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Equal(4, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
+        Assert.Equal(2, f.Progress.Recent().Count);
+        Assert.Equal(2, f.Network.Recent.Count);
+        Assert.Null(f.Network.ProgressSources.KibeliskActivityAt);
+        Assert.Null(f.Network.TeleportBaselineAt);
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
         f.Network.ProcessProgressMessage(stream, Binding(), At.AddSeconds(3));
         f.Network.ProcessProgressMessage(stream, Gain(), At.AddSeconds(3));
         Assert.Contains("pillar", f.Exploration.Completed);
-        Assert.Equal(2, f.Progress.Souls("fossa"));
+        Assert.DoesNotContain("other", f.Exploration.Completed);
+        Assert.Equal(At.AddSeconds(3), f.Network.ProgressSources.KibeliskActivityAt);
+        Assert.Equal(6, f.Progress.Souls("fossa"));
+        Assert.Equal(3, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Equal(6, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
+        Assert.Equal(3, f.Progress.Recent().Count);
+        Assert.Equal(3, f.Network.Recent.Count);
     }
 
     [Fact]

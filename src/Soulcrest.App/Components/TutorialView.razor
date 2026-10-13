@@ -31,10 +31,10 @@
                     })</p>
                 </li>
                 <li>
-                    <b>@UiText.T("Charakterprofil und Netzwerkfortschritt")</b>
+                    <b>@UiText.T("Gemeinsame Pet-Sammlung und Charakterprofil für Erkundung")</b>
                     <CharacterPicker />
-                    @* User confirmation 2026-10-13: region changes alone do not initialize pet data. *@
-                    <p class="sv-hint"><b>@UiText.T("Fortschritt einmal einlesen")</b><br />@UiText.T("Lass Soulcrest geöffnet und die Netzwerkquelle laufen. Öffne im Spiel einmal die Charakterauswahl und logge dich mit deinem Charakter wieder ein. Soulcrest liest dabei die verfügbaren Pet-, Dungeon-, Stronghold- und Kibelisk-Daten ein. Warte auf die Bestätigung unten. Ein einfacher Gebietswechsel reicht dafür nicht.")</p>
+                    @* User request 2026-10-13: pet counting is global; only exploration needs the own character. *@
+                    <p class="sv-hint"><b>@UiText.T("Fortschritt einmal einlesen")</b><br />@UiText.T("Neue Pet-Souls werden bei laufender Netzwerkquelle sofort für die gemeinsame Sammlung gezählt, auch ohne Charaktererkennung. Für den vollständigen Pet- und Erkundungsabgleich öffne einmal die Charakterauswahl und logge dich mit deinem Charakter wieder ein. Warte auf die Bestätigung unten. Ein Gebietswechsel liefert nicht immer eine vollständige Pet-Liste.")</p>
                     <NetworkProgressStatus />
                     <p class="sv-hint">@UiText.T("Für Dungeons und Strongholds zählt der Abschluss-Haken. Fehlende oder unbestätigte Einträge bleiben ohne Haken; daraus lässt sich kein früherer Nichtabschluss ableiten. Gespeicherte und manuelle Abschlüsse bleiben erhalten.")</p>
                 </li>

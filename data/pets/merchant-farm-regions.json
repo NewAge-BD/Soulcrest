@@ -1,0 +1,5641 @@
+{
+  "schemaVersion": 1,
+  "classification": "Union of positive current imported farm maps and exact pet-NPC/public NPC-location joins. Special only means no target region in a complete current public-source join; it is not a universal gameplay exclusivity claim.",
+  "sourceFingerprintSha256": "ae15ddc85adf1cdf0282900f7b2d8834bcd9c480530107ce62679def986f6e27",
+  "pets": [
+    {
+      "petNumber": 1001,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1001",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1001.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "black-dragon",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1002,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100075",
+        "https://aion2.gaming.tools/npcs/2100480",
+        "https://aion2.gaming.tools/npcs/2100914",
+        "https://aion2.gaming.tools/pets/1002",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100075.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100480.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100914.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1002.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "krallreg-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1003,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100601",
+        "https://aion2.gaming.tools/npcs/2100662",
+        "https://aion2.gaming.tools/pets/1003",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100601.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100662.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1003.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "forestwisp-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1004,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100163",
+        "https://aion2.gaming.tools/npcs/2400254",
+        "https://aion2.gaming.tools/npcs/2400414",
+        "https://aion2.gaming.tools/pets/1004",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100163.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400254.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400414.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1004.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "fossa",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1005,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "Same-name monster https://aion2.gaming.tools/npcs/2600429 gives Klaw; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)",
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100078",
+        "https://aion2.gaming.tools/npcs/2600029 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600429 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600504 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600538 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600558 (loot: Soul: Klaw (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600688: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1005",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100078.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1005.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "klaw",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta",
+          "chaotic-upper-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1006,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100273",
+        "https://aion2.gaming.tools/npcs/2100305",
+        "https://aion2.gaming.tools/npcs/2100753",
+        "https://aion2.gaming.tools/npcs/2100795",
+        "https://aion2.gaming.tools/npcs/2100986",
+        "https://aion2.gaming.tools/npcs/2100992",
+        "https://aion2.gaming.tools/pets/1006",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100273.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100305.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100753.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100795.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100986.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100992.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1006.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "sparkyod-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1007,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100032",
+        "https://aion2.gaming.tools/npcs/2100610",
+        "https://aion2.gaming.tools/npcs/2101098",
+        "https://aion2.gaming.tools/npcs/2400363",
+        "https://aion2.gaming.tools/npcs/2400755",
+        "https://aion2.gaming.tools/npcs/2400812",
+        "https://aion2.gaming.tools/pets/1007",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100032.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100610.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101098.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400363.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400755.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400812.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1007.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "potcrab",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1008,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100034",
+        "https://aion2.gaming.tools/pets/1008",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100034.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1008.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "baby-odyle-spider",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1009,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1009",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1009.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kernon",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1010,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2110506",
+        "https://aion2.gaming.tools/npcs/2400617",
+        "https://aion2.gaming.tools/pets/1010",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110506.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400617.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1010.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "manduri-fighter",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1011,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100047",
+        "https://aion2.gaming.tools/npcs/2100048",
+        "https://aion2.gaming.tools/npcs/2100182",
+        "https://aion2.gaming.tools/npcs/2100556",
+        "https://aion2.gaming.tools/npcs/2100607",
+        "https://aion2.gaming.tools/npcs/2100613",
+        "https://aion2.gaming.tools/npcs/2100832",
+        "https://aion2.gaming.tools/npcs/2101123",
+        "https://aion2.gaming.tools/npcs/2101124",
+        "https://aion2.gaming.tools/npcs/2101132",
+        "https://aion2.gaming.tools/npcs/2400163",
+        "https://aion2.gaming.tools/npcs/2400945",
+        "https://aion2.gaming.tools/pets/1011",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100047.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100048.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100182.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100556.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100607.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100613.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100832.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101123.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101124.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101132.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400163.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400945.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1011.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "skyray",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1012,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100041",
+        "https://aion2.gaming.tools/pets/1012",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100041.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1012.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "fungy-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1013,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "Same-name monster https://aion2.gaming.tools/npcs/2600001 gives Swarm; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)",
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400080",
+        "https://aion2.gaming.tools/npcs/2400456",
+        "https://aion2.gaming.tools/npcs/2600001 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600011 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600021 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600401 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600411 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600421 (loot: Soul: Swarm (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600601: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600621: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600641: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600661: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600681: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1013",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400080.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400456.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1013.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "swarm",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "chaotic-upper-reshanta"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1014,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101002",
+        "https://aion2.gaming.tools/npcs/2101009",
+        "https://aion2.gaming.tools/npcs/2400359",
+        "https://aion2.gaming.tools/npcs/2400587",
+        "https://aion2.gaming.tools/npcs/2400655",
+        "https://aion2.gaming.tools/npcs/2600052 (loot: Soul: Drakan Guard Dog (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1014",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101002.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101009.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400359.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400587.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400655.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1014.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "drakan-guard-dog",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1015,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101021",
+        "https://aion2.gaming.tools/npcs/2400736",
+        "https://aion2.gaming.tools/npcs/2400905",
+        "https://aion2.gaming.tools/npcs/2400934",
+        "https://aion2.gaming.tools/pets/1015",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101021.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400736.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400905.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400934.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1015.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kailin",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1016,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100165",
+        "https://aion2.gaming.tools/npcs/2100188",
+        "https://aion2.gaming.tools/npcs/2101097",
+        "https://aion2.gaming.tools/npcs/2400520",
+        "https://aion2.gaming.tools/npcs/2400819",
+        "https://aion2.gaming.tools/npcs/2400909",
+        "https://aion2.gaming.tools/npcs/2400943",
+        "https://aion2.gaming.tools/npcs/2600048 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600448 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600576 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600586 (loot: Soul: Slink (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1016",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100165.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100188.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101097.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400520.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400819.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400909.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400943.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1016.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "slink",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1017,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100074",
+        "https://aion2.gaming.tools/npcs/2100855",
+        "https://aion2.gaming.tools/pets/1017",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100074.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100855.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1017.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "krallprst-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1018,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400385",
+        "https://aion2.gaming.tools/npcs/2400609",
+        "https://aion2.gaming.tools/npcs/2600455 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600515 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600580 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600590 (loot: Soul: Varg Berserker (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1018",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400385.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400609.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1018.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "varg-berserker",
+        "importedPositiveMapIds": [
+          "altgard",
+          "chaotic-middle-reshanta"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1021,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1021",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1021.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "aberrant-odyle-spider",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1022,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100215",
+        "https://aion2.gaming.tools/npcs/2100608",
+        "https://aion2.gaming.tools/npcs/2101083",
+        "https://aion2.gaming.tools/npcs/2400327",
+        "https://aion2.gaming.tools/npcs/2400809",
+        "https://aion2.gaming.tools/pets/1022",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100215.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100608.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101083.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400327.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400809.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1022.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "crasaur",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1025,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100030",
+        "https://aion2.gaming.tools/npcs/2100663",
+        "https://aion2.gaming.tools/npcs/2100745",
+        "https://aion2.gaming.tools/npcs/2400744",
+        "https://aion2.gaming.tools/pets/1025",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100030.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100663.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100745.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400744.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1025.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mutated-aberrant-odyle-spider",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1026,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100073",
+        "https://aion2.gaming.tools/npcs/2100910",
+        "https://aion2.gaming.tools/npcs/2101005",
+        "https://aion2.gaming.tools/pets/1026",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100073.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100910.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101005.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1026.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "krallwar-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1027,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100612",
+        "https://aion2.gaming.tools/npcs/2100652",
+        "https://aion2.gaming.tools/npcs/2600026 (loot: Soul: Withered Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1027",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100612.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100652.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1027.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "withered-agrint",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1028,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1028",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1028.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "krao-mutant",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1029,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "Same-name monster https://aion2.gaming.tools/npcs/2600002 gives Klaw Scout; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)",
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400313",
+        "https://aion2.gaming.tools/npcs/2600002 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600012 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600402 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600412 (loot: Soul: Klaw Scout (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600602: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600622: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600642: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600662: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1029",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400313.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1029.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "klaw-scout",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "chaotic-upper-reshanta"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1030,
+      "known": true,
+      "regions": [
+        "Abyss"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2600036 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600041 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600436 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600441 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600537 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600557 (loot: Soul: Nagarant Guardian Warrior (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1030",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1030.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "nagarant-guardian-warrior",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta"
+        ],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1031,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100157",
+        "https://aion2.gaming.tools/pets/1031",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100157.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1031.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "conuti-02",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1032,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1032",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1032.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "elite-keneire",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1033,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100557",
+        "https://aion2.gaming.tools/npcs/2100569",
+        "https://aion2.gaming.tools/npcs/2400605",
+        "https://aion2.gaming.tools/pets/1033",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100557.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100569.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400605.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1033.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "elite-manduri-fighter",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1034,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100015",
+        "https://aion2.gaming.tools/npcs/2100796",
+        "https://aion2.gaming.tools/npcs/2100987",
+        "https://aion2.gaming.tools/npcs/2100993",
+        "https://aion2.gaming.tools/npcs/2400341",
+        "https://aion2.gaming.tools/npcs/2400466",
+        "https://aion2.gaming.tools/pets/1034",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100015.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100796.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100987.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100993.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400341.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400466.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1034.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "giant-sparkie",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1035,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100031",
+        "https://aion2.gaming.tools/npcs/2100376",
+        "https://aion2.gaming.tools/npcs/2100907",
+        "https://aion2.gaming.tools/pets/1035",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100031.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100376.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100907.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1035.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "fish-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1036,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100746",
+        "https://aion2.gaming.tools/pets/1036",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100746.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1036.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "lufilini-02",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1037,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100151",
+        "https://aion2.gaming.tools/npcs/2100750",
+        "https://aion2.gaming.tools/pets/1037",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100151.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100750.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1037.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "crestlich-02",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1038,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100144",
+        "https://aion2.gaming.tools/npcs/2100216",
+        "https://aion2.gaming.tools/npcs/2100609",
+        "https://aion2.gaming.tools/npcs/2100741",
+        "https://aion2.gaming.tools/npcs/2400567",
+        "https://aion2.gaming.tools/npcs/2400568",
+        "https://aion2.gaming.tools/pets/1038",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100144.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100216.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100609.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100741.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400567.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400568.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1038.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "airon",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1039,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100037",
+        "https://aion2.gaming.tools/npcs/2100150",
+        "https://aion2.gaming.tools/npcs/2100799",
+        "https://aion2.gaming.tools/pets/1039",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100037.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100150.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100799.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1039.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "crestlich-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1040,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100950",
+        "https://aion2.gaming.tools/pets/1040",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100950.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1040.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "owlmag-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1041,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100911",
+        "https://aion2.gaming.tools/pets/1041",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100911.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1041.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "cavebat-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1042,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100172",
+        "https://aion2.gaming.tools/npcs/2100552",
+        "https://aion2.gaming.tools/npcs/2100560",
+        "https://aion2.gaming.tools/npcs/2100655",
+        "https://aion2.gaming.tools/npcs/2100817",
+        "https://aion2.gaming.tools/npcs/2400376",
+        "https://aion2.gaming.tools/npcs/2400916",
+        "https://aion2.gaming.tools/pets/1042",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100172.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100552.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100560.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100655.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100817.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400376.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400916.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1042.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ursus",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1043,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1043",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1043.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "elite-ursus",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1044,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1044",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1044.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "aultross-s-doppelganger",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1045,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100004",
+        "https://aion2.gaming.tools/npcs/2100023",
+        "https://aion2.gaming.tools/npcs/2100219",
+        "https://aion2.gaming.tools/npcs/2100472",
+        "https://aion2.gaming.tools/npcs/2100565",
+        "https://aion2.gaming.tools/npcs/2100743",
+        "https://aion2.gaming.tools/npcs/2400362",
+        "https://aion2.gaming.tools/pets/1045",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100004.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100023.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100219.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100472.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100565.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100743.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400362.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1045.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "sylphen",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1046,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400002",
+        "https://aion2.gaming.tools/npcs/2400249",
+        "https://aion2.gaming.tools/pets/1046",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400002.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400249.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1046.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "armadon",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1047,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100453",
+        "https://aion2.gaming.tools/npcs/2100751",
+        "https://aion2.gaming.tools/pets/1047",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100453.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100751.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1047.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mole-01-v01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1048,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100022",
+        "https://aion2.gaming.tools/npcs/2100142",
+        "https://aion2.gaming.tools/npcs/2100555",
+        "https://aion2.gaming.tools/npcs/2100611",
+        "https://aion2.gaming.tools/npcs/2400337",
+        "https://aion2.gaming.tools/pets/1048",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100022.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100142.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100555.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100611.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400337.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1048.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "forest-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1049,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100711",
+        "https://aion2.gaming.tools/npcs/2100715",
+        "https://aion2.gaming.tools/npcs/2400061",
+        "https://aion2.gaming.tools/pets/1049",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100711.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100715.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400061.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1049.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mutated-forest-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1050,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100650",
+        "https://aion2.gaming.tools/npcs/2101125",
+        "https://aion2.gaming.tools/npcs/2400307",
+        "https://aion2.gaming.tools/pets/1050",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100650.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101125.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400307.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1050.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "gravi",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1051,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100659",
+        "https://aion2.gaming.tools/npcs/2101126",
+        "https://aion2.gaming.tools/npcs/2400329",
+        "https://aion2.gaming.tools/npcs/2400731",
+        "https://aion2.gaming.tools/pets/1051",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100659.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101126.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400329.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400731.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1051.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "magic-gravi",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1052,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100285",
+        "https://aion2.gaming.tools/npcs/2100651",
+        "https://aion2.gaming.tools/npcs/2400342",
+        "https://aion2.gaming.tools/pets/1052",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100285.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100651.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400342.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1052.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "large-leaf-gravi",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1053,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100908",
+        "https://aion2.gaming.tools/npcs/2110512",
+        "https://aion2.gaming.tools/pets/1053",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100908.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110512.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1053.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "crab-01-v01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1054,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400350",
+        "https://aion2.gaming.tools/npcs/2400570",
+        "https://aion2.gaming.tools/npcs/2400606",
+        "https://aion2.gaming.tools/pets/1054",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400350.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400570.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400606.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1054.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mumu-warrior",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1055,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1055",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1055.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "grave-rat",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1056,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100866",
+        "https://aion2.gaming.tools/npcs/2101014",
+        "https://aion2.gaming.tools/npcs/2400143",
+        "https://aion2.gaming.tools/npcs/2400162",
+        "https://aion2.gaming.tools/npcs/2400382",
+        "https://aion2.gaming.tools/npcs/2400658",
+        "https://aion2.gaming.tools/pets/1056",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100866.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101014.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400143.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400162.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400382.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400658.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1056.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "drakan-probe",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1057,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1057",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1057.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "coradon",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1058,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2300312",
+        "https://aion2.gaming.tools/npcs/2310312",
+        "https://aion2.gaming.tools/npcs/2320312",
+        "https://aion2.gaming.tools/pets/1058",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300312.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2310312.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2320312.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1058.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "black-smoke-murute",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1059,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100551",
+        "https://aion2.gaming.tools/pets/1059",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100551.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1059.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "bee-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1060,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100033",
+        "https://aion2.gaming.tools/npcs/2100808",
+        "https://aion2.gaming.tools/npcs/2101082",
+        "https://aion2.gaming.tools/npcs/2400374",
+        "https://aion2.gaming.tools/npcs/2400519",
+        "https://aion2.gaming.tools/npcs/2400808",
+        "https://aion2.gaming.tools/pets/1060",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100033.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100808.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101082.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400374.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400519.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400808.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1060.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "starturtle",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1061,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400320",
+        "https://aion2.gaming.tools/pets/1061",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400320.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1061.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "slime",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1062,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100025",
+        "https://aion2.gaming.tools/npcs/2100717",
+        "https://aion2.gaming.tools/npcs/2600023 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600423 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600539 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600559 (loot: Soul: Contaminated Slime (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1062",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100025.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100717.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1062.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "contaminated-slime",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1063,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400364",
+        "https://aion2.gaming.tools/pets/1063",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400364.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1063.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "vigilant-oculazen",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1064,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100854",
+        "https://aion2.gaming.tools/npcs/2400711",
+        "https://aion2.gaming.tools/pets/1064",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100854.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400711.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1064.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "oculazen",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1065,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100183",
+        "https://aion2.gaming.tools/npcs/2400920",
+        "https://aion2.gaming.tools/pets/1065",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100183.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400920.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1065.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "biruta",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1066,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2000926",
+        "https://aion2.gaming.tools/npcs/2000927",
+        "https://aion2.gaming.tools/npcs/2000928",
+        "https://aion2.gaming.tools/npcs/2000929",
+        "https://aion2.gaming.tools/npcs/2000951",
+        "https://aion2.gaming.tools/npcs/2100009",
+        "https://aion2.gaming.tools/npcs/2100220",
+        "https://aion2.gaming.tools/npcs/2100654",
+        "https://aion2.gaming.tools/npcs/2400594",
+        "https://aion2.gaming.tools/npcs/2400903",
+        "https://aion2.gaming.tools/npcs/2400938",
+        "https://aion2.gaming.tools/npcs/2400940",
+        "https://aion2.gaming.tools/npcs/2400947",
+        "https://aion2.gaming.tools/pets/1066",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000926.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000927.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000928.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000929.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000951.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100009.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100220.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100654.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400594.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400903.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400938.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400940.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400947.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1066.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "papis",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1067,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100709",
+        "https://aion2.gaming.tools/npcs/2400470",
+        "https://aion2.gaming.tools/pets/1067",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100709.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400470.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1067.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "scorpion",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1068,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1068",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1068.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "krao-test-subject",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1069,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100812",
+        "https://aion2.gaming.tools/npcs/2400301",
+        "https://aion2.gaming.tools/npcs/2600056 (loot: Soul: Stone Spirit (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1069",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100812.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400301.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1069.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "stone-spirit",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1071,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400018",
+        "https://aion2.gaming.tools/pets/1071",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400018.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1071.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "cadaver-insectoid",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1072,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400912",
+        "https://aion2.gaming.tools/pets/1072",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400912.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1072.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "tog",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1073,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100160",
+        "https://aion2.gaming.tools/npcs/2100744",
+        "https://aion2.gaming.tools/npcs/2600049 (loot: Soul: Nepenthes (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600449 (loot: Soul: Nepenthes (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600511 (loot: Soul: Nepenthes (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1073",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100160.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100744.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1073.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "nepenthes",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1074,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100180",
+        "https://aion2.gaming.tools/npcs/2100964",
+        "https://aion2.gaming.tools/npcs/2101133",
+        "https://aion2.gaming.tools/npcs/2101136",
+        "https://aion2.gaming.tools/npcs/2400831",
+        "https://aion2.gaming.tools/pets/1074",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100180.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100964.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101133.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101136.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400831.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1074.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kuru-worker",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1075,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100181",
+        "https://aion2.gaming.tools/npcs/2101134",
+        "https://aion2.gaming.tools/npcs/2101137",
+        "https://aion2.gaming.tools/npcs/2400832",
+        "https://aion2.gaming.tools/pets/1075",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100181.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101134.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101137.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400832.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1075.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kuru-tinkerer",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1077,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2300104",
+        "https://aion2.gaming.tools/npcs/2310104",
+        "https://aion2.gaming.tools/npcs/2320104",
+        "https://aion2.gaming.tools/pets/1077",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300104.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2310104.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2320104.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1077.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "harcon",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1078,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1078",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1078.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "urugugu-brawler",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1079,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1079",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1079.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ultimate-wind-spirit",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1080,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1080",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1080.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "sentinel-k-nash",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1081,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1081",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1081.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "dionae",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1082,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1082",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1082.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ultimate-fire-spirit",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1083,
+      "known": true,
+      "regions": [
+        "Abyss"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2600046 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600446 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600578 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600588 (loot: Soul: Spider (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1083",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1083.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "spider",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta"
+        ],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1084,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100002",
+        "https://aion2.gaming.tools/npcs/2100700",
+        "https://aion2.gaming.tools/npcs/2400328",
+        "https://aion2.gaming.tools/npcs/2600070 (loot: Soul: Kalgolem (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600470 (loot: Soul: Kalgolem (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1084",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100002.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100700.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400328.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1084.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kalgolem",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1086,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100456",
+        "https://aion2.gaming.tools/pets/1086",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100456.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1086.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "fungus-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1087,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100953",
+        "https://aion2.gaming.tools/npcs/2100954",
+        "https://aion2.gaming.tools/pets/1087",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100953.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100954.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1087.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "pino-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1088,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100955",
+        "https://aion2.gaming.tools/pets/1088",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100955.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1088.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "pino-02",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1089,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100710",
+        "https://aion2.gaming.tools/npcs/2600024 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600424 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600535 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600555 (loot: Soul: Aberrant Skama (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1089",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100710.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1089.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "aberrant-skama",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1090,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1090",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1090.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ultimate-water-spirit",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1091,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2300311",
+        "https://aion2.gaming.tools/npcs/2310311",
+        "https://aion2.gaming.tools/npcs/2320311",
+        "https://aion2.gaming.tools/pets/1091",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300311.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2310311.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2320311.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1091.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "red-spark-ignus",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1092,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100605",
+        "https://aion2.gaming.tools/npcs/2101096",
+        "https://aion2.gaming.tools/npcs/2400324",
+        "https://aion2.gaming.tools/pets/1092",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100605.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101096.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400324.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1092.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "lesser-wind-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1093,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2300401",
+        "https://aion2.gaming.tools/npcs/2310401",
+        "https://aion2.gaming.tools/npcs/2320401",
+        "https://aion2.gaming.tools/pets/1093",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300401.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2310401.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2320401.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1093.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "phantasmal-lakshmi",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1094,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100658",
+        "https://aion2.gaming.tools/npcs/2101103",
+        "https://aion2.gaming.tools/npcs/2400824",
+        "https://aion2.gaming.tools/pets/1094",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100658.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101103.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400824.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1094.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "intermediate-wind-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1095,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100666",
+        "https://aion2.gaming.tools/npcs/2400302",
+        "https://aion2.gaming.tools/npcs/2400818",
+        "https://aion2.gaming.tools/pets/1095",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100666.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400302.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400818.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1095.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "superior-wind-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1096,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100664",
+        "https://aion2.gaming.tools/npcs/2400303",
+        "https://aion2.gaming.tools/npcs/2400749",
+        "https://aion2.gaming.tools/npcs/2400815",
+        "https://aion2.gaming.tools/pets/1096",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100664.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400303.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400749.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400815.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1096.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "superior-fire-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1097,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100174",
+        "https://aion2.gaming.tools/npcs/2100348",
+        "https://aion2.gaming.tools/npcs/2100349",
+        "https://aion2.gaming.tools/npcs/2100742",
+        "https://aion2.gaming.tools/npcs/2100752",
+        "https://aion2.gaming.tools/npcs/2100802",
+        "https://aion2.gaming.tools/npcs/2100805",
+        "https://aion2.gaming.tools/pets/1097",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100174.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100348.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100349.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100742.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100752.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100802.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100805.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1097.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kalnif-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1098,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100070",
+        "https://aion2.gaming.tools/npcs/2100096",
+        "https://aion2.gaming.tools/npcs/2100130",
+        "https://aion2.gaming.tools/npcs/2100481",
+        "https://aion2.gaming.tools/npcs/2600004 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600014 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600404 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600414 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600482 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600483 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600492 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600493 (loot: Soul: Modified Karnif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1098",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100070.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100096.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100130.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100481.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1098.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "modified-karnif",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1099,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2406071",
+        "https://aion2.gaming.tools/pets/1099",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2406071.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1099.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "elite-karnif",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1100,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1100",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1100.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ultimate-earth-spirit",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1101,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100660",
+        "https://aion2.gaming.tools/npcs/2600454 (loot: Soul: Forest Guardian (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1101",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100660.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1101.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "forest-guardian",
+        "importedPositiveMapIds": [
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1102,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1102",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1102.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "dried-up-forest-guardian",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1103,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101278",
+        "https://aion2.gaming.tools/pets/1103",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101278.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1103.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "pretor-veil-administrator",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1104,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100816",
+        "https://aion2.gaming.tools/npcs/2110507",
+        "https://aion2.gaming.tools/npcs/2400615",
+        "https://aion2.gaming.tools/pets/1104",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100816.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110507.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400615.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1104.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "manduri-trebuchet-worker",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1105,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400919",
+        "https://aion2.gaming.tools/pets/1105",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400919.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1105.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "biruta-herbalist",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1106,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400564",
+        "https://aion2.gaming.tools/npcs/2400583",
+        "https://aion2.gaming.tools/npcs/2400611",
+        "https://aion2.gaming.tools/pets/1106",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400564.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400583.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400611.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1106.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "tayga",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1107,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1107",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1107.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "krao-seal-guardian",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1108,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100097",
+        "https://aion2.gaming.tools/pets/1108",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100097.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1108.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "krallwar-01-v01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1109,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100072",
+        "https://aion2.gaming.tools/pets/1109",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100072.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1109.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "krallwar-01-v02",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1110,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100454",
+        "https://aion2.gaming.tools/npcs/2400471",
+        "https://aion2.gaming.tools/npcs/2600051 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600451 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600513 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600575 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600585 (loot: Soul: Blue Kalgolem (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1110",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100454.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400471.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1110.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "blue-kalgolem",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1111,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1111",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1111.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "swift-lugi",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1112,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1112",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1112.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "wandering-merchant-lugi",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1114,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100283",
+        "https://aion2.gaming.tools/npcs/2400230",
+        "https://aion2.gaming.tools/pets/1114",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100283.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400230.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1114.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ashen-spider",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1115,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101139",
+        "https://aion2.gaming.tools/npcs/2400833",
+        "https://aion2.gaming.tools/pets/1115",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101139.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400833.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1115.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kuru-overseer",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1116,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2000956",
+        "https://aion2.gaming.tools/npcs/2000957",
+        "https://aion2.gaming.tools/npcs/2400902",
+        "https://aion2.gaming.tools/npcs/2400933",
+        "https://aion2.gaming.tools/npcs/2400939",
+        "https://aion2.gaming.tools/npcs/2400946",
+        "https://aion2.gaming.tools/npcs/2400948",
+        "https://aion2.gaming.tools/pets/1116",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000956.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000957.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400902.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400933.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400939.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400946.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400948.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1116.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "withered-branch-spider",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1117,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101023",
+        "https://aion2.gaming.tools/npcs/2110509",
+        "https://aion2.gaming.tools/npcs/2400319",
+        "https://aion2.gaming.tools/npcs/2400745",
+        "https://aion2.gaming.tools/npcs/2600045 (loot: Soul: Unstable Spider (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1117",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101023.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110509.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400319.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400745.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1117.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "unstable-spider",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1118,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2000955",
+        "https://aion2.gaming.tools/npcs/2100286",
+        "https://aion2.gaming.tools/npcs/2100550",
+        "https://aion2.gaming.tools/npcs/2400900",
+        "https://aion2.gaming.tools/npcs/2400930",
+        "https://aion2.gaming.tools/pets/1118",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000955.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100286.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100550.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400900.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400930.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1118.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "aberrant-bee",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1119,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2000952",
+        "https://aion2.gaming.tools/npcs/2100699",
+        "https://aion2.gaming.tools/npcs/2100821",
+        "https://aion2.gaming.tools/npcs/2100828",
+        "https://aion2.gaming.tools/npcs/2400907",
+        "https://aion2.gaming.tools/pets/1119",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000952.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100699.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100821.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100828.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400907.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1119.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "aberrant-coradon",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1120,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101022",
+        "https://aion2.gaming.tools/npcs/2400737",
+        "https://aion2.gaming.tools/npcs/2400906",
+        "https://aion2.gaming.tools/npcs/2400935",
+        "https://aion2.gaming.tools/pets/1120",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101022.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400737.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400906.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400935.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1120.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "young-kailin",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1121,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100189",
+        "https://aion2.gaming.tools/npcs/2100473",
+        "https://aion2.gaming.tools/npcs/2400910",
+        "https://aion2.gaming.tools/npcs/2400950",
+        "https://aion2.gaming.tools/npcs/2600047 (loot: Soul: Young Slink (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600447 (loot: Soul: Young Slink (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1121",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100189.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100473.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400910.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400950.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1121.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "young-slink",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1122,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1122",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1122.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "young-tog",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1123,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100173",
+        "https://aion2.gaming.tools/npcs/2100818",
+        "https://aion2.gaming.tools/npcs/2400377",
+        "https://aion2.gaming.tools/npcs/2400917",
+        "https://aion2.gaming.tools/pets/1123",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100173.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100818.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400377.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400917.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1123.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "young-ursus",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1124,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100573",
+        "https://aion2.gaming.tools/npcs/2100748",
+        "https://aion2.gaming.tools/npcs/2100797",
+        "https://aion2.gaming.tools/npcs/2100813",
+        "https://aion2.gaming.tools/pets/1124",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100573.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100748.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100797.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100813.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1124.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "zaif-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1125,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100558",
+        "https://aion2.gaming.tools/npcs/2400578",
+        "https://aion2.gaming.tools/pets/1125",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100558.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400578.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1125.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "aberrant-zaif",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1126,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100006",
+        "https://aion2.gaming.tools/npcs/2100145",
+        "https://aion2.gaming.tools/npcs/2100288",
+        "https://aion2.gaming.tools/npcs/2100793",
+        "https://aion2.gaming.tools/npcs/2100819",
+        "https://aion2.gaming.tools/npcs/2400936",
+        "https://aion2.gaming.tools/pets/1126",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100006.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100145.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100288.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100793.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100819.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400936.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1126.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "aberrant-tog",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1127,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400734",
+        "https://aion2.gaming.tools/pets/1127",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400734.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1127.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "odyle-stone-spirit",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1128,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400015",
+        "https://aion2.gaming.tools/pets/1128",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400015.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1128.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "drana-slime",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1129,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2110501",
+        "https://aion2.gaming.tools/pets/1129",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110501.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1129.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "abyssswarm-01-cv01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1130,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100554",
+        "https://aion2.gaming.tools/pets/1130",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100554.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1130.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "altbug-01-cv02",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1131,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2110502",
+        "https://aion2.gaming.tools/pets/1131",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110502.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1131.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "forestele-01-cv01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1132,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1132",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1132.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ashen-lupyllini",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1133,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1133",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1133.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "forest-dionae",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1134,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400941",
+        "https://aion2.gaming.tools/npcs/2600061 (loot: Soul: Eternal Coradon (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600461 (loot: Soul: Eternal Coradon (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1134",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400941.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1134.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "eternal-coradon",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1135,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400248",
+        "https://aion2.gaming.tools/pets/1135",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400248.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1135.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ashen-dionae",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1136,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2000925",
+        "https://aion2.gaming.tools/npcs/2110513",
+        "https://aion2.gaming.tools/npcs/2400056",
+        "https://aion2.gaming.tools/npcs/2400735",
+        "https://aion2.gaming.tools/npcs/2400813",
+        "https://aion2.gaming.tools/npcs/2400949",
+        "https://aion2.gaming.tools/pets/1136",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000925.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110513.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400056.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400735.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400813.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400949.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1136.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "rafflesia",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1137,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400351",
+        "https://aion2.gaming.tools/npcs/2400390",
+        "https://aion2.gaming.tools/pets/1137",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400351.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400390.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1137.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mumu-worker",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1138,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1138",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1138.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mumu-overseer",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1139,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1139",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1139.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "swamp-monster",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1140,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100350",
+        "https://aion2.gaming.tools/npcs/2400225",
+        "https://aion2.gaming.tools/pets/1140",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100350.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400225.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1140.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "forest-monster",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1141,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100021",
+        "https://aion2.gaming.tools/npcs/2600426 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600502 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600532 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600552 (loot: Soul: Marsh Targon (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1141",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100021.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1141.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "marsh-targon",
+        "importedPositiveMapIds": [
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1142,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400312",
+        "https://aion2.gaming.tools/pets/1142",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400312.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1142.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "distorted-mutant",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1143,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400217",
+        "https://aion2.gaming.tools/pets/1143",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400217.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1143.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mutated-ursus",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1144,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400214",
+        "https://aion2.gaming.tools/npcs/2400751",
+        "https://aion2.gaming.tools/pets/1144",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400214.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400751.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1144.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mutated-forest-guardian",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1145,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1145",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1145.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mutated-insectoid-valka",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1146,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1146",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1146.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "gatekeeper-pinopi",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1147,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100901",
+        "https://aion2.gaming.tools/npcs/2400116",
+        "https://aion2.gaming.tools/npcs/2400161",
+        "https://aion2.gaming.tools/npcs/2400380",
+        "https://aion2.gaming.tools/pets/1147",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100901.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400116.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400161.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400380.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1147.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "dratona",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1148,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400014",
+        "https://aion2.gaming.tools/pets/1148",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400014.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1148.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "drakana-kalgolem",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1153,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101135",
+        "https://aion2.gaming.tools/npcs/2110503",
+        "https://aion2.gaming.tools/npcs/2400834",
+        "https://aion2.gaming.tools/pets/1153",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101135.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110503.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400834.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1153.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "drana-mutant-brute",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1154,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400476",
+        "https://aion2.gaming.tools/npcs/2600432 (loot: Soul: Faded Mutant Brute (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600541 (loot: Soul: Faded Mutant Brute (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600561 (loot: Soul: Faded Mutant Brute (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1154",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400476.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1154.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "faded-mutant-brute",
+        "importedPositiveMapIds": [
+          "altgard",
+          "chaotic-middle-reshanta"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1155,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100665",
+        "https://aion2.gaming.tools/npcs/2400306",
+        "https://aion2.gaming.tools/npcs/2400739",
+        "https://aion2.gaming.tools/npcs/2400816",
+        "https://aion2.gaming.tools/pets/1155",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100665.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400306.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400739.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400816.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1155.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "superior-water-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1156,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100079",
+        "https://aion2.gaming.tools/pets/1156",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100079.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1156.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "elite-klaw",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1157,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400275",
+        "https://aion2.gaming.tools/npcs/2400412",
+        "https://aion2.gaming.tools/npcs/2400418",
+        "https://aion2.gaming.tools/pets/1157",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400275.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400412.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400418.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1157.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "cadaver-cleaner",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1158,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1158",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1158.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "venomous-insect-sram",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1159,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400473",
+        "https://aion2.gaming.tools/pets/1159",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400473.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1159.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "parasite-swarm",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1160,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1160",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1160.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "drana-contaminant",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1161,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400479",
+        "https://aion2.gaming.tools/pets/1161",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400479.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1161.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "faded-floater",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1162,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101075",
+        "https://aion2.gaming.tools/npcs/2101079",
+        "https://aion2.gaming.tools/npcs/2400801",
+        "https://aion2.gaming.tools/pets/1162",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101075.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101079.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400801.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1162.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kerubar",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1163,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400240",
+        "https://aion2.gaming.tools/pets/1163",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400240.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1163.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "basilisk",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1164,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101089",
+        "https://aion2.gaming.tools/pets/1164",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101089.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1164.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "earthele-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1165,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100653",
+        "https://aion2.gaming.tools/npcs/2101102",
+        "https://aion2.gaming.tools/npcs/2400823",
+        "https://aion2.gaming.tools/pets/1165",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100653.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101102.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400823.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1165.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "intermediate-earth-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1166,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100667",
+        "https://aion2.gaming.tools/npcs/2400310",
+        "https://aion2.gaming.tools/npcs/2400817",
+        "https://aion2.gaming.tools/pets/1166",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100667.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400310.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400817.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1166.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "superior-earth-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1167,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1167",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1167.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "flame-stone-guardian-statue",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1168,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100231",
+        "https://aion2.gaming.tools/npcs/2101088",
+        "https://aion2.gaming.tools/pets/1168",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100231.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101088.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1168.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "waterele-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1169,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100657",
+        "https://aion2.gaming.tools/npcs/2101101",
+        "https://aion2.gaming.tools/npcs/2400738",
+        "https://aion2.gaming.tools/npcs/2400822",
+        "https://aion2.gaming.tools/pets/1169",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100657.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101101.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400738.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400822.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1169.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "intermediate-water-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1170,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101076",
+        "https://aion2.gaming.tools/npcs/2101080",
+        "https://aion2.gaming.tools/npcs/2400802",
+        "https://aion2.gaming.tools/pets/1170",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101076.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101080.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400802.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1170.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kerubian",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1171,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101077",
+        "https://aion2.gaming.tools/npcs/2400803",
+        "https://aion2.gaming.tools/pets/1171",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101077.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400803.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1171.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "kerubiel",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1172,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400612",
+        "https://aion2.gaming.tools/pets/1172",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400612.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1172.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "duduka-worker",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1173,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400613",
+        "https://aion2.gaming.tools/pets/1173",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400613.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1173.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "duduka-trebuchet-worker",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1174,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2110505",
+        "https://aion2.gaming.tools/npcs/2400010",
+        "https://aion2.gaming.tools/pets/1174",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110505.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400010.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1174.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "drana-predator",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1175,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400480",
+        "https://aion2.gaming.tools/pets/1175",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400480.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1175.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "faded-predator",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1176,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400481",
+        "https://aion2.gaming.tools/npcs/2400707",
+        "https://aion2.gaming.tools/pets/1176",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400481.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400707.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1176.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "mudthorn",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1177,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1177",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1177.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ancient-spirit",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1178,
+      "known": true,
+      "regions": [
+        "Abyss"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2600066 (loot: Soul: Spirit King's Bodyguard Warrior (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600466 (loot: Soul: Spirit King's Bodyguard Warrior (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1178",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1178.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "spirit-king-s-bodyguard-warrior",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta"
+        ],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1179,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400001",
+        "https://aion2.gaming.tools/pets/1179",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400001.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1179.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "drana-mutant",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1180,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "Same-name monster https://aion2.gaming.tools/npcs/2600430 gives Faded Mutant; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)",
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400477",
+        "https://aion2.gaming.tools/npcs/2600430 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600505 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600534 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600540 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600554 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600560 (loot: Soul: Faded Mutant (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600686: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600689: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1180",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400477.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1180.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "faded-mutant",
+        "importedPositiveMapIds": [
+          "altgard",
+          "chaotic-middle-reshanta",
+          "chaotic-upper-reshanta"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1181,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2000954",
+        "https://aion2.gaming.tools/npcs/2100217",
+        "https://aion2.gaming.tools/npcs/2100303",
+        "https://aion2.gaming.tools/npcs/2100740",
+        "https://aion2.gaming.tools/npcs/2400375",
+        "https://aion2.gaming.tools/npcs/2400914",
+        "https://aion2.gaming.tools/pets/1181",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2000954.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100217.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100303.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100740.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400375.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400914.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1181.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "brax",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1182,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1182",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1182.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "elite-soulless-corpse-gnat",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1183,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400413",
+        "https://aion2.gaming.tools/pets/1183",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400413.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1183.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "soulless-corpse-gnat",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1184,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100872",
+        "https://aion2.gaming.tools/npcs/2400384",
+        "https://aion2.gaming.tools/npcs/2400591",
+        "https://aion2.gaming.tools/pets/1184",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100872.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400384.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400591.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1184.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "drakan-watcher",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1185,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1185",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1185.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "dratona-tinkerer",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1186,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400311",
+        "https://aion2.gaming.tools/npcs/2400743",
+        "https://aion2.gaming.tools/pets/1186",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400311.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400743.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1186.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "poison-blood",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1187,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101100",
+        "https://aion2.gaming.tools/npcs/2400748",
+        "https://aion2.gaming.tools/npcs/2400821",
+        "https://aion2.gaming.tools/pets/1187",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101100.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400748.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400821.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1187.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "intermediate-fire-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1188,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100583",
+        "https://aion2.gaming.tools/npcs/2400057",
+        "https://aion2.gaming.tools/pets/1188",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100583.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400057.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1188.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "vivel",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1189,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100566",
+        "https://aion2.gaming.tools/npcs/2600452 (loot: Soul: Tamed Zaif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600579 (loot: Soul: Tamed Zaif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600589 (loot: Soul: Tamed Zaif (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1189",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100566.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1189.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "tamed-zaif",
+        "importedPositiveMapIds": [
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1190,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1190",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1190.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "elite-poisonous-spore-fungen",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1191,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1191",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1191.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "furious-feruk",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1192,
+      "known": true,
+      "regions": [
+        "Abyss"
+      ],
+      "sourceRefs": [
+        "Same-name monster https://aion2.gaming.tools/npcs/2600003 gives Silver Blade Rotan; all same-name monsters of Lower/Middle Reshanta give the same soul (114 checked, no exception)",
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2300310",
+        "https://aion2.gaming.tools/npcs/2310310",
+        "https://aion2.gaming.tools/npcs/2320310",
+        "https://aion2.gaming.tools/npcs/2600003 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600013 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600403 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600413 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600481 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600491 (loot: Soul: Silver Blade Rotan (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600603: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600604: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600623: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600624: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600643: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600644: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600663: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600664: loot table empty (not published), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1192",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300310.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2310310.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2320310.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1192.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "silver-blade-rotan",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta",
+          "chaotic-upper-reshanta"
+        ],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1193,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400455",
+        "https://aion2.gaming.tools/pets/1193",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400455.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1193.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "addicted-shulak-cart-worker",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1194,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100712",
+        "https://aion2.gaming.tools/pets/1194",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100712.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1194.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "guardit-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1195,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100867",
+        "https://aion2.gaming.tools/npcs/2400746",
+        "https://aion2.gaming.tools/pets/1195",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100867.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400746.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1195.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "dracuni-herbalist",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1196,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2406035",
+        "https://aion2.gaming.tools/pets/1196",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2406035.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1196.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "elite-dratona",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1197,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100716",
+        "https://aion2.gaming.tools/pets/1197",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100716.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1197.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "guardit-02",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1198,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1198",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1198.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ashen-basilisk",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1199,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1199",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1199.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "flame-barghest",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1200,
+      "known": true,
+      "regions": [
+        "Abyss"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2600042 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600442 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600536 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600556 (loot: Soul: Naga Elite Priest (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1200",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1200.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "naga-elite-priest",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "chaotic-middle-reshanta"
+        ],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1201,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100815",
+        "https://aion2.gaming.tools/npcs/2101086",
+        "https://aion2.gaming.tools/npcs/2400814",
+        "https://aion2.gaming.tools/pets/1201",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100815.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101086.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400814.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1201.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "modified-lupyllini",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1202,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100747",
+        "https://aion2.gaming.tools/npcs/2400004",
+        "https://aion2.gaming.tools/npcs/2400378",
+        "https://aion2.gaming.tools/npcs/2400391",
+        "https://aion2.gaming.tools/npcs/2400911",
+        "https://aion2.gaming.tools/pets/1202",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100747.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400004.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400378.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400391.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400911.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1202.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "decomposed-lupyllini",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1203,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400257",
+        "https://aion2.gaming.tools/npcs/2400503",
+        "https://aion2.gaming.tools/pets/1203",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400257.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400503.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1203.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "tamed-karnif",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1204,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1204",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1204.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "pagati",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1206,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100718",
+        "https://aion2.gaming.tools/pets/1206",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100718.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1206.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "elite-guardite",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1207,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100143",
+        "https://aion2.gaming.tools/npcs/2100698",
+        "https://aion2.gaming.tools/npcs/2100714",
+        "https://aion2.gaming.tools/npcs/2101099",
+        "https://aion2.gaming.tools/npcs/2400221",
+        "https://aion2.gaming.tools/npcs/2400415",
+        "https://aion2.gaming.tools/npcs/2400825",
+        "https://aion2.gaming.tools/npcs/2600027 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600071 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600427 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600471 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600571 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600581 (loot: Soul: Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1207",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100143.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100698.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100714.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101099.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400221.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400415.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400825.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1207.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "agrint",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1208,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400750",
+        "https://aion2.gaming.tools/pets/1208",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400750.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1208.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "ashen-agrint",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1209,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2110508",
+        "https://aion2.gaming.tools/npcs/2400054",
+        "https://aion2.gaming.tools/npcs/2600028 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600428 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600503 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600531 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600551 (loot: Soul: Thin Agrint (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1209",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2110508.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400054.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1209.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "thin-agrint",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1210,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100179",
+        "https://aion2.gaming.tools/pets/1210",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100179.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1210.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "agrint-01-v02",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1213,
+      "known": true,
+      "regions": [
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2101087",
+        "https://aion2.gaming.tools/npcs/2400325",
+        "https://aion2.gaming.tools/pets/1213",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101087.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400325.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1213.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "lesser-fire-spirit",
+        "importedPositiveMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1214,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100460",
+        "https://aion2.gaming.tools/npcs/2100807",
+        "https://aion2.gaming.tools/npcs/2400708",
+        "https://aion2.gaming.tools/npcs/2600069 (loot: Soul: Black Spirit (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600469 (loot: Soul: Black Spirit (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1214",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100460.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100807.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400708.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1214.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "black-spirit",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1215,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2300403",
+        "https://aion2.gaming.tools/npcs/2310403",
+        "https://aion2.gaming.tools/npcs/2320403",
+        "https://aion2.gaming.tools/pets/1215",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300403.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2310403.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2320403.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1215.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "predator-saraswati",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1216,
+      "known": true,
+      "regions": [
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100600",
+        "https://aion2.gaming.tools/npcs/2100656",
+        "https://aion2.gaming.tools/pets/1216",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100600.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100656.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1216.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "specter-01",
+        "importedPositiveMapIds": [
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1217,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400009",
+        "https://aion2.gaming.tools/pets/1217",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400009.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1217.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "congealed-drana",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1218,
+      "known": true,
+      "regions": [
+        "Altgard"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2400478",
+        "https://aion2.gaming.tools/pets/1218",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400478.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1218.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "faded-drana",
+        "importedPositiveMapIds": [
+          "altgard"
+        ],
+        "npcLocationMapIds": [
+          "altgard"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1219,
+      "known": true,
+      "regions": [
+        "Abyss",
+        "Altgard",
+        "Verteron"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/npcs/2100458",
+        "https://aion2.gaming.tools/npcs/2101085",
+        "https://aion2.gaming.tools/npcs/2400811",
+        "https://aion2.gaming.tools/npcs/2600050 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600450 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600512 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600574 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/npcs/2600584 (loot: Soul: Zelophi (Bound), 100 %), read 2026-10-04",
+        "https://aion2.gaming.tools/pets/1219",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2100458.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2101085.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2400811.d.json",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1219.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "zelophi",
+        "importedPositiveMapIds": [
+          "abyss-reshanta-a",
+          "altgard",
+          "chaotic-middle-reshanta",
+          "verteron"
+        ],
+        "npcLocationMapIds": [
+          "altgard",
+          "verteron"
+        ],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1240,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1240",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1240.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "white-bunny",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1278,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1278",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1278.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "chonky-hamster",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    },
+    {
+      "petNumber": 1299,
+      "known": true,
+      "regions": [
+        "Special"
+      ],
+      "sourceRefs": [
+        "https://aion2.gaming.tools/map",
+        "https://aion2.gaming.tools/pets/1299",
+        "https://cdn-hosted.gaming.tools/aion2/data/en/pets/1299.d.json"
+      ],
+      "evidence": {
+        "importedCatalogId": "two",
+        "importedPositiveMapIds": [],
+        "npcLocationMapIds": [],
+        "completeCurrentSourceJoin": true
+      }
+    }
+  ],
+  "unknowns": []
+}

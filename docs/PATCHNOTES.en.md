@@ -2,6 +2,16 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.7.0 – 2026-10-14
+
+- **New:** At the Black Cloud Merchant every pet offer shows your soul count below it (e.g. 0/5, MAX) and
+  where the pet is farmed (Abyss, Altgard, Verteron or "Special" without a farm spot on these maps).
+  MAX is green, Special amber and missing pets (0/5) light gold. Turn it on or off under Options →
+  Overlays; the overlay is always click-through.
+- **Changed:** Pets form one shared collection, no longer split by server. Your existing progress is
+  taken over (backed up first) and manual corrections stay.
+- **Improved:** Souls now count even when Soulcrest is started in the middle of a game session.
+
 ## 0.6.3 – 2026-10-13
 
 - **Fixed:** In the Rift (and on other new server connections) soul counting stopped after about

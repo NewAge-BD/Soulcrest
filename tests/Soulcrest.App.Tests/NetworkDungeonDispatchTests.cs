@@ -76,7 +76,7 @@ public sealed class NetworkDungeonDispatchTests
     [InlineData(0x3633, true)]
     [InlineData(0x3621, false)]
     [InlineData(0x3633, false)]
-    public void UnboundResultsAndSoulsNeverReplayAcrossAnUnsupportedOwnBoundary(ushort opcode, bool bindAffectedStream)
+    public void UnboundDungeonResultsNeverReplayWhileGlobalSoulsCountAcrossAnUnsupportedOwnBoundary(ushort opcode, bool bindAffectedStream)
     {
         using var f = new Fixture();
         var gain = Gain();
@@ -86,6 +86,11 @@ public sealed class NetworkDungeonDispatchTests
         f.Network.ProcessProgressMessage("affected", affectedCompletion, At);
         f.Network.ProcessProgressMessage("unrelated", gain, At);
         f.Network.ProcessProgressMessage("unrelated", unrelatedCompletion, At);
+        Assert.Empty(f.Exploration.Completed);
+        Assert.Null(f.Network.ProgressSources.DungeonActivityAt);
+        Assert.Equal(4, f.Progress.Souls("fossa"));
+        Assert.Equal(2, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Equal(4, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
 
@@ -98,16 +103,26 @@ public sealed class NetworkDungeonDispatchTests
         f.Network.ObserveIdentity(nextStream, nextOwn, At.AddSeconds(2));
         Assert.Equal(nextOwn.CharacterId, f.Exploration.Snapshot().NetworkCharacterId);
         Assert.DoesNotContain("cave", f.Exploration.Completed);
-        Assert.Equal(0, f.Progress.Souls("fossa"));
+        Assert.Equal(4, f.Progress.Souls("fossa"));
         Assert.DoesNotContain("other", f.Exploration.Completed);
-        Assert.Empty(f.Network.Recent);
+        Assert.Null(f.Network.ProgressSources.DungeonActivityAt);
+        Assert.Equal(2, f.Network.Recent.Count);
+        Assert.Equal(2, f.Progress.Recent().Count);
+        Assert.All(f.Network.Recent, soul => Assert.Equal(2, soul.Souls));
+        Assert.Equal(2, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Equal(4, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
         Assert.Equal(0, f.Network.ProgressDiagnostics.PendingBytes);
 
         f.Network.ProcessProgressMessage(nextStream, Completion(), At.AddSeconds(3));
         f.Network.ProcessProgressMessage(nextStream, Gain(), At.AddSeconds(3));
         Assert.Contains("cave", f.Exploration.Completed);
-        Assert.Equal(2, f.Progress.Souls("fossa"));
+        Assert.DoesNotContain("other", f.Exploration.Completed);
+        Assert.Equal(6, f.Progress.Souls("fossa"));
+        Assert.Equal(3, f.Network.Recent.Count);
+        Assert.Equal(3, f.Progress.Recent().Count);
+        Assert.Equal(3, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Equal(6, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
     }
 
     [Theory]

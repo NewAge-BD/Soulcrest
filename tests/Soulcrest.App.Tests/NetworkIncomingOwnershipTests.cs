@@ -8,6 +8,7 @@ using Soulcrest.App.Network;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Network;
 using Soulcrest.Core.Pets;
+using Soulcrest.Core.Progress;
 using Xunit;
 
 namespace Soulcrest.App.Tests;
@@ -127,8 +128,9 @@ public sealed class NetworkIncomingOwnershipTests
         Assert.Same(survivor.Messages, f.Streams[Web].Messages);
         Assert.Same(survivor.Tcp, f.Streams[Web].Tcp);
         Assert.Equal(generation, f.Generation);
-        Assert.Equal(8, f.Progress.Souls("fossa"));
-        Assert.Empty(f.Network.Recent);
+        Assert.Equal(10, f.Progress.Souls("fossa"));
+        Assert.Equal(ProgressFreshness.Unknown, f.Progress.EntrySnapshot("fossa").Freshness);
+        Assert.Single(f.Network.Recent);
         f.AssertUntouched();
     }
 

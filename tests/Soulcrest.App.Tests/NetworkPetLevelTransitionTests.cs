@@ -24,7 +24,7 @@ public sealed class NetworkPetLevelTransitionTests
 
     [Theory]
     [MemberData(nameof(LevelTransitions))]
-    public void InterleavedSoulGainsSurviveEveryLevelUpOrderAndRemainServerWide(int petNumber, int gain, int level, string order)
+    public void InterleavedSoulGainsSurviveEveryLevelUpOrderAndRemainGlobal(int petNumber, int gain, int level, string order)
     {
         using var f = new Fixture();
         var source = Assert.IsType<PetIdEntry>(PetIdTable.Find(petNumber));
@@ -61,7 +61,7 @@ public sealed class NetworkPetLevelTransitionTests
         Assert.Single(File.ReadAllLines(f.EventsPath));
         Assert.Equal(level == 3, f.Progress.IsMax(petId));
 
-        // Another character on the same server uses the same collection, not a new pet profile.
+        // Legacy character and server bindings share the global pet collection.
         Assert.True(f.Progress.BindNetworkContext(Context(++sequence, character: 202)));
         Assert.Equal(expectedTotal, f.Progress.Souls(petId));
         Assert.Equal(expectedBalance, f.Progress.AvailableSouls(petId));
@@ -69,9 +69,9 @@ public sealed class NetworkPetLevelTransitionTests
         Assert.True(f.Progress.IsFocus(petId));
 
         Assert.True(f.Progress.BindNetworkContext(Context(++sequence, character: 303, server: 502)));
-        Assert.Equal(0, f.Progress.Souls(petId));
-        Assert.Null(f.Progress.AvailableSouls(petId));
-        Assert.False(f.Progress.IsFocus(petId));
+        Assert.Equal(expectedTotal, f.Progress.Souls(petId));
+        Assert.Equal(expectedBalance, f.Progress.AvailableSouls(petId));
+        Assert.True(f.Progress.IsFocus(petId));
         Assert.True(f.Progress.BindNetworkContext(Context(++sequence, character: 404)));
         Assert.Equal(expectedTotal, f.Progress.Souls(petId));
         Assert.Equal(expectedBalance, f.Progress.AvailableSouls(petId));
@@ -83,11 +83,12 @@ public sealed class NetworkPetLevelTransitionTests
         Assert.False(f.Progress.ApplyNetworkGain([new(petNumber, 1)], next));
         Assert.Equal(expectedTotal + 1, f.Progress.Souls(petId));
         Assert.Equal(expectedBalance + 1, f.Progress.AvailableSouls(petId));
-        Assert.Equal(1, Assert.Single(f.Progress.Recent()).Quantity);
+        Assert.Equal(1, f.Progress.Recent()[0].Quantity);
+        Assert.Equal(2, f.Progress.Recent().Count);
         Assert.Equal(2, File.ReadAllLines(f.EventsPath).Length);
 
         var loaded = f.Load();
-        Assert.Equal(501, loaded.ActiveServerId);
+        Assert.Null(loaded.ActiveServerId);
         Assert.Equal(expectedTotal + 1, loaded.Souls(petId));
         Assert.Equal(expectedBalance + 1, loaded.AvailableSouls(petId));
         Assert.Equal(level, loaded.ObservedLevel(petId));

@@ -29,7 +29,7 @@ Nur ein durch eigenen Welteintritt bestätigter Strom darf Charakterfortschritt 
 Ein früher unbestätigter Login-Kandidat suspendiert die alte Zuordnung; streng geprüfte volle
 Startlisten werden nur bis genau einer Prepare und der passenden Own-Identität vorgemerkt.
 Charakter-ID und Entity-Key müssen übereinstimmen, Server/Name kommen ausschließlich aus Own.
-Unverankerte Prefixe und vor Own empfangene Deltas werden verworfen. TCP-Lücken,
+Unverankerte Exploration-Prefixe und vor Own empfangene Erkundungsdeltas werden verworfen. TCP-Lücken,
 Formatfehler, beschädigte Bundles und Verbindungswechsel entwerten den Kontext; Altstände bleiben.
 Netzwerk-Speicherfehler werden geloggt und unterbrechen den restlichen Capture-Batch nicht.
 `NavigationArrivalService` verarbeitet nur Wegpunkte und Leveling-Stationen. Annäherungsring,
@@ -44,8 +44,13 @@ ist unabhängig von Netzwerkfortschritt. Leaflet und Kartenkacheln bleiben lokal
 Pet-Stufe und verfügbare Souls sind getrennt; ausreichende Balance behauptet keinen erworbenen
 Levelaufstieg. Farm-Gesamtwerte bleiben für Planung erhalten. Nur echte Gewinne erzeugen
 Ledger-/Sitzungsereignisse; Snapshots, Erwerb und Verbrauch zählen keine neuen Drops.
-Die Pet-Sammlung gilt pro Server. Vorhandene globale Daten werden einmal dem ersten bekannten
-Server zugeordnet; weitere Server besitzen getrennte Sammlungen.
+Nutzerentscheidung 2026-10-13: eine globale Pet-Sammlung ohne Server-/Charakterbindung.
+Eigene Pet-Vollstände, Gewinne, Verbrauch und absolute Aufstiege werden direkt verarbeitet;
+9009 benötigt wegen Broadcast weiterhin den eigenen Entity-Key. Pet-Generation/Sequenz sind
+von Exploration getrennt. Reentrante Meldungen werden begrenzt in Empfangsreihenfolge verarbeitet.
+Echte Lücken machen gespeicherte Werte unbestätigt; neue vollständige Meldungen zählen weiter.
+Schema3 übernimmt die aktive bisherige Sammlung ohne Addition. Vollständige Altserverdaten und
+unbekannte Felder bleiben als LegacyServerSnapshot und bytegenaues Migrationsbackup erhalten.
 
 Exploration gilt pro Charakter. Bestehende GUIDs, Labels, Namen, Orts-IDs, Haken und Leveling-
 Routen bleiben bestehen; stabile eigene Charakter-ID und Server-ID ergänzen die Zuordnung.
@@ -59,7 +64,7 @@ Manuelle Korrekturen bleiben geschützt. Details: [EXPLORATION.md](EXPLORATION.m
 
 ## Lokale Speicherung
 
-`%LOCALAPPDATA%\Soulcrest`: `settings.json`, `progress.json` (serverweite Pets), `exploration.json`
+`%LOCALAPPDATA%\Soulcrest`: `settings.json`, `progress.json` (gemeinsame Pets), `exploration.json`
 (Charakterprofile), `events.jsonl` (append-only), `targets.json`, `routes.soulroute`,
 `leveling-progress.json`, `alerts.json`, `cache/`, `learned/`, `captures/`, `webview2/`.
 Schreiben ist atomar. Vor erstem Schema-2-Schreiben entsteht eine unveränderte Altdatei-Sicherung.

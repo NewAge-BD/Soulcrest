@@ -39,7 +39,7 @@ public sealed class NetworkProgressViewTests
         Assert.Contains("Pet baseline", html);
         Assert.DoesNotContain("Quest baseline", html);
         Assert.DoesNotContain("Kibelisk baseline", html);
-        Assert.Contains("shared per server", html);
+        Assert.Contains("one shared collection", html);
     }
 
     [Fact]

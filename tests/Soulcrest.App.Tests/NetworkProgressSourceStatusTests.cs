@@ -39,7 +39,8 @@ public sealed class NetworkProgressSourceStatusTests
         var html = await fixture.Render(scope);
         Assert.Contains($"data-progress-state=\"{state}\"", html);
         Assert.Contains($"data-progress-live=\"{hasBaseline.ToString().ToLowerInvariant()}\"", html);
-        Assert.Contains("Detected character profile: Synthetic network profile", html);
+        if (scope == "pet") Assert.DoesNotContain("Detected character profile", html);
+        else Assert.Contains("Detected character profile: Synthetic network profile", html);
         if (state != "waiting") Assert.DoesNotContain(">Awaiting confirmation<", html);
         if (received == "quest+teleport")
         {
@@ -90,16 +91,16 @@ public sealed class NetworkProgressSourceStatusTests
     }
 
     [Fact]
-    public async Task UnanchoredPreIdentityDataIsDiscardedAndAnotherStreamsSourcesAreIgnored()
+    public async Task GlobalPetBaselineAppliesBeforeIdentityWhileForeignExplorationSourcesAreIgnored()
     {
         await using var fixture = new Fixture("en");
         fixture.Receive("pet");
         Assert.False(fixture.Network.ProgressSources.IdentityIsLive);
-        Assert.False(fixture.Network.ProgressSources.HasAnyBaseline);
-        Assert.Contains("data-progress-state=\"waiting\"", await fixture.Render("all"));
+        Assert.NotNull(fixture.Network.PetBaselineAt);
+        Assert.Contains("data-progress-state=\"partial\"", await fixture.Render("all"));
         fixture.BindOwn();
-        Assert.Contains("data-progress-state=\"waiting\"", await fixture.Render("all"));
-        Assert.Null(fixture.Network.PetBaselineAt);
+        Assert.Contains("data-progress-state=\"partial\"", await fixture.Render("all"));
+        Assert.NotNull(fixture.Network.PetBaselineAt);
         fixture.Receive("pet");
         Assert.Contains("data-progress-state=\"partial\"", await fixture.Render("all"));
         fixture.Network.ProcessProgressMessage("another", Quests(2), At);
@@ -114,7 +115,7 @@ public sealed class NetworkProgressSourceStatusTests
     [InlineData("switch")]
     [InlineData("stop")]
     [InlineData("unsupported-own")]
-    public async Task InvalidatedSessionDropsEverySourceButRetainsSavedProgress(string invalidation)
+    public async Task TransportInvalidationClearsSourcesWhileOwnChangesKeepGlobalPetProgress(string invalidation)
     {
         await using var fixture = new Fixture("en");
         fixture.BindOwn();
@@ -128,13 +129,14 @@ public sealed class NetworkProgressSourceStatusTests
             case "unsupported-own": fixture.Network.ProcessProgressMessage("own", [0x33, 0x36, 0], At); break;
         }
         var sources = fixture.Network.ProgressSources;
-        Assert.False(sources.HasAnyBaseline);
-        Assert.Null(sources.PetActivityAt);
-        Assert.False(fixture.Network.ProgressIsLive);
+        var transportEnded = invalidation is "gap" or "stop";
+        Assert.Equal(!transportEnded, sources.PetBaselineAt is not null);
+        Assert.Null(sources.QuestBaselineAt);
+        Assert.Null(sources.TeleportBaselineAt);
         Assert.Equal(before, fixture.Progress.Souls("fossa"));
         var html = await fixture.Render("all");
-        Assert.Contains("data-progress-state=\"waiting\"", html);
-        Assert.Contains("data-progress-live=\"false\"", html);
+        Assert.Contains($"data-progress-state=\"{(transportEnded ? "waiting" : "partial")}\"", html);
+        Assert.Contains($"data-progress-live=\"{(!transportEnded).ToString().ToLowerInvariant()}\"", html);
         if (invalidation == "unsupported-own") Assert.Contains("Network format is not supported. Saved progress is retained.", html);
         if (invalidation == "switch") Assert.Contains("Detected character profile: Synthetic second profile", html);
     }
@@ -321,10 +323,10 @@ public sealed class NetworkProgressSourceStatusTests
     }
 
     [Fact]
-    public async Task RetainedBaselinesCannotConfirmAnUnboundRunningCapture()
+    public async Task RetainedExplorationBaselinesCannotConfirmAnUnboundRunningCapture()
     {
         await using var fixture = new Fixture("en");
-        foreach (var property in new[] { nameof(NetworkLootService.PetBaselineAt), nameof(NetworkLootService.QuestBaselineAt), nameof(NetworkLootService.TeleportBaselineAt) })
+        foreach (var property in new[] { nameof(NetworkLootService.QuestBaselineAt), nameof(NetworkLootService.TeleportBaselineAt) })
             typeof(NetworkLootService).GetProperty(property)!.SetValue(fixture.Network, At);
         Assert.True(fixture.Network.Running);
         Assert.False(fixture.Network.ProgressIsLive);

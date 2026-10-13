@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Reflection;
-using System.Text.Json;
 using Soulcrest.App.Network;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Network;
@@ -10,29 +9,27 @@ using Xunit;
 
 namespace Soulcrest.App.Tests;
 
-[Collection("Settings file")]
+/// <summary>Global pet continuity is independent of character transitions; real transport and source failures still invalidate confirmation.</summary>
 public sealed class NetworkPetContinuityTests
 {
+    private static readonly DateTimeOffset At = new(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+    private static readonly OwnCharacterIdentity Own = new(101, 501, 300, "SyntheticGlobalPet");
     private const int Slime = 1062;
-    private static readonly OwnCharacterIdentity Own = new(101, 501, 300, "SyntheticContinuity");
-    private static readonly DateTimeOffset At = new(2026, 10, 13, 11, 0, 0, TimeSpan.Zero);
     private const string Game = "synthetic-world";
 
     private sealed class Fixture : IDisposable
     {
-        private readonly string _folder = Path.Combine(Path.GetTempPath(), "soulcrest-pet-continuity-" + Guid.NewGuid().ToString("N"));
-        private readonly string? _previousData = Environment.GetEnvironmentVariable("SOULCREST_DATA");
-        public ProgressService Progress { get; }
-        public ExplorationService Exploration { get; }
-        public NetworkLootService Network { get; }
-        public List<NetworkSoul> Gains { get; } = [];
-        public string PetId { get; }
-        public Fixture()
+        private readonly string _folder = Path.Combine(Path.GetTempPath(), "soulcrest-global-pet-dispatch-" + Guid.NewGuid().ToString("N"));
+        internal ProgressService Progress { get; }
+        internal ExplorationService Exploration { get; }
+        internal NetworkLootService Network { get; }
+        internal List<NetworkSoul> Gains { get; } = [];
+        internal string PetId { get; }
+        internal Fixture()
         {
             Directory.CreateDirectory(_folder);
-            Environment.SetEnvironmentVariable("SOULCREST_DATA", _folder);
             var source = PetIdTable.Find(Slime)!;
-            PetId = source.CatalogId ?? "synthetic-slime";
+            PetId = source.CatalogId!;
             Progress = new(Path.Combine(_folder, "progress.json"), new PetCatalog([
                 new PetDefinition { Id = PetId, En = source.En, Genus = source.Genus, NumericId = Slime.ToString(CultureInfo.InvariantCulture) }]));
             Exploration = new(Path.Combine(_folder, "exploration.json"), [
@@ -42,9 +39,9 @@ public sealed class NetworkPetContinuityTests
             typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Running))!.SetValue(Network, true);
             Network.SoulGained += Gains.Add;
         }
-        public void Send(byte[] message, int second, string stream = Game) => Network.ProcessProgressMessage(stream, message, At.AddSeconds(second));
-        public void Enter(int second = 3, OwnCharacterIdentity? own = null, string stream = Game) => Network.ObserveIdentity(stream, own ?? Own, At.AddSeconds(second));
-        public void Bind()
+        internal void Send(byte[] message, int second, string stream = Game) => Network.ProcessProgressMessage(stream, message, At.AddSeconds(second));
+        internal void Enter(int second = 3, OwnCharacterIdentity? own = null, string stream = Game) => Network.ObserveIdentity(stream, own ?? Own, At.AddSeconds(second));
+        internal void Bind()
         {
             Enter(0); Send(Pets(), 1);
             Send(Packet(0x8D09, w =>
@@ -55,70 +52,82 @@ public sealed class NetworkPetContinuityTests
             Send(Packet(0x9232, w => { w.Write((byte)1); w.Write(1052020); }), 1);
             Assert.True(Network.ProgressSources.InitialProgressConfirmed);
         }
-        public bool HasBaseline(int number = Slime) =>
-            ((ProgressProfile)typeof(ProgressService).GetField("_profile", BindingFlags.NonPublic | BindingFlags.Instance)!
-                .GetValue(Progress)!).NetworkPets[number].HasBaseline;
-        public ProgressProfile Stored()
-        {
-            var root = JsonSerializer.Deserialize<ProgressProfile>(File.ReadAllText(Path.Combine(_folder, "progress.json")))!;
-            return root.ActiveServerId is { } server && server != root.ServerId ? root.Servers[server] : root;
-        }
-        public void Dispose()
-        {
-            Network.Dispose();
-            Environment.SetEnvironmentVariable("SOULCREST_DATA", _previousData);
-            Directory.Delete(_folder, recursive: true);
-        }
+        public void Dispose() { Network.Dispose(); Directory.Delete(_folder, recursive: true); }
     }
 
     [Fact]
-    public void ContinuousSameServerMapEntryKeepsTheOriginalConfirmedBalanceAndCountsTheNextDropOnce()
+    public void GlobalSnapshotGainSpendAndUpgradeWorkBeforeAnyOwnWithoutInventingExtraPickups()
     {
-        using var f = new Fixture(); f.Bind();
-        var original = f.Progress.EntrySnapshot(f.PetId);
-        f.Send(Prepare(), 2);
-        Assert.Null(f.Network.PetBaselineAt);
-        Assert.Equal(ProgressFreshness.Stale, f.Progress.EntrySnapshot(f.PetId).Freshness);
-        f.Enter();
+        using var f = new Fixture();
+        f.Send(Pets(), 1);
+        Assert.Null(f.Network.Character);
         Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
-        Assert.Equal(At.AddSeconds(1), f.Progress.NetworkBaselineAt);
         Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
-        Assert.Equal(1, f.Progress.ObservedLevel(f.PetId));
-        Assert.True(f.Stored().NetworkPets[Slime].HasBaseline);
-        var carried = f.Progress.EntrySnapshot(f.PetId);
-        Assert.Equal(original.Source, carried.Source);
-        Assert.Equal(original.UpdatedAt, carried.UpdatedAt);
-        Assert.Equal(ProgressFreshness.Fresh, carried.Freshness);
-        Assert.Null(f.Network.QuestBaselineAt);
-        Assert.Null(f.Network.TeleportBaselineAt);
-        Assert.False(f.Network.ProgressSources.InitialProgressConfirmed);
-        Assert.Equal(ProgressFreshness.Stale, f.Exploration.Snapshot().Progress["cave"].Freshness);
-        Assert.Equal(ProgressFreshness.Stale, f.Exploration.Snapshot().Progress["pillar"].Freshness);
-        Assert.Empty(f.Progress.Recent());
-        Assert.Empty(f.Gains);
-        Assert.Single(f.Network.ProgressDiagnostics.Events, e => e.Kind == NetworkProgressEventKind.Snapshot);
-        f.Send(Points(0x900D, 1), 4);
-        Assert.Equal(22, f.Progress.AvailableSouls(f.PetId));
-        Assert.Equal(27, f.Progress.Souls(f.PetId));
-        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
-        Assert.Equal(1, Assert.Single(f.Gains).Souls);
-        Assert.Single(f.Progress.Recent());
+        f.Send(Points(0x900D, 4), 2, "another-native-owned-stream");
+        f.Send(Upgrade(), 3);
+        f.Send(Points(0x900E, 25), 4);
+        f.Send(Points(0x900D, 2), 5);
+        Assert.Null(f.Network.Character);
+        Assert.Equal(2, f.Progress.ObservedLevel(f.PetId));
+        Assert.Equal(2, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal("2/75", f.Progress.SoulCount(f.PetId));
+        Assert.Equal(32, f.Progress.Souls(f.PetId));
+        Assert.Equal(2, f.Gains.Count);
+        Assert.Equal(6, f.Gains.Sum(g => g.Souls));
+        Assert.Equal(2, f.Progress.Recent().Count);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
     }
 
     [Theory]
-    [InlineData(101L, 501, true)]
-    [InlineData(202L, 501, true)]
-    [InlineData(101L, 502, false)]
-    [InlineData(202L, 502, false)]
-    public void PetContinuityUsesTheServerWhileExplorationStillUsesTheOwnCharacter(long character, int server, bool carried)
+    [InlineData("candidate")]
+    [InlineData("unsupported-candidate")]
+    [InlineData("prepare")]
+    [InlineData("unsupported-prepare")]
+    [InlineData("unsupported-own")]
+    [InlineData("quest-format")]
+    [InlineData("teleport-format")]
+    public void CharacterBoundariesAndExplorationFailuresDoNotStaleTheGlobalPetBaseline(string boundary)
+    {
+        using var f = new Fixture(); f.Bind();
+        var original = f.Progress.EntrySnapshot(f.PetId);
+        var message = boundary switch
+        {
+            "candidate" => Candidate(),
+            "unsupported-candidate" => new byte[] { 0x20, 0x36, 0 },
+            "prepare" => Prepare(),
+            "unsupported-prepare" => new byte[] { 0x21, 0x36, 0 },
+            "unsupported-own" => new byte[] { 0x33, 0x36, 0 },
+            "quest-format" => new byte[] { 0x09, 0x8D, 0xFF },
+            _ => new byte[] { 0x32, 0x92, 0xFF },
+        };
+        f.Send(message, 2);
+        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Progress.NetworkBaselineAt);
+        Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.Equal(original.UpdatedAt, f.Progress.EntrySnapshot(f.PetId).UpdatedAt);
+        Assert.Empty(f.Gains);
+        f.Send(Points(0x900D, 1), 3);
+        Assert.Equal(22, f.Progress.AvailableSouls(f.PetId));
+        Assert.Single(f.Gains);
+    }
+
+    [Theory]
+    [InlineData(101L, 501)]
+    [InlineData(202L, 501)]
+    [InlineData(101L, 502)]
+    [InlineData(202L, 502)]
+    public void CharacterAndServerChangesKeepTheSameGlobalPetsWhileExplorationKeepsItsOwnProfile(long character, int server)
     {
         using var f = new Fixture(); f.Bind();
         var explorationGuid = f.Exploration.ActiveId;
+        f.Progress.ToggleFocus(f.PetId);
         f.Send(Prepare(), 2);
+        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
         f.Enter(own: Own with { CharacterId = character, ServerId = server, EntityKey = 301 });
-        Assert.Equal(carried, f.Network.PetBaselineAt is not null);
-        Assert.Equal(carried ? 21 : 0, f.Progress.SoulsInLevel(f.PetId));
-        Assert.Equal(server, f.Progress.ActiveServerId);
+        Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
+        Assert.True(f.Progress.IsFocus(f.PetId));
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
         Assert.Equal(server, f.Exploration.Snapshot().ServerId);
         Assert.Equal(character, f.Exploration.Snapshot().NetworkCharacterId);
         if (character != Own.CharacterId || server != Own.ServerId)
@@ -132,123 +141,154 @@ public sealed class NetworkPetContinuityTests
     }
 
     [Theory]
-    [InlineData("gap")]
-    [InlineData("global-gap")]
-    [InlineData("closed")]
-    [InlineData("stopped")]
-    [InlineData("new-candidate")]
-    [InlineData("unsupported-candidate")]
-    [InlineData("unsupported-own")]
-    [InlineData("unsupported-prepare")]
-    [InlineData("second-prepare")]
-    [InlineData("wrong-stream")]
-    [InlineData("expired")]
-    [InlineData("negative-time")]
-    public void UncertainBoundariesDiscardTheContinuityTokenWithoutInventingANewPetBaseline(string variant)
-    {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
-        switch (variant)
-        {
-            case "gap": f.Network.ProcessProgressGap(Game); break;
-            case "global-gap": f.Network.ProcessProgressGap("*"); break;
-            case "closed": typeof(NetworkLootService).GetMethod("CloseDevice", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(f.Network, null); break;
-            case "stopped": f.Network.Stop(); break;
-            case "new-candidate": f.Send(Candidate(), 2); break;
-            case "unsupported-candidate": f.Send([0x20, 0x36, 0], 2); break;
-            case "unsupported-own": f.Send([0x33, 0x36, 0], 2); break;
-            case "unsupported-prepare": f.Send([0x21, 0x36, 0], 2); break;
-            case "second-prepare": f.Send(Prepare(), 2); break;
-        }
-        f.Enter(variant == "expired" ? 123 : variant == "negative-time" ? 1 : 3, stream: variant == "wrong-stream" ? "other-world" : Game);
-        Assert.Null(f.Network.PetBaselineAt);
-        Assert.False(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.NotEqual(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
-        Assert.Empty(f.Gains);
-    }
-
-    [Theory]
     [InlineData(0x9000)]
-    [InlineData(0x9009)]
     [InlineData(0x900D)]
     [InlineData(0x900E)]
     [InlineData(0x9014)]
-    public void AnyUnreadPetUpdateInvalidatesContinuityEvenWhenItsBodyCannotBeDecoded(ushort opcode)
+    public void ValidGlobalPetUpdatesDuringACharacterTransitionApplyImmediatelyAndAreNeverReplayed(ushort opcode)
     {
         using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
-        f.Send(Packet(opcode, _ => { }), 2);
-        f.Enter();
-        Assert.Null(f.Network.PetBaselineAt);
-        Assert.False(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.Equal(21, f.Progress.SoulsInLevel(f.PetId));
-        Assert.Empty(f.Gains);
-    }
-
-    [Theory]
-    [InlineData(0x9000)]
-    [InlineData(0x9009)]
-    [InlineData(0x900D)]
-    [InlineData(0x900E)]
-    [InlineData(0x9014)]
-    public void ValidPetPacketsDuringTheUnboundTransitionAreNeverSilentlyCarriedOrReplayed(ushort opcode)
-    {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
-        var packet = opcode switch
+        Assert.Null(f.Network.Character);
+        f.Send(opcode switch
         {
-            0x9000 => Pets(),
-            0x9009 => Packet(opcode, w => { V(w, 300); w.Write(Slime); w.Write(2); w.Write(new byte[13]); }),
-            0x9014 => Packet(opcode, w => { w.Write((ushort)0); w.Write(Slime); w.Write(2); w.Write(new byte[13]); }),
+            0x9000 => Pets(23),
+            0x9014 => Upgrade(),
             _ => Points(opcode, 1),
-        };
-        f.Send(packet, 2); f.Enter();
-        Assert.Null(f.Network.PetBaselineAt);
-        Assert.Equal(1, f.Progress.Level(f.PetId));
-        Assert.Equal(21, f.Progress.SoulsInLevel(f.PetId));
-        Assert.Equal(26, f.Progress.Souls(f.PetId));
-        Assert.False(f.Stored().NetworkPets[Slime].HasBaseline);
+        }, 3);
+        var expectedBalance = opcode switch { 0x9000 => 23, 0x900D => 22, 0x900E => 20, _ => 21 };
+        Assert.Equal(expectedBalance, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal(opcode == 0x9014 ? 2 : 1, f.Progress.ObservedLevel(f.PetId));
+        Assert.Equal(opcode == 0x9000 ? At.AddSeconds(3) : At.AddSeconds(1), f.Network.PetBaselineAt);
+        f.Enter(4);
+        Assert.Equal(expectedBalance, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal(opcode == 0x900D ? 1 : 0, f.Gains.Count);
+        Assert.Equal(opcode == 0x900D ? 1 : 0, f.Progress.Recent().Count);
+        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
+    }
+
+    [Fact]
+    public void AcquisitionBroadcastStillRequiresTheExactOwnEntityAndStream()
+    {
+        using var f = new Fixture();
+        f.Send(Acquired(Own.EntityKey), 1);
+        Assert.Null(f.Progress.ObservedLevel(f.PetId));
+        f.Send(Pets(), 2);
+        f.Send(Acquired(Own.EntityKey), 3);
+        Assert.Equal(1, f.Progress.ObservedLevel(f.PetId));
+        f.Enter(4);
+        f.Send(Acquired(Own.EntityKey + 1), 5);
+        f.Send(Acquired(Own.EntityKey), 6, "another-native-owned-stream");
+        Assert.Equal(1, f.Progress.ObservedLevel(f.PetId));
+        f.Send(Acquired(Own.EntityKey), 7);
+        Assert.Equal(2, f.Progress.ObservedLevel(f.PetId));
+        Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
         Assert.Empty(f.Gains);
         Assert.Empty(f.Progress.Recent());
     }
 
-    [Fact]
-    public void UnrelatedExplorationPacketsAndForeignGapsOrPetMessagesDoNotBreakServerPetContinuity()
+    [Theory]
+    [InlineData("pet-stream")]
+    [InlineData("additional-pet-stream")]
+    [InlineData("global-gap")]
+    [InlineData("close")]
+    [InlineData("stop")]
+    [InlineData("manual")]
+    public void RealTransportOrSessionLossStalesConfirmationWithoutDeletingAnyGlobalPetCounts(string loss)
     {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
-        f.Send([0x09, 0x8D, 0xFF], 2);
-        f.Send([0x32, 0x92, 0xFF], 2);
-        f.Send(Points(0x900D, 1), 2, "foreign-world");
-        f.Send(Prepare(), 2, "foreign-world");
-        f.Network.ProcessProgressGap("foreign-world");
-        f.Enter();
-        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
-        Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
-        Assert.True(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.Empty(f.Gains);
+        using var f = new Fixture(); f.Bind();
+        f.Send(Points(0x900D, 1), 2, "additional-native-owned-stream");
+        switch (loss)
+        {
+            case "pet-stream": f.Network.ProcessProgressGap(Game); break;
+            case "additional-pet-stream": f.Network.ProcessProgressGap("additional-native-owned-stream"); break;
+            case "global-gap": f.Network.ProcessProgressGap("*"); break;
+            case "close": typeof(NetworkLootService).GetMethod("CloseDevice", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(f.Network, null); break;
+            case "stop": f.Network.Stop(); break;
+            default: f.Network.ResetProgressContext(); break;
+        }
+        Assert.Null(f.Network.PetBaselineAt);
+        Assert.NotEqual(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.Equal(27, f.Progress.Souls(f.PetId));
+        Assert.Equal(22, f.Progress.SoulsInLevel(f.PetId));
+        Assert.Single(f.Gains);
+        Assert.Single(f.Progress.Recent());
+        if (loss is "pet-stream" or "additional-pet-stream" or "global-gap" or "manual")
+        {
+            f.Send(Pets(22), 4);
+            Assert.Equal(At.AddSeconds(4), f.Network.PetBaselineAt);
+            Assert.Equal(22, f.Progress.AvailableSouls(f.PetId));
+            Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+            Assert.Single(f.Gains);
+        }
     }
 
     [Fact]
-    public void ARejectedPetSourceBeforePrepareCannotBePromotedBackToConfirmedByTheNextOwn()
+    public void ATrackedPetStreamGapInvalidatesTheBaselineEvenBeforeTheFirstOwn()
+    {
+        using var f = new Fixture();
+        f.Send(Pets(), 1);
+        Assert.Null(f.Network.Character);
+        f.Network.ProcessProgressGap(Game);
+        Assert.Null(f.Network.PetBaselineAt);
+        Assert.Equal(26, f.Progress.Souls(f.PetId));
+        Assert.Equal(21, f.Progress.SoulsInLevel(f.PetId));
+        Assert.NotEqual(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        f.Send(Points(0x900D, 1), 2);
+        Assert.Equal(27, f.Progress.Souls(f.PetId));
+        Assert.Null(f.Network.PetBaselineAt);
+        Assert.Single(f.Gains);
+    }
+
+    [Fact]
+    public void AnUntrackedForeignGapCannotInvalidateTheExistingGlobalPetBaseline()
     {
         using var f = new Fixture(); f.Bind();
-        f.Send([0x09, 0x90, 0xFF], 2);
+        f.Network.ProcessProgressGap("untracked-foreign-stream");
+        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
+        Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.True(f.Network.ProgressDiagnostics.IdentityBound);
+        Assert.Empty(f.Gains);
+    }
+
+    [Theory]
+    [InlineData(0x9000)]
+    [InlineData(0x900D)]
+    [InlineData(0x900E)]
+    [InlineData(0x9014)]
+    public void MalformedPetSourcesRemainStrictWithoutOwnAndOnlyAFullSnapshotRestoresConfirmation(ushort opcode)
+    {
+        using var f = new Fixture(); f.Send(Pets(), 1);
+        f.Send(Packet(opcode, _ => { }), 2);
+        Assert.Null(f.Network.Character);
         Assert.Null(f.Network.PetBaselineAt);
-        f.Send(Prepare(), 3); f.Enter(4);
+        Assert.True(f.Network.ProgressSources.PetFormatRejected);
+        Assert.Equal(26, f.Progress.Souls(f.PetId));
+        Assert.Equal(21, f.Progress.SoulsInLevel(f.PetId));
+        f.Send(Points(0x900D, 1), 3);
+        Assert.Equal(27, f.Progress.Souls(f.PetId));
+        Assert.Equal(22, f.Progress.SoulsInLevel(f.PetId));
         Assert.Null(f.Network.PetBaselineAt);
-        Assert.Null(f.Progress.AvailableSouls(f.PetId));
-        Assert.False(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.NotEqual(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.True(f.Network.ProgressSources.PetFormatRejected);
+        Assert.Single(f.Gains);
+        f.Send(Pets(23), 4);
+        Assert.Equal(23, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal(At.AddSeconds(4), f.Network.PetBaselineAt);
+        Assert.False(f.Network.ProgressSources.PetFormatRejected);
+        Assert.Single(f.Gains);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ManualValuesRemainProtectedWhetherCorrectedBeforeOrDuringTheTransition(bool during)
+    public void ManualValuesRemainProtectedBeforeOrDuringCharacterTransition(bool during)
     {
         using var f = new Fixture(); f.Bind();
         if (!during) f.Progress.SetSouls(f.PetId, 8);
         f.Send(Prepare(), 2);
         if (during) f.Progress.SetSouls(f.PetId, 8);
         var manual = f.Progress.EntrySnapshot(f.PetId);
-        f.Enter();
+        f.Enter(3, Own with { CharacterId = 202, ServerId = 502 });
         var after = f.Progress.EntrySnapshot(f.PetId);
         Assert.Equal(manual.Souls, after.Souls);
         Assert.Equal(manual.Source, after.Source);
@@ -256,264 +296,252 @@ public sealed class NetworkPetContinuityTests
         Assert.Equal(manual.Freshness, after.Freshness);
         Assert.True(after.ManualOverride);
         Assert.Null(f.Progress.AvailableSouls(f.PetId));
-        Assert.True(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.Equal(21, f.Stored().NetworkPets[Slime].AvailableSouls);
         Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
     }
 
     [Fact]
-    public void PreviouslyUnconfirmedPartialPetEntriesAreNotFreshenedAlongsideTheConfirmedServerCollection()
+    public void ALongCharacterTransitionDoesNotExpireAnUninterruptedGlobalPetBaseline()
     {
         using var f = new Fixture(); f.Bind();
-        f.Send(Points(0x900D, 2, pet: 1004), 2);
-        var other = f.Progress.Catalog.Pets.Single(p => f.Progress.SoulId(p.Id) == 1004).Id;
-        Assert.False(f.Stored().NetworkPets[1004].HasBaseline);
-        f.Send(Prepare(), 3); f.Enter(4);
-        Assert.True(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.False(f.Stored().NetworkPets[1004].HasBaseline);
-        Assert.Equal(ProgressFreshness.Unknown, f.Progress.EntrySnapshot(other).Freshness);
-        Assert.Null(f.Progress.AvailableSouls(other));
-        Assert.Equal(2, f.Progress.SoulsInLevel(other));
-        Assert.Single(f.Gains);
-    }
-
-    [Fact]
-    public void ANewVerifiedLoginSnapshotSupersedesTheOldContinuityState()
-    {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
-        f.Send(Candidate(), 3); f.Send(Pets(23), 4); f.Send(Prepare(), 5); f.Enter(6);
-        Assert.Equal(At.AddSeconds(4), f.Network.PetBaselineAt);
-        Assert.Equal(23, f.Progress.AvailableSouls(f.PetId));
-        Assert.Equal(At.AddSeconds(4), f.Progress.EntrySnapshot(f.PetId).UpdatedAt);
-        Assert.Empty(f.Gains);
-        Assert.Equal(2, f.Network.ProgressDiagnostics.Events.Count(e => e.Kind == NetworkProgressEventKind.Snapshot));
-    }
-
-    [Fact]
-    public void ServiceTokenIsSingleUseAndCannotOverwriteAcceptedNewData()
-    {
-        using var f = new Fixture(); f.Bind();
-        var original = new NetworkProgressContext(Own, 1, 3, At.AddSeconds(2));
-        var token = Assert.IsType<ProgressService.NetworkPetContinuityToken>(f.Progress.CaptureNetworkContinuity(original));
-        f.Progress.MarkNetworkStale();
-        var bound = new NetworkProgressContext(Own with { CharacterId = 202 }, 2, 0, At.AddSeconds(3));
-        Assert.True(f.Progress.BindNetworkContext(bound));
-        Assert.True(f.Progress.TryRestoreNetworkContinuity(token, bound));
-        Assert.False(f.Progress.TryRestoreNetworkContinuity(token, bound));
-
-        var next = Assert.IsType<ProgressService.NetworkPetContinuityToken>(f.Progress.CaptureNetworkContinuity(bound));
-        f.Progress.MarkNetworkStale();
-        var third = bound with { Generation = 3 };
-        Assert.True(f.Progress.BindNetworkContext(third));
-        Assert.True(f.Progress.ApplyNetworkGain([new(Slime, 1)], third with { Sequence = 1 }));
-        Assert.False(f.Progress.TryRestoreNetworkContinuity(next, third with { Sequence = 2 }));
-        Assert.False(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.Equal(22, f.Progress.SoulsInLevel(f.PetId));
-    }
-
-    [Fact]
-    public void SourceRejectionAfterTokenCaptureCannotBeUndoneByRestoringTheOldToken()
-    {
-        using var f = new Fixture(); f.Bind();
-        var token = Assert.IsType<ProgressService.NetworkPetContinuityToken>(f.Progress.CaptureNetworkContinuity(new(Own, 1, 3, At)));
-        f.Progress.MarkNetworkPetSourceStale();
-        f.Progress.MarkNetworkStale();
-        var bound = new NetworkProgressContext(Own, 2, 0, At.AddSeconds(3));
-        Assert.True(f.Progress.BindNetworkContext(bound));
-        Assert.False(f.Progress.TryRestoreNetworkContinuity(token, bound));
-        Assert.False(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.Null(f.Progress.AvailableSouls(f.PetId));
-    }
-
-    [Fact]
-    public void TheExistingTwoMinuteInclusiveTransitionLimitCanStillCarryTheConfirmedServerState()
-    {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2); f.Enter(122);
+        f.Send(Prepare(), 2); f.Enter(123);
         Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
         Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
-        Assert.True(f.Stored().NetworkPets[Slime].HasBaseline);
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.Empty(f.Gains);
     }
 
-    [Theory]
-    [InlineData("prepare", 0x900D)]
-    [InlineData("prepare", 0x900E)]
-    [InlineData("prepare", 0x9014)]
-    [InlineData("own", 0x900D)]
-    [InlineData("own", 0x900E)]
-    [InlineData("own", 0x9014)]
-    public void UnboundPetMessagesInSynchronousResetCallbacksPreventOldConfirmationFromReturning(string phase, ushort opcode)
+    [Fact]
+    public void TheFirstSnapshotStreamIsTrackedBeforeItsApplyCallbackCanReportAGap()
     {
-        using var f = new Fixture(); f.Bind();
-        if (phase == "own") f.Send(Prepare(), 2);
+        using var f = new Fixture();
         var fired = false;
         f.Progress.Changed += () =>
         {
-            if (fired || f.Network.Character is not null) return;
+            if (fired || f.Progress.NetworkBaselineAt is null) return;
             fired = true;
-            f.Send(opcode == 0x9014 ? Packet(opcode, w =>
-            { w.Write((ushort)0); w.Write(Slime); w.Write(2); w.Write(new byte[13]); }) : Points(opcode, 1), 2);
+            f.Network.ProcessProgressGap(Game);
         };
-        if (phase == "prepare") f.Send(Prepare(), 2);
-        f.Enter();
+        f.Send(Pets(), 1);
         Assert.True(fired);
-        Assert.Equal(Own.Name, f.Network.Character);
         Assert.Null(f.Network.PetBaselineAt);
-        Assert.False(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.NotEqual(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.Equal(ProgressFreshness.Stale, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.Equal(26, f.Progress.Souls(f.PetId));
         Assert.Equal(21, f.Progress.SoulsInLevel(f.PetId));
         Assert.Empty(f.Gains);
         Assert.Empty(f.Progress.Recent());
-        if (opcode == 0x900D)
+    }
+
+    [Fact]
+    public void AGainInTheFirstBindCallbackIsProcessedAfterTheOuterGainWithoutLosingEitherPickup()
+    {
+        using var f = new Fixture();
+        var fired = false;
+        f.Progress.Changed += () =>
         {
-            Assert.Equal(1, f.Network.ProgressDiagnostics.UnboundSoulMessages);
-            Assert.Equal(1, f.Network.ProgressDiagnostics.UnboundSoulPoints);
-        }
+            if (fired) return;
+            fired = true;
+            f.Send(Points(0x900D, 3), 2);
+        };
+        f.Send(Points(0x900D, 2), 1);
+        Assert.True(fired);
+        Assert.Equal(5, f.Progress.Souls(f.PetId));
+        Assert.Collection(f.Gains, gain => Assert.Equal(2, gain.Souls), gain => Assert.Equal(3, gain.Souls));
+        Assert.Equal(2, f.Progress.Recent().Count);
+        Assert.Equal(2, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Equal(5, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
+        Assert.Null(f.Network.PetBaselineAt);
+    }
+
+    [Fact]
+    public void AScopedGapKeepsOtherPetStreamsTrackedAfterANewSnapshotRestoresFreshness()
+    {
+        using var f = new Fixture();
+        const string other = "another-native-owned-stream";
+        f.Send(Pets(), 1);
+        f.Send(Points(0x900D, 1), 2, other);
+        f.Network.ProcessProgressGap(Game);
+        Assert.Null(f.Network.PetBaselineAt);
+        f.Send(Pets(22), 3);
+        Assert.Equal(At.AddSeconds(3), f.Network.PetBaselineAt);
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        f.Network.ProcessProgressGap(other);
+        Assert.Null(f.Network.PetBaselineAt);
+        Assert.Equal(ProgressFreshness.Stale, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.Equal(27, f.Progress.Souls(f.PetId));
+        Assert.Equal(22, f.Progress.SoulsInLevel(f.PetId));
+        Assert.Single(f.Gains);
+        Assert.Single(f.Progress.Recent());
+    }
+
+    [Fact]
+    public void AGainInTheFirstSnapshotBindCallbackAppliesAfterTheSnapshotAndKeepsItsFreshBaseline()
+    {
+        using var f = new Fixture();
+        var fired = false;
+        f.Progress.Changed += () =>
+        {
+            if (fired) return;
+            fired = true;
+            f.Send(Points(0x900D, 3), 2);
+        };
+        f.Send(Pets(5), 1);
+        Assert.True(fired);
+        Assert.Equal(1, f.Progress.ObservedLevel(f.PetId));
+        Assert.Equal(8, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal(13, f.Progress.Souls(f.PetId));
+        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
+        Assert.Equal(At.AddSeconds(1), f.Progress.NetworkBaselineAt);
+        Assert.Equal(At.AddSeconds(2), f.Network.ProgressSources.PetActivityAt);
+        Assert.Equal(3, Assert.Single(f.Gains).Souls);
+        Assert.Single(f.Progress.Recent());
+    }
+
+    [Fact]
+    public void AnUnboundAcquisitionCannotBeRetroactivelyAuthorizedByOwnDuringPetDispatch()
+    {
+        using var f = new Fixture();
+        var fired = false;
+        f.Progress.Changed += () =>
+        {
+            if (fired) return;
+            fired = true;
+            f.Send(Acquired(Own.EntityKey), 2);
+            f.Enter(3);
+        };
+        f.Send(Pets(), 1);
+        Assert.True(fired);
+        Assert.True(f.Network.ProgressDiagnostics.IdentityBound);
+        Assert.Equal(1, f.Progress.ObservedLevel(f.PetId));
+        Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
+        Assert.DoesNotContain(f.Network.ProgressDiagnostics.Events, entry => entry.Kind == NetworkProgressEventKind.Acquired);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+    }
+
+    [Theory]
+    [InlineData("stream-gap")]
+    [InlineData("ownership-removed")]
+    public void AGapOfANewQueuedPetStreamDiscardsItsGainAndCannotRepublishTheOuterSnapshot(string reason)
+    {
+        using var f = new Fixture();
+        const string other = "another-native-owned-stream";
+        var fired = false;
+        f.Progress.Changed += () =>
+        {
+            if (fired || f.Progress.NetworkBaselineAt is null) return;
+            fired = true;
+            f.Send(Points(0x900D, 3), 2, other);
+            f.Network.ProcessProgressGap(other, reason);
+        };
+        f.Send(Pets(), 1);
+        Assert.True(fired);
+        Assert.Null(f.Network.PetBaselineAt);
+        Assert.Equal(ProgressFreshness.Stale, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.Equal(26, f.Progress.Souls(f.PetId));
+        Assert.Equal(21, f.Progress.SoulsInLevel(f.PetId));
+        Assert.Equal(0, f.Network.ProgressDiagnostics.AcceptedSoulMessages);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
     }
 
     [Theory]
     [InlineData("gap")]
+    [InlineData("manual")]
     [InlineData("stop")]
-    [InlineData("malformed-upgrade")]
-    public void RestoreCallbacksCannotOverwriteAResetOrRejectedSourceWithTheOldBaseline(string action)
-    {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
-        var fired = false;
-        f.Progress.Changed += () =>
-        {
-            if (fired || f.Progress.EntrySnapshot(f.PetId).Freshness != ProgressFreshness.Fresh) return;
-            fired = true;
-            switch (action)
-            {
-                case "gap": f.Network.ProcessProgressGap(Game); break;
-                case "stop": f.Network.Stop(); break;
-                default: f.Send([0x14, 0x90, 0], 4); break;
-            }
-        };
-        f.Enter();
-        Assert.True(fired);
-        Assert.Null(f.Network.PetBaselineAt);
-        Assert.False(f.HasBaseline());
-        Assert.NotEqual(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
-        Assert.Equal(action == "malformed-upgrade", f.Network.Character is not null);
-        Assert.Equal(action == "malformed-upgrade", f.Network.ProgressSources.PetFormatRejected);
-        Assert.Empty(f.Gains);
-    }
-
-    [Fact]
-    public void AResetDuringTheBindCallbackCannotBindExplorationOrAnnounceTheInvalidatedOwn()
-    {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
-        var fired = false;
-        var announced = 0;
-        f.Network.OwnCharacterEntered += _ => announced++;
-        f.Progress.Changed += () =>
-        {
-            if (fired || f.Network.Character is null) return;
-            fired = true;
-            f.Network.ProcessProgressGap(Game);
-        };
-        f.Enter();
-        Assert.True(fired);
-        Assert.Equal(0, announced);
-        Assert.Null(f.Network.Character);
-        Assert.Null(f.Network.PetBaselineAt);
-        Assert.False(f.Network.ProgressSources.HasAnyBaseline);
-        Assert.False(f.Stored().NetworkPets[Slime].HasBaseline);
-    }
-
-    [Fact]
-    public void AForeignUnboundPetMessageInAnOwnResetCallbackDoesNotInvalidateServerContinuity()
-    {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
-        var fired = false;
-        f.Progress.Changed += () =>
-        {
-            if (fired || f.Network.Character is not null) return;
-            fired = true;
-            f.Send(Points(0x900D, 1), 2, "foreign-world");
-        };
-        f.Enter();
-        Assert.True(fired);
-        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
-        Assert.True(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
-        Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
-        Assert.Empty(f.Gains);
-    }
-
-    [Theory]
-    [InlineData("prepare", "gap")]
-    [InlineData("prepare", "unsupported-own")]
-    [InlineData("own", "gap")]
-    [InlineData("own", "unsupported-own")]
-    public void SameStreamBoundariesInAResetCallbackInvalidateTheInFlightToken(string phase, string boundary)
+    [InlineData("close")]
+    public void OwnAuthorityIsRevokedBeforeAResetProgressCallbackCanSupplyAnAcquisition(string reset)
     {
         using var f = new Fixture(); f.Bind();
-        if (phase == "own") f.Send(Prepare(), 2);
         var fired = false;
         f.Progress.Changed += () =>
         {
-            if (fired || f.Network.Character is not null) return;
+            if (fired) return;
             fired = true;
-            if (boundary == "gap") f.Network.ProcessProgressGap(Game);
-            else f.Send([0x33, 0x36, 0], 2);
+            f.Send(Acquired(Own.EntityKey), 2);
         };
-        if (phase == "prepare") f.Send(Prepare(), 2);
-        f.Enter();
+        switch (reset)
+        {
+            case "gap": f.Network.ProcessProgressGap(Game); break;
+            case "manual": f.Network.ResetProgressContext(); break;
+            case "stop": f.Network.Stop(); break;
+            case "close": typeof(NetworkLootService).GetMethod("CloseDevice", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(f.Network, null); break;
+        }
         Assert.True(fired);
+        Assert.False(f.Network.ProgressDiagnostics.IdentityBound);
+        Assert.Null(f.Network.Character);
         Assert.Null(f.Network.PetBaselineAt);
-        Assert.False(f.HasBaseline());
-        Assert.NotEqual(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
-        Assert.Equal(phase == "prepare", f.Network.Character is not null);
+        Assert.Equal(1, f.Progress.ObservedLevel(f.PetId));
+        Assert.Equal(26, f.Progress.Souls(f.PetId));
+        Assert.Equal(ProgressFreshness.Stale, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.DoesNotContain(f.Network.ProgressDiagnostics.Events, entry => entry.Kind == NetworkProgressEventKind.Acquired);
         Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
     }
 
     [Fact]
-    public void ForeignEntryCandidatesPreparationsAndGapsInAResetCallbackDoNotDiscardTheCarry()
+    public void OwnAuthorityIsRevokedBeforeTheBossGapCallbackCanSupplyAnAcquisition()
     {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
-        var fired = false;
-        f.Progress.Changed += () =>
+        using var f = new Fixture(); f.Bind();
+        var notifications = 0;
+        f.Network.BossStreamGap += stream =>
         {
-            if (fired || f.Network.Character is not null) return;
-            fired = true;
-            f.Send(Candidate(), 2, "foreign-world");
-            f.Send(Prepare(), 2, "foreign-world");
-            f.Network.ProcessProgressGap("foreign-world");
+            Assert.Equal(Game, stream);
+            notifications++;
+            f.Send(Acquired(Own.EntityKey), 2);
         };
-        f.Enter();
-        Assert.True(fired);
-        Assert.Equal(Own.Name, f.Network.Character);
-        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
-        Assert.True(f.HasBaseline());
-        Assert.Equal(21, f.Progress.AvailableSouls(f.PetId));
-        Assert.Equal(0, f.Network.ProgressDiagnostics.PendingMessages);
+        f.Network.ProcessProgressGap(Game);
+        Assert.Equal(1, notifications);
+        Assert.False(f.Network.ProgressDiagnostics.IdentityBound);
+        Assert.Null(f.Network.Character);
+        Assert.Null(f.Network.PetBaselineAt);
+        Assert.Equal(1, f.Progress.ObservedLevel(f.PetId));
+        Assert.Equal(26, f.Progress.Souls(f.PetId));
+        Assert.Equal(ProgressFreshness.Stale, f.Progress.EntrySnapshot(f.PetId).Freshness);
+        Assert.DoesNotContain(f.Network.ProgressDiagnostics.Events, entry => entry.Kind == NetworkProgressEventKind.Acquired);
         Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ValidBoundUpdatesInTheRestoreCallbackAreCountedOnceAndKeepTheirNewerObservation(bool fullSnapshot)
+    [Fact]
+    public void ANewerSnapshotFromAProgressCallbackCannotBeOverwrittenByOuterBaselinePublication()
     {
-        using var f = new Fixture(); f.Bind(); f.Send(Prepare(), 2);
+        using var f = new Fixture();
         var fired = false;
         f.Progress.Changed += () =>
         {
-            if (fired || f.Progress.EntrySnapshot(f.PetId).Freshness != ProgressFreshness.Fresh) return;
+            if (fired || f.Progress.SoulsInLevel(f.PetId) != 21) return;
             fired = true;
-            f.Send(fullSnapshot ? Pets(23) : Points(0x900D, 1), 4);
+            f.Send(Pets(23), 2);
         };
-        f.Enter();
+        f.Send(Pets(), 1);
         Assert.True(fired);
-        Assert.Equal(fullSnapshot ? At.AddSeconds(4) : At.AddSeconds(1), f.Network.PetBaselineAt);
-        Assert.Equal(At.AddSeconds(4), f.Network.ProgressSources.PetActivityAt);
-        Assert.True(f.Stored().NetworkPets[Slime].HasBaseline);
-        Assert.Equal(fullSnapshot ? 23 : 22, f.Progress.AvailableSouls(f.PetId));
-        Assert.Equal(fullSnapshot ? 28 : 27, f.Progress.Souls(f.PetId));
+        Assert.Equal(23, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal(At.AddSeconds(2), f.Network.PetBaselineAt);
+        Assert.Equal(At.AddSeconds(2), f.Network.ProgressSources.PetActivityAt);
+        Assert.Empty(f.Gains);
+        Assert.Empty(f.Progress.Recent());
+    }
+
+    [Fact]
+    public void AnOwnNotificationCallbackCanCountOneGlobalGainWithoutAnOldBaselineReplay()
+    {
+        using var f = new Fixture(); f.Send(Pets(), 1);
+        var notifications = 0;
+        f.Network.OwnCharacterEntered += _ =>
+        {
+            notifications++;
+            f.Send(Points(0x900D, 1), 4);
+        };
+        f.Enter(3);
+        Assert.Equal(1, notifications);
+        Assert.Equal(22, f.Progress.AvailableSouls(f.PetId));
+        Assert.Equal(27, f.Progress.Souls(f.PetId));
+        Assert.Equal(At.AddSeconds(1), f.Network.PetBaselineAt);
         Assert.Equal(ProgressFreshness.Fresh, f.Progress.EntrySnapshot(f.PetId).Freshness);
-        Assert.Equal(fullSnapshot ? 0 : 1, f.Gains.Count);
-        Assert.Equal(fullSnapshot ? 0 : 1, f.Progress.Recent().Count);
+        Assert.Single(f.Gains);
+        Assert.Single(f.Progress.Recent());
     }
 
     private static byte[] Prepare() => Packet(0x3621, w => w.Write(new byte[46]));
@@ -527,7 +555,11 @@ public sealed class NetworkPetContinuityTests
         w.Write(0); w.Write((byte)1); w.Write(1); w.Write(Slime); w.Write(1);
         w.Write((byte)1); w.Write(Slime); w.Write(balance); w.Write(new byte[4]);
     });
-    private static byte[] Points(ushort opcode, int amount, int pet = Slime) => Packet(opcode, w => { w.Write((byte)1); w.Write(pet); w.Write(amount); });
+    private static byte[] Upgrade() => Packet(0x9014, w =>
+    { w.Write((ushort)0); w.Write(Slime); w.Write(2); w.Write(new byte[13]); });
+    private static byte[] Acquired(int entity) => Packet(0x9009, w =>
+    { V(w, (uint)entity); w.Write(Slime); w.Write(2); w.Write(new byte[13]); });
+    private static byte[] Points(ushort opcode, int amount) => Packet(opcode, w => { w.Write((byte)1); w.Write(Slime); w.Write(amount); });
     private static byte[] Packet(ushort opcode, Action<BinaryWriter> action)
     {
         using var bytes = new MemoryStream(); using var writer = new BinaryWriter(bytes);

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Soulcrest.Core.Progress;
@@ -31,6 +32,9 @@ public sealed class ProgressProfile
     public int? ServerId { get; set; }
     public int? ActiveServerId { get; set; }
     public Dictionary<int, ProgressProfile> Servers { get; set; } = [];
+    /// <summary>Untouched pre-global file, including every old server collection and unknown field.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? LegacyServerSnapshot { get; set; }
     public Dictionary<int, NetworkPetProgress> NetworkPets { get; set; } = [];
     public DateTimeOffset? NetworkBaselineAt { get; set; }
     [JsonPropertyName("pets")] public Dictionary<string, PetProgressEntry> Pets { get; set; } = new(StringComparer.Ordinal);
