@@ -24,18 +24,26 @@
                     </optgroup>
                 }
             </select>
-            <input class="search" type="text" autocomplete="off" spellcheck="false" placeholder="@UiText.T("Suchen: Pet, Monster, Ort …")" @bind="_query" @bind:event="oninput" @bind:after="Search" />
+            <input class="search" type="text" disabled="@_searchBusy" aria-busy="@_searchBusy.ToString().ToLowerInvariant()" autocomplete="off" spellcheck="false" placeholder="@UiText.T("Suchen: Pet, Monster, Ort …")" @bind="_query" @bind:event="oninput" @bind:after="Search" />
         </div>
         @if (_results.Count > 0)
         {
             <div class="searchresults">
                 @foreach (var r in _results)
                 {
-                    <button type="button" @onclick="@(() => FlyTo(r.I))">@r.Name <small>· @r.Cat</small></button>
+                    <button type="button" disabled="@_searchBusy" @onclick="@(() => SelectSearchHit(r))">@r.Name <small>· @r.Cat</small></button>
                 }
             </div>
         }
-        @if (_focus is not null)
+        @if (_searchBusy && _monsterFocus is null)
+        {
+            <div class="status" role="status">@UiText.T("Spawnpunkte werden angezeigt …")</div>
+        }
+        @if (_monsterFocus is not null)
+        {
+            <MonsterSearchCard Monster="_monsterFocus" SpawnMaps="MonsterFarmMaps" MapId="_mapId" SpawnNote="@(_focusNote ?? "")" Busy="_searchBusy" MapChanged="SwitchMonsterMap" Clear="ClearFocus" />
+        }
+        else if (_focus is not null)
         {
             <div class="focusbox">
                 <div class="box-head">
@@ -66,14 +74,22 @@
                     </div>
                     @if (group.Name == "Pets")
                     {
+                        @* User request 2026-10-14: checked means shown, with exclusivity kept separate. *@
                         <div class="pet-filters">
-                            <span class="field-label">@UiText.T("Ausblenden")</span>
-                            <div class="chips">
-                                <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel1" @onchange="@(e => SetHidden(1, (bool)e.Value!))" /> @UiText.T("Stufe 1")</label>
-                                <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel2" @onchange="@(e => SetHidden(2, (bool)e.Value!))" /> @UiText.T("Stufe 2")</label>
-                                <label class="chip"><input type="checkbox" checked="@Settings.Current.HideLevel3" @onchange="@(e => SetHidden(3, (bool)e.Value!))" /> @UiText.T("Stufe 3 (fertig)")</label>
-                                <label class="chip" title="@UiText.F("Nur Pets, deren Spawns und Quellmonster ausschließlich auf {0} vorkommen", MapLabel)"><input type="checkbox" checked="@Settings.Current.ExclusivePetsOnly" @onchange="@(e => SetExclusiveOnly((bool)e.Value!))" /> @UiText.T("Nur kartenexklusive")</label>
+                            <div class="pet-level-heading">
+                                <span class="field-label">@UiText.T("Stufen anzeigen")</span>
+                                <InfoTip>
+                                    <p>@UiText.T("Angehakte Stufen werden angezeigt. Entferne einen Haken, um Pets dieser Stufe auszublenden.")</p>
+                                    <p>@UiText.T("Nicht freigeschaltete Pets bleiben im Stufenfilter enthalten. Die Ebenenschalter und der Exklusivfilter bestimmen weiterhin, welche Pets wo erscheinen.")</p>
+                                </InfoTip>
                             </div>
+                            <div class="pet-level-options" role="group" aria-label="@UiText.T("Angezeigte Pet-Stufen")">
+                                <label class="chip pet-level-option"><input type="checkbox" aria-label="@UiText.T("Stufe 1 anzeigen")" checked="@(!Settings.Current.HideLevel1)" @onchange="@(e => SetPetLevelVisible(1, (bool)e.Value!))" /> @UiText.T("Stufe 1")</label>
+                                <label class="chip pet-level-option"><input type="checkbox" aria-label="@UiText.T("Stufe 2 anzeigen")" checked="@(!Settings.Current.HideLevel2)" @onchange="@(e => SetPetLevelVisible(2, (bool)e.Value!))" /> @UiText.T("Stufe 2")</label>
+                                <label class="chip pet-level-option" title="@UiText.T("Stufe 3 (MAX) anzeigen")"><input type="checkbox" aria-label="@UiText.T("Stufe 3 (MAX) anzeigen")" checked="@(!Settings.Current.HideLevel3)" @onchange="@(e => SetPetLevelVisible(3, (bool)e.Value!))" /> @UiText.T("MAX")</label>
+                            </div>
+                            <div class="pet-level-included"><span>@UiText.T("Nicht freigeschaltet")</span><span>@UiText.T("immer enthalten")</span></div>
+                            <label class="check pet-exclusive-option" title="@UiText.F("Nur Pets, deren Spawns und Quellmonster ausschließlich auf {0} vorkommen", MapLabel)"><input type="checkbox" checked="@Settings.Current.ExclusivePetsOnly" @onchange="@(e => SetExclusiveOnly((bool)e.Value!))" /> @UiText.T("Nur kartenexklusive Pets")</label>
                         </div>
                     }
                     @if (_open.Contains(group.Name))
@@ -484,7 +500,8 @@
     private static string KindKey(Group group, Category cat, string kind) => MapPetMarkers.KindKey(MapPetMarkers.CategoryKey(group.Name, cat.Name), kind);
     private sealed record Group(string Name, List<Category> Categories);
     private sealed record ShowResult(List<Group> Groups, int Regions, int Markers);
-    private sealed record SearchHit(int I, string Name, string Cat);
+    private sealed record SearchHit(int I, string Name, string Cat, bool Monster = false, string? Key = null, string? Group = null, string? PetId = null);
+    private sealed record PetFocusCount(int Pets, int Monsters);
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
     private readonly List<MapDef> _maps = [];
@@ -492,6 +509,12 @@
     private readonly HashSet<int> _visible = [];
     private readonly HashSet<string> _open = ["Pets", "Locations"];
     private List<SearchHit> _results = [];
+    private MapMonsterSearch? _monsterSearch;
+    private Dictionary<string, MonsterSearchMatch> _monsterResults = new(StringComparer.Ordinal);
+    private MonsterSearchMatch? _monsterFocus;
+    private bool _searchBusy;
+    private long _searchRevision;
+    private IReadOnlyList<MapInfo> MonsterFarmMaps => _monsterFocus is { } monster && _monsterSearch is not null ? _monsterSearch.FarmMaps(monster) : [];
     private DotNetObjectReference<MapView>? _self;
     private string _mapId = "altgard";
     private string _query = "";
@@ -506,6 +529,8 @@
     protected override void OnInitialized()
     {
         _maps.AddRange(Progress.Maps.Select(m => new MapDef(m.Id, m.Label, m.Group)));
+        if (Progress.MapDataDirectory is { } directory)
+            _monsterSearch = new MapMonsterSearch(directory, Progress.Maps, Progress.Catalog);
         _mapId = _maps.Any(m => m.Id == Settings.Current.LastMap) ? Settings.Current.LastMap : _maps.First().Id;
         _bossRush = Services.GetService(typeof(BossRushService)) as BossRushService;
         if (_bossRush is not null) _bossRush.Changed += OnBossTimersChanged;
@@ -1018,7 +1043,11 @@
                 _visible.Add(cat.Index);
             await RestoreCategories();
             _focus = null;
+            _monsterFocus = null;
+            _focusNote = null;
             _results = [];
+            _monsterResults.Clear();
+            ++_searchRevision;
             SmokeTest.MapShown = _markerCount > 0;
             _shownPosition = null;
             await PushTargets();
@@ -1039,6 +1068,9 @@
     {
         if (id == _mapId)
             return;
+        _results = [];
+        _monsterResults.Clear();
+        ++_searchRevision;
         _mapId = id;
         Settings.Update(s => s.LastMap = id);
         await ShowMap(keepAt);
@@ -1205,19 +1237,112 @@
 
     private async Task Search()
     {
-        var json = await JS.InvokeAsync<string>("soulcrestMap.search", _query);
-        _results = JsonSerializer.Deserialize<List<SearchHit>>(json, Json) ?? [];
+        var revision = ++_searchRevision;
+        var query = _query;
+        var language = Settings.Current.NameLanguage;
+        var map = _mapId;
+        if (query.Trim().Length < 2)
+        {
+            _results = [];
+            _monsterResults.Clear();
+            return;
+        }
+        // The index reads only the local package, once, away from the renderer thread.
+        var monsters = await Task.Run(() => _monsterSearch?.Search(query, language) ?? []);
+        if (revision != _searchRevision || map != _mapId) return;
+        var json = await JS.InvokeAsync<string>("soulcrestMap.search", query);
+        if (revision != _searchRevision || map != _mapId) return;
+        var local = JsonSerializer.Deserialize<List<SearchHit>>(json, Json) ?? [];
+        _monsterResults = monsters.ToDictionary(match => match.Key, StringComparer.Ordinal);
+        var monsterNames = monsters.ToDictionary(match => match.DisplayName(language), StringComparer.OrdinalIgnoreCase);
+        bool SamePet(SearchHit hit) => hit.Group == "Pets" && hit.PetId is { } id
+            && Progress.Catalog.Find(id) is { } pet && monsterNames.TryGetValue(hit.Name, out var match)
+            && match.PetIds.Contains(pet.Id, StringComparer.Ordinal);
+        _results = monsters.Select(match => new SearchHit(-1, match.DisplayName(language), UiText.T("Monster"), true, match.Key))
+            .Concat(local.Where(hit => !hit.Monster && !SamePet(hit)))
+            .Take(40).ToList();
     }
 
-    private async Task FlyTo(int index) => await JS.InvokeAsync<string>("soulcrestMap.flyToMarker", index);
+    private async Task SelectSearchHit(SearchHit hit)
+    {
+        if (_searchBusy || !_results.Contains(hit)) return;
+        if (!hit.Monster)
+        {
+            _monsterFocus = null;
+            await FlyTo(hit.I);
+            return;
+        }
+        if (hit.Key is null || !_monsterResults.TryGetValue(hit.Key, out var monster)) return;
+        var preferred = MapMonsterSearch.PreferredMap(monster, _mapId, ExplorationOverview.Capture(Tracking), DateTimeOffset.UtcNow);
+        await FocusMonster(monster, preferred);
+    }
+
+    private async Task SwitchMonsterMap(string map)
+    {
+        if (_searchBusy || _monsterFocus is not { } monster || !MonsterFarmMaps.Any(option => option.Id == map)) return;
+        await FocusMonster(monster, map);
+    }
+
+    private async Task FocusMonster(MonsterSearchMatch monster, string map)
+    {
+        _searchBusy = true;
+        _results = [];
+        ++_searchRevision;
+        StateHasChanged();
+        try
+        {
+            // Explicit browsing, like exploration focus, survives the next same-map player push.
+            _trackedMap = Tracking.Position?.MapId ?? _trackedMap;
+            if (_mapId != map) await SwitchMap(map);
+            if (_mapId != map || _error is not null) return;
+            _monsterFocus = monster;
+            _focus = monster.DisplayName(Settings.Current.NameLanguage);
+            if (monster.Maps.Contains(map, StringComparer.Ordinal))
+            {
+                var count = await JS.InvokeAsync<int>("soulcrestMap.focusMonster", (object)monster.Names);
+                _focusNote = UiText.F("{0} Fundorte auf {1} hervorgehoben", count, MapLabel);
+            }
+            else
+            {
+                // Other sourced farm maps can contain a different monster dropping the same pet's soul.
+                var farmPets = monster.PetIds.Select(id => Progress.Catalog.Find(id)).OfType<PetDefinition>()
+                    .Where(p => LivesOn(p, map)).Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+                var petIds = farmPets.Concat(Progress.Catalog.Aliases.Where(alias => farmPets.Contains(alias.Value))
+                    .Select(alias => alias.Key)).Distinct(StringComparer.Ordinal).ToArray();
+                if (petIds.Length > 0)
+                {
+                    var json = await JS.InvokeAsync<string>("soulcrestMap.focusPet", petIds, true);
+                    var counts = JsonSerializer.Deserialize<PetFocusCount>(json, Json);
+                    _focusNote = UiText.F("Farmorte des Pets: {0} Pet-Spawns · {1} Quellmonster auf {2}", counts?.Pets ?? 0, counts?.Monsters ?? 0, MapLabel);
+                }
+            }
+        }
+        catch (JSException exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _searchBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task FlyTo(int index)
+    {
+        _monsterFocus = null;
+        await JS.InvokeAsync<string>("soulcrestMap.flyToMarker", index);
+    }
 
     private async Task FocusPet(string petId)
     {
+        _monsterFocus = null;
         await JS.InvokeAsync<string>("soulcrestMap.focusPet", petId);
     }
 
     private async Task ClearFocus()
     {
+        _monsterFocus = null;
         _focus = null;
         _focusNote = null;
         await JS.InvokeVoidAsync("soulcrestMap.clearFocus");
@@ -1230,9 +1355,10 @@
         await PushDone(includeLabels: false);
     }
 
-    /// <summary>Hides the pets of one level on the map and in the in-game map overlay (saved).</summary>
-    private async Task SetHidden(int level, bool hide)
+    /// <summary>Positive UI selection; preserve the existing persisted hide flags and map behavior.</summary>
+    private async Task SetPetLevelVisible(int level, bool visible)
     {
+        var hide = !visible;
         Settings.Update(s =>
         {
             if (level == 1)
@@ -1314,6 +1440,7 @@
     [JSInvokable]
     public void OnNameFocused(string name, int count)
     {
+        if (_monsterFocus is not null) return; // an older marker callback cannot replace a new monster card
         _focus = name;
         _focusNote = UiText.F("{0} Fundorte auf {1} hervorgehoben", count, MapLabel);
         StateHasChanged();
@@ -1324,6 +1451,7 @@
     [JSInvokable]
     public void OnPetFocused(string petId, int pets, int monsters)
     {
+        if (_monsterFocus is not null) return; // the search card consumes the returned, map-scoped counts
         _focusNote = null;
         var pet = Progress.Catalog.Find(petId);
         _focus = pet?.DisplayName(Settings.Current.NameLanguage) ?? petId;

@@ -118,6 +118,73 @@ public sealed class MapSurfaceLegendTests
         Assert.Equal(initialOther, NativeSignature(reloaded, other));
     }
 
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task VisiblePetLevelChoicesInvertSavedHideFlagsWithoutChangingOtherFilters(string language)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Settings.Update(settings =>
+        {
+            settings.HideLevel1 = true;
+            settings.HideLevel2 = false;
+            settings.HideLevel3 = true;
+            settings.ExclusivePetsOnly = true;
+        });
+        var view = await fixture.Render();
+        var settings = fixture.Settings;
+        var minimap = NativeSignature(settings.Current, MapSurface.Minimap);
+        var worldmap = NativeSignature(settings.Current, MapSurface.Worldmap);
+        var interactive = InteractiveSignature(settings.Current);
+        var controls = await fixture.Controls(view, "pet-level-option");
+        Assert.Equal(3, controls.Count);
+        Assert.False(Assert.Single(controls, control => control.Label == PetLevelLabel(language, 1)).Checked);
+        Assert.True(Assert.Single(controls, control => control.Label == PetLevelLabel(language, 2)).Checked);
+        Assert.False(Assert.Single(controls, control => control.Label == PetLevelLabel(language, 3)).Checked);
+        Assert.Equal(30, (await fixture.Controls(view)).Count); // the three map-surface columns stay independent
+        Assert.False(settings.Current.HidesLevel(0));
+        await fixture.Export(await fixture.Html(), "levels-mixed");
+
+        for (var level = 1; level <= 3; level++)
+        {
+            var otherLevels = Enumerable.Range(1, 3).Where(other => other != level)
+                .ToDictionary(other => other, other => settings.Current.HidesLevel(other));
+            foreach (var visible in new[] { true, false })
+            {
+                await fixture.Change(view, PetLevelLabel(language, level), visible, "pet-level-option");
+                var reloaded = new SettingsService().Current;
+                Assert.Equal(!visible, settings.Current.HidesLevel(level));
+                Assert.Equal(!visible, reloaded.HidesLevel(level));
+                Assert.Equal(visible, Assert.Single(await fixture.Controls(view, "pet-level-option"),
+                    control => control.Label == PetLevelLabel(language, level)).Checked);
+                foreach (var (other, hidden) in otherLevels)
+                {
+                    Assert.Equal(hidden, settings.Current.HidesLevel(other));
+                    Assert.Equal(hidden, reloaded.HidesLevel(other));
+                }
+                Assert.False(settings.Current.HidesLevel(0));
+                Assert.False(reloaded.HidesLevel(0));
+                Assert.True(settings.Current.ExclusivePetsOnly);
+                Assert.True(reloaded.ExclusivePetsOnly);
+                Assert.Equal(minimap, NativeSignature(settings.Current, MapSurface.Minimap));
+                Assert.Equal(worldmap, NativeSignature(settings.Current, MapSurface.Worldmap));
+                Assert.Equal(interactive, InteractiveSignature(settings.Current));
+                Assert.Equal(minimap, NativeSignature(reloaded, MapSurface.Minimap));
+                Assert.Equal(worldmap, NativeSignature(reloaded, MapSurface.Worldmap));
+                Assert.Equal(interactive, InteractiveSignature(reloaded));
+            }
+        }
+        Assert.All(await fixture.Controls(view, "pet-level-option"), control => Assert.False(control.Checked));
+        await fixture.Export(await fixture.Html(), "levels-none");
+        for (var level = 1; level <= 3; level++)
+            await fixture.Change(view, PetLevelLabel(language, level), true, "pet-level-option");
+        Assert.All(await fixture.Controls(view, "pet-level-option"), control => Assert.True(control.Checked));
+        var allShownReloaded = new SettingsService().Current;
+        Assert.All(Enumerable.Range(0, 4), level => Assert.False(allShownReloaded.HidesLevel(level)));
+        Assert.True(allShownReloaded.ExclusivePetsOnly);
+        await fixture.Export(await fixture.Html(), "levels-all");
+    }
+
     private static readonly MapSurface[] Surfaces = [MapSurface.Minimap, MapSurface.Interactive, MapSurface.Worldmap];
     private static string SurfaceLabel(string language, MapSurface surface) => surface switch
     {
@@ -127,6 +194,9 @@ public sealed class MapSurfaceLegendTests
     };
     private static string Label(string language, string name, MapSurface surface) => language == "de"
         ? $"{name} auf {SurfaceLabel(language, surface)} anzeigen" : $"Show {name} on {SurfaceLabel(language, surface)}";
+    private static string PetLevelLabel(string language, int level) => language == "de"
+        ? level == 3 ? "Stufe 3 (MAX) anzeigen" : $"Stufe {level} anzeigen"
+        : level == 3 ? "Show level 3 (MAX) pets" : $"Show level {level} pets";
     private static bool Category(AppSettings settings, MapSurface surface, string group, string category) =>
         MapLayerVisibility.CategoryVisible(settings, "altgard", surface, group, category);
     private static bool Kind(AppSettings settings, MapSurface surface, string kind) =>
@@ -210,9 +280,10 @@ public sealed class MapSurfaceLegendTests
             return Assert.IsType<MapView>(view);
         }
 
-        public Task<List<Checkbox>> Controls(MapView view) => _renderer.Dispatcher.InvokeAsync(() => ReadControls(view));
+        public Task<List<Checkbox>> Controls(MapView view, string labelClass = "legend-choice") =>
+            _renderer.Dispatcher.InvokeAsync(() => ReadControls(view, labelClass));
 
-        private static List<Checkbox> ReadControls(MapView view)
+        private static List<Checkbox> ReadControls(MapView view, string labelClass = "legend-choice")
         {
             using var builder = new RenderTreeBuilder();
             typeof(MapView).GetMethod("BuildRenderTree", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(view, [builder]);
@@ -221,11 +292,11 @@ public sealed class MapSurfaceLegendTests
             for (var i = 0; i < frames.Count; i++)
             {
                 if (frames.Array[i].FrameType != RenderTreeFrameType.Element || frames.Array[i].ElementName != "label") continue;
-                var isLegendChoice = false;
+                var isMatchingClass = false;
                 for (var j = i + 1; j < frames.Count && frames.Array[j].FrameType == RenderTreeFrameType.Attribute; j++)
                     if (frames.Array[j].AttributeName == "class" && frames.Array[j].AttributeValue is string classes)
-                        isLegendChoice = classes.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("legend-choice", StringComparer.Ordinal);
-                if (!isLegendChoice) continue;
+                        isMatchingClass = classes.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(labelClass, StringComparer.Ordinal);
+                if (!isMatchingClass) continue;
                 var end = i + frames.Array[i].ElementSubtreeLength;
                 var input = Enumerable.Range(i + 1, end - i - 1).Single(index =>
                     frames.Array[index].FrameType == RenderTreeFrameType.Element && frames.Array[index].ElementName == "input");
@@ -248,9 +319,9 @@ public sealed class MapSurfaceLegendTests
             return result;
         }
 
-        public Task Change(MapView view, string label, bool value) => _renderer.Dispatcher.InvokeAsync(async () =>
+        public Task Change(MapView view, string label, bool value, string labelClass = "legend-choice") => _renderer.Dispatcher.InvokeAsync(async () =>
         {
-            var callback = Assert.Single(ReadControls(view), control => control.Label == label).Callback;
+            var callback = Assert.Single(ReadControls(view, labelClass), control => control.Label == label).Callback;
             var args = new ChangeEventArgs { Value = value };
             switch (callback)
             {
@@ -266,12 +337,12 @@ public sealed class MapSurfaceLegendTests
 
         public Task<string> Html() => _renderer.Dispatcher.InvokeAsync(() => WebUtility.HtmlDecode(_html!()));
 
-        public async Task Export(string html)
+        public async Task Export(string html, string? suffix = null)
         {
             var output = Environment.GetEnvironmentVariable("SOULCREST_MAP_LEGEND_PREVIEW");
             if (string.IsNullOrWhiteSpace(output)) return;
             Directory.CreateDirectory(output);
-            await File.WriteAllTextAsync(Path.Combine(output, $"map-legend-{_language}.html"), "<!doctype html><html lang=\"" + _language
+            await File.WriteAllTextAsync(Path.Combine(output, $"map-legend-{_language}{(suffix is null ? "" : "-" + suffix)}.html"), "<!doctype html><html lang=\"" + _language
                 + "\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
                 + "<link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/css/map-legend.css\">"
                 + "<style>html,body{height:100%;margin:0}.mapview{height:100vh}"

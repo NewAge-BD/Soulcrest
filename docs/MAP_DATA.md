@@ -120,3 +120,27 @@ Bildkonvertierung bleiben vom Laufzeitprogramm getrennt; sämtliche Icons kommen
 aktiven, genehmigten gaming.tools-Cache.
 Lootdetails stehen ausschließlich in `bosses.json`; `data.js` behält nur die schlanken
 Boss-Metadaten für die Karte.
+
+## Monstersuche im Map-Tab (2026-10-14)
+
+Die Suche fasst Monster kartenübergreifend nach Namen zusammen, bevor das Limit von 40 Treffern
+greift. EN und DE bleiben durchsuchbar; gleiche sichtbare Namen erscheinen einmal, ihre exakten
+englischen Quellnamen bleiben gemeinsam erhalten. Ein belegter gleichnamiger Pet-Treffer wird
+in der Monsterkarte mitgeführt; eigenständige NPC-/Orts-Treffer behalten ihre eigene Aktion.
+Der Index liest vorhandene lokale data.js-Dateien einmal im Hintergrund. Kein neuer Abruf.
+
+Beim Anklicken werden alle Spawns des konkreten Monsters auf der gewählten Karte hervorgehoben
+und vollständig eingepasst, unabhängig von ausgeblendeten Kategorien. Die aktuelle Spielerkarte
+hat Vorrang, wenn frische Minimap-/Positionsevidenz vorliegt und dieses Monster dort vorkommt.
+Sonst bleibt eine passende aktuell betrachtete Karte erhalten, danach die erste belegte Karte.
+Eine betrachtete Spiel-Weltkarte oder veraltete Position beweist keinen neuen Spielerort.
+Der Follow-Schalter bleibt gespeichert wie zuvor; der Fokus pausiert das Folgen wie Kartenziehen
+sechs Sekunden. Alte verzögerte Marker-Popups dürfen einen neuen Fokus nicht wieder verdecken.
+
+Die Infocard zeigt ein spezifisches Marker-Icon oder das zugeordnete Pet-Porträt, aktuelle
+Stufe und verfügbare Souls kompakt in einer Zeile. Die zusätzliche Bedarfsübersicht je Aufstieg
+entfällt auf Nutzerwunsch. Historisch verdiente Gesamt-Souls ersetzen nie die verfügbare Balance. MAX,
+unbekannt, gespeichert/unbestätigt und manuell bleiben getrennt. Zuordnungen folgen ausschließlich
+expliziten Marker-Pet-IDs einschließlich belegter Katalog-Aliasse, nicht Namensähnlichkeiten.
+Ohne Zuordnung wird kein Soul-Stand erfunden. Farmkarten bieten zusätzlich belegte andere
+Quellmonster desselben Pets an; dort zeigt die Notiz ausdrücklich Pet-Farmorte.

@@ -2,6 +2,17 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.7.1 – 2026-10-14
+
+- **Neu:** Die Monstersuche im Map-Tab zeigt jedes Monster einmal, über alle Karten (DE/EN). Die Auswahl
+  hebt alle Spawns hervor und zoomt passend; eine kompakte Infokarte zeigt Stufe und Soul-Stand des
+  Pets und wechselt auf Wunsch zur Farmkarte.
+- **Verbessert:** Die Stufenauswahl der Pets-Ebene ist eindeutiger: Haken bei „Stufen anzeigen“ für
+  Stufe 1, Stufe 2 und MAX.
+- **Verbessert:** Weniger CPU-Last: Die interaktive Karte zeichnet Spieler und Ziele sparsamer, das
+  Overlay auf Minimap und Weltkarte bereitet Bilder ohne Rückstau vor (gemessen etwa 10–20 % weniger
+  Last, kürzere Overlay-Verzögerung).
+
 ## 0.7.0 – 2026-10-14
 
 - **Neu:** Beim Black Cloud Merchant steht unter jedem Pet-Angebot dein Soul-Stand (z. B. 0/5, MAX) und

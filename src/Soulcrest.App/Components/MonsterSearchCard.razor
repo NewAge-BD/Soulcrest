@@ -1,0 +1,143 @@
+@inject ProgressService Progress
+@inject SettingsService Settings
+
+@{
+    var language = Settings.Current.NameLanguage;
+    var monsterName = Monster.DisplayName(language);
+    var pets = Monster.PetIds.Select(id => Progress.Catalog.Find(id)).OfType<PetDefinition>()
+        .DistinctBy(pet => pet.Id).ToArray();
+    var icon = !string.IsNullOrWhiteSpace(Monster.Icon) ? Monster.Icon
+        : pets.FirstOrDefault(pet => !string.IsNullOrWhiteSpace(pet.Icon))?.Icon;
+}
+
+@* User request 2026-10-14: compact progress and farm maps, without a per-level requirements section. *@
+<section class="monster-search-card" aria-label="@UiText.T("Monsterdetails")" aria-busy="@Busy.ToString().ToLowerInvariant()" data-monster-search="@Monster.Key">
+    <div class="monster-search-heading">
+        <div class="monster-search-icon" aria-hidden="true">
+            @if (!string.IsNullOrWhiteSpace(icon))
+            {
+                <img src="@IconUrl(icon)" alt="" />
+            }
+            else
+            {
+                <span>◇</span>
+            }
+        </div>
+        <h3>@monsterName</h3>
+        <button type="button" class="monster-search-clear" disabled="@Busy" title="@UiText.T("Hervorhebung aufheben")" aria-label="@UiText.T("Hervorhebung aufheben")" @onclick="Clear">×</button>
+    </div>
+
+    @if (pets.Length == 0)
+    {
+        <p class="monster-search-unmapped">@UiText.T("Diesem Monster ist kein Pet-Soul sicher zugeordnet.")</p>
+    }
+    else
+    {
+        <div class="monster-search-pets">
+            @foreach (var pet in pets)
+            {
+                var petName = pet.DisplayName(language);
+                var display = ReadProgress(pet.Id);
+                <div class="monster-search-pet" role="group" aria-label="@UiText.F("Pet-Fortschritt: {0}", petName)" data-pet-id="@pet.Id" data-pet-known="@display.Known.ToString().ToLowerInvariant()" data-pet-fresh="@display.Fresh.ToString().ToLowerInvariant()">
+                    @if (!string.Equals(petName, monsterName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <div class="monster-search-pet-name">@UiText.F("Soul für {0}", petName)</div>
+                    }
+                    <div class="monster-search-current @(display.Max ? "is-max" : "")">
+                        <div class="monster-search-numbers">
+                            <strong>@StageLabel(display)</strong>
+                            @if (display.Known && !display.Max)
+                            {
+                                <span class="monster-search-balance" aria-label="@UiText.T("Verfügbare Souls")"><b>@($"{display.Available} / {display.Needed}")</b><span>@UiText.T("Souls")</span></span>
+                            }
+                        </div>
+                        @if (!display.Fresh || display.Manual)
+                        {
+                            <div class="monster-search-status">
+                                @if (display.Known || display.Manual)
+                                {
+                                    <span class="monster-search-confirmation">@StatusLabel(display)</span>
+                                }
+                                @if (display.Manual)
+                                {
+                                    <InfoTip>@UiText.T("Manuelle Korrektur aktiv.")</InfoTip>
+                                }
+                                else
+                                {
+                                    <InfoTip>@UiText.T("Stufe und verfügbare Souls sind noch nicht frisch bestätigt. Neue Soul-Gewinne allein bestätigen den gespeicherten Ausgangsstand nicht.")</InfoTip>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+    }
+
+    @if (SpawnMaps.Count > 0)
+    {
+        <div class="monster-search-maps" role="group" aria-label="@UiText.T(pets.Length > 0 ? "Farmkarten" : "Fundorte")">
+            @foreach (var map in SpawnMaps)
+            {
+                var active = map.Id == MapId;
+                <button type="button" class="@(active ? "is-active" : "")" aria-pressed="@active.ToString().ToLowerInvariant()" aria-label="@UiText.F("Fundorte auf {0} anzeigen", UiText.T(map.Label))" disabled="@Busy" @onclick="@(() => MapChanged.InvokeAsync(map.Id))">@UiText.T(map.Label)</button>
+            }
+            @if (pets.Length > 0)
+            {
+                <InfoTip>@UiText.T("Auf diesen Karten findest du das zugehörige Pet oder Monster, die seine Souls droppen.")</InfoTip>
+            }
+        </div>
+    }
+    @if (Busy)
+    {
+        <p class="monster-search-spawn-note" role="status">@UiText.T("Karte wird geladen …")</p>
+    }
+    else if (!string.IsNullOrWhiteSpace(SpawnNote))
+    {
+        <p class="monster-search-spawn-note" role="status">@SpawnNote</p>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public MonsterSearchMatch Monster { get; set; } = null!;
+    [Parameter] public IReadOnlyList<MapInfo> SpawnMaps { get; set; } = [];
+    [Parameter] public string MapId { get; set; } = "";
+    [Parameter] public string SpawnNote { get; set; } = "";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<string> MapChanged { get; set; }
+    [Parameter] public EventCallback Clear { get; set; }
+
+    private sealed record ProgressDisplay(bool Known, bool Fresh, bool Manual, bool Max,
+        int Level = 0, int Available = 0, int Needed = 0);
+
+    private ProgressDisplay ReadProgress(string petId)
+    {
+        // The merchant projection reads level, balance and confirmation under one profile lock.
+        // Derive the displayed stage from that same counter; do not mix separate observations or
+        // replace the available balance with the historical/farm total from Progress.Souls.
+        var counter = Progress.ReadMerchantCounter(petId);
+        var manual = Progress.EntrySnapshot(petId).ManualOverride;
+        if (counter.Counter.Equals("max", StringComparison.OrdinalIgnoreCase))
+            return new(true, counter.IsFresh, manual, true, Progress.Thresholds.MaxLevel);
+        var parts = counter.Counter.Split('/');
+        if (parts.Length != 2 || !int.TryParse(parts[0], System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var available)
+            || !int.TryParse(parts[1], System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var needed))
+            return new(false, false, manual, false);
+        for (var level = 0; level < Progress.Thresholds.Steps.Count; level++)
+            if (Progress.Thresholds.Steps[level] == needed)
+                return new(true, counter.IsFresh, manual, false, level, available, needed);
+        return new(false, false, manual, false);
+    }
+
+    private static string StatusLabel(ProgressDisplay display) => UiText.T(display.Manual ? "Manuell"
+        : display.Fresh ? "Aktuell" : display.Known ? "Gespeichert · unbestätigt" : "Unbekannt");
+
+    private static string StageLabel(ProgressDisplay display) => !display.Known ? UiText.T("Unbekannt")
+        : display.Max ? "MAX" : display.Level == 0 ? UiText.T("Nicht freigeschaltet")
+        : UiText.F("Stufe {0}", display.Level);
+
+    private static string IconUrl(string icon) => $"https://{MainForm.MapDataHost}/{icon.TrimStart('/')}";
+}

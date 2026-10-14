@@ -33,7 +33,7 @@ public sealed record MapResource(string Category, double X, double Y, string? Ic
 public static partial class MapPetMarkers
 {
     private sealed record MapMarkers(IReadOnlyList<PetSpawn> Pets, IReadOnlyList<MapResource> Resources, IReadOnlyList<PetSpawn> SoulMonsters,
-        IReadOnlyList<GuardPost> Guards, IReadOnlyDictionary<string, string>? CategoryIcons = null, IReadOnlyList<MapResource>? Symbols = null);
+        IReadOnlyList<GuardPost> Guards, IReadOnlyDictionary<string, string>? CategoryIcons = null, IReadOnlyList<MapResource>? Symbols = null, IReadOnlyList<MapMonsterSpawn>? AllMonsters = null);
 
     private static readonly ConcurrentDictionary<string, MapMarkers> Cache = new();
 
@@ -41,6 +41,9 @@ public static partial class MapPetMarkers
 
     /// <summary>Monsters dropping a pet's soul (Monsters group with a pet), shown for marked pets.</summary>
     public static IReadOnlyList<PetSpawn> SoulMonstersFor(string mapDataDirectory, string mapId) => Markers(mapDataDirectory, mapId).SoulMonsters;
+
+    /// <summary>All named monsters, whether or not a soul relation is known.</summary>
+    public static IReadOnlyList<MapMonsterSpawn> MonstersFor(string mapDataDirectory, string mapId) => Markers(mapDataDirectory, mapId).AllMonsters ?? [];
 
     /// <summary>All resources and hidden cubes of a map (the categories the in-game map may show).</summary>
     public static IReadOnlyList<MapResource> ResourcesFor(string mapDataDirectory, string mapId) => Markers(mapDataDirectory, mapId).Resources;
@@ -139,6 +142,7 @@ public static partial class MapPetMarkers
         var symbols = new List<MapResource>();
         var monsters = new List<PetSpawn>();
         var guards = new List<GuardPost>();
+        var allMonsters = new List<MapMonsterSpawn>();
         // Marker: [category, x, y, name, nameDe, iconIndex, petId]
         foreach (var marker in root.GetProperty("markers").EnumerateArray())
         {
@@ -165,6 +169,10 @@ public static partial class MapPetMarkers
             if (iconIndex < 0)
                 iconIndex = category.Icon;
             var icon = iconIndex >= 0 && iconIndex < icons.Count ? icons[iconIndex] : null;
+            if (category.Group == "Monsters" && marker[3].ValueKind == JsonValueKind.String && marker[3].GetString() is { Length: > 0 } name)
+                allMonsters.Add(new MapMonsterSpawn(name, marker[4].ValueKind == JsonValueKind.String ? marker[4].GetString() : null,
+                    marker.GetArrayLength() > 5 && marker[5].ValueKind == JsonValueKind.Number && marker[5].GetInt32() >= 0 ? icon : null,
+                    marker.GetArrayLength() > 6 && marker[6].ValueKind == JsonValueKind.String ? marker[6].GetString() : null));
             if (pet)
                 spawns.Add(new PetSpawn(marker[6].GetString()!, marker[1].GetDouble(), marker[2].GetDouble(), icon, SourceMonster(marker), CategoryKey(category.Group, category.Name)));
             else
@@ -177,6 +185,6 @@ public static partial class MapPetMarkers
         }
         var categoryIcons = categories.Where(c => c.Icon >= 0 && c.Icon < icons.Count && icons[c.Icon] is not null)
             .GroupBy(c => c.Name, StringComparer.Ordinal).ToDictionary(g => g.Key, g => icons[g.First().Icon]!, StringComparer.Ordinal);
-        return new(spawns, resources, monsters, guards, categoryIcons, symbols);
+        return new(spawns, resources, monsters, guards, categoryIcons, symbols, allMonsters);
     }
 }

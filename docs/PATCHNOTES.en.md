@@ -2,6 +2,17 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.7.1 – 2026-10-14
+
+- **New:** The monster search in the map tab lists every monster once, across all maps (EN/DE).
+  Selecting one highlights all its spawns and zooms to fit; a compact info card shows the pet's level
+  and soul count and switches to its farm map on request.
+- **Improved:** The pet layer's level selection is clearer: tick level 1, level 2 and MAX under
+  "Show levels".
+- **Improved:** Less CPU load: the interactive map draws the player and targets more efficiently, and
+  the minimap and world map overlay prepares frames without backlog (measured roughly 10–20 % less load,
+  shorter overlay delay).
+
 ## 0.7.0 – 2026-10-14
 
 - **New:** At the Black Cloud Merchant every pet offer shows your soul count below it (e.g. 0/5, MAX) and

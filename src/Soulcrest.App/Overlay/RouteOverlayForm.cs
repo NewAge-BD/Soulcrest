@@ -12,14 +12,15 @@ namespace Soulcrest.App.Overlay;
 /// (the marked map area). Per-pixel alpha (UpdateLayeredWindow), click-through, excluded from screen
 /// capture, so neither the map tracking nor the OCR ever sees it.
 /// </summary>
-public sealed class RouteOverlayForm : Form
+public sealed partial class RouteOverlayForm : Form
 {
     private readonly MapTrackingService _tracking;
     private readonly MapTargetsService _targets;
     private readonly SettingsService _settings;
-    private int _pending;
+    private readonly LatestFrameDispatcher<Frame> _frames;
     private bool _inRecordings;
     private volatile bool _suppressed;
+    private volatile bool _disposing;
     private readonly object _composeGate = new();
 
     private readonly ProgressService _progress;
@@ -28,18 +29,20 @@ public sealed class RouteOverlayForm : Form
     public RouteOverlayForm(MapTrackingService tracking, MapTargetsService targets, SettingsService settings, ProgressService progress)
     {
         _progress = progress;
-        _progress.Changed += Schedule;
+        _progress.Changed += PreparationChanged;
         _tracking = tracking;
         _targets = targets;
         _settings = settings;
+        _frames = new LatestFrameDispatcher<Frame>(ComposeLatest, action => { BeginInvoke(action); }, ShowFrame,
+            error => System.Diagnostics.Trace.TraceWarning("Route overlay picture failed: {0}", error.Message));
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
-        _tracking.Changed += Schedule;
+        _tracking.Changed += TrackingChanged;
         _tracking.PlacementMoved += Schedule;
-        _targets.Changed += Schedule;
-        _settings.Changed += Schedule;
+        _targets.Changed += PreparationChanged;
+        _settings.Changed += PreparationChanged;
     }
 
     public void SetSuppressed(bool suppressed)
@@ -47,7 +50,7 @@ public sealed class RouteOverlayForm : Form
         if (_suppressed == suppressed) return;
         _suppressed = suppressed;
         if (suppressed) Hide();
-        else Schedule();
+        ScheduleInvalidated();
     }
 
     protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed);
@@ -70,134 +73,63 @@ public sealed class RouteOverlayForm : Form
         base.OnHandleCreated(e);
         _inRecordings = _settings.Current.OverlaysInRecordings;
         NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
+        Schedule();
+    }
+
+    protected override void OnHandleDestroyed(EventArgs e)
+    {
+        _frames?.CancelPending();
+        base.OnHandleDestroyed(e);
     }
 
     /// <summary>
-    /// Events come from the tracking thread (up to 60 per second). The picture is composed in the
-    /// background and only shown on the UI thread: composing on the UI thread kept it busy for seconds
-    /// while the world map was open (diagnosis 2026-10-05). At most one picture waits.
+    /// Movement requests retain one composer and one latest UI frame. Semantic changes discard old
+    /// work; ordinary 60-fps motion does not invalidate in-flight frames or impose another rate cap.
     /// </summary>
     private void Schedule()
     {
-        if (IsDisposed || !IsHandleCreated || Interlocked.Exchange(ref _pending, 1) == 1)
-            return;
-        // No extra cap on the world map: 20 pictures per second let the overlay trail behind a moving map
-        // (user report 2026-10-07); the tracking itself delivers at most 60 per second.
-        _ = Task.Run(() =>
-        {
-            Volatile.Write(ref _pending, 0); // events from now on ask for the next picture
-            Frame? frame;
-            try
-            {
-                lock (_composeGate)
-                {
-                    if (IsDisposed)
-                        return;
-                    frame = Compose();
-                }
-            }
-            catch (Exception error) when (error is ArgumentException or InvalidOperationException or ExternalException or IOException)
-            {
-                System.Diagnostics.Trace.TraceWarning("Route overlay picture failed: {0}", error.Message);
-                return;
-            }
-            try { BeginInvoke(() => ShowFrame(frame)); }
-            catch (Exception error) when (error is InvalidOperationException or ObjectDisposedException)
-            {
-                frame?.Dispose();
-            }
-        });
+        if (!_disposing && !IsDisposed && IsHandleCreated) _frames?.Request();
+    }
+
+    private void ScheduleInvalidated()
+    {
+        if (!_disposing && !IsDisposed && IsHandleCreated) _frames?.Request(invalidatePending: true);
+    }
+
+    private void TrackingChanged() => ScheduleInvalidated();
+
+    private void PreparationChanged()
+    {
+        InvalidatePreparation();
+        ScheduleInvalidated();
+    }
+
+    private Frame? ComposeLatest()
+    {
+        lock (_composeGate)
+            return _disposing || IsDisposed ? null : Compose();
     }
 
     /// <summary>A composed overlay picture (GDI bitmap with alpha) and where it goes; null = nothing to show.</summary>
-    internal sealed record Frame(nint Bitmap, Point Location, Size Size, long CapturedAt = 0) : IDisposable
+    internal sealed record Frame(nint Bitmap, Point Location, Size Size, long CapturedAt = 0, MapPlacement? Placement = null) : IDisposable
     {
         public void Dispose() => NativeMethods.DeleteObject(Bitmap);
     }
 
     private Frame? Compose()
     {
-        if (_suppressed || !_settings.Current.MapOverlayEnabled) return null;
-        var placement = _tracking.Placement;
-        var targets = _targets.VisibleTargets;
-        var onMap = placement is null ? [] : targets.Select((t, i) => (Target: t, Index: i)).Where(t => t.Target.MapId == placement.MapId).ToList();
-        if (placement is not null && _targets.Progression is { } next && next.MapId == placement.MapId)
-            onMap.Add((next, -1)); // index -1: white (progression mode)
-        if (placement is not null && _targets.BossRush is { } boss && boss.MapId == placement.MapId)
-            onMap.Add((boss, -2));
-        if (placement is not null && _targets.BossPreview is { } preview && preview.MapId == placement.MapId)
-            onMap.Add((preview, -3));
-        if (!_settings.Current.ShowRoutesInGame)
-            onMap.Clear();
-        // Marked pets (right click or progression target) show all their spawns and soul monsters, even
-        // when the pet symbols are off or filtered (user request 2026-10-06).
-        var marked = onMap.Select(t => PetOf(t.Target)).OfType<string>().ToHashSet(StringComparer.Ordinal);
-        // Pet targets carry their souls of the current level: "Superior Water Spirit 24/25" (user request 2026-10-06),
-        // under the name of the monster to hunt there, not the pet's ("Drana Mutant", not "Drana Mutant Brute";
-        // user request 2026-10-07).
-        for (var i = 0; i < onMap.Count; i++)
-        {
-            if (PetOf(onMap[i].Target) is { } pet)
-            {
-                var target = onMap[i].Target;
-                if (target.Completed) continue;
-                var name = _progress.MapDataDirectory is { } data && MapPetMarkers.MonsterAt(data, target.MapId, pet, target.X, target.Y) is { } monster
-                    ? monster.In(UiText.Language)
-                    : target.Name;
-                onMap[i] = (target with { Name = $"{name} {_progress.SoulCount(pet)}" }, onMap[i].Index);
-            }
-        }
-        // Targets the line leads to from the player carry their distance in game metres (user request
-        // 2026-10-06): "Ninir · 258 m". Chained targets start at their predecessor and have none.
-        if (_tracking.Position is { } player && player.MapId == placement?.MapId
-            && _progress.Maps.FirstOrDefault(m => m.Id == player.MapId)?.MetersPerPixel is { } metersPerPixel)
-        {
-            var ids = onMap.Select(t => t.Target.Id).ToHashSet(StringComparer.Ordinal);
-            for (var i = 0; i < onMap.Count; i++)
-            {
-                var target = onMap[i].Target;
-                if (target.Completed || target.Leveling && string.IsNullOrWhiteSpace(target.Name)) continue;
-                if (target.After is { } after && ids.Contains(after))
-                    continue;
-                var pixels = Math.Sqrt((target.X - player.X) * (target.X - player.X) + (target.Y - player.Y) * (target.Y - player.Y));
-                onMap[i] = (target with { Name = $"{target.Name} · {DistanceText(pixels * metersPerPixel)}" }, onMap[i].Index);
-            }
-        }
-        var pets = placement is not null ? VisiblePets(placement, marked) : [];
-        var souls = placement is not null && marked.Count > 0 ? VisibleSoulMonsters(placement, marked) : [];
-        var resources = placement is not null ? VisibleSymbols(placement) : [];
-        // Marked targets keep their symbol when its category is hidden (user request 2026-10-07); pets are
-        // drawn above anyway (marked pets always show). Resources and cubes show it beside their ring instead.
-        if (placement is not null && _progress.MapDataDirectory is { } mapdata)
-        {
-            foreach (var (target, _) in onMap)
-            {
-                if (ShowsIconOnly(target))
-                    RemoveSymbolInRing(resources, target);
-                else if (target.Leveling)
-                {
-                    resources.RemoveAll(r => r.X == target.X && r.Y == target.Y);
-                    resources.Add(new ResourceSymbol(target.X, target.Y, target.Icon is { } path ? ResourceIcon(path, mapdata) : null,
-                        target.Color, target.Completed ? 0.28f : 1f));
-                }
-                else if (!target.MonsterBranch && PetOf(target) is null && target.Icon is { } icon && !resources.Any(r => r.X == target.X && r.Y == target.Y))
-                    resources.Add(new ResourceSymbol(target.X, target.Y, ResourceIcon(icon, mapdata)));
-            }
-        }
-        var guards = placement is not null ? VisibleGuardZones(placement) : null;
-        if (placement is null || (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0 && guards is null))
+        if (_suppressed || !_settings.Current.MapOverlayEnabled || _tracking.Placement is not { } placement)
             return null;
-        var targetIcons = new Dictionary<string, Bitmap?>(StringComparer.Ordinal);
-        if (_progress.MapDataDirectory is { } iconData)
-        {
-            foreach (var (target, _) in onMap)
-            {
-                // Progression targets (sealed dungeons, strongholds) carry no icon: their category's legend icon.
-                if (ShowsIconOnly(target) && (target.Icon ?? MapPetMarkers.CategoryIcon(iconData, target.MapId, CategoryOf(target.Kind))) is { } path)
-                    targetIcons[target.Id] = ResourceIcon(path, iconData);
-            }
-        }
-        return RenderFrame(placement, onMap, pets, resources, souls, guards, targetIcons);
+        var prepared = PreparationFor(placement);
+        var onMap = TargetsWithDistance(prepared);
+        var pets = VisiblePets(placement, prepared);
+        var souls = VisibleSoulMonsters(placement, prepared);
+        var resources = VisibleSymbols(placement, prepared);
+        ApplyTargetSymbols(resources, prepared);
+        var guards = VisibleGuardZones(placement, prepared);
+        if (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0 && guards is null)
+            return null;
+        return RenderFrame(placement, onMap, pets, resources, souls, guards, prepared.TargetIcons);
     }
 
     internal static Frame RenderFrame(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> onMap,
@@ -222,33 +154,34 @@ public sealed class RouteOverlayForm : Form
             NativeMethods.DeleteObject(dib);
             throw;
         }
-        return new Frame(dib, placement.Region.Location, size, placement.CapturedAt);
+        return new Frame(dib, placement.Region.Location, size, placement.CapturedAt, placement);
     }
 
-    /// <summary>UI thread: only hands the finished picture to Windows.</summary>
+    /// <summary>UI thread: hands the latest picture to Windows; the dispatcher owns its lifetime.</summary>
     private void ShowFrame(Frame? frame)
     {
-        using (frame)
+        if (_disposing || IsDisposed || !IsHandleCreated) return;
+        if (_settings.Current.OverlaysInRecordings != _inRecordings)
         {
-            if (IsDisposed)
-                return;
-            if (_settings.Current.OverlaysInRecordings != _inRecordings)
-            {
-                _inRecordings = _settings.Current.OverlaysInRecordings;
-                NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
-            }
-            if (_suppressed || frame is null || !_settings.Current.MapOverlayEnabled)
-            {
-                if (Visible)
-                    Hide();
-                return;
-            }
-            if (!Visible)
-                Show();
-            Present(frame);
-            _tracking.ReportOverlayShown(frame.CapturedAt);
+            _inRecordings = _settings.Current.OverlaysInRecordings;
+            NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
         }
+        if (_suppressed || frame is null || !_settings.Current.MapOverlayEnabled
+            || !MatchesCurrentPlacement(frame, _tracking.Placement))
+        {
+            if (Visible) Hide();
+            return;
+        }
+        if (!Visible) Show();
+        Present(frame);
+        _tracking.ReportOverlayShown(frame.CapturedAt);
     }
+
+    // Do not reject ordinary flow movement. Only a changed map/surface/region makes a composed
+    // picture unusable if that context changed after the dispatcher claimed its UI slot.
+    internal static bool MatchesCurrentPlacement(Frame frame, MapPlacement? current) =>
+        frame.Placement is not { } composed || current is not null
+            && composed.MapId == current.MapId && composed.WorldMap == current.WorldMap && composed.Region == current.Region;
 
     /// <summary>The overlay picture for the marked map area: lines, arrows, rings and names (transparent elsewhere).</summary>
     public static Bitmap Draw(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets, IReadOnlyList<PetSymbol>? pets = null,
@@ -381,21 +314,6 @@ public sealed class RouteOverlayForm : Form
         graphics.Restore(state);
     }
 
-    /// <summary>Guards of this map when their zones are switched on for it, inside the marked map area.</summary>
-    private GuardZones? VisibleGuardZones(MapPlacement placement)
-    {
-        if (_progress.MapDataDirectory is not { } mapdata || !_settings.Current.GuardZoneMaps.Contains(placement.MapId))
-            return null;
-        var metersPerPixel = _progress.Maps.FirstOrDefault(m => m.Id == placement.MapId)?.MetersPerPixel ?? 1;
-        var radiusWorld = Math.Max(1, _settings.Current.GuardRadiusMeters) / metersPerPixel;
-        var first = placement.WorldToScreen(0, 0);
-        var second = placement.WorldToScreen(radiusWorld, 0);
-        var margin = (float)Math.Sqrt((second.X - first.X) * (second.X - first.X) + (second.Y - first.Y) * (second.Y - first.Y)) + 4;
-        var area = new RectangleF(placement.Region.X - margin, placement.Region.Y - margin, placement.Region.Width + 2 * margin, placement.Region.Height + 2 * margin);
-        var guards = MapPetMarkers.GuardsFor(mapdata, placement.MapId).Where(g => area.Contains(placement.WorldToScreen(g.X, g.Y))).ToList();
-        return guards.Count == 0 ? null : new GuardZones(guards, radiusWorld);
-    }
-
     /// <summary>A pet spawn to draw: portrait, label ("St. 1 · 6/25") and whether the pet is done (max).</summary>
     public sealed record PetSymbol(double X, double Y, Bitmap? Icon, string Label, bool Done);
 
@@ -417,21 +335,6 @@ public sealed class RouteOverlayForm : Form
     private const int PetIconSize = 26;
     private const int ResourceIconSize = 20;
     private static readonly Font LabelFont = new("Segoe UI", 8.5f, FontStyle.Bold, GraphicsUnit.Point); // used under the sprite lock only
-
-    /// <summary>Base symbols selected for this native surface, inside the marked map area.</summary>
-    private List<ResourceSymbol> VisibleSymbols(MapPlacement placement)
-    {
-        if (_progress.MapDataDirectory is not { } mapdata) return [];
-        var area = new RectangleF(placement.Region.X - 12, placement.Region.Y - 12, placement.Region.Width + 24, placement.Region.Height + 24);
-        var surface = SurfaceOf(placement);
-        var result = new List<ResourceSymbol>();
-        foreach (var symbol in MapPetMarkers.SymbolsFor(mapdata, placement.MapId))
-        {
-            if (SymbolVisible(_settings.Current, placement.MapId, surface, symbol) && area.Contains(placement.WorldToScreen(symbol.X, symbol.Y)))
-                result.Add(new ResourceSymbol(symbol.X, symbol.Y, ResourceIcon(symbol.Icon, mapdata)));
-        }
-        return result;
-    }
 
     internal static MapSurface SurfaceOf(MapPlacement placement) => placement.WorldMap ? MapSurface.Worldmap : MapSurface.Minimap;
 
@@ -524,46 +427,6 @@ public sealed class RouteOverlayForm : Form
             }
         }
         graphics.DrawImageUnscaled(sprite, (int)MathF.Round(at.X - disc / 2f), (int)MathF.Round(at.Y - disc / 2f));
-    }
-
-    /// <summary>The pet of a marked target: saved with the mark, or (older marks) found by its name.</summary>
-    private string? PetOf(MapTarget target) =>
-        target.PetId ?? (target.Kind.StartsWith("Pets", StringComparison.Ordinal) ? _progress.FindByName(target.Name)?.Id : null);
-
-    /// <summary>Soul monsters of the marked pets inside the marked map area.</summary>
-    private List<SoulMonster> VisibleSoulMonsters(MapPlacement placement, HashSet<string> marked)
-    {
-        if (_progress.MapDataDirectory is not { } mapdata)
-            return [];
-        var area = new RectangleF(placement.Region.X - 8, placement.Region.Y - 8, placement.Region.Width + 16, placement.Region.Height + 16);
-        return MapPetMarkers.SoulMonstersFor(mapdata, placement.MapId)
-            .Where(m => marked.Contains(m.PetId) && area.Contains(placement.WorldToScreen(m.X, m.Y)))
-            .Select(m => new SoulMonster(m.X, m.Y)).ToList();
-    }
-
-    /// <summary>
-    /// Pet spawns of the tracked map that lie inside the marked map area: selected genera that pass
-    /// the progress filters, and the marked pets always.
-    /// </summary>
-    private List<PetSymbol> VisiblePets(MapPlacement placement, HashSet<string> marked)
-    {
-        if (_progress.MapDataDirectory is not { } mapdata)
-            return [];
-        var area = new RectangleF(placement.Region.X - 20, placement.Region.Y - 20, placement.Region.Width + 40, placement.Region.Height + 40);
-        var result = new List<PetSymbol>();
-        foreach (var spawn in MapPetMarkers.For(mapdata, placement.MapId))
-        {
-            var isMarked = marked.Contains(spawn.PetId);
-            if (!PetVisible(_settings.Current, placement.MapId, SurfaceOf(placement), spawn, isMarked) || !area.Contains(placement.WorldToScreen(spawn.X, spawn.Y)))
-                continue;
-            if (!isMarked && _settings.Current.HidesLevel(_progress.Level(spawn.PetId)))
-                continue;
-            if (!isMarked && _settings.Current.ExclusivePetsOnly && _progress.Catalog.Find(spawn.PetId) is { } pet && !pet.IsExclusiveTo(placement.MapId))
-                continue;
-            var done = _progress.IsMax(spawn.PetId);
-            result.Add(new PetSymbol(spawn.X, spawn.Y, IconFor(spawn, mapdata), _progress.PetMapLabel(spawn.PetId), done));
-        }
-        return result;
     }
 
     /// <summary>Portrait scaled once to the symbol size and cut round (drawn up to 60 times per second).</summary>
@@ -852,11 +715,13 @@ public sealed class RouteOverlayForm : Form
     {
         if (disposing)
         {
-            _tracking.Changed -= Schedule;
+            _disposing = true;
+            _frames.Dispose();
+            _tracking.Changed -= TrackingChanged;
             _tracking.PlacementMoved -= Schedule;
-            _targets.Changed -= Schedule;
-            _settings.Changed -= Schedule;
-            _progress.Changed -= Schedule;
+            _targets.Changed -= PreparationChanged;
+            _settings.Changed -= PreparationChanged;
+            _progress.Changed -= PreparationChanged;
             lock (_composeGate)
             {
                 foreach (var icon in _icons.Values)

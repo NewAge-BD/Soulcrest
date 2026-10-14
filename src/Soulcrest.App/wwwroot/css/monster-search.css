@@ -1,0 +1,31 @@
+/* Compact selected monster; current progress and farm navigation (user request 2026-10-14). */
+.monster-search-card { display: flex; flex-direction: column; gap: .35rem; padding: .55rem; border: 1px solid #52675c; border-radius: 8px; background: linear-gradient(145deg, #1b2a2a, var(--panel-2)); min-width: 0; }
+.monster-search-heading { display: flex; align-items: center; gap: .45rem; min-width: 0; }
+.monster-search-icon { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid #ffffff1c; border-radius: 4px; background: #101920; color: var(--accent); }
+.monster-search-icon img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.monster-search-icon > span { font-size: 1.4rem; line-height: 1; }
+.monster-search-card h3 { flex: 1; min-width: 0; margin: 0; padding: 0; color: var(--text); font-size: .9rem; line-height: 1.3; font-weight: 600; text-transform: none; letter-spacing: normal; overflow-wrap: anywhere; }
+.monster-search-clear { flex: none; align-self: flex-start; display: grid; place-items: center; min-width: 1.35rem; height: 1.35rem; padding: 0; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 1.2rem; line-height: 1; cursor: pointer; }
+.monster-search-clear:hover { color: var(--accent); }
+.monster-search-pets { display: flex; flex-direction: column; gap: .35rem; }
+.monster-search-pet { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+.monster-search-pet + .monster-search-pet { border-top: 1px solid #ffffff12; padding-top: .35rem; }
+.monster-search-pet-name { color: #c9d7d4; font-size: .76rem; line-height: 1.3; overflow-wrap: anywhere; }
+.monster-search-current { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .45rem; min-width: 0; }
+.monster-search-numbers { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .65rem; min-width: 0; }
+.monster-search-numbers > strong { color: #e1ebe4; font-size: .85rem; line-height: 1.3; }
+.monster-search-current.is-max strong { color: var(--accent); letter-spacing: .04em; }
+.monster-search-balance { display: inline-flex; align-items: baseline; gap: .3rem; white-space: nowrap; }
+.monster-search-balance > span { color: var(--muted); font-size: .72rem; }
+.monster-search-balance > b { color: #e5d4a9; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.monster-search-status { display: inline-flex; align-items: center; gap: .3rem; margin-left: auto; }
+.monster-search-confirmation { color: #cfbb8c; font-size: .66rem; line-height: 1.3; }
+.monster-search-card .info-tip-body { width: min(17rem, 70vw); max-width: calc(100vw - 3rem); }
+.monster-search-maps { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; padding-top: .35rem; border-top: 1px solid #ffffff12; }
+.monster-search-maps > button { min-height: 1.7rem; padding: .2rem .45rem; border: 1px solid var(--line); border-radius: 5px; color: #b8c6c1; background: #111a22; font: inherit; font-size: .75rem; line-height: 1.2; cursor: pointer; }
+.monster-search-maps > button:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+.monster-search-maps > button.is-active { border-color: #76b9a1; background: #264a40; color: #d0f2e4; font-weight: 600; }
+.monster-search-maps > button:disabled, .monster-search-clear:disabled { cursor: wait; opacity: .65; }
+.monster-search-card .monster-search-spawn-note, .monster-search-card .monster-search-unmapped { margin: 0; font-size: .7rem; line-height: 1.3; color: var(--muted); overflow-wrap: anywhere; }
+.monster-search-card .monster-search-unmapped { color: #c8b894; }
+.monster-search-card :is(button, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

@@ -37,9 +37,12 @@ window.soulcrestMap = (() => {
     let fitZoom = 0;             // zoom after fitting the playable area: icons have their base size there
     let player = null;
     let followPausedUntil = 0;
+    let mapMotionActive = false;
+    let markerPopupTimeout = null, focusRevision = 0;
     let petLabels = {};          // petId -> "St. 1 · 6/25"
     let targets = [];            // marked targets [{id, map, x, y, name, color}]
     let targetLayer = null;
+    let targetScene = null;      // static target presentation; player updates reuse its layers
     // Pets of the marked targets and of the progression target: all their spawns get a ring and their
     // soul monsters a dot, and level filters do not hide them (user request 2026-10-06).
     let markedPets = new Set();
@@ -106,6 +109,8 @@ window.soulcrestMap = (() => {
         map.on('zoom zoomend', rescaleIcons);
         // While the user drags the map, following the player pauses for a few seconds.
         map.on('dragstart', () => { followPausedUntil = Date.now() + 6000; });
+        map.on('movestart', () => { mapMotionActive = true; });
+        map.on('moveend', () => { mapMotionActive = false; });
         map.on('zoomend moveend', drawTargets);
         map.on('moveend', () => { if (!player) updateProgression(); });
         map.on('contextmenu', () => { }); // a listener keeps the browser menu away
@@ -118,6 +123,7 @@ window.soulcrestMap = (() => {
     // keepAt {x, y}: the tracking found the player on another map. The view keeps its scale in game
     // metres and centres on the player instead of showing the whole map (user request 2026-10-06).
     async function show(mapId, language, keepAt = null) {
+        cancelMarkerPopup();
         lang = language;
         const before = current && map ? { zoom: map.getZoom(), def: current.def } : null;
         const def = manifest.maps.find(m => m.id === mapId);
@@ -129,6 +135,7 @@ window.soulcrestMap = (() => {
         // fitBounds/setView emit move/zoom events synchronously. Their drawing callbacks must
         // never combine the new payload with the previous map's marker indexes or layers.
         targetLayer = null;
+        targetScene = null;
         spawnLayer = null;
         progressionTarget = null;
         markerRefs = [];
@@ -207,6 +214,7 @@ window.soulcrestMap = (() => {
         map.closePopup();
         progressionTarget = null;
         updateProgression();
+        drawTargets();
     }
 
     function clearBossTimers() {
@@ -426,12 +434,14 @@ window.soulcrestMap = (() => {
     function setCategoryVisible(index, visible) {
         catVisible[index] = visible;
         if (visible) catLayers[index].addTo(map); else map.removeLayer(catLayers[index]);
+        drawTargets();
     }
 
     function setKindVisible(index, kind, visible) {
         const group = kindLayers[index] && kindLayers[index].get(kind);
         if (!group) return;
         if (visible) catLayers[index].addLayer(group); else catLayers[index].removeLayer(group);
+        drawTargets();
     }
 
     // done: pets on MAX (styled), hidden: pets of the levels the user hides (removed from the map).
@@ -442,6 +452,7 @@ window.soulcrestMap = (() => {
         petLabels = labels;
         if (current) {
             applyDoneFilter();
+            drawTargets();
         }
     }
 
@@ -493,12 +504,19 @@ window.soulcrestMap = (() => {
     function drawTargets() {
         if (!targetLayer || !current) return;
         updateMarkedPets();
-        targetLayer.clearLayers();
         const here = targets.filter(t => t.map === current.id);
         if (progressionTarget)
             here.push({ id: 'progression', map: current.id, x: progressionTarget.x, y: progressionTarget.y, name: progressionTarget.name, color: '#ffffff', dashed: true, group: progressionTarget.group, petId: progressionTarget.petId });
-        const playerAt = player ? player.getLatLng() : null;
+        // Target data, order and copied-symbol presentation define the static scene. Neither a
+        // position fix nor a viewport change recreates its markers, labels or SVG paths.
+        const key = JSON.stringify([lang, !!player, here, here.map(targetSymbolState)]);
         const view = map.getBounds().pad(0.3);
+        if (targetScene && targetScene.layer === targetLayer && targetScene.key === key) {
+            for (const entry of targetScene.entries) updateTargetGeometry(entry, view);
+            return;
+        }
+        targetLayer.clearLayers();
+        targetScene = { layer: targetLayer, key, entries: [] };
         for (const t of here) {
             const ll = L.latLng(toLatLng(t.x, t.y));
             if (t.questMonster && !t.monsterBranch) {
@@ -507,7 +525,7 @@ window.soulcrestMap = (() => {
             }
             // A chained target starts at its predecessor, all others at the player.
             const before = t.after ? here.find(o => o.id === t.after) : null;
-            const from = Number.isFinite(t.branchX) && Number.isFinite(t.branchY) ? L.latLng(toLatLng(t.branchX, t.branchY)) : before ? L.latLng(toLatLng(before.x, before.y)) : t.completed ? null : playerAt;
+            const fixedFrom = Number.isFinite(t.branchX) && Number.isFinite(t.branchY) ? L.latLng(toLatLng(t.branchX, t.branchY)) : before ? L.latLng(toLatLng(before.x, before.y)) : null;
             // Ring just outside the symbol: pet portraits grow with the zoom, monster dots do not.
             const pet = (t.group || t.kind || '').startsWith('Pets');
             const radius = pet ? Math.round(15 * iconScale()) + 10 : 11;
@@ -531,25 +549,82 @@ window.soulcrestMap = (() => {
                 L.tooltip({ permanent: true, direction: 'top', offset: [0, -15], className: 'progression-label', pane: 'targets' })
                     .setLatLng(ll).setContent(esc(t.name)).addTo(targetLayer);
             } else if (!preview) targetSymbol(t);
-            L.circleMarker(ll, { pane: 'targets', radius, color: '#000', weight: 6, opacity: (preview ? 0.12 : 0.5) * opacity, fill: false, dashArray: dashed ? '6 6' : null, interactive: false }).addTo(targetLayer);
-            L.circleMarker(ll, { pane: 'targets', radius, color: t.color, weight: 3.5, opacity: (preview ? 0.45 : 1) * opacity, dashArray: dashed ? '6 6' : null, fill: false, interactive: false }).addTo(targetLayer);
-            if (!from) continue;
-            L.polyline([from, ll], { color: '#000', weight: 7, opacity: (preview ? 0.12 : 0.45) * opacity, dashArray: dashed ? '10 8' : null, interactive: false }).addTo(targetLayer);
-            L.polyline([from, ll], { color: t.color, weight: 3.5, opacity: (preview ? 0.4 : 0.95) * opacity, interactive: false, dashArray: t.dashed || dashed ? '10 8' : null }).addTo(targetLayer);
-            // Arrows every 70 screen pixels, only where they can be seen.
-            const a = map.latLngToLayerPoint(from), b = map.latLngToLayerPoint(ll);
-            const length = a.distanceTo(b);
-            const angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
-            let shown = 0;
-            for (let d = 35; d < length - 20 && shown < 80; d += 70) {
-                const p = map.layerPointToLatLng(L.point(a.x + (b.x - a.x) * d / length, a.y + (b.y - a.y) * d / length));
-                if (!view.contains(p)) continue;
-                shown++;
-                L.marker(p, {
-                    icon: L.divIcon({ className: 'route-arrow', html: `<span style="opacity:${(preview ? 0.4 : 1) * opacity};transform:rotate(${angle}deg);border-left-color:${t.color}"></span>`, iconSize: [16, 16] }),
+            const rings = [
+                L.circleMarker(ll, { pane: 'targets', radius, color: '#000', weight: 6, opacity: (preview ? 0.12 : 0.5) * opacity, fill: false, dashArray: dashed ? '6 6' : null, interactive: false }),
+                L.circleMarker(ll, { pane: 'targets', radius, color: t.color, weight: 3.5, opacity: (preview ? 0.45 : 1) * opacity, dashArray: dashed ? '6 6' : null, fill: false, interactive: false }),
+            ];
+            rings.forEach(ring => ring.addTo(targetLayer));
+            const entry = { t, ll, fixedFrom, pet, radius, preview, dashed, opacity, rings, lines: null, from: null, arrows: [] };
+            targetScene.entries.push(entry);
+            // Preserve the original target/path insertion order when building a changed scene.
+            updateTargetGeometry(entry, view);
+        }
+    }
+
+    function targetSymbolState(t) {
+        if (t.leveling) return null;
+        const i = markerByPos.get(t.x + ',' + t.y), layer = markerRefs[i], m = current.markers[i];
+        if (!layer || !m) return null;
+        return [i, layer.iconIndex, map.hasLayer(layer), layer.petHidden, doneSet.has(m[6]), hiddenSet.has(m[6]), petLabels[m[6]], m.explorationDone, m.explorationKind];
+    }
+
+    const sameLatLng = (a, b) => a && b && a.lat === b.lat && a.lng === b.lng;
+
+    function updateTargetGeometry(entry, view) {
+        const { t, ll, fixedFrom, pet, preview, dashed, opacity } = entry;
+        const radius = pet ? Math.round(15 * iconScale()) + 10 : 11;
+        if (entry.radius !== radius) {
+            entry.rings.forEach(ring => ring.setRadius(radius));
+            entry.radius = radius;
+        }
+        const from = fixedFrom || (t.completed ? null : player ? player.getLatLng() : null);
+        if (!from) return;
+        if (!entry.lines) {
+            entry.lines = [
+                L.polyline([from, ll], { color: '#000', weight: 7, opacity: (preview ? 0.12 : 0.45) * opacity, dashArray: dashed ? '10 8' : null, interactive: false }),
+                L.polyline([from, ll], { color: t.color, weight: 3.5, opacity: (preview ? 0.4 : 0.95) * opacity, interactive: false, dashArray: t.dashed || dashed ? '10 8' : null }),
+            ];
+            entry.lines.forEach(line => line.addTo(targetLayer));
+        } else if (!sameLatLng(entry.from, from)) {
+            entry.lines.forEach(line => line.setLatLngs([from, ll]));
+        }
+        entry.from = from;
+        // Arrows retain their marker and DOM element. The same 70-pixel spacing, viewport clipping
+        // and 80-arrow cap apply; only newly needed arrows allocate a marker.
+        const a = map.latLngToLayerPoint(from), b = map.latLngToLayerPoint(ll);
+        const length = a.distanceTo(b);
+        const angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+        let shown = 0;
+        for (let d = 35; d < length - 20 && shown < 80; d += 70) {
+            const p = map.layerPointToLatLng(L.point(a.x + (b.x - a.x) * d / length, a.y + (b.y - a.y) * d / length));
+            if (!view.contains(p)) continue;
+            let arrow = entry.arrows[shown];
+            const html = `<span style="opacity:${(preview ? 0.4 : 1) * opacity};transform:rotate(${angle}deg);border-left-color:${t.color}"></span>`;
+            if (!arrow) {
+                const marker = L.marker(p, {
+                    icon: L.divIcon({ className: 'route-arrow', html, iconSize: [16, 16] }),
                     interactive: false, keyboard: false,
-                }).addTo(targetLayer);
+                });
+                marker.addTo(targetLayer);
+                arrow = entry.arrows[shown] = { marker, at: p, angle, attached: true };
+            } else {
+                if (!sameLatLng(arrow.at, p)) arrow.marker.setLatLng(p);
+                if (arrow.angle !== angle) {
+                    arrow.marker.options.icon.options.html = html; // also correct after detach/reattach
+                    const span = arrow.marker.getElement()?.firstElementChild;
+                    if (span) span.style.transform = `rotate(${angle}deg)`;
+                }
+                if (!arrow.attached) arrow.marker.addTo(targetLayer);
+                arrow.at = p;
+                arrow.angle = angle;
+                arrow.attached = true;
             }
+            shown++;
+        }
+        for (let i = shown; i < entry.arrows.length; i++) {
+            const arrow = entry.arrows[i];
+            if (arrow.attached) targetLayer.removeLayer(arrow.marker);
+            arrow.attached = false;
         }
     }
 
@@ -600,6 +675,7 @@ window.soulcrestMap = (() => {
                 if (layer.setIcon && layer.iconIndex >= 0) layer.setIcon(iconFor(current.categories[m[0]], layer.iconIndex, m));
             }
         }
+        drawTargets();
     }
 
     // Any selection of 'pets', 'dungeon' and 'stronghold' (user request 2026-10-10). Pets: nearest below the
@@ -713,21 +789,54 @@ window.soulcrestMap = (() => {
     function search(text) {
         const q = (text || '').trim().toLowerCase();
         if (q.length < 2 || !current) return '[]';
-        const out = [];
+        const out = [], monsters = new Set();
         for (let i = 0; i < current.markers.length && out.length < 40; i++) {
             const m = current.markers[i];
             if ((m[3] && m[3].toLowerCase().includes(q)) || (m[4] && m[4].toLowerCase().includes(q))) {
                 const cat = current.categories[m[0]];
-                out.push({ i, name: nameOf(m) || cat.name, cat: `${cat.group} · ${cat.name}` });
+                const hit = { i, name: nameOf(m) || cat.name, cat: `${cat.group} · ${cat.name}`, group: cat.group, petId: m[6] ?? null };
+                if (cat.group === 'Monsters') {
+                    // One monster entry, even when its spawn points span several rank/genus categories.
+                    // De-duplicate before the result limit; non-monster marker results remain unchanged.
+                    if (monsters.has(m[3])) continue;
+                    monsters.add(m[3]);
+                    hit.monster = true;
+                    hit.key = m[3];
+                }
+                out.push(hit);
             }
         }
         return JSON.stringify(out);
+    }
+
+    // Explicit monster selection fits every matching spawn without enabling a whole category.
+    // Several exact English keys can share a localized display name in the information card.
+    function focusMonster(name) {
+        cancelMarkerPopup();
+        if (!current || !map || !focusLayer) return 0;
+        const names = new Set(Array.isArray(name) ? name : [name]);
+        const hits = current.markers.filter(m => current.categories[m[0]].group === 'Monsters' && names.has(m[3]));
+        focusLayer.clearLayers();
+        map.closePopup();
+        hits.forEach(m => L.circleMarker(toLatLng(m[1], m[2]), { renderer: canvas, radius: 7,
+            color: '#facc15', weight: 2, fillColor: '#f87171', fillOpacity: 0.85 })
+            .bindPopup(() => popupFor(m, current.categories[m[0]])).addTo(focusLayer));
+        if (hits.length) {
+            // Like a manual map drag: preserve the user's follow preference while inspecting spawns.
+            followPausedUntil = Date.now() + 6000;
+            const bounds = L.latLngBounds(hits.map(m => toLatLng(m[1], m[2]))).pad(0.2);
+            const options = { maxZoom: current.def.maxNativeZoom };
+            if (document.visibilityState === 'visible') map.flyToBounds(bounds, { ...options, duration: 0.8 });
+            else map.fitBounds(bounds, { ...options, animate: false });
+        }
+        return hits.length;
     }
 
     // A search hit highlights every place of that name (all spawns of "Ruins Marauder Spider") without
     // switching layers on: a monster hit used to show its whole category, 4,902 dots, and keep it
     // (user report 2026-10-06). The focus box in the sidebar takes it away again.
     function flyToMarker(i) {
+        cancelMarkerPopup();
         const m = current.markers[i];
         const cat = current.categories[m[0]];
         const same = current.markers.filter(x => x[0] === m[0] && x[3] === m[3]);
@@ -738,7 +847,12 @@ window.soulcrestMap = (() => {
         const zoom = Math.max(map.getZoom(), current.def.maxNativeZoom);
         if (document.visibilityState === 'visible') map.flyTo(toLatLng(m[1], m[2]), zoom, { duration: 0.8 });
         else map.setView(toLatLng(m[1], m[2]), zoom, { animate: false });
-        setTimeout(() => L.popup({ offset: [0, -6] }).setLatLng(toLatLng(m[1], m[2])).setContent(popupFor(m, cat)).openOn(map), 600);
+        const revision = focusRevision, focusedMap = current;
+        markerPopupTimeout = setTimeout(() => {
+            if (revision !== focusRevision || current !== focusedMap) return;
+            markerPopupTimeout = null;
+            L.popup({ offset: [0, -6] }).setLatLng(toLatLng(m[1], m[2])).setContent(popupFor(m, cat)).openOn(map);
+        }, 600);
         dotnet.invokeMethodAsync('OnNameFocused', nameOf(m) || (lang === 'de' && cat.de ? cat.de : cat.name), same.length);
         return cat.name;
     }
@@ -751,9 +865,11 @@ window.soulcrestMap = (() => {
     }
 
     // Highlights all spawns of a pet: pet spawn markers and the monsters that drop its soul.
-    function focusPet(petId) {
+    function focusPet(petId, pauseFollow = false) {
+        cancelMarkerPopup();
         if (!current) return JSON.stringify({ pets: 0, monsters: 0 });
-        const hits = current.markers.filter(m => m[6] === petId);
+        const petIds = new Set(Array.isArray(petId) ? petId : [petId]);
+        const hits = current.markers.filter(m => petIds.has(m[6]));
         const pets = hits.filter(m => current.categories[m[0]].group === 'Pets');
         const monsters = hits.filter(m => current.categories[m[0]].group === 'Monsters');
         focusLayer.clearLayers();
@@ -761,16 +877,24 @@ window.soulcrestMap = (() => {
             .bindPopup(() => popupFor(m, current.categories[m[0]])).addTo(focusLayer));
         pets.forEach(m => L.circleMarker(toLatLng(m[1], m[2]), { renderer: canvas, radius: 16, color: '#5eead4', weight: 3, fillOpacity: 0.15, interactive: false }).addTo(focusLayer));
         if (hits.length) {
+            if (pauseFollow) followPausedUntil = Date.now() + 6000;
             const target = L.latLngBounds(hits.map(m => toLatLng(m[1], m[2]))).pad(0.3);
             // Animations pause in hidden views; jump directly then.
             if (document.visibilityState === 'visible') map.flyToBounds(target, { maxZoom: current.def.maxNativeZoom, duration: 0.8 });
             else map.fitBounds(target, { maxZoom: current.def.maxNativeZoom, animate: false });
         }
-        dotnet.invokeMethodAsync('OnPetFocused', petId, pets.length, monsters.length);
+        dotnet.invokeMethodAsync('OnPetFocused', Array.isArray(petId) ? petId[0] : petId, pets.length, monsters.length);
         return JSON.stringify({ pets: pets.length, monsters: monsters.length });
     }
 
-    function clearFocus() { if (focusLayer) focusLayer.clearLayers(); if (map) map.closePopup(); }
+    // A delayed search popup belongs only to the current selection and map.
+    function cancelMarkerPopup() {
+        focusRevision++;
+        if (markerPopupTimeout !== null) clearTimeout(markerPopupTimeout);
+        markerPopupTimeout = null;
+    }
+
+    function clearFocus() { cancelMarkerPopup(); if (focusLayer) focusLayer.clearLayers(); if (map) map.closePopup(); }
 
 
     // Player position from the in-game map (MapTrackingService). follow: keep the player in view.
@@ -784,7 +908,8 @@ window.soulcrestMap = (() => {
                 zIndexOffset: 2000, interactive: false, keyboard: false,
             }).addTo(map);
         } else {
-            player.setLatLng(ll);
+            const at = player.getLatLng();
+            if (at.lat !== ll[0] || at.lng !== ll[1]) player.setLatLng(ll);
         }
         const el = player.getElement();
         if (el) el.classList.toggle('lost', !found);
@@ -794,7 +919,13 @@ window.soulcrestMap = (() => {
         // zoom is kept. Paused for a moment after the user dragged the map.
         if (follow && found && Date.now() > followPausedUntil) {
             const animate = document.visibilityState === 'visible';
-            map.panTo(ll, { animate, duration: 0.25, easeLinearity: 1, noMoveStart: true });
+            // Leaflet 1.9.4 truncates this projected offset before panBy. A zero offset only emits
+            // moveend; avoid that redraw, while retaining panTo's stop semantics during animation.
+            const animating = map._panAnim?._inProgress || mapMotionActive || map._animatingZoom;
+            const center = map._limitCenter(L.latLng(ll), map.getZoom(), map.options.maxBounds);
+            const offset = map._getCenterOffset(center)._trunc();
+            if (animating || offset.x || offset.y)
+                map.panTo(ll, { animate, duration: 0.25, easeLinearity: 1, noMoveStart: true });
         }
     }
 
@@ -813,5 +944,5 @@ window.soulcrestMap = (() => {
 
     const debugState = () => ({ center: map.getCenter(), zoom: map.getZoom(), focus: focusLayer ? focusLayer.getLayers().length : 0, map });
 
-    return { debugState, init, show, setBossTimers, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, flyToMarker, focusPet, toggleKibelisk, clearFocus, invalidate, keptZoom };
+    return { debugState, init, show, setBossTimers, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, focusMonster, flyToMarker, focusPet, toggleKibelisk, clearFocus, invalidate, keptZoom };
 })();
