@@ -152,6 +152,12 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
 
     private const double FrameMs = 1000.0 / 60;
 
+    // User request 2026-10-15: react to fresh world-map pictures while preserving the loop budget and
+    // wall-clock emblem/detection deadlines. Waiting never means an unavailable capture or broken flow.
+    internal static double WorldMapFrameWaitMs(double iterationElapsedMs, double sinceEmblemMs,
+        double sinceDetectionMs, int detectionIntervalMs) => Math.Max(0,
+            Math.Min(FrameMs - iterationElapsedMs, Math.Min(EmblemCheckMs - sinceEmblemMs, detectionIntervalMs - sinceDetectionMs)));
+
     // Screen capture via Windows Graphics Capture of the game window (small map 0.5 ms, quarter-size
     // world map 5.6 ms; GDI: ~85 ms with the game running), shared with the other trackers.
     /// <summary>"Spielfenster (WGC)", "Monitor (WGC)" or "GDI": which capture the tracking uses.</summary>
@@ -456,6 +462,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             var stillRuns = 0;      // detections in a row without movement
             var frames = new Queue<long>();
             Rectangle? lastRegion = null;
+            CaptureTiming previousMainCapture = default;
+            long previousMainContextGeneration = -1;
             while (!token.IsCancellationRequested)
             {
                 var started = Stopwatch.GetTimestamp();
@@ -470,6 +478,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                     flow.Reset();
                     frames.Clear();
                     lastRegion = null;
+                    previousMainCapture = default;
                     if (!Found)
                     {
                         var wake = _wake.Task;
@@ -504,13 +513,30 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 {
                     flow.Reset();
                     lastRegion = area;
+                    previousMainCapture = default;
                 }
                 // The world map comes in at a quarter of its size already.
                 var contextGeneration = Interlocked.Read(ref _mapContextGeneration);
+                if (worldMap && previousMainCapture.Valid && previousMainContextGeneration == contextGeneration)
+                {
+                    var interval = DetectionIntervalMs(Found, true, _worldMisses, motion, flowLost, stillRuns);
+                    var waitMs = WorldMapFrameWaitMs(Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                        Stopwatch.GetElapsedTime(lastEmblemCheck).TotalMilliseconds,
+                        Stopwatch.GetElapsedTime(lastSubmit).TotalMilliseconds, interval);
+                    if (waitMs > 0)
+                        await capture.WaitForFrameAfterAsync(previousMainCapture, TimeSpan.FromMilliseconds(waitMs), token);
+                    token.ThrowIfCancellationRequested();
+                    if (!IsCurrentMapContext(contextGeneration) || !_worldMapOpen || _worldScreen != area ||
+                        Region != region || Paused)
+                        continue;
+                }
                 var frame = CaptureReadback.TryCapture(() => Grab(area, worldMap ? WorldMapScale : 1));
                 var frameAt = GameCaptureService.GrabbedFrameAt;
+                var captureTiming = GameCaptureService.GrabbedTiming;
                 if (frame is null)
                 {
+                    _cost.AddCaptureUnavailable();
+                    previousMainCapture = default;
                     token.ThrowIfCancellationRequested();
                     flow.Reset();
                     frames.Clear();
@@ -520,12 +546,18 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 }
                 if (!AcceptLastCapture())
                 {
+                    _cost.AddCaptureRejected();
+                    previousMainCapture = default;
                     frame.Dispose();
                     flow.Reset();
                     frames.Clear();
                     await Task.Delay(IntervalMs, token);
                     continue;
                 }
+                _cost.AddCapture(captureTiming);
+                // Keep the accepted main picture's cursor; the emblem read below has its own metadata.
+                previousMainCapture = worldMap ? captureTiming : default;
+                previousMainContextGeneration = contextGeneration;
                 var flowStarted = Stopwatch.GetTimestamp();
                 using (var gray = new Mat())
                 {
@@ -533,7 +565,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                     // World map: points only on the map, its standing panels held the overlay still.
                     flow.SeedArea = worldMap ? MapFlow.WorldMapArea(gray.Width, gray.Height) : null;
                     var step = flow.Step(gray);
-                    _cost.AddFlow(Stopwatch.GetElapsedTime(flowStarted));
+                    _cost.AddFlow(Stopwatch.GetElapsedTime(flowStarted), step is null, worldMap);
                     if (frameAt != 0)
                         _cost.AddFlowLag(Stopwatch.GetElapsedTime(frameAt));
                     if (step is null)
@@ -945,10 +977,12 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                     return; // closed, loaded or stopped meanwhile
                 SetWorldPlacement(definition, _drift.Apply(fix), _worldScreen, locator.Reference.WorldPerPixel);
             }
+            _cost.AddWorldDetection(true);
             Trace(definition.Id + " (Weltkarte)", true, fix, locator);
             return;
         }
         // One miss is held (panning, zooming); the second one means the world map was closed.
+        _cost.AddWorldDetection(false);
         if (++_worldMisses < 2)
             return;
         Trace(definition.Id + " (Weltkarte zu)", true, null, locator);
@@ -1116,12 +1150,10 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     private readonly TrackingCost _cost = new();
     private long _flowFrameAt; // screen picture of the newest flow step; under _flowGate
 
-    /// <summary>The overlay showed a picture that follows the screen picture of <paramref name="capturedAt"/>.</summary>
-    internal void ReportOverlayShown(long capturedAt)
-    {
-        if (capturedAt != 0)
-            _cost.AddOverlayLag(Stopwatch.GetElapsedTime(capturedAt));
-    }
+    /// <summary>Records one composed image actually handed to Windows, including its source timestamp.</summary>
+    internal void ReportOverlayShown(OverlayTiming timing) => _cost.AddOverlayPresentation(timing);
+    internal void ReportOverlayComposed(TimeSpan spent) => _cost.AddComposition(spent);
+    internal void ResetOverlayPresentation() => _cost.ResetOverlayPresentation();
 
     private sealed class CostScope(Action done) : IDisposable
     {
@@ -1146,7 +1178,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         var info = locator.LastInfo;
         LogFile.Append("map-tracking.log", // never throws, also not when the rotation fails
             $"{now:HH:mm:ss} {(found ? "gefunden" : "verloren")} {mapId}{(current ? "" : " (Suche)")} ref={locator.Reference.Width}px " +
-            $"merkmale={info.Keypoints} treffer={info.Matches} stimmig={info.Inliers} lokal={info.Local} fehlschläge={_misses} suche={DetectionInterval}ms overlay={Fps}fps aufnahme={CaptureMethod}" +
+            $"merkmale={info.Keypoints} treffer={info.Matches} stimmig={info.Inliers} lokal={info.Local} fehlschläge={_misses} weltfehlschläge={_worldMisses} suche={DetectionInterval}ms overlay={Fps}fps aufnahme={CaptureMethod}" +
             (fix is null ? "" : $" maßstab={fix.Scale:0.00} fehler={fix.Error:0.0}") + " " + _cost.TakeSummary() + Environment.NewLine);
     }
 

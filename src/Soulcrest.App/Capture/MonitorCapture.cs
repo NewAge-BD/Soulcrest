@@ -22,6 +22,8 @@ namespace Soulcrest.App.Capture;
 /// </summary>
 public sealed unsafe class MonitorCapture : IDisposable
 {
+    private static long _nextSessionId;
+    private readonly long _sessionId = Interlocked.Increment(ref _nextSessionId);
     private static readonly Guid DxgiDeviceId = new("54ec77fa-1377-44e6-8c32-88fd5f44c84c");
     private static readonly Guid TextureId = new("6f15aaf2-d208-4e89-9ab4-489535d34f9c");
     private static readonly Guid SurfaceAccessId = new("a9b3d012-3df2-4ee3-b8d1-8695f457d3c1");
@@ -34,6 +36,7 @@ public sealed unsafe class MonitorCapture : IDisposable
     // nearly every new frame, the picture read was 440 ms old on average (measured 2026-10-07, overlay
     // trailed behind the dragged world map). Lock order: _gate, then _frameGate.
     private readonly object _frameGate = new();
+    private readonly CaptureFrameSignal _frameSignal = new();
     private readonly GraphicsCaptureItem _item;
     private readonly Direct3D11CaptureFramePool _pool;
     private readonly GraphicsCaptureSession _session;
@@ -52,10 +55,18 @@ public sealed unsafe class MonitorCapture : IDisposable
     private long _copies;
     private readonly long[] _copiedAt = new long[Slots];
     private readonly long[] _frameAt = new long[Slots];
+    private readonly long[] _frameIds = new long[Slots];
     private long _latestAt;
+    private long _latestFrameId;
 
     /// <summary>When the frame of the last <see cref="CaptureMat"/> picture arrived (Stopwatch timestamp).</summary>
     public long ReadFrameAt { get; private set; }
+    /// <summary>Stages of the last successful read; consumed synchronously by GameCaptureService.</summary>
+    internal CaptureTiming LastTiming { get; private set; }
+    internal long CaptureSessionId => _sessionId;
+
+    internal ValueTask<long?> WaitForFrameAfterAsync(long frameId, TimeSpan timeout, CancellationToken token) =>
+        _frameSignal.WaitAfterAsync(frameId, timeout, token);
     private Direct3D11CaptureFrame? _latest;
     private bool _disposed;
 
@@ -133,6 +144,8 @@ public sealed unsafe class MonitorCapture : IDisposable
     public bool IsBorderSuppressed { get; }
 
     private long _framesArrived;
+    private long _framesPublished;
+    private long _frameGateDrops;
     private long _lastFrameTicks;
 
     /// <summary>Frames delivered by Windows Graphics Capture so far (diagnosis: 0 = the capture gets no pictures).</summary>
@@ -253,6 +266,7 @@ public sealed unsafe class MonitorCapture : IDisposable
     {
         Direct3D11CaptureFrame? frame = null;
         var entered = false;
+        long publishedFrameId = 0;
         try
         {
             if (_disposed) return;
@@ -263,6 +277,7 @@ public sealed unsafe class MonitorCapture : IDisposable
             // WGC runs this on its own worker. Do not wait behind a GPU readback:
             // Windows may need this callback to return before that read can finish.
             entered = Monitor.TryEnter(_frameGate);
+            if (!entered && !_disposed) Interlocked.Increment(ref _frameGateDrops);
             if (!entered || _disposed) return;
             var size = frame.ContentSize;
             if (size.Width != _poolSize.Width || size.Height != _poolSize.Height)
@@ -282,6 +297,8 @@ public sealed unsafe class MonitorCapture : IDisposable
             _latest?.Dispose();
             _latest = frame;
             _latestAt = Stopwatch.GetTimestamp();
+            _latestFrameId = Interlocked.Increment(ref _framesPublished);
+            publishedFrameId = _latestFrameId;
             frame = null; // ownership transferred to the reader
         }
         catch (Exception error) when (error is ExternalException or InvalidOperationException or ArgumentException)
@@ -292,6 +309,8 @@ public sealed unsafe class MonitorCapture : IDisposable
         finally
         {
             if (entered) Monitor.Exit(_frameGate);
+            // Wake independent readers only after the complete frame has been published and unlocked.
+            if (publishedFrameId > 0) _frameSignal.Publish(publishedFrameId);
             try { frame?.Dispose(); }
             catch (ExternalException error) { Trace.TraceWarning("WGC frame release: {0}", error.Message); }
         }
@@ -317,6 +336,8 @@ public sealed unsafe class MonitorCapture : IDisposable
     /// </summary>
     public OpenCvSharp.Mat? CaptureMat(Rectangle screenArea, double scale = 1.0, Action<string>? stage = null)
     {
+        var started = Stopwatch.GetTimestamp();
+        long gateWait = 0, copyTicks = 0, copyStartedAt = 0;
         ObjectDisposedException.ThrowIf(_disposed, this);
         var crop = Rectangle.Intersect(new Rectangle(screenArea.X - Bounds.X, screenArea.Y - Bounds.Y, screenArea.Width, screenArea.Height),
             new Rectangle(Point.Empty, Bounds.Size));
@@ -326,20 +347,35 @@ public sealed unsafe class MonitorCapture : IDisposable
         while (true)
         {
             stage?.Invoke("WGC: Bildübergabe / Sperre");
+            var gateStarted = Stopwatch.GetTimestamp();
             lock (_gate)
             {
+                gateWait += Stopwatch.GetTimestamp() - gateStarted;
                 ObjectDisposedException.ThrowIf(_disposed, this);
-                (int Slot, Size Size)? copy = null;
+                (int Slot, Size Size, long FrameAt, long FrameId)? copy = null;
+                gateStarted = Stopwatch.GetTimestamp();
                 lock (_frameGate)
                 {
+                    gateWait += Stopwatch.GetTimestamp() - gateStarted;
                     if (_latest is { } frame)
                     {
                         stage?.Invoke("WGC: Frame.Surface");
+                        copyStartedAt = Stopwatch.GetTimestamp();
                         copy = CopyCrop(frame.Surface, crop, stage);
+                        copyTicks += Stopwatch.GetTimestamp() - copyStartedAt;
                     }
                 }
                 if (copy is { } queued)
-                    return Read(queued.Slot, queued.Size, scale, stage);
+                {
+                    var picture = Read(queued.Slot, queued.Size, scale, stage, out var mapWait, out var conversion);
+                    // Arrivals precede publish/drop, so read that counter last while callbacks continue.
+                    var published = Interlocked.Read(ref _framesPublished);
+                    var frameGateDrops = Interlocked.Read(ref _frameGateDrops);
+                    var arrived = Interlocked.Read(ref _framesArrived);
+                    LastTiming = CaptureTiming.FromTicks(gateWait, copyTicks, mapWait, conversion, Stopwatch.GetTimestamp() - started)
+                        .WithSourceFrame(queued.FrameAt, copyStartedAt, queued.FrameId, arrived, published, frameGateDrops, _sessionId);
+                    return picture;
+                }
             }
             if (waited.ElapsedMilliseconds > 100)
                 return null;
@@ -355,7 +391,7 @@ public sealed unsafe class MonitorCapture : IDisposable
     }
 
     /// <summary>Queues the GPU copy of the crop; returns the staging slot to read (a finished earlier copy if fresh).</summary>
-    private (int Slot, Size Size) CopyCrop(IDirect3DSurface surface, Rectangle crop, Action<string>? stage)
+    private (int Slot, Size Size, long FrameAt, long FrameId) CopyCrop(IDirect3DSurface surface, Rectangle crop, Action<string>? stage)
     {
         nint access = 0, texture = 0;
         stage?.Invoke("WGC: Surface-COM-Zugriff");
@@ -433,6 +469,7 @@ public sealed unsafe class MonitorCapture : IDisposable
             _order[slot] = ++_copies;
             _copiedAt[slot] = Stopwatch.GetTimestamp();
             _frameAt[slot] = _latestAt;
+            _frameIds[slot] = _latestFrameId;
 
             // Read the oldest finished copy if it is fresh (a caller at 60 fps); occasional callers (pet
             // scan every 0.3 s, loot feed) wait for this call's copy instead of getting a picture 0.3 s old.
@@ -452,7 +489,7 @@ public sealed unsafe class MonitorCapture : IDisposable
             if (read < 0)
                 read = slot;
             ReadFrameAt = _frameAt[read];
-            return (read, crop.Size);
+            return (read, crop.Size, _frameAt[read], _frameIds[read]);
         }
         finally
         {
@@ -462,12 +499,15 @@ public sealed unsafe class MonitorCapture : IDisposable
         }
     }
 
-    private OpenCvSharp.Mat Read(int slot, Size size, double scale, Action<string>? stage)
+    private OpenCvSharp.Mat Read(int slot, Size size, double scale, Action<string>? stage,
+        out long mapWait, out long conversion)
     {
+        mapWait = conversion = 0;
         var map = (delegate* unmanaged[Stdcall]<nint, nint, uint, uint, uint, MappedTexture*, int>)Method(_context, 14);
         MappedTexture data = default;
         stage?.Invoke("D3D11: Map (DO_NOT_WAIT)");
         var started = Stopwatch.StartNew();
+        var mapStarted = Stopwatch.GetTimestamp();
         while (true)
         {
             var result = map(_context, _staging[slot], 0, 1 /* D3D11_MAP_READ */, DoNotWait, &data);
@@ -482,25 +522,15 @@ public sealed unsafe class MonitorCapture : IDisposable
             // Not Sleep(1): without a raised timer resolution it sleeps 15.6 ms (measured: 31 ms per picture).
             Thread.Yield();
         }
+        mapWait = Stopwatch.GetTimestamp() - mapStarted;
+        var conversionStarted = Stopwatch.GetTimestamp();
         try
         {
             // Straight out of the mapped texture (its row pitch is wider than the picture): scale first,
             // then drop alpha, so a quarter-size world map never copies the full screen.
             stage?.Invoke("OpenCV: Bild konvertieren");
             if (_hdrLookup is not null)
-            {
-                var step = scale <= 0.5 ? 2 : 1; // pixels a later scaling would merge anyway
-                var converted = HdrDisplay.ToBgr(data.Data, data.RowPitch, size.Width, size.Height, _hdrLookup, step);
-                var rest = scale * step;
-                if (Math.Abs(rest - 1) < 1e-6)
-                    return converted;
-                using (converted)
-                {
-                    var scaled = new OpenCvSharp.Mat();
-                    OpenCvSharp.Cv2.Resize(converted, scaled, new OpenCvSharp.Size(), rest, rest, OpenCvSharp.InterpolationFlags.Area);
-                    return scaled;
-                }
-            }
+                return HdrDisplay.ToBgrScaled(data.Data, data.RowPitch, size.Width, size.Height, _hdrLookup, scale);
             using var mapped = OpenCvSharp.Mat.FromPixelData(size.Height, size.Width, OpenCvSharp.MatType.CV_8UC4, data.Data, data.RowPitch);
             var bgr = new OpenCvSharp.Mat();
             if (Math.Abs(scale - 1) < 1e-6)
@@ -515,6 +545,7 @@ public sealed unsafe class MonitorCapture : IDisposable
         }
         finally
         {
+            conversion = Stopwatch.GetTimestamp() - conversionStarted;
             stage?.Invoke("D3D11: Unmap");
             ((delegate* unmanaged[Stdcall]<nint, nint, uint, void>)Method(_context, 15))(_context, _staging[slot], 0);
             _pending[slot] = false;
@@ -642,6 +673,7 @@ public sealed unsafe class MonitorCapture : IDisposable
             }
         }
         // Do not close the session while holding a lock its callback may need.
+        _frameSignal.Stop();
         _pool.FrameArrived -= OnFrameArrived;
         _session.Dispose();
         _pool.Dispose();

@@ -107,12 +107,29 @@ public sealed partial class RouteOverlayForm : Form
     private Frame? ComposeLatest()
     {
         lock (_composeGate)
-            return _disposing || IsDisposed ? null : Compose();
+        {
+            if (_disposing || IsDisposed) return null;
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                var frame = Compose();
+                if (frame is not null)
+                {
+                    frame.ComposeStartedAt = started;
+                    frame.ComposedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+                }
+                return frame;
+            }
+            finally { _tracking.ReportOverlayComposed(System.Diagnostics.Stopwatch.GetElapsedTime(started)); }
+        }
     }
 
     /// <summary>A composed overlay picture (GDI bitmap with alpha) and where it goes; null = nothing to show.</summary>
     internal sealed record Frame(nint Bitmap, Point Location, Size Size, long CapturedAt = 0, MapPlacement? Placement = null) : IDisposable
     {
+        // Written only by the compositor before publishing through the dispatcher's gate.
+        internal long ComposeStartedAt { get; set; }
+        internal long ComposedAt { get; set; }
         public void Dispose() => NativeMethods.DeleteObject(Bitmap);
     }
 
@@ -160,6 +177,7 @@ public sealed partial class RouteOverlayForm : Form
     /// <summary>UI thread: hands the latest picture to Windows; the dispatcher owns its lifetime.</summary>
     private void ShowFrame(Frame? frame)
     {
+        var uiEnteredAt = System.Diagnostics.Stopwatch.GetTimestamp();
         if (_disposing || IsDisposed || !IsHandleCreated) return;
         if (_settings.Current.OverlaysInRecordings != _inRecordings)
         {
@@ -169,12 +187,19 @@ public sealed partial class RouteOverlayForm : Form
         if (_suppressed || frame is null || !_settings.Current.MapOverlayEnabled
             || !MatchesCurrentPlacement(frame, _tracking.Placement))
         {
+            _tracking.ResetOverlayPresentation();
             if (Visible) Hide();
             return;
         }
-        if (!Visible) Show();
+        if (!Visible)
+        {
+            _tracking.ResetOverlayPresentation();
+            Show();
+        }
+        var presentStartedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         Present(frame);
-        _tracking.ReportOverlayShown(frame.CapturedAt);
+        _tracking.ReportOverlayShown(new OverlayTiming(frame.CapturedAt, frame.ComposeStartedAt, frame.ComposedAt,
+            uiEnteredAt, presentStartedAt, System.Diagnostics.Stopwatch.GetTimestamp()));
     }
 
     // Do not reject ordinary flow movement. Only a changed map/surface/region makes a composed

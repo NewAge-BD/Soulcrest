@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 using OpenCvSharp;
 using Windows.Security.Authorization.AppCapabilityAccess;
 using Soulcrest.Ocr;
@@ -104,13 +105,36 @@ public sealed class GameCaptureService : IDisposable
     /// <summary>The actual source of this thread's last frame; a window session can still fall back to GDI.</summary>
     [ThreadStatic] public static bool GrabbedGameWindowOnly;
 
+    /// <summary>Stages of this thread's last successful WGC grab; default for missing/GDI/failed pictures.</summary>
+    [ThreadStatic] internal static CaptureTiming GrabbedTiming;
+
+    /// <summary>
+    /// Waits only for a newer publication in the same shared game-window session. No capture lock,
+    /// pixel read or change to this thread's grab metadata; other consumers cannot consume the wake.
+    /// Missing sources, session changes and timeouts simply leave the usual next Grab in control.
+    /// </summary>
+    internal ValueTask<long?> WaitForFrameAfterAsync(CaptureTiming previous, TimeSpan timeout, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        var current = Volatile.Read(ref _capture);
+        if (!previous.Valid || previous.SourceFrameId <= 0 || current is not { IsWindow: true } ||
+            previous.CaptureSessionId != current.CaptureSessionId || Volatile.Read(ref _disposed) != 0)
+            return ValueTask.FromResult<long?>(null);
+        return current.WaitForFrameAfterAsync(previous.SourceFrameId, timeout, token);
+    }
+
     /// <summary>Picture of a screen rectangle as BGR image, optionally scaled.</summary>
     public Mat Grab(Rectangle area, double scale = 1.0)
     {
+        GrabbedTiming = default;
+        var grabStartedAt = Stopwatch.GetTimestamp();
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         Interlocked.Increment(ref _grabs);
+        var gateStarted = Stopwatch.GetTimestamp();
         lock (_gate)
         {
+            var gateWait = Stopwatch.GetTimestamp() - gateStarted;
+            CaptureTiming timing = default;
             try
             {
                 ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
@@ -135,6 +159,7 @@ public sealed class GameCaptureService : IDisposable
                             _lastFailure = null;
                             GrabbedFrameAt = capture.ReadFrameAt;
                             GrabbedGameWindowOnly = capture.IsWindow;
+                            timing = capture.LastTiming;
                             return picture;
                         }
                     }
@@ -158,6 +183,7 @@ public sealed class GameCaptureService : IDisposable
             {
                 UpdateSnapshot();
                 Stage("Bereit");
+                GrabbedTiming = timing.WithOuterTiming(gateWait, Stopwatch.GetTimestamp() - grabStartedAt);
             }
         }
     }
@@ -169,12 +195,17 @@ public sealed class GameCaptureService : IDisposable
     /// </summary>
     public Mat? TryGrabGameWindowOnly(Rectangle area, double scale = 1.0)
     {
+        GrabbedTiming = default;
+        var grabStartedAt = Stopwatch.GetTimestamp();
         GrabbedFrameAt = 0;
         GrabbedGameWindowOnly = false;
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         Interlocked.Increment(ref _grabs);
+        var gateStarted = Stopwatch.GetTimestamp();
         lock (_gate)
         {
+            var gateWait = Stopwatch.GetTimestamp() - gateStarted;
+            CaptureTiming timing = default;
             try
             {
                 ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
@@ -206,6 +237,7 @@ public sealed class GameCaptureService : IDisposable
                 _lastFailure = null;
                 GrabbedFrameAt = capture.ReadFrameAt;
                 GrabbedGameWindowOnly = true;
+                timing = capture.LastTiming;
                 return picture;
             }
             catch (Exception error)
@@ -220,6 +252,7 @@ public sealed class GameCaptureService : IDisposable
             {
                 UpdateSnapshot();
                 Stage("Bereit");
+                GrabbedTiming = timing.WithOuterTiming(gateWait, Stopwatch.GetTimestamp() - grabStartedAt);
             }
         }
     }

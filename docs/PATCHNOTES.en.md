@@ -2,6 +2,13 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.7.2 – 2026-10-15
+
+- **Improved:** The overlay on the open world map follows panning and zooming noticeably more directly:
+  fresher frames and a shorter HDR path (about 12 ms less delay on average, measured live).
+- **Improved:** The diagnostics package breaks down the world map delay into capture, drawing and
+  display.
+
 ## 0.7.1 – 2026-10-14
 
 - **New:** The monster search in the map tab lists every monster once, across all maps (EN/DE).

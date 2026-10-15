@@ -2,6 +2,14 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.7.2 – 2026-10-15
+
+- **Verbessert:** Das Overlay auf der geöffneten Weltkarte zieht beim Verschieben und Zoomen spürbar
+  direkter nach: frischere Bilder, ein kürzerer Weg bei HDR (im Mittel etwa 12 ms weniger
+  Verzögerung, live gemessen).
+- **Verbessert:** Das Diagnosepaket schlüsselt die Weltkarten-Verzögerung nach Aufnahme, Zeichnen und
+  Anzeige auf.
+
 ## 0.7.1 – 2026-10-14
 
 - **Neu:** Die Monstersuche im Map-Tab zeigt jedes Monster einmal, über alle Karten (DE/EN). Die Auswahl

@@ -113,6 +113,51 @@ internal static unsafe class HdrDisplay
         return bgr;
     }
 
+    /// <summary>
+    /// The existing HDR sampling and Area resize, fused for an exact quarter-size picture when both
+    /// dimensions divide by four. Each output averages the same four half-size sRGB bytes, with the same
+    /// integer rounding as OpenCV; HDR mapping and the sampled source pixels remain unchanged.
+    /// </summary>
+    internal static OpenCvSharp.Mat ToBgrScaled(nint data, uint rowPitch, int width, int height, byte[] lookup, double scale)
+    {
+        if (scale == 0.25 && width >= 4 && height >= 4 && width % 4 == 0 && height % 4 == 0 && lookup.Length == 65536)
+            return ToBgrQuarter(data, rowPitch, width, height, lookup);
+
+        var step = scale <= 0.5 ? 2 : 1; // pixels a later scaling would merge anyway
+        var converted = ToBgr(data, rowPitch, width, height, lookup, step);
+        var rest = scale * step;
+        if (Math.Abs(rest - 1) < 1e-6)
+            return converted;
+        using (converted)
+        {
+            var scaled = new OpenCvSharp.Mat();
+            OpenCvSharp.Cv2.Resize(converted, scaled, new OpenCvSharp.Size(), rest, rest, OpenCvSharp.InterpolationFlags.Area);
+            return scaled;
+        }
+    }
+
+    private static OpenCvSharp.Mat ToBgrQuarter(nint data, uint rowPitch, int width, int height, byte[] lookup)
+    {
+        int rows = height / 4, cols = width / 4;
+        var bgr = new OpenCvSharp.Mat(rows, cols, OpenCvSharp.MatType.CV_8UC3);
+        for (var y = 0; y < rows; y++)
+        {
+            var first = (ushort*)((byte*)data + (nuint)(y * 4) * rowPitch);
+            var second = (ushort*)((byte*)data + (nuint)(y * 4 + 2) * rowPitch);
+            var target = (byte*)bgr.Ptr(y);
+            for (var x = 0; x < cols; x++)
+            {
+                // ToBgr(step: 2) then Resize(.5, Area) samples (0,0), (2,0), (0,2), (2,2).
+                var a = first + x * 16;
+                var b = second + x * 16;
+                target[x * 3] = (byte)((lookup[a[2]] + lookup[a[10]] + lookup[b[2]] + lookup[b[10]] + 2) >> 2);
+                target[x * 3 + 1] = (byte)((lookup[a[1]] + lookup[a[9]] + lookup[b[1]] + lookup[b[9]] + 2) >> 2);
+                target[x * 3 + 2] = (byte)((lookup[a[0]] + lookup[a[8]] + lookup[b[0]] + lookup[b[8]] + 2) >> 2);
+            }
+        }
+        return bgr;
+    }
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct MonitorInfoEx
     {
