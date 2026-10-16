@@ -122,7 +122,7 @@ public sealed class DiagnosticsService : IDisposable
             $"Netzwerkfortschritt: {_network?.ProgressStatus ?? "nicht gestartet"}\n" +
             $"Pet-Baseline: {_network?.PetBaselineAt:O}\nQuest-Baseline: {_network?.QuestBaselineAt:O}\nTeleport-Baseline: {_network?.TeleportBaselineAt:O}\n" +
             $"Erweiterte Pruefung aktiv: {Volatile.Read(ref _checking) != 0}\n" +
-            FormatNetworkProgressDiagnostics(networkDiagnostics);
+            FormatNetworkProgressDiagnostics(networkDiagnostics) + Soulcrest.App.Overlay.MerchantOverlayForm.Health.Report();
     }
 
     /// <summary>Formats one atomic counter snapshot; arbitrary strings cannot enter this diagnostic block.</summary>

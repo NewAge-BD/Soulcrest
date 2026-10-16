@@ -37,12 +37,19 @@ public sealed class MerchantService : IDisposable
     private readonly ProgressService _progress;
     private readonly Func<int, int?> _petLookup;
     private MerchantSnapshot? _snapshot;
+    private DateTimeOffset _snapshotObservedAt;
     private PendingStatus? _pending;
     private long _minimumGeneration;
     private long _latestGeneration = -1;
     private bool _disposed;
 
-    private sealed record PendingStatus(byte GroupKey, string Stream, long Generation, int? ServerId, DateTimeOffset At);
+    private sealed record PendingStatus(byte GroupKey, string Stream, long Generation, int? ServerId,
+        DateTimeOffset At, MerchantSnapshot? ReusableSnapshot)
+    {
+        internal bool Matches(MerchantNetworkMessage message, byte groupKey) => GroupKey == groupKey &&
+            string.Equals(Stream, message.Stream, StringComparison.Ordinal) &&
+            Generation == message.Generation && ServerId == message.ServerId;
+    }
 
     public MerchantService(INetworkMerchantSource source, ProgressService progress)
         : this(source, progress, MerchantPetItems.Find) { }
@@ -89,7 +96,10 @@ public sealed class MerchantService : IDisposable
         lock (_gate)
         {
             if (_disposed || message.Generation < _minimumGeneration) return;
+            var previous = _snapshot;
+            var previousObservedAt = _snapshotObservedAt;
             _snapshot = null;
+            _snapshotObservedAt = default;
             if (string.IsNullOrWhiteSpace(message.Stream) || message.Generation < 0 || message.ServerId is <= 0)
             {
                 // A malformed shop envelope cannot discard an independent pending status.
@@ -100,22 +110,46 @@ public sealed class MerchantService : IDisposable
                 {
                     _latestGeneration = Math.Max(_latestGeneration, message.Generation);
                     _minimumGeneration = Math.Max(_minimumGeneration, message.Generation);
-                    _pending = new(group, message.Stream, message.Generation, message.ServerId, message.At);
+                    // A status still hides the old page immediately. Retain its identity only
+                    // inside this exact pending handshake, never as authority for a solo list.
+                    var reusable = previous is not null && MatchesSource(previous, message, group) &&
+                        message.At >= previousObservedAt ? previous :
+                        _pending is { ReusableSnapshot: { } saved } pending && pending.Matches(message, group) &&
+                        message.At >= pending.At ? saved : null;
+                    _pending = new(group, message.Stream, message.Generation, message.ServerId, message.At, reusable);
                 }
             }
-            else if (bytes is not null && MerchantShopMessage.TryParse(bytes) is { } parsed &&
-                _pending is { } pending && pending.GroupKey == parsed.GroupKey &&
-                string.Equals(pending.Stream, message.Stream, StringComparison.Ordinal) &&
-                pending.Generation == message.Generation && pending.ServerId == message.ServerId &&
-                message.At - pending.At >= TimeSpan.Zero && message.At - pending.At <= HandshakeWindow)
+            else if (bytes is not null && MerchantShopMessage.TryParse(bytes) is { } parsed)
             {
-                _latestGeneration = Math.Max(_latestGeneration, message.Generation);
-                _snapshot = new(parsed.GroupKey, message.Generation, message.Stream, message.ServerId, message.At, parsed.Offers);
-                _pending = null;
+                // A fully validated repetition of the current page is a no-op. It cannot establish
+                // a page, recover an invalidated snapshot or cross any source/context boundary.
+                if (previous is not null && MatchesSource(previous, message, parsed.GroupKey) &&
+                    message.At >= previousObservedAt && SameOffers(previous.Offers, parsed.Offers))
+                {
+                    _snapshot = previous;
+                    _snapshotObservedAt = message.At;
+                    return;
+                }
+                if (_pending is { } pending && pending.Matches(message, parsed.GroupKey) &&
+                    message.At - pending.At >= TimeSpan.Zero && message.At - pending.At <= HandshakeWindow)
+                {
+                    _latestGeneration = Math.Max(_latestGeneration, message.Generation);
+                    _snapshot = pending.ReusableSnapshot is { } reusable && SameOffers(reusable.Offers, parsed.Offers)
+                        ? reusable : new(parsed.GroupKey, message.Generation, message.Stream, message.ServerId, message.At, parsed.Offers);
+                    _snapshotObservedAt = message.At;
+                    _pending = null;
+                }
             }
         }
         SafeEvent.Raise(Changed, "Händler-Angebote");
     }
+
+    private static bool MatchesSource(MerchantSnapshot snapshot, MerchantNetworkMessage message, byte groupKey) =>
+        snapshot.GroupKey == groupKey && snapshot.SourceGeneration == message.Generation &&
+        string.Equals(snapshot.Stream, message.Stream, StringComparison.Ordinal) && snapshot.ServerId == message.ServerId;
+
+    private static bool SameOffers(IReadOnlyList<MerchantOffer> first, IReadOnlyList<MerchantOffer> second) =>
+        first.OrderBy(offer => offer.GoodsId).SequenceEqual(second.OrderBy(offer => offer.GoodsId));
 
     private void Reset()
     {
@@ -123,6 +157,7 @@ public sealed class MerchantService : IDisposable
         {
             if (_disposed) return;
             _snapshot = null;
+            _snapshotObservedAt = default;
             _pending = null;
             var floor = Math.Max(_minimumGeneration, _latestGeneration);
             _minimumGeneration = floor == long.MaxValue ? long.MaxValue : floor + 1;
@@ -143,6 +178,7 @@ public sealed class MerchantService : IDisposable
             if (_disposed) return;
             _disposed = true;
             _snapshot = null;
+            _snapshotObservedAt = default;
             _pending = null;
         }
         _source.MerchantMessageReceived -= OnMessage;

@@ -195,3 +195,65 @@ in dieser Reihenfolge. „Special“ bezeichnet Pets ohne Fundort auf diesen Kar
 aktuellen Quellenabgleich, unabhängig von Pet-Gattung und Händler-Tab. Fehlende Zuordnung bleibt
 `?`. Die Offline-Tabelle verknüpft Kartenmarker und explizite Pet-NPC-Orte; so werden auch Pets
 ohne platzierten Kartenmarker korrekt eingeordnet (Elite Klaw und Elite Guardite: Verteron).
+
+## Händlerstabilität und Diagnose (2026-10-16)
+
+Nach zwei bestätigenden Bildern wird die erste verifizierte Ankergeometrie einschließlich
+Skala festgehalten. Kleine Messschwankungen verschieben das Fenster und die Preis-Aussparungen
+nicht mehr. Die vorherigen Anker sind im Locator nur eine Hypothese: acht aktuelle unabhängige
+Siegel und alle zehn Preise/Kartenränder müssen weiterhin die bestehenden Rohkantenprüfungen
+bestehen. Echte Layout-, Fenster- und Quellenwechsel verlangen erneut zwei verschiedene Bilder.
+Eine zur Fenstergröße unpassende Capturefläche wird verworfen; ein Pixel Rundungsdifferenz des
+HDR-Verkleinerungspfads bleibt zulässig. Keine zweite DPI-Skalierung und kein Capture-Fallback.
+
+Ein fehlendes oder kurz GPU-bedingt blockiertes Bild darf eine bereits bestätigte Darstellung
+nur innerhalb ihrer ursprünglichen Einsekunden-Frischefrist erhalten. Dabei wird kein
+Zeitstempel erneuert. Ein frisches Bild ohne gültiges Shoplayout, ein anderer Shopkontext,
+Vordergrundverlust und Fensterbewegung blenden weiterhin sofort aus. Kaufdialog-Rückkehr
+bleibt ohne neue Netzwerkliste möglich, sobald zwei gültige neue Bilder vorliegen.
+
+Eine vollständig geprüfte identische Angebotswiederholung derselben Quelle ist unverändert,
+auch bei anderer Paket-Reihenfolge (Slots bleiben nach GoodsId sortiert). Sie kann keine Seite
+erstmalig bestätigen oder nach Reset/Malformed wiederbeleben. Ein Status blendet weiterhin
+sofort aus; ausschließlich sein vollständiges passendes Zweierpaar darf die Referenz einer
+identischen vorherigen Seite wiederverwenden. Generation, Server-/Streamkontext und die
+Zwei-Sekunden-Grenze bleiben strikt, globale Pet-Zählung und Quellenbestätigung unverändert.
+
+Der Diagnosebericht enthält nun anonymisierte Händlergründe (z. B. keine Angebote, Layout
+nicht bestätigt, Capture-Aussetzer, altes Bild, Darstellungsfehler), Zähler und höchstens 24
+Zustandswechsel mit UTC-Zeit. Keine Angebote, Paketdaten oder Identitäten werden protokolliert.
+Ein fehlgeschlagener nativer Fenstertransfer wird als Fehler behandelt, nicht als sichtbare
+Darstellung verbucht.
+
+## Pet-Aufstiegsanimation (2026-10-16)
+
+Nur das kompakte Pet-Fortschrittsoverlay animiert bestätigte Live-Aufstiege für 30 Sekunden.
+Stufe 1 und 2 werden direkt in der passenden Fokuszeile hervorgehoben; andernfalls in Recent
+Loot („Letzte Beute“). Ein Goldakzent, Lichtlauf, Porträtring und „Stufe … erreicht“ gehören
+zur vorhandenen Zeile. Es erscheint keine zusätzliche normale Erfolgskarte. Hat die Planung
+bereits das nächste Fokusziel gewählt, bleibt der Hinweis beim aufgestiegenen Pet in Recent
+Loot. Ohne aktuellen Drop wird dort vorübergehend eine reine Anzeigezeile ohne +Menge ergänzt;
+beim Ablauf verschwindet sie wieder. Ein aktiver Aufstieg wird vor der Fünfergrenze einsortiert,
+damit echte Dropmengen auch für ein sonst sechstes Pet erhalten bleiben.
+
+MAX erhält weiterhin eine eigene grüne Erfolgskarte mit Porträt und „Pet vervollständigt!“.
+Pets mit Maximalstufe erscheinen unabhängig von diesem Hinweis nicht mehr in Recent Loot.
+Der Filter greift vor der Fünfergrenze, andere Pets rücken nach. Fokuszeilen bleiben davon
+unabhängig. Zeilen werden über kanonische Pet-IDs zugeordnet, nie über sichtbare Namen.
+Lichtlauf und Ringimpuls markieren den Beginn, anschließend bleibt die Hervorhebung ruhig
+bis zum Ausblenden. Beschriftungen sind DE/EN, die vorhandene Overlay-Skalierung bleibt gültig.
+
+ProgressService veröffentlicht ein rein flüchtiges Ereignis ausschließlich für akzeptierte
+explizite Erwerbs-/Upgrade-Meldungen. Souls allein, Verbrauch, Login-Snapshots und manuelle
+Korrekturen lösen es nicht aus. Geladene beobachtete Stufen und Baselines setzen eine stille
+monotone Untergrenze; wiederholte Bestätigungen derselben Stufe, beide Bestätigungspfade und
+Quellenwechsel spielen den Erfolg nicht erneut ab. Manuelle Overrides bleiben geschützt.
+Das Ereignis wird außerhalb des Fortschrittslocks vor Changed veröffentlicht, ohne neue
+Loot-Ereignisse, zusätzliche Persistenz oder Änderungen an Zählung/Quellenprüfung.
+
+Die Animation verwendet monotone Stopwatch-Zeit, eine aktive Meldung und höchstens acht
+wartende Pets. Höhere Stufen desselben Pets werden zusammengefasst; eine volle Warteschlange
+verwirft die älteste wartende Meldung. Ein 33-ms-Zeichentimer läuft nur während des Hinweises,
+der bisherige Datenrefresh bleibt bei 250 ms. Ausblenden, Unterdrückung, Abschalten und Dispose
+leeren den flüchtigen Zustand. Es gibt keinen späteren Nachholalarm und keine Fokusaktivierung.
+Die bestehende Klicksperre, Aufnahme-Sichtbarkeit und Capturelogik bleiben erhalten.

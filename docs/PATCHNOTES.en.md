@@ -2,6 +2,13 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.7.3 – 2026-10-16
+
+- **New:** Pet level-ups are celebrated in the progress overlay: levels 1 and 2 light up for 30 seconds
+  right in the focus or "Recent loot" row, MAX gets its own green success card. Pets at MAX no longer
+  appear under "Recent loot".
+- **Fixed:** The merchant overlay flickered, dropped out after a while or jumped by one pixel.
+
 ## 0.7.2 – 2026-10-15
 
 - **Improved:** The overlay on the open world map follows panning and zooming noticeably more directly:

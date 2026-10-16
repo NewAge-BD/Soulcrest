@@ -47,6 +47,7 @@ public sealed partial class ProgressService
         foreach (var entry in _profile.Pets.Values)
             if (entry.Freshness == ProgressFreshness.Fresh) entry.Freshness = ProgressFreshness.Stale;
         foreach (var raw in _profile.NetworkPets.Values) raw.HasBaseline = false;
+        InitializePetLevelUpFloors();
         RepairLearnedNames();
         Catalog = BuildCatalog();
         Maps = LoadMaps(MapDataDirectory);
@@ -642,6 +643,7 @@ public sealed partial class ProgressService
             foreach (var number in numbers)
             {
                 var level = snapshot.Levels.GetValueOrDefault(number);
+                RememberPetLevelFloor(number, level);
                 var available = snapshot.AvailableSouls.GetValueOrDefault(number);
                 var total = Thresholds.TotalForLevel(level) + available;
                 _profile.NetworkPets[number] = new NetworkPetProgress { Level = level, AvailableSouls = available,
@@ -668,18 +670,22 @@ public sealed partial class ProgressService
     private bool ApplyPetAcquisition(PetAcquisition acquisition, PetProgressContext context, NetworkProgressContext? legacy)
     {
         if (acquisition.PetNumber <= 0 || acquisition.Level is < 0 or > 3) return false;
+        PetLevelUp? levelUp;
         lock (_gate)
         {
             if (!AcceptPetContext(context, legacy)) return false;
             var raw = NetworkEntry(acquisition.PetNumber);
             if (raw.LevelObserved && acquisition.Level < raw.Level) return false;
+            var previousLevel = raw.LevelObserved ? raw.Level : (int?)null;
             raw.Level = acquisition.Level;
             raw.LevelObserved = true;
             raw.EarnedTotal = Math.Max(raw.EarnedTotal, Thresholds.TotalForLevel(raw.Level));
             WriteNetworkTotal(acquisition.PetNumber, raw, context);
+            levelUp = CapturePetLevelUp(acquisition.PetNumber, acquisition.Level, previousLevel);
             _networkSequence = context.Sequence;
             PersistNetwork();
         }
+        PublishPetLevelUp(levelUp);
         SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
         return true;
     }
@@ -688,18 +694,22 @@ public sealed partial class ProgressService
     private bool ApplyPetUpgrade(PetUpgradeResult upgrade, PetProgressContext context, NetworkProgressContext? legacy)
     {
         if (upgrade.Result != 0 || upgrade.PetNumber <= 0 || upgrade.Level is < 1 or > 3) return false;
+        PetLevelUp? levelUp;
         lock (_gate)
         {
             if (!AcceptPetContext(context, legacy)) return false;
             var raw = NetworkEntry(upgrade.PetNumber);
             if (raw.LevelObserved && upgrade.Level < raw.Level) return false;
+            var previousLevel = raw.LevelObserved ? raw.Level : (int?)null;
             raw.Level = upgrade.Level;
             raw.LevelObserved = true;
             raw.EarnedTotal = Math.Max(raw.EarnedTotal, Thresholds.TotalForLevel(raw.Level));
             WriteNetworkTotal(upgrade.PetNumber, raw, context);
+            levelUp = CapturePetLevelUp(upgrade.PetNumber, upgrade.Level, previousLevel);
             _networkSequence = context.Sequence;
             PersistNetwork();
         }
+        PublishPetLevelUp(levelUp);
         SafeEvent.Raise(Changed, "Pet-Netzwerkstand");
         return true;
     }

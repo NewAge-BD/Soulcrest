@@ -11,7 +11,7 @@ namespace Soulcrest.App.Overlay;
 /// tracker status. Click-through unless Alt is held, excluded from map capture so the tracker never
 /// reads it (display affinity, as Grindcrest's NativeOverlayForm).
 /// </summary>
-public sealed class PetOverlayForm : Form
+public sealed partial class PetOverlayForm : Form
 {
     // A registered soul stays visible for a minute, with the pet's portrait (user request 2026-10-03).
     private static readonly TimeSpan ToastDuration = TimeSpan.FromMinutes(1);
@@ -21,7 +21,7 @@ public sealed class PetOverlayForm : Form
     private static readonly Color LineColor = Color.FromArgb(44, 59, 73);
     private static readonly Color AccentColor = Color.FromArgb(94, 234, 212);
     internal sealed record LootRow(string Name, string Genus, int Level, bool IsMax, int Current, int Needed,
-        Image? Icon = null, int Quantity = 0, int Alpha = 255, string? SoulName = null);
+        Image? Icon = null, int Quantity = 0, int Alpha = 255, string? SoulName = null, string? PetId = null, LevelUpRow? LevelUp = null);
     private IReadOnlyList<LootRow> _focusRows = [];
     private IReadOnlyList<LootRow> _lootRows = [];
     private readonly Dictionary<string, Image?> _icons = [];
@@ -71,6 +71,8 @@ public sealed class PetOverlayForm : Form
         _lockButton = new OverlayLockButton(this);
         _lockButton.Toggled += ToggleManualInteraction;
         _lockButton.SetVisibleInRecordings(_settings.Current.OverlaysInRecordings);
+        _progress.PetLeveled += OnPetLeveled;
+        _animationTimer.Tick += AnimateLevelUp;
         _timer.Tick += (_, _) => RefreshLayout();
         _timer.Start();
         RefreshLayout();
@@ -95,6 +97,7 @@ public sealed class PetOverlayForm : Form
             FinishDrag();
             if (Capture) Capture = false;
             SetInteractionEnabled(false);
+            ClearLevelUp();
             Hide();
             return;
         }
@@ -158,7 +161,12 @@ public sealed class PetOverlayForm : Form
     protected override void OnVisibleChanged(EventArgs e)
     {
         base.OnVisibleChanged(e);
-        if (Visible) return;
+        if (Visible)
+        {
+            _levelUps.SetEnabled(_settings.Current.OverlayEnabled && !Suppressed);
+            return;
+        }
+        ClearLevelUp();
         _manualInteraction = false;
         _lockButton?.SetLocked(true);
         SetInteractionEnabled(false);
@@ -329,22 +337,27 @@ public sealed class PetOverlayForm : Form
     {
         ApplySuppression();
         if (_suppressed) return;
+        _levelUps.SetEnabled(_settings.Current.OverlayEnabled);
         if (!SmokeTest.Enabled && IsHandleCreated)
         {
             var wanted = _settings.Current.OverlayEnabled;
             if (wanted && !Visible) Show();
             else if (!wanted && Visible) Hide();
         }
+        var levelUp = CurrentLevelUp();
         var focus = SelectFocusTarget(_settings.Current, _targets.Targets, _targets.Progression);
-        var loot = LootToasts(_progress.Recent(), _progress.Catalog, focus?.PetId, DateTimeOffset.Now);
-        _focusRows = focus?.PetId is { } petId ? [BuildRow(petId, loot.FocusQuantity, target: focus)] : [];
-        _lootRows = loot.Drops.Select(toast =>
+        var loot = LootToasts(_progress.Recent(), _progress.Catalog, focus?.PetId, DateTimeOffset.Now,
+            includePet: id => !_progress.IsMax(id), priorityPetId: levelUp is { IsMax: false } ? levelUp.PetId : null);
+        _baseFocusRows = focus?.PetId is { } petId ? [BuildRow(petId, loot.FocusQuantity, target: focus)] : [];
+        _baseLootRows = loot.Drops.Select(toast =>
         {
             var left = ToastDuration - (DateTimeOffset.Now - toast.Last);
             var alpha = (int)Math.Clamp(left.TotalSeconds / 10 * 255, 60, 255);
             return BuildRow(toast.PetId, toast.Quantity, alpha);
         }).ToList();
-        SetLogicalHeight(LootLogicalHeight(_focusRows.Count, _lootRows.Count));
+        _baseLevelUpFallback = levelUp is { IsMax: false, PetId: { } leveledId }
+            && !_baseFocusRows.Concat(_baseLootRows).Any(row => row.PetId == leveledId) ? BuildRow(leveledId) : null;
+        ApplyLevelUpFrame(levelUp);
         Invalidate();
     }
 
@@ -354,7 +367,7 @@ public sealed class PetOverlayForm : Form
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
         g.ScaleTransform((float)_scale, (float)_scale); // laid out at 360 px, everything scales along
-        PaintLootPanel(g, _focusRows, _lootRows, _tracker.Running, _locked);
+        PaintLootPanel(g, _focusRows, _lootRows, _tracker.Running, _locked, _levelUpRow);
     }
 
     /// <summary>
@@ -370,16 +383,17 @@ public sealed class PetOverlayForm : Form
             ?? (settings.ProgressionEnabled && !string.IsNullOrWhiteSpace(progression?.PetId) ? progression : null);
     }
 
-    internal static int LootLogicalHeight(int focus, int drops) => focus == 0 && drops == 0 ? 54
-        : 54 + (focus == 0 ? 0 : 24 + focus * RowHeight + 8) + (drops == 0 ? 0 : 24 + drops * RowHeight + 8) + 28;
+    internal static int LootLogicalHeight(int focus, int drops, bool celebrating = false) => focus == 0 && drops == 0 && !celebrating ? 54
+        : 54 + (celebrating ? LevelUpHeight : 0) + (focus == 0 ? 0 : 24 + focus * RowHeight + 8) + (drops == 0 ? 0 : 24 + drops * RowHeight + 8) + 28;
 
     internal static string HotkeyHint(bool locked) => UiText.T(locked
         ? "Schloss klicken zum Entsperren" : "Schloss: sperren · Kopf ziehen");
 
     /// <summary>One layout for the live panel and offline previews; rows are a consistent progress snapshot.</summary>
-    internal static void PaintLootPanel(Graphics g, IReadOnlyList<LootRow> focus, IReadOnlyList<LootRow> drops, bool running, bool locked)
+    internal static void PaintLootPanel(Graphics g, IReadOnlyList<LootRow> focus, IReadOnlyList<LootRow> drops, bool running, bool locked, LevelUpRow? levelUp = null)
     {
-        var height = LootLogicalHeight(focus.Count, drops.Count);
+        var banner = levelUp is { IsMax: true } ? levelUp : null;
+        var height = LootLogicalHeight(focus.Count, drops.Count, banner is not null);
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         using var background = new SolidBrush(PanelColor);
@@ -403,7 +417,7 @@ public sealed class PetOverlayForm : Form
             g.FillPath(statePlate, statePath);
         g.FillEllipse(running ? accent : dim, stateRect.X + 9, stateRect.Y + 9, 5, 5);
         g.DrawString(state, small, running ? accent : dim, stateRect.X + 19, stateRect.Y + 5);
-        if (focus.Count == 0 && drops.Count == 0)
+        if (focus.Count == 0 && drops.Count == 0 && banner is null)
         {
             if (!locked) DrawCornerGrips(g, BaseWidth, height);
             return;
@@ -411,6 +425,11 @@ public sealed class PetOverlayForm : Form
         g.DrawLine(line, 14, 53, BaseWidth - 14, 53);
 
         var y = 54;
+        if (banner is not null)
+        {
+            DrawLevelUp(g, banner, y);
+            y += LevelUpHeight;
+        }
         if (focus.Count > 0)
         {
             DrawSection(UiText.T("Fokus"), null);
@@ -469,7 +488,7 @@ public sealed class PetOverlayForm : Form
         return new LootRow(RowName(_settings.Current, monster ?? MonsterName(petId, target?.MapId), pet, target?.Name ?? petId), pet?.Genus ?? "",
             _progress.Level(petId), _progress.IsMax(petId), _progress.SoulsInLevel(petId),
             _progress.NeededForNextLevel(petId), PetIcon(petId), quantity, alpha,
-            pet?.DisplayName(_settings.Current.LootNameLanguage));
+            pet?.DisplayName(_settings.Current.LootNameLanguage), pet?.Id ?? petId);
     }
 
     private static void DrawPetRow(Graphics g, LootRow row, int y)
@@ -481,6 +500,8 @@ public sealed class PetOverlayForm : Form
         g.FillPath(card, cardShape);
         using var edge = new Pen(A(row.Quantity > 0 ? Color.FromArgb(41, 89, 88) : LineColor));
         g.DrawPath(edge, cardShape);
+        if (row.LevelUp is { IsMax: false } celebration)
+            DrawInlineLevelUp(g, celebration, y, cardShape);
 
         var icon = new Rectangle(18, y + 14, 36, 36);
         using (var back = new SolidBrush(A(PanelColor))) g.FillEllipse(back, icon);
@@ -531,8 +552,10 @@ public sealed class PetOverlayForm : Form
                 g.DrawString(UiText.F("Soul: {0}", row.SoulName), smallFont, dim,
                     new RectangleF(x, y + 24, right - x, 15), format);
         }
-        var levelText = row.IsMax ? "MAX" : row.Level == 0 ? UiText.T("gesperrt") : UiText.F("Stufe {0}", row.Level);
-        g.DrawString(levelText, smallFont, row.IsMax ? accent : dim, x, y + 41);
+        var levelText = row.LevelUp is { IsMax: false } up ? "↑ " + UiText.F("Stufe {0} erreicht", up.Level)
+            : row.IsMax ? "MAX" : row.Level == 0 ? UiText.T("gesperrt") : UiText.F("Stufe {0}", row.Level);
+        using var levelUpBrush = new SolidBrush(A(Color.FromArgb(250, 215, 130)));
+        g.DrawString(levelText, smallFont, row.LevelUp is { IsMax: false } ? levelUpBrush : row.IsMax ? accent : dim, x, y + 41);
         if (!row.IsMax)
         {
             var count = $"{row.Current} / {row.Needed}";
@@ -591,16 +614,19 @@ public sealed class PetOverlayForm : Form
 
     /// <summary>One presentation per pet; focus pickups stay on the focus row (user request 2026-10-11).</summary>
     internal static (int FocusQuantity, IReadOnlyList<Toast> Drops) LootToasts(
-        IEnumerable<LoggedSoul> recent, PetCatalog catalog, string? focusPetId, DateTimeOffset now)
+        IEnumerable<LoggedSoul> recent, PetCatalog catalog, string? focusPetId, DateTimeOffset now,
+        Func<string, bool>? includePet = null, string? priorityPetId = null)
     {
         string CanonicalId(string id) => catalog.Find(id)?.Id ?? id;
         var focusId = focusPetId is null ? null : CanonicalId(focusPetId);
+        var priorityId = priorityPetId is null ? null : CanonicalId(priorityPetId);
         var toasts = recent.Where(r => now - r.At < ToastDuration)
             .GroupBy(r => CanonicalId(r.PetId))
             .Select(g => new Toast(g.Key, g.Sum(r => r.Quantity), g.Max(r => r.At)))
             .OrderByDescending(t => t.Last).ToArray();
         return (toasts.FirstOrDefault(t => t.PetId == focusId)?.Quantity ?? 0,
-            toasts.Where(t => t.PetId != focusId).Take(5).ToArray());
+            toasts.Where(t => t.PetId != focusId && (includePet?.Invoke(t.PetId) ?? true))
+                .OrderByDescending(t => t.PetId == priorityId).ThenByDescending(t => t.Last).Take(5).ToArray());
     }
 
     /// <summary>Portrait of a pet: map-data icon, else the portrait learned from the pet window.</summary>
@@ -638,6 +664,11 @@ public sealed class PetOverlayForm : Form
     {
         if (disposing)
         {
+            _progress.PetLeveled -= OnPetLeveled;
+            _levelUps.Close();
+            ClearLevelUp(updateSize: false);
+            _animationTimer.Tick -= AnimateLevelUp;
+            _animationTimer.Dispose();
             _lockButton.Toggled -= ToggleManualInteraction;
             _lockButton.Dispose();
             _timer.Stop();

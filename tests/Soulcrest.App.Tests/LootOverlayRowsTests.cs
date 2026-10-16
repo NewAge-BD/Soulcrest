@@ -75,6 +75,57 @@ public sealed class LootOverlayRowsTests
         Assert.Equal(new PetOverlayForm.Toast("modified-karnif", 5, Now.AddSeconds(-5)), result.Drops[0]);
     }
 
+    [Fact]
+    public void ExcludedPetsAreFilteredBeforeTheFiveDropLimitSoOtherPetsMoveUp()
+    {
+        var recent = Enumerable.Range(1, 7).Select(index => Drop("synthetic-pet-" + index, index, index)).ToArray();
+        var result = PetOverlayForm.LootToasts(recent, Catalog, null, Now,
+            includePet: id => id is not ("synthetic-pet-1" or "synthetic-pet-3"));
+        Assert.Equal(new[] { "synthetic-pet-2", "synthetic-pet-4", "synthetic-pet-5", "synthetic-pet-6", "synthetic-pet-7" },
+            result.Drops.Select(drop => drop.PetId));
+        Assert.Equal(new[] { 2, 4, 5, 6, 7 }, result.Drops.Select(drop => drop.Quantity));
+        Assert.Equal(28, recent.Sum(drop => drop.Quantity));
+    }
+
+    [Fact]
+    public void AnOlderCanonicalPriorityPetMovesBeforeTheLimitWithoutChangingItsGroupedQuantityOrTimestamp()
+    {
+        var recent = Enumerable.Range(1, 6).Select(index => Drop("synthetic-pet-" + index, 1, index))
+            .Concat([Drop("modified-karnif", 2, 40), Drop("kalnif-02", 3, 45)]).ToArray();
+        var result = PetOverlayForm.LootToasts(recent, Catalog, null, Now, priorityPetId: "kalnif-02");
+        Assert.Equal(5, result.Drops.Count);
+        Assert.Equal(new PetOverlayForm.Toast("modified-karnif", 5, Now.AddSeconds(-40)), result.Drops[0]);
+        Assert.Equal(Enumerable.Range(1, 4).Select(index => "synthetic-pet-" + index), result.Drops.Skip(1).Select(drop => drop.PetId));
+        Assert.Equal(11, recent.Sum(drop => drop.Quantity));
+    }
+
+    [Theory]
+    [InlineData("filtered")]
+    [InlineData("expired")]
+    [InlineData("focus")]
+    public void PriorityDoesNotBypassTheFilterExpiryOrFocusExclusion(string condition)
+    {
+        var recent = Enumerable.Range(1, 6).Select(index => Drop("synthetic-pet-" + index, 1, index))
+            .Prepend(Drop("kalnif-02", 2, condition == "expired" ? 60 : 20)).ToArray();
+        var result = PetOverlayForm.LootToasts(recent, Catalog, condition == "focus" ? "kalnif-02" : null, Now,
+            includePet: id => condition != "filtered" || id != "modified-karnif", priorityPetId: "modified-karnif");
+        Assert.Equal(Enumerable.Range(1, 5).Select(index => "synthetic-pet-" + index), result.Drops.Select(drop => drop.PetId));
+        Assert.Equal(condition == "focus" ? 2 : 0, result.FocusQuantity);
+        Assert.Equal(8, recent.Sum(drop => drop.Quantity));
+    }
+
+    [Fact]
+    public void TheIncludePredicateReceivesCanonicalIdsAfterAliasGroupingAndNeverCreatesAMissingPriorityDrop()
+    {
+        var seen = new List<string>();
+        var result = PetOverlayForm.LootToasts([Drop("kalnif-02", 2, 10), Drop("modified-karnif", 3, 20),
+            Drop("other-pet", 1, 5)], Catalog, null, Now,
+            includePet: id => { seen.Add(id); return id != "modified-karnif"; }, priorityPetId: "missing-pet");
+        Assert.Contains("modified-karnif", seen);
+        Assert.DoesNotContain("kalnif-02", seen);
+        Assert.Equal(new PetOverlayForm.Toast("other-pet", 1, Now.AddSeconds(-5)), Assert.Single(result.Drops));
+    }
+
     private static LoggedSoul Drop(string petId, int quantity, int ageSeconds) =>
         new(Now.AddSeconds(-ageSeconds), petId, quantity, "network", "synthetic loot event");
 }

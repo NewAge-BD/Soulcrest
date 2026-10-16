@@ -26,6 +26,7 @@ public sealed class MerchantOverlayForm : Form
     private long _shownFrameAt;
     private IReadOnlyList<Badge> _shownBadges = [];
     private bool _inRecordings;
+    internal static MerchantOverlayHealth Health { get; } = new();
 
     internal sealed record Badge(Rectangle Bounds, string Counter, bool IsFresh, bool IsMax, string FarmRegions = "",
         Rectangle PriceBounds = default);
@@ -70,52 +71,85 @@ public sealed class MerchantOverlayForm : Form
         while (!token.IsCancellationRequested)
         {
             Picture? picture = null;
+            var retainPicture = false;
             try
             {
                 var snapshot = _merchant.Snapshot;
                 var bounds = MonitorCapture.ForegroundGameWindowBounds();
-                if (!_settings.Current.MerchantOverlayEnabled || snapshot is null || snapshot.Offers.Count != 10 ||
-                    bounds is null) stability.Reset();
+                if (!_settings.Current.MerchantOverlayEnabled || snapshot is null || snapshot.Offers.Count != 10 || bounds is null)
+                {
+                    stability.Reset();
+                    Health.Observe(!_settings.Current.MerchantOverlayEnabled ? "disabled" : snapshot is null ? "no-offers"
+                        : snapshot.Offers.Count != 10 ? "offer-count" : "not-foreground", 0);
+                }
                 else
                 {
                     // Read only the game's WGC surface. There is deliberately no screen/monitor fallback.
                     var scale = Math.Min(1.0, 1920.0 / bounds.Value.Width);
                     using var image = _capture.TryGrabGameWindowOnly(bounds.Value, scale);
                     var frameAt = GameCaptureService.GrabbedFrameAt;
-                    if (image is null || !GameCaptureService.GrabbedGameWindowOnly || !Fresh(frameAt)) stability.Reset();
+                    if (image is null)
+                    {
+                        // A transient busy/missing WGC read is not a new image proving the shop is gone.
+                        // Keep the previous picture only within its original one-second freshness limit.
+                        retainPicture = stability.RetainAfterMissingCapture(snapshot, bounds.Value, Fresh(stability.ConfirmedFrameAt));
+                        Health.Observe(retainPicture ? "capture-held" : "capture-missing", stability.ConfirmedFrameAt);
+                    }
+                    else if (!GameCaptureService.GrabbedGameWindowOnly || !Fresh(frameAt)
+                        || !MerchantLayoutStability.MatchesCaptureSize(bounds.Value.Size, scale, new Size(image.Width, image.Height)))
+                    {
+                        stability.Reset();
+                        Health.Observe(!GameCaptureService.GrabbedGameWindowOnly ? "not-window-capture" : !Fresh(frameAt)
+                            ? "frame-stale" : "frame-size-mismatch", frameAt);
+                    }
                     else
                     {
-                        var detected = MerchantCardLocator.Find(image);
-                        var anchors = detected.Select(a => a with
+                        var preferred = stability.StableAnchors.Select(anchor => anchor with
                         {
-                            PriceBounds = new OpenCvSharp.Rect((int)Math.Round(a.PriceBounds.X / scale),
-                                (int)Math.Round(a.PriceBounds.Y / scale), (int)Math.Round(a.PriceBounds.Width / scale),
-                                (int)Math.Round(a.PriceBounds.Height / scale)), Scale = a.Scale / scale
+                            PriceBounds = new OpenCvSharp.Rect((int)Math.Round(anchor.PriceBounds.X * scale),
+                                (int)Math.Round(anchor.PriceBounds.Y * scale), (int)Math.Round(anchor.PriceBounds.Width * scale),
+                                (int)Math.Round(anchor.PriceBounds.Height * scale)), Scale = anchor.Scale * scale
                         }).ToArray();
-                        if (stability.Update(snapshot, bounds.Value, frameAt, anchors) &&
-                            ReferenceEquals(snapshot, _merchant.Snapshot) &&
-                            MonitorCapture.ForegroundGameWindowBounds() == bounds)
+                        var detected = MerchantCardLocator.Find(image, preferred);
+                        var anchors = detected.Select(anchor => anchor with
+                        {
+                            PriceBounds = new OpenCvSharp.Rect((int)Math.Round(anchor.PriceBounds.X / scale),
+                                (int)Math.Round(anchor.PriceBounds.Y / scale), (int)Math.Round(anchor.PriceBounds.Width / scale),
+                                (int)Math.Round(anchor.PriceBounds.Height / scale)), Scale = anchor.Scale / scale
+                        }).ToArray();
+                        var ready = stability.Update(snapshot, bounds.Value, frameAt, anchors);
+                        Health.Observe(anchors.Length != 10 ? "layout-missing" : !ready ? "confirming-layout" : "layout-ready", frameAt);
+                        if (ready && ReferenceEquals(snapshot, _merchant.Snapshot)
+                            && MonitorCapture.ForegroundGameWindowBounds() == bounds)
                         {
                             var rows = _merchant.Rows;
                             if (ReferenceEquals(snapshot, _merchant.Snapshot))
                             {
-                                var badges = BuildBadges(bounds.Value.Size, anchors, rows);
-                                if (badges.Count > 0)
-                                {
-                                    picture = new(snapshot, bounds.Value, frameAt, badges);
-                                }
+                                var badges = BuildBadges(bounds.Value.Size, stability.StableAnchors, rows);
+                                if (badges.Count > 0) picture = new(snapshot, bounds.Value, frameAt, badges);
+                                else Health.Observe("no-pet-offers", frameAt);
                             }
                         }
                     }
                 }
             }
+            catch (Exception error) when (CaptureReadback.IsBusy(error))
+            {
+                var snapshot = _merchant.Snapshot;
+                var bounds = MonitorCapture.ForegroundGameWindowBounds();
+                retainPicture = _settings.Current.MerchantOverlayEnabled && snapshot is not null && bounds is not null
+                    && stability.RetainAfterMissingCapture(snapshot, bounds.Value, Fresh(stability.ConfirmedFrameAt));
+                if (!retainPicture) stability.Reset();
+                Health.Observe(retainPicture ? "capture-held" : "capture-missing", stability.ConfirmedFrameAt);
+            }
             catch (Exception error) when (error is InvalidOperationException or ExternalException or ArgumentException or
                 OpenCvSharp.OpenCVException or IOException)
             {
                 stability.Reset();
+                Health.Observe("capture-error", 0);
                 Trace.TraceWarning("Merchant overlay capture failed: {0}: {1}", error.GetType().Name, error.Message);
             }
-            Queue(picture);
+            if (!retainPicture) Queue(picture);
             try { await Task.Delay(200, token).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
         }
@@ -161,6 +195,7 @@ public sealed class MerchantOverlayForm : Form
                 try { if (!_closed && !IsDisposed) Present(Volatile.Read(ref _latestPicture)); }
                 catch (Exception error) when (error is ArgumentException or InvalidOperationException or ExternalException)
                 {
+                    Health.Present("presentation-error");
                     Hide();
                     _shownSnapshot = null;
                     _shownBadges = [];
@@ -179,6 +214,7 @@ public sealed class MerchantOverlayForm : Form
             !ReferenceEquals(_shownSnapshot, _merchant.Snapshot) ||
             MonitorCapture.ForegroundGameWindowBounds() != _shownBounds)
         {
+            Health.Present("hidden");
             Hide();
             _shownSnapshot = null;
             _shownBadges = [];
@@ -192,6 +228,7 @@ public sealed class MerchantOverlayForm : Form
             !ReferenceEquals(picture.Snapshot, _merchant.Snapshot) ||
             MonitorCapture.ForegroundGameWindowBounds() != picture.GameBounds)
         {
+            Health.Present("hidden");
             Hide();
             _shownSnapshot = null;
             _shownBadges = [];
@@ -225,7 +262,8 @@ public sealed class MerchantOverlayForm : Form
                 var target = new NativeMethods.NativePoint(picture.GameBounds.X + area.X, picture.GameBounds.Y + area.Y);
                 var blend = new NativeMethods.BlendFunction
                 { BlendOp = NativeMethods.AC_SRC_OVER, SourceConstantAlpha = 255, AlphaFormat = NativeMethods.AC_SRC_ALPHA };
-                NativeMethods.UpdateLayeredWindow(Handle, screen, ref target, ref size, memory, ref source, 0, ref blend, NativeMethods.ULW_ALPHA);
+                if (!NativeMethods.UpdateLayeredWindow(Handle, screen, ref target, ref size, memory, ref source, 0, ref blend, NativeMethods.ULW_ALPHA))
+                    throw new ExternalException($"Merchant surface update failed (Win32 {Marshal.GetLastWin32Error()}).");
             }
             finally
             {
@@ -235,6 +273,7 @@ public sealed class MerchantOverlayForm : Form
             }
         }
         finally { NativeMethods.DeleteObject(dib); }
+        Health.Present("shown");
         _shownSnapshot = picture.Snapshot;
         _shownBounds = picture.GameBounds;
         _shownBadges = picture.Badges;

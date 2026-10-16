@@ -200,6 +200,209 @@ public sealed class MerchantServiceTests
     }
 
     [Theory]
+    [InlineData(501)]
+    [InlineData(null)]
+    public void IdenticalSoloListsKeepTheConfirmedReferenceWithoutPublishingOrWritingProgress(int? server)
+    {
+        using var f = new Fixture();
+        f.Baseline();
+        f.Accept(List(Offers()), server: server);
+        var snapshot = Assert.IsType<MerchantSnapshot>(f.Merchant.Snapshot);
+        var progressBytes = File.ReadAllBytes(f.ProgressPath);
+        var changes = 0;
+        f.Merchant.Changed += () => changes++;
+        foreach (var milliseconds in new[] { 100, 200, 1500, 5000 })
+        {
+            f.Source.Send(List(Offers()), server: server, at: At.AddMilliseconds(milliseconds));
+            Assert.Same(snapshot, f.Merchant.Snapshot);
+        }
+        Assert.Equal(At.AddMilliseconds(100), snapshot.At);
+        Assert.Equal(0, changes);
+        Assert.Equal("3/25", f.FirstRow.Counter);
+        Assert.Equal(progressBytes, File.ReadAllBytes(f.ProgressPath));
+        Assert.Empty(f.Progress.Recent());
+        Assert.False(File.Exists(f.EventsPath));
+    }
+
+    [Fact]
+    public void AReorderedSoloListKeepsTheReferenceAndGoodsSortedSlotCounters()
+    {
+        using var f = new Fixture();
+        f.Baseline();
+        f.Accept(List(Offers()));
+        var snapshot = f.Merchant.Snapshot;
+        var rows = f.Merchant.Rows.ToArray();
+        f.Source.Send(List(Enumerable.Reverse(Offers()).ToArray()), at: At.AddMilliseconds(200));
+        Assert.Same(snapshot, f.Merchant.Snapshot);
+        Assert.Equal(rows, f.Merchant.Rows.ToArray());
+        Assert.Collection(f.Merchant.Rows,
+            row => { Assert.Equal(0, row.SlotIndex); Assert.Equal(FirstId, row.PetId); Assert.Equal("3/25", row.Counter); },
+            row => { Assert.Equal(1, row.SlotIndex); Assert.Equal(SecondId, row.PetId); Assert.Equal("4/75", row.Counter); });
+    }
+
+    [Fact]
+    public void AReorderedRepeatedPairKeepsTheReferenceAndGoodsSortedSlotCounters()
+    {
+        using var f = new Fixture();
+        f.Baseline();
+        f.Accept(List(Offers()));
+        var snapshot = f.Merchant.Snapshot;
+        var rows = f.Merchant.Rows.ToArray();
+        f.Source.Send(Status(), at: At.AddMilliseconds(200));
+        Assert.Null(f.Merchant.Snapshot);
+        f.Source.Send(List(Enumerable.Reverse(Offers()).ToArray()), at: At.AddMilliseconds(300));
+        Assert.Same(snapshot, f.Merchant.Snapshot);
+        Assert.Equal(rows, f.Merchant.Rows.ToArray());
+        Assert.Collection(f.Merchant.Rows,
+            row => { Assert.Equal(0, row.SlotIndex); Assert.Equal(FirstId, row.PetId); Assert.Equal("3/25", row.Counter); },
+            row => { Assert.Equal(1, row.SlotIndex); Assert.Equal(SecondId, row.PetId); Assert.Equal("4/75", row.Counter); });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReusedSnapshotsRejectSoloListsOlderThanTheirLastAcceptedObservation(bool paired)
+    {
+        using var f = new Fixture();
+        f.Accept(List(Offers()));
+        var snapshot = f.Merchant.Snapshot;
+        if (paired) f.Source.Send(Status(), at: At.AddMilliseconds(200));
+        f.Source.Send(List(Offers()), at: At.AddMilliseconds(300));
+        Assert.Same(snapshot, f.Merchant.Snapshot);
+        f.Source.Send(List(Offers()), at: At.AddMilliseconds(200));
+        Assert.Null(f.Merchant.Snapshot);
+        f.Source.Send(List(Offers()), at: At.AddMilliseconds(400));
+        Assert.Null(f.Merchant.Snapshot);
+    }
+
+    [Theory]
+    [InlineData("group")]
+    [InlineData("stream")]
+    [InlineData("generation")]
+    [InlineData("server")]
+    [InlineData("null-server")]
+    [InlineData("goods")]
+    [InlineData("item")]
+    [InlineData("quantity")]
+    [InlineData("original-price")]
+    [InlineData("current-price")]
+    [InlineData("old-time")]
+    [InlineData("malformed-list")]
+    [InlineData("malformed-status")]
+    [InlineData("invalid-stream")]
+    [InlineData("invalid-server")]
+    public void SoloListsCannotChangeOrRecoverTheConfirmedPage(string mismatch)
+    {
+        using var f = new Fixture();
+        f.Accept(List(Offers()));
+        var offers = Offers();
+        offers[0] = mismatch switch
+        {
+            "goods" => offers[0] with { GoodsId = 999 },
+            "item" => offers[0] with { ItemId = 999_999 },
+            "quantity" => offers[0] with { Quantity = 2 },
+            "original-price" => offers[0] with { OriginalPrice = 100_001 },
+            "current-price" => offers[0] with { CurrentPrice = 69_999 },
+            _ => offers[0]
+        };
+        var message = List(offers, mismatch == "group" ? (byte)88 : (byte)77);
+        if (mismatch == "malformed-list") message = message[..^1];
+        if (mismatch == "malformed-status") message = Status(result: 1);
+        f.Source.Send(message,
+            stream: mismatch == "stream" ? "another-synthetic-stream" : mismatch == "invalid-stream" ? " " : "synthetic-stream",
+            generation: mismatch == "generation" ? 2 : 1,
+            server: mismatch == "server" ? 502 : mismatch == "null-server" ? null : mismatch == "invalid-server" ? 0 : 501,
+            at: At.AddMilliseconds(mismatch == "old-time" ? 99 : 200));
+        Assert.Null(f.Merchant.Snapshot);
+        Assert.Empty(f.Merchant.Rows);
+        f.Source.Send(List(Offers()), at: At.AddMilliseconds(300));
+        Assert.Null(f.Merchant.Snapshot);
+    }
+
+    [Fact]
+    public void AnIdenticalRepeatedPairReusesOnlyTheReferenceHeldByItsMatchingPendingStatus()
+    {
+        using var f = new Fixture();
+        f.Accept(List(Offers()));
+        var snapshot = f.Merchant.Snapshot;
+        var changes = 0;
+        f.Merchant.Changed += () => changes++;
+        f.Source.Send(Status(), at: At.AddMilliseconds(200));
+        Assert.Null(f.Merchant.Snapshot);
+        Assert.Empty(f.Merchant.Rows);
+        f.Source.Send(Status(), at: At.AddMilliseconds(300));
+        Assert.Null(f.Merchant.Snapshot);
+        f.Source.Send(List(Offers()), at: At.AddMilliseconds(400));
+        Assert.Same(snapshot, f.Merchant.Snapshot);
+        Assert.Equal(3, changes);
+        f.Source.Send(List(Offers()), at: At.AddMilliseconds(500));
+        Assert.Same(snapshot, f.Merchant.Snapshot);
+        Assert.Equal(3, changes);
+    }
+
+    [Theory]
+    [InlineData("group")]
+    [InlineData("stream")]
+    [InlineData("generation")]
+    [InlineData("server")]
+    [InlineData("null-server")]
+    [InlineData("offers")]
+    public void AValidatedChangedPairCreatesANewReference(string change)
+    {
+        using var f = new Fixture();
+        f.Accept(List(Offers()));
+        var snapshot = f.Merchant.Snapshot;
+        var group = change == "group" ? (byte)88 : (byte)77;
+        var stream = change == "stream" ? "another-synthetic-stream" : "synthetic-stream";
+        var generation = change == "generation" ? 2 : 1;
+        int? server = change == "server" ? 502 : change == "null-server" ? null : 501;
+        var offers = Offers();
+        if (change == "offers") offers[0] = offers[0] with { Quantity = 2 };
+        f.Source.Send(Status(group), stream: stream, generation: generation, server: server, at: At.AddMilliseconds(200));
+        Assert.Null(f.Merchant.Snapshot);
+        f.Source.Send(List(offers, group), stream: stream, generation: generation, server: server, at: At.AddMilliseconds(300));
+        var changed = Assert.IsType<MerchantSnapshot>(f.Merchant.Snapshot);
+        Assert.NotSame(snapshot, changed);
+        Assert.Equal(group, changed.GroupKey);
+        Assert.Equal(stream, changed.Stream);
+        Assert.Equal(generation, changed.SourceGeneration);
+        Assert.Equal(server, changed.ServerId);
+        Assert.Equal(offers, changed.Offers);
+    }
+
+    [Theory]
+    [InlineData(-1L)]
+    [InlineData(20_000_001L)]
+    public void AReusableReferenceDoesNotRelaxTheHandshakeTimeWindow(long ticks)
+    {
+        using var f = new Fixture();
+        f.Accept(List(Offers()));
+        f.Source.Send(Status(), at: At.AddMilliseconds(200));
+        f.Source.Send(List(Offers()), at: At.AddMilliseconds(200).AddTicks(ticks));
+        Assert.Null(f.Merchant.Snapshot);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AResetDiscardsReusableReferencesAndSoloListsCannotReviveThem(bool pending)
+    {
+        using var f = new Fixture();
+        f.Accept(List(Offers()));
+        var snapshot = f.Merchant.Snapshot;
+        if (pending) f.Source.Send(Status(), at: At.AddMilliseconds(200));
+        f.Source.Reset();
+        f.Source.Send(List(Offers()), generation: 2, at: At.AddMilliseconds(300));
+        Assert.Null(f.Merchant.Snapshot);
+        f.Source.Send(List(Offers()), generation: 1, at: At.AddMilliseconds(400));
+        Assert.Null(f.Merchant.Snapshot);
+        f.Source.Send(Status(), generation: 2, at: At.AddMilliseconds(500));
+        f.Source.Send(List(Offers()), generation: 2, at: At.AddMilliseconds(600));
+        Assert.NotNull(f.Merchant.Snapshot);
+        Assert.NotSame(snapshot, f.Merchant.Snapshot);
+    }
+
+    [Theory]
     [InlineData("group")]
     [InlineData("stream")]
     [InlineData("generation")]

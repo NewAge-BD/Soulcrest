@@ -31,13 +31,14 @@ public static class MerchantCardLocator
     /// Accepts an 8-bit BGR, BGRA or grayscale game-window image. Returns exactly ten anchors, ordered
     /// left-to-right in the upper six and then lower four, only when every price and both card edges fit.
     /// Callers independently verify frame freshness, shop identity and offer-to-slot correspondence.
+    /// Optional previous anchors are a spatial hypothesis in this image's pixels, never current evidence.
     /// </summary>
-    public static IReadOnlyList<MerchantCardAnchor> Find(Mat image)
+    public static IReadOnlyList<MerchantCardAnchor> Find(Mat image, IReadOnlyList<MerchantCardAnchor>? previousAnchors = null)
     {
         ArgumentNullException.ThrowIfNull(image);
         if (image.Empty() || image.Depth() != MatType.CV_8U || image.Width < 160 || image.Height < 100 ||
             image.Channels() is not (1 or 3 or 4)) return [];
-        var anchors = FindAtScale(image);
+        var anchors = FindAtScale(image, previousAnchors);
         if (anchors.Count != 0 || image.Width < 960 || image.Width >= 1920) return anchors;
 
         // 720p reference checks: normalize only a failed small frame, never an accepted layout.
@@ -60,7 +61,8 @@ public static class MerchantCardLocator
         return restored;
     }
 
-    private static IReadOnlyList<MerchantCardAnchor> FindAtScale(Mat image)
+    private static IReadOnlyList<MerchantCardAnchor> FindAtScale(Mat image,
+        IReadOnlyList<MerchantCardAnchor>? previousAnchors = null)
     {
         using var gray = new Mat();
         if (image.Channels() == 1) image.CopyTo(gray);
@@ -79,14 +81,24 @@ public static class MerchantCardLocator
             Cv2.MorphologyEx(edges, closed, MorphTypes.Close, repairKernel);
             seals = FindSeals(closed);
         }
-        if (seals.Count is < MinimumSeals or > MaximumCandidates || FitLayout(seals, image.Size()) is not { } layout) return [];
+        if (seals.Count is < MinimumSeals or > MaximumCandidates) return [];
+
+        // User report 2026-10-16: tiny changes in antialiased seal contours can move a new fit
+        // by one pixel. An earlier layout is only a hypothesis: this very image must still
+        // supply eight independently matched seals and every raw price/card-side edge.
+        if (PreferredLayout(previousAnchors, seals, image.Size()) is { } preferred)
+        {
+            using var preferredEdges = NearbyEdges(edges, preferred.Spacing);
+            var verified = ValidateCardEdges(preferred, preferredEdges, image.Size(), out _);
+            if (verified.Count == Slots.Length)
+                return previousAnchors!.OrderBy(anchor => anchor.SlotIndex).Select((anchor, index) =>
+                    anchor with { Confidence = verified[index].Confidence }).ToArray();
+        }
+        if (FitLayout(seals, image.Size()) is not { } layout) return [];
 
         // A small edge tolerance covers antialiasing and the measured rounded-coordinate differences.
         // Validate raw edges, not the closed image: morphology may repair a seal but cannot invent a price.
-        using var nearbyEdges = new Mat();
-        var radius = (int)Math.Ceiling(Math.Max(1.5, layout.Spacing * .007));
-        using var edgeKernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new Size(radius * 2 + 1, radius * 2 + 1));
-        Cv2.Dilate(edges, nearbyEdges, edgeKernel);
+        using var nearbyEdges = NearbyEdges(edges, layout.Spacing);
         var anchors = ValidateCardEdges(layout, nearbyEdges, image.Size(), out var edgeMismatch);
         if (anchors.Count == Slots.Length || !edgeMismatch) return anchors;
 
@@ -101,6 +113,81 @@ public static class MerchantCardLocator
             if (anchors.Count == Slots.Length) return anchors;
         }
         return [];
+    }
+
+    private static Mat NearbyEdges(Mat edges, double spacing)
+    {
+        var nearby = new Mat();
+        try
+        {
+            var radius = (int)Math.Ceiling(Math.Max(1.5, spacing * .007));
+            using var kernel = Cv2.GetStructuringElement(MorphShapes.Ellipse, new Size(radius * 2 + 1, radius * 2 + 1));
+            Cv2.Dilate(edges, nearby, kernel);
+            return nearby;
+        }
+        catch { nearby.Dispose(); throw; }
+    }
+
+    private static Layout? PreferredLayout(IReadOnlyList<MerchantCardAnchor>? previousAnchors,
+        IReadOnlyList<Seal> seals, Size imageSize)
+    {
+        if (previousAnchors is null || previousAnchors.Count != Slots.Length) return null;
+        var anchors = new MerchantCardAnchor[Slots.Length];
+        var seen = new bool[Slots.Length];
+        foreach (var anchor in previousAnchors)
+        {
+            if (anchor is null || anchor.SlotIndex is < 0 or >= 10 || seen[anchor.SlotIndex] ||
+                !double.IsFinite(anchor.Scale) || anchor.Scale <= 0 ||
+                !double.IsFinite(anchor.Confidence) || anchor.Confidence < .72) return null;
+            var price = anchor.PriceBounds;
+            if (price.X < 0 || price.Y < 0 || price.Width <= 0 || price.Height <= 0 ||
+                (long)price.X + price.Width >= imageSize.Width ||
+                (long)price.Y + price.Height >= imageSize.Height) return null;
+            seen[anchor.SlotIndex] = true;
+            anchors[anchor.SlotIndex] = anchor;
+        }
+        var first = anchors[0];
+        var spacing = first.Scale * ReferencePriceWidth / PriceWidth;
+        if (!double.IsFinite(spacing) || spacing < imageSize.Height * .08 || spacing > imageSize.Width * .25 ||
+            anchors.Any(anchor => Math.Abs(anchor.Scale - first.Scale) > first.Scale * 1e-9)) return null;
+        var priceCenter = new Point2d(first.PriceBounds.X + first.PriceBounds.Width / 2d,
+            first.PriceBounds.Y + first.PriceBounds.Height / 2d);
+        var layout = new Layout(new(priceCenter.X, priceCenter.Y - spacing * PriceOffset), spacing, [], 0, 0);
+        var width = (int)Math.Round(spacing * PriceWidth);
+        var height = (int)Math.Round(spacing * PriceHeight);
+        for (var slot = 0; slot < Slots.Length; slot++)
+        {
+            var seal = Position(layout, Slots[slot]);
+            var expected = new Rect((int)Math.Round(seal.X - spacing * PriceWidth / 2),
+                (int)Math.Round(seal.Y + spacing * PriceOffset - spacing * PriceHeight / 2), width, height);
+            var price = anchors[slot].PriceBounds;
+            // Reconstructing from a rounded rectangle may differ by one pixel. Inconsistent
+            // supplied slots are discarded; none can bypass the following current-image checks.
+            if (Math.Abs((long)price.X - expected.X) > 1 || Math.Abs((long)price.Y - expected.Y) > 1 ||
+                Math.Abs((long)price.X + price.Width - expected.Right) > 1 ||
+                Math.Abs((long)price.Y + price.Height - expected.Bottom) > 1) return null;
+        }
+        var used = new HashSet<int>();
+        var count = 0;
+        for (var slot = 0; slot < Slots.Length; slot++)
+        {
+            var predicted = Position(layout, Slots[slot]);
+            var nearest = -1;
+            var distance = Math.Pow(spacing * .035, 2);
+            for (var candidate = 0; candidate < seals.Count; candidate++)
+            {
+                if (used.Contains(candidate) || spacing < seals[candidate].Bounds.Height * 7 ||
+                    spacing > seals[candidate].Bounds.Height * 12) continue;
+                var next = DistanceSquared(predicted, seals[candidate].Center);
+                if (next >= distance) continue;
+                nearest = candidate;
+                distance = next;
+            }
+            if (nearest < 0) continue;
+            used.Add(nearest);
+            count++;
+        }
+        return count >= MinimumSeals ? layout with { Count = count } : null;
     }
 
     private static IReadOnlyList<MerchantCardAnchor> ValidateCardEdges(Layout layout, Mat nearbyEdges,
