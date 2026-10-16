@@ -119,10 +119,32 @@ public sealed class MapReference : IDisposable
         return new MapReference(mapId, gray.Width, gray.Height, worldPerPixel, [.. points], [.. descriptors]);
     }
 
+    /// <summary>
+    /// Writes the cache atomically. Each writer uses its own temporary file: two writers of the same cache
+    /// (parallel tests, a second start) shared "path.tmp" and one failed (GitHub build 0.7.3). When another
+    /// writer has already replaced the file and it is in use, its identical content is kept.
+    /// </summary>
     public void Save(string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temp = path + ".tmp";
+        var temp = $"{path}.{Environment.ProcessId}-{Guid.NewGuid():N}.tmp";
+        try
+        {
+            Write(temp);
+            File.Move(temp, path, overwrite: true);
+        }
+        catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && File.Exists(path))
+        {
+            // Another writer finished the same cache first; its file stays.
+        }
+        finally
+        {
+            try { File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private void Write(string temp)
+    {
         using (var stream = File.Create(temp))
         using (var writer = new BinaryWriter(stream, Encoding.UTF8))
         {
@@ -141,7 +163,6 @@ public sealed class MapReference : IDisposable
             Buffer.BlockCopy(DescriptorData, 0, bytes, 0, bytes.Length);
             writer.Write(bytes);
         }
-        File.Move(temp, path, overwrite: true);
     }
 
     /// <summary>Null when the file is missing or from another format version.</summary>

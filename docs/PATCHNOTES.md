@@ -2,7 +2,7 @@
 
 Kurz und für Spieler geschrieben.
 
-## 0.7.3 – 2026-10-16
+## 0.7.4 – 2026-10-16
 
 - **Neu:** Pet-Aufstiege werden im Fortschritts-Overlay gefeiert: Stufe 1 und 2 leuchten 30 Sekunden
   lang direkt in der Fokus- oder „Letzte Beute“-Zeile auf, MAX bekommt eine eigene grüne Erfolgskarte.
