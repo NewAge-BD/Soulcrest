@@ -2,6 +2,13 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.7.5 – 2026-10-16
+
+- **Neu:** Ebene **Cube Groups** (unter Hidden Cube, getrennt für Karte, Minimap und Weltkarte):
+  Auf Altgard und Verteron sind die Hidden Cubes eines Gebiets zu einer farbigen Gruppe verbunden,
+  zum bequemen Abfliegen. Jeder Cube gehört zum nächstgelegenen Dorf oder Jagdgebiet; die Linien
+  verbinden die echten Spawnpositionen. Das „?“ in der Legende erklärt die Ebene.
+
 ## 0.7.4 – 2026-10-16
 
 - **Neu:** Pet-Aufstiege werden im Fortschritts-Overlay gefeiert: Stufe 1 und 2 leuchten 30 Sekunden

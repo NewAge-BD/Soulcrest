@@ -49,6 +49,51 @@ public sealed class MapSurfaceLegendTests
     }
 
     [Theory]
+    [InlineData(MapSurface.Interactive)]
+    [InlineData(MapSurface.Minimap)]
+    [InlineData(MapSurface.Worldmap)]
+    public async Task CubeGroupsControlsAreSeparateOrderedAndPersistForEachSurface(MapSurface surface)
+    {
+        await using var fixture = new Fixture("en", includeCubes: true);
+        var view = await fixture.Render();
+        var controls = await fixture.Controls(view);
+        Assert.Equal(39, controls.Count);
+        foreach (var column in Surfaces)
+        {
+            var cube = controls.FindIndex(control => control.Label == Label("en", "Hidden Cube", column));
+            var groups = controls.FindIndex(control => control.Label == Label("en", "Cube Groups", column));
+            Assert.True(cube >= 0);
+            Assert.Equal(cube + 3, groups); // immediately following row, with the same three surface columns
+        }
+        var html = await fixture.Html();
+        Assert.Contains("13 Marker", html); // two groups never count as two additional map markers
+        Assert.Contains("Collectibles</span><span class=\"count\">5</span>", html);
+        await fixture.Export(html, "cube-groups");
+        await fixture.Change(view, Label("en", "Cube Groups", surface), true);
+        Assert.True(Category(fixture.Settings.Current, surface, "Collectibles", "Cube Groups"));
+        Assert.False(Category(fixture.Settings.Current, surface, "Collectibles", "Hidden Cube"));
+        foreach (var other in Surfaces.Where(other => other != surface))
+            Assert.False(Category(fixture.Settings.Current, other, "Collectibles", "Cube Groups"));
+        await fixture.Change(view, Label("en", "Hidden Cube", surface), true);
+        Assert.True(Category(fixture.Settings.Current, surface, "Collectibles", "Hidden Cube"));
+        await fixture.Change(view, Label("en", "Hidden Cube", surface), false);
+        Assert.True(Category(fixture.Settings.Current, surface, "Collectibles", "Cube Groups"));
+        var reloaded = new SettingsService().Current;
+        Assert.True(Category(reloaded, surface, "Collectibles", "Cube Groups"));
+        Assert.False(Category(reloaded, surface, "Collectibles", "Hidden Cube"));
+        foreach (var other in Surfaces.Where(other => other != surface))
+        {
+            Assert.False(Category(reloaded, other, "Collectibles", "Cube Groups"));
+            Assert.False(Category(reloaded, other, "Collectibles", "Hidden Cube"));
+        }
+        await fixture.Change(view, Label("en", "Hidden Cube", surface), true);
+        await fixture.Change(view, Label("en", "Cube Groups", surface), false);
+        reloaded = new SettingsService().Current;
+        Assert.True(Category(reloaded, surface, "Collectibles", "Hidden Cube"));
+        Assert.False(Category(reloaded, surface, "Collectibles", "Cube Groups"));
+    }
+
+    [Theory]
     [InlineData("group")]
     [InlineData("category")]
     [InlineData("kind")]
@@ -222,7 +267,7 @@ public sealed class MapSurfaceLegendTests
         private Func<string>? _html;
         public SettingsService Settings { get; }
 
-        public Fixture(string language)
+        public Fixture(string language, bool includeCubes = false)
         {
             _language = language;
             Directory.CreateDirectory(_folder);
@@ -248,7 +293,7 @@ public sealed class MapSurfaceLegendTests
             services.AddSingleton(new ExplorationService(Path.Combine(_folder, "exploration.json"), []));
             services.AddSingleton<UiState>();
             services.AddSingleton<UpdateService>();
-            services.AddSingleton<IJSRuntime, LegendJs>();
+            services.AddSingleton<IJSRuntime>(new LegendJs(includeCubes));
             _provider = services.BuildServiceProvider();
             Settings = _provider.GetRequiredService<SettingsService>();
             Settings.Update(settings =>
@@ -275,6 +320,7 @@ public sealed class MapSurfaceLegendTests
                 await (Task)typeof(MapView).GetMethod("ShowMap", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(view, [null])!;
                 var open = (HashSet<string>)typeof(MapView).GetField("_open", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view)!;
                 open.Add("Resources");
+                open.Add("Collectibles");
                 await view!.SetParametersAsync(ParameterView.Empty);
             });
             return Assert.IsType<MapView>(view);
@@ -374,7 +420,7 @@ public sealed class MapSurfaceLegendTests
         }
     }
 
-    private sealed class LegendJs : IJSRuntime
+    private sealed class LegendJs(bool includeCubes) : IJSRuntime
     {
         private const string Map = """
             {"groups":[
@@ -388,8 +434,12 @@ public sealed class MapSurfaceLegendTests
               {"name":"Locations","categories":[
                 {"index":4,"name":"Kibelisk","count":1,"hidden":true,"color":"#a78bfa"}]}],"regions":1,"markers":8}
             """;
+        private static readonly string CubeMap = Map.Replace("],\"regions\":1,\"markers\":8}",
+            ", {\"name\":\"Collectibles\",\"categories\":["
+            + "{\"index\":5,\"name\":\"Hidden Cube\",\"count\":5,\"hidden\":true,\"color\":\"#c084fc\"},"
+            + "{\"index\":6,\"name\":\"Cube Groups\",\"de\":\"Cube Groups\",\"count\":2,\"hidden\":true,\"color\":\"#c084fc\"}]}],\"regions\":1,\"markers\":13}", StringComparison.Ordinal);
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => typeof(TValue) == typeof(string)
-            ? ValueTask.FromResult((TValue)(object)(identifier == "soulcrestMap.show" ? Map : "[]"))
+            ? ValueTask.FromResult((TValue)(object)(identifier == "soulcrestMap.show" ? (includeCubes ? CubeMap : Map) : "[]"))
             : ValueTask.FromResult(default(TValue)!);
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => InvokeAsync<TValue>(identifier, args);
     }

@@ -1,4 +1,4 @@
-"""Build Soulcrest's offline map package solely from cached public gaming.tools data.
+"""Build Soulcrest's offline maps from cached gaming.tools data and checked local facts.
 
 Fetch separately with fetch_gamingtools_dataset.py. This builder never uses the network.
 """
@@ -17,6 +17,7 @@ import numpy as np
 from fetch_gamingtools import decode
 from pet_source_markers import add_pet_source_markers, source_groups
 from exploration_network_ids import point_network_ids
+from hidden_cube_groups import apply_hidden_cube_groups
 
 ROOT = Path(__file__).resolve().parents[1]
 GAMINGTOOLS = ROOT / 'imports/gamingtools'
@@ -338,6 +339,8 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
     boss_counts = collections.Counter(b['spawnId'] for b in payload['bosses'])
     payload['bosses'] = [b for b in payload['bosses'] if boss_counts[b['spawnId']] == 1]
     add_pet_source_markers(payload, pets, cluster=0.03)
+    # Own grouping (user decision 2026-10-16): each Hidden Cube joins the nearest named place.
+    apply_hidden_cube_groups(payload)
     for marker in payload['markers']:
         if marker[6]:
             field = 'spawns' if payload['categories'][marker[0]]['group'] == 'Pets' else 'monsters'

@@ -21,7 +21,8 @@ public sealed partial class RouteOverlayForm
         GuardZones? Guards,
         double? MetersPerPixel,
         IReadOnlyDictionary<string, Bitmap?> TargetIcons,
-        IReadOnlyList<TargetSymbol> TargetSymbols);
+        IReadOnlyList<TargetSymbol> TargetSymbols,
+        IReadOnlyList<HiddenCubeGroup> HiddenCubeGroups);
 
     internal sealed record TargetSymbol(MapTarget Target, ResourceSymbol? Symbol);
 
@@ -115,10 +116,11 @@ public sealed partial class RouteOverlayForm
                     pets.Add(new PreparedCandidate<PetSymbol>(spawn.X, spawn.Y,
                         () => new PetSymbol(spawn.X, spawn.Y, petIcon(spawn, mapdata), state.Label, state.Done)));
             }
+            var cubeGroupsVisible = HiddenCubeGroupsVisible(settings, map, surface);
             foreach (var symbol in MapPetMarkers.SymbolsFor(mapdata, map))
                 if (SymbolVisible(settings, map, surface, symbol))
                     resources.Add(new PreparedCandidate<ResourceSymbol>(symbol.X, symbol.Y,
-                        () => new ResourceSymbol(symbol.X, symbol.Y, resourceIcon(symbol.Icon, mapdata))));
+                        () => new ResourceSymbol(symbol.X, symbol.Y, resourceIcon(symbol.Icon, mapdata), OutlineColor: cubeGroupsVisible ? symbol.OutlineColor : null)));
             if (marked.Count > 0)
                 foreach (var spawn in MapPetMarkers.SoulMonstersFor(mapdata, map))
                     if (marked.Contains(spawn.PetId)) souls.Add(new SoulMonster(spawn.X, spawn.Y));
@@ -141,8 +143,17 @@ public sealed partial class RouteOverlayForm
             }
         }
         return new PreparedOverlay(map, onMap, onMap.Select(t => t.Target.Id).ToHashSet(StringComparer.Ordinal),
-            pets, resources, souls, guards, metersPerPixel, targetIcons, targetSymbols);
+            pets, resources, souls, guards, metersPerPixel, targetIcons, targetSymbols,
+            mapdata is null ? [] : PrepareHiddenCubeGroups(settings, map, surface, mapdata));
     }
+
+    // Cube orientation stays independent of selected markers, route settings and player position.
+    internal static IReadOnlyList<HiddenCubeGroup> PrepareHiddenCubeGroups(AppSettings settings, string map, MapSurface surface, string mapdata) =>
+        HiddenCubeGroupsVisible(settings, map, surface) ? MapPetMarkers.HiddenCubeGroupsFor(mapdata, map) : [];
+
+    private static bool HiddenCubeGroupsVisible(AppSettings settings, string map, MapSurface surface) =>
+        MapLayerVisibility.CategoryVisible(settings, map, surface, "Collectibles", "Hidden Cube")
+            && MapLayerVisibility.CategoryVisible(settings, map, surface, "Collectibles", "Cube Groups");
 
     private List<(MapTarget Target, int Index)> TargetsWithDistance(PreparedOverlay prepared) =>
         _distances.Get(prepared, _tracking.Position, UiText.Language);

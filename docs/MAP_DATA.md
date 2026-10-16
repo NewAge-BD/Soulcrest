@@ -144,3 +144,31 @@ unbekannt, gespeichert/unbestätigt und manuell bleiben getrennt. Zuordnungen fo
 expliziten Marker-Pet-IDs einschließlich belegter Katalog-Aliasse, nicht Namensähnlichkeiten.
 Ohne Zuordnung wird kein Soul-Stand erfunden. Farmkarten bieten zusätzlich belegte andere
 Quellmonster desselben Pets an; dort zeigt die Notiz ausdrücklich Pet-Farmorte.
+
+## Cube-Gruppen: eigene Berechnung (2026-10-16)
+
+Die aktiven gaming.tools-Daten listen die Hidden-Cube-Positionen ohne Gruppen. Soulcrest berechnet
+die Gruppen selbst in `scripts/hidden_cube_groups.py` beim Bau des Kartenpakets: Jeder Cube gehört
+zum nächstgelegenen benannten Ort derselben Karte (Kategorien `Regions/Village` und
+`Regions/Hunting Ground`, Gleichstand: der zuerst gelistete Ort). Die Gruppe trägt Namen (EN/DE)
+und ID des Orts (`<karte>-cubes-<ort>`); Nummern folgen der Kartenposition des Orts. Karten ohne
+Cubes oder ohne benannte Orte bekommen keine Gruppen. Aktuell: Altgard 68 Gruppen/1.371 Cubes,
+Verteron 71 Gruppen/1.440 Cubes.
+
+Innerhalb jeder Gruppe verbindet ein deterministischer minimaler Spannbaum die echten
+Cube-Spawnpositionen (Linienenden liegen genau auf den Markern); Gruppen werden nie miteinander
+verbunden. Benachbarte Gruppen erhalten unterscheidbare Farben. Die Gruppen sind Gebiete zum
+Abfliegen, nicht die Spawngruppen des Spiels: keine Aussage über den nächsten Cube, keine
+Spawnreihenfolge oder -zeiten, kein erkannter Cube-Zustand.
+
+Eine früher eingebundene fremde Gruppentabelle (Herkunft: aion2maps.com, ohne Erlaubnis) ist
+vollständig entfernt; Soulcrest liest keine Gruppendaten mehr aus Dateien.
+
+Der additive Laufzeitvertrag bleibt `hiddenCubeGroups[{id,number,name,nameDe,color,markers,connections}]`
+plus `marker[7].hiddenCubeGroup`; Marker und Kanten verweisen auf vorhandene Markerindizes.
+Die virtuelle Kategorie `Collectibles/Cube Groups` steht direkt unter Hidden Cube und zählt
+Gruppen, keine zusätzlichen Marker. Karte, Minimap und Worldmap speichern eigene Schalter;
+Linien und Konturen erscheinen nur mit Hidden Cube und Cube Groups auf derselben Oberfläche.
+Darstellung: `soulcrest-cube-groups.js`/`cube-groups.css` (Leaflet), `MapPetMarkers.HiddenCubes.cs`
+und `RouteOverlayForm.HiddenCubes.cs` (native Overlays), `CubeGroupsInfo.razor` (DE/EN-Hinweis).
+

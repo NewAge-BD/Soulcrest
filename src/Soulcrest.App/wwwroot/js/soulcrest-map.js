@@ -25,6 +25,7 @@ window.soulcrestMap = (() => {
     // Resource kinds (Gem: Sapphire, Diamond, Ruby): per category a Map kind name -> L.LayerGroup inside
     // the category layer, so each kind can be hidden on its own (user request 2026-10-05).
     let kindLayers = [];
+    let cubeGroups = null; // optional offline group presentation, isolated in soulcrest-cube-groups.js
     let petRefs = [];
     let bossTimerRefs = new Map(), bossMarkerBySpawn = new Map(), bossTimerInterval = null;
     let markerRefs = [];         // per marker index -> leaflet layer
@@ -267,8 +268,10 @@ window.soulcrestMap = (() => {
         const pet = m[6] && cat.group === 'Monsters' ? `<br>${ui('Soul für Pet:', 'Soul for pet:')} <b>${esc(m[6])}</b>` : '';
         const link = m[6] ? `<br><a href="#" onclick="window.soulcrestMap.focusPet('${m[6]}');return false;">${ui('Alle Spawns dieses Pets', 'All spawns of this pet')}</a>` : '';
         const source = m[7] && m[7].en ? `<br>${ui('Soul-Quelle:', 'Soul source:')} ${esc(lang === 'de' && m[7].de ? m[7].de : m[7].en)}` : '';
+        const cubeGroup = cubeGroups?.groupFor(m);
+        const cube = cubeGroup ? `<br><b style="color:${cubeGroup.color}">${ui('Gruppe', 'Group')} ${cubeGroup.number}</b><br><span style="color:#8b96a8">${ui('Flugorientierung · keine Spawnreihenfolge', 'Flight guidance · no spawn order')}</span>` : '';
         const level = m[6] && cat.group === 'Pets' && petLabels[m[6]] ? `<br>${ui('Stand:', 'Progress:')} <b>${esc(petLabels[m[6]])}</b>` : '';
-        return `<b>${esc(nameOf(m) || cat.name)}</b>${de}<br>${esc(cat.group)} · ${esc(lang === 'de' && cat.de ? cat.de : cat.name)}${level}${pet}${source}${link}${explorationLine(index)}<br><span style="color:#8b96a8">${ui('Rechtsklick: als Ziel markieren', 'Right-click: set target')}</span>`;
+        return `<b>${esc(nameOf(m) || cat.name)}</b>${de}<br>${esc(cat.group)} · ${esc(lang === 'de' && cat.de ? cat.de : cat.name)}${level}${pet}${source}${link}${cube}${explorationLine(index)}<br><span style="color:#8b96a8">${ui('Rechtsklick: als Ziel markieren', 'Right-click: set target')}</span>`;
     }
 
     // Dungeon/stronghold status is read-only here. Manual corrections live in the exploration view.
@@ -312,6 +315,7 @@ window.soulcrestMap = (() => {
         catLayers = current.categories.map(() => L.layerGroup());
         kindLayers = current.categories.map(() => null);
         catVisible = current.categories.map(c => !c.hidden && DEFAULT_VISIBLE_GROUPS.has(c.group));
+        cubeGroups = window.soulcrestCubeGroups?.create(current, catLayers, catVisible, map, L, toLatLng) || null;
         markerRefs = new Array(current.markers.length);
         markerByPos = new Map();
         petRefs = [];
@@ -388,6 +392,7 @@ window.soulcrestMap = (() => {
     // the map container. Rebuilding 300+ icons on every zoom step made zooming stutter.
     function iconFor(cat, iconIndex, m) {
         const pet = cat.group === 'Pets';
+        const cubeGroup = cubeGroups?.groupFor(m);
         const done = pet && doneSet.has(m[6]);
         // Kibelisks: bound in colour, not bound grey; no check mark (user request 2026-10-06).
         const kibelisk = !pet && m.explorationKind === 'kibelisk';
@@ -395,8 +400,8 @@ window.soulcrestMap = (() => {
         // Pets: portrait plus current level and souls beside it at every zoom level.
         const label = pet && m[6] && petLabels[m[6]] ? `<span class="pet-label">${esc(petLabels[m[6]])}</span>` : '';
         return L.divIcon({
-            className: (pet ? 'pet-marker' : 'place-marker') + (!pet && m[5] >= 0 && cat.group === 'Resources' ? ' resource-kind' : '') + (done ? ' done' : '') + (explored ? ' exploration-done' : '') + (kibelisk && !m.explorationDone ? ' kibelisk-unbound' : '') + (pet && hiddenSet.has(m[6]) ? ' pet-filtered' : ''),
-            html: `<img class="${pet ? 'pet-icon' : 'place-icon'}" src="${base + current.icons[iconIndex]}" alt="">${label}${explored ? '<span class="exploration-check">✓</span>' : ''}`,
+            className: (pet ? 'pet-marker' : 'place-marker') + (cubeGroup ? ' hidden-cube-marker' : '') + (!pet && m[5] >= 0 && cat.group === 'Resources' ? ' resource-kind' : '') + (done ? ' done' : '') + (explored ? ' exploration-done' : '') + (kibelisk && !m.explorationDone ? ' kibelisk-unbound' : '') + (pet && hiddenSet.has(m[6]) ? ' pet-filtered' : ''),
+            html: `<img class="${pet ? 'pet-icon' : 'place-icon'}"${cubeGroup ? ` style="--cube-group-color:${cubeGroup.color}"` : ''} src="${base + current.icons[iconIndex]}" alt="">${label}${explored ? '<span class="exploration-check">✓</span>' : ''}`,
             iconSize: pet ? [30, 30] : [24, 24],
         });
     }
@@ -434,6 +439,7 @@ window.soulcrestMap = (() => {
     function setCategoryVisible(index, visible) {
         catVisible[index] = visible;
         if (visible) catLayers[index].addTo(map); else map.removeLayer(catLayers[index]);
+        cubeGroups?.sync();
         drawTargets();
     }
 

@@ -144,14 +144,14 @@ public sealed partial class RouteOverlayForm : Form
         var resources = VisibleSymbols(placement, prepared);
         ApplyTargetSymbols(resources, prepared);
         var guards = VisibleGuardZones(placement, prepared);
-        if (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0 && guards is null)
+        if (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0 && guards is null && prepared.HiddenCubeGroups.Count == 0)
             return null;
-        return RenderFrame(placement, onMap, pets, resources, souls, guards, prepared.TargetIcons);
+        return RenderFrame(placement, onMap, pets, resources, souls, guards, prepared.TargetIcons, prepared.HiddenCubeGroups);
     }
 
     internal static Frame RenderFrame(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> onMap,
         IReadOnlyList<PetSymbol> pets, IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null,
-        GuardZones? guards = null, IReadOnlyDictionary<string, Bitmap?>? targetIcons = null)
+        GuardZones? guards = null, IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null)
     {
         // Drawn straight into a GDI DIB section that UpdateLayeredWindow takes as it is: converting a
         // full-screen picture with GetHbitmap cost 30 ms each time (measured 2026-10-05).
@@ -164,7 +164,7 @@ public sealed partial class RouteOverlayForm : Form
         {
             using var surface = new Bitmap(size.Width, size.Height, size.Width * 4, PixelFormat.Format32bppPArgb, bits);
             using var graphics = Graphics.FromImage(surface);
-            DrawInto(graphics, placement, onMap, pets, resources, souls, guards, targetIcons); // a new DIB is all zeros: transparent
+            DrawInto(graphics, placement, onMap, pets, resources, souls, guards, targetIcons, hiddenCubeGroups); // a new DIB is all zeros: transparent
         }
         catch
         {
@@ -211,19 +211,19 @@ public sealed partial class RouteOverlayForm : Form
     /// <summary>The overlay picture for the marked map area: lines, arrows, rings and names (transparent elsewhere).</summary>
     public static Bitmap Draw(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets, IReadOnlyList<PetSymbol>? pets = null,
         IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null,
-        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null)
+        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null)
     {
         var bitmap = new Bitmap(placement.Region.Width, placement.Region.Height, PixelFormat.Format32bppPArgb);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.Clear(Color.Transparent);
-        DrawInto(graphics, placement, targets, pets, resources, souls, guards, targetIcons);
+        DrawInto(graphics, placement, targets, pets, resources, souls, guards, targetIcons, hiddenCubeGroups);
         return bitmap;
     }
 
     /// <summary>Draws the overlay into a transparent, premultiplied 32-bit surface of the region's size.</summary>
     private static void DrawInto(Graphics graphics, MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets,
         IReadOnlyList<PetSymbol>? pets, IReadOnlyList<ResourceSymbol>? resources, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null,
-        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null)
+        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null)
     {
         var region = placement.Region;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -231,12 +231,18 @@ public sealed partial class RouteOverlayForm : Form
         var origin = new PointF(region.X, region.Y);
         if (guards is not null)
             DrawGuardZones(graphics, placement, origin, guards); // beneath everything else
+        DrawHiddenCubeGroups(graphics, placement, origin, hiddenCubeGroups ?? []);
         var area = new RectangleF(4, 4, region.Width - 8, region.Height - 8);
         PointF? player = placement.PlayerOnScreen is { } p ? Offset(p, origin) : null;
         foreach (var resource in resources ?? [])
         {
             var at = Offset(placement.WorldToScreen(resource.X, resource.Y), origin);
             DrawResource(graphics, at, resource.Icon, resource.Color, resource.Opacity);
+            if (resource.OutlineColor is { } outlineColor)
+            {
+                using var rim = new Pen(Color.FromArgb(230, ColorTranslator.FromHtml(outlineColor)), 1.5f);
+                graphics.DrawEllipse(rim, at.X - 12, at.Y - 12, 24, 24);
+            }
         }
         if (souls is { Count: > 0 })
         {
@@ -355,7 +361,7 @@ public sealed partial class RouteOverlayForm : Form
     public sealed record SoulMonster(double X, double Y);
 
     /// <summary>A non-pet map marker to draw with its legend icon.</summary>
-    public sealed record ResourceSymbol(double X, double Y, Bitmap? Icon, string? Color = null, float Opacity = 1f);
+    public sealed record ResourceSymbol(double X, double Y, Bitmap? Icon, string? Color = null, float Opacity = 1f, string? OutlineColor = null);
 
     private const int PetIconSize = 26;
     private const int ResourceIconSize = 20;

@@ -2,6 +2,13 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.7.5 – 2026-10-16
+
+- **New:** **Cube Groups** layer (below Hidden Cube, separate for map, minimap and world map): on
+  Altgard and Verteron the Hidden Cubes of one area are joined into a coloured group, so you can fly
+  them off easily. Each cube belongs to the nearest village or hunting ground; the lines connect the
+  real spawn locations. The "?" in the legend explains the layer.
+
 ## 0.7.4 – 2026-10-16
 
 - **New:** Pet level-ups are celebrated in the progress overlay: levels 1 and 2 light up for 30 seconds

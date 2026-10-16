@@ -66,7 +66,7 @@
             {
                 <div class="group">
                     <div class="group-head legend-row">
-                        <button type="button" class="legend-name" aria-expanded="@_open.Contains(group.Name)" @onclick="@(() => ToggleGroupOpen(group.Name))"><span class="caret">@(_open.Contains(group.Name) ? "▾" : "▸")</span><span class="name">@group.Name</span><span class="count">@group.Categories.Sum(c => c.Count)</span></button>
+                        <button type="button" class="legend-name" aria-expanded="@_open.Contains(group.Name)" @onclick="@(() => ToggleGroupOpen(group.Name))"><span class="caret">@(_open.Contains(group.Name) ? "▾" : "▸")</span><span class="name">@group.Name</span><span class="count">@group.Categories.Where(c => group.Name != "Collectibles" || c.Name != "Cube Groups").Sum(c => c.Count)</span></button>
                         @foreach (var surface in LegendSurfaces)
                         {
                             <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", group.Name, SurfaceLabel(surface))" checked="@group.Categories.All(c => CategoryVisible(group, c, surface))" @onchange="@(e => SetSurfaceGroup(group, surface, (bool)e.Value!))" /></label>
@@ -101,7 +101,12 @@
                                     <div class="legend-name">
                                         @if (cat.Icon is not null) { <img src="@cat.Icon" alt="" /> }
                                         else { <span class="dot" style="background:@cat.Color"></span> }
-                                        <span class="label">@CategoryLabel(cat)</span><span class="count">@cat.Count</span>
+                                        <span class="label">@CategoryLabel(cat)</span>
+                                        @if (group.Name == "Collectibles" && cat.Name == "Cube Groups")
+                                        {
+                                            <CubeGroupsInfo />
+                                        }
+                                        <span class="count">@cat.Count</span>
                                     </div>
                                     @foreach (var surface in LegendSurfaces)
                                     {

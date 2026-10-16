@@ -1,0 +1,2 @@
+/* Group contours appear only with both cube layers enabled. */
+.show-cube-groups .place-marker.hidden-cube-marker .place-icon { border-radius: 50%; background: rgba(16, 21, 31, .22); box-shadow: 0 0 0 1px var(--cube-group-color), 0 0 0 2px rgba(16, 21, 31, .85); filter: drop-shadow(0 1px 2px #000); }

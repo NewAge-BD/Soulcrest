@@ -1,7 +1,7 @@
 namespace Soulcrest.App.Services;
 
 /// <summary>
-/// Sealed dungeons that open only after others (user information 2026-10-07, after aion2maps): on each
+/// Sealed dungeons that open only after others (user information 2026-10-07): on each
 /// map three open one after the other, and the Ruins of the Ancient City of Ru need every other sealed
 /// dungeon of their map. The progression mode skips a locked dungeon; the map popup says what is missing.
 /// </summary>

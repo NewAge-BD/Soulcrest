@@ -20,7 +20,7 @@ public sealed record MonsterName(string En, string? De, int Count = 1)
 /// A non-pet symbol of the map data package; Category is "Group/Name" as in the legend, Kind
 /// the resource itself (Gem: "Ruby"), null for categories without a kind filter.
 /// </summary>
-public sealed record MapResource(string Category, double X, double Y, string? Icon, string? Kind = null)
+public sealed record MapResource(string Category, double X, double Y, string? Icon, string? Kind = null, string? OutlineColor = null)
 {
     public string? KindKey => Kind is null ? null : MapPetMarkers.KindKey(Category, Kind);
 }
@@ -33,7 +33,7 @@ public sealed record MapResource(string Category, double X, double Y, string? Ic
 public static partial class MapPetMarkers
 {
     private sealed record MapMarkers(IReadOnlyList<PetSpawn> Pets, IReadOnlyList<MapResource> Resources, IReadOnlyList<PetSpawn> SoulMonsters,
-        IReadOnlyList<GuardPost> Guards, IReadOnlyDictionary<string, string>? CategoryIcons = null, IReadOnlyList<MapResource>? Symbols = null, IReadOnlyList<MapMonsterSpawn>? AllMonsters = null);
+        IReadOnlyList<GuardPost> Guards, IReadOnlyDictionary<string, string>? CategoryIcons = null, IReadOnlyList<MapResource>? Symbols = null, IReadOnlyList<MapMonsterSpawn>? AllMonsters = null, IReadOnlyList<HiddenCubeGroup>? HiddenCubeGroups = null);
 
     private static readonly ConcurrentDictionary<string, MapMarkers> Cache = new();
 
@@ -51,6 +51,11 @@ public static partial class MapPetMarkers
     /// <summary>Every non-pet legend marker, including NPCs, locations, collectibles and monsters.</summary>
     public static IReadOnlyList<MapResource> SymbolsFor(string mapDataDirectory, string mapId) => Markers(mapDataDirectory, mapId).Symbols ?? [];
 
+    /// <summary>Explicit cube groups and orientation connections from the local map package.</summary>
+    public static IReadOnlyList<HiddenCubeGroup> HiddenCubeGroupsFor(string mapDataDirectory, string mapId) => Markers(mapDataDirectory, mapId).HiddenCubeGroups ?? [];
+
+    internal static IReadOnlyList<HiddenCubeGroup> LoadHiddenCubeGroups(string path) => Read(path).HiddenCubeGroups ?? [];
+
     /// <summary>Guards of a map (NPC "Guard", mostly at the Kibelisks: Altgard 304, Verteron 277 in the 2026-10 data).</summary>
     public static IReadOnlyList<GuardPost> GuardsFor(string mapDataDirectory, string mapId) => Markers(mapDataDirectory, mapId).Guards;
 
@@ -67,7 +72,7 @@ public static partial class MapPetMarkers
     public const string GuardName = "Guard";
 
     /// <summary>The resource categories the legacy in-game overlay included before surface-specific legends.</summary>
-    public static bool ShownInGame(string group, string name) => group == "Resources" || (group == "Collectibles" && name == "Hidden Cube");
+    public static bool ShownInGame(string group, string name) => group == "Resources" || (group == "Collectibles" && name is "Hidden Cube" or "Cube Groups");
 
     public static string CategoryKey(string group, string name) => group + "/" + name;
 
@@ -137,6 +142,9 @@ public static partial class MapPetMarkers
                 Icon: c.TryGetProperty("icon", out var i) ? i.GetInt32() : -1))
             .ToList();
         var icons = root.GetProperty("icons").EnumerateArray().Select(i => i.GetString()).ToList();
+        var cubeGroups = ReadHiddenCubeGroups(root, categories.Select(c => CategoryKey(c.Group, c.Name)).ToArray());
+        var cubeColors = cubeGroups.SelectMany(g => g.Markers.Select(marker => (marker, g.Color)))
+            .ToDictionary(item => item.marker, item => item.Color);
         var spawns = new List<PetSpawn>();
         var resources = new List<MapResource>();
         var symbols = new List<MapResource>();
@@ -144,7 +152,7 @@ public static partial class MapPetMarkers
         var guards = new List<GuardPost>();
         var allMonsters = new List<MapMonsterSpawn>();
         // Marker: [category, x, y, name, nameDe, iconIndex, petId]
-        foreach (var marker in root.GetProperty("markers").EnumerateArray())
+        foreach (var (marker, markerIndex) in root.GetProperty("markers").EnumerateArray().Select((marker, index) => (marker, index)))
         {
             var category = categories[marker[0].GetInt32()];
             if (category.Group.StartsWith("NPC", StringComparison.Ordinal) && marker.GetArrayLength() > 3
@@ -178,13 +186,13 @@ public static partial class MapPetMarkers
             else
             {
                 var kind = category.Group == "Resources" && marker.GetArrayLength() > 3 && marker[3].ValueKind == JsonValueKind.String ? marker[3].GetString() : null;
-                var symbol = new MapResource(CategoryKey(category.Group, category.Name), marker[1].GetDouble(), marker[2].GetDouble(), icon, kind);
+                var symbol = new MapResource(CategoryKey(category.Group, category.Name), marker[1].GetDouble(), marker[2].GetDouble(), icon, kind, cubeColors.GetValueOrDefault(markerIndex));
                 symbols.Add(symbol);
                 if (ShownInGame(category.Group, category.Name)) resources.Add(symbol);
             }
         }
         var categoryIcons = categories.Where(c => c.Icon >= 0 && c.Icon < icons.Count && icons[c.Icon] is not null)
             .GroupBy(c => c.Name, StringComparer.Ordinal).ToDictionary(g => g.Key, g => icons[g.First().Icon]!, StringComparer.Ordinal);
-        return new(spawns, resources, monsters, guards, categoryIcons, symbols, allMonsters);
+        return new(spawns, resources, monsters, guards, categoryIcons, symbols, allMonsters, cubeGroups);
     }
 }

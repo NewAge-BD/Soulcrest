@@ -157,6 +157,29 @@ public sealed class RouteOverlayPreparationTests
     }
 
     [Fact]
+    public void GroupLinesAndCubeColorRimsFollowBothLayerChoicesWithRoutesDisabled()
+    {
+        using var fixture = new Fixture();
+        fixture.Targets.Clear();
+        fixture.Settings.ShowRoutesInGame = false;
+        fixture.Settings.MapMinimapLayers["map"] = new(["Collectibles/Hidden Cube"], []);
+        var cubes = fixture.Prepare();
+        Assert.Empty(cubes.Targets);
+        Assert.Empty(cubes.HiddenCubeGroups);
+        Assert.Equal(2, cubes.Resources.Count);
+        Assert.All(cubes.Resources, candidate => Assert.Null(candidate.Symbol.OutlineColor));
+        fixture.Settings.MapMinimapLayers["map"] = new(["Collectibles/Hidden Cube", "Collectibles/Cube Groups"], []);
+        var groups = fixture.Prepare();
+        Assert.Empty(groups.Targets);
+        Assert.Single(groups.HiddenCubeGroups);
+        Assert.All(groups.Resources, candidate => Assert.Equal("#5edec7", candidate.Symbol.OutlineColor));
+        fixture.Settings.MapMinimapLayers["map"] = new(["Collectibles/Cube Groups"], []);
+        var hidden = fixture.Prepare();
+        Assert.Empty(hidden.HiddenCubeGroups);
+        Assert.Empty(hidden.Resources);
+    }
+
+    [Fact]
     public void DeferredVisibleIconRetriesTransientFailureAndReusesSuccessfulSymbol()
     {
         var reads = 0;
@@ -208,14 +231,17 @@ public sealed class RouteOverlayPreparationTests
             File.WriteAllText(Path.Combine(_directory, "map", "data.js"), """
                 window.SoulcrestMaps["map"] = {
                   "categories":[{"group":"Pets","name":"Fera"},{"group":"Pets","name":"Cogni"},
-                    {"group":"Monsters","name":"Fera"},{"group":"Resources","name":"Gem"},{"group":"NPCs","name":"Other"}],
+                    {"group":"Monsters","name":"Fera"},{"group":"Resources","name":"Gem"},{"group":"NPCs","name":"Other"},
+                    {"group":"Collectibles","name":"Hidden Cube"},{"group":"Collectibles","name":"Cube Groups"}],
                   "icons":[],
                   "markers":[[0,30,20,"Pet",null,-1,"p",{"en":"Source monster","de":"Quellmonster"}],
                     [0,200,20,"Pet",null,-1,"p"],[1,60,20,"Other",null,-1,"q"],
                     [1,90,20,"Elsewhere",null,-1,"r"],[2,35,20,"Source monster",null,-1,"p"],
                     [2,205,20,"Source monster",null,-1,"p"],[3,40,20,"Diamond",null,-1,null],
                     [3,210,20,"Diamond",null,-1,null],[3,50,20,"Ruby",null,-1,null],
-                    [4,25,20,"Guard",null,-1,null],[4,195,20,"Guard",null,-1,null]]
+                    [4,25,20,"Guard",null,-1,null],[4,195,20,"Guard",null,-1,null],
+                    [5,55,40,"Cube",null,-1,null,{"hiddenCubeGroup":"cube-a"}],[5,75,40,"Cube",null,-1,null,{"hiddenCubeGroup":"cube-a"}]],
+                  "hiddenCubeGroups":[{"id":"cube-a","number":1,"color":"#5edec7","markers":[11,12],"connections":[[11,12]]}]
                 };
                 """);
             foreach (var path in new[] { AppPaths.TargetsFile, AppPaths.RoutesFile, AppPaths.LegacyRoutesFile })
