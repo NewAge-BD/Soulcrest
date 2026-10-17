@@ -17,7 +17,10 @@ import numpy as np
 from fetch_gamingtools import decode
 from pet_source_markers import add_pet_source_markers, source_groups
 from exploration_network_ids import point_network_ids
-from hidden_cube_groups import apply_hidden_cube_groups
+try:
+    from hidden_cube_groups import apply_hidden_cube_groups  # private: own Hidden Cube spawn pools
+except ModuleNotFoundError:
+    apply_hidden_cube_groups = None  # public checkout: the map package is built without Cube Groups
 
 ROOT = Path(__file__).resolve().parents[1]
 GAMINGTOOLS = ROOT / 'imports/gamingtools'
@@ -268,6 +271,7 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
                'size': 8192 if mid == '1110' else 4096, 'groups': [], 'categories': [],
                'icons': [], 'markers': [], 'regions': []}
     cats = {}
+    raw_cube_positions = []
     def icon_index(path):
         if not path: return -1
         rel = icons.get(path)
@@ -285,6 +289,8 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
             group['categories'].append(cats[type_id])
         cat = cats[type_id]
         payload['categories'][cat]['count'] += 1
+        if group_name == 'Collectibles' and t.get('name') == 'Hidden Cube':
+            raw_cube_positions.append([x, y])
         px, py = to_pixel(definition['map'], x, y)
         logical_scale = payload['size'] / (512*2**definition['map']['maximumZoom'])
         px, py = px*logical_scale, py*logical_scale
@@ -339,8 +345,9 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
     boss_counts = collections.Counter(b['spawnId'] for b in payload['bosses'])
     payload['bosses'] = [b for b in payload['bosses'] if boss_counts[b['spawnId']] == 1]
     add_pet_source_markers(payload, pets, cluster=0.03)
-    # Own grouping (user decision 2026-10-16): each Hidden Cube joins the nearest named place.
-    apply_hidden_cube_groups(payload)
+    # User request 2026-10-17: verified own client pools, bound to the unchanged source markers.
+    if apply_hidden_cube_groups is not None:
+        apply_hidden_cube_groups(payload, raw_cube_positions)
     for marker in payload['markers']:
         if marker[6]:
             field = 'spawns' if payload['categories'][marker[0]]['group'] == 'Pets' else 'monsters'

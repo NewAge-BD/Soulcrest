@@ -29,6 +29,13 @@ eine Bildschirmaufnahme- plus Overlay-Software.
   Der einmalige Kartendatenimport ist ein Entwicklerskript, kein App-Pfad;
 - bisheriger Kartenanbieter abrufen, scrapen oder deren Token nachbauen (siehe `MAP_DATA.md`).
 
+## Ausnahme: einmalige Offline-Auswertung von Spielinhalten (Nutzerentscheidung 2026-10-17)
+
+Für die Hidden-Cube-Spawngruppen hat der Nutzer eine einmalige Auswertung von Spielinhalten außerhalb
+der App erlaubt. Sie geschieht offline an Kopien, nicht am laufenden Spiel und nicht durch Soulcrest.
+Die App selbst liest weiterhin keine Spieldateien, keinen Spielspeicher und keine Schlüssel. Das
+Ergebnis ist nur die Gruppenzuordnung der Cubes; Werkzeuge und Zwischenstände bleiben privat.
+
 ## Ausnahme: passiver Netzwerk-Mitschnitt (Nutzerentscheidungen 2026-10-03/12)
 
 Der Nutzer hat entschieden, dass das Loot-Tracking den eigenen Spielverkehr als Alternative zur OCR

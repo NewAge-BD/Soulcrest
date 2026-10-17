@@ -18,7 +18,8 @@ Spielzugriffe. WebP ist vom Nutzer am 2026-10-04 ausdrücklich freigegeben; die 
 öffentliche Bilddateien begrenzt. robots.txt wurde gelesen, CDN-robots.txt lieferte 404.
 
 Alle Rohdaten/Grafiken liegen git-ignoriert unter `imports/gamingtools/`. Die App ruft nichts ab.
-Der aktive Builder liest ausschließlich diesen Cache und belegte Faktentabellen unter `data/pets`.
+Der aktive Builder liest diesen Cache, belegte Faktentabellen unter `data/pets` und die eigene
+Cube-Pooltabelle unter `data/maps` (siehe unten).
 Alte vom Nutzer beschaffte Importverzeichnisse werden weder gelesen noch gelöscht.
 
 ## Reproduktion
@@ -145,30 +146,23 @@ expliziten Marker-Pet-IDs einschließlich belegter Katalog-Aliasse, nicht Namens
 Ohne Zuordnung wird kein Soul-Stand erfunden. Farmkarten bieten zusätzlich belegte andere
 Quellmonster desselben Pets an; dort zeigt die Notiz ausdrücklich Pet-Farmorte.
 
-## Cube-Gruppen: eigene Berechnung (2026-10-16)
+## Cube-Gruppen (2026-10-17)
 
-Die aktiven gaming.tools-Daten listen die Hidden-Cube-Positionen ohne Gruppen. Soulcrest berechnet
-die Gruppen selbst in `scripts/hidden_cube_groups.py` beim Bau des Kartenpakets: Jeder Cube gehört
-zum nächstgelegenen benannten Ort derselben Karte (Kategorien `Regions/Village` und
-`Regions/Hunting Ground`, Gleichstand: der zuerst gelistete Ort). Die Gruppe trägt Namen (EN/DE)
-und ID des Orts (`<karte>-cubes-<ort>`); Nummern folgen der Kartenposition des Orts. Karten ohne
-Cubes oder ohne benannte Orte bekommen keine Gruppen. Aktuell: Altgard 68 Gruppen/1.371 Cubes,
-Verteron 71 Gruppen/1.440 Cubes.
+Die Cube Groups verbinden die möglichen Positionen derselben Hidden-Cube-Spawngruppe. Die
+Zuordnung hat Soulcrest selbst ermittelt; sie wird beim Bau des Kartenpakets an die vorhandenen
+gaming.tools-Cube-Marker gebunden. Die Zuordnungstabelle und ihre Aufbereitung sind privat und
+nicht Teil des öffentlichen Repositorys; ohne sie entsteht das Kartenpaket ohne Cube Groups.
 
-Innerhalb jeder Gruppe verbindet ein deterministischer minimaler Spannbaum die echten
-Cube-Spawnpositionen (Linienenden liegen genau auf den Markern); Gruppen werden nie miteinander
-verbunden. Benachbarte Gruppen erhalten unterscheidbare Farben. Die Gruppen sind Gebiete zum
-Abfliegen, nicht die Spawngruppen des Spiels: keine Aussage über den nächsten Cube, keine
-Spawnreihenfolge oder -zeiten, kein erkannter Cube-Zustand.
+| Karte | Gruppen | Vorhandene Cube-Marker | Verbindungen |
+| --- | ---: | ---: | ---: |
+| Altgard | 59 | 1.371 | 1.312 |
+| Verteron | 95 | 1.440 | 1.345 |
 
-Eine früher eingebundene fremde Gruppentabelle (Herkunft: aion2maps.com, ohne Erlaubnis) ist
-vollständig entfernt; Soulcrest liest keine Gruppendaten mehr aus Dateien.
-
-Der additive Laufzeitvertrag bleibt `hiddenCubeGroups[{id,number,name,nameDe,color,markers,connections}]`
+Der Laufzeitvertrag ist `hiddenCubeGroups[{id,number,name,nameDe,color,markers,connections}]`
 plus `marker[7].hiddenCubeGroup`; Marker und Kanten verweisen auf vorhandene Markerindizes.
-Die virtuelle Kategorie `Collectibles/Cube Groups` steht direkt unter Hidden Cube und zählt
-Gruppen, keine zusätzlichen Marker. Karte, Minimap und Worldmap speichern eigene Schalter;
-Linien und Konturen erscheinen nur mit Hidden Cube und Cube Groups auf derselben Oberfläche.
-Darstellung: `soulcrest-cube-groups.js`/`cube-groups.css` (Leaflet), `MapPetMarkers.HiddenCubes.cs`
-und `RouteOverlayForm.HiddenCubes.cs` (native Overlays), `CubeGroupsInfo.razor` (DE/EN-Hinweis).
+IDs folgen `<karte>-cubes-spawn-<Zahl>`. Ortsnamen sind nur Anzeigelabels (nächstgelegenes Dorf
+oder Jagdgebiet zum Gruppenmittelpunkt). Richtungslose minimale Spannbäume verbinden nur Cubes
+derselben Gruppe; benachbarte Gruppen erhalten unterscheidbare Farben. Keine Spawnfolge, aktuelle
+Belegung, Spawnkapazität oder Respawnzeit. Die Kategorie `Collectibles/Cube Groups` und die drei
+getrennten Ebenenschalter bleiben erhalten; es entstehen keine neuen Marker.
 

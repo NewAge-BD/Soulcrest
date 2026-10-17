@@ -2,6 +2,12 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.7.6 – 2026-10-17
+
+- **Geändert:** Cube Groups zeigen jetzt die echten Spawngruppen der Hidden Cubes statt Gebieten:
+  Altgard 59, Verteron 95 Gruppen. Die Linien verbinden die möglichen Positionen derselben Gruppe;
+  Spawnfolge, Belegung und Respawnzeiten bleiben unbekannt.
+
 ## 0.7.5 – 2026-10-16
 
 - **Neu:** Ebene **Cube Groups** (unter Hidden Cube, getrennt für Karte, Minimap und Weltkarte):

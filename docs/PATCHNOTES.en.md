@@ -2,6 +2,12 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.7.6 – 2026-10-17
+
+- **Changed:** Cube Groups now show the actual spawn groups of the Hidden Cubes instead of areas:
+  59 groups on Altgard, 95 on Verteron. The lines connect the possible locations of the same group;
+  spawn order, occupancy and respawn times remain unknown.
+
 ## 0.7.5 – 2026-10-16
 
 - **New:** **Cube Groups** layer (below Hidden Cube, separate for map, minimap and world map): on

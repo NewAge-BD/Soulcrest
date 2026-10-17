@@ -41,6 +41,13 @@ Bildvergleich und den Erkennungstests. Spielgrafik © NCSOFT; keine freie Grafik
 - Frontend-Code wurde nur zur Prüfung des öffentlichen Dateiformats/Datenwegs gelesen;
   kein fremder Renderer wird in Soulcrest eingebunden.
 
+## Hidden-Cube-Spawngruppen
+
+Welche Hidden Cubes zu einer Spawngruppe gehören, hat Soulcrest selbst ermittelt; die Gruppen
+werden an die vorhandenen gaming.tools-Marker gebunden. Spielinhalte bleiben Eigentum von NCSOFT;
+eine Datenlizenz von NCSOFT wird nicht behauptet. Die Zuordnungstabelle ist nicht Teil dieses
+Repositorys.
+
 ## Komponenten (werden mit Phase 0/1 ergänzt)
 
 | Komponente | Lizenz | Verwendung |

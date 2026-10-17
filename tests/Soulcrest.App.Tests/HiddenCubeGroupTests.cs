@@ -211,22 +211,26 @@ public sealed class HiddenCubeGroupTests
         Assert.Equal(0, hidden.GetPixel(190, 3).A);
     }
 
-    [Fact]
-    public void LocalAltgardPackageGroupsEveryCubeAndProducesOfflineNativePreview()
+    [Theory]
+    [InlineData("altgard", 59, 1371, 1312)]
+    [InlineData("verteron", 95, 1440, 1345)]
+    public void LocalPackagesGroupEveryCubeByItsOwnNativeSpawnerAndProduceOptionalAltgardPreview(string mapId, int groupCount, int cubeCount, int connectionCount)
     {
         var directory = System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "imports", "generated", "mapdata"));
-        var path = System.IO.Path.Combine(directory, "altgard", "data.js");
+        var path = System.IO.Path.Combine(directory, mapId, "data.js");
         if (!File.Exists(path) || !File.ReadAllText(path).Contains("hiddenCubeGroups", StringComparison.Ordinal)) return;
         var groups = MapPetMarkers.LoadHiddenCubeGroups(path);
-        // Own grouping by the nearest named place (2026-10-16): every cube once, one tree per group.
-        Assert.NotEmpty(groups);
-        Assert.All(groups, group => Assert.StartsWith("altgard-cubes-", group.Id, StringComparison.Ordinal));
+        // Own spawn groups (user decision 2026-10-17); existing cube coordinates remain unchanged.
+        Assert.Equal(groupCount, groups.Count);
+        Assert.All(groups, group => Assert.Matches($"^{mapId}-cubes-spawn--?[0-9]+$", group.Id));
         Assert.Equal(groups.Count, groups.Select(group => group.Id).Distinct().Count());
         Assert.Equal(Enumerable.Range(1, groups.Count), groups.Select(group => group.Number));
-        Assert.Equal(1371, groups.Sum(g => g.Markers.Count));
-        Assert.Equal(1371 - groups.Count, groups.Sum(g => g.Connections.Count));
-        Assert.Equal(1371, groups.SelectMany(g => g.Markers).Distinct().Count());
-        if (Environment.GetEnvironmentVariable("SOULCREST_CUBE_PACKAGE_PREVIEW") is not { Length: > 0 } preview) return;
+        Assert.Equal(cubeCount, groups.Sum(g => g.Markers.Count));
+        Assert.Equal(connectionCount, groups.Sum(g => g.Connections.Count));
+        Assert.All(groups, group => Assert.Equal(group.Markers.Count - 1, group.Connections.Count));
+        Assert.Equal(cubeCount - groupCount, connectionCount);
+        Assert.Equal(cubeCount, groups.SelectMany(g => g.Markers).Distinct().Count());
+        if (mapId != "altgard" || Environment.GetEnvironmentVariable("SOULCREST_CUBE_PACKAGE_PREVIEW") is not { Length: > 0 } preview) return;
         const int size = 1024;
         var placement = new MapPlacement("altgard", new MapFix(.125, 0, 0, 0, .125, 0, 100, 100, .3, false), 1,
             new Rectangle(0, 0, size, size), default, WorldMap: true);
