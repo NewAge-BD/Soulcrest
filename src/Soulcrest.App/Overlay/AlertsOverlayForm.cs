@@ -183,8 +183,7 @@ public class AlertsOverlayForm : Form
         var now = _alerts.Now;
         _rows = _notification
             ? _alerts.NotificationRows.Select(notice => new AlertDisplayRow(notice.Key, notice.Title,
-                notice.Message, notice.Color, notice.At, notice.At <= now && !notice.AwaitingConfirmation,
-                AwaitingConfirmation: notice.AwaitingConfirmation)).ToArray()
+                notice.Message, notice.Color, notice.At, notice.At <= now)).ToArray()
             : _alerts.TimerOverlayRows;
         if (_rows.Count == 0 || (!_notification && !settings.AlertsOverlayEnabled))
         {
@@ -357,18 +356,12 @@ public class AlertsOverlayForm : Form
             FillRound(new RectangleF(5, y, width - 10, RowStride - 2), 5, Card);
             FillRound(new RectangleF(8, y + 6, 2, 30), 1, color);
             var countdownWidth = row.CountdownLabel is null ? 112 : 158;
-            // The confirmation status uses the subtitle line so the boss stays identifiable even at minimum width.
-            var titleWidth = row.AwaitingConfirmation ? width - 28 : Math.Max(28, width - countdownWidth - 28);
-            g.DrawString(row.Title, body, white, new RectangleF(16, y + 4, titleWidth, 17), line);
+            g.DrawString(row.Title, body, white, new RectangleF(16, y + 4, Math.Max(28, width - countdownWidth - 28), 17), line);
             var countdown = CountdownText(row, now);
-            if (!row.AwaitingConfirmation)
-            {
-                if (row.CountdownLabel is { } label) countdown = label + " " + countdown;
-                g.DrawString(countdown, timer, row.Provisional ? dim : accent,
-                    new RectangleF(width - countdownWidth - 12, y + 3, countdownWidth, 18), right);
-            }
-            g.DrawString(row.AwaitingConfirmation ? countdown
-                    : row.Provisional ? UiText.T("Timer nicht aktuell · Spawn unbestätigt") : row.Message,
+            if (row.CountdownLabel is { } label) countdown = label + " " + countdown;
+            g.DrawString(countdown, timer, row.Provisional ? dim : accent,
+                new RectangleF(width - countdownWidth - 12, y + 3, countdownWidth, 18), right);
+            g.DrawString(row.Provisional ? UiText.T("Timer nicht aktuell · Spawn unbestätigt") : row.Message,
                 small, dim, new RectangleF(16, y + 24, width - 78, 15), line);
             g.DrawString(row.At.ToLocalTime().ToString("HH:mm"), small, dim,
                 new RectangleF(width - 58, y + 24, 45, 15), right);
@@ -393,14 +386,15 @@ public class AlertsOverlayForm : Form
     internal static string CountdownText(AlertDisplayRow row, DateTimeOffset now)
     {
         var remaining = row.At - now;
-        return row.AwaitingConfirmation ? UiText.T("Warte auf Bestätigung")
-            : row.Provisional && remaining <= TimeSpan.Zero ? UiText.T("Spawn unbestätigt")
+        return row.Provisional && remaining <= TimeSpan.Zero ? UiText.T("Spawn unbestätigt")
             : (row.Started && row.CountdownLabel is null) || remaining <= TimeSpan.Zero ? UiText.T("Jetzt") : Countdown(remaining);
     }
 
     internal static string Countdown(TimeSpan remaining)
     {
         if (remaining <= TimeSpan.Zero) return UiText.T("Jetzt");
+        // Keep a positive last fraction distinguishable from the expired reminder removed by its source.
+        if (remaining < TimeSpan.FromSeconds(1)) remaining = TimeSpan.FromSeconds(1);
         return remaining.TotalDays >= 1
             ? UiText.F("{0} T. {1:00}:{2:00}:{3:00}", (int)remaining.TotalDays, remaining.Hours, remaining.Minutes, remaining.Seconds)
             : BossRushService.Countdown(remaining);

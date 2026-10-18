@@ -57,6 +57,7 @@ public static class CombatProjection
                         skill.Hits++; if (damage.IsPeriodic) skill.Ticks++;
                         skill.Maximum = Math.Max(skill.Maximum, damage.Amount);
                         skill.Accept(damage.Flags);
+                        ObserveValues(damage.ObservedValues, envelope.Sequence);
                         timeline.Add(envelope);
                     }
                     catch (OverflowException) { Issue("damage-overflow", envelope.Sequence); }
@@ -76,6 +77,7 @@ public static class CombatProjection
                         var total = checked(healer.Healing + heal.Amount);
                         var skillTotal = checked(healingSkill.Healing + heal.Amount);
                         healer.Healing = total; healingSkill.Healing = skillTotal;
+                        ObserveValues(heal.ObservedValues, envelope.Sequence);
                         timeline.Add(envelope);
                     }
                     catch (OverflowException) { Issue("healing-overflow", envelope.Sequence); }
@@ -130,6 +132,7 @@ public static class CombatProjection
                     { Issue("invalid-unclassified-amount", envelope.Sequence); break; }
                     if (unknown.TargetParticipantId is { } targetId ? !current.Contains(targetId) : !IsBoss(unknown.TargetEntity!, envelope)) break;
                     Issue("amount-semantics-unconfirmed", envelope.Sequence);
+                    ObserveValues(unknown.ObservedValues, envelope.Sequence);
                     timeline.Add(envelope);
                     break;
                 case CombatGapEvent gap:
@@ -144,6 +147,12 @@ public static class CombatProjection
                     timeline.Add(envelope);
                     break;
             }
+        }
+
+        void ObserveValues(CombatObservedHitValues? values, long sequence)
+        {
+            if (values is { DirectHitBlockValue: > 0 } or { DirectFlag400Value: > 0 } or { PeriodicFlag1Value: > 0 })
+                Issue("auxiliary-amount-semantics-unconfirmed", sequence);
         }
 
         if (duration is null) Issue("unknown-duration");

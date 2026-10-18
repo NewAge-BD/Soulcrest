@@ -130,7 +130,8 @@ Sperre und ihre Hotkeys bleiben unabhängig.
 Ausgewählte aktive Boss-Erinnerungen erscheinen als eigenständige Overlay-Benachrichtigung,
 unabhängig von Weltkarte, Menü, Instanzen und Sichtbarkeit oder Auswahl der Timer-Leiste.
 Die Vorwarnzeit je Boss legt den Beginn fest. Global gilt eine feste Sekundendauer oder das
-vollständige Vorwarnfenster bis zum bestätigten Spawn; Countdown 0 allein beendet es nicht.
+vollständige Vorwarnfenster bis zum Timerablauf. Bei Countdown 0 verschwindet die Vorwarnung
+ohne zusätzliche Wartemeldung; ein Spawn wird dadurch nicht bestätigt.
 Es gibt kein zusätzliches Bannerfenster. Ton bleibt optional (standardmäßig aus; keine Änderung
 am Soul-Drop-Feedback). Bereits ausgelöste feste Meldungen behalten bei einem Kartenwechsel
 ihre Restdauer. Veraltete Listen lösen keine neuen Warnungen aus. Der Test-Button zeigt eine

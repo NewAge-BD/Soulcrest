@@ -119,4 +119,85 @@ public sealed class GameMessageVerifiedSyncTests
         var own = OwnIdentityMessageTests.OwnMessage(false);
         Assert.Equal(own, Assert.Single(stream.Append(Frame(own))));
     }
+
+    [Fact]
+    public void SmallClockBundleAnchorsWithoutDependingOnTcpChunkBoundaries()
+    {
+        var clock = Clock();
+        var bundled = Frame(Bundle(Frame(clock)));
+        for (var cut = 1; cut < bundled.Length; cut++)
+        {
+            var stream = new GameMessageStream(requireVerifiedSync: true);
+            Assert.Empty(stream.Append(bundled.AsSpan(0, cut)));
+            Assert.Equal(clock, Assert.Single(stream.Append(bundled.AsSpan(cut))));
+            Assert.Equal(0, stream.Resyncs);
+            Assert.Equal(0, stream.ContinuityBreaks);
+            Assert.Equal(Gain, Assert.Single(stream.Append(Frame(Gain))));
+        }
+    }
+
+    [Fact]
+    public void ValidatedClockWithGainInSmallNestedBundleDeliversEachMessageOnce()
+    {
+        var clock = Clock();
+        var bundled = Frame(Bundle(Frame(Bundle([.. Frame(clock), .. Frame(Gain)]))));
+        var stream = new GameMessageStream(requireVerifiedSync: true);
+        var messages = stream.Append(bundled);
+        Assert.Equal(2, messages.Count);
+        Assert.Equal(clock, messages[0]);
+        Assert.Equal(Gain, messages[1]);
+        Assert.Empty(stream.Append([]));
+        Assert.Equal(0, stream.ContinuityBreaks);
+    }
+
+    [Fact]
+    public void ClockAndGainBytesInsideAnUnconfirmedMessageCannotBecomeOuterAnchors()
+    {
+        // These are the payload of one unknown message, not two independently framed messages.
+        byte[] ordinary = [0x20, 0x28, .. Frame(Clock()), .. Frame(Gain)];
+        var stream = new GameMessageStream(requireVerifiedSync: true);
+        Assert.Empty(stream.Append(Frame(Bundle(Frame(ordinary)))));
+        Assert.Empty(stream.Append([]));
+        var clock = Clock();
+        Assert.Equal(clock, Assert.Single(stream.Append(Frame(clock))));
+        Assert.Equal(1, stream.Resyncs);
+    }
+
+    [Fact]
+    public void SmallBundlesWithInvalidClockFormsDoNotEstablishAuthority()
+    {
+        var clock = Clock();
+        byte[][] invalid = [[0, 0x36, .. BitConverter.GetBytes(0L)], clock[..^1], [.. clock, 0]];
+        foreach (var value in invalid)
+        {
+            var stream = new GameMessageStream(requireVerifiedSync: true);
+            Assert.Empty(stream.Append(Frame(Bundle(Frame(value)))));
+            Assert.Equal(clock, Assert.Single(stream.Append(Frame(clock))));
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ARejectedBundleTailCannotBecomeAnAnchorAcrossAppendsOrBufferTrimming(bool trim)
+    {
+        var clockFrame = Frame(Clock());
+        var ordinary = new byte[trim ? 500000 : 7];
+        ordinary[0] = 0x20;
+        ordinary[1] = 0x28;
+        clockFrame.AsSpan(0, 5).CopyTo(ordinary.AsSpan(ordinary.Length - 5));
+        var bundled = Frame(Bundle(Frame(ordinary)));
+        byte[] first = trim ? [.. new byte[1800000], .. bundled] : bundled;
+        var stream = new GameMessageStream(requireVerifiedSync: true);
+
+        Assert.Empty(stream.Append(first));
+        // The apparent clock header is part of the rejected container's payload.
+        // New TCP bytes cannot retroactively promote those bytes into an outer frame.
+        Assert.Empty(stream.Append(clockFrame.AsSpan(5)));
+
+        var clock = Clock();
+        Assert.Equal(clock, Assert.Single(stream.Append(Frame(clock))));
+        Assert.Empty(stream.Append([]));
+    }
+
 }

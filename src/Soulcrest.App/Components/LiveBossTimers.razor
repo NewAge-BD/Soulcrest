@@ -31,7 +31,7 @@
         <label class="boss-field">@UiText.T("Anzeigedauer")<select id="@(_masterId + "-duration-mode")" data-boss-duration-mode value="@(Settings.Current.BossAlertUntilSpawn ? "until-spawn" : "fixed")" disabled="@Disabled" @onchange="SetDurationMode"><option value="fixed">@UiText.T("Feste Dauer")</option><option value="until-spawn">@UiText.T("Gesamtes Vorwarnfenster")</option></select></label>
         <label class="boss-field">@UiText.T(Settings.Current.BossAlertUntilSpawn ? "Bestätigter Spawn & Test (Sekunden)" : "Feste Dauer (Sekunden)")<input id="@(_masterId + "-duration-seconds")" data-boss-duration-seconds type="number" min="3" max="60" value="@Settings.Current.BossAlertDurationSeconds" disabled="@Disabled" @onchange="SetDuration" /></label>
     </div>
-    <p class="alerts-hint">@(UiText.T("Gilt für alle Boss-Erinnerungen.") + " " + UiText.T("Jede aktivierte Boss-Erinnerung erscheint als Overlay-Benachrichtigung, unabhängig von der Timer-Leiste.")) @if (Settings.Current.BossAlertUntilSpawn) { @(" " + UiText.T("Die Benachrichtigung bleibt ab der eingestellten Vorwarnzeit bis zum bestätigten Spawn sichtbar, auch wenn der Countdown 0 erreicht.")) }</p>
+    <p class="alerts-hint">@(UiText.T("Gilt für alle Boss-Erinnerungen.") + " " + UiText.T("Jede aktivierte Boss-Erinnerung erscheint als Overlay-Benachrichtigung, unabhängig von der Timer-Leiste.")) @if (Settings.Current.BossAlertUntilSpawn) { @(" " + UiText.T("Die Benachrichtigung bleibt ab der eingestellten Vorwarnzeit bis zum Timerablauf sichtbar und wird bei Countdown 0 ausgeblendet.")) }</p>
     @if (Searchable)
     {
         <div class="boss-timer-search-row">

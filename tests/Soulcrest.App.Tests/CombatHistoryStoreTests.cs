@@ -374,6 +374,46 @@ public sealed class CombatHistoryStoreTests : IDisposable
         Assert.Empty(File.ReadAllBytes(Journal(run)));
     }
 
+    [Fact]
+    public void AuxiliaryHitValuesRoundtripWithoutDeduplicatingRepeatedValuesOrChangingPrimaryTotals()
+    {
+        var values = new CombatObservedHitValues(ulong.MaxValue, 72, 0);
+        var run = CreateRun(events:
+        [
+            Envelope(1, new CombatDamageEvent("member-a", Boss, "skill-a", 100) { ObservedValues = values }),
+            Envelope(2, new CombatDamageEvent("member-a", Boss, "skill-a", 100) { ObservedValues = values }),
+            Envelope(3, new CombatHealEvent("member-a", "member-b", "heal-a", 25)
+                { ObservedValues = new(DirectFlag400Value: ulong.MaxValue) }),
+            Envelope(4, new CombatUnclassifiedAmountEvent("member-a", null, Boss, null, "effect-a", null, true)
+                { ObservedValues = new(PeriodicFlag1Value: ulong.MaxValue) })
+        ]);
+        Store.SaveRun(run);
+        var loaded = Store.LoadRun(run.Id);
+        Assert.False(loaded.HasIncompleteJournal);
+        Assert.Equal(JsonSerializer.Serialize(run), JsonSerializer.Serialize(loaded.Run));
+        var summary = CombatProjection.Project(loaded.Run.Attempts[0]);
+        Assert.Equal(200, summary.Damage);
+        var player = summary.Players.Single(p => p.Participant.ParticipantId == "member-a");
+        Assert.Equal(25, player.Healing);
+        Assert.Equal(2.5m, player.Hps);
+        Assert.Equal(2, player.Skills.Single(s => s.SkillId == "skill-a").Hits);
+        Assert.False(summary.IsComplete);
+        Assert.Equal(4, summary.Timeline.Count);
+        Assert.Equal(4, summary.QualityIssues.Count(i => i.Code == "auxiliary-amount-semantics-unconfirmed"));
+    }
+
+    [Fact]
+    public void JournalsWithoutOptionalAuxiliaryPropertyStillLoadAndRemainAppendIdempotent()
+    {
+        var item = Envelope(1, new CombatDamageEvent("member-a", Boss, "skill-a", 50));
+        var run = CreateRun(events: [item]);
+        Store.SaveRun(run);
+        Assert.DoesNotContain("ObservedValues", File.ReadAllText(Journal(run)));
+        Assert.Null(Assert.IsType<CombatDamageEvent>(Store.LoadRun(run.Id).Run.Attempts[0].Events[0].Event).ObservedValues);
+        Store.AppendEvents(run.Id, run.Attempts[0].Id, [item]);
+        Assert.Single(Store.LoadJournal(run.Id, run.Attempts[0].Id).Events);
+    }
+
     private static CombatEventEnvelope Envelope(long sequence, CombatEvent value, long offsetTicks = 0)
         => new(sequence, offsetTicks, Start.AddTicks(offsetTicks), Source, value);
 

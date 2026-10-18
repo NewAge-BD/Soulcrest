@@ -2,6 +2,15 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.8.1 – 2026-10-18
+
+- **Neu:** Tab **DPS** als frühe Vorschau: lokal gespeicherte Kämpfe mit Auswahl nach Lauf, Versuch
+  und Teilnehmer, Skill- und Buff-Details und Boss-HP; auch ehemalige Gruppenmitglieder bleiben
+  sichtbar. Unbekannte oder unvollständige Werte werden als solche gekennzeichnet, nicht als 0. Die
+  Messung ist noch nicht für alle Kämpfe bestätigt.
+- **Geändert:** Boss-Erinnerungen verschwinden, sobald ihr Countdown abläuft, auch ohne
+  Spawn-Bestätigung.
+
 ## 0.8.0 – 2026-10-18
 
 - **Neu:** Timer-Leiste im Spiel: eine schlanke Symbolleiste mit Countdowns für Events und Bosse,

@@ -14,7 +14,7 @@ public sealed record CombatAmountClassification(CombatAmountKind Kind, long? Amo
 /// A caller must explicitly select the matching evidence scope and retain empirical quality in reports.
 /// Missing effects/forms/scopes/amounts remain unknown; unknown never defaults to damage.
 /// </summary>
-public sealed class CombatAmountClassifier
+public sealed class CombatAmountClassifier : ICombatAmountClassifier
 {
     private readonly Dictionary<(bool IsPeriodic, uint EffectDataId), CombatEffectAmountRule> _rules;
     public string EvidenceId { get; }

@@ -185,7 +185,7 @@ public sealed class AppSettings
     /// <summary>Missing entries inherit the global lead time; disabling a reminder keeps its timer selected.</summary>
     public Dictionary<string, BossReminderPreference> BossReminderOverrides { get; set; } = new(StringComparer.Ordinal);
     public int BossAlertDurationSeconds { get; set; } = 15;
-    /// <summary>Global boss-warning hold: only a fresh explicit spawn confirmation ends a warning.</summary>
+    /// <summary>Global whole-warning-window mode: the warning ends when its captured countdown expires.</summary>
     public bool BossAlertUntilSpawn { get; set; }
     public bool BossAlertSound { get; set; }
     private int? _targetArrivalRadius, _legacyArrivalRadius;

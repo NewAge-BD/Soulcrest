@@ -75,10 +75,18 @@ public sealed record CombatRosterEvent(CombatParticipant[] Members) : CombatEven
 /// <summary>A supplied owner is already confirmed by the adapter; the projector never guesses summon ownership.</summary>
 public sealed record CombatDamageEvent(string? SourceParticipantId, CombatEntityReference Target, string SkillId,
     long Amount, CombatHitFlags? Flags = null, bool IsPeriodic = false,
-    string? ConfirmedOwnerParticipantId = null) : CombatEvent;
+    string? ConfirmedOwnerParticipantId = null) : CombatEvent
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CombatObservedHitValues? ObservedValues { get; init; }
+}
 public sealed record CombatCastEvent(string SourceParticipantId, string SkillId) : CombatEvent;
 public sealed record CombatHealEvent(string SourceParticipantId, string TargetParticipantId, string SkillId,
-    long Amount, bool IsPeriodic = false) : CombatEvent;
+    long Amount, bool IsPeriodic = false) : CombatEvent
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CombatObservedHitValues? ObservedValues { get; init; }
+}
 public sealed record CombatHitFlags(bool? Critical = null, bool? Front = null, bool? Back = null,
     bool? Perfect = null, bool? Crushing = null, bool? MultiHit = null, bool? Parried = null);
 
@@ -94,7 +102,16 @@ public enum CombatGapReason { Transport, QueueOverflow, LateStart, UnknownAttrib
 public sealed record CombatGapEvent(CombatGapReason Reason) : CombatEvent;
 /// <summary>A neutral observed amount. It cannot increase damage/healing totals or remove roster authority.</summary>
 public sealed record CombatUnclassifiedAmountEvent(string SourceParticipantId, string? TargetParticipantId,
-    CombatEntityReference? TargetEntity, string? SkillId, string EffectId, long? Amount, bool IsPeriodic) : CombatEvent;
+    CombatEntityReference? TargetEntity, string? SkillId, string EffectId, long? Amount, bool IsPeriodic) : CombatEvent
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CombatObservedHitValues? ObservedValues { get; init; }
+}
+
+/// <summary>Lossless auxiliary wire values, separate from the primary amount. Null means absent;
+/// zero is observed. These fields grant no resource, recipient, mitigation or aggregation semantics.</summary>
+public sealed record CombatObservedHitValues(ulong? DirectHitBlockValue = null,
+    ulong? DirectFlag400Value = null, ulong? PeriodicFlag1Value = null);
 
 public sealed record CombatQualityIssue(string Code, long? Sequence = null);
 public sealed record CombatRate(long Numerator, long Denominator)

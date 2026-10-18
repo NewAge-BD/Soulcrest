@@ -134,16 +134,18 @@ für Store- und Timer-Leisten-Kompatibilität erhalten, beeinflussen jedoch echt
 Tests nicht. Die UI bietet daher nur Vorwarnzeit und optionalen Ton. Bereits zulässig erzeugte
 feste Notices überstehen Map-/Streamwechsel bis Expires; Metadatenänderungen löschen sie nicht.
 Neue Cache-Warnungen bleiben durch die unveränderte Triggerpolicy ausgeschlossen.
-Der Bestätigungsmodus hält zulässig erzeugte Vorwarnungen auch bei Restzeit 0 sowie nach
-Karten-/Quellenwechseln. Nur eine neu akzeptierte, vollständig bekannte Liste mit explizitem
-Spawned für dieselbe Map-/Spawn-ID beendet einen Hold; Kalender, Cache und Timerablauf nicht.
-Manuelles Deaktivieren/Abwählen bleibt möglich. Geplanter Countdownzeitpunkt und Lebensdauer
-sind getrennt; AwaitingConfirmation zeigt im Banner den Wartezustand statt eines Spawnanspruchs.
-Tests und bestätigte Spawns behalten die globale feste Dauer. Bereits zugestellte Holds werden
-still abgeglichen; keine erneute Ausgabe bei Timer-/Metadatenänderungen. Die bisherige native
-Begrenzung auf sechs Zeilen mit Überlaufhinweis bleibt; Holds blockieren nicht die Quellqueue
-neuer Warnungen. Alte per-Boss-Dauerfelder werden beim JSON-Lesen ignoriert, ohne daraus einen
-globalen Modus zu erraten.
+Der Vorwarnfenstermodus verwendet eine endliche Frist und einen monotonen Restzeitanker.
+Gültige frische Uhrkorrekturen passen nur den ursprünglichen Zyklus an. Bei Restzeit 0
+entfernt BossRushService die Quelle; UntilSpawnNotice liefert null und AlertsService entfernt
+gebundene Bannerkopien auch beim direkten Lesen ohne weiteren Tick. Ein Karten-/Quellenwechsel
+beendet ein positives Fenster nicht vorzeitig; ein neuer anderer Zyklus verlängert es nicht.
+Die frühere AwaitingConfirmation-Sonderanzeige entfällt. Ein abgelaufener Timer erzeugt weiterhin
+keinen Spawnbeleg; normale Bossliste und Kartenprojektion dürfen den Quellenzustand unbekannt
+anzeigen. Manuelles Deaktivieren/Abwählen bleibt möglich. Tests, feste Anzeigedauer und tatsächlich
+bestätigte Spawnmeldungen behalten ihre Sekundendauer. Stille Korrekturen erzeugen keinen neuen
+Ton. Die native Begrenzung auf sechs Zeilen mit Überlaufhinweis bleibt; Fensterquellen blockieren
+nicht die feste Queue. Alte per-Boss-Dauerfelder werden beim JSON-Lesen ignoriert, ohne daraus
+einen globalen Modus zu erraten.
 `BossAlertPolicy` löst weiterhin allein aus; ein per-key Resolver kann einen Boss pausieren,
 ohne die Timerauswahl zu verändern. Queue- und AlertsService-Prüfungen verwerfen deaktivierte
 echte Hinweise. Bestehende Zyklusidentität und Cache-/Freshness-Grenzen bleiben maßgeblich.

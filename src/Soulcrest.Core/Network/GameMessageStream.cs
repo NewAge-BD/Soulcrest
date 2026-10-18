@@ -16,14 +16,25 @@ public sealed class GameMessageStream
     private const int MaxDecodedMessages = 65536;
     private readonly List<byte> _buffer = [];
     private readonly bool _requireVerifiedSync;
+    private readonly bool _allowObservedControlFrames;
     private int _verifiedScan;
     private bool _synced;
 
     /// <summary>
     /// Live progress requires a validated bundle, own-character message or exact server clock to
     /// establish framing. The default retains the generic chain mode for transport-only consumers.
+    /// The separately selected observed transport profile may consume canonical one-byte L=4/5
+    /// controls. They never emit a message, establish an anchor or count toward a sync chain.
+    /// This option requires verified synchronization; generic sync is intentionally unavailable for
+    /// this profile. Existing live callers leave this option disabled.
     /// </summary>
-    public GameMessageStream(bool requireVerifiedSync = false) => _requireVerifiedSync = requireVerifiedSync;
+    public GameMessageStream(bool requireVerifiedSync = false, bool allowObservedControlFrames = false)
+    {
+        if (allowObservedControlFrames && !requireVerifiedSync)
+            throw new ArgumentException("Observed controls require verified synchronization.", nameof(allowObservedControlFrames));
+        _requireVerifiedSync = requireVerifiedSync;
+        _allowObservedControlFrames = allowObservedControlFrames;
+    }
 
     /// <summary>Messages lost to resynchronisation (diagnosis).</summary>
     public int Resyncs { get; private set; }
@@ -104,9 +115,10 @@ public sealed class GameMessageStream
         return messages;
     }
 
-    private static bool Expand(ReadOnlySpan<byte> message, List<byte[]> into, int depth, ref int expandedBytes)
+    private bool Expand(ReadOnlySpan<byte> message, List<byte[]> into, int depth, ref int expandedBytes)
     {
-        if (message.Length >= 2 && message[0] == 0xff && message[1] == 0xff)
+        if (message.Length < 2) return _allowObservedControlFrames;
+        if (message[0] == 0xff && message[1] == 0xff)
         {
             if (message.Length < 6 || depth >= MaxBundleDepth) return false;
             var size = message[2] | (message[3] << 8) | (message[4] << 16) | (message[5] << 24);
@@ -130,7 +142,7 @@ public sealed class GameMessageStream
     private readonly record struct FrameInfo(int BodyStart, int End);
 
     /// <summary>The message starting at <paramref name="pos"/>, if its header is complete and plausible.</summary>
-    private static FrameInfo? Frame(byte[] bytes, int pos)
+    private FrameInfo? Frame(byte[] bytes, int pos)
     {
         int value = 0, shift = 0, n = 0;
         while (true)
@@ -145,12 +157,13 @@ public sealed class GameMessageStream
                 break;
         }
         var size = value - 4 + n;
-        if (size < n + 2 || size > MaxMessage)
+        if (size > MaxMessage || size < n + 2 &&
+            !(_allowObservedControlFrames && n == 1 && value is 4 or 5))
             return null;
         return new FrameInfo(pos + n, pos + size);
     }
 
-    private static bool CouldStartFrame(byte[] bytes, int pos)
+    private bool CouldStartFrame(byte[] bytes, int pos)
     {
         // Header not complete yet (varint cut off) or a complete header waiting for its body.
         for (var n = 0; n < 4; n++)
@@ -170,9 +183,11 @@ public sealed class GameMessageStream
     /// </summary>
     private int FindVerifiedSync(byte[] bytes)
     {
+        var scanFloor = _verifiedScan;
         for (var start = _verifiedScan; start < bytes.Length; start++)
         {
-            if (Frame(bytes, start) is not { } frame || frame.BodyStart + 2 > bytes.Length) continue;
+            if (Frame(bytes, start) is not { } frame || frame.End - frame.BodyStart < 2 ||
+                frame.BodyStart + 2 > bytes.Length) continue;
             var opcode = bytes[frame.BodyStart] | bytes[frame.BodyStart + 1] << 8;
             if (opcode is not (0xffff or 0x3633 or 0x3600)) continue;
             if (opcode == 0x3600 && frame.End - frame.BodyStart != 10) continue;
@@ -186,13 +201,22 @@ public sealed class GameMessageStream
             {
                 var inner = new List<byte[]>();
                 var expanded = 0;
-                if (Expand(message, inner, 0, ref expanded) &&
-                    (inner.Count >= ChainForSync || inner.Any(m => OwnIdentityMessage.TryParse(m) is not null)))
-                { _verifiedScan = 0; return start; }
+                if (Expand(message, inner, 0, ref expanded))
+                {
+                    // A fully validated inner clock is the same anchor as a plain clock; a small
+                    // bundle need not wait for four messages. Never interpret compressed literal
+                    // bytes inside a valid but unconfirmed bundle as independent outer anchors.
+                    if (inner.Count >= ChainForSync || inner.Any(m =>
+                        OwnIdentityMessage.TryParse(m) is not null || BossSpawnMessage.ReadServerClock(m) is not null))
+                    { _verifiedScan = 0; return start; }
+                    start = frame.End - 1;
+                    scanFloor = frame.End;
+                }
             }
         }
-        // A four-byte length and two-byte opcode can straddle the next TCP segment.
-        _verifiedScan = Math.Max(0, bytes.Length - 5);
+        // A four-byte length and two-byte opcode can straddle the next TCP segment,
+        // but even that look-behind must never revisit the excluded container bytes.
+        _verifiedScan = Math.Max(scanFloor, bytes.Length - 5);
         return -1;
     }
 
@@ -201,7 +225,7 @@ public sealed class GameMessageStream
     /// without a break up to the end of the data (only a message still arriving may stick out). Random
     /// bytes often form a few plausible headers, but hardly a chain that ends exactly with the data.
     /// </summary>
-    private static int FindSync(byte[] bytes)
+    private int FindSync(byte[] bytes)
     {
         const int MaxSyncMessage = 64 * 1024;
         for (var start = 0; start < bytes.Length; start++)
@@ -229,7 +253,7 @@ public sealed class GameMessageStream
                     break;
                 }
                 pos = frame.End;
-                chain++;
+                if (frame.End - frame.BodyStart >= 2) chain++;
             }
             if (valid && chain >= ChainForSync)
                 return start;

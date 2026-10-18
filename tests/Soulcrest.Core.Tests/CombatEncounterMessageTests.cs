@@ -16,10 +16,14 @@ public sealed class CombatEncounterMessageTests
     [InlineData(0x101D, 0x0208)] [InlineData(0x105D, 0x0208)]
     [InlineData(0x0014, 0x0200)] [InlineData(0x1014, 0x0200)]
     [InlineData(0x200F, 0x0200)] [InlineData(0x220C, 0x0200)]
+    [InlineData(0x101F, 0x0200)] [InlineData(0x101F, 0x0240)]
+    [InlineData(0x1024, 0x0200)] [InlineData(0x101D, 0x0248)]
     public void AppearanceConsumesEveryObservedFlagFormAndReturnsNeutralIdentityAndHp(int flags, int state)
     {
         var bytes = Spawn((ushort)flags, (ushort)state);
         var npc = Assert.IsType<CombatNpcAppearance>(CombatEncounterMessage.TryParseNpcAppearance(bytes));
+        Assert.Equal((ushort)flags, npc.RawFlags);
+        Assert.Equal((ushort)state, npc.RawStateFlags);
         Assert.Equal(101, npc.EntityKey);
         Assert.Equal(1001, npc.NpcDataId);
         Assert.Equal(700, npc.CurrentHp);
@@ -67,6 +71,15 @@ public sealed class CombatEncounterMessageTests
         var overlong = Spawn(0x200C, 0x0200).ToList(); overlong[2] = 0xE5; overlong.Insert(3, 0);
         Assert.Null(CombatEncounterMessage.TryParseNpcAppearance(overlong.ToArray()));
         Assert.Null(CombatEncounterMessage.TryParseNpcAppearance(Spawn(0x220C, 0x0200, groggyFlags: 1)));
+    }
+
+    [Theory]
+    [InlineData(0x101F, 0x0200)] [InlineData(0x101F, 0x0240)]
+    [InlineData(0x1024, 0x0200)] [InlineData(0x101D, 0x0248)]
+    public void CompositeAppearanceFormsRejectUnknownPresenceAndStateBits(int flags, int state)
+    {
+        Assert.Null(CombatEncounterMessage.TryParseNpcAppearance(Spawn((ushort)(flags | 0x8000), (ushort)state)));
+        Assert.Null(CombatEncounterMessage.TryParseNpcAppearance(Spawn((ushort)flags, (ushort)(state | 0x8000))));
     }
 
     [Fact]

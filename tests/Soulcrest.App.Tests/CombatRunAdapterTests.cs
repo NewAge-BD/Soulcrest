@@ -214,6 +214,123 @@ public sealed class CombatRunAdapterTests
         Assert.Equal(200, CombatProjection.Project(f.Controller.Snapshot.CurrentRun!.Attempts[0], TimeSpan.FromSeconds(3).Ticks).Damage);
     }
 
+    [Fact]
+    public void AppearanceMaximumSurvivesCurrentOnlyHpWithoutReplayingPrePullCurrent()
+    {
+        var f = new Fixture(); f.Ready(); f.Hit(3);
+        Assert.Empty(CombatProjection.Project(f.Controller.Snapshot.CurrentRun!.Attempts[0]).HpPoints);
+        f.Send(new CombatWireHp(new(900, 8000, null)), 4);
+        var point = Assert.Single(CombatProjection.Project(f.Controller.Snapshot.CurrentRun!.Attempts[0]).HpPoints);
+        Assert.Equal(8000, point.Current);
+        Assert.Equal(10000, point.Maximum);
+        Assert.Equal(0.8m, point.Fraction);
+    }
+
+    [Fact]
+    public void MaximumOnlyUpdateIsUsedByTheNextObservedCurrentValue()
+    {
+        var f = new Fixture(); f.Ready(); f.Hit(3);
+        f.Send(new CombatWireHp(new(900, null, 20000)), 4);
+        Assert.Empty(CombatProjection.Project(f.Controller.Snapshot.CurrentRun!.Attempts[0]).HpPoints);
+        f.Send(new CombatWireHp(new(900, 15000, null)), 5);
+        var point = Assert.Single(CombatProjection.Project(f.Controller.Snapshot.CurrentRun!.Attempts[0]).HpPoints);
+        Assert.Equal(20000, point.Maximum);
+        Assert.Equal(0.75m, point.Fraction);
+    }
+
+    [Fact]
+    public void DepartureAndNewLifetimeCannotReuseTheOldMaximum()
+    {
+        var f = new Fixture(); f.Ready();
+        f.Send(new CombatWireHp(new(900, null, 20000)), 3);
+        f.Send(new CombatWireNpcDeparture(new(900, 1, null)), 4);
+        f.Send(new CombatWireNpcAppearance(Fixture.Npc(900).Value with { CurrentHp = 5000, MaximumHp = 5000 }), 5);
+        f.Hit(6);
+        f.Send(new CombatWireHp(new(900, 4000, null)), 7);
+        var point = Assert.Single(CombatProjection.Project(f.Controller.Snapshot.CurrentRun!.Attempts[0]).HpPoints);
+        Assert.Equal(5000, point.Maximum);
+        Assert.Equal(0.8m, point.Fraction);
+    }
+
+    [Fact]
+    public void TransportGapRevokesMaximumUntilANewConfirmedLifetime()
+    {
+        var f = new Fixture(); f.Ready(); f.Hit(3);
+        f.Adapter.Boundary(new(100, Fixture.Source, "Gap", TimeSpan.FromSeconds(4).Ticks, Fixture.Start.AddSeconds(4)));
+        f.Send(new CombatWireHp(new(900, 5000, null)), 5);
+        var attempt = Assert.Single(f.Controller.Snapshot.CurrentRun!.Attempts);
+        Assert.Equal(CombatEndReason.Interrupted, attempt.EndReason);
+        Assert.Empty(CombatProjection.Project(attempt).HpPoints);
+    }
+
+    [Fact]
+    public void CurrentExceedingTheLifetimeMaximumRemainsUnknownUntilAFreshMaximum()
+    {
+        var f = new Fixture(); f.Ready(); f.Hit(3);
+        f.Send(new CombatWireHp(new(900, 12000, null)), 4);
+        f.Send(new CombatWireHp(new(900, 8000, null)), 5);
+        var points = CombatProjection.Project(f.Controller.Snapshot.CurrentRun!.Attempts[0]).HpPoints;
+        Assert.Equal(2, points.Count);
+        Assert.All(points, point => Assert.Null(point.Maximum));
+        f.Send(new CombatWireHp(new(900, null, 16000)), 6);
+        f.Send(new CombatWireHp(new(900, 8000, null)), 7);
+        Assert.Equal(0.5m, CombatProjection.Project(f.Controller.Snapshot.CurrentRun!.Attempts[0]).HpPoints[^1].Fraction);
+    }
+
+    [Fact]
+    public void AuxiliaryValuesSurviveAllPrimaryKindsWithoutCreatingExtraEventsOrTotals()
+    {
+        var f = new Fixture(); f.Ready();
+        var fields = new CombatDirectHitFields(1, ulong.MaxValue, 2, 3, 4, null, 5, 72, null);
+        f.Send(new CombatWireHit(new(900, 101, 10, 11, 100, false, null, null, 0)
+            { DirectFields = fields }), 3);
+        f.Send(new CombatWireHit(new(102, 101, 10, 12, 25, false, null, null, 0)
+            { DirectFields = fields with { HitBlockValue = 0, Flag400Value = ulong.MaxValue } }), 4);
+        f.Send(new CombatWireHit(new(900, 101, 10, 99, null, true, null, null, 0)
+            { PeriodicFields = new(900, ulong.MaxValue, null, null, null) }), 5);
+        var attempt = Assert.Single(f.Controller.Snapshot.CurrentRun!.Attempts);
+        var damage = Assert.Single(attempt.Events.Select(e => e.Event).OfType<CombatDamageEvent>());
+        var heal = Assert.Single(attempt.Events.Select(e => e.Event).OfType<CombatHealEvent>());
+        var unknown = Assert.Single(attempt.Events.Select(e => e.Event).OfType<CombatUnclassifiedAmountEvent>());
+        Assert.Equal(new CombatObservedHitValues(ulong.MaxValue, 72), damage.ObservedValues);
+        Assert.Equal(new CombatObservedHitValues(0, ulong.MaxValue), heal.ObservedValues);
+        Assert.Equal(new CombatObservedHitValues(PeriodicFlag1Value: ulong.MaxValue), unknown.ObservedValues);
+        Assert.Equal(25, heal.Amount);
+        Assert.Null(unknown.Amount);
+        var projection = CombatProjection.Project(attempt, TimeSpan.FromSeconds(3).Ticks);
+        Assert.Equal(100, projection.Damage);
+        Assert.Contains(projection.QualityIssues, i => i.Code == "auxiliary-amount-semantics-unconfirmed");
+    }
+
+    [Fact]
+    public void AbsentAndObservedZeroAuxiliaryValuesRemainDistinct()
+    {
+        var f = new Fixture(); f.Ready(); f.Hit(3);
+        f.Send(new CombatWireHit(new(900, 101, 10, 11, 100, false, null, null, 0)
+            { DirectFields = new(1, 0, 0, 0, 0, null, 0, 0, null) }), 4);
+        var damage = f.Controller.Snapshot.CurrentRun!.Attempts[0].Events.Select(e => e.Event).OfType<CombatDamageEvent>().ToArray();
+        Assert.Equal(2, damage.Length);
+        Assert.Null(damage[0].ObservedValues);
+        Assert.Equal(new CombatObservedHitValues(0, 0), damage[1].ObservedValues);
+    }
+
+    [Fact]
+    public void NativeClassifierCanBeInjectedWithoutGrantingCompleteCoverageOrInferringOwners()
+    {
+        ICombatAmountClassifier native = new CombatNativeEffectClassifier("synthetic-native", "synthetic-scope",
+            [new(false, 11, "ESkillEffectType::Damage"), new(false, 12, "ESkillEffectType::HpHeal")]);
+        var f = new Fixture(amounts: native); f.Ready(); f.Hit(3);
+        f.Send(new CombatWireHit(new(900, 777, 10, 11, 999, false, null, null, 0)), 4);
+        f.Send(new CombatWireHit(new(102, 101, 10, 12, 25, false, null, null, 0)), 5);
+        var attempt = Assert.Single(f.Controller.Snapshot.CurrentRun!.Attempts);
+        Assert.False(attempt.Capabilities.HasFlag(CombatCapabilities.Damage));
+        Assert.False(attempt.Capabilities.HasFlag(CombatCapabilities.Healing));
+        Assert.Equal("synthetic-rules|amount:synthetic-native", attempt.MeasurementProfile.RulesetVersion);
+        Assert.Equal(100, CombatProjection.Project(attempt).Damage);
+        Assert.Single(attempt.Events.Select(e => e.Event).OfType<CombatHealEvent>());
+        Assert.Single(attempt.Events.Select(e => e.Event).OfType<CombatDamageEvent>());
+    }
+
     private sealed class Fixture
     {
         public static readonly DateTimeOffset Start = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -225,7 +342,7 @@ public sealed class CombatRunAdapterTests
         public CombatRunController Controller { get; } = new();
         public CombatRunAdapter Adapter { get; }
         private long _sequence;
-        public Fixture(bool emptyCatalog = false, bool terminal = false)
+        public Fixture(bool emptyCatalog = false, bool terminal = false, ICombatAmountClassifier? amounts = null)
         {
             var definition = new CombatEncounterDefinition("synthetic-boss", "normal", CombatAttemptKind.Boss,
                 CombatCapabilities.Damage | CombatCapabilities.Healing | CombatCapabilities.Deaths, new("synthetic-rules", CatalogVersion: "synthetic-catalog-version"));
@@ -234,7 +351,7 @@ public sealed class CombatRunAdapterTests
                     "synthetic-catalog-proof", "synthetic-scope")]);
             var classifier = new CombatAmountClassifier("synthetic-amount-proof", "synthetic-scope",
                 [new(false, 11, CombatAmountKind.Damage, 4, 2), new(false, 12, CombatAmountKind.Healing, 4, 2)]);
-            Adapter = new(Controller, catalog, (_, _) => true, classifier);
+            Adapter = new(Controller, catalog, (_, _) => true, amounts ?? classifier);
         }
         public void Ready()
         {

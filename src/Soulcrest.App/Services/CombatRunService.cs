@@ -28,7 +28,7 @@ public sealed class CombatRunService : IDisposable
         : this(network, writer, new(), GlobalEuCombatBossCatalog.Load()) { }
 
     public CombatRunService(CombatNetworkService network, CombatHistoryWriter writer, CombatRunController controller,
-        CombatBossCatalog catalog, CombatAmountClassifier? amounts = null, TimeProvider? timeProvider = null)
+        CombatBossCatalog catalog, ICombatAmountClassifier? amounts = null, TimeProvider? timeProvider = null)
     {
         _network = network; _writer = writer; _controller = controller;
         _time = timeProvider ?? TimeProvider.System;

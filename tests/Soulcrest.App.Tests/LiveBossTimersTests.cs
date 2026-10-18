@@ -755,7 +755,10 @@ public sealed class LiveBossTimersTests
         Assert.Contains(language == "de" ? "Bestätigter Spawn & Test (Sekunden)" : "Confirmed spawn & test (seconds)", untilHtml);
         Assert.DoesNotContain(language == "de" ? "Feste Dauer (Sekunden)" : "Fixed duration (seconds)", untilHtml);
         Assert.Contains(language == "de" ? "ab der eingestellten Vorwarnzeit" : "from the configured advance warning", untilHtml);
-        Assert.Contains(language == "de" ? "auch wenn der Countdown 0 erreicht" : "even when the countdown reaches 0", untilHtml);
+        Assert.Contains(language == "de" ? "bis zum Timerablauf" : "until the timer expires", untilHtml);
+        Assert.Contains(language == "de" ? "bei Countdown 0 ausgeblendet" : "hidden when the countdown reaches 0", untilHtml);
+        Assert.DoesNotContain(language == "de" ? "bis zum bestätigten Spawn sichtbar" : "until the spawn is confirmed", untilHtml);
+        Assert.DoesNotContain(language == "de" ? "auch wenn der Countdown 0 erreicht" : "even when the countdown reaches 0", untilHtml);
         Assert.Single(Regex.Matches(untilHtml, "data-boss-duration-seconds").Cast<Match>());
         Assert.True(new SettingsService().Current.BossAlertUntilSpawn);
         await fixture.Export(untilHtml, "boss-duration-global-whole");

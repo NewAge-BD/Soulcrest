@@ -32,10 +32,10 @@ public sealed record AlertUpcoming(EventAlert Alert, DateTimeOffset? At);
 public sealed record AlertPreset(string Id, string Title, string Description);
 public sealed record AlertNotice(string Key, string Title, string Message, string Color,
     DateTimeOffset CreatedAt, DateTimeOffset Expires, DateTimeOffset At,
-    bool PlaySound, string Sound, bool ShowOverlay, bool Preview = false, string? SoundFile = null, bool AwaitingConfirmation = false);
+    bool PlaySound, string Sound, bool ShowOverlay, bool Preview = false, string? SoundFile = null);
 public sealed record AlertDisplayRow(string Key, string Title, string Message, string Color,
     DateTimeOffset At, bool Started, bool Provisional = false, string? CountdownLabel = null, string? IconId = null,
-    string? InlineLabel = null, bool AwaitingConfirmation = false);
+    string? InlineLabel = null);
 public sealed record BossAlertPresentation
 {
     public bool ShowOverlay { get; init; } = true;
@@ -370,7 +370,7 @@ public sealed class AlertsService : IDisposable
                     if (rows.ContainsKey(active.Owner) && (active.Owner.StartsWith("event:catalog:", StringComparison.Ordinal) ||
                         active.Owner.StartsWith("boss:", StringComparison.Ordinal) && !active.Notice.Preview && active.UntilSpawnSourceId is null)) continue;
                     rows[active.Owner] = new(active.Owner, notice.Title, notice.Message, notice.Color, notice.At,
-                        notice.At <= now && !notice.AwaitingConfirmation, AwaitingConfirmation: notice.AwaitingConfirmation);
+                        notice.At <= now);
                 }
             }
             return rows.Values.OrderByDescending(row => row.Started).ThenBy(row => row.At)
@@ -538,8 +538,8 @@ public sealed class AlertsService : IDisposable
                         continue;
                     }
                     if (source.SpawnUnixMs is not { } cycle || !_bosses.GetReminder(bossKey).Enabled) continue;
-                    // A held source may outlive the bounded persistent receipt history. Its already
-                    // delivered copy remains the authoritative in-session dedupe until confirmation.
+                    // A full-window source may outlive the bounded persistent receipt history. Its already
+                    // delivered copy remains the authoritative in-session dedupe until the window ends.
                     if (source.UntilSpawn && _active.Any(row => row.UntilSpawnSourceId == source.Id)) continue;
                     // Match the existing BossAlertPolicy identity across process restarts. The
                     // local notice id and delivery time change when a fresh list is received.
@@ -553,7 +553,7 @@ public sealed class AlertsService : IDisposable
                     generated.Add((new(key, BossName(source.Boss), "", "#ef4444", now, source.Expires,
                         source.PlannedAt ?? SafeAdd(now, source.Remaining), presentation.PlaySound, presentation.Sound,
                         true, // Boss reminders always produce their own banner, independently of timer-HUD windows.
-                        SoundFile: presentation.SoundFile, AwaitingConfirmation: source.UntilSpawn && source.Remaining <= TimeSpan.Zero),
+                        SoundFile: presentation.SoundFile),
                         "boss:" + bossKey, source.UntilSpawn ? source.Id : null));
                 }
             }
@@ -600,7 +600,6 @@ public sealed class AlertsService : IDisposable
             {
                 Expires = source.Expires,
                 At = source.PlannedAt ?? row.Notice.At,
-                AwaitingConfirmation = source.Remaining <= TimeSpan.Zero,
                 ShowOverlay = true
             } };
         }

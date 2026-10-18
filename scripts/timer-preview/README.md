@@ -46,9 +46,10 @@ vier Größen ohne ein natives Fenster zu erzeugen.
 Ausgaben:
 
 - 96 Renderer-PNGs und acht Kontaktbögen mit Größen-/Zustandsvergleich.
-- 16 zusätzliche native Bannerbilder in DE/EN bei 240/400 px Breite und denselben vier
-  Skalierungen: laufende Vorwarnung, Countdown 0 mit Wartezustand und bestätigter Spawn.
-  Sie benötigen ebenfalls keine Form oder Dienste.
+- 32 zusätzliche native Bannerbilder in DE/EN bei 240/400 px Breite und denselben vier
+  Skalierungen: vor und nach Ablauf einer Vorwarnung. Die abgelaufene Zeile fehlt im zweiten
+  Layoutsnapshot; keine Wartemeldung. Die tatsächliche Quellen-/Bannerentfernung prüfen die
+  Laufzeittests. Die Bilder benötigen ebenfalls keine Form oder Dienste.
 - Montagen auf der Referenz sowie Ausschnitte einschließlich Währungszeile: alle Varianten
   bei Skala 1 und die normale Viererleiste zusätzlich bei den anderen Skalierungen.
 - `timer-preview.json` mit Zell-/Icon-/Text-/Namensgrenzen, Einstellungen, Asset-Hashes und Rohpixel-Hashes

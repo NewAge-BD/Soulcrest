@@ -63,7 +63,7 @@ internal static class Program
                 }
                 foreach (var scale in Scales) WriteContact(reports, language, scale, output);
                 if (language == "de") WriteLockContact(renderer, output);
-                notificationPreviews.AddRange(WriteConfirmationNotifications(language, output));
+                notificationPreviews.AddRange(WriteExpiryNotifications(language, output));
             }
             var passed = reports.All(report => report.DpiPixelsIdentical);
             File.WriteAllText(Path.Combine(output, "timer-preview.json"), JsonSerializer.Serialize(new
@@ -97,33 +97,39 @@ internal static class Program
         finally { UiText.Language = previousLanguage; }
     }
 
-    private static IReadOnlyList<string> WriteConfirmationNotifications(string language, string output)
+    private static IReadOnlyList<string> WriteExpiryNotifications(string language, string output)
     {
         var type = typeof(AlertDisplayRow).Assembly.GetType("Soulcrest.App.Overlay.AlertsOverlayForm", throwOnError: true)!;
         var flags = BindingFlags.Static | BindingFlags.NonPublic;
         var paint = type.GetMethod("PaintNotifications", flags)!;
         var heightMethod = type.GetMethod("LogicalHeight", flags)!;
         var de = language == "de";
-        AlertDisplayRow[] rows =
+        AlertDisplayRow[] before =
         [
             new("boss:fixture:upcoming", de ? "Prüf-Boss A" : "Synthetic boss A", "", "#ef4444", Now.AddMinutes(1), false),
-            new("boss:fixture:waiting", de ? "Prüf-Boss B" : "Synthetic boss B", "", "#ef4444", Now.AddMinutes(-2), false,
-                AwaitingConfirmation: true),
+            new("boss:fixture:ending", de ? "Prüf-Boss B" : "Synthetic boss B", "", "#ef4444", Now.AddMilliseconds(100), false),
             new("boss:fixture:confirmed", de ? "Prüf-Boss C" : "Synthetic boss C", de ? "Bestätigter Spawn" : "Confirmed spawn",
                 "#5eead4", Now, true)
         ];
-        var height = (int)heightMethod.Invoke(null, [rows.Length])!;
+        // Explicit layout snapshots only; runtime tests verify that the source removes the expired reminder.
+        var snapshots = new[]
+        {
+            (Name: "before", Rows: before, At: Now),
+            (Name: "after", Rows: new[] { before[0], before[2] }, At: Now.AddSeconds(1))
+        };
         List<string> files = [];
+        foreach (var snapshot in snapshots)
         foreach (var width in new[] { 240, 400 })
         foreach (var scale in Scales)
         {
-            var file = $"notifications-confirmation-{language}-width-{width}-scale-{ScaleName(scale)}.png";
+            var height = (int)heightMethod.Invoke(null, [snapshot.Rows.Length])!;
+            var file = $"notifications-expiry-{snapshot.Name}-{language}-width-{width}-scale-{ScaleName(scale)}.png";
             using var bitmap = new Bitmap((int)Math.Ceiling(width * scale), (int)Math.Ceiling(height * scale), PixelFormat.Format32bppPArgb);
             using (var graphics = Graphics.FromImage(bitmap))
             {
                 graphics.Clear(Color.Transparent);
                 graphics.ScaleTransform((float)scale, (float)scale);
-                paint.Invoke(null, [graphics, rows, Now, true, width]);
+                paint.Invoke(null, [graphics, snapshot.Rows, snapshot.At, true, width]);
             }
             bitmap.Save(Path.Combine(output, file), ImageFormat.Png);
             files.Add(file);

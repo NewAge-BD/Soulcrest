@@ -38,10 +38,13 @@ public sealed record CombatRunAdapterSnapshot(long Observations, long Unconfirme
 /// RawMapKey, HP zero, party deaths, silence and dungeon deadlines are never instance/wipe proofs.</summary>
 public sealed class CombatRunAdapter
 {
-    private sealed record Binding(CombatBossRule Rule, CombatEntityReference Target, long AppearanceSequence);
+    private sealed record Binding(CombatBossRule Rule, CombatEntityReference Target, long AppearanceSequence)
+    {
+        public long? MaximumHp { get; set; }
+    }
     private readonly CombatRunController _controller;
     private readonly CombatBossCatalog _catalog;
-    private readonly CombatAmountClassifier? _amounts;
+    private readonly ICombatAmountClassifier? _amounts;
     private readonly Func<CombatSourceContext, IEnumerable<int>, bool> _bindTargets;
     private CombatSourceContext? _context;
     private OwnWorldObservation? _world;
@@ -59,7 +62,7 @@ public sealed class CombatRunAdapter
     private string? _lastBoundary;
 
     public CombatRunAdapter(CombatRunController controller, CombatBossCatalog catalog,
-        Func<CombatSourceContext, IEnumerable<int>, bool> bindTargets, CombatAmountClassifier? amounts = null)
+        Func<CombatSourceContext, IEnumerable<int>, bool> bindTargets, ICombatAmountClassifier? amounts = null)
     {
         _controller = controller;
         _catalog = catalog;
@@ -148,7 +151,8 @@ public sealed class CombatRunAdapter
                     Interrupt(stamp, CombatGapReason.UnknownAttribution);
                     return;
                 }
-                _bindings[npc.Value.EntityKey] = new(rule, Entity(npc.Value.EntityKey), input.Sequence);
+                _bindings[npc.Value.EntityKey] = new(rule, Entity(npc.Value.EntityKey), input.Sequence)
+                    { MaximumHp = npc.Value.MaximumHp };
                 if (!_bindTargets(input.Context, _bindings.Keys)) Interrupt(stamp, CombatGapReason.UnknownAttribution);
                 break;
             case CombatWireHit hit:
@@ -159,8 +163,15 @@ public sealed class CombatRunAdapter
                     ? m with { ClassDataId = status.Value.ClassDataId, CombatPower = status.Value.CombatPower } : m).ToArray();
                 if (_dungeon is not null && _death is null) _controller.SetRoster(stamp, Participants());
                 break;
-            case CombatWireHp hp when _death is null && _bindings.ContainsKey(hp.Value.EntityId) && hp.Value.Current is { } current:
-                _controller.Observe(stamp, new CombatHpEvent(Entity(hp.Value.EntityId), current, hp.Value.Maximum));
+            case CombatWireHp hp when _death is null && _bindings.TryGetValue(hp.Value.EntityId, out var hpBinding):
+                // Max-only updates change the lifetime's baseline, but do not manufacture a current-HP point.
+                hpBinding.MaximumHp = hp.Value.Maximum ?? hpBinding.MaximumHp;
+                if (hp.Value.Current is { } current)
+                {
+                    // A stale maximum cannot constrain a newer observed current value.
+                    if (current > hpBinding.MaximumHp) hpBinding.MaximumHp = null;
+                    _controller.Observe(stamp, new CombatHpEvent(hpBinding.Target, current, hpBinding.MaximumHp));
+                }
                 break;
             case CombatWireDeath death:
                 var member = Member(death.Value.EntityKey);
@@ -233,7 +244,7 @@ public sealed class CombatRunAdapter
                 _runConfirmed = true;
             }
             _selected = boss;
-            // Empirical effect facts cannot promise complete damage or healing coverage.
+            // Partial effect facts cannot promise complete damage or healing coverage.
             var definition = boss.Rule.Encounter with
             {
                 Capabilities = boss.Rule.Encounter.Capabilities & ~(CombatCapabilities.Damage | CombatCapabilities.Healing),
@@ -245,17 +256,25 @@ public sealed class CombatRunAdapter
             };
             _controller.BindEncounter(stamp, definition, [boss.Target]);
             _controller.Observe(stamp, new CombatDamageEvent(Identity(source), boss.Target,
-                Skill(hit), classification.Amount.Value, IsPeriodic: hit.IsPeriodic));
+                Skill(hit), classification.Amount.Value, IsPeriodic: hit.IsPeriodic) { ObservedValues = ObservedValues(hit) });
         }
         else if (targetMember is not null && classification is { Kind: CombatAmountKind.Healing, Amount: { } amount })
-            _controller.Observe(stamp, new CombatHealEvent(Identity(source), Identity(targetMember), Skill(hit), amount, hit.IsPeriodic));
+            _controller.Observe(stamp, new CombatHealEvent(Identity(source), Identity(targetMember), Skill(hit), amount, hit.IsPeriodic) { ObservedValues = ObservedValues(hit) });
         else
         {
             _unknownAmounts++;
             _controller.Observe(stamp, new CombatUnclassifiedAmountEvent(Identity(source),
                 targetMember is null ? null : Identity(targetMember), boss?.Target,
-                hit.SkillDataId is { } skill ? Number(skill) : null, Number(hit.EffectDataId), hit.Amount, hit.IsPeriodic));
+                hit.SkillDataId is { } skill ? Number(skill) : null, Number(hit.EffectDataId), hit.Amount, hit.IsPeriodic) { ObservedValues = ObservedValues(hit) });
         }
+    }
+
+    private static CombatObservedHitValues? ObservedValues(CombatHitObservation hit)
+    {
+        var block = hit.DirectFields?.HitBlockValue;
+        var direct = hit.DirectFields?.Flag400Value;
+        var periodic = hit.PeriodicFields?.Flag1Value;
+        return block is null && direct is null && periodic is null ? null : new(block, direct, periodic);
     }
 
     private void Victory(CombatControllerStamp stamp)

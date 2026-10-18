@@ -42,10 +42,11 @@ public static class CombatEncounterMessage
             var entity = Positive(ref r);
             var flags = r.U16();
             if (flags is not (0x0014 or 0x001C or 0x001F or 0x002C or 0x005F or 0x1014 or 0x101D or 0x105D
-                or 0x2004 or 0x2005 or 0x200C or 0x200D or 0x200F or 0x220C or 0x2C0C or 0x2C0D)) return null;
+                or 0x101F or 0x1024 or 0x2004 or 0x2005 or 0x200C or 0x200D or 0x200F or 0x220C or 0x2C0C or 0x2C0D)) return null;
             var dataId = ReadDescription(ref r, false);
+            // Composite presence/state forms are independently checked in both manual Krao replays.
             var stateFlags = r.U16();
-            if (stateFlags is not (0x0200 or 0x0208 or 0x0240)) return null;
+            if (stateFlags is not (0x0200 or 0x0208 or 0x0240 or 0x0248)) return null;
             r.Skip(18); // Position and directions are deliberately not exposed.
             if ((stateFlags & 8) != 0) r.Skip(12); // Velocity vector in the completed Krao captures.
             var life = r.U8();

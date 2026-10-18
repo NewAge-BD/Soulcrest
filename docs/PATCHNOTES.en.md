@@ -2,6 +2,15 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.8.1 – 2026-10-18
+
+- **New:** **DPS** tab as an early preview: locally stored fights with selection by run, attempt and
+  participant, skill and buff details and boss HP; former group members stay visible. Unknown or
+  incomplete values are marked as such, not shown as 0. Measurement is not yet confirmed for all
+  fights.
+- **Changed:** Boss reminders disappear as soon as their countdown runs out, even without a spawn
+  confirmation.
+
 ## 0.8.0 – 2026-10-18
 
 - **New:** In-game timer bar: a slim icon bar with countdowns for events and bosses, no background,

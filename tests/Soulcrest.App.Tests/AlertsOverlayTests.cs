@@ -72,17 +72,16 @@ public sealed class AlertsOverlayTests : IDisposable
     }
 
     [Theory]
-    [InlineData("de", "Warte auf Bestätigung", "Jetzt")]
-    [InlineData("en", "Waiting for confirmation", "Now")]
-    public void HeldBossBannerWaitsForConfirmationInsteadOfClaimingSpawnAtOrAfterZero(string language, string waiting, string spawned)
+    [InlineData("de", "Spawn unbestätigt", "Jetzt")]
+    [InlineData("en", "Spawn unconfirmed", "Now")]
+    public void CountdownNeverShowsZeroWhileItsReminderStillHasAPositiveRemainder(string language, string unconfirmed, string spawned)
     {
         UiText.Language = language;
-        var held = new AlertDisplayRow("boss:1110:111001", "Synthetic boss", "", "#ef4444", Now, false,
-            AwaitingConfirmation: true);
-        Assert.Equal(waiting, AlertsOverlayForm.CountdownText(held, Now));
-        Assert.Equal(waiting, AlertsOverlayForm.CountdownText(held, Now.AddDays(3)));
-        Assert.Equal(spawned, AlertsOverlayForm.CountdownText(held with { AwaitingConfirmation = false, Started = true }, Now));
-        Assert.Equal("00:01:00", AlertsOverlayForm.CountdownText(held with { AwaitingConfirmation = false, At = Now.AddMinutes(1) }, Now));
+        var row = new AlertDisplayRow("boss:1110:111001", "Synthetic boss", "", "#ef4444", Now.AddMilliseconds(100), false);
+        Assert.Equal("00:00:01", AlertsOverlayForm.CountdownText(row, Now));
+        Assert.Equal("00:01:00", AlertsOverlayForm.CountdownText(row with { At = Now.AddMinutes(1) }, Now));
+        Assert.Equal(unconfirmed, AlertsOverlayForm.CountdownText(row with { At = Now, Provisional = true }, Now));
+        Assert.Equal(spawned, AlertsOverlayForm.CountdownText(row with { At = Now, Started = true }, Now));
     }
 
     [Theory]

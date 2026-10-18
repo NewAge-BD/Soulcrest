@@ -83,21 +83,60 @@ public sealed class CombatHistoryStore
         lock (_gate)
         {
             using var writerLock = AcquireWriterLock();
-            var run = ReadRunMetadata(runId);
-            List<Guid> incomplete = [];
-            var attempts = run.Attempts.Select(attempt =>
-            {
-                var journal = ReadJournalCore(JournalPath(runId, attempt.Id));
-                ValidateAttemptJournal(attempt, journal);
-                if (journal.HasIncompleteTail) incomplete.Add(attempt.Id);
-                return attempt with
-                {
-                    Events = journal.Events.ToArray(),
-                    HasIncompleteJournal = attempt.HasIncompleteJournal || journal.HasIncompleteTail
-                };
-            }).ToArray();
-            return new(run with { Attempts = attempts }, incomplete);
+            return ReadRunCore(runId);
         }
+    }
+
+    /// <summary>A local browser snapshot. Only the shared writer lock is touched; primary records stay unchanged.</summary>
+    public CombatHistoryRunLoadResult LoadRunReadOnly(Guid runId)
+    {
+        ValidateId(runId);
+        lock (_gate)
+        {
+            using var writerLock = AcquireWriterLock();
+            return ReadRunCore(runId);
+        }
+    }
+
+    /// <summary>Validates the existing index but derives the list from primary metadata without writing a repair.</summary>
+    public CombatHistoryReadOnlyOverview LoadOverviewReadOnly()
+    {
+        lock (_gate)
+        {
+            using var writerLock = AcquireWriterLock();
+            EnsureSafePath(DirectoryPath);
+            EnsureExistingIndexSupported();
+            var staging = Path.Combine(DirectoryPath, "staging");
+            EnsureSafePath(staging);
+            var unpublished = 0;
+            if (Directory.Exists(staging))
+                foreach (var directory in Directory.EnumerateDirectories(staging))
+                {
+                    EnsureSafePath(directory);
+                    if (!Guid.TryParseExact(Path.GetFileName(directory), "N", out _))
+                        throw new CombatHistoryFormatException(directory, "Invalid staged run identity.");
+                    unpublished++;
+                }
+            return new(BuildIndex(), unpublished);
+        }
+    }
+
+    private CombatHistoryRunLoadResult ReadRunCore(Guid runId)
+    {
+        var run = ReadRunMetadata(runId);
+        List<Guid> incomplete = [];
+        var attempts = run.Attempts.Select(attempt =>
+        {
+            var journal = ReadJournalCore(JournalPath(runId, attempt.Id));
+            ValidateAttemptJournal(attempt, journal);
+            if (journal.HasIncompleteTail) incomplete.Add(attempt.Id);
+            return attempt with
+            {
+                Events = journal.Events.ToArray(),
+                HasIncompleteJournal = attempt.HasIncompleteJournal || journal.HasIncompleteTail
+            };
+        }).ToArray();
+        return new(run with { Attempts = attempts }, incomplete);
     }
 
     public CombatJournalLoadResult LoadJournal(Guid runId, Guid attemptId)

@@ -26,3 +26,6 @@ public sealed class CombatHistoryFormatException(string path, string reason, Exc
 {
     public string FilePath { get; } = path;
 }
+
+/// <summary>Read-only primary metadata list; interrupted first saves remain explicit.</summary>
+public sealed record CombatHistoryReadOnlyOverview(CombatHistoryIndex Index, int UnpublishedRunCount);

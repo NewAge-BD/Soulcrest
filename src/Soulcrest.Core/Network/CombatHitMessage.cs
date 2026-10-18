@@ -10,7 +10,28 @@ namespace Soulcrest.Core.Network;
 /// </summary>
 public sealed record CombatHitObservation(int TargetEntityId, int SourceEntityId, uint? SkillDataId,
     uint EffectDataId, long? Amount, bool IsPeriodic, int? RawHitFlags, byte? ResultCode,
-    ushort RawPresenceFlags);
+    ushort RawPresenceFlags)
+{
+    // These neutral wire fields never classify a primary amount or add healing/damage.
+    public CombatDirectHitFields? DirectFields { get; init; }
+    public CombatPeriodicHitFields? PeriodicFields { get; init; }
+}
+
+/// <summary>
+/// Scalars of the already observed direct layout, named by position/presence bit. In particular,
+/// HitBlockValue and Flag400Value are independent of Amount; neither has confirmed HP semantics.
+/// UInt64 is deliberate: unknown varints retain the full accepted wire range.
+/// </summary>
+public sealed record CombatDirectHitFields(byte SkillScalar, ulong? HitBlockValue, byte? HitBlockScalar,
+    uint EffectScalar, uint EffectVarint, bool? Flag10Value, ushort TailValue,
+    ulong? Flag400Value, bool? Flag1000Value);
+
+/// <summary>
+/// Separate periodic wire fields. Related entities are transient, never confirmed summon owners.
+/// Flag1Value is not an observed hit fallback; Flag8Value is not yet a confirmed skill mapping.
+/// </summary>
+public sealed record CombatPeriodicHitFields(int RelatedEntityId, ulong? Flag1Value,
+    uint? Flag8Value, int? Flag10EntityId, uint? Flag20Value);
 
 /// <summary>Bounded decoder for the observed Global/EU message shapes, with no attribution policy.</summary>
 public static class CombatHitMessage
@@ -49,31 +70,37 @@ public static class CombatHitMessage
         if ((fields & ~DirectSupportedFields) != 0) throw new InvalidDataException();
         var source = Entity(ref reader);
         var skill = reader.U32();
-        reader.U8(); // Meaning of this scalar is not established by the recordings.
+        var scalar = reader.U8();
         var result = reader.U8();
         int? hitFlags = null;
+        ulong? hitBlockValue = null;
+        byte? hitBlockScalar = null;
         if ((fields & 2) != 0)
         {
             var bits = 0;
             for (var i = 0; i < 6; i++) if (reader.Bool()) bits |= 1 << i;
-            reader.V64();
+            hitBlockValue = reader.V64();
             if (reader.Bool()) bits |= 64;
-            reader.U8();
+            hitBlockScalar = reader.U8();
             hitFlags = bits;
         }
         var effect = reader.U32();
-        reader.U32();
-        reader.V32();
+        var effectScalar = reader.U32();
+        var effectVarint = reader.V32();
         long? amount = (fields & 4) != 0 ? Amount(ref reader) : null;
-        if ((fields & 16) != 0) reader.Bool();
+        bool? flag10 = (fields & 16) != 0 ? reader.Bool() : null;
         if ((fields & 32) != 0)
             for (var i = reader.Count(); i > 0; i--) reader.V64();
         if ((fields & 64) != 0) reader.Skip(reader.Count(4) * 4);
         if ((fields & 256) != 0) reader.Skip(reader.Count(4) * 4);
-        reader.U16();
-        if ((fields & 1024) != 0) reader.V64();
-        if ((fields & 4096) != 0) reader.Bool();
-        return new(target, source, skill, effect, amount, false, hitFlags, result, fields);
+        var tail = reader.U16();
+        ulong? flag400 = (fields & 1024) != 0 ? reader.V64() : null;
+        bool? flag1000 = (fields & 4096) != 0 ? reader.Bool() : null;
+        return new(target, source, skill, effect, amount, false, hitFlags, result, fields)
+        {
+            DirectFields = new(scalar, hitBlockValue, hitBlockScalar, effectScalar, effectVarint,
+                flag10, tail, flag400, flag1000)
+        };
     }
 
     private static CombatHitObservation ReadPeriodic(ref ProgressPacketReader reader)
@@ -82,14 +109,17 @@ public static class CombatHitMessage
         var fields = reader.U8();
         if ((fields & ~PeriodicSupportedFields) != 0) throw new InvalidDataException();
         var source = Entity(ref reader);
-        Entity(ref reader); // A separate transient key; not evidence of a summon owner or skill id.
+        var relatedEntity = Entity(ref reader);
         var effect = reader.U32();
-        if ((fields & 1) != 0) reader.V64();
+        ulong? flag1 = (fields & 1) != 0 ? reader.V64() : null;
         long? amount = (fields & 2) != 0 ? Amount(ref reader) : null;
-        if ((fields & 8) != 0) reader.U32();
-        if ((fields & 16) != 0) Entity(ref reader);
-        if ((fields & 32) != 0) reader.U32();
-        return new(target, source, null, effect, amount, true, null, null, fields);
+        uint? flag8 = (fields & 8) != 0 ? reader.U32() : null;
+        int? flag10Entity = (fields & 16) != 0 ? Entity(ref reader) : null;
+        uint? flag20 = (fields & 32) != 0 ? reader.U32() : null;
+        return new(target, source, null, effect, amount, true, null, null, fields)
+        {
+            PeriodicFields = new(relatedEntity, flag1, flag8, flag10Entity, flag20)
+        };
     }
 
     private static int Entity(ref ProgressPacketReader reader)

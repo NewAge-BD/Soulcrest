@@ -1,0 +1,210 @@
+@implements IDisposable
+@using System.Globalization
+@using Soulcrest.Core.Combat
+@inject ICombatHistoryReader History
+@inject UiState Ui
+
+<div class="page dps-page" data-dps-history aria-busy="@(_busy ? "true" : "false")">
+    <div class="dps-heading"><div><h2>@UiText.T("Kampfverlauf")</h2><p class="note">@UiText.T("Lokal gespeicherte Soulcrest-Kämpfe. Unbekannte Werte bleiben —; unvollständige Berichte sind gekennzeichnet.")</p></div>
+        <button class="btn" type="button" disabled="@_busy" @onclick="ReloadAsync">@UiText.T("Aktualisieren")</button></div>
+    @if (_busy) { <p class="status" role="status">@UiText.T("Kampfverlauf wird geladen …")</p> }
+    @if (_error is not null) { <p class="status error" role="alert" data-dps-error>@_error</p> }
+    @if (_overview is { UnpublishedRunCount: > 0 }) { <p class="status warn" data-dps-unpublished>@UiText.F("{0} unterbrochene Speichervorgänge sind noch nicht im Verlauf veröffentlicht.", _overview.UnpublishedRunCount)</p> }
+    @if (!_busy && _error is null && _overview?.Index.Runs.Length == 0)
+    {
+        <div class="status" data-dps-empty>@UiText.T("Noch keine Soulcrest-Kämpfe gespeichert.")</div>
+    }
+    @if (_overview is { Index.Runs.Length: > 0 })
+    {
+        <div class="dps-layout">
+            <aside class="dps-runs" aria-label="@UiText.T("Dungeonläufe")">
+                <h3>@UiText.T("Dungeonläufe")</h3>
+                @foreach (var run in _overview.Index.Runs)
+                {
+                    <button class="dps-choice @(_run?.Run.Id == run.Id ? "selected" : "")" type="button" disabled="@_busy" aria-pressed="@(_run?.Run.Id == run.Id ? "true" : "false")" @onclick="@(() => LoadAsync(run.Id))" @key="run.Id">
+                        <strong>@DungeonName(run.DungeonKey)</strong><span>@Date(run.StartedAtUtc)</span><span>@UiText.F("{0} Versuche", run.AttemptCount) · @UiText.T(run.EndedAtUtc is null ? "Lauf offen / unvollständig" : "Lauf beendet")</span>
+                    </button>
+                }
+            </aside>
+            <section class="dps-detail" aria-label="@UiText.T("Kampfdetails")">
+                @if (_run is not null)
+                {
+                    <h3>@DungeonName(_run.Run.DungeonKey)</h3>
+                    <p class="note">@Date(_run.Run.StartedAtUtc) · @UiText.T("Gesamte Laufdauer"): @Duration(_run.Run.EndedAtUtc is { } ended ? (ended - _run.Run.StartedAtUtc).Ticks : null)</p>
+                    @if (_run.Attempts.Count == 0) { <p class="status">@UiText.T("Dieser Lauf enthält noch keinen gespeicherten Bossversuch.")</p> }
+                    <div class="dps-attempts" aria-label="@UiText.T("Bossversuche")">
+                        @foreach (var attempt in _run.Attempts)
+                        {
+                            <button class="dps-choice @(attempt.Id == _attempt?.Id ? "selected" : "")" type="button" aria-pressed="@(attempt.Id == _attempt?.Id ? "true" : "false")" @onclick="@(() => SelectAttempt(attempt.Id))" @key="attempt.Id">
+                                <strong>@BossName(attempt.BossKey)</strong><span>@EndReason(attempt.EndReason) · @Duration(attempt.DurationTicks)</span><span>@UiText.T(attempt.IsComplete ? "Vollständig" : "Unvollständig")</span>
+                            </button>
+                        }
+                    </div>
+                    @if (_attempt is not null)
+                    {
+                        <section data-dps-attempt>
+                            <h3>@BossName(_attempt.BossKey) · @EndReason(_attempt.EndReason)</h3>
+                            <div class="dps-metrics"><div><span>@UiText.T("Gemeinsame Bosskampfzeit")</span><strong>@Duration(_attempt.DurationTicks)</strong></div><div><span>@UiText.T("Beobachteter Boss-Schaden")</span><strong>@Number(HasCapability(CombatCapabilities.Damage) || _attempt.Players.Any(HasObservedDamage) ? _attempt.Damage : null)</strong></div><div><span>@UiText.T("Gruppen-DPS")</span><strong>@Number(_attempt.Dps)</strong></div></div>
+                            @if (!_attempt.IsComplete)
+                            {
+                                <div class="status warn" data-dps-incomplete><strong>@UiText.T("Unvollständiger Kampfbericht")</strong><p>@UiText.T("Beobachtete Ereignisse bleiben sichtbar. Fehlende Ereignisse und Werte werden nicht ergänzt.")</p>
+                                    <ul>@foreach (var issue in _attempt.QualityIssues.Select(i => i.Code).Distinct()) { <li>@Quality(issue)</li> }</ul>
+                                </div>
+                            }
+                            <h4>@UiText.T("Historische Gruppenmitglieder")</h4>
+                            <p class="note">@UiText.T("Auch zwischenzeitlich ausgetretene Teilnehmer bleiben erhalten. DPS verwendet die gemeinsame Bosskampfzeit inklusive Mechanikpausen und Zeit nach dem Tod.")</p>
+                            @if (_attempt.Players.Count == 0) { <p class="status">@UiText.T("Keine bestätigten Gruppenmitglieder gespeichert.")</p> }
+                            else
+                            {
+                                <div class="dps-table"><table class="grid"><thead><tr><th>@UiText.T("Spieler")</th><th>@UiText.T("Klasse")</th><th>@UiText.T("Kampfwert")</th><th>@UiText.T("Schaden")</th><th>DPS</th><th>@UiText.T("Anteil")</th><th>@UiText.T("Beobachtete Heilung")</th><th>HPS</th><th>@UiText.T("Tode")</th></tr></thead><tbody>
+                                    @foreach (var player in _attempt.Players.OrderByDescending(p => p.Damage))
+                                    {
+                                        <tr class="@(player.Participant.ParticipantId == _participantId ? "dps-selected-row" : "")" @key="player.Participant.ParticipantId"><td><button class="btn link" type="button" aria-pressed="@(player.Participant.ParticipantId == _participantId ? "true" : "false")" @onclick="@(() => _participantId = player.Participant.ParticipantId)">@ParticipantName(player.Participant) @(player.Participant.IsSelf ? UiText.T("(Du)") : "")</button></td><td>@(player.Participant.ClassKey ?? "—")</td><td>@Number(player.Participant.CombatPower)</td><td data-dps-player-damage>@Number(HasCapability(CombatCapabilities.Damage) || HasObservedDamage(player) ? player.Damage : null)</td><td>@Number(player.Dps)</td><td>@Percent(player.DamageShare)</td><td>@Number(player.Healing)</td><td>@Number(player.Hps)</td><td>@Number(player.Deaths)</td></tr>
+                                    }
+                                </tbody></table></div>
+                            }
+                            @if (SelectedPlayer is { } selected)
+                            {
+                                <h4>@UiText.T("Skills") · @ParticipantName(selected.Participant)</h4>
+                                <p class="note">@UiText.T("Einsätze, Treffer und periodische Ticks sind getrennt. Raten beziehen sich nur auf Treffer mit bekanntem Merkmal.")</p>
+                                @if (selected.Skills.Count == 0) { <p class="note">@UiText.T("Keine Skillereignisse gespeichert.")</p> }
+                                else
+                                {
+                                    <div class="dps-table"><table class="grid"><thead><tr><th>@UiText.T("Skill")</th><th>@UiText.T("Schaden")</th><th>@UiText.T("Einsätze")</th><th>@UiText.T("Treffer")</th><th>@UiText.T("DoT-Ticks")</th><th>@UiText.T("Durchschnitt")</th><th>@UiText.T("Maximum")</th><th>@UiText.T("Beobachtete Heilung")</th><th>@UiText.T("Treffermerkmale")</th></tr></thead><tbody>
+                                        @foreach (var skill in selected.Skills.OrderByDescending(s => s.Damage))
+                                        {
+                                            <tr @key="skill.SkillId"><td>@UiText.F("Skill {0}", skill.SkillId)</td><td>@Number(skill.Hits > 0 || HasCapability(CombatCapabilities.Damage) ? skill.Damage : null)</td><td>@Number(skill.Casts)</td><td>@Number(skill.Hits > 0 || HasCapability(CombatCapabilities.Damage) ? skill.Hits : null)</td><td>@Number(skill.Hits > 0 || HasCapability(CombatCapabilities.Damage) ? skill.PeriodicTicks : null)</td><td>@Number(skill.AverageHit)</td><td>@Number(skill.MaximumHit)</td><td>@Number(skill.Healing)</td><td><details><summary>@UiText.T("Details")</summary><dl class="dps-rates">@foreach (var (key, label) in HitFlags) { var rate = skill.Rates.GetValueOrDefault(key); <dt>@UiText.T(label)</dt><dd>@Percent(rate?.Fraction) @if (rate is not null) { <small>(@rate.Numerator / @rate.Denominator)</small> }</dd> }</dl></details></td></tr>
+                                        }
+                                    </tbody></table></div>
+                                }
+                                <h4>@UiText.T("Empfangene Buffs")</h4>
+                                <DpsBuffDetails Buffs="@_attempt.Buffs.Where(b => b.TargetParticipantId == selected.Participant.ParticipantId).ToArray()" Participants="@_attempt.Players" />
+                            }
+                            <h4>@UiText.T("Boss-Debuffs")</h4>
+                            <DpsBuffDetails Buffs="@_attempt.Buffs.Where(b => b.TargetEntity is not null).ToArray()" Participants="@_attempt.Players" BossTargets="@(AttemptDocument?.BossTargets ?? [])" />
+                            <h4>@UiText.T("Gespeicherte Boss-HP")</h4>
+                            @if (_attempt.HpPoints.Count == 0) { <p class="note">@UiText.T("Keine bestätigten HP-Punkte gespeichert.")</p> }
+                            else
+                            {
+                                <p class="note">@UiText.F("{0} / {1} HP-Punkte", Math.Min(_visibleHp, _attempt.HpPoints.Count), _attempt.HpPoints.Count)</p>
+                                <div class="dps-table"><table class="grid"><thead><tr><th>@UiText.T("Kampfzeit")</th><th>@UiText.T("Bossziel")</th><th>HP</th><th>@UiText.T("Maximale HP")</th><th>%</th></tr></thead><tbody>
+                                    @foreach (var point in _attempt.HpPoints.Take(_visibleHp)) { <tr><td>@Duration(point.OffsetTicks)</td><td>@TargetName(point.Target)</td><td>@Number(point.Current)</td><td>@Number(point.Maximum)</td><td>@Percent(point.Fraction)</td></tr> }
+                                </tbody></table></div>
+                                @if (_visibleHp < _attempt.HpPoints.Count) { <button class="btn" type="button" @onclick="@(() => _visibleHp += 100)">@UiText.T("Weitere HP-Punkte anzeigen")</button> }
+                            }
+                        </section>
+                    }
+                }
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private CombatHistoryReadOnlyOverview? _overview;
+    private CombatHistoryRunView? _run;
+    private CombatAttemptSummary? _attempt;
+    private string? _participantId, _error;
+    private CombatEncounterCatalog? _catalog;
+    private CancellationTokenSource? _loading;
+    private bool _busy, _disposed;
+    private int _request, _visibleHp = 100;
+    private CombatPlayerSummary? SelectedPlayer => _attempt?.Players.FirstOrDefault(p => p.Participant.ParticipantId == _participantId);
+    private CombatAttemptDocument? AttemptDocument => _run?.Run.Attempts.FirstOrDefault(a => a.Id == _attempt?.Id);
+    private static readonly (string Key, string Label)[] HitFlags = [("critical", "Kritisch"), ("front", "Vorne"), ("back", "Hinten"), ("perfect", "Perfekt"), ("crushing", "Wucht"), ("multiHit", "Mehrfachtreffer"), ("parried", "Pariert")];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Ui.Changed += NavigationChanged;
+        await LoadAsync(refresh: true, focus: Ui.TakePendingCombatHistoryFocus());
+    }
+
+    private Task ReloadAsync() => LoadAsync(_run?.Run.Id, refresh: true);
+    private async Task LoadAsync(Guid? runId = null, bool refresh = false, CombatHistoryFocus? focus = null)
+    {
+        var request = ++_request;
+        _loading?.Cancel();
+        _loading?.Dispose();
+        _loading = new();
+        var token = _loading.Token;
+        _busy = true;
+        _error = null;
+        var oldAttempt = focus?.AttemptId ?? _attempt?.Id;
+        var oldParticipant = focus?.ParticipantId ?? _participantId;
+        // Old details must not appear to belong to a newly selected run while disk work is pending.
+        _run = null;
+        _attempt = null;
+        try
+        {
+            _catalog ??= CombatEncounterCatalog.LoadEmbedded();
+            var overview = refresh || _overview is null ? await History.LoadOverviewAsync(token) : _overview;
+            if (_disposed || request != _request) return;
+            _overview = overview;
+            var selectedId = focus?.RunId ?? runId ?? overview.Index.Runs.FirstOrDefault()?.Id;
+            if (selectedId is null) return;
+            if (!overview.Index.Runs.Any(run => run.Id == selectedId))
+            {
+                _error = UiText.T("Der ausgewählte Lauf ist nicht mehr im lokalen Verlauf vorhanden.");
+                return;
+            }
+            var loaded = await History.LoadRunAsync(selectedId.Value, token);
+            if (_disposed || request != _request) return;
+            _run = loaded;
+            var selectedAttempt = loaded.Attempts.FirstOrDefault(a => a.Id == oldAttempt) ?? loaded.Attempts.FirstOrDefault();
+            if (selectedAttempt is not null) SelectAttempt(selectedAttempt.Id, oldParticipant);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (CombatHistoryReadException error)
+        {
+            if (_disposed || request != _request) return;
+            _error = UiText.T(error.Failure switch
+            {
+                CombatHistoryReadFailure.InvalidData => "Kampfdateien sind beschädigt oder verwenden eine nicht unterstützte Version. Der Verlauf wurde nicht ersetzt.",
+                CombatHistoryReadFailure.AccessDenied => "Kein Lesezugriff auf den lokalen Kampfverlauf.",
+                CombatHistoryReadFailure.Io => "Der Kampfverlauf ist gerade belegt oder konnte nicht gelesen werden. Bitte erneut laden.",
+                _ => "Der Kampfbericht konnte nicht ausgewertet werden. Bitte erneut laden."
+            });
+        }
+        catch (Exception) { if (!_disposed && request == _request) _error = UiText.T("Der Kampfbericht konnte nicht ausgewertet werden. Bitte erneut laden."); }
+        finally { if (!_disposed && request == _request) _busy = false; }
+    }
+
+    private void SelectAttempt(Guid id, string? participantId = null)
+    {
+        _attempt = _run?.Attempts.FirstOrDefault(a => a.Id == id);
+        _participantId = _attempt?.Players.FirstOrDefault(p => p.Participant.ParticipantId == participantId)?.Participant.ParticipantId
+            ?? _attempt?.Players.FirstOrDefault(p => p.Participant.IsSelf)?.Participant.ParticipantId
+            ?? _attempt?.Players.FirstOrDefault()?.Participant.ParticipantId;
+        _visibleHp = 100;
+    }
+
+    private void NavigationChanged()
+    {
+        if (!_disposed && Ui.Tab == "dps" && Ui.TakePendingCombatHistoryFocus() is { } focus)
+            _ = InvokeAsync(async () => { await LoadAsync(focus: focus, refresh: true); StateHasChanged(); });
+    }
+
+    private bool HasCapability(CombatCapabilities capability) => AttemptDocument?.Capabilities.HasFlag(capability) == true;
+    private static bool HasObservedDamage(CombatPlayerSummary player) => player.Skills.Any(skill => skill.Hits > 0);
+    private string ParticipantName(CombatParticipant participant) => participant.Name ?? UiText.F("Teilnehmer {0}", (_attempt?.Players.ToList().FindIndex(p => p.Participant.ParticipantId == participant.ParticipantId) ?? 0) + 1);
+    private string DungeonName(string key) => _catalog?.Dungeons.FirstOrDefault(d => d.DungeonDataId.ToString(CultureInfo.InvariantCulture) == key) is { } dungeon ? Name(dungeon.Names) ?? key : key;
+    private string BossName(string key) => key.StartsWith("npc:", StringComparison.Ordinal) && int.TryParse(key.AsSpan(4), out var id) && _catalog?.Dungeons.SelectMany(d => d.Npcs).FirstOrDefault(n => n.NpcDataId == id) is { } npc ? Name(npc.Names) ?? key : key;
+    private static string? Name(CombatCatalogNames names) => UiText.Language == "de" ? names.De ?? names.En : names.En ?? names.De;
+    private string TargetName(CombatEntityReference target) => UiText.F("Bossziel {0}", Array.IndexOf(AttemptDocument?.BossTargets ?? [], target) + 1);
+    private static CultureInfo Culture => CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");
+    private static string Number(decimal? value) => value?.ToString("N0", Culture) ?? "—";
+    private static string Percent(decimal? value) => value?.ToString("P1", Culture) ?? "—";
+    private static string Date(DateTimeOffset at) => at.ToLocalTime().ToString("g", Culture);
+    private static string Duration(long? ticks) => ticks is { } value ? TimeSpan.FromTicks(value).ToString(value >= TimeSpan.TicksPerHour ? @"h\:mm\:ss" : @"m\:ss", Culture) : "—";
+    private static string EndReason(CombatEndReason? reason) => UiText.T(reason switch { CombatEndReason.Victory => "Sieg", CombatEndReason.Wipe => "Wipe", CombatEndReason.Reset => "Zurückgesetzt", CombatEndReason.ManualStop => "Manuell beendet", CombatEndReason.Interrupted => "Unterbrochen", _ => "Kampfende unbekannt" });
+    private static string Quality(string code) => UiText.T(code switch
+    {
+        "unknown-duration" => "Gemeinsame Kampfzeit unbekannt.", "incomplete-journal" => "Das Ereignisjournal endet unvollständig.",
+        "interrupted-attempt" => "Die Erfassung wurde unterbrochen.", "damage-coverage-unknown" => "Vollständige Schadenserfassung nicht bestätigt.",
+        "unknown-buff-start" => "Der Anfangszustand mindestens eines Buffs ist unbekannt.", "buff-observation-ended" => "Die Buffbeobachtung endete beim Gruppenwechsel.",
+        "amount-semantics-unconfirmed" => "Mindestens ein Betrag ist noch nicht sicher als Schaden oder Heilung zugeordnet.",
+        _ when code.StartsWith("gap-", StringComparison.Ordinal) => "Eine Erfassungslücke ist gespeichert.",
+        _ => "Mindestens ein Ereignis konnte nicht vollständig zugeordnet oder ausgewertet werden."
+    });
+    public void Dispose() { _disposed = true; Ui.Changed -= NavigationChanged; _loading?.Cancel(); _loading?.Dispose(); }
+}

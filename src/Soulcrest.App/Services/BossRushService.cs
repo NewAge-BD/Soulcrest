@@ -197,13 +197,13 @@ public sealed class BossRushService : IDisposable
                 var now = _time.GetUtcNow();
                 RefreshUntilSpawnAlerts(now);
                 if (!_settings.Current.BossAlertsEnabled) return [];
-                var alive = _alerts.Where(a => (a.UntilSpawn || a.CreatedAt <= now) && a.Expires > now &&
+                var alive = _alerts.Where(a => (a.UntilSpawn || a.CreatedAt <= now) && (a.UntilSpawn || a.Expires > now) &&
                     (a.Preview || a.Key is { } key && IsReminderSelected(key))).ToArray();
                 var fixedIds = alive.Where(notice => !notice.UntilSpawn).Take(3).Select(notice => notice.Id).ToHashSet();
                 // Held warnings do not occupy the fixed-duration queue. The existing banner overflow
                 // presents all held sources and up to three fixed notices without delaying new warnings forever.
                 return alive.Where(notice => notice.UntilSpawn || fixedIds.Contains(notice.Id))
-                    .Select(a => AtDisplay(a, now)).ToArray();
+                    .Select(a => AtDisplay(a, now)).Where(a => !a.UntilSpawn || a.Remaining > TimeSpan.Zero).ToArray();
             }
         }
     }
@@ -294,7 +294,7 @@ public sealed class BossRushService : IDisposable
         {
             if (!_state.Invalidate(stream)) return;
             // Invalidation prevents new policy triggers; already authorized notifications retain
-            // their fixed expiry or explicit spawn-confirmation requirement.
+            // their fixed expiry or the remaining countdown of their original warning cycle.
         }
         Refresh();
     }
@@ -318,7 +318,7 @@ public sealed class BossRushService : IDisposable
             _targets.SetBossPreview(Target(upcoming, "boss-next") is { } preview
                 ? preview with { After = active is not null ? "boss-rush" : null } : null);
             RefreshUntilSpawnAlerts(_time.GetUtcNow());
-            _alerts.RemoveAll(a => a.Expires <= _time.GetUtcNow() ||
+            _alerts.RemoveAll(a => !a.UntilSpawn && a.Expires <= _time.GetUtcNow() ||
                 !a.Preview && (a.Key is not { } key || !IsReminderSelected(key)));
             if (!settings.BossAlertsEnabled) _alerts.Clear();
             else if (rows.Count > 0 && _state.Snapshot is { } snapshot)
@@ -359,8 +359,8 @@ public sealed class BossRushService : IDisposable
     private void AddAlert(BossPlace boss, bool spawned, TimeSpan remaining, string? key = null, bool preview = false, long? spawnUnixMs = null, bool calendar = false)
     {
         bool SameBoss(BossNotice notice) => key is not null ? notice.Key == key : notice.Boss.SpawnId == boss.SpawnId;
-        // A new future timestamp does not confirm the old warning's spawn. Keep its source identity,
-        // receipt and original cycle, and do not play another warning while that boss is already held.
+        // A different future timestamp cannot extend this warning's original countdown. Keep its
+        // source identity and receipt until that window ends, without playing another warning.
         if (!spawned && !preview && _alerts.Any(notice => notice.UntilSpawn && SameBoss(notice))) return;
         // Explicit previews are separate short notices; they must not cancel an existing held warning.
         _alerts.RemoveAll(notice => SameBoss(notice) && (!notice.UntilSpawn || spawned && !preview));
@@ -370,16 +370,16 @@ public sealed class BossRushService : IDisposable
         var fixedQueue = _alerts.Where(notice => !notice.UntilSpawn).ToArray();
         if (!untilSpawn && fixedQueue.Length >= 3 && fixedQueue[^3].Expires > starts) starts = fixedQueue[^3].Expires;
         var atDisplay = TimeSpan.FromTicks(Math.Max(0, (remaining - (starts - now)).Ticks));
-        var expires = untilSpawn ? DateTimeOffset.MaxValue
+        var expires = untilSpawn ? SafeAdd(now, remaining)
             : SafeAdd(starts, TimeSpan.FromSeconds(Math.Clamp(_settings.Current.BossAlertDurationSeconds, 3, 60)));
         _alerts.Add(new(++_noticeId, boss, spawned, atDisplay, expires, starts, key, preview, spawnUnixMs, calendar,
             untilSpawn, untilSpawn ? SafeAdd(now, remaining) : null, untilSpawn ? _time.GetTimestamp() : null));
-        // The bounded short-notice history cannot silently evict a warning awaiting confirmation.
+        // The bounded short-notice history cannot silently evict an active full-window warning.
         if (_alerts.Count(notice => !notice.UntilSpawn) > 128)
             _alerts.RemoveAt(_alerts.FindIndex(notice => !notice.UntilSpawn));
     }
 
-    /// <summary>All living held IDs, independently of the current map or the fixed-duration display queue.</summary>
+    /// <summary>Active full-window IDs, independently of the current map or the fixed-duration display queue.</summary>
     internal BossNotice? UntilSpawnNotice(long id)
     {
         lock (_gate)
@@ -387,8 +387,12 @@ public sealed class BossRushService : IDisposable
             if (_disposed || !_settings.Current.BossAlertsEnabled) return null;
             var now = _time.GetUtcNow();
             RefreshUntilSpawnAlerts(now);
-            return _alerts.FirstOrDefault(notice => notice.Id == id && notice.UntilSpawn
-                && notice.Key is { } key && IsReminderSelected(key)) is { } found ? AtDisplay(found, now) : null;
+            if (_alerts.FirstOrDefault(notice => notice.Id == id && notice.UntilSpawn
+                && notice.Key is { } key && IsReminderSelected(key)) is not { } found) return null;
+            var current = AtDisplay(found, now);
+            if (current.Remaining > TimeSpan.Zero) return current;
+            _alerts.RemoveAll(notice => notice.Id == id);
+            return null;
         }
     }
 
@@ -404,7 +408,7 @@ public sealed class BossRushService : IDisposable
         };
     }
 
-    /// <summary>Only a newly accepted complete known list can end a held warning, including off-map bosses.</summary>
+    /// <summary>A newly accepted complete known list can replace a warning early with a real spawn notice.</summary>
     private void ConfirmHeldAlerts(BossRushSnapshot snapshot)
     {
         if (snapshot.Cached) return;
@@ -415,21 +419,32 @@ public sealed class BossRushService : IDisposable
 
     private void RefreshUntilSpawnAlerts(DateTimeOffset now)
     {
-        // Clock rebases may correct the countdown of its original cycle. Missing/cached data, another
-        // map, an elapsed countdown, a new future cycle or a calendar rollover never end a held source.
-        if (_state.Snapshot is not { Cached: false } snapshot || !KnownList(snapshot)) return;
-        for (var index = 0; index < _alerts.Count; index++)
+        // User request 2026-10-18: a full warning window ends at countdown zero, never by inferring
+        // a spawn. Gaps/maps preserve its monotonic remaining time; another cycle cannot renew it.
+        var snapshot = _state.Snapshot;
+        var fresh = snapshot is { Cached: false } && KnownList(snapshot) ? snapshot : null;
+        for (var index = _alerts.Count - 1; index >= 0; index--)
         {
             var notice = _alerts[index];
-            if (!notice.UntilSpawn || notice.Key is not { } key || notice.SpawnUnixMs is not { } cycle) continue;
-            var native = snapshot.Bosses.FirstOrDefault(boss => $"{snapshot.MapId}:{boss.SpawnId}" == key);
-            if (native is not { Spawned: false, SpawnUnixMs: { } at } || at != cycle) continue;
-            var remaining = TimeSpan.FromMilliseconds(Math.Max(0, at - snapshot.ServerUnixMs));
-            _alerts[index] = notice with
+            if (!notice.UntilSpawn) continue;
+            var remaining = AtDisplay(notice, now).Remaining;
+            if (fresh is not null && notice.Key is { } key && notice.SpawnUnixMs is { } cycle)
             {
-                PlannedAt = remaining > TimeSpan.Zero ? SafeAdd(now, remaining) : notice.PlannedAt,
-                Remaining = remaining, HoldTimestamp = _time.GetTimestamp()
-            };
+                var native = fresh.Bosses.FirstOrDefault(boss => $"{fresh.MapId}:{boss.SpawnId}" == key);
+                if (native is { Spawned: false, SpawnUnixMs: { } at } && at == cycle)
+                {
+                    remaining = TimeSpan.FromMilliseconds(Math.Max(0, at - fresh.ServerUnixMs));
+                    notice = notice with { Remaining = remaining, HoldTimestamp = _time.GetTimestamp() };
+                }
+            }
+            if (remaining <= TimeSpan.Zero)
+            {
+                _alerts.RemoveAt(index);
+                continue;
+            }
+            var end = SafeAdd(now, remaining);
+            // Without a same-cycle clock correction, keep the original monotonic anchor unchanged.
+            _alerts[index] = notice with { Expires = end, PlannedAt = end };
         }
     }
 

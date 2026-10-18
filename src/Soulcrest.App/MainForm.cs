@@ -67,6 +67,7 @@ public sealed class MainForm : Form
         services.AddSingleton<CombatNetworkService>();
         services.AddSingleton(_ => new CombatHistoryStore(AppPaths.CombatDirectory));
         services.AddSingleton<CombatHistoryWriter>();
+        services.AddSingleton<ICombatHistoryReader, CombatHistoryReader>();
         services.AddSingleton<CombatRunService>(sp => new(sp.GetRequiredService<CombatNetworkService>(), sp.GetRequiredService<CombatHistoryWriter>()));
         services.AddSingleton<MerchantService>();
         services.AddSingleton<TrackerService>();

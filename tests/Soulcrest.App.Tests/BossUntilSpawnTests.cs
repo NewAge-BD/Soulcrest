@@ -47,150 +47,158 @@ public sealed class BossUntilSpawnTests
     }
 
     [Fact]
-    public async Task CountdownZeroKeepsOriginalWarningAndShowsAwaitingConfirmationWithoutInferringSpawn()
+    public async Task FullWarningWindowEndsAtCountdownZeroWithoutInferringASpawnOrLeavingAnyNotificationCopy()
     {
         await using var fixture = new Fixture();
         fixture.Configure();
         fixture.ServerOffset = TimeSpan.FromHours(4);
-        var planned = fixture.Clock.GetUtcNow().AddSeconds(60);
+        var end = fixture.Clock.GetUtcNow().AddSeconds(60);
         fixture.Observe(fixture.Upcoming(1, 60));
         var original = Assert.Single(fixture.Bosses.Alerts);
         Assert.True(original.UntilSpawn);
-        Assert.Equal(DateTimeOffset.MaxValue, original.Expires);
-        Assert.Equal(planned, Assert.Single(fixture.Alerts.NotificationRows).At);
-        fixture.Clock.Advance(TimeSpan.FromSeconds(60));
-        fixture.Refresh();
-        var held = Assert.Single(fixture.Bosses.Alerts);
-        Assert.Equal(original.Id, held.Id);
-        Assert.Equal(original.SpawnUnixMs, held.SpawnUnixMs);
-        Assert.Equal(TimeSpan.Zero, held.Remaining);
-        Assert.False(held.Spawned);
-        var banner = Assert.Single(fixture.Alerts.NotificationRows);
-        Assert.True(banner.AwaitingConfirmation);
-        Assert.Equal(planned, banner.At);
-        Assert.NotEqual(DateTimeOffset.MaxValue, banner.At);
-        var compatibility = Assert.Single(fixture.Alerts.OverlayRows, row => row.Key == "boss:1110:111001");
-        Assert.True(compatibility.AwaitingConfirmation);
-        Assert.False(compatibility.Started);
+        Assert.Equal(end, original.Expires);
+        Assert.Equal(end, Assert.Single(fixture.Alerts.NotificationRows).At);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(59));
+        Assert.Equal(TimeSpan.FromSeconds(1), Assert.Single(fixture.Bosses.Alerts).Remaining);
+        Assert.Single(fixture.Alerts.NotificationRows);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(1));
+        // Read without Tick: the source lookup and every copied-notification view must expire together.
+        Assert.Null(fixture.Bosses.UntilSpawnNotice(original.Id));
+        Assert.Empty(fixture.Bosses.Alerts);
+        Assert.Empty(fixture.Alerts.NotificationRows);
+        Assert.Empty(fixture.Alerts.Active);
         Assert.False(Assert.Single(fixture.Bosses.Schedule).Spawned);
+        Assert.False(Assert.Single(fixture.Alerts.CountdownRows).Started);
+        Assert.Single(fixture.Delivered);
+        fixture.Refresh();
+        fixture.Alerts.Tick();
+        Assert.Empty(fixture.Alerts.NotificationRows);
         Assert.Single(fixture.Delivered);
     }
 
     [Fact]
-    public async Task SameCycleClockCorrectionBeyondDeadlineImmediatelyWaitsWithoutConfirmingOrRepeating()
+    public async Task SameCycleClockCorrectionBeyondDeadlineImmediatelyEndsTheWindowWithoutConfirmingOrRepeating()
     {
         await using var fixture = new Fixture();
         fixture.Configure();
         var serverStart = fixture.ServerNow;
         fixture.Observe(fixture.Upcoming(1, 60));
-        var original = Assert.Single(fixture.Bosses.Alerts);
+        var id = Assert.Single(fixture.Bosses.Alerts).Id;
         fixture.Clock.Advance(TimeSpan.FromSeconds(10));
         fixture.ClockMessage(serverStart + 120000);
-        var held = Assert.Single(fixture.Bosses.Alerts);
-        Assert.Equal(original.Id, held.Id);
-        Assert.Equal(original.SpawnUnixMs, held.SpawnUnixMs);
-        Assert.Equal(original.PlannedAt, held.PlannedAt);
-        Assert.Equal(TimeSpan.Zero, held.Remaining);
-        Assert.False(held.Spawned);
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
+        Assert.Empty(fixture.Alerts.NotificationRows);
+        Assert.Empty(fixture.Alerts.Active);
+        Assert.Null(fixture.Bosses.UntilSpawnNotice(id));
+        Assert.Empty(fixture.Bosses.Alerts);
+        Assert.False(Assert.Single(fixture.Bosses.Schedule).Spawned);
         fixture.Alerts.Tick();
         Assert.Single(fixture.Delivered);
     }
 
     [Fact]
-    public async Task SourceGapAndSeveralDaysWithoutConfirmationKeepTheHeldSourceAndBanner()
+    public async Task ClockCorrectionsOfTheOriginalCycleRebaseThePositiveWindowSilently()
     {
         await using var fixture = new Fixture();
         fixture.Configure();
-        fixture.Observe(fixture.Upcoming(1, 5));
+        var start = fixture.Clock.GetUtcNow();
+        var serverStart = fixture.ServerNow;
+        fixture.Observe(fixture.Upcoming(1, 60));
         var id = Assert.Single(fixture.Bosses.Alerts).Id;
-        fixture.Network.Stop();
-        fixture.Clock.Advance(TimeSpan.FromDays(4));
-        fixture.Refresh();
-        fixture.Alerts.Tick();
+        fixture.Clock.Advance(TimeSpan.FromSeconds(10));
+        fixture.ClockMessage(serverStart + 40000);
+        Assert.Equal(start.AddSeconds(30), Assert.Single(fixture.Alerts.NotificationRows).Expires);
+        fixture.ClockMessage(serverStart + 10000);
+        Assert.Equal(start.AddSeconds(60), Assert.Single(fixture.Alerts.NotificationRows).Expires);
         Assert.Equal(id, Assert.Single(fixture.Bosses.Alerts).Id);
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
-        Assert.True(Assert.Single(fixture.Bosses.Schedule).Cached);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(50));
+        Assert.Empty(fixture.Alerts.NotificationRows);
         Assert.Single(fixture.Delivered);
     }
 
-    [Fact]
-    public async Task MapChangesKeepWarningsAndFreshConfirmationOnlyEndsThatBossIdentity()
+    [Theory]
+    [InlineData("gap")]
+    [InlineData("session")]
+    [InlineData("map")]
+    public async Task SourceChangesKeepOnlyTheOriginalRemainingWindowAndCannotHoldItBeyondZero(string change)
     {
         await using var fixture = new Fixture();
         fixture.Configure();
         fixture.Observe(fixture.Upcoming(1, 5));
-        var first = Assert.Single(fixture.Bosses.Alerts);
-        fixture.ObserveMap(1010, new BossSpawn(101001, false, fixture.ServerNow + 5000));
-        Assert.Equal(2, fixture.Bosses.Alerts.Count);
-        fixture.Clock.Advance(TimeSpan.FromSeconds(6));
-        fixture.Observe(new BossSpawn(111001, true, fixture.ServerNow));
-        Assert.Null(fixture.Bosses.UntilSpawnNotice(first.Id));
-        Assert.Single(fixture.Bosses.Alerts, notice => notice.Key == "1010:101001" && notice.UntilSpawn);
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows, notice => notice.Key.StartsWith("boss:1010:", StringComparison.Ordinal)).AwaitingConfirmation);
-        Assert.Single(fixture.Bosses.Alerts, notice => notice.Key == "1110:111001" && notice.Spawned && !notice.UntilSpawn);
-        Assert.Equal(3, fixture.Delivered.Count);
+        var original = Assert.Single(fixture.Bosses.Alerts);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(3));
+        if (change == "gap") fixture.Network.ProcessProgressGap("fixture");
+        else if (change == "session") fixture.Network.Stop();
+        else fixture.ObserveMap(1010, new BossSpawn(101001, false, fixture.ServerNow + 7200000));
+        Assert.Equal(original.Id, Assert.Single(fixture.Bosses.Alerts).Id);
+        Assert.Equal(original.Expires, Assert.Single(fixture.Alerts.NotificationRows).Expires);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(2));
+        Assert.Empty(fixture.Alerts.NotificationRows);
+        Assert.Empty(fixture.Alerts.Active);
+        Assert.Empty(fixture.Bosses.Alerts);
+        Assert.Single(fixture.Delivered);
     }
 
     [Theory]
     [InlineData(30)]
     [InlineData(600)]
-    public async Task NewFutureTimestampInsideOrOutsideLeadDoesNotReplaceOrRepeatAnUnconfirmedWarning(int seconds)
+    public async Task DifferentFutureCycleCannotRenewOrExtendTheOriginalWarningWindow(int nextSeconds)
     {
         await using var fixture = new Fixture();
         fixture.Configure();
-        fixture.Observe(fixture.Upcoming(1, 5));
+        fixture.Observe(fixture.Upcoming(1, 60));
         var original = Assert.Single(fixture.Bosses.Alerts);
-        fixture.Clock.Advance(TimeSpan.FromSeconds(6));
-        fixture.Observe(fixture.Upcoming(1, seconds));
-        var held = Assert.Single(fixture.Bosses.Alerts);
-        Assert.Equal(original.Id, held.Id);
-        Assert.Equal(original.SpawnUnixMs, held.SpawnUnixMs);
-        Assert.Equal(original.PlannedAt, held.PlannedAt);
-        Assert.Equal(TimeSpan.Zero, held.Remaining);
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(10));
+        fixture.Observe(fixture.Upcoming(1, nextSeconds));
+        var current = Assert.Single(fixture.Bosses.Alerts);
+        Assert.Equal(original.Id, current.Id);
+        Assert.Equal(original.SpawnUnixMs, current.SpawnUnixMs);
+        Assert.Equal(original.Expires, current.Expires);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(50));
+        Assert.Empty(fixture.Bosses.Alerts);
+        Assert.Empty(fixture.Alerts.NotificationRows);
         Assert.Single(fixture.Delivered);
     }
 
     [Fact]
-    public async Task CachedFlagsClockPacketsAndUnknownFullListsCannotConfirmTheHeldBoss()
+    public async Task CachedFlagsClockOnlyAndUnknownListsDoNotPrematurelyEndOrRenewTheCountdownWindow()
     {
         await using var fixture = new Fixture();
         fixture.Configure();
         fixture.Observe(fixture.Upcoming(1, 5));
         var id = Assert.Single(fixture.Bosses.Alerts).Id;
-        fixture.Clock.Advance(TimeSpan.FromSeconds(6));
+        fixture.Clock.Advance(TimeSpan.FromSeconds(1));
         fixture.RestoreCached(new BossSpawn(111001, true, fixture.ServerNow));
-        fixture.ClockMessage(fixture.ServerNow);
+        fixture.ClockMessage(fixture.ServerNow + 3600000);
         fixture.Refresh();
         Assert.NotNull(fixture.Bosses.UntilSpawnNotice(id));
-        fixture.Observe(new BossSpawn(111001, true, fixture.ServerNow), new BossSpawn(999999, false, fixture.ServerNow + 1000));
+        fixture.Observe(new BossSpawn(111001, true, fixture.ServerNow), new BossSpawn(999999, false, fixture.ServerNow + 60000));
         Assert.NotNull(fixture.Bosses.UntilSpawnNotice(id));
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
         Assert.Single(fixture.Delivered);
-        fixture.Observe(new BossSpawn(111001, true, fixture.ServerNow));
+        fixture.Clock.Advance(TimeSpan.FromSeconds(4));
+        Assert.Empty(fixture.Alerts.NotificationRows);
+        Assert.Empty(fixture.Alerts.Active);
         Assert.Null(fixture.Bosses.UntilSpawnNotice(id));
-        Assert.True(Assert.Single(fixture.Bosses.Alerts).Spawned);
-        Assert.Equal(2, fixture.Delivered.Count);
+        Assert.Single(fixture.Delivered);
     }
 
     [Fact]
-    public async Task MalformedSpawnFlagWithoutRequiredTimestampCannotConfirmOrEndTheHeldWarning()
+    public async Task MalformedSpawnFlagWithoutTimestampCannotPrematurelyEndTheWindowOrCreateSpawnNotice()
     {
         await using var fixture = new Fixture();
         fixture.Configure();
         fixture.Observe(fixture.Upcoming(1, 5));
         var id = Assert.Single(fixture.Bosses.Alerts).Id;
-        fixture.Clock.Advance(TimeSpan.FromSeconds(6));
+        fixture.Clock.Advance(TimeSpan.FromSeconds(1));
         fixture.Reject(new BossSpawn(111001, true, null));
         Assert.Equal(id, Assert.Single(fixture.Bosses.Alerts).Id);
         Assert.False(Assert.Single(fixture.Bosses.Alerts).Spawned);
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(4));
+        Assert.Empty(fixture.Alerts.NotificationRows);
         Assert.Single(fixture.Delivered);
     }
 
     [Fact]
-    public async Task FreshConfirmedSpawnReplacesWarningWithGlobalFixedSeconds()
+    public async Task ARealEarlySpawnStillReplacesItsWindowWithGlobalFixedSeconds()
     {
         await using var fixture = new Fixture();
         fixture.Configure(duration: 13);
@@ -202,7 +210,6 @@ public sealed class BossUntilSpawnTests
         Assert.True(notice.Spawned);
         Assert.False(notice.UntilSpawn);
         Assert.Equal(now.AddSeconds(13), notice.Expires);
-        Assert.False(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
         Assert.EndsWith(":spawn", Assert.Single(fixture.Alerts.NotificationRows).Key);
         Assert.Equal(2, fixture.Delivered.Count);
         fixture.Clock.Advance(TimeSpan.FromSeconds(13));
@@ -210,72 +217,67 @@ public sealed class BossUntilSpawnTests
     }
 
     [Fact]
-    public async Task PreviewForTheSameBossExpiresSeparatelyAndPreservesItsOriginalHeldWarning()
+    public async Task FixedWarningsAndPreviewsRetainTheirSecondsEvenWhenThePlannedCountdownEndsSooner()
     {
         await using var fixture = new Fixture();
-        fixture.Configure(duration: 13);
+        fixture.Configure(until: false, duration: 13);
         fixture.Observe(fixture.Upcoming(1, 5));
         fixture.Clock.Advance(TimeSpan.FromSeconds(6));
-        var held = Assert.Single(fixture.Alerts.NotificationRows);
-        var id = Assert.Single(fixture.Bosses.Alerts).Id;
-        var now = fixture.Clock.GetUtcNow();
-        fixture.Bosses.PreviewAlert("1110:111001");
-        Assert.Equal(2, fixture.Alerts.NotificationRows.Count);
-        Assert.Equal(now.AddSeconds(13), Assert.Single(fixture.Bosses.Alerts, notice => notice.Preview).Expires);
-        Assert.Equal(id, Assert.Single(fixture.Bosses.Alerts, notice => notice.UntilSpawn).Id);
-        fixture.Clock.Advance(TimeSpan.FromSeconds(13));
-        fixture.Alerts.Tick();
-        var restored = Assert.Single(fixture.Alerts.NotificationRows);
-        Assert.Equal(held.Key, restored.Key);
-        Assert.True(restored.AwaitingConfirmation);
+        Assert.Single(fixture.Alerts.NotificationRows);
+        Assert.False(Assert.Single(fixture.Bosses.Schedule).Spawned);
+        fixture.Bosses.PreviewAlert("1110:111002");
+        Assert.True(Assert.Single(fixture.Alerts.NotificationRows, notice => notice.Preview).Preview);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(7));
+        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).Preview);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(6));
+        Assert.Empty(fixture.Alerts.NotificationRows);
         Assert.Equal(2, fixture.Delivered.Count);
     }
 
     [Fact]
-    public async Task HeldWarningsDoNotOccupyTheThreeFixedNoticeQueueOrBlockLaterWarnings()
+    public async Task PreviewForTheSameBossHasItsOwnFixedDurationWithoutRenewingTheWindow()
     {
         await using var fixture = new Fixture();
         fixture.Configure(duration: 13);
-        fixture.Observe(Enumerable.Range(1, 7).Select(number => fixture.Upcoming(number, 5)).ToArray());
+        fixture.Observe(fixture.Upcoming(1, 60));
+        var original = Assert.Single(fixture.Bosses.Alerts);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(6));
+        fixture.Bosses.PreviewAlert("1110:111001");
+        Assert.Equal(2, fixture.Alerts.NotificationRows.Count);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(13));
+        var window = Assert.Single(fixture.Alerts.NotificationRows);
+        Assert.False(window.Preview);
+        Assert.Equal(original.Expires, window.Expires);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(41));
+        Assert.Empty(fixture.Alerts.NotificationRows);
+        Assert.Equal(2, fixture.Delivered.Count);
+    }
+
+    [Fact]
+    public async Task FullWindowsDoNotOccupyTheThreeFixedNoticeQueueOrBlockLaterWarnings()
+    {
+        await using var fixture = new Fixture();
+        fixture.Configure(duration: 13);
+        fixture.Observe(Enumerable.Range(1, 7).Select(number => fixture.Upcoming(number, 60)).ToArray());
         Assert.Equal(7, fixture.Bosses.Alerts.Count);
         Assert.Equal(7, fixture.Alerts.NotificationRows.Count);
-        fixture.Clock.Advance(TimeSpan.FromSeconds(6));
         fixture.Bosses.PreviewAlert("1110:111008");
         var preview = Assert.Single(fixture.Bosses.Alerts, notice => notice.Preview);
         Assert.Equal(fixture.Clock.GetUtcNow(), preview.CreatedAt);
         Assert.Equal(fixture.Clock.GetUtcNow().AddSeconds(13), preview.Expires);
         Assert.Equal(8, fixture.Alerts.NotificationRows.Count);
         Assert.Equal(8, fixture.Delivered.Count);
-        Assert.All(fixture.Bosses.Alerts.Where(notice => notice.UntilSpawn), notice => Assert.Equal(TimeSpan.Zero, notice.Remaining));
-    }
-
-    [Fact]
-    public async Task FixedGlobalDurationKeepsTheExistingThreeNoticeQueueAndPerBossLeadStillApplies()
-    {
-        await using var fixture = new Fixture();
-        fixture.Configure(until: false, duration: 13);
-        Assert.True(fixture.Bosses.SetReminder("1110:111005", new() { LeadSeconds = 1 }));
-        fixture.Observe(Enumerable.Range(1, 5).Select(number => fixture.Upcoming(number, 30)).ToArray());
-        Assert.Equal(3, fixture.Bosses.Alerts.Count);
-        Assert.Equal(3, fixture.Delivered.Count);
-        fixture.Clock.Advance(TimeSpan.FromSeconds(13));
-        fixture.Refresh();
-        var queued = Assert.Single(fixture.Bosses.Alerts);
-        Assert.Equal("1110:111004", queued.Key);
-        Assert.False(queued.UntilSpawn);
-        Assert.Equal(fixture.Clock.GetUtcNow().AddSeconds(13), queued.Expires);
-        Assert.Equal(4, fixture.Delivered.Count);
     }
 
     [Theory]
     [InlineData("selected")]
     [InlineData("master")]
     [InlineData("reminder")]
-    public async Task ExplicitUserCancellationStillEndsHeldWarnings(string change)
+    public async Task ExplicitUserCancellationStillEndsAnActiveWindow(string change)
     {
         await using var fixture = new Fixture();
         fixture.Configure();
-        fixture.Observe(fixture.Upcoming(1, 5));
+        fixture.Observe(fixture.Upcoming(1, 60));
         if (change == "selected") fixture.Settings.Update(settings => settings.BossAlertIds = []);
         else if (change == "master") fixture.Settings.Update(settings => settings.BossAlertsEnabled = false);
         else Assert.True(fixture.Bosses.SetReminder("1110:111001", new() { Enabled = false }));
@@ -286,64 +288,70 @@ public sealed class BossUntilSpawnTests
     }
 
     [Fact]
-    public async Task GlobalModeChangesAffectFutureWarningsWhileExistingWarningsKeepTheirConfirmationRequirement()
+    public async Task GlobalModeChangesAffectNewWarningsWhileAnExistingWindowKeepsItsOriginalTimerEnd()
     {
         await using var fixture = new Fixture();
         fixture.Configure();
-        var original = fixture.Upcoming(1, 5);
-        fixture.Observe(original);
+        var first = fixture.Upcoming(1, 60);
+        fixture.Observe(first);
+        var original = Assert.Single(fixture.Bosses.Alerts);
         fixture.Settings.Update(settings => { settings.BossAlertUntilSpawn = false; settings.BossAlertDurationSeconds = 13; });
-        fixture.Clock.Advance(TimeSpan.FromSeconds(6));
-        fixture.Observe(original, fixture.Upcoming(2, 30));
-        Assert.Single(fixture.Bosses.Alerts, notice => notice.UntilSpawn && notice.Key == "1110:111001");
+        fixture.Clock.Advance(TimeSpan.FromSeconds(10));
+        fixture.Observe(first, fixture.Upcoming(2, 30));
+        Assert.Equal(original.Expires, Assert.Single(fixture.Bosses.Alerts, notice => notice.UntilSpawn).Expires);
         Assert.Single(fixture.Bosses.Alerts, notice => !notice.UntilSpawn && notice.Key == "1110:111002");
         fixture.Clock.Advance(TimeSpan.FromSeconds(13));
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
+        Assert.Equal(original.Expires, Assert.Single(fixture.Alerts.NotificationRows).Expires);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(37));
+        Assert.Empty(fixture.Alerts.NotificationRows);
+        Assert.Equal(2, fixture.Delivered.Count);
     }
 
-    [Fact]
-    public async Task WallClockRollbackDoesNotDeleteOrRestartAnAlreadyDeliveredHeldWarning()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WallClockRollbackCannotExtendTheOriginalMonotonicWindow(bool gap)
     {
         await using var fixture = new Fixture();
         fixture.Configure();
-        fixture.Observe(fixture.Upcoming(1, 5));
+        fixture.Observe(fixture.Upcoming(1, 60));
         var id = Assert.Single(fixture.Bosses.Alerts).Id;
-        fixture.Clock.Advance(TimeSpan.FromSeconds(6));
-        fixture.Network.Stop();
+        fixture.Clock.Advance(TimeSpan.FromSeconds(10));
+        if (gap) fixture.Network.Stop();
         fixture.Clock.ShiftWall(TimeSpan.FromMinutes(-10));
-        fixture.Alerts.Tick();
         Assert.Equal(id, Assert.Single(fixture.Bosses.Alerts).Id);
-        Assert.Equal(TimeSpan.Zero, Assert.Single(fixture.Bosses.Alerts).Remaining);
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
-        Assert.Single(fixture.Alerts.Active);
+        Assert.Equal(TimeSpan.FromSeconds(50), Assert.Single(fixture.Bosses.Alerts).Remaining);
+        Assert.Equal(fixture.Clock.GetUtcNow().AddSeconds(50), Assert.Single(fixture.Alerts.NotificationRows).Expires);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(49));
+        Assert.Single(fixture.Alerts.NotificationRows);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.Empty(fixture.Alerts.NotificationRows);
+        Assert.Empty(fixture.Alerts.Active);
         Assert.Single(fixture.Delivered);
     }
 
     [Fact]
-    public async Task SoundAndLegacyBannerWindowChangesCannotHideOrRepeatTheHeldNotification()
+    public async Task AWindowCanFirstDeliverAfterASourceGapOnlyWhileItsOriginalTimerIsPositive()
     {
-        await using var fixture = new Fixture();
+        await using var fixture = new Fixture(deliver: false);
         fixture.Configure();
-        fixture.Observe(fixture.Upcoming(1, 5));
+        fixture.Observe(fixture.Upcoming(1, 60));
+        var original = Assert.Single(fixture.Bosses.Alerts);
+        fixture.Network.Stop();
         fixture.Clock.Advance(TimeSpan.FromSeconds(6));
-        var key = Assert.Single(fixture.Alerts.NotificationRows).Key;
-        var presentation = fixture.Alerts.GetBossPresentation("1110:111001");
-        Assert.True(fixture.Alerts.SetBossPresentation("1110:111001", presentation with { PlaySound = true, Sound = "beep", OverlayLeadMinutes = 1 }));
-        Assert.Equal(key, Assert.Single(fixture.Alerts.NotificationRows).Key);
-        Assert.True(fixture.Alerts.SetBossPresentation("1110:111001", presentation with { ShowOverlay = false }));
-        Assert.Equal(key, Assert.Single(fixture.Alerts.NotificationRows).Key);
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).ShowOverlay);
-        Assert.False(fixture.Alerts.GetBossPresentation("1110:111001").ShowOverlay);
-        Assert.Empty(fixture.Alerts.CountdownRows); // Only the legacy countdown projection retains that flag.
-        Assert.Single(fixture.Alerts.Active);
-        Assert.True(fixture.Alerts.SetBossPresentation("1110:111001", presentation));
-        Assert.Equal(key, Assert.Single(fixture.Alerts.NotificationRows).Key);
-        fixture.Alerts.Tick();
-        Assert.Single(fixture.Delivered);
+        using var consumer = fixture.NewConsumer();
+        var delivered = new List<AlertNotice>();
+        consumer.NoticeRaised += delivered.Add;
+        consumer.Tick();
+        Assert.Equal(original.Expires, Assert.Single(consumer.NotificationRows).Expires);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(54));
+        Assert.Empty(consumer.NotificationRows);
+        consumer.Tick();
+        Assert.Single(delivered);
     }
 
     [Fact]
-    public async Task ASourceProducedFreshCanBeDeliveredForTheFirstTimeAfterASourceGap()
+    public async Task AnExpiredWindowCannotFirstDeliverLaterFromACachedSource()
     {
         await using var fixture = new Fixture(deliver: false);
         fixture.Configure();
@@ -354,39 +362,49 @@ public sealed class BossUntilSpawnTests
         var delivered = new List<AlertNotice>();
         consumer.NoticeRaised += delivered.Add;
         consumer.Tick();
-        Assert.True(Assert.Single(consumer.NotificationRows).AwaitingConfirmation);
-        consumer.Tick();
-        Assert.Single(delivered);
+        Assert.Empty(consumer.NotificationRows);
+        Assert.Empty(fixture.Bosses.Alerts);
+        Assert.Empty(delivered);
     }
 
     [Fact]
-    public async Task AnAlreadyDeliveredHoldDoesNotReplayWhenBoundedReceiptHistoryForgetsItsKey()
+    public async Task SoundLegacyWindowAndReceiptHistoryChangesDoNotRepeatOrExtendTheActiveWindow()
     {
         await using var fixture = new Fixture();
         fixture.Configure();
-        fixture.Observe(fixture.Upcoming(1, 5));
-        var key = Assert.Single(fixture.Alerts.NotificationRows).Key;
+        fixture.Observe(fixture.Upcoming(1, 60));
+        var original = Assert.Single(fixture.Alerts.NotificationRows);
         fixture.Clock.Advance(TimeSpan.FromSeconds(6));
+        Assert.True(fixture.Alerts.SetBossPresentation("1110:111001", new()
+        {
+            PlaySound = true, Sound = "beep", ShowOverlay = false, OverlayLeadMinutes = 0
+        }));
         var receipts = (System.Collections.IList)typeof(AlertsService).GetField("_receipts",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(fixture.Alerts)!;
-        receipts.Clear(); // Model the existing bounded receipt history evicting a very old lead key.
+        receipts.Clear();
         fixture.Alerts.Tick();
-        fixture.Alerts.Tick();
-        Assert.Equal(key, Assert.Single(fixture.Alerts.NotificationRows).Key);
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
+        Assert.Equal(original.Key, Assert.Single(fixture.Alerts.NotificationRows).Key);
+        Assert.Equal(original.Expires, Assert.Single(fixture.Alerts.NotificationRows).Expires);
+        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).ShowOverlay);
+        Assert.Empty(fixture.Alerts.CountdownRows);
         Assert.Single(fixture.Delivered);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(54));
+        Assert.Empty(fixture.Alerts.NotificationRows);
     }
 
     [Fact]
-    public async Task CalendarOccurrenceNeverConfirmsSpawnOrEndsItsHeldWarning()
+    public async Task VerifiedCalendarWarningEndsAtItsOccurrenceWithoutConfirmingASpawn()
     {
         await using var fixture = new Fixture(calendar: true);
         fixture.Configure();
         fixture.Refresh();
-        Assert.True(Assert.Single(fixture.Bosses.Alerts).Calendar);
+        var window = Assert.Single(fixture.Bosses.Alerts);
+        Assert.True(window.Calendar);
+        Assert.Equal(fixture.Clock.GetUtcNow().AddMinutes(1), window.Expires);
         fixture.Clock.Advance(TimeSpan.FromMinutes(1));
-        fixture.Refresh();
-        Assert.True(Assert.Single(fixture.Alerts.NotificationRows).AwaitingConfirmation);
+        Assert.Empty(fixture.Alerts.NotificationRows);
+        Assert.Empty(fixture.Alerts.Active);
+        Assert.Empty(fixture.Bosses.Alerts);
         Assert.Single(fixture.Delivered);
         Assert.Null(fixture.Bosses.View.Boss);
     }
@@ -415,7 +433,7 @@ public sealed class BossUntilSpawnTests
         Assert.True(notice.PlaySound);
         Assert.False(notice.Preview);
         Assert.Equal(fixture.Clock.GetUtcNow().AddSeconds(lead), notice.At);
-        Assert.Equal(until ? DateTimeOffset.MaxValue : fixture.Clock.GetUtcNow().AddSeconds(13), notice.Expires);
+        Assert.Equal(fixture.Clock.GetUtcNow().AddSeconds(until ? lead : 13), notice.Expires);
         Assert.Empty(fixture.Alerts.CountdownRows);
         Assert.Empty(fixture.Alerts.TimerOverlayRows);
         fixture.Alerts.Tick();

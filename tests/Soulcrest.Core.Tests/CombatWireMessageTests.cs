@@ -35,6 +35,58 @@ public sealed class CombatWireMessageTests
     }
 
     [Fact]
+    public void DirectIndependentWireValuesRemainSeparateFromPrimaryAmount()
+    {
+        var packet = Direct(0x1576, 91, ulong.MaxValue);
+        Assert.True(CombatHitMessage.TryParse(packet, out var hit));
+        Assert.Equal(91, hit.Amount);
+        Assert.Equal(new CombatDirectHitFields(0, 300, 0, 0, 0, false, 0, ulong.MaxValue, true), hit.DirectFields);
+        Assert.Null(hit.PeriodicFields);
+        RejectEveryCutAndTail(packet, p => CombatHitMessage.TryParse(p, out _));
+
+        Assert.True(CombatHitMessage.TryParse(Direct(1024, auxiliary: 73), out var auxiliaryOnly));
+        Assert.Null(auxiliaryOnly.Amount);
+        Assert.Equal((ulong)73, auxiliaryOnly.DirectFields!.Flag400Value);
+        Assert.Null(auxiliaryOnly.DirectFields.HitBlockValue);
+        Assert.Null(auxiliaryOnly.DirectFields.Flag10Value);
+        Assert.Null(auxiliaryOnly.DirectFields.Flag1000Value);
+
+        Assert.True(CombatHitMessage.TryParse(Direct(0), out var absent));
+        Assert.Null(absent.DirectFields!.Flag400Value);
+        Assert.True(CombatHitMessage.TryParse(Direct(1024, auxiliary: 0), out var zero));
+        Assert.Equal((ulong)0, zero.DirectFields!.Flag400Value);
+    }
+
+    [Fact]
+    public void DirectDistinctScalarsAndFullWidthHitBlockValueAreNotReorderedOrCountedAsPrimary()
+    {
+        var packet = Direct(0x406, 91, 73, ulong.MaxValue, 7, 9, 987, 456, 65535);
+        Assert.True(CombatHitMessage.TryParse(packet, out var hit));
+        Assert.Equal(91, hit.Amount);
+        Assert.Equal(0b1010101, hit.RawHitFlags);
+        Assert.Equal(new CombatDirectHitFields(7, ulong.MaxValue, 9, 987, 456, null, 65535, 73, null), hit.DirectFields);
+        RejectEveryCutAndTail(packet, p => CombatHitMessage.TryParse(p, out _));
+    }
+
+    [Fact]
+    public void PeriodicPreservesRelatedEntitiesAndOptionalScalarsWithoutFallbackAttribution()
+    {
+        var packet = Periodic(0x3B, 91, ulong.MaxValue);
+        Assert.True(CombatHitMessage.TryParse(packet, out var hit));
+        Assert.Equal(91, hit.Amount);
+        Assert.Null(hit.SkillDataId);
+        Assert.Null(hit.DirectFields);
+        Assert.Equal(new CombatPeriodicHitFields(303, ulong.MaxValue, 42, 606, 42), hit.PeriodicFields);
+        RejectEveryCutAndTail(packet, p => CombatHitMessage.TryParse(p, out _));
+        Assert.True(CombatHitMessage.TryParse(Periodic(1, auxiliary: 73), out var auxiliaryOnly));
+        Assert.Null(auxiliaryOnly.Amount);
+        Assert.Equal((ulong)73, auxiliaryOnly.PeriodicFields!.Flag1Value);
+        Assert.Null(auxiliaryOnly.PeriodicFields.Flag8Value);
+        Assert.Null(auxiliaryOnly.PeriodicFields.Flag10EntityId);
+        Assert.Null(auxiliaryOnly.PeriodicFields.Flag20Value);
+    }
+
+    [Fact]
     public void OmittedAmountStaysUnknownAndObservedZeroRemainsZero()
     {
         Assert.True(CombatHitMessage.TryParse(Direct(0), out var unknown));
@@ -138,32 +190,33 @@ public sealed class CombatWireMessageTests
         Assert.False(CombatHpMessage.TryParse(zeroEntity, out _));
     }
 
-    private static byte[] Direct(ushort fields, ulong amount = 10)
+    private static byte[] Direct(ushort fields, ulong amount = 10, ulong auxiliary = 0, ulong blockValue = 300, byte skillScalar = 0,
+        byte blockScalar = 0, uint effectScalar = 0, uint effectVarint = 0, ushort tail = 0)
     {
         var p = new Packet(CombatHitMessage.DirectOpcode);
-        p.V(101); p.U16(fields); p.V(202); p.U32(404); p.B(0); p.B(2);
+        p.V(101); p.U16(fields); p.V(202); p.U32(404); p.B(skillScalar); p.B(2);
         if ((fields & 2) != 0)
         {
             for (var i = 0; i < 6; i++) p.Bool(i % 2 == 0);
-            p.V(300); p.Bool(true); p.B(0);
+            p.V(blockValue); p.Bool(true); p.B(blockScalar);
         }
-        p.U32(505); p.U32(0); p.V(0);
+        p.U32(505); p.U32(effectScalar); p.V(effectVarint);
         if ((fields & 4) != 0) p.V(amount);
         if ((fields & 16) != 0) p.Bool(false);
         if ((fields & 32) != 0) { p.V(2); p.V(1); p.V(500); }
         if ((fields & 64) != 0) { p.V(1); p.U32(42); }
         if ((fields & 256) != 0) p.V(0);
-        p.U16(0);
-        if ((fields & 1024) != 0) p.V(0);
+        p.U16(tail);
+        if ((fields & 1024) != 0) p.V(auxiliary);
         if ((fields & 4096) != 0) p.Bool(true);
         return p.Bytes;
     }
 
-    private static byte[] Periodic(byte fields, ulong amount = 10)
+    private static byte[] Periodic(byte fields, ulong amount = 10, ulong auxiliary = 20)
     {
         var p = new Packet(CombatHitMessage.PeriodicOpcode);
         p.V(101); p.B(fields); p.V(202); p.V(303); p.U32(505);
-        if ((fields & 1) != 0) p.V(20);
+        if ((fields & 1) != 0) p.V(auxiliary);
         if ((fields & 2) != 0) p.V(amount);
         if ((fields & 8) != 0) p.U32(42);
         if ((fields & 16) != 0) p.V(606);
