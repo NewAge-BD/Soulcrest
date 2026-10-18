@@ -46,18 +46,13 @@ public sealed record NetworkProgressSources(bool IdentityIsLive, string? Charact
 /// soul message (0d90) adds its souls to the progress. Follows connection changes (zone change,
 /// reconnect) by looking at the game's connections every few seconds.
 /// </summary>
-public sealed class NetworkLootService(ProgressService progress, ExplorationService? exploration = null) : INetworkLootSource, INetworkMerchantSource, INetworkCombatSource, INetworkProgressControl, IDisposable
+public sealed class NetworkLootService(ProgressService progress, ExplorationService? exploration = null) : INetworkLootSource, INetworkMerchantSource,
+    INetworkProgressControl, IDisposable
 {
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
     private readonly object _gate = new();
     private readonly object _connectionGate = new();
     private int _disposed;
-    private readonly NetworkCombatFeed _combat = new();
-    internal Func<long>? CombatElapsedTicks { get => _combat.ElapsedTicks; set => _combat.ElapsedTicks = value; }
-
-    /// <summary>Attach a bounded consumer to the existing source; no additional device is opened.</summary>
-    public NetworkCombatSubscription SubscribeCombat(int capacity = 2048, int maxBytes = 8 * 1024 * 1024) =>
-        _combat.SubscribeCombat(capacity, maxBytes);
     public bool ProgressProcessingEnabled { get; private set; } = true;
 
     public void SetProgressProcessingEnabled(bool enabled)
@@ -310,70 +305,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         return found;
     }
 
-    /// <summary>
-    /// Offline combat transport replay through the exact live TCP/message splitter and bounded feed.
-    /// Does not construct an app/service or open a live device. Each file boundary explicitly revokes
-    /// continuity; the source files may contain missing time or incomplete TCP frames.
-    /// </summary>
-    public static IEnumerable<CombatCaptureEnvelope> ReadCombatCaptures(IEnumerable<string> paths,
-        IReadOnlySet<int> serverPorts, Func<long>? receivedElapsedTicks = null) =>
-        ReplayCombatBatches(paths.Select(ReadPackets), serverPorts, receivedElapsedTicks);
-
-    /// <summary>In-memory equivalent for deterministic transport tests; no native capture library is opened.</summary>
-    public static IEnumerable<CombatCaptureEnvelope> ReadCombatPackets(IEnumerable<RawCapture> packets,
-        IReadOnlySet<int> serverPorts, Func<long>? receivedElapsedTicks = null) =>
-        ReplayCombatBatches([packets], serverPorts, receivedElapsedTicks);
-
-    private static IEnumerable<RawCapture> ReadPackets(string path)
-    {
-        using var device = new CaptureFileReaderDevice(path);
-        device.Open();
-        while (OfflinePacketAvailable(device.GetNextPacket(out var capture))) yield return capture.GetPacket();
-    }
-
-    /// <summary>Only a proven EOF ends an offline replay; unsupported/corrupt files must not look empty.</summary>
-    internal static bool OfflinePacketAvailable(GetPacketStatus status) => status switch
-    {
-        GetPacketStatus.PacketRead => true,
-        GetPacketStatus.NoRemainingPackets => false,
-        _ => throw new InvalidDataException("Offline capture reader failed; corrupt or unsupported capture format.")
-    };
-
-    private static IEnumerable<CombatCaptureEnvelope> ReplayCombatBatches(IEnumerable<IEnumerable<RawCapture>> batches,
-        IReadOnlySet<int> serverPorts, Func<long>? receivedElapsedTicks)
-    {
-        var feed = new NetworkCombatFeed();
-        long elapsed = 0;
-        DateTimeOffset? previousAt = null;
-        feed.ElapsedTicks = receivedElapsedTicks ?? (() => elapsed);
-        using var subscription = feed.SubscribeCombat();
-        var streams = new Dictionary<(string, int, string, int), (TcpReassembler, GameMessageStream)>();
-        var first = true;
-        foreach (var packets in batches)
-        {
-            if (!first) { feed.Reset("capture-file-boundary"); streams.Clear(); }
-            first = false;
-            while (subscription.TryRead(out var initial)) yield return initial!;
-            foreach (var raw in packets)
-            {
-                var at = new DateTimeOffset(raw.Timeval.Date).ToUniversalTime();
-                if (previousAt is { } previous && at > previous) elapsed = checked(elapsed + (at - previous).Ticks);
-                if (previousAt is null || at > previousAt) previousAt = at;
-                var packet = Packet.ParsePacket(raw.LinkLayerType, raw.Data);
-                if (packet.Extract<TcpPacket>() is not { } tcp || packet.Extract<IPPacket>() is not { } ip ||
-                    !serverPorts.Contains(tcp.SourcePort)) continue;
-                var key = (ip.SourceAddress.ToString(), (int)tcp.SourcePort, ip.DestinationAddress.ToString(), (int)tcp.DestinationPort);
-                foreach (var received in FeedPacket(streams, tcp, key, $"{key.Item1}:{key.Item2}:{key.Item3}:{key.Item4}"))
-                {
-                    if (received.Gap) feed.Gap(received.Stream, received.GapReason, at);
-                    else feed.Message(received.Stream, received.Data, at);
-                    while (subscription.TryRead(out var envelope)) yield return envelope!;
-                }
-            }
-        }
-        feed.Reset("replay-completed");
-        while (subscription.TryRead(out var final)) yield return final!;
-    }
 
     private void CheckConnection()
     {
@@ -689,7 +620,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             _installedCoverage = new HashSet<CaptureEndpoint>();
             _streams.Clear();
             ClearIncomingPacketsLocked(invalidate: false);
-            _combat.Reset(Running ? "capture-closed" : "capture-stopped");
             _generation++;
             _ownershipRevision++;
             ResetProgressContext(Running ? "capture-closed" : "capture-stopped");
@@ -980,7 +910,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                     ProcessProgressGap(received.Stream, received.GapReason, new DateTimeOffset(raw.Timeval.Date).ToUniversalTime());
                     continue;
                 }
-                _combat.Message(received.Stream, received.Data, new DateTimeOffset(raw.Timeval.Date).ToUniversalTime());
                 ProcessProgressMessage(received.Stream, received.Data, DateTimeOffset.UtcNow);
                 var message = received.Data;
                 if (message.Length >= 2 && (message[0] == 0 && message[1] == 0x36 || message[0] == 1 && message[1] == 0x91))
@@ -1080,7 +1009,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     {
         lock (_gate)
         {
-            _combat.Gap(stream, reason, capturedAtUtc);
             var characterAffected = stream == "*" || _identityStream == stream || _entryCandidate?.Stream == stream;
             var characterGeneration = _progressGeneration;
             var petAffected = stream == "*" || _petStreams.Remove(stream);
@@ -1555,7 +1483,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         {
             if (reason == "manual")
             {
-                _combat.Reset("manual");
                 ClearIncomingPacketsLocked(invalidate: false);
             }
             _contextResets++;
@@ -1644,6 +1571,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         try { Stop(); }
-        finally { _combat.Dispose(); }
+        finally
+        {
+        }
     }
 }

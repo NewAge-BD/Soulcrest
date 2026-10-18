@@ -32,10 +32,6 @@ Bildvergleich und den Erkennungstests. Spielgrafik © NCSOFT; keine freie Grafik
   Zielpositionen und (seit 2026-10-07) die Spawnpunkte der Monster von „Defeat …“-Aufgaben.
 - Npcap wird nicht mitgeliefert. Das Setup lädt auf Wunsch den offiziellen Installer von npcap.com
   (Version und SHA-256 fest im Setup); seine Lizenz zeigt der Npcap-Installer selbst.
-- DPS-Faktkatalog (2026-10-17): exakte NPC-/Map-IDs und EN/DE-Namen aus den lokal gesicherten
-  statischen `.d.json`-Dateien für Auldor/Krao. Kleine Faktentabelle mit Quellenreferenzen/Hashes,
-  keine fremde Meterimplementierung, Positionen oder Rohdatensätze. Rollen-/Endbelege stammen
-  getrennt aus eigenen passiven Beobachtungen. Die App lädt keine Katalogdaten aus dem Netz.
 - Verwendet: Kartenkacheln, Monster- und Objektpositionen, Kibelisk- und Ortsnamen, Pet-Porträts,
   englische/deutsche Namen, Soul-Beute. Faktenbelege je Zuordnung in `data/pets/soul-sources.json`.
 - Spielgrafiken und Spielinhalte © NCSOFT. Keine freie Grafiklizenz behauptet; die Erlaubnis von

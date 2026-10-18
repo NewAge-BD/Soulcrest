@@ -25,8 +25,6 @@ public sealed class MainForm : Form
     private readonly MerchantOverlayForm _merchantOverlay;
     private readonly SettingsService _settings;
     private readonly TrackerService _tracker;
-    private readonly CombatNetworkService _combat;
-    private readonly CombatRunService _combatRuns;
     private readonly MapTrackingService _map;
     private readonly Capture.GameCaptureService _gameCapture;
     private readonly CancellationTokenSource _watchdog = new();
@@ -62,13 +60,7 @@ public sealed class MainForm : Form
         services.AddSingleton<Network.NetworkLootService>();
         services.AddSingleton<Network.INetworkLootSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkMerchantSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
-        services.AddSingleton<Network.INetworkCombatSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<NetworkCaptureCoordinator>();
-        services.AddSingleton<CombatNetworkService>();
-        services.AddSingleton(_ => new CombatHistoryStore(AppPaths.CombatDirectory));
-        services.AddSingleton<CombatHistoryWriter>();
-        services.AddSingleton<ICombatHistoryReader, CombatHistoryReader>();
-        services.AddSingleton<CombatRunService>(sp => new(sp.GetRequiredService<CombatNetworkService>(), sp.GetRequiredService<CombatHistoryWriter>()));
         services.AddSingleton<MerchantService>();
         services.AddSingleton<TrackerService>();
         services.AddSingleton<ExplorationService>();
@@ -90,8 +82,6 @@ public sealed class MainForm : Form
         UpdateLanguage();
         _settings.Changed += UpdateLanguage;
         _tracker = _services.GetRequiredService<TrackerService>();
-        _combat = _services.GetRequiredService<CombatNetworkService>();
-        _combatRuns = _services.GetRequiredService<CombatRunService>();
         _map = _services.GetRequiredService<MapTrackingService>();
         _gameCapture = _services.GetRequiredService<Capture.GameCaptureService>();
         var progress = _services.GetRequiredService<ProgressService>();
@@ -353,7 +343,6 @@ public sealed class MainForm : Form
         // services from a provider whose shutdown already started.
         if (_closing || _cleanupStarted)
         {
-            if (!_cleanupStarted && !_combatRuns.Completion.IsCompleted) e.Cancel = true;
             return;
         }
         base.OnFormClosing(e);
@@ -375,25 +364,12 @@ public sealed class MainForm : Form
         _levelingOverlay.Close();
         _routeOverlay.Close();
         _merchantOverlay.Close();
-        if (!_combatRuns.Completion.IsCompleted)
-        {
-            e.Cancel = true;
-            _ = CloseAfterCombatDrainAsync();
-        }
-    }
-
-    private async Task CloseAfterCombatDrainAsync()
-    {
-        try { await _combatRuns.Completion; }
-        finally { if (!IsDisposed && IsHandleCreated) Close(); }
     }
 
     private void StopTracking()
     {
         if (_trackingStopped) return;
         _trackingStopped = true;
-        _combatRuns?.Dispose();
-        _combat?.Dispose();
         _tracker?.Dispose();
         _map?.Shutdown();
     }

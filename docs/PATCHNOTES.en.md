@@ -2,6 +2,10 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.8.2 – 2026-10-18
+
+- **Removed:** The DPS preview has been removed for now.
+
 ## 0.8.1 – 2026-10-18
 
 - **New:** **DPS** tab as an early preview: locally stored fights with selection by run, attempt and

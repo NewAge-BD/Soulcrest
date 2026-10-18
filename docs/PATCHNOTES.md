@@ -2,6 +2,10 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.8.2 – 2026-10-18
+
+- **Entfernt:** Die DPS-Vorschau ist vorerst wieder entfernt.
+
 ## 0.8.1 – 2026-10-18
 
 - **Neu:** Tab **DPS** als frühe Vorschau: lokal gespeicherte Kämpfe mit Auswahl nach Lauf, Versuch

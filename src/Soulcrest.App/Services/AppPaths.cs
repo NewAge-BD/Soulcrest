@@ -11,7 +11,6 @@ public static class AppPaths
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Soulcrest");
 
     public static string WebViewDirectory => Path.Combine(DataDirectory, "webview2");
-    public static string CombatDirectory => Path.Combine(DataDirectory, "combat");
     public static string BossTimersFile => Path.Combine(DataDirectory, "cache", "boss-timers.json");
     public static string AlertsFile => Path.Combine(DataDirectory, "alerts.json");
     public static string SettingsFile => Path.Combine(DataDirectory, "settings.json");

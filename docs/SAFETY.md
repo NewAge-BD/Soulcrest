@@ -67,23 +67,6 @@ auswerten darf (DPS-Meter sind für Aion 2 laut Nutzer erlaubt). Dafür gilt:
   Auf Nutzerwunsch bleibt die letzte Bossliste lokal in `cache/boss-timers.json` erhalten;
   keine IPs/Verbindungsdaten. Nach Loads/Neustart ist sie bis zur frischen Liste vorläufig.
 
-### Geplanter DPS Meter (Nutzerentscheidung 2026-10-17)
-
-Für den geplanten lokalen DPS-Meter darf derselbe eigene Spielstrom zusätzlich die Namen,
-Klassen, Combat Power sowie Kampf- und Effektinformationen der eigenen Gruppenmitglieder
-liefern. Diese dürfen lokal in Kampfberichten gespeichert werden. Der Umfang ist auf die
-eigene Gruppe, Dungeonbosse und Trainingspuppe begrenzt; Spielerpositionen und sonstige
-Spieler werden dadurch nicht zur neuen Datenquelle. Beschwörungen benötigen eine bestätigte
-Besitzerzuordnung. Fehlende Ereignisse oder Identitäten werden nicht geschätzt.
-
-Keine zweite Live-Erfassung, keine zusätzliche Laufzeit-Netzwerkfreigabe und keine Uploads.
-Lokaler Export ist standardmäßig anonymisiert; Teilen führt der Nutzer selbst aus.
-Echte Namen und Rohdaten bleiben aus Code, Tests und Git ausgeschlossen.
-Nutzerauftrag 2026-10-17: Umsetzung beginnen; Zeitachsen und Vergleiche sämtlicher historischer
-Gruppenmitglieder werden ebenfalls ausschließlich lokal aus einem eigenen Ereignisjournal
-berechnet. Keine separate Online-Statistik, Versandwarteschlange oder Cloud-Ablage.
-Der erste Implementierungsschritt ist offline prüfbar; der Live-Decoder bleibt an belegte
-Paketformate gebunden.
 
 Aufnahme: `scripts/Record-GameTraffic.ps1`.
 

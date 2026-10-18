@@ -26,22 +26,7 @@ public sealed class UiState
         return place;
     }
 
-    private CombatHistoryFocus? _pendingCombatHistory;
 
-    /// <summary>Opens stored combat details without enabling capture or changing the run controller.</summary>
-    public void ShowCombatHistory(Guid runId, Guid? attemptId = null, string? participantId = null)
-    {
-        if (runId == Guid.Empty) throw new ArgumentException("A stored run is required.", nameof(runId));
-        _pendingCombatHistory = new(runId, attemptId, participantId);
-        Navigate("dps");
-    }
-
-    public CombatHistoryFocus? TakePendingCombatHistoryFocus()
-    {
-        var focus = _pendingCombatHistory;
-        _pendingCombatHistory = null;
-        return focus;
-    }
 
     public event Action? Changed;
 
@@ -80,4 +65,3 @@ public sealed class UiState
     }
 }
 
-public sealed record CombatHistoryFocus(Guid RunId, Guid? AttemptId = null, string? ParticipantId = null);
