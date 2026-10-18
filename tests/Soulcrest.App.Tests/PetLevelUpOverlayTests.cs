@@ -234,6 +234,131 @@ public sealed class PetLevelUpOverlayTests
         AssertUnshown(fixture.Form);
     });
 
+    [Fact]
+    public Task EmptyShowAndFocusAloneStayHiddenUntilTheFirstRealGainEvenWithoutAnInitialHandle() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Mark(1135, 100);
+        Refresh(fixture.Form);
+        Assert.Single(Rows(fixture.Form, focus: true));
+        fixture.Form.Show();
+        AssertUnshown(fixture.Form);
+        fixture.Progress.SetSouls(Fixture.Id(1135), 4);
+        Refresh(fixture.Form);
+        Assert.Empty(fixture.Progress.Recent());
+        AssertUnshown(fixture.Form);
+        fixture.Gain(1135, 1);
+        Refresh(fixture.Form);
+        Assert.True(fixture.Form.IsHandleCreated);
+        Assert.True(fixture.Form.Visible);
+        Assert.Equal(1, Assert.Single(Rows(fixture.Form, focus: true)).Quantity);
+    });
+
+    [Fact]
+    public Task ExplicitHideBeforeTheFirstFrameClearsPendingAnimationWithoutReplayingIt() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Form.Show();
+        AssertUnshown(fixture.Form);
+        fixture.Upgrade(1135, 1); // Worker event before the next normal UI refresh.
+        Assert.NotNull(Current(fixture.Form));
+        fixture.Form.Hide();
+        Refresh(fixture.Form);
+        Assert.Null(Current(fixture.Form));
+        Assert.Null(Cached(fixture.Form));
+        AssertUnshown(fixture.Form);
+        fixture.Upgrade(1135, 2);
+        Refresh(fixture.Form);
+        Assert.True(fixture.Form.Visible);
+        Assert.Equal(2, Cached(fixture.Form)!.Level);
+    });
+
+    [Fact]
+    public Task SnapshotAndManualProgressDoNotOpenThePanelOrCreateRecentLoot() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Form.Show();
+        fixture.Snapshot(1135, 2, 10);
+        Refresh(fixture.Form);
+        Assert.Empty(fixture.Progress.Recent());
+        AssertUnshown(fixture.Form);
+        fixture.Progress.SetSouls(Fixture.Id(1135), 14);
+        Refresh(fixture.Form);
+        Assert.Empty(fixture.Progress.Recent());
+        AssertUnshown(fixture.Form);
+    });
+
+    [Fact]
+    public Task ExpiredSoulToastHidesThePanelDespiteFocusAndLaterGainsCanShowItAgain() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Mark(1135, 100);
+        fixture.Form.Show();
+        fixture.Gain(1135, 1);
+        Refresh(fixture.Form);
+        Assert.True(fixture.Form.Visible);
+        fixture.AgeLoot(TimeSpan.FromMinutes(1));
+        Refresh(fixture.Form);
+        Assert.False(fixture.Form.Visible);
+        Assert.Single(Rows(fixture.Form, focus: true));
+        Assert.Equal(0, Assert.Single(Rows(fixture.Form, focus: true)).Quantity);
+        fixture.Form.Show(); // External Show cannot revive an expired pickup or a focus-only panel.
+        Assert.False(fixture.Form.Visible);
+        fixture.Gain(1163, 2);
+        Refresh(fixture.Form);
+        Assert.True(fixture.Form.Visible);
+        Assert.Equal(2, Assert.Single(Rows(fixture.Form, focus: false)).Quantity);
+    });
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public Task EmptyAutoHideKeepsAcceptingFullThirtySecondLevelUpFeedbackIncludingMax(int level) => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Form.Show();
+        fixture.Gain(1135, 1);
+        Refresh(fixture.Form);
+        Assert.True(fixture.Form.Visible);
+        fixture.AgeLoot(TimeSpan.FromMinutes(1));
+        Refresh(fixture.Form);
+        Assert.False(fixture.Form.Visible);
+        fixture.Upgrade(1135, level);
+        Refresh(fixture.Form);
+        Assert.True(fixture.Form.Visible);
+        Assert.Equal(level, Assert.IsType<PetOverlayForm.LevelUpRow>(Cached(fixture.Form)).Level);
+        Assert.Equal(level == 3, Cached(fixture.Form)!.IsMax);
+        var animation = Animation(fixture.Form);
+        var beforeEnd = Stopwatch.GetTimestamp() + 29 * Stopwatch.Frequency;
+        Assert.NotNull(animation.Sample(beforeEnd));
+        Assert.True(fixture.Form.Visible);
+        Assert.Null(animation.Sample(beforeEnd + 2 * Stopwatch.Frequency));
+        Refresh(fixture.Form);
+        Assert.False(fixture.Form.Visible);
+        Assert.Null(Cached(fixture.Form));
+    });
+
+    [Fact]
+    public Task SuppressionAndExplicitShowCannotLeakThePanelAndExpiredContentDoesNotReturnAfterSuppression() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Form.Show();
+        fixture.Gain(1135, 1);
+        Refresh(fixture.Form);
+        Assert.True(fixture.Form.Visible);
+        fixture.Form.SetSuppressed(true);
+        fixture.Form.Show();
+        Refresh(fixture.Form);
+        Assert.False(fixture.Form.Visible);
+        fixture.AgeLoot(TimeSpan.FromMinutes(1));
+        fixture.Form.SetSuppressed(false);
+        Assert.False(fixture.Form.Visible);
+        fixture.Gain(1163, 1);
+        Refresh(fixture.Form);
+        Assert.True(fixture.Form.Visible);
+    });
+
     private static IReadOnlyList<PetOverlayForm.LootRow> Rows(PetOverlayForm form, bool focus) =>
         (IReadOnlyList<PetOverlayForm.LootRow>)typeof(PetOverlayForm)
             .GetField(focus ? "_focusRows" : "_lootRows", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(form)!;
@@ -323,6 +448,14 @@ public sealed class PetLevelUpOverlayTests
         internal string Name(int number) => Progress.Catalog.Find(Id(number))!.DisplayName("en");
         internal void Upgrade(int number, int level) => Assert.True(Progress.ApplyPetUpgrade(new(0, number, level), Context(++_sequence)));
         internal void Gain(int number, int quantity) => Assert.True(Progress.ApplyPetGain([new(number, quantity)], Context(++_sequence)));
+        internal void Snapshot(int number, int level, int souls) =>
+            Assert.True(Progress.ApplyPetSnapshot(new(new Dictionary<int, int> { [number] = level },
+                new Dictionary<int, int> { [number] = souls }), Context(++_sequence)));
+        internal void AgeLoot(TimeSpan age)
+        {
+            var recent = (List<LoggedSoul>)typeof(ProgressService).GetField("_recent", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Progress)!;
+            for (var index = 0; index < recent.Count; index++) recent[index] = recent[index] with { At = DateTimeOffset.Now - age };
+        }
         internal string Mark(int number, double x)
         {
             Assert.True(_targets.Toggle("altgard", x, 200, Name(number), "Pets", null, petId: Id(number)));

@@ -4,6 +4,7 @@ namespace Soulcrest.Core.Network;
 
 public enum DungeonRunState : byte { None, Prepare, Process, Complete, End }
 
+/// <summary>Raw state-window timestamps. Observed end times are deadlines, not measured boss combat ends.</summary>
 public sealed record DungeonStateSnapshot(int DungeonId, DungeonRunState State, long StartTime, long EndTime);
 
 public sealed record DungeonCompletion(int DungeonId, bool Succeeded, int? ContentsId,

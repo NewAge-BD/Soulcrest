@@ -181,12 +181,34 @@ public sealed class OverlayInteractionPanelTests : IDisposable
         };
         behind.Show();
         panel.Bounds = behind.Bounds;
+        if (panel is PetOverlayForm pet)
+        {
+            var settings = main.Services.GetRequiredService<SettingsService>();
+            settings.Current.OverlayEnabled = true;
+            var progress = main.Services.GetRequiredService<ProgressService>();
+            ((List<LoggedSoul>)GetField(progress, "_recent")!).Insert(0,
+                new(DateTimeOffset.Now, "synthetic-pointer-pet", 1, "network", "synthetic notification"));
+            typeof(PetOverlayForm).GetMethod("RefreshLayout", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(pet, null);
+        }
+        if (panel is AlertsOverlayForm strip)
+        {
+            // Choose a known icon explicitly and probe its filled brow above the transparent mouth.
+            ((SettingsService)GetField(main, "_settings")!).Current.TimerOverlayTimerIds = ["event:catalog:shugo"];
+            // A per-pixel strip has no hit surface until its real selected timers are presented.
+            _ = strip.Handle;
+            strip.RefreshPanel();
+            Assert.True(strip.Visible);
+            strip.Location = behind.Location;
+        }
         panel.Show();
         panel.Update();
-        var point = new Point(panel.Left + 70, panel.Top + 30);
+        // A background-free strip receives unlocked input only on its visible icon/text pixels.
+        var localPoint = panel is AlertsOverlayForm ? new Point(22, 15) : new Point(70, 30);
+        var point = panel.PointToScreen(localPoint);
         Assert.Equal(behind.Handle, WindowFromPoint(point));
         SetInteraction(panel, true);
-        Assert.Equal(panel.Handle, WindowFromPoint(point));
+        var hit = WindowFromPoint(point);
+        Assert.True(panel.Handle == hit, $"{field}: expected {panel.Handle}, actual {hit}, behind {behind.Handle}; bounds {panel.Bounds}, client {panel.ClientSize}, dpi {panel.DeviceDpi}, point {point}, origin {panel.PointToScreen(Point.Empty)}, style {NativeMethods.GetWindowLongPtr(panel.Handle, NativeMethods.GWL_EXSTYLE)}");
         Assert.Equal((nint)NativeMethods.MA_NOACTIVATE,
             SendMessage(panel.Handle, NativeMethods.WM_MOUSEACTIVATE, behind.Handle, 0));
         typeof(Control).GetMethod("UpdateStyles", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, null);

@@ -18,6 +18,24 @@ public sealed class OwnIdentityMessageTests
         NetworkProgressMessageTests.EveryCutRejected(message, d => OwnIdentityMessage.TryParse(d));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WorldFieldsRequireTheSameWholeOwnSchemaAndDoNotClaimAnInstance(bool optional)
+    {
+        var message = OwnMessage(optional, mapKey: 987654321, mapId: 12345);
+        var world = Assert.IsType<OwnWorldObservation>(OwnIdentityMessage.TryParseWorld(message));
+        Assert.Equal(987654321, world.RawMapKey);
+        Assert.Equal(12345, world.MapDataId);
+        Assert.Equal(OwnIdentityMessage.TryParse(message), world.Identity);
+        NetworkProgressMessageTests.EveryCutRejected(message, d => OwnIdentityMessage.TryParseWorld(d));
+        Assert.Null(OwnIdentityMessage.TryParseWorld([.. message, 0]));
+        var otherMap = OwnIdentityMessage.TryParseWorld(OwnMessage(optional, mapKey: 123, mapId: 54321));
+        Assert.NotNull(otherMap);
+        Assert.Equal(world.Identity, otherMap.Identity);
+        Assert.NotEqual(world, otherMap);
+    }
+
     [Fact]
     public void RejectsOtherPlayerOpcodesUnknownFlagsAndInvalidOwnNameEncoding()
     {
@@ -76,7 +94,7 @@ public sealed class OwnIdentityMessageTests
         return w.Bytes;
     }
 
-    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar")
+    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0)
     {
         using var w = new Packet(0x3633);
         w.V(300); w.I(optional ? 0x3fffffff : 0);
@@ -111,7 +129,7 @@ public sealed class OwnIdentityMessageTests
             }
         }
         if (optional) w.B(0);
-        w.Z(12);
+        w.L(mapKey); w.I(mapId);
         if (optional) w.Z(4 + 4 + 12 + 2);
         w.L(characterId);
         if (optional) { w.Z(4 + 4 + 1 + 1 + 1); w.Bool(true); w.V(300); }

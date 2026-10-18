@@ -36,6 +36,7 @@ public sealed partial class PetOverlayForm : Form
     private bool _altInteractionRequested, _blockAltUntilRelease;
     private bool _locked = true;
     private bool _suppressRequested, _suppressed;
+    private bool _showRequested, _hidingEmptyContent;
 
     private bool Suppressed => _suppressRequested;
     private Point? _dragStart;
@@ -106,7 +107,30 @@ public sealed partial class PetOverlayForm : Form
         else Hide();
     }
 
-    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed);
+    protected override void SetVisibleCore(bool value)
+    {
+        if (!value)
+        {
+            // Hide may be called before the first visible frame, so OnVisibleChanged need not run.
+            // Empty-content auto-hide deliberately calls base below and keeps accepting new events.
+            if (_settings is not null && _levelUps is not null && _animationTimer is not null && !Disposing && !IsDisposed) ClearLevelUp();
+            base.SetVisibleCore(false);
+            return;
+        }
+        // Remember an initial Show even when no handle/content exists yet. The normal refresh can
+        // reveal the first real pickup later without displaying a permanent empty status/focus panel.
+        _showRequested = true;
+        var enabled = _settings?.Current.OverlayEnabled == true;
+        var content = HasActiveNotification(_focusRows, _lootRows, _levelUpRow);
+        var previous = _hidingEmptyContent;
+        _hidingEmptyContent = enabled && !_suppressed && !content;
+        try { base.SetVisibleCore(enabled && !_suppressed && content); }
+        finally { _hidingEmptyContent = previous; }
+    }
+
+    /// <summary>Focus/status alone never opens the panel; confirmed level-up feedback retains its full duration.</summary>
+    internal static bool HasActiveNotification(IReadOnlyList<LootRow> focus, IReadOnlyList<LootRow> drops, LevelUpRow? levelUp) =>
+        levelUp is not null || focus.Any(row => row.Quantity > 0) || drops.Any(row => row.Quantity > 0);
 
     protected override bool ShowWithoutActivation => true;
 
@@ -166,7 +190,9 @@ public sealed partial class PetOverlayForm : Form
             _levelUps.SetEnabled(_settings.Current.OverlayEnabled && !Suppressed);
             return;
         }
-        ClearLevelUp();
+        // Hiding an empty panel must keep accepting later live upgrades. A worker may enqueue one
+        // between this UI snapshot and Hide; explicit Hide/suppression still clear it as before.
+        if (!_hidingEmptyContent) ClearLevelUp();
         _manualInteraction = false;
         _lockButton?.SetLocked(true);
         SetInteractionEnabled(false);
@@ -338,12 +364,6 @@ public sealed partial class PetOverlayForm : Form
         ApplySuppression();
         if (_suppressed) return;
         _levelUps.SetEnabled(_settings.Current.OverlayEnabled);
-        if (!SmokeTest.Enabled && IsHandleCreated)
-        {
-            var wanted = _settings.Current.OverlayEnabled;
-            if (wanted && !Visible) Show();
-            else if (!wanted && Visible) Hide();
-        }
         var levelUp = CurrentLevelUp();
         var focus = SelectFocusTarget(_settings.Current, _targets.Targets, _targets.Progression);
         var loot = LootToasts(_progress.Recent(), _progress.Catalog, focus?.PetId, DateTimeOffset.Now,
@@ -358,6 +378,8 @@ public sealed partial class PetOverlayForm : Form
         _baseLevelUpFallback = levelUp is { IsMax: false, PetId: { } leveledId }
             && !_baseFocusRows.Concat(_baseLootRows).Any(row => row.PetId == leveledId) ? BuildRow(leveledId) : null;
         ApplyLevelUpFrame(levelUp);
+        if (!SmokeTest.Enabled && (IsHandleCreated || _showRequested))
+            SetVisibleCore(_settings.Current.OverlayEnabled);
         Invalidate();
     }
 

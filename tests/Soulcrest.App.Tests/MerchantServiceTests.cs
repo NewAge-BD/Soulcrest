@@ -17,6 +17,135 @@ public sealed class MerchantServiceTests
     private static string FirstId => FirstPet.CatalogId!;
     private static string SecondId => SecondPet.CatalogId!;
 
+    [Theory]
+    [InlineData(1002, "Cogni")]
+    [InlineData(1004, "Fera")]
+    [InlineData(1003, "Natura")]
+    [InlineData(1013, "Varian")]
+    [InlineData(1001, "?")]
+    [InlineData(-1, "?")]
+    [InlineData(int.MaxValue, "?")]
+    public void PetCategoriesUseOnlyTheFourSourcedGenera(int number, string expected) =>
+        Assert.Equal(expected, MerchantService.PetCategory(number));
+
+    [Fact]
+    public void FarmCountsUseSourceMonsterPlacementsInsteadOfPetClustersAndIgnoreOtherMaps()
+    {
+        var catalog = FarmCatalog(1002, new() { ["verteron"] = 57, ["altgard"] = 99, ["unknown"] = 700 },
+            new() { ["verteron"] = 3 });
+        Assert.Equal("Verteron (57)", MerchantService.FarmSpawnText(1002, catalog, []));
+        Assert.Equal(3, catalog.Pets[0].Spawns["verteron"]);
+        Assert.Equal(57, catalog.Pets[0].Monsters["verteron"]);
+    }
+
+    [Fact]
+    public void AbyssCountsSumEachManifestMapOnceAndKeepTheExistingRegionOrder()
+    {
+        var catalog = FarmCatalog(1013, new() { ["altgard"] = 123, ["abyss-reshanta-a"] = 209,
+            ["chaotic-middle-reshanta"] = 239, ["chaotic-upper-reshanta"] = 336, ["unknown-abyss"] = 999 });
+        MapInfo[] maps = [new("altgard", "Altgard", "Asmodier"),
+            new("chaotic-upper-reshanta", "Upper", "Abyss"), new("abyss-reshanta-a", "Lower", "Abyss"),
+            new("chaotic-middle-reshanta", "Middle", "Abyss"), new("abyss-reshanta-a", "Lower again", "Abyss"),
+            new("unknown-abyss", "Unconfirmed", "")];
+        Assert.Equal("Abyss (784) / Altgard (123)", MerchantService.FarmSpawnText(1013, catalog, maps));
+        Assert.Equal("Abyss / Altgard", string.Join(" / ", PetFarmRegions.Find(1013)!));
+    }
+
+    [Fact]
+    public void AManifestDeterminesAbyssMembershipWithoutGuessingFromMapIdsOrNames()
+    {
+        var catalog = FarmCatalog(1013, new() { ["altgard"] = 123, ["abyss-reshanta-a"] = 999,
+            ["explicit-map"] = 7, ["abyss-unconfirmed"] = 900 });
+        MapInfo[] maps = [new("explicit-map", "Published map", "Abyss"),
+            new("abyss-reshanta-a", "Abyss in the name", "Elyos"), new("abyss-unconfirmed", "Abyss", "")];
+        Assert.Equal("Abyss (7) / Altgard (123)", MerchantService.FarmSpawnText(1013, catalog, maps));
+        Assert.Equal("Abyss (?) / Altgard (123)", MerchantService.FarmSpawnText(1013, catalog,
+            [new("altgard", "Altgard", "Asmodier")]));
+    }
+
+    [Fact]
+    public void APackageWithoutAManifestUsesOnlyTheThreeEstablishedAbyssIds()
+    {
+        var catalog = FarmCatalog(1062, new() { ["verteron"] = 97, ["abyss-reshanta-a"] = 69,
+            ["chaotic-middle-reshanta"] = 94, ["chaotic-upper-reshanta"] = 0, ["abyss-reshanta-b"] = 999 });
+        Assert.Equal("Abyss (163) / Verteron (97)", MerchantService.FarmSpawnText(1062, catalog, []));
+    }
+
+    [Fact]
+    public void ZeroNegativeAndMissingCountsStayUnknownWithoutDroppingTheirKnownFarmRegions()
+    {
+        var catalog = FarmCatalog(1045, new() { ["altgard"] = -8, ["verteron"] = 0 },
+            new() { ["altgard"] = 99, ["verteron"] = 8 });
+        Assert.Equal("Altgard (?) / Verteron (?)", MerchantService.FarmSpawnText(1045, catalog, []));
+        Assert.Equal("Verteron (?)", MerchantService.FarmSpawnText(1156, new PetCatalog([]), []));
+        Assert.Equal("Verteron (?)", MerchantService.FarmSpawnText(1206, FarmCatalog(1206), []));
+        Assert.Equal("Verteron (?)", MerchantService.FarmSpawnText(1002, new PetCatalog([]), []));
+    }
+
+    [Fact]
+    public void SpecialAndUnknownClassificationsDoNotInventASpawnCountOrUseThePetGenus()
+    {
+        var catalog = FarmCatalog(1009, new() { ["altgard"] = 100, ["verteron"] = 50 });
+        Assert.Equal("Special", MerchantService.FarmSpawnText(1009, catalog, []));
+        Assert.Equal("Special", MerchantService.FarmSpawnText(1001, new PetCatalog([]), []));
+        Assert.Equal("?", MerchantService.FarmSpawnText(int.MaxValue, catalog, []));
+    }
+
+    [Fact]
+    public void SourceCountsResolveProvenCatalogAliasesWithoutAddingTheirDuplicateValues()
+    {
+        var source = PetIdTable.Find(1013)!;
+        var primary = new PetDefinition { Id = "synthetic-primary", En = "Primary", Genus = "varian",
+            NumericId = "1013", Monsters = new() { ["altgard"] = 12, ["abyss-reshanta-a"] = 8 } };
+        var legacy = new PetDefinition { Id = source.CatalogId!, En = "Legacy", Genus = "varian",
+            NumericId = "1013", LegacyDuplicate = true, Monsters = new() { ["altgard"] = 999 } };
+        var catalog = new PetCatalog([primary, legacy]);
+        Assert.Same(primary, catalog.Find(source.CatalogId!));
+        Assert.Equal("Abyss (8) / Altgard (12)", MerchantService.FarmSpawnText(1013, catalog, []));
+    }
+
+    [Fact]
+    public void FarmCountsAreInvariantUnformattedTotalsEvenAboveTheIntegerSumLimit()
+    {
+        var catalog = FarmCatalog(1013, new() { ["altgard"] = 12345, ["abyss-reshanta-a"] = int.MaxValue,
+            ["chaotic-middle-reshanta"] = int.MaxValue });
+        var previous = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            Assert.Equal("Abyss (4294967294) / Altgard (12345)", MerchantService.FarmSpawnText(1013, catalog, []));
+        }
+        finally { CultureInfo.CurrentCulture = previous; }
+    }
+
+    [Fact]
+    public void RowsProjectStableCategoryAndFarmTextsWhileKeepingTheOldRegionTextAndCounter()
+    {
+        using var f = new Fixture();
+        f.Baseline();
+        f.Accept(List(Offers()));
+        var snapshot = f.Merchant.Snapshot;
+        var first = f.Merchant.Rows.ToArray();
+        Assert.Equal("Cogni", first[0].PetCategory);
+        Assert.Equal("Fera", first[1].PetCategory);
+        Assert.Equal("Verteron", first[0].FarmRegions);
+        Assert.Equal("Verteron (?)", first[0].FarmSpawns);
+        Assert.Equal("3/25", first[0].Counter);
+        Assert.Equal(first, f.Merchant.Rows.ToArray());
+        Assert.Same(snapshot, f.Merchant.Snapshot);
+        Assert.Equal("", new MerchantCounterRow(0, FirstId, "?", false, false).PetCategory);
+        Assert.Equal("", new MerchantCounterRow(0, FirstId, "?", false, false).FarmSpawns);
+    }
+
+    private static PetCatalog FarmCatalog(int number, Dictionary<string, int>? monsters = null,
+        Dictionary<string, int>? spawns = null)
+    {
+        var source = PetIdTable.Find(number)!;
+        return new PetCatalog([new PetDefinition { Id = source.CatalogId!, En = source.En,
+            Genus = source.Genus.ToLowerInvariant(), NumericId = number.ToString(CultureInfo.InvariantCulture),
+            Monsters = monsters ?? [], Spawns = spawns ?? [] }]);
+    }
+
     [Fact]
     public void MixedTenSlotListSortsAllGoodsBeforeFilteringPetsAndNeverWritesProgress()
     {

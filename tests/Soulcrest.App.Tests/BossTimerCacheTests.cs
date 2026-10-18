@@ -18,6 +18,7 @@ public sealed class BossTimerCacheTests : IDisposable
     public void MissingCacheHasNoSchedule()
     {
         Assert.Null(new BossTimerCache(CachePath, _time).Load());
+        Assert.Empty(new BossTimerCache(CachePath, _time).LoadAll());
         Assert.False(File.Exists(CachePath));
     }
 
@@ -35,6 +36,36 @@ public sealed class BossTimerCacheTests : IDisposable
         Assert.Equal(ServerNow + 120000, restored.ServerUnixMs);
         Assert.Equal(TimeSpan.FromSeconds(122), restored.Age);
         Assert.False(restored.Bosses[0].Spawned);
+    }
+
+    [Fact]
+    public void MissingTimesRoundTripWithoutLosingTheValidBossOrInventingAnEpochTime()
+    {
+        var bosses = Enumerable.Range(2001, 8)
+            .Select(id => new BossSpawn(id, false, id == 2001 ? ServerNow + 60000 : null)).ToArray();
+        var cache = new BossTimerCache(CachePath, _time);
+        Assert.True(cache.Save(new(20, bosses, ServerNow, TimeSpan.Zero)));
+        using (var json = JsonDocument.Parse(File.ReadAllText(CachePath)))
+        {
+            var saved = json.RootElement.GetProperty("Maps").GetProperty("20").GetProperty("Bosses");
+            Assert.Equal(7, saved.EnumerateArray().Count(row => row.GetProperty("SpawnUnixMs").ValueKind == JsonValueKind.Null));
+        }
+        _time.Advance(TimeSpan.FromSeconds(10));
+        var restored = new BossTimerCache(CachePath, _time).Load();
+        Assert.NotNull(restored);
+        Assert.True(restored.Cached);
+        Assert.Equal(bosses, restored.Bosses);
+        Assert.Equal(2001, restored.Next!.SpawnId);
+        Assert.Equal(ServerNow + 10000, restored.ServerUnixMs);
+        var original = File.ReadAllBytes(CachePath);
+        Assert.False(cache.Save(new(20, [new(2001, true, null)], ServerNow, TimeSpan.Zero)));
+        Assert.False(cache.Save(new(20, [new(2001, false, 0)], ServerNow, TimeSpan.Zero)));
+        Assert.Equal(original, File.ReadAllBytes(CachePath));
+        Assert.True(cache.Save(new(20, bosses.Select(b => b with { SpawnUnixMs = null }).ToArray(), ServerNow, TimeSpan.Zero)));
+        var unknown = new BossTimerCache(CachePath, _time).Load();
+        Assert.NotNull(unknown);
+        Assert.Equal(8, unknown.Bosses.Count);
+        Assert.Null(unknown.Next);
     }
 
     [Fact]
@@ -98,15 +129,50 @@ public sealed class BossTimerCacheTests : IDisposable
     }
 
     [Fact]
-    public void CacheExpiresAfterOneDayAndRejectsABackwardsWallClock()
+    public void OldObservedListsRemainProvisionalWithoutInferringANewSpawnAndRejectABackwardsWallClock()
     {
         Assert.True(new BossTimerCache(CachePath, _time).Save(Snapshot()));
-        _time.Advance(TimeSpan.FromHours(24));
-        Assert.NotNull(new BossTimerCache(CachePath, _time).Load());
-        _time.Advance(TimeSpan.FromMilliseconds(1));
+        _time.Advance(TimeSpan.FromDays(30));
+        var restored = new BossTimerCache(CachePath, _time).Load();
+        Assert.NotNull(restored);
+        Assert.True(restored.Cached);
+        Assert.Equal(TimeSpan.FromDays(30), restored.Age);
+        Assert.False(restored.Bosses[0].Spawned);
+        Assert.Equal(ServerNow + 60000, restored.Bosses[0].SpawnUnixMs);
+        _time.Advance(-TimeSpan.FromDays(30) - TimeSpan.FromMilliseconds(1));
         Assert.Null(new BossTimerCache(CachePath, _time).Load());
-        _time.Advance(-TimeSpan.FromHours(24) - TimeSpan.FromMilliseconds(2));
-        Assert.Null(new BossTimerCache(CachePath, _time).Load());
+        Assert.Empty(new BossTimerCache(CachePath, _time).LoadAll());
+    }
+
+    [Fact]
+    public void LoadAllRestoresEverySavedMapAndNeverRewritesExpiredObservedTimes()
+    {
+        var cache = new BossTimerCache(CachePath, _time);
+        Assert.True(cache.Save(Snapshot()));
+        _time.Advance(TimeSpan.FromMinutes(2));
+        Assert.True(cache.Save(Snapshot(1010) with { ServerUnixMs = ServerNow + 120000 }));
+        var bytes = File.ReadAllBytes(CachePath);
+        _time.Advance(TimeSpan.FromDays(2));
+        var restored = new BossTimerCache(CachePath, _time).LoadAll();
+        Assert.Equal(new[] { 1010, 1110 }, restored.Select(snapshot => snapshot.MapId));
+        Assert.All(restored, snapshot => Assert.True(snapshot.Cached));
+        Assert.All(restored, snapshot => Assert.Equal(ServerNow + 120000 + 172800000, snapshot.ServerUnixMs));
+        Assert.Equal(TimeSpan.FromDays(2), restored[0].Age);
+        Assert.Equal(TimeSpan.FromDays(2) + TimeSpan.FromMinutes(2), restored[1].Age);
+        Assert.Equal(bytes, File.ReadAllBytes(CachePath));
+    }
+
+    [Fact]
+    public void LoadAllRejectsOnlyClockUnsafeRestorationsWithoutReplacingTheLatestMap()
+    {
+        var cache = new BossTimerCache(CachePath, _time);
+        Assert.True(cache.Save(Snapshot()));
+        _time.Advance(TimeSpan.FromHours(1));
+        Assert.True(cache.Save(Snapshot(1010) with { ServerUnixMs = ServerNow + 3600000 }));
+        _time.Advance(-TimeSpan.FromMinutes(30));
+        var restored = new BossTimerCache(CachePath, _time);
+        Assert.Null(restored.Load());
+        Assert.Equal(1110, Assert.Single(restored.LoadAll()).MapId);
     }
 
     [Theory]

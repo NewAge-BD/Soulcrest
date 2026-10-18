@@ -197,6 +197,114 @@ public sealed class OverlayLockButtonTests
         finally { UiText.Language = previous; }
     }
 
+    [Theory]
+    [InlineData(.6)]
+    [InlineData(1.0)]
+    [InlineData(1.25)]
+    [InlineData(2.0)]
+    public void TimerGlyphHasRealTransparentExteriorAndOneScaleRegardlessOfBitmapDpi(double scale)
+    {
+        var size = Math.Max(10, (int)Math.Round(18 * scale));
+        foreach (var locked in new[] { true, false })
+        {
+            int[]? previous = null;
+            foreach (var dpi in new[] { 96, 144, 192 })
+            {
+                using var bitmap = new Bitmap(size + 8, size + 8, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+                bitmap.SetResolution(dpi, dpi);
+                using (var graphics = Graphics.FromImage(bitmap))
+                {
+                    graphics.Clear(Color.Transparent);
+                    TimerStripLockRenderer.Paint(graphics, new Rectangle(4, 4, size, size), locked);
+                }
+                Assert.Equal(0, bitmap.GetPixel(4, 4).A);
+                Assert.Equal(0, bitmap.GetPixel(size + 3, size + 3).A);
+                Assert.Equal(0, bitmap.GetPixel(0, size / 2).A);
+                Assert.Equal(0, bitmap.GetPixel(size + 7, size / 2).A);
+                Assert.True(bitmap.GetPixel(4 + size / 2, 4 + size / 2).A > 200);
+                var pixels = LockPixels(bitmap);
+                Assert.Contains(pixels.Select(Color.FromArgb), pixel => pixel.A > 200 && pixel.R > pixel.B + 35);
+                if (previous is not null) Assert.Equal(previous, pixels);
+                previous = pixels;
+            }
+        }
+    }
+
+    [Fact]
+    public void TimerGlyphClearlyChangesTheShackleAndKeepsHoverAndPressWithinItsTransparentBounds()
+    {
+        using var locked = PaintLock(true);
+        using var unlocked = PaintLock(false);
+        using var hover = PaintLock(true, hover: true);
+        using var pressed = PaintLock(true, pressed: true);
+        Assert.False(LockPixels(locked).SequenceEqual(LockPixels(unlocked)));
+        Assert.False(LockPixels(locked).SequenceEqual(LockPixels(hover)));
+        Assert.False(LockPixels(locked).SequenceEqual(LockPixels(pressed)));
+        // The closed left leg is moved to the right in the open lock; this is a shape distinction.
+        Assert.True(locked.GetPixel(12, 13).A > unlocked.GetPixel(12, 13).A);
+        foreach (var bitmap in new[] { locked, unlocked, hover, pressed })
+        {
+            Assert.Equal(0, bitmap.GetPixel(0, 0).A);
+            Assert.Equal(0, bitmap.GetPixel(35, 35).A);
+            Assert.Equal(0, bitmap.GetPixel(0, 18).A);
+            Assert.True(bitmap.GetPixel(18, 20).A > 200);
+        }
+
+        static Bitmap PaintLock(bool locked, bool hover = false, bool pressed = false)
+        {
+            var bitmap = new Bitmap(36, 36, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            using var graphics = Graphics.FromImage(bitmap);
+            TimerStripLockRenderer.Paint(graphics, new Rectangle(0, 0, 36, 36), locked, hover, pressed);
+            return bitmap;
+        }
+    }
+
+    [Fact]
+    public Task TimerGlyphUsesPhysicalProviderBoundsAndRemainsClickableAcrossHandleRecreation() => RunOnSta(() =>
+    {
+        if (InteractiveDesktop.Missing) return;
+        using var behind = CreateBehind();
+        using var target = CreateTarget(behind.Bounds);
+        var relative = new Rectangle(14, 16, 36, 36);
+        using var button = new OverlayLockButton(target, () => relative, OverlayLockButtonStyle.TimerStrip);
+        behind.Show();
+        target.Show();
+        Assert.Equal(OverlayLockButtonStyle.TimerStrip, button.Style);
+        Assert.Equal(new Rectangle(target.PointToScreen(relative.Location), relative.Size), button.Bounds);
+        Assert.Null(button.Region);
+        Assert.NotEqual((nint)0, NativeMethods.GetWindowLongPtr(button.Handle, NativeMethods.GWL_EXSTYLE) & NativeMethods.WS_EX_LAYERED);
+        AssertButtonStyle(button);
+        Assert.Equal(button.Handle, WindowFromPoint(Center(button)));
+        Assert.Equal(behind.Handle, WindowFromPoint(button.PointToScreen(new Point(0, 0))));
+        Assert.Equal((nint)NativeMethods.MA_NOACTIVATE,
+            SendMessage(button.Handle, NativeMethods.WM_MOUSEACTIVATE, target.Handle, 0));
+        var toggles = 0;
+        button.Toggled += () => { toggles++; button.SetLocked(!button.Locked); };
+        var inside = new Point(18, 20);
+        SendMessage(button.Handle, 0x0201, 1, MousePoint(inside));
+        SendMessage(button.Handle, 0x0202, 0, MousePoint(inside));
+        Assert.Equal(1, toggles);
+        Assert.False(button.Locked);
+        Assert.Equal(button.Handle, WindowFromPoint(Center(button)));
+        RecreateHandle(target);
+        RecreateHandle(button);
+        Assert.True(button.Visible);
+        Assert.False(button.Locked);
+        AssertButtonStyle(button);
+        Assert.Equal(button.Handle, WindowFromPoint(Center(button)));
+        Assert.Equal(behind.Handle, WindowFromPoint(button.PointToScreen(new Point(0, 0))));
+        SendMessage(button.Handle, 0x0201, 1, MousePoint(inside));
+        target.Hide();
+        Assert.False(button.Capture);
+        Assert.False(button.Visible);
+        target.Show();
+        SendMessage(button.Handle, 0x0202, 0, MousePoint(inside));
+        Assert.Equal(1, toggles);
+    });
+
+    private static int[] LockPixels(Bitmap bitmap) => Enumerable.Range(0, bitmap.Height)
+        .SelectMany(y => Enumerable.Range(0, bitmap.Width).Select(x => bitmap.GetPixel(x, y).ToArgb())).ToArray();
+
     private static NoActivateForm CreateBehind() => new()
     {
         FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, TopMost = true,

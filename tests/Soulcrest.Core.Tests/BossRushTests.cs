@@ -43,6 +43,96 @@ public sealed class BossRushTests
     }
 
     [Fact]
+    public void MixedEightRecordListRetainsEveryIdAndOnlyTheAnnouncedTimerCanBecomeNext()
+    {
+        var entries = Enumerable.Range(2001, 8).Select(id => new BossSpawn(id, false, id == 2001 ? Now + 60000 : null)).ToArray();
+        var message = ListForMap(20, entries);
+        var parsed = BossSpawnMessage.TryParse(message);
+        Assert.NotNull(parsed);
+        Assert.Equal(20, parsed.MapId);
+        Assert.Equal(entries, parsed.Bosses);
+        Assert.Equal(Now + 60000, parsed.Bosses[0].SpawnUnixMs);
+        Assert.All(parsed.Bosses.Skip(1), boss => Assert.Null(boss.SpawnUnixMs));
+
+        var time = new ManualTime();
+        var state = new BossRushState(time);
+        Assert.False(state.Accept("game", message)); // An unknown time does not weaken the own-stream clock requirement.
+        Assert.Null(state.Snapshot);
+        state.Accept("game", Clock(Now));
+        Assert.True(state.Accept("game", message));
+        Assert.Equal(8, state.Snapshot!.Bosses.Count);
+        Assert.Equal(2001, state.Snapshot.Next!.SpawnId);
+        time.Advance(61000);
+        Assert.False(state.Snapshot!.Next!.Spawned); // Elapsed known time still cannot confirm a spawn.
+        Assert.All(state.Snapshot.Bosses.Skip(1), boss => { Assert.Null(boss.SpawnUnixMs); Assert.False(boss.Spawned); });
+    }
+
+    [Fact]
+    public void AllUnknownTimesKeepTheCompleteListWithoutNextOrAlertsAcrossClockAndSessionChanges()
+    {
+        var entries = Enumerable.Range(2001, 8).Select(id => new BossSpawn(id, false, null)).ToArray();
+        var parsed = BossSpawnMessage.TryParse(ListForMap(20, entries));
+        Assert.NotNull(parsed);
+        Assert.Equal(entries, parsed.Bosses);
+        var time = new ManualTime();
+        var state = new BossRushState(time);
+        state.Accept("game", Clock(Now));
+        Assert.True(state.Accept("game", ListForMap(20, entries)));
+        Assert.Null(state.Snapshot!.Next);
+        var selected = entries.Select(boss => $"20:{boss.SpawnId}").ToHashSet(StringComparer.Ordinal);
+        Assert.Empty(new BossAlertPolicy().Evaluate(state.Snapshot, selected, 3600));
+        time.Advance(3_600_000);
+        Assert.Null(state.Snapshot!.Next);
+        Assert.Equal(8, state.Snapshot.Bosses.Count);
+        state.Invalidate();
+        Assert.True(state.Snapshot!.Cached);
+        Assert.Null(state.Snapshot.Next);
+        Assert.All(state.Snapshot.Bosses, boss => Assert.Null(boss.SpawnUnixMs));
+        Assert.Empty(new BossAlertPolicy().Evaluate(state.Snapshot, selected, 3600));
+    }
+
+    [Fact]
+    public void UnknownTimesDoNotRelaxTruncationPackedMaskOrExactSuffixValidation()
+    {
+        var entries = Enumerable.Range(2001, 8).Select(id => new BossSpawn(id, false, id == 2001 ? Now + 60000 : null)).ToArray();
+        var message = ListForMap(20, entries);
+        Assert.NotNull(BossSpawnMessage.TryParse(message));
+        for (var length = 0; length < message.Length; length++)
+            Assert.Null(BossSpawnMessage.TryParse(message.AsSpan(0, length)));
+        var maskMismatch = message.ToArray();
+        Assert.Equal(0, maskMismatch[12]); // Header8, count1, waiting flag1, two-byte ID2001, carried mask1.
+        maskMismatch[12] = 0x80; // Last waiting record contradicts its packed spawned bit.
+        Assert.Null(BossSpawnMessage.TryParse(maskMismatch));
+        var suffixMismatch = message.ToArray();
+        suffixMismatch[^1] = 1;
+        Assert.Null(BossSpawnMessage.TryParse(suffixMismatch));
+        Assert.Null(BossSpawnMessage.TryParse([.. message, 0]));
+    }
+
+    [Theory]
+    [InlineData(-1L)]
+    [InlineData(1L)]
+    [InlineData(1577836799999L)]
+    [InlineData(4102444800000L)]
+    [InlineData(long.MaxValue)]
+    public void InvalidNonzeroTimesStillRejectTheWholeMixedListAndCannotBecomeServerClocks(long invalid)
+    {
+        Assert.Null(BossSpawnMessage.TryParse(ListForMap(20, new BossSpawn(2001, false, Now + 60000), new(2002, false, invalid), new(2003, false, null))));
+        Assert.Null(BossSpawnMessage.ReadServerClock(Clock(invalid)));
+    }
+
+    [Fact]
+    public void ZeroClockAndSpawnedZeroTimeRemainUnsupported()
+    {
+        Assert.Null(BossSpawnMessage.ReadServerClock(Clock(0)));
+        Assert.Null(BossSpawnMessage.TryParse(ListForMap(20, new BossSpawn(2001, true, null))));
+        var state = new BossRushState(new ManualTime());
+        Assert.False(state.Accept("game", Clock(0)));
+        Assert.False(state.Accept("game", ListForMap(20, new BossSpawn(2001, false, null))));
+        Assert.Null(state.Snapshot);
+    }
+
+    [Fact]
     public void AliveBossesPrecedeFutureBossesInSpawnOrderAndDeathAdvancesTarget()
     {
         var time = new ManualTime();
@@ -235,9 +325,11 @@ public sealed class BossRushTests
 
     private static byte[] Clock(long value) => [0, 0x36, .. BitConverter.GetBytes(value)];
 
-    private static byte[] List(params BossSpawn[] entries)
+    private static byte[] List(params BossSpawn[] entries) => ListForMap(1110, entries);
+
+    private static byte[] ListForMap(int mapId, params BossSpawn[] entries)
     {
-        var bytes = new List<byte> { 1, 0x91, 0, 0, 0x56, 4, 0, 0, (byte)entries.Length };
+        List<byte> bytes = [1, 0x91, 0, 0, .. BitConverter.GetBytes(mapId), (byte)entries.Length];
         for (var i = 0; i < entries.Length; i++)
         {
             var e = entries[i];
@@ -251,7 +343,7 @@ public sealed class BossRushTests
                 for (int j = 0; j < 8 && i + j < entries.Length; j++) if (entries[i + j].Spawned) flags |= (byte)(1 << j);
                 bytes.Add(flags);
             }
-            bytes.AddRange(BitConverter.GetBytes(e.SpawnUnixMs));
+            bytes.AddRange(BitConverter.GetBytes(e.SpawnUnixMs ?? 0));
         }
         return [.. bytes, 0, 0, 0];
     }

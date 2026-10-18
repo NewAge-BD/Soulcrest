@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><linearGradient id="gold" x1="0" y1="0" x2="0.7" y2="1"><stop stop-color="#f2e7ca"/><stop offset="0.55" stop-color="#d9c79c"/><stop offset="1" stop-color="#a88d5f"/></linearGradient>
+<filter id="shadow" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="1.2" stdDeviation="0.65" flood-color="#151b20" flood-opacity="0.9"/></filter></defs>
+<g filter="url(#shadow)" stroke="url(#gold)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<path d="M17 9h30M17 55h30M21 10v10c0 6 8 8 11 12-3 4-11 6-11 12v10M43 10v10c0 6-8 8-11 12 3 4 11 6 11 12v10"/>
+<path d="M24 19h16c-1 4-5 6-8 9-3-3-7-5-8-9Z" fill="url(#gold)" stroke-width="1"/>
+<path d="M24 49c0-4 5-6 8-10 3 4 8 6 8 10Z" fill="url(#gold)" stroke-width="1"/>
+</g></svg>

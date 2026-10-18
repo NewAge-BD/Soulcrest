@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<defs><linearGradient id="gold" x1="0" y1="0" x2="0.7" y2="1"><stop stop-color="#f2e7ca"/><stop offset="0.55" stop-color="#d9c79c"/><stop offset="1" stop-color="#a88d5f"/></linearGradient>
+<filter id="shadow" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="1.2" stdDeviation="0.65" flood-color="#151b20" flood-opacity="0.9"/></filter></defs>
+<g filter="url(#shadow)" stroke="url(#gold)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<rect x="11" y="14" width="42" height="40" rx="5"/><path d="M11 25h42M22 9v11M42 9v11"/>
+<path d="M41 37a11 11 0 1 0 1 9"/><path d="M35 36h8v-8"/>
+</g></svg>

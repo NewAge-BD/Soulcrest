@@ -104,22 +104,6 @@
 .boss-dashboard .boss-timer-options[open] .boss-timer-options-chevron { transform: rotate(180deg); }
 .boss-dashboard .boss-timer-options > .event-reminder { margin-top: 10px; }
 .boss-dashboard .boss-timer-options > summary:focus-visible { outline: 2px solid var(--alert-color); outline-offset: 3px; }
-.boss-dashboard .boss-loot-section { display: block; max-width: none; margin: 18px 0 0; }
-.boss-dashboard .boss-loot-header { align-items: center; cursor: pointer; list-style: none; gap: 14px; }
-.boss-dashboard .boss-loot-header::-webkit-details-marker { display: none; }
-.boss-dashboard .boss-loot-header > div { flex: 1; }
-.boss-dashboard .boss-loot-header h3 { margin-top: 4px; font-size: 15px; }
-.boss-dashboard .boss-loot-header .boss-panel-kicker { font-size: 9px; }
-.boss-dashboard .boss-loot-chevron { color: var(--muted); font-size: 21px; line-height: 1; transition: transform .15s; }
-.boss-dashboard .boss-loot-section[open] .boss-loot-chevron { transform: rotate(180deg); }
-.boss-dashboard .boss-loot-body { display: grid; gap: 16px; padding-top: 18px; margin-top: 16px; border-top: 1px solid var(--line); }
-.boss-dashboard .boss-loot-filters { padding: 13px; gap: 16px; background: var(--bg); }
-.boss-dashboard .boss-loot-filters .info-tip { align-self: center; }
-.boss-dashboard .boss-loot-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
-.boss-dashboard .boss-loot-heading { min-height: 60px; padding: 12px; }
-.boss-dashboard .boss-loot-heading strong { font-size: 12px; }
-.boss-dashboard .boss-loot-content { padding: 13px; }
-.boss-dashboard .boss-loot-grid { grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); }
 .boss-dashboard .info-tip-body { font-size: 12px; line-height: 1.6; }
 .boss-dashboard .info-tip-body p { margin: 0; }
 .boss-dashboard .info-tip-body p + p { margin-top: 10px; }
@@ -138,19 +122,16 @@
     .boss-dashboard .boss-dashboard-stat { flex-direction: column-reverse; align-items: flex-start; gap: 6px; padding: 12px; }
     .boss-dashboard .boss-dashboard-stat dt { font-size: 10px; }
     .boss-dashboard .boss-dashboard-stat dd { font-size: 23px; }
-    .boss-dashboard .boss-settings, .boss-dashboard .boss-loot-cards, .boss-dashboard .boss-timer-grid { grid-template-columns: minmax(0, 1fr); }
+    .boss-dashboard .boss-settings, .boss-dashboard .boss-timer-grid { grid-template-columns: minmax(0, 1fr); }
     .boss-dashboard .card.sv-card { padding: 15px; }
     .boss-dashboard .boss-command-main { flex-wrap: wrap; gap: 12px; }
     .boss-dashboard .boss-target-copy h3 { font-size: 21px; }
     .boss-dashboard .boss-target-time { flex-basis: 100%; flex-direction: row; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--line); }
     .boss-dashboard .boss-command-footer { flex-wrap: wrap; }
-    .boss-dashboard .boss-loot-header { flex-wrap: wrap; gap: 10px; }
-    .boss-dashboard .boss-loot-header .boss-count-badge { margin-left: auto; }
-    .boss-dashboard .boss-loot-filters .boss-field { width: 100%; }
     .boss-dashboard .boss-timer-overview { grid-template-columns: minmax(0, 1fr) minmax(110px, 150px); column-gap: 10px; }
     .boss-dashboard .boss-timer-meta { padding-left: 0; }
     .boss-dashboard .boss-timer-meta .boss-timer-capture { margin-left: 0; }
     .boss-dashboard .boss-timer-overview .event-countdown > strong { font-size: 21px; }
     .boss-dashboard .boss-timer-overview .event-countdown.boss-timer-waiting > strong { font-size: 13px; }
 }
-@media (prefers-reduced-motion: reduce) { .boss-dashboard .boss-loot-chevron, .boss-dashboard .boss-timer-options-chevron { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .boss-dashboard .boss-timer-options-chevron { transition: none; } }

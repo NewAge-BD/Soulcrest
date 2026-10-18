@@ -1,0 +1,1381 @@
+{
+  "source": "https://aion2.gaming.tools/map",
+  "maps": [
+    {
+      "id": "20",
+      "config": {
+        "maximumZoom": 3,
+        "imageWidth": 4096,
+        "imageHeight": 4096,
+        "transformType": "original",
+        "bounds": {
+          "minX": -203999.99775878916,
+          "minY": -203999.99775878916,
+          "maxX": 203999.99325231838,
+          "maxY": 203999.99325231838
+        }
+      },
+      "size": 4096,
+      "points": [
+        {
+          "id": "npc-3274b92d62ebc8c4",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Guardian Lord Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600084"
+          },
+          "x": 3055,
+          "y": 2881
+        },
+        {
+          "id": "npc-36e87dd09f0507c1",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Executor Tamasa",
+            "iconPath": "/images/ui/resource/texture/icon/ut_marker_monster_boss.webp",
+            "id": "2600096"
+          },
+          "x": 3477,
+          "y": -3049
+        },
+        {
+          "id": "npc-4c8a060050291bf0",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Guardian Lord Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600093"
+          },
+          "x": -13863,
+          "y": 35374
+        },
+        {
+          "id": "npc-525ced8ba593aac7",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Watcher Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600089"
+          },
+          "x": 32625,
+          "y": -11726
+        },
+        {
+          "id": "npc-525ced8ba593aac7",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Watcher Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600089"
+          },
+          "x": 58349,
+          "y": 40615
+        },
+        {
+          "id": "npc-525ced8ba593aac7",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Watcher Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600089"
+          },
+          "x": -36255,
+          "y": 18973
+        },
+        {
+          "id": "npc-525ced8ba593aac7",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Watcher Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600089"
+          },
+          "x": -45815,
+          "y": -24892
+        },
+        {
+          "id": "npc-525ced8ba593aac7",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Watcher Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600089"
+          },
+          "x": 37020,
+          "y": -21036
+        },
+        {
+          "id": "npc-525ced8ba593aac7",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Watcher Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600089"
+          },
+          "x": -28325,
+          "y": 7637
+        },
+        {
+          "id": "npc-711edd9d82c3d4b2",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Guardian Lord Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600084"
+          },
+          "x": 20243,
+          "y": -41151
+        },
+        {
+          "id": "npc-711edd9d82c3d4b2",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Guardian Lord Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600084"
+          },
+          "x": -3801,
+          "y": -3979
+        },
+        {
+          "id": "npc-711edd9d82c3d4b2",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Guardian Lord Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600084"
+          },
+          "x": -13861,
+          "y": 35226
+        },
+        {
+          "id": "npc-7743dc76ce984ed5",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Executor Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600098"
+          },
+          "x": -17728,
+          "y": -30749
+        },
+        {
+          "id": "npc-86264eac0d99b543",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Argo, the Spirit King",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_eleking_01_v02.webp",
+            "id": "2600068"
+          },
+          "x": 61218,
+          "y": 29738
+        },
+        {
+          "id": "npc-ab41045f0c57ccbf",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Watcher Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600089"
+          },
+          "x": -17778,
+          "y": -31341
+        },
+        {
+          "id": "npc-ae2219228536d046",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Executor Argo",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_eleking_01_v02.webp",
+            "id": "2600097"
+          },
+          "x": 23900,
+          "y": 36440
+        },
+        {
+          "id": "npc-cafa1f7dc0d8b613",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Guardian Lord Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600094"
+          },
+          "x": 20235,
+          "y": -41189
+        }
+      ],
+      "translatedPoints": {
+        "npc-3274b92d62ebc8c4": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Wächtergott Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600084"
+          }
+        },
+        "npc-36e87dd09f0507c1": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Vollstrecker Tamasa",
+            "iconPath": "/images/ui/resource/texture/icon/ut_marker_monster_boss.webp",
+            "id": "2600096"
+          }
+        },
+        "npc-4c8a060050291bf0": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Wächtergott Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600093"
+          }
+        },
+        "npc-525ced8ba593aac7": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Aufseherin Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600089"
+          }
+        },
+        "npc-711edd9d82c3d4b2": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Wächtergott Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600084"
+          }
+        },
+        "npc-7743dc76ce984ed5": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Vollstreckerin Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600098"
+          }
+        },
+        "npc-86264eac0d99b543": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Geisterfürst Agro",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_eleking_01_v02.webp",
+            "id": "2600068"
+          }
+        },
+        "npc-ab41045f0c57ccbf": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Aufseherin Kaira",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2600089"
+          }
+        },
+        "npc-ae2219228536d046": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Vollstrecker Agro",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_eleking_01_v02.webp",
+            "id": "2600097"
+          }
+        },
+        "npc-cafa1f7dc0d8b613": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 65,
+            "name": "Wächtergott Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600094"
+          }
+        }
+      },
+      "details": {
+        "namedSpawns": [
+          {
+            "id": "2001",
+            "npc": {
+              "id": "2600068"
+            }
+          },
+          {
+            "id": "2002",
+            "npc": {
+              "id": "2600089"
+            }
+          },
+          {
+            "id": "2003",
+            "npc": {
+              "id": "2600084"
+            }
+          },
+          {
+            "id": "2004",
+            "npc": {
+              "id": "2600093"
+            }
+          },
+          {
+            "id": "2005",
+            "npc": {
+              "id": "2600094"
+            }
+          },
+          {
+            "id": "2006",
+            "npc": {
+              "id": "2600096"
+            }
+          },
+          {
+            "id": "2007",
+            "npc": {
+              "id": "2600097"
+            }
+          },
+          {
+            "id": "2008",
+            "npc": {
+              "id": "2600098"
+            }
+          }
+        ]
+      },
+      "sourceFiles": [
+        "imports/gamingtools/cdn/data/en/maps/20.d.json",
+        "imports/gamingtools/cdn/data/en/interactive-map/20.d.json",
+        "imports/gamingtools/cdn/data/de/interactive-map/20.d.json"
+      ]
+    },
+    {
+      "id": "22",
+      "config": {
+        "maximumZoom": 2,
+        "imageWidth": 2048,
+        "imageHeight": 2048,
+        "transformType": "original",
+        "bounds": {
+          "minX": -101999.9985058594,
+          "minY": -101999.9985058594,
+          "maxX": 101999.99401141319,
+          "maxY": 101999.99401141319
+        }
+      },
+      "size": 4096,
+      "points": [
+        {
+          "id": "npc-045842416afe1a15",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Ravager Marakha",
+            "iconPath": "/images/ui/resource/texture/icon/ut_marker_monster_boss.webp",
+            "id": "2600522"
+          },
+          "x": 4180,
+          "y": -50454
+        },
+        {
+          "id": "npc-0801a4c2abdda5c5",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Enraged Guardian Lord Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600479"
+          },
+          "x": 16545,
+          "y": -47627
+        },
+        {
+          "id": "npc-8989545fc08bce2c",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Enraged Guardian Lord Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600480"
+          },
+          "x": -16581,
+          "y": 44157
+        },
+        {
+          "id": "npc-aaf5f43ee577a8a4",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Executioner Dramos",
+            "iconPath": "/images/ui/resource/texture/icon/ut_marker_monster_boss.webp",
+            "id": "2600520"
+          },
+          "x": 2374,
+          "y": 1821
+        },
+        {
+          "id": "npc-d816bb791373046c",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Turncoat Ducal",
+            "iconPath": "/images/ui/resource/texture/icon/ut_marker_monster_boss.webp",
+            "id": "2600521"
+          },
+          "x": -4535,
+          "y": 53621
+        }
+      ],
+      "translatedPoints": {
+        "npc-045842416afe1a15": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Verwüster Maraka",
+            "iconPath": "/images/ui/resource/texture/icon/ut_marker_monster_boss.webp",
+            "id": "2600522"
+          }
+        },
+        "npc-0801a4c2abdda5c5": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Wütender Wächtergott Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600479"
+          }
+        },
+        "npc-8989545fc08bce2c": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Wütender Wächtergott Nahma",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_abboss_01.webp",
+            "id": "2600480"
+          }
+        },
+        "npc-aaf5f43ee577a8a4": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Scharfrichter Dhramos",
+            "iconPath": "/images/ui/resource/texture/icon/ut_marker_monster_boss.webp",
+            "id": "2600520"
+          }
+        },
+        "npc-d816bb791373046c": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 80,
+            "name": "Verräter Ducal",
+            "iconPath": "/images/ui/resource/texture/icon/ut_marker_monster_boss.webp",
+            "id": "2600521"
+          }
+        }
+      },
+      "details": {
+        "namedSpawns": [
+          {
+            "id": "2201",
+            "npc": {
+              "id": "2600479"
+            }
+          },
+          {
+            "id": "2202",
+            "npc": {
+              "id": "2600480"
+            }
+          },
+          {
+            "id": "2203",
+            "npc": {
+              "id": "2600520"
+            }
+          },
+          {
+            "id": "2204",
+            "npc": {
+              "id": "2600521"
+            }
+          },
+          {
+            "id": "2205",
+            "npc": {
+              "id": "2600522"
+            }
+          }
+        ]
+      },
+      "sourceFiles": [
+        "imports/gamingtools/cdn/data/en/maps/22.d.json",
+        "imports/gamingtools/cdn/data/en/interactive-map/22.d.json",
+        "imports/gamingtools/cdn/data/de/interactive-map/22.d.json"
+      ]
+    },
+    {
+      "id": "23",
+      "config": {
+        "maximumZoom": 2,
+        "imageWidth": 2048,
+        "imageHeight": 2048,
+        "transformType": "original",
+        "bounds": {
+          "minX": -101999.9985058594,
+          "minY": -101999.9985058594,
+          "maxX": 101999.99401141319,
+          "maxY": 101999.99401141319
+        }
+      },
+      "size": 4096,
+      "points": [],
+      "translatedPoints": {},
+      "details": {
+        "namedSpawns": []
+      },
+      "sourceFiles": [
+        "imports/gamingtools/cdn/data/en/maps/23.d.json",
+        "imports/gamingtools/cdn/data/en/interactive-map/23.d.json",
+        "imports/gamingtools/cdn/data/de/interactive-map/23.d.json"
+      ]
+    },
+    {
+      "id": "1010",
+      "config": {
+        "maximumZoom": 5,
+        "imageWidth": 16384,
+        "imageHeight": 16384,
+        "transformType": "original",
+        "bounds": {
+          "minX": -407999.99551757815,
+          "minY": -407999.9955175781,
+          "maxX": 407999.98650463694,
+          "maxY": 407999.986504637
+        }
+      },
+      "size": 4096,
+      "points": [
+        {
+          "id": "npc-0172b78003cbd0d9",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Bloodfang Pnyn",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_kalnifelite_01_v01.webp",
+            "id": "2100178"
+          },
+          "x": -58488,
+          "y": 55832
+        },
+        {
+          "id": "npc-056f2f0bea7d460a",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 51,
+            "name": "Eternal Gartua",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_gartua_01_v02.webp",
+            "id": "2101074"
+          },
+          "x": -219621,
+          "y": 243711
+        },
+        {
+          "id": "npc-0661d5aa13c405ef",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Centurion Demiros",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_undead_01.webp",
+            "id": "2100708"
+          },
+          "x": 124957,
+          "y": 11064
+        },
+        {
+          "id": "npc-0945557585977fc8",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Divine Ansas",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_guardit_03.webp",
+            "id": "2100718"
+          },
+          "x": 143395,
+          "y": 35371
+        },
+        {
+          "id": "npc-0a91e3517ee5d839",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Kernon of the West",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_keneir_01_v02.webp",
+            "id": "2100050"
+          },
+          "x": -94204,
+          "y": -43535
+        },
+        {
+          "id": "npc-0b58846b2d09ec1a",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 48,
+            "name": "High Commander Lagta",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_lagta_01.webp",
+            "id": "2101131"
+          },
+          "x": 72491,
+          "y": -66806
+        },
+        {
+          "id": "npc-251a0fda7b58be1f",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 48,
+            "name": "Silent Dartan",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2101120"
+          },
+          "x": 14627,
+          "y": 141980
+        },
+        {
+          "id": "npc-31aaba0190801904",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Bodyguard Teegant",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_vehicle/ut_vehicle_portrait_neuth_03.webp",
+            "id": "2100079"
+          },
+          "x": 18601,
+          "y": -205
+        },
+        {
+          "id": "npc-3d0fb6ac220bbf05",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Blooming Korin",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_coradon_01.webp",
+            "id": "2100141"
+          },
+          "x": -34622,
+          "y": -36461
+        },
+        {
+          "id": "npc-4154518f24a8b92c",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 48,
+            "name": "Soul Ruler Kashapa",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_kashapa_01.webp",
+            "id": "2101122"
+          },
+          "x": 138089,
+          "y": 71986
+        },
+        {
+          "id": "npc-538f03f0d453a84e",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Kusan the Mad Gladiator",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_krallelite_01.webp",
+            "id": "2100076"
+          },
+          "x": -18107,
+          "y": -10451
+        },
+        {
+          "id": "npc-5f6e5713ff751795",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Neikel of the East",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_keneir_01_v03.webp",
+            "id": "2100003"
+          },
+          "x": -57517,
+          "y": -85173
+        },
+        {
+          "id": "npc-69ae95fb9e539955",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Rotten Kutar",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_bigman_01.webp",
+            "id": "2100040"
+          },
+          "x": -27290,
+          "y": -80782
+        },
+        {
+          "id": "npc-8325423e2352357a",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Chaser Taulo",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_owlelite_01_cv01_b.webp",
+            "id": "2100991"
+          },
+          "x": -63800,
+          "y": 118621
+        },
+        {
+          "id": "npc-99a388a8852bc6af",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Harvest Manager Moshav",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_drakanelite_03_v01.webp",
+            "id": "2100876"
+          },
+          "x": 117274,
+          "y": -96444
+        },
+        {
+          "id": "npc-a1d017ad5c586c51",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Furious Saursus",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_ursusselite_01_v01.webp",
+            "id": "2100177"
+          },
+          "x": -57863,
+          "y": 82629
+        },
+        {
+          "id": "npc-ab8b6dfcd0f2457c",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Heretic Layla",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_surapriest_01_v04.webp",
+            "id": "2100582"
+          },
+          "x": 18723,
+          "y": 95025
+        },
+        {
+          "id": "npc-af1872b76f1528ad",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Forest Warrior Aullamu",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_owlelite_01_v01.webp",
+            "id": "2100989"
+          },
+          "x": -25718,
+          "y": 132156
+        },
+        {
+          "id": "npc-c432a0e7006bdba1",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Phantasm Kasia",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_kasia_01_b.webp",
+            "id": "2100661"
+          },
+          "x": 84130,
+          "y": 178452
+        },
+        {
+          "id": "npc-d3b687a298e1b492",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Sentinel K'nash",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_04_v01.webp",
+            "id": "2100877"
+          },
+          "x": 130818,
+          "y": -78338
+        },
+        {
+          "id": "npc-d97ad3f1f171b195",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Researcher Setram",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_03.webp",
+            "id": "2101016"
+          },
+          "x": 159231,
+          "y": -130981
+        },
+        {
+          "id": "npc-e04f7a7471d6f921",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Black Tentacle Lawa",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_nagaelite_05.webp",
+            "id": "2100617"
+          },
+          "x": 98412,
+          "y": 74390
+        },
+        {
+          "id": "npc-effe5f56cdc848e3",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Ritualist Garshim",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_krallelite_02.webp",
+            "id": "2100077"
+          },
+          "x": -27017,
+          "y": 19935
+        },
+        {
+          "id": "npc-ff7aea8a7021349c",
+          "types": [
+            "boss"
+          ],
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Scholar Aulla",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_owlmagic_01_v01.webp",
+            "id": "2100988"
+          },
+          "x": -46187,
+          "y": 99792
+        }
+      ],
+      "translatedPoints": {
+        "npc-0172b78003cbd0d9": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Blutzahn Pnyn",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_kalnifelite_01_v01.webp",
+            "id": "2100178"
+          }
+        },
+        "npc-056f2f0bea7d460a": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 51,
+            "name": "Ewiger Gartua",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_gartua_01_v02.webp",
+            "id": "2101074"
+          }
+        },
+        "npc-0661d5aa13c405ef": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Zenturio Demiros",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_undead_01.webp",
+            "id": "2100708"
+          }
+        },
+        "npc-0945557585977fc8": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Heiliger Ansas",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_guardit_03.webp",
+            "id": "2100718"
+          }
+        },
+        "npc-0a91e3517ee5d839": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Kernon des Westens",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_keneir_01_v02.webp",
+            "id": "2100050"
+          }
+        },
+        "npc-0b58846b2d09ec1a": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 48,
+            "name": "Legat Lagta",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_lagta_01.webp",
+            "id": "2101131"
+          }
+        },
+        "npc-251a0fda7b58be1f": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 48,
+            "name": "Schweigender Dartan",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_01.webp",
+            "id": "2101120"
+          }
+        },
+        "npc-31aaba0190801904": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Leibgardist Teegant",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_vehicle/ut_vehicle_portrait_neuth_03.webp",
+            "id": "2100079"
+          }
+        },
+        "npc-3d0fb6ac220bbf05": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Blühender Korin",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_coradon_01.webp",
+            "id": "2100141"
+          }
+        },
+        "npc-4154518f24a8b92c": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 48,
+            "name": "Seelenherrscher Kashapa",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_kashapa_01.webp",
+            "id": "2101122"
+          }
+        },
+        "npc-538f03f0d453a84e": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Wahnstreiter Kusan",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_krallelite_01.webp",
+            "id": "2100076"
+          }
+        },
+        "npc-5f6e5713ff751795": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Neikel des Ostens",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_keneir_01_v03.webp",
+            "id": "2100003"
+          }
+        },
+        "npc-69ae95fb9e539955": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Verfaulter Kutar",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_bigman_01.webp",
+            "id": "2100040"
+          }
+        },
+        "npc-8325423e2352357a": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Verfolger Taulo",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_owlelite_01_cv01_b.webp",
+            "id": "2100991"
+          }
+        },
+        "npc-99a388a8852bc6af": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Ernteaufseher Moshav",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_drakanelite_03_v01.webp",
+            "id": "2100876"
+          }
+        },
+        "npc-a1d017ad5c586c51": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Wütende Saursus",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_ursusselite_01_v01.webp",
+            "id": "2100177"
+          }
+        },
+        "npc-ab8b6dfcd0f2457c": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Apostatin Layla",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_surapriest_01_v04.webp",
+            "id": "2100582"
+          }
+        },
+        "npc-af1872b76f1528ad": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Waldkrieger Aullamu",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_owlelite_01_v01.webp",
+            "id": "2100989"
+          }
+        },
+        "npc-c432a0e7006bdba1": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Traumtrug Kasia",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_kasia_01_b.webp",
+            "id": "2100661"
+          }
+        },
+        "npc-d3b687a298e1b492": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Überwachungswaffe K'nash",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_04_v01.webp",
+            "id": "2100877"
+          }
+        },
+        "npc-d97ad3f1f171b195": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Forscher Setram",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_beritrad_03.webp",
+            "id": "2101016"
+          }
+        },
+        "npc-e04f7a7471d6f921": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Schwarztentakel Lawa",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_nagaelite_05.webp",
+            "id": "2100617"
+          }
+        },
+        "npc-effe5f56cdc848e3": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Erzpriester Garshim",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_krallelite_02.webp",
+            "id": "2100077"
+          }
+        },
+        "npc-ff7aea8a7021349c": {
+          "entity": {
+            "mainCategoryId": "npcs",
+            "level": 45,
+            "name": "Gelehrter Aulla",
+            "iconPath": "/images/ui/resource/texture/portrait/portrait_256/ut_256_mob_owlmagic_01_v01.webp",
+            "id": "2100988"
+          }
+        }
+      },
+      "details": {
+        "namedSpawns": [
+          {
+            "id": "101001",
+            "npc": {
+              "id": "2100003"
+            }
+          },
+          {
+            "id": "101002",
+            "npc": {
+              "id": "2100040"
+            }
+          },
+          {
+            "id": "101003",
+            "npc": {
+              "id": "2100050"
+            }
+          },
+          {
+            "id": "101004",
+            "npc": {
+              "id": "2100076"
+            }
+          },
+          {
+            "id": "101005",
+            "npc": {
+              "id": "2100077"
+            }
+          },
+          {
+            "id": "101006",
+            "npc": {
+              "id": "2100079"
+            }
+          },
+          {
+            "id": "101007",
+            "npc": {
+              "id": "2100141"
+            }
+          },
+          {
+            "id": "101008",
+            "npc": {
+              "id": "2100177"
+            }
+          },
+          {
+            "id": "101009",
+            "npc": {
+              "id": "2100178"
+            }
+          },
+          {
+            "id": "101010",
+            "npc": {
+              "id": "2100582"
+            }
+          },
+          {
+            "id": "101011",
+            "npc": {
+              "id": "2100617"
+            }
+          },
+          {
+            "id": "101012",
+            "npc": {
+              "id": "2100661"
+            }
+          },
+          {
+            "id": "101013",
+            "npc": {
+              "id": "2100708"
+            }
+          },
+          {
+            "id": "101014",
+            "npc": {
+              "id": "2100718"
+            }
+          },
+          {
+            "id": "101015",
+            "npc": {
+              "id": "2100876"
+            }
+          },
+          {
+            "id": "101016",
+            "npc": {
+              "id": "2100877"
+            }
+          },
+          {
+            "id": "101017",
+            "npc": {
+              "id": "2100988"
+            }
+          },
+          {
+            "id": "101018",
+            "npc": {
+              "id": "2100989"
+            }
+          },
+          {
+            "id": "101019",
+            "npc": {
+              "id": "2100991"
+            }
+          },
+          {
+            "id": "101020",
+            "npc": {
+              "id": "2101016"
+            }
+          },
+          {
+            "id": "101021",
+            "npc": {
+              "id": "2101074"
+            }
+          },
+          {
+            "id": "101022",
+            "npc": {
+              "id": "2101120"
+            }
+          },
+          {
+            "id": "101023",
+            "npc": {
+              "id": "2101122"
+            }
+          },
+          {
+            "id": "101024",
+            "npc": {
+              "id": "2101131"
+            }
+          }
+        ]
+      },
+      "sourceFiles": [
+        "imports/gamingtools/cdn/data/en/maps/1010.d.json",
+        "imports/gamingtools/cdn/data/en/interactive-map/1010.d.json",
+        "imports/gamingtools/cdn/data/de/interactive-map/1010.d.json"
+      ]
+    }
+  ]
+}

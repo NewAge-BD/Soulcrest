@@ -40,8 +40,9 @@ class GamingToolsMonstersTests(unittest.TestCase):
             root=Path(folder);pack=root/'map.gtpk';pack.write_bytes(header+entry+encoded.tobytes())
             metadata=write_tiles(pack,root/'tiles')
             self.assertEqual(metadata['width'],512)
-            self.assertEqual(len(list((root/'tiles').glob('*.webp'))),5)
-            self.assertTrue(np.array_equal(cv2.imread(str(root/'tiles/1_0_0.webp')),pixels[:256,:256]))
+            self.assertEqual(len(list((root/'tiles').glob('*.webp'))),1)
+            self.assertEqual((root/'tiles/1_0_0.webp').read_bytes(), encoded.tobytes())
+            self.assertTrue(np.array_equal(cv2.imread(str(root/'tiles/1_0_0.webp')),pixels))
             pack.write_bytes(header+struct.pack('<B3xIIQI',0,0,0,1,len(encoded))+encoded.tobytes())
             with self.assertRaises(ValueError):read_tile_pack(pack)
 

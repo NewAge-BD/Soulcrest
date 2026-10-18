@@ -2,6 +2,23 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.8.0 – 2026-10-18
+
+- **Neu:** Timer-Leiste im Spiel: eine schlanke Symbolleiste mit Countdowns für Events und Bosse,
+  ohne Hintergrund, Größe 60–200 %, Bereiche wählbar, mit Vorschau im Timer-Menü.
+- **Neu:** Boss-Erinnerungen erscheinen als eigene Hinweise, auch wenn das Timer-HUD aus ist, und
+  bleiben bis zum bestätigten Spawn stehen. Die Anzeigedauer stellst du einmal zentral ein.
+- **Neu:** Der Patchnotes-Tab ist ein durchsuchbarer Versionsleser.
+- **Neu:** Das Händler-Overlay zeigt die Pet-Kategorie über dem Namen und die Zahl der Spawnpunkte je
+  Farmkarte.
+- **Verbessert:** Die Bossliste sortiert bestätigte Spawns zuerst; Bosszeiten bleiben dauerhaft
+  erhalten. Fehlende Zeiten der Lower-Reshanta-Bosse werden aus dem Spielkalender ergänzt.
+- **Verbessert:** Events in Alerts sind aufklappbar; die Overlay-Bereiche sind wählbar. Die
+  Boss-Suche findet Reshanta-Karten auch unter „Abyss“. Neues Symbol für Dimensional Invasion.
+- **Verbessert:** Die interaktive Karte lädt kompaktere Daten und zeichnet ihre Symbole flüssiger.
+- **Geändert:** „Loot & Pet Progress“ blendet sich aus, solange nichts anzuzeigen ist.
+- **Entfernt:** Der Boss-Lootpool im Boss-Rush-Tab.
+
 ## 0.7.6 – 2026-10-17
 
 - **Geändert:** Cube Groups zeigen jetzt die echten Spawngruppen der Hidden Cubes statt Gebieten:

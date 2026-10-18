@@ -32,9 +32,10 @@ public sealed record AlertUpcoming(EventAlert Alert, DateTimeOffset? At);
 public sealed record AlertPreset(string Id, string Title, string Description);
 public sealed record AlertNotice(string Key, string Title, string Message, string Color,
     DateTimeOffset CreatedAt, DateTimeOffset Expires, DateTimeOffset At,
-    bool PlaySound, string Sound, bool ShowOverlay, bool Preview = false, string? SoundFile = null);
+    bool PlaySound, string Sound, bool ShowOverlay, bool Preview = false, string? SoundFile = null, bool AwaitingConfirmation = false);
 public sealed record AlertDisplayRow(string Key, string Title, string Message, string Color,
-    DateTimeOffset At, bool Started, bool Provisional = false, string? CountdownLabel = null);
+    DateTimeOffset At, bool Started, bool Provisional = false, string? CountdownLabel = null, string? IconId = null,
+    string? InlineLabel = null, bool AwaitingConfirmation = false);
 public sealed record BossAlertPresentation
 {
     public bool ShowOverlay { get; init; } = true;
@@ -75,7 +76,7 @@ public sealed class AlertsService : IDisposable
     private string? _status;
 
     private sealed record Receipt(string Key, DateTimeOffset At);
-    private sealed record DisplayedNotice(AlertNotice Notice, string Owner);
+    private sealed record DisplayedNotice(AlertNotice Notice, string Owner, long? UntilSpawnSourceId = null);
     private sealed class Store
     {
         public Store() { }
@@ -140,6 +141,50 @@ public sealed class AlertsService : IDisposable
         if (_bosses is not null) _bosses.Changed += Tick;
         if (_settings is not null) _settings.Changed += SettingsChanged;
         if (runTimer) _timer = _time.CreateTimer(_ => Tick(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    /// <summary>Strip choices are independent of reminder delivery and preserve uncaptured boss choices.</summary>
+    public IReadOnlyList<TimerOverlayChoice> TimerOverlayChoices
+    {
+        get
+        {
+            lock (_gate) return TimerOverlayPresentation.Choices(TimerOverlayCandidates(Now),
+                _settings?.Current.TimerOverlayTimerIds);
+        }
+    }
+
+    /// <summary>Selected strip countdowns; does not alter the legacy HUD, banners or timeline.</summary>
+    public IReadOnlyList<AlertDisplayRow> TimerOverlayRows
+    {
+        get
+        {
+            lock (_gate)
+            {
+                var now = Now;
+                return TimerOverlayPresentation.Rows(TimerOverlayCandidates(now),
+                    _settings?.Current.TimerOverlayTimerIds, now, _settings?.Current.TimerOverlayLeadMinutes ?? 0);
+            }
+        }
+    }
+
+    private IReadOnlyList<TimerOverlayCandidate> TimerOverlayCandidates(DateTimeOffset now)
+    {
+        var candidates = EventCatalog.All.Select(definition => TimerOverlayPresentation.FromEvent(definition,
+            TimerSnapshot(definition, now))).ToList();
+        if (_bosses is not null)
+        {
+            var legacy = (_settings?.Current.BossAlertIds ?? []).ToHashSet(StringComparer.Ordinal);
+            var explicitBosses = (_settings?.Current.TimerOverlayTimerIds ?? [])
+                .Where(key => key is not null && key.StartsWith("boss:", StringComparison.Ordinal))
+                .Select(key => key[5..]).ToHashSet(StringComparer.Ordinal);
+            var captured = _bosses.Schedule.ToDictionary(timer => timer.Place.Key, StringComparer.Ordinal);
+            foreach (var choice in _bosses.Catalogue.Where(choice => legacy.Contains(choice.Key) || explicitBosses.Contains(choice.Key)))
+                candidates.Add(TimerOverlayPresentation.FromBoss(choice, captured.GetValueOrDefault(choice.Key),
+                    legacy.Contains(choice.Key) && BossPresentation(choice.Key).ShowOverlay, BossName(choice.Boss), now));
+        }
+        candidates.AddRange(_items.Where(alert => !alert.Id.StartsWith(EventCatalog.ReminderPrefix, StringComparison.Ordinal))
+            .Select(alert => TimerOverlayPresentation.FromCustom(alert, now)));
+        return candidates;
     }
 
     public IReadOnlyList<MapTimerRow> MapTimers => MapTimerPresentation.Create(EventTimers,
@@ -242,8 +287,9 @@ public sealed class AlertsService : IDisposable
         {
             lock (_gate)
             {
+                RefreshUntilSpawnBanners();
                 var now = Now;
-                return _active.Where(row => row.Notice.CreatedAt <= now && row.Notice.Expires > now)
+                return _active.Where(row => (row.UntilSpawnSourceId is not null || row.Notice.CreatedAt <= now) && row.Notice.Expires > now)
                     .Select(row => row.Notice).ToArray();
             }
         }
@@ -256,8 +302,9 @@ public sealed class AlertsService : IDisposable
         {
             lock (_gate)
             {
+                RefreshUntilSpawnBanners();
                 var now = Now;
-                return _active.Where(row => row.Notice.ShowOverlay && row.Notice.CreatedAt <= now && row.Notice.Expires > now &&
+                return _active.Where(row => row.Notice.ShowOverlay && (row.UntilSpawnSourceId is not null || row.Notice.CreatedAt <= now) && row.Notice.Expires > now &&
                     BossNoticeAllowed(row))
                     .Select(row => row.Notice).ToArray();
             }
@@ -274,6 +321,7 @@ public sealed class AlertsService : IDisposable
     {
         lock (_gate)
         {
+            RefreshUntilSpawnBanners();
             var now = Now;
             var rows = new Dictionary<string, AlertDisplayRow>(StringComparer.Ordinal);
             foreach (var alert in _items.Where(alert => alert.Enabled && alert.ShowOverlay &&
@@ -314,14 +362,15 @@ public sealed class AlertsService : IDisposable
             }
             if (includeNotifications)
             {
-                foreach (var active in _active.Where(row => row.Notice.CreatedAt <= now && row.Notice.Expires > now && row.Notice.ShowOverlay))
+                foreach (var active in _active.Where(row => (row.UntilSpawnSourceId is not null || row.Notice.CreatedAt <= now) && row.Notice.Expires > now && row.Notice.ShowOverlay))
                 {
                     if (!BossNoticeAllowed(active)) continue;
                     var notice = active.Notice;
                     // Captured boss state and catalog phase take precedence over an older notification.
                     if (rows.ContainsKey(active.Owner) && (active.Owner.StartsWith("event:catalog:", StringComparison.Ordinal) ||
-                        active.Owner.StartsWith("boss:", StringComparison.Ordinal) && !active.Notice.Preview)) continue;
-                    rows[active.Owner] = new(active.Owner, notice.Title, notice.Message, notice.Color, notice.At, notice.At <= now);
+                        active.Owner.StartsWith("boss:", StringComparison.Ordinal) && !active.Notice.Preview && active.UntilSpawnSourceId is null)) continue;
+                    rows[active.Owner] = new(active.Owner, notice.Title, notice.Message, notice.Color, notice.At,
+                        notice.At <= now && !notice.AwaitingConfirmation, AwaitingConfirmation: notice.AwaitingConfirmation);
                 }
             }
             return rows.Values.OrderByDescending(row => row.Started).ThenBy(row => row.At)
@@ -424,7 +473,6 @@ public sealed class AlertsService : IDisposable
                 if (Persist(_items, _receipts, updated))
                 {
                     _bossPresentation = updated;
-                    _active.RemoveAll(row => row.Owner == "boss:" + key);
                     _status = UiText.T("Boss-Alert gespeichert.");
                     saved = true;
                 }
@@ -436,12 +484,13 @@ public sealed class AlertsService : IDisposable
 
     internal void Tick()
     {
-        List<(AlertNotice Notice, string Owner)> generated = [];
+        List<(AlertNotice Notice, string Owner, long? UntilSpawnSourceId)> generated = [];
         lock (_gate)
         {
             if (_disposed) return;
             var now = Now;
-            _active.RemoveAll(row => row.Notice.Expires <= now || row.Notice.CreatedAt > now || !BossNoticeAllowed(row));
+            RefreshUntilSpawnBanners();
+            _active.RemoveAll(row => row.Notice.Expires <= now || row.UntilSpawnSourceId is null && row.Notice.CreatedAt > now || !BossNoticeAllowed(row));
             var from = _lastTick > now ? now : _lastTick < SafeAdd(now, -Grace) ? SafeAdd(now, -Grace) : _lastTick;
             var receipts = _receipts.ToList();
             var keys = receipts.Select(receipt => receipt.Key).ToHashSet(StringComparer.Ordinal);
@@ -465,7 +514,7 @@ public sealed class AlertsService : IDisposable
                                 alert.PlaySound, alert.Sound, alert.ShowOverlay &&
                                 (alert.Id.StartsWith(EventCatalog.ReminderPrefix, StringComparison.Ordinal) ||
                                     alert.AlwaysShowOverlay || at - now <= TimeSpan.FromMinutes(alert.OverlayLeadMinutes)),
-                                SoundFile: alert.SoundFile), "event:" + alert.Id));
+                                SoundFile: alert.SoundFile), "event:" + alert.Id, null));
                         }
                         occurrence = AlertSchedules.Next(alert.Schedule, at);
                     }
@@ -473,7 +522,6 @@ public sealed class AlertsService : IDisposable
             }
             if (_bosses is not null && _settings?.Current.BossAlertsEnabled == true)
             {
-                var entries = _bosses.Schedule.ToDictionary(row => row.Place.Key, StringComparer.Ordinal);
                 foreach (var source in _bosses.Alerts)
                 {
                     if (source.Key is not { Length: > 0 } bossKey) continue;
@@ -486,24 +534,27 @@ public sealed class AlertsService : IDisposable
                         var previewPresentation = BossPresentation(bossKey);
                         generated.Add((new("preview:" + previewKey, BossName(source.Boss), UiText.T("Vorschau"), "#ef4444", now,
                             source.Expires, SafeAdd(now, source.Remaining), previewPresentation.PlaySound,
-                            previewPresentation.Sound, previewPresentation.ShowOverlay, true, previewPresentation.SoundFile), "boss:" + bossKey));
+                            previewPresentation.Sound, true, true, previewPresentation.SoundFile), "boss:" + bossKey, null));
                         continue;
                     }
                     if (source.SpawnUnixMs is not { } cycle || !_bosses.GetReminder(bossKey).Enabled) continue;
+                    // A held source may outlive the bounded persistent receipt history. Its already
+                    // delivered copy remains the authoritative in-session dedupe until confirmation.
+                    if (source.UntilSpawn && _active.Any(row => row.UntilSpawnSourceId == source.Id)) continue;
                     // Match the existing BossAlertPolicy identity across process restarts. The
                     // local notice id and delivery time change when a fresh list is received.
                     var key = $"boss:{bossKey}:{cycle}:{(source.Spawned ? "spawn" : "lead")}";
                     if (!keys.Add(key)) continue;
                     receipts.Add(new(key, now));
-                    // Cache and elapsed countdowns never infer a spawn or generate a fresh warning.
-                    if (!entries.TryGetValue(bossKey, out var entry) || entry.Cached ||
-                        !(_settings.Current.BossAlertIds ?? []).Contains(bossKey, StringComparer.Ordinal)) continue;
+                    // The source already passed the full-list/clock or verified-calendar policy.
+                    // Map changes and later gaps do not revoke a notification that was validly created.
+                    if (!(_settings.Current.BossAlertIds ?? []).Contains(bossKey, StringComparer.Ordinal)) continue;
                     var presentation = BossPresentation(bossKey);
                     generated.Add((new(key, BossName(source.Boss), "", "#ef4444", now, source.Expires,
-                        SafeAdd(now, source.Remaining), presentation.PlaySound, presentation.Sound,
-                        presentation.ShowOverlay && (presentation.AlwaysShowOverlay || source.Spawned ||
-                            source.Remaining <= TimeSpan.FromMinutes(presentation.OverlayLeadMinutes)),
-                        SoundFile: presentation.SoundFile), "boss:" + bossKey));
+                        source.PlannedAt ?? SafeAdd(now, source.Remaining), presentation.PlaySound, presentation.Sound,
+                        true, // Boss reminders always produce their own banner, independently of timer-HUD windows.
+                        SoundFile: presentation.SoundFile, AwaitingConfirmation: source.UntilSpawn && source.Remaining <= TimeSpan.Zero),
+                        "boss:" + bossKey, source.UntilSpawn ? source.Id : null));
                 }
             }
             if (receipts.Count != _receipts.Count)
@@ -517,7 +568,7 @@ public sealed class AlertsService : IDisposable
                 }
             }
             else _lastTick = now;
-            foreach (var (notice, owner) in generated) AddNotice(notice, owner);
+            foreach (var (notice, owner, sourceId) in generated) AddNotice(notice, owner, sourceId);
         }
         Publish(generated.Select(row => row.Notice));
     }
@@ -534,18 +585,40 @@ public sealed class AlertsService : IDisposable
         Tick();
     }
 
+    private void RefreshUntilSpawnBanners()
+    {
+        for (var index = _active.Count - 1; index >= 0; index--)
+        {
+            var row = _active[index];
+            if (row.UntilSpawnSourceId is not { } sourceId) continue;
+            if (_bosses?.UntilSpawnNotice(sourceId) is not { } source)
+            {
+                _active.RemoveAt(index);
+                continue;
+            }
+            _active[index] = row with { Notice = row.Notice with
+            {
+                Expires = source.Expires,
+                At = source.PlannedAt ?? row.Notice.At,
+                AwaitingConfirmation = source.Remaining <= TimeSpan.Zero,
+                ShowOverlay = true
+            } };
+        }
+    }
+
     private bool BossNoticeAllowed(DisplayedNotice row) =>
         !row.Owner.StartsWith("boss:", StringComparison.Ordinal) ||
         _settings?.Current.BossAlertsEnabled == true && (row.Notice.Preview ||
             (_settings.Current.BossAlertIds ?? []).Contains(row.Owner[5..], StringComparer.Ordinal) &&
             _bosses?.GetReminder(row.Owner[5..]).Enabled == true &&
-            _bosses.Schedule.Any(entry => entry.Place.Key == row.Owner[5..] && !entry.Cached));
+            (row.UntilSpawnSourceId is not { } id || _bosses.UntilSpawnNotice(id) is not null));
 
-    private void AddNotice(AlertNotice notice, string owner)
+    private void AddNotice(AlertNotice notice, string owner, long? untilSpawnSourceId = null)
     {
-        _active.RemoveAll(row => row.Owner == owner);
-        _active.Add(new(notice, owner));
-        if (_active.Count > NoticeLimit) _active.RemoveRange(0, _active.Count - NoticeLimit);
+        _active.RemoveAll(row => row.Owner == owner && (row.UntilSpawnSourceId is null || row.UntilSpawnSourceId == untilSpawnSourceId));
+        _active.Add(new(notice, owner, untilSpawnSourceId));
+        if (_active.Count(row => row.UntilSpawnSourceId is null) > NoticeLimit)
+            _active.RemoveAt(_active.FindIndex(row => row.UntilSpawnSourceId is null));
     }
 
     private void Publish(IEnumerable<AlertNotice> notices)

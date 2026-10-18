@@ -29,7 +29,8 @@ public sealed class MerchantOverlayForm : Form
     internal static MerchantOverlayHealth Health { get; } = new();
 
     internal sealed record Badge(Rectangle Bounds, string Counter, bool IsFresh, bool IsMax, string FarmRegions = "",
-        Rectangle PriceBounds = default);
+        Rectangle PriceBounds = default, string PetCategory = "", string FarmSpawns = "",
+        Rectangle CategoryBounds = default);
     private sealed record Picture(MerchantSnapshot Snapshot, Rectangle GameBounds, long FrameAt,
         IReadOnlyList<Badge> Badges);
 
@@ -174,12 +175,27 @@ public sealed class MerchantOverlayForm : Form
             var gap = Math.Max(1, (int)Math.Round(anchor.Scale));
             var rectangle = new Rectangle(anchor.PriceBounds.X + (anchor.PriceBounds.Width - width) / 2,
                 anchor.PriceBounds.Top, width, anchor.PriceBounds.Height + gap + footHeight);
-            if (!new Rectangle(Point.Empty, gameSize).Contains(rectangle)) return [];
+            // User request 2026-10-18: the genus belongs centrally above the native pet name,
+            // in the empty strip below its selection seal. All dimensions use the one anchor scale.
+            var category = Rectangle.Empty;
+            if (!string.IsNullOrWhiteSpace(row.PetCategory))
+            {
+                var categoryWidth = Math.Max(1, (int)Math.Round(96 * anchor.Scale));
+                category = new Rectangle(anchor.PriceBounds.X + (anchor.PriceBounds.Width - categoryWidth) / 2,
+                    anchor.PriceBounds.Top - (int)Math.Round(228 * anchor.Scale),
+                    categoryWidth, Math.Max(1, (int)Math.Round(20 * anchor.Scale)));
+            }
+            var gameArea = new Rectangle(Point.Empty, gameSize);
+            if (!gameArea.Contains(rectangle) || !category.IsEmpty && !gameArea.Contains(category)) return [];
             badges.Add(new(rectangle, row.Counter, row.IsFresh, row.IsMax, row.FarmRegions,
-                new Rectangle(anchor.PriceBounds.X, anchor.PriceBounds.Y, anchor.PriceBounds.Width, anchor.PriceBounds.Height)));
+                new Rectangle(anchor.PriceBounds.X, anchor.PriceBounds.Y, anchor.PriceBounds.Width, anchor.PriceBounds.Height),
+                row.PetCategory, row.FarmSpawns, category));
         }
         return badges.AsReadOnly();
     }
+
+    internal static Rectangle SurfaceBounds(Badge badge) => badge.CategoryBounds.IsEmpty
+        ? badge.Bounds : Rectangle.Union(badge.Bounds, badge.CategoryBounds);
 
     private static bool Fresh(long frameAt) => frameAt > 0 && frameAt <= Stopwatch.GetTimestamp() &&
         Stopwatch.GetElapsedTime(frameAt) <= TimeSpan.FromSeconds(1);
@@ -243,7 +259,7 @@ public sealed class MerchantOverlayForm : Form
         if (ReferenceEquals(_shownSnapshot, picture.Snapshot) && _shownBounds == picture.GameBounds &&
             _shownBadges.SequenceEqual(picture.Badges) && Visible) return;
 
-        var area = picture.Badges.Select(b => b.Bounds).Aggregate(Rectangle.Union);
+        var area = picture.Badges.Select(SurfaceBounds).Aggregate(Rectangle.Union);
         var header = new NativeMethods.BitmapInfoHeader
         { Size = 40, Width = area.Width, Height = -area.Height, Planes = 1, BitCount = 32 };
         var dib = NativeMethods.CreateDIBSection(0, ref header, 0, out var bits, 0, 0);
@@ -251,7 +267,12 @@ public sealed class MerchantOverlayForm : Form
         try
         {
             using (var surface = new Bitmap(area.Width, area.Height, area.Width * 4, PixelFormat.Format32bppPArgb, bits))
-            using (var graphics = Graphics.FromImage(surface)) DrawBadges(graphics, area.Location, picture.Badges);
+            using (var graphics = Graphics.FromImage(surface))
+            {
+                // The native name/artwork between header and footer remains fully transparent.
+                graphics.Clear(Color.Transparent);
+                DrawBadges(graphics, area.Location, picture.Badges);
+            }
             var screen = NativeMethods.GetDC(0);
             var memory = NativeMethods.CreateCompatibleDC(screen);
             var old = NativeMethods.SelectObject(memory, dib);
@@ -298,6 +319,8 @@ public sealed class MerchantOverlayForm : Form
                 badge.Bounds.Width, badge.Bounds.Height);
             var scale = rect.Width / 212f;
             var hasRegions = !string.IsNullOrWhiteSpace(badge.FarmRegions);
+            DrawCategory(graphics, origin, badge, format, scale);
+            var farmText = string.IsNullOrWhiteSpace(badge.FarmSpawns) ? badge.FarmRegions : badge.FarmSpawns;
             // User request 2026-10-13: prioritize pets not yet unlocked and the farm
             // category Special (no source on the three maps), independently of shop tab.
             var needsUnlock = badge.Counter == "0/5";
@@ -322,11 +345,18 @@ public sealed class MerchantOverlayForm : Form
                 graphics.SetClip(protectedPrice, CombineMode.Exclude);
             }
 
+            // BuildBadges reserves 36 px for a counter alone or 52 px with the farm line.
+            // Derive geometry from that physical space, so adding/removing header metadata or
+            // using a legacy farm-label fallback never shifts the counter or the contour.
+            var hasFarmFoot = rect.Bottom - contentTop > 44 * scale;
+
             // The old sloping edge and ornament sit inside this extension. Near-opaque neutral
             // charcoal conceals them; an open top joins the original sides without a badge seam.
             var left = rect.Left + .5f * scale;
             var right = rect.Right - .5f * scale;
-            var shoulder = rect.Bottom - 24 * scale;
+            // The wider metadata line needs a straight shoulder before the short native tip;
+            // the outside bounds and price capsule remain unchanged.
+            var shoulder = rect.Bottom - (hasFarmFoot ? 18 : 24) * scale;
             var tip = new PointF(rect.Left + rect.Width / 2f, rect.Bottom - scale);
             PointF[] outline = [new(left, rect.Top), new(left, shoulder), tip,
                 new(right, shoulder), new(right, rect.Top)];
@@ -354,7 +384,8 @@ public sealed class MerchantOverlayForm : Form
                 : !badge.IsFresh ? Color.FromArgb(191, 179, 151) : Color.FromArgb(224, 221, 209);
             var counter = badge.Counter.Equals("max", StringComparison.OrdinalIgnoreCase)
                 ? "MAX" : badge.Counter.Replace("/", " / ", StringComparison.Ordinal);
-            var counterArea = new RectangleF(rect.Left + 8 * scale, contentTop + scale,
+            // User refinement 2026-10-18: souls are centered beneath the untouched price again.
+            var counterArea = new RectangleF(rect.Left + 8 * scale, contentTop + (hasFarmFoot ? 0 : scale),
                 rect.Width - 16 * scale, 22 * scale);
             var counterText = isMax ? "MAX" : UiText.T("Souls") + "  " + counter;
             using var font = FitFont(graphics, counterText, counterArea, (isMax ? 19 : 16) * scale,
@@ -364,14 +395,19 @@ public sealed class MerchantOverlayForm : Form
             {
                 var regionArea = new RectangleF(rect.Left + 8 * scale, contentTop + 21 * scale,
                     rect.Width - 16 * scale, 16 * scale);
-                using var regionFont = FitFont(graphics, badge.FarmRegions, regionArea, (special ? 14 : 12) * scale,
+                using var regionFont = FitFont(graphics, farmText, regionArea, (special ? 14 : 12) * scale,
                     special ? FontStyle.Bold : FontStyle.Regular);
+                // Long three-map counts use the straight portion above the sloping card tip.
+                // Keep the same font/footprint rather than let the last glyphs cross its contour.
+                var regionWidth = graphics.MeasureString(farmText, regionFont,
+                    int.MaxValue, StringFormat.GenericTypographic).Width;
+                if (regionWidth > 176 * scale) regionArea.Offset(0, -3 * scale);
                 var regionColor = special ? Color.FromArgb(255, 219, 143) : Color.FromArgb(181, 179, 165);
-                DrawShadowedText(graphics, badge.FarmRegions, regionFont, regionColor,
+                DrawShadowedText(graphics, farmText, regionFont, regionColor,
                     regionArea, format, scale);
                 if (special)
                 {
-                    var textWidth = graphics.MeasureString(badge.FarmRegions, regionFont,
+                    var textWidth = graphics.MeasureString(farmText, regionFont,
                         int.MaxValue, StringFormat.GenericTypographic).Width;
                     var centerX = regionArea.Left + regionArea.Width / 2;
                     var centerY = regionArea.Top + regionArea.Height / 2;
@@ -384,6 +420,26 @@ public sealed class MerchantOverlayForm : Form
             graphics.Restore(state);
         }
         graphics.Restore(originalState);
+    }
+
+    private static void DrawCategory(Graphics graphics, Point origin, Badge badge, StringFormat format, float scale)
+    {
+        if (badge.CategoryBounds.IsEmpty || string.IsNullOrWhiteSpace(badge.PetCategory)) return;
+        var area = new RectangleF(badge.CategoryBounds.X - origin.X, badge.CategoryBounds.Y - origin.Y,
+            badge.CategoryBounds.Width, badge.CategoryBounds.Height);
+        var state = graphics.Save();
+        graphics.SetClip(area, CombineMode.Intersect);
+        using var font = FitFont(graphics, badge.PetCategory, area, 13 * scale);
+        var color = badge.PetCategory switch
+        {
+            "Cogni" => Color.FromArgb(174, 198, 219),
+            "Fera" => Color.FromArgb(214, 175, 160),
+            "Natura" => Color.FromArgb(180, 204, 163),
+            "Varian" => Color.FromArgb(217, 197, 147),
+            _ => Color.FromArgb(181, 179, 165),
+        };
+        DrawShadowedText(graphics, badge.PetCategory, font, color, area, format, scale);
+        graphics.Restore(state);
     }
 
     private static void DrawDiamond(Graphics graphics, Brush ink, float x, float y, float radius)

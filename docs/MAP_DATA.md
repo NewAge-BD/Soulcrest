@@ -40,9 +40,13 @@ bereits vollständiges Kachelpaket voraus. Der Standard-Ausgabeordner ist `impor
 ## Kacheln und Koordinaten
 
 GTPK v2 ist ein unverschlüsselter Tile-Container: 48 Byte Header, 24 Byte pro Indexeintrag,
-anschließend WebP-Dateien. Header und Offsets werden geprüft. Jede 512-Pixel-Kachel wird in vier
-256-Pixel-Kacheln bei Zoom z+1 zerlegt. Ihre dekodierten Pixel bleiben erhalten; z0 wird verkleinert.
-Nur die Kachelstruktur wird konvertiert. Die 256×256-Dateien unter `/images/maps/` sind Vorschaubilder.
+anschließend WebP-Dateien. Header und Offsets werden geprüft. Seit 2026-10-18 werden die originalen
+512-Pixel-WebP-Kacheln bytegleich unter `tiles512/` gespeichert, ohne Neukodierung. Dateistufe z+1,
+`tileSize=512` und `minNativeZoom=1` erhalten dieselbe logische Ausdehnung und Referenz-Zoomstufe.
+Leaflet und die Trackingreferenz berücksichtigen die Kachelgröße; alte 256-Pixel-Pakete bleiben lesbar.
+Die 256×256-Dateien unter `/images/maps/` sind Vorschaubilder. Ein vollständiger erfolgreicher Build
+entfernt ausschließlich erkannte generierte alte `tiles/`-Verzeichnisse im Ausgabeordner.
+`--skip-tiles` setzt einmalig das neue vollständige Layout voraus.
 
 Weltpositionen werden über `bounds`, `imageWidth` und `imageHeight` in native Bildpixel umgerechnet.
 Die Daten verwenden `transformType=original` (beide Achsen unvertauscht); andere Transformtypen
@@ -98,7 +102,24 @@ Boss-Punkten aus `interactive-map/{id}`. Je Karte entsteht `bosses.json` mit `ma
 Quellkarte) und `bosses[{spawnId,npcId,en,de,x,y}]`; die Koordinaten durchlaufen dieselbe
 Umrechnung wie die Marker. `data.js` enthält diese Angaben ebenfalls additiv. Keine Zuordnung
 nach ähnlichem Namen. Fehlende Daten bleiben ohne Boss-Ziel; alte Pakete müssen neu gebaut werden.
-Mehrere Spawn-IDs je NPC oder mehrere Punkte je Spawn-ID werden als nicht eindeutig ausgelassen.
+Mehrere Spawn-IDs je NPC bleiben ohne belegbare Zuordnung und werden ausgelassen. Eine eindeutig
+identifizierte Spawn-ID mit mehreren unterschiedlichen Quellpositionen bleibt dagegen im Katalog:
+`x` und `y` sind dann beide `null`. Timer, Porträt und Loot sind verfügbar, ein Navigationsziel und
+eine Timerzuordnung zu einem einzelnen Kartenmarker entstehen nicht. Gleiche Quellpositionen
+werden nur einmal übernommen; keine willkürliche Position wird gewählt. So sind auch Watcher Kaira
+und Guardian Lord Nahma in Abyss A enthalten. Der belegte Katalog umfasst 24 Verteron-Bosse,
+8 Bosse in Abyss A und 5 in Chaotic Reshanta Middle; Upper hat keine belegten NamedSpawns.
+
+Seit 2026-10-18 enthalten die sieben belegten Lower-Reshanta-Kalenderbosse optional
+`calendarSchedule: {kind:2,timeZoneId:"Europe/Berlin",times:["HH:mm:ss"],weekdays:[0..6]}`.
+`kind:2` ist die gemeinsame Weekly-Regel; Wochentag 0 ist Sonntag. Kaira: acht Tageszeiten ab
+01:00 alle 180 Minuten; Nahma: Freitag/Sonntag 21:00; Executors: Montag/Donnerstag/Samstag 21:30.
+Die Aufnahmezeit und Restzeiten wurden vom Nutzer für die EU-Region bestätigt; aktive Cache-Regeln
+und separat geprüfte Kalenderkonfiguration stimmen überein. Der Import verlangt die exakte
+Map-/Spawn-/NPC-/Schedule-/Regelsignatur dieser sieben Belege. Keine Kalenderzuordnung über Namen,
+ID-Präfixe oder Ähnlichkeit; andere oder veränderte Regeln bleiben ohne Kalender. Das Quellflag
+`timezoneVerified:false` bleibt unverändert, die EU-Freigabe beruht auf den zusätzlichen Belegen.
+Diese Angaben ergänzen fehlende Timer, bestätigen jedoch weder einen Netzwerkempfang noch einen Spawn.
 
 `manifest.json` → `maps[].metersPerPixel`: Spielmeter je Kartenpixel aus den gaming.tools-Grenzen
 (Welteinheiten = Zentimeter). Werte: Altgard, Poeta und Abyss A 0,996; Verteron, Ishalgen, Eltnen und
@@ -166,3 +187,18 @@ derselben Gruppe; benachbarte Gruppen erhalten unterscheidbare Farben. Keine Spa
 Belegung, Spawnkapazität oder Respawnzeit. Die Kategorie `Collectibles/Cube Groups` und die drei
 getrennten Ebenenschalter bleiben erhalten; es entstehen keine neuen Marker.
 
+
+## Kartenleistung (2026-10-18)
+
+Ressourcen-, Orts-, Quest- und Sammelicons werden über gemeinsame Leaflet-Canvas-Pfade gezeichnet.
+Bilder werden pro URL gemeinsam geladen; nur Symbole im Zeichenbereich werden gezeichnet. Leaflet
+behält Popup, Rechtsklick, Filter und Trefferprüfung. Erkundungsstatus, Kibelisk-Graustufen und
+Cube-Gruppenfarben werden beim Zeichnen berücksichtigt. Pet-Porträts behalten ihre DOM-Beschriftungen.
+Zoom verändert die Treffer- und Zeichenbounds ohne neue Bildobjekte. Ebenenwechsel bündeln Redraws.
+Positionsbestimmung, Spielaufnahme, SIFT und Weltkoordinaten bleiben unverändert; die ursprünglichen
+Bildpixel und die Abmessungen der zusammengesetzten Trackingreferenz sind identisch.
+
+Die gemeinsame Zeichenfläche hat einen Puffer und wird beim Verschieben innerhalb dieses Puffers
+weiterverwendet. Bei Überschreiten, Zoom, Kartenwechsel oder Ansichtsreset wird neu gezeichnet.
+Icon-Rastergrößen werden je Quelle begrenzt zwischengespeichert. Pet-DOM und native Overlays
+behalten ihre bisherigen Bildformate. Gemessenes vollständiges lokales Paket: 139,19 statt 374,67 MiB.

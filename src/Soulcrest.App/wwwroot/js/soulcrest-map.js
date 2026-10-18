@@ -105,7 +105,7 @@ window.soulcrestMap = (() => {
         base = baseUrl;
         dotnet = dotnetRef;
         map = L.map(elementId, { crs: L.CRS.Simple, zoomSnap: 0.5, zoomDelta: 0.5, wheelPxPerZoomLevel: 90, attributionControl: true, fadeAnimation: false });
-        canvas = L.canvas({ padding: 0.4 });
+        canvas = window.soulcrestCanvasIcons ? window.soulcrestCanvasIcons.renderer({ padding: 0.5 }) : L.canvas({ padding: 0.4 });
         map.attributionControl.setPrefix('Leaflet');
         map.on('zoom zoomend', rescaleIcons);
         // While the user drags the map, following the player pauses for a few seconds.
@@ -152,7 +152,7 @@ window.soulcrestMap = (() => {
         const size = def.size / scale();
         const bounds = L.latLngBounds([-size, 0], [0, size]);
         tiles = new BufferedTiles(`${base}${def.tiles}`, {
-            tileSize: 256, minZoom: def.minZoom, maxZoom: def.maxZoom, maxNativeZoom: def.maxNativeZoom,
+            tileSize: def.tileSize || 256, minNativeZoom: def.minNativeZoom ?? 0, minZoom: def.minZoom, maxZoom: def.maxZoom, maxNativeZoom: def.maxNativeZoom,
             noWrap: true, bounds, attribution: def.attribution, keepBuffer: 6, edgeBufferTiles: 2,
             updateWhenZooming: false, updateWhenIdle: false, updateInterval: 100,
         }).addTo(map);
@@ -252,14 +252,16 @@ window.soulcrestMap = (() => {
         for (const { layer, row, received } of bossTimerRefs.values()) {
             const elapsed = Math.max(0, (now - received) / 1000);
             const age = Math.max(0, row.age + elapsed);
-            const provisional = row.cached;
+            const provisional = !row.calendar && row.cached;
+            const spawned = !row.calendar && row.spawned;
             const remaining = Math.max(0, Math.ceil(row.remaining - elapsed));
-            const text = row.spawned ? (provisional ? ui('Unbestätigt', 'Unconfirmed') : ui('Gespawnt', 'Spawned'))
+            const text = spawned ? (provisional ? ui('Unbestätigt', 'Unconfirmed') : ui('Gespawnt', 'Spawned'))
                 : remaining > 0 ? `${Math.floor(remaining / 3600) ? Math.floor(remaining / 3600) + ':' : ''}${String(Math.floor(remaining / 60) % 60).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
                 : ui('Warte auf Bestätigung', 'Awaiting confirmation');
             const status = provisional ? ui('Gespeichert · unbestätigt', 'Saved · unconfirmed') : ui('Erfasst im Spiel', 'Captured in game');
-            const title = `${status} · ${ui('Letzter Stand vor', 'Last update')} ${Math.floor(age)} s`;
-            layer.setTooltipContent(`<span class="${provisional ? 'provisional' : row.spawned ? 'spawned' : remaining === 0 ? 'waiting' : ''}" title="${esc(title)}">${provisional ? '◷ ' : ''}${esc(text)}</span>`);
+            const title = row.calendar ? ui('Spielkalender · Europe/Berlin', 'Game calendar · Europe/Berlin')
+                : `${status} · ${ui('Letzter Stand vor', 'Last update')} ${Math.floor(age)} s`;
+            layer.setTooltipContent(`<span class="${provisional ? 'provisional' : spawned ? 'spawned' : remaining === 0 ? 'waiting' : ''}" title="${esc(title)}">${provisional ? '◷ ' : ''}${esc(text)}</span>`);
         }
     }
 
@@ -325,7 +327,13 @@ window.soulcrestMap = (() => {
             let layer;
             const iconIndex = m[5] >= 0 ? m[5] : cat.icon;
             if (ICON_GROUPS.has(cat.group) && iconIndex >= 0) {
-                layer = L.marker(ll, { icon: iconFor(cat, iconIndex, m), title: nameOf(m) || (lang === 'de' && cat.de ? cat.de : cat.name) });
+                layer = cat.group !== 'Pets' && window.soulcrestCanvasIcons
+                    ? window.soulcrestCanvasIcons.create(ll, {
+                        renderer: canvas, url: base + current.icons[iconIndex],
+                        appearance: () => ({ scale: iconScale(), done: !!m.explorationDone,
+                            kibelisk: m.explorationKind === 'kibelisk', color: map.getContainer().classList.contains('show-cube-groups') ? cubeGroups?.groupFor(m)?.color : null }),
+                    })
+                    : L.marker(ll, { icon: iconFor(cat, iconIndex, m), title: nameOf(m) || (lang === 'de' && cat.de ? cat.de : cat.name) });
                 layer.iconIndex = iconIndex;
             } else {
                 layer = L.circleMarker(ll, {
@@ -383,6 +391,7 @@ window.soulcrestMap = (() => {
         for (const boss of current.bosses || []) {
             if (seen.has(boss.spawnId)) { bossMarkerBySpawn.delete(boss.spawnId); continue; }
             seen.add(boss.spawnId);
+            if (!Number.isFinite(boss.x) || !Number.isFinite(boss.y)) continue;
             const layer = markers.get(boss.x + ',' + boss.y);
             if (layer) bossMarkerBySpawn.set(boss.spawnId, layer);
         }
@@ -406,12 +415,13 @@ window.soulcrestMap = (() => {
         });
     }
 
-    function applyIconScale() {
+    function applyIconScale(refreshCanvas = true) {
         const scale = iconScale();
         const el = map.getContainer();
         el.style.setProperty('--pet-scale', scale.toFixed(3));
         // Place, resource and cube icons grow like the pet portraits (user report 2026-10-05: "sehr klein").
         el.style.setProperty('--place-scale', scale.toFixed(3));
+        if (refreshCanvas) for (const layer of markerRefs) if (layer?.refreshAppearance) layer.refreshAppearance();
         updateLabelVisibility();
     }
 
@@ -419,8 +429,8 @@ window.soulcrestMap = (() => {
         map.getContainer().classList.add('show-pet-labels');
     }
 
-    function rescaleIcons() {
-        if (current) applyIconScale();
+    function rescaleIcons(event) {
+        if (current) applyIconScale(event?.type !== 'zoom');
     }
 
     function buildRegions() {
@@ -440,6 +450,7 @@ window.soulcrestMap = (() => {
         catVisible[index] = visible;
         if (visible) catLayers[index].addTo(map); else map.removeLayer(catLayers[index]);
         cubeGroups?.sync();
+        window.soulcrestCanvasIcons?.redraw(canvas);
         drawTargets();
     }
 

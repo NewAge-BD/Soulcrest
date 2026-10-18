@@ -6,7 +6,8 @@ namespace Soulcrest.Core.Network;
 public sealed record BossRushSnapshot(int MapId, IReadOnlyList<BossSpawn> Bosses, long ServerUnixMs, TimeSpan Age, bool Cached = false)
 {
     // A timer expiring alone does not prove a spawn. The server's Spawned flag has priority.
-    public BossSpawn? Next => Bosses.OrderByDescending(b => b.Spawned).ThenBy(b => b.SpawnUnixMs).ThenBy(b => b.SpawnId).FirstOrDefault();
+    public BossSpawn? Next => Bosses.Where(b => b.SpawnUnixMs is not null)
+        .OrderByDescending(b => b.Spawned).ThenBy(b => b.SpawnUnixMs).ThenBy(b => b.SpawnId).FirstOrDefault();
 }
 
 /// <summary>Connection-bound live clocks with a retained monotonic schedule during loading screens.</summary>

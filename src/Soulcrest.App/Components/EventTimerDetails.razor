@@ -3,15 +3,19 @@
 
 @{
     var reminder = Timer.Reminder ?? EventCatalog.Reminder(Timer.Definition);
+    var display = EventTimerDisplay.From(Timer);
 }
 
-<section class="event-detail-panel" id="alerts-event-details" data-event-details="@Timer.Definition.Id" style="@($"--alert-color:{Timer.Definition.Color};")" aria-label="@UiText.T("Event-Details")">
+<section class="event-detail-panel @(Embedded ? "event-detail-embedded" : "")" id="@Id" data-event-details="@Timer.Definition.Id" style="@($"--alert-color:{Timer.Definition.Color};")" aria-label="@UiText.T("Event-Details")">
+    @if (!Embedded)
+    {
     <header class="event-detail-heading">
-        <span class="event-symbol" aria-hidden="true">@Timer.Definition.Symbol</span>
-        <div><span class="alerts-eyebrow">@UiText.T("Event-Details")</span><h3 aria-live="polite">@UiText.T(Timer.Definition.Title)</h3></div>
+        <span class="event-symbol" aria-hidden="true"><img src="@TimerOverlayIcons.BrowserSource(Timer.Definition.Id)" alt="" /></span>
+        <div><span class="alerts-eyebrow">@UiText.T("Event-Details")</span><h3 aria-live="polite">@display.Title</h3></div>
         <InfoTip><p>@UiText.T(Timer.Definition.Description)</p><p>@UiText.T("Zeiten folgen dem Kalender, unabhängig von Erinnerungen.")</p></InfoTip>
     </header>
-    <div class="event-detail-schedule"><span>@UiText.T("Start") <b>@At(Timer.Window.StartsAt)</b></span>@if (Timer.Definition.DurationMinutes > 0) { <span>@UiText.T("Ende") <b>@At(Timer.Window.EndsAt)</b></span> }</div>
+    }
+    <div class="event-detail-schedule"><span>@UiText.T("Start") <b>@At(display.Window.StartsAt)</b></span>@if (Timer.Definition.DurationMinutes > 0) { <span>@UiText.T("Ende") <b>@At(display.Window.EndsAt)</b></span> }@if (Embedded) { <InfoTip><p>@UiText.T(Timer.Definition.Description)</p><p>@UiText.T("Zeiten folgen dem Kalender, unabhängig von Erinnerungen.")</p></InfoTip> }</div>
     <div class="event-reminder"><div class="event-reminder-heading"><span>@UiText.T("Erinnerung")</span><span class="@(reminder.Enabled ? "enabled" : "")">@UiText.T(reminder.Enabled ? "Aktiv" : "Aus")</span></div>
         <div class="event-quick-reminders" role="group" aria-label="@UiText.F("Erinnerung für {0}", UiText.T(Timer.Definition.Title))">
             <button type="button" disabled="@Disabled" class="@(!reminder.Enabled ? "selected" : "")" aria-pressed="@(!reminder.Enabled)" @onclick="@(() => SetReminder(-1))">@UiText.T("Aus")</button>
@@ -24,24 +28,21 @@
         <AlertSoundPicker Sound="@reminder.Sound" SoundFile="@reminder.SoundFile" Enabled="@reminder.PlaySound" Disabled="@Disabled" Changed="@(selection => SoundSaved.InvokeAsync(reminder with { Sound = selection.Sound, SoundFile = selection.SoundFile, PlaySound = selection.Enabled }))" />
         @if (!reminder.Enabled) { <InfoTip><p>@UiText.T("Ton wird bei aktivierter Erinnerung abgespielt.")</p></InfoTip> }
     </div>
-    <div class="event-widget"><label><input type="checkbox" checked="@Timer.Presentation.ShowOverlay" disabled="@Disabled" @onchange="@(e => SetPresentation(Timer.Presentation with { ShowOverlay = e.Value is true }))" />@UiText.T("Overlay-Widget")</label>
-        @if (Timer.Presentation.ShowOverlay)
-        {
-            <select aria-label="@UiText.T("Widget-Sichtbarkeit")" value="@Timer.Presentation.AlwaysShowOverlay.ToString()" disabled="@Disabled" @onchange="@(e => SetPresentation(Timer.Presentation with { AlwaysShowOverlay = e.Value?.ToString() == bool.TrueString }))"><option value="False">@UiText.T("Vor dem Event")</option><option value="True">@UiText.T("Dauerhaft")</option></select>
-            @if (!Timer.Presentation.AlwaysShowOverlay) { <label class="event-widget-window"><input aria-label="@UiText.T("Minuten vor dem Event")" type="number" min="0" max="1440" value="@Timer.Presentation.OverlayLeadMinutes" disabled="@Disabled" @onchange="SetWidgetLead" /><span>@UiText.T("Min.")</span></label> }
-        }
-    </div>
-    <details class="event-next-times"><summary>@UiText.T("Nächste Termine")<span>@UiText.T("3 Termine")</span></summary><ol>@foreach (var at in NextStarts) { <li><span>@At(at)</span>@if (Timer.Definition.DurationMinutes > 0) { <span>@ShortAt(at.AddMinutes(Timer.Definition.DurationMinutes))</span> }</li> }</ol></details>
-    <button type="button" class="btn event-detail-edit" disabled="@Disabled" @onclick="@(() => EditReminder.InvokeAsync(Timer.Definition.Id))">@UiText.T("Individuell einstellen") ↗</button>
+    <a class="timer-strip-settings-link" href="#timer-overlay-settings">@UiText.T("Timer-Auswahl unter Timer-Leiste") ↗</a>
+    <details class="event-next-times"><summary>@UiText.T("Nächste Termine")<span>@UiText.T("3 Termine")</span></summary><ol>@foreach (var at in NextStarts) { <li><span>@At(at)</span>@if (Timer.Definition.DurationMinutes > 0) { <span>@ShortAt(at + (display.Window.EndsAt - display.Window.StartsAt))</span> }</li> }</ol></details>
+    <div class="event-detail-actions"><button type="button" class="btn event-detail-test" disabled="@(Disabled || Timer.Reminder is null)" title="@(Timer.Reminder is null ? UiText.T("Erinnerung zuerst speichern.") : null)" @onclick="@(() => PreviewReminder.InvokeAsync(Timer.Definition.Id))">@UiText.T("Testen")</button>
+    <button type="button" class="btn event-detail-edit" disabled="@Disabled" @onclick="@(() => EditReminder.InvokeAsync(Timer.Definition.Id))">@UiText.T("Individuell einstellen") ↗</button></div>
 </section>
 
 @code {
     [Parameter, EditorRequired] public EventTimerSnapshot Timer { get; set; } = default!;
+    [Parameter] public bool Embedded { get; set; }
+    [Parameter] public string Id { get; set; } = "alerts-event-details";
+    [Parameter] public EventCallback<string> PreviewReminder { get; set; }
     [Parameter] public bool Busy { get; set; }
     [Parameter] public bool EditorOpen { get; set; }
     [Parameter] public EventCallback<string> EditReminder { get; set; }
     [Parameter] public EventCallback<KeyValuePair<string, int>> ReminderChanged { get; set; }
-    [Parameter] public EventCallback<KeyValuePair<string, EventTimerPresentation>> PresentationChanged { get; set; }
     [Parameter] public EventCallback<EventAlert> ReminderSaved { get; set; }
     [Parameter] public EventCallback<EventAlert> SoundSaved { get; set; }
     private bool Disabled => Busy || EditorOpen;
@@ -51,6 +52,4 @@
     private static string ShortAt(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, Berlin).ToString("HH:mm", Culture);
     private IReadOnlyList<DateTimeOffset> NextStarts => Timer.Window.NextAt is { } next ? EventWindows.Starts(Timer.Definition.Schedule, next, next.AddDays(21), 3) : [];
     private Task SetReminder(int minutes) => ReminderChanged.InvokeAsync(new KeyValuePair<string, int>(Timer.Definition.Id, minutes));
-    private Task SetPresentation(EventTimerPresentation presentation) => PresentationChanged.InvokeAsync(new KeyValuePair<string, EventTimerPresentation>(Timer.Definition.Id, presentation));
-    private Task SetWidgetLead(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var minutes) ? SetPresentation(Timer.Presentation with { OverlayLeadMinutes = Math.Clamp(minutes, 0, 1440) }) : Task.CompletedTask;
 }

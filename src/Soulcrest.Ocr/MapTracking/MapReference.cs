@@ -46,9 +46,18 @@ public sealed class MapReference : IDisposable
     /// Reference image from the tile pyramid: all tiles of one zoom level side by side (missing tiles
     /// stay black). <paramref name="tilePattern"/> is a path with {z}, {x}, {y}.
     /// </summary>
-    public static Mat ComposeTiles(string tilePattern, int zoom, int tileSize = 256)
+    public static Mat ComposeTiles(string tilePattern, int zoom, int tileSize = 0)
     {
-        var count = 1 << zoom;
+        if (tileSize == 0)
+        {
+            var firstPath = tilePattern.Replace("{z}", zoom.ToString()).Replace("{x}", "0").Replace("{y}", "0");
+            using var first = File.Exists(firstPath) ? Cv2.ImDecode(File.ReadAllBytes(firstPath), ImreadModes.Grayscale) : new Mat();
+            tileSize = first.Empty() ? 256 : first.Width;
+        }
+        // Zoom remains in 256 px logical units, including original 512 px source tiles.
+        if (tileSize is not (256 or 512) || zoom < (tileSize == 512 ? 1 : 0) || zoom > 15)
+            throw new ArgumentOutOfRangeException(nameof(zoom));
+        var count = (1 << zoom) * 256 / tileSize;
         var image = new Mat(count * tileSize, count * tileSize, MatType.CV_8UC1, Scalar.All(0));
         for (var y = 0; y < count; y++)
         {

@@ -1,10 +1,13 @@
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using Soulcrest.App.Services;
 
 namespace Soulcrest.App.Overlay;
 
-/// <summary>Compact countdown HUD; scheduling and sound delivery do not depend on its visibility.</summary>
+/// <summary>Native timer strip and shared safe window interaction for the separate reminder banners.</summary>
 public class AlertsOverlayForm : Form
 {
     internal const int PanelWidth = 340, HeaderHeight = 22, RowStride = 44, FooterHeight = 6, MaximumRows = 6;
@@ -16,10 +19,12 @@ public class AlertsOverlayForm : Form
     private readonly AlertsService _alerts;
     private readonly SettingsService _settings;
     private readonly bool _notification;
+    private readonly TimerIconCache _icons;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 500 };
     private readonly OverlayLockButton _lockButton;
     private readonly ToolTip _tooltip = new() { InitialDelay = 300, ReshowDelay = 100, ShowAlways = true };
     private IReadOnlyList<AlertDisplayRow> _rows = [];
+    private TimerStripLayout _stripLayout = TimerStripRenderer.Layout([]);
     private Point? _drag;
     private ResizeGesture? _resize;
     private bool _manualInteraction, _altInteractionRequested, _blockAltUntilRelease;
@@ -29,23 +34,26 @@ public class AlertsOverlayForm : Form
     private double _requestedScale = 1;
     private string _tooltipText = "";
 
-    public AlertsOverlayForm(AlertsService alerts, SettingsService settings) : this(alerts, settings, notification: false) { }
+    public AlertsOverlayForm(AlertsService alerts, SettingsService settings, string? mapDataDirectory = null)
+        : this(alerts, settings, notification: false, mapDataDirectory) { }
 
-    protected AlertsOverlayForm(AlertsService alerts, SettingsService settings, bool notification)
+    protected AlertsOverlayForm(AlertsService alerts, SettingsService settings, bool notification, string? mapDataDirectory = null)
     {
         _alerts = alerts;
         _settings = settings;
         _notification = notification;
+        _icons = new TimerIconCache(notification ? null : mapDataDirectory ?? AppPaths.FindMapData());
         if (notification) _timer.Interval = 200;
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         BackColor = Surface;
-        Opacity = .95;
+        if (notification) Opacity = .95;
         DoubleBuffered = true;
         AutoScaleMode = AutoScaleMode.None;
-        _lockButton = new OverlayLockButton(this, LockBounds);
+        _lockButton = new OverlayLockButton(this, LockBounds,
+            notification ? OverlayLockButtonStyle.Default : OverlayLockButtonStyle.TimerStrip);
         _lockButton.Toggled += ToggleManualInteraction;
         _lockButton.SetVisibleInRecordings(settings.Current.OverlaysInRecordings);
         _timer.Tick += (_, _) => RefreshPanel();
@@ -135,7 +143,7 @@ public class AlertsOverlayForm : Form
         }
         ApplyInteractionStyle();
         Cursor = _locked ? Cursors.Default : Cursors.SizeAll;
-        Invalidate();
+        RenderPanel();
     }
 
     private void ApplyInteractionStyle()
@@ -157,6 +165,11 @@ public class AlertsOverlayForm : Form
     {
         base.OnSizeChanged(e);
         if (Width <= 0 || Height <= 0) return;
+        if (!_notification)
+        {
+            var old = Region; Region = null; old?.Dispose();
+            return;
+        }
         using var outline = Rounded(new RectangleF(0, 0, Width, Height), 8);
         var previous = Region;
         Region = new Region(outline);
@@ -170,8 +183,9 @@ public class AlertsOverlayForm : Form
         var now = _alerts.Now;
         _rows = _notification
             ? _alerts.NotificationRows.Select(notice => new AlertDisplayRow(notice.Key, notice.Title,
-                notice.Message, notice.Color, notice.At, notice.At <= now)).ToArray()
-            : _alerts.CountdownRows;
+                notice.Message, notice.Color, notice.At, notice.At <= now && !notice.AwaitingConfirmation,
+                AwaitingConfirmation: notice.AwaitingConfirmation)).ToArray()
+            : _alerts.TimerOverlayRows;
         if (_rows.Count == 0 || (!_notification && !settings.AlertsOverlayEnabled))
         {
             FinishGesture();
@@ -193,9 +207,9 @@ public class AlertsOverlayForm : Form
                 : new Point(settings.AlertsOverlayX, settings.AlertsOverlayY);
             ApplyBounds(location, _logicalWidth, scale);
         }
+        RenderPanel();
         if (!Visible) Show();
         _lockButton.RefreshTarget();
-        Invalidate();
     }
 
     internal static bool PanelVisible(AppSettings settings, int rows) => settings.AlertsOverlayEnabled && rows > 0;
@@ -215,29 +229,104 @@ public class AlertsOverlayForm : Form
 
     private void ApplyBounds(Point location, int width, double scale)
     {
+        var area = Screen.FromPoint(location).WorkingArea;
+        if (!_notification)
+        {
+            _requestedScale = double.IsFinite(scale) ? Math.Clamp(scale, .6, 2) : 1;
+            // Keep the independent unlock window on the same monitor, including a full-width strip.
+            var available = StripArea(area, _requestedScale);
+            _stripLayout = TimerStripRenderer.Layout(_rows, _settings.Current.TimerOverlayGap,
+                Math.Max(1, (int)Math.Floor(available.Width / _requestedScale)));
+            _logicalWidth = _stripLayout.Size.Width;
+            var strip = FitStripBounds(available, location, _stripLayout.Size, _requestedScale);
+            _renderScale = Math.Min(strip.Width / (double)_stripLayout.Size.Width, strip.Height / (double)_stripLayout.Size.Height);
+            Bounds = strip;
+            _lockButton.RefreshTarget();
+            return;
+        }
         var height = LogicalHeight(_rows.Count);
-        var fitted = FitBounds(Screen.FromPoint(location).WorkingArea, location, width, height, scale);
+        var fitted = FitBounds(area, location, width, height, scale);
         _requestedScale = double.IsFinite(scale) ? Math.Clamp(scale, .6, 2) : 1;
         _renderScale = Math.Min(fitted.Width / (double)width, fitted.Height / (double)height);
         Bounds = fitted;
         _lockButton.RefreshTarget();
     }
 
+    internal static Rectangle StripArea(Rectangle area, double scale) => new(area.Left, area.Top,
+        Math.Max(1, area.Width - (int)Math.Ceiling(22 * scale)), area.Height);
+
+    internal static double ResizeScale(double originalScale, int originalHeight, int desiredHeight) =>
+        Math.Clamp(originalScale * Math.Max(1, desiredHeight) / Math.Max(1, originalHeight), .6, 2);
+
+    internal static Rectangle FitStripBounds(Rectangle area, Point location, Size size, double scale)
+    {
+        scale = double.IsFinite(scale) ? Math.Clamp(scale, .6, 2) : 1;
+        scale = Math.Min(scale, Math.Min(area.Width / (double)Math.Max(1, size.Width), area.Height / (double)Math.Max(1, size.Height)));
+        var fitted = new Size(Math.Min(area.Width, Math.Max(1, (int)Math.Ceiling(size.Width * scale))),
+            Math.Min(area.Height, Math.Max(1, (int)Math.Ceiling(size.Height * scale))));
+        return new(new Point(Math.Clamp(location.X, area.Left, Math.Max(area.Left, area.Right - fitted.Width)),
+            Math.Clamp(location.Y, area.Top, Math.Max(area.Top, area.Bottom - fitted.Height))), fitted);
+    }
+
+    private void RenderPanel()
+    {
+        if (_notification) { Invalidate(); return; }
+        if (!IsHandleCreated || IsDisposed || _rows.Count == 0) return;
+        var header = new NativeMethods.BitmapInfoHeader
+        { Size = 40, Width = Width, Height = -Height, Planes = 1, BitCount = 32 };
+        var dib = NativeMethods.CreateDIBSection(0, ref header, 0, out var bits, 0, 0);
+        if (dib == 0) return;
+        try
+        {
+            using (var surface = new Bitmap(Width, Height, Width * 4, PixelFormat.Format32bppPArgb, bits))
+            using (var graphics = Graphics.FromImage(surface))
+            {
+                graphics.Clear(Color.Transparent);
+                graphics.ScaleTransform((float)_renderScale, (float)_renderScale);
+                TimerStripRenderer.Paint(graphics, _stripLayout, _alerts.Now,
+                    _settings.Current.TimerOverlayShowSeconds, _locked, _icons.Load);
+            }
+            var screen = NativeMethods.GetDC(0);
+            var memory = NativeMethods.CreateCompatibleDC(screen);
+            var old = NativeMethods.SelectObject(memory, dib);
+            try
+            {
+                var target = new NativeMethods.NativePoint(Left, Top);
+                var source = new NativeMethods.NativePoint(0, 0);
+                var size = new NativeMethods.NativeSize(Width, Height);
+                var blend = new NativeMethods.BlendFunction
+                { BlendOp = NativeMethods.AC_SRC_OVER, SourceConstantAlpha = 255, AlphaFormat = NativeMethods.AC_SRC_ALPHA };
+                if (!NativeMethods.UpdateLayeredWindow(Handle, screen, ref target, ref size, memory, ref source, 0, ref blend, NativeMethods.ULW_ALPHA))
+                    Trace.TraceWarning("Timer strip presentation failed (Win32 {0}).", Marshal.GetLastWin32Error());
+            }
+            finally
+            {
+                NativeMethods.SelectObject(memory, old);
+                NativeMethods.DeleteDC(memory);
+                NativeMethods.ReleaseDC(0, screen);
+            }
+        }
+        finally { NativeMethods.DeleteObject(dib); }
+    }
+
     private Rectangle LockBounds()
     {
         var size = Math.Max(10, (int)Math.Round(18 * _renderScale));
         var inset = Math.Max(1, (int)Math.Round(3 * _renderScale));
-        return new Rectangle(Math.Max(0, ClientSize.Width - size - inset), inset, size, size);
+        // The separate lock window sits outside the strip and never covers a countdown.
+        return _notification ? new Rectangle(Math.Max(0, ClientSize.Width - size - inset), inset, size, size)
+            : new Rectangle(ClientSize.Width + inset, 0, size, size);
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        if (!_notification) return;
         e.Graphics.ScaleTransform((float)_renderScale, (float)_renderScale);
-        PaintPanel(e.Graphics, _rows, _alerts.Now, _locked, _notification, _logicalWidth);
+        PaintNotifications(e.Graphics, _rows, _alerts.Now, _locked, _logicalWidth);
     }
 
-    internal static void PaintPanel(Graphics g, IReadOnlyList<AlertDisplayRow> rows, DateTimeOffset now,
-        bool locked, bool notification = false, int width = PanelWidth)
+    internal static void PaintNotifications(Graphics g, IReadOnlyList<AlertDisplayRow> rows, DateTimeOffset now,
+        bool locked, int width = PanelWidth)
     {
         width = Math.Clamp(width, MinimumWidth, MaximumWidth);
         var height = LogicalHeight(rows.Count);
@@ -256,7 +345,7 @@ public class AlertsOverlayForm : Form
         using var right = new StringFormat { Alignment = StringAlignment.Far, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
         FillRound(new RectangleF(0, 0, width, height), 8, Surface);
         using (var edge = Rounded(new RectangleF(.5f, .5f, width - 1, height - 1), 8)) g.DrawPath(outline, edge);
-        g.DrawString(notification ? UiText.T("Benachrichtigung") : "ALERTS", heading, dim, 11, 4);
+        g.DrawString(UiText.T("Benachrichtigung"), heading, dim, 11, 4);
         if (rows.Count > MaximumRows)
             g.DrawString(UiText.F("{0} weitere im Alerts-Tab", rows.Count - MaximumRows), small, dim,
                 new RectangleF(100, 4, width - 130, 15), right);
@@ -268,12 +357,18 @@ public class AlertsOverlayForm : Form
             FillRound(new RectangleF(5, y, width - 10, RowStride - 2), 5, Card);
             FillRound(new RectangleF(8, y + 6, 2, 30), 1, color);
             var countdownWidth = row.CountdownLabel is null ? 112 : 158;
-            g.DrawString(row.Title, body, white, new RectangleF(16, y + 4, Math.Max(28, width - countdownWidth - 28), 17), line);
+            // The confirmation status uses the subtitle line so the boss stays identifiable even at minimum width.
+            var titleWidth = row.AwaitingConfirmation ? width - 28 : Math.Max(28, width - countdownWidth - 28);
+            g.DrawString(row.Title, body, white, new RectangleF(16, y + 4, titleWidth, 17), line);
             var countdown = CountdownText(row, now);
-            if (row.CountdownLabel is { } label) countdown = label + " " + countdown;
-            g.DrawString(countdown, timer, row.Provisional ? dim : accent,
-                new RectangleF(width - countdownWidth - 12, y + 3, countdownWidth, 18), right);
-            g.DrawString(row.Provisional ? UiText.T("Timer nicht aktuell · Spawn unbestätigt") : row.Message,
+            if (!row.AwaitingConfirmation)
+            {
+                if (row.CountdownLabel is { } label) countdown = label + " " + countdown;
+                g.DrawString(countdown, timer, row.Provisional ? dim : accent,
+                    new RectangleF(width - countdownWidth - 12, y + 3, countdownWidth, 18), right);
+            }
+            g.DrawString(row.AwaitingConfirmation ? countdown
+                    : row.Provisional ? UiText.T("Timer nicht aktuell · Spawn unbestätigt") : row.Message,
                 small, dim, new RectangleF(16, y + 24, width - 78, 15), line);
             g.DrawString(row.At.ToLocalTime().ToString("HH:mm"), small, dim,
                 new RectangleF(width - 58, y + 24, 45, 15), right);
@@ -295,10 +390,11 @@ public class AlertsOverlayForm : Form
         }
     }
 
-    private static string CountdownText(AlertDisplayRow row, DateTimeOffset now)
+    internal static string CountdownText(AlertDisplayRow row, DateTimeOffset now)
     {
         var remaining = row.At - now;
-        return row.Provisional && remaining <= TimeSpan.Zero ? UiText.T("Spawn unbestätigt")
+        return row.AwaitingConfirmation ? UiText.T("Warte auf Bestätigung")
+            : row.Provisional && remaining <= TimeSpan.Zero ? UiText.T("Spawn unbestätigt")
             : (row.Started && row.CountdownLabel is null) || remaining <= TimeSpan.Zero ? UiText.T("Jetzt") : Countdown(remaining);
     }
 
@@ -337,7 +433,7 @@ public class AlertsOverlayForm : Form
             if (_locked) Capture = false;
             return;
         }
-        if (IsResizePoint(e.Location)) _resize = new ResizeGesture(PointToScreen(e.Location), Size);
+        if (IsResizePoint(e.Location)) _resize = new ResizeGesture(PointToScreen(e.Location), Size, _requestedScale);
         else _drag = e.Location;
         Capture = true;
     }
@@ -351,18 +447,21 @@ public class AlertsOverlayForm : Form
         {
             var pointer = PointToScreen(e.Location);
             var desiredHeight = Math.Max(1, resize.Size.Height + pointer.Y - resize.Pointer.Y);
-            var scale = Math.Clamp(desiredHeight / (double)LogicalHeight(_rows.Count), .6, 2);
+            var scale = _notification ? Math.Clamp(desiredHeight / (double)LogicalHeight(_rows.Count), .6, 2)
+                : ResizeScale(resize.Scale, resize.Size.Height, desiredHeight);
             var desiredWidth = resize.Size.Width + pointer.X - resize.Pointer.X;
-            _logicalWidth = Math.Clamp((int)Math.Round(desiredWidth / scale), MinimumWidth, MaximumWidth);
+            if (_notification) _logicalWidth = Math.Clamp((int)Math.Round(desiredWidth / scale), MinimumWidth, MaximumWidth);
             ApplyBounds(Location, _logicalWidth, scale);
-            Invalidate();
+            RenderPanel();
         }
         else
         {
             Cursor = IsResizePoint(e.Location) ? Cursors.SizeNWSE : Cursors.SizeAll;
             var rowIndex = (int)(e.Y / _renderScale - HeaderHeight) / RowStride;
-            var text = e.Y / _renderScale >= HeaderHeight && rowIndex >= 0 && rowIndex < Math.Min(_rows.Count, MaximumRows)
-                ? RowTooltip(_rows[rowIndex], _alerts.Now) : BossOverlayForm.HotkeyHint(_locked);
+            var hit = _notification
+                ? e.Y / _renderScale >= HeaderHeight && rowIndex >= 0 && rowIndex < Math.Min(_rows.Count, MaximumRows) ? _rows[rowIndex] : null
+                : _stripLayout.Cells.FirstOrDefault(cell => cell.Bounds.Contains((int)(e.X / _renderScale), (int)(e.Y / _renderScale)))?.Row;
+            var text = hit is not null ? RowTooltip(hit, _alerts.Now) : BossOverlayForm.HotkeyHint(_locked);
             if (text != _tooltipText) { _tooltipText = text; _tooltip.SetToolTip(this, text); }
         }
     }
@@ -393,6 +492,7 @@ public class AlertsOverlayForm : Form
         _resize = null;
         Capture = false;
         var area = Screen.FromPoint(Location).WorkingArea;
+        if (!_notification) area = StripArea(area, _renderScale);
         Location = new Point(Math.Clamp(Left, area.Left, Math.Max(area.Left, area.Right - Width)),
             Math.Clamp(Top, area.Top, Math.Max(area.Top, area.Bottom - Height)));
         _settings.Update(s =>
@@ -405,12 +505,12 @@ public class AlertsOverlayForm : Form
             else
             {
                 s.AlertsOverlayX = Left; s.AlertsOverlayY = Top;
-                if (resized) { s.AlertsOverlayWidth = _logicalWidth; s.AlertsOverlayScale = _requestedScale; }
+                if (resized) s.AlertsOverlayScale = _requestedScale;
             }
         });
     }
 
-    private sealed record ResizeGesture(Point Pointer, Size Size);
+    private sealed record ResizeGesture(Point Pointer, Size Size, double Scale);
 
     protected override void Dispose(bool disposing)
     {
@@ -419,6 +519,7 @@ public class AlertsOverlayForm : Form
             _lockButton.Toggled -= ToggleManualInteraction;
             _lockButton.Dispose();
             _tooltip.Dispose();
+            _icons.Dispose();
             _timer.Stop();
             _timer.Dispose();
         }

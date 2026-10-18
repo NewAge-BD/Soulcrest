@@ -72,10 +72,24 @@ public sealed class AlertsOverlayTests : IDisposable
     }
 
     [Theory]
+    [InlineData("de", "Warte auf Bestätigung", "Jetzt")]
+    [InlineData("en", "Waiting for confirmation", "Now")]
+    public void HeldBossBannerWaitsForConfirmationInsteadOfClaimingSpawnAtOrAfterZero(string language, string waiting, string spawned)
+    {
+        UiText.Language = language;
+        var held = new AlertDisplayRow("boss:1110:111001", "Synthetic boss", "", "#ef4444", Now, false,
+            AwaitingConfirmation: true);
+        Assert.Equal(waiting, AlertsOverlayForm.CountdownText(held, Now));
+        Assert.Equal(waiting, AlertsOverlayForm.CountdownText(held, Now.AddDays(3)));
+        Assert.Equal(spawned, AlertsOverlayForm.CountdownText(held with { AwaitingConfirmation = false, Started = true }, Now));
+        Assert.Equal("00:01:00", AlertsOverlayForm.CountdownText(held with { AwaitingConfirmation = false, At = Now.AddMinutes(1) }, Now));
+    }
+
+    [Theory]
     [InlineData("en", .6, 240)]
     [InlineData("de", 1.0, 340)]
     [InlineData("de", 2.0, 1000)]
-    public void LongUnicodeRowsFitAtEveryOverlayDensityAndDoNotPaintASeventhRow(string language, double scale, int logicalWidth)
+    public void ReminderBannersStillFitAtEveryDensityAndDoNotPaintASeventhRow(string language, double scale, int logicalWidth)
     {
         UiText.Language = language;
         var rows = Enumerable.Range(0, 7).Select(index => new AlertDisplayRow(
@@ -90,7 +104,7 @@ public sealed class AlertsOverlayTests : IDisposable
         {
             graphics.Clear(Color.Fuchsia);
             graphics.ScaleTransform((float)scale, (float)scale);
-            AlertsOverlayForm.PaintPanel(graphics, rows, Now, locked: true, width: logicalWidth);
+            AlertsOverlayForm.PaintNotifications(graphics, rows, Now, locked: true, width: logicalWidth);
             if (Environment.GetEnvironmentVariable("SOULCREST_COMPACT_ALERT_PREVIEW") is { Length: > 0 } folder)
             {
                 Directory.CreateDirectory(folder);
@@ -321,13 +335,14 @@ public sealed class AlertsOverlayTests : IDisposable
         var corner = new Point(panel.Width - 3, panel.Height - 3);
         SendMouse(panel, 0x0201, corner);
         SendMouse(panel, 0x0200, new Point(corner.X + 80, corner.Y + 20));
-        Assert.InRange(panel.Width, previousWidth + 79, previousWidth + 81);
+        Assert.InRange(panel.Width, (int)Math.Floor(previousWidth * (previousHeight + 20d) / previousHeight),
+            (int)Math.Ceiling(previousWidth * (previousHeight + 20d) / previousHeight) + 1);
         Assert.InRange(panel.Height, previousHeight + 20, previousHeight + 21);
         Assert.Equal(0, changes);
         SendMouse(panel, 0x0202, new Point(panel.Width - 3, panel.Height - 3));
         Assert.False(panel.Capture);
         Assert.Equal(1, changes);
-        Assert.InRange(settings.Current.AlertsOverlayScale, 1.2, 1.4);
+        Assert.Equal((previousHeight + 20d) / previousHeight, settings.Current.AlertsOverlayScale, 3);
         Assert.InRange(settings.Current.AlertsOverlayWidth, AlertsOverlayForm.MinimumWidth, AlertsOverlayForm.MaximumWidth);
         var finalSize = panel.Size;
         RefreshPanel(panel);
@@ -340,6 +355,20 @@ public sealed class AlertsOverlayTests : IDisposable
         SendMouse(panel, 0x0201, new Point(panel.Width - 3, panel.Height - 3));
         Assert.False(panel.Capture);
         Assert.Equal(1, changes);
+    });
+
+    [Fact]
+    public Task OnlyTheTimerStripUsesTheTransparentNativeLockStyle() => RunOnSta(() =>
+    {
+        using var alerts = Service();
+        var settings = new SettingsService();
+        using var strip = new AlertsOverlayForm(alerts, settings);
+        using var notifications = new AlertNotificationsForm(alerts, settings);
+        Assert.Equal(OverlayLockButtonStyle.TimerStrip, LockButton(strip).Style);
+        Assert.Equal(OverlayLockButtonStyle.Default, LockButton(notifications).Style);
+        using var otherTarget = new Form();
+        using var defaultButton = new OverlayLockButton(otherTarget);
+        Assert.Equal(OverlayLockButtonStyle.Default, defaultButton.Style);
     });
 
     private AlertsService Service(bool withRow = false)
@@ -358,7 +387,7 @@ public sealed class AlertsOverlayTests : IDisposable
     {
         var bitmap = new Bitmap(AlertsOverlayForm.PanelWidth, AlertsOverlayForm.LogicalHeight(rows.Count));
         using var graphics = Graphics.FromImage(bitmap);
-        AlertsOverlayForm.PaintPanel(graphics, rows, now ?? Now, locked: true);
+        AlertsOverlayForm.PaintNotifications(graphics, rows, now ?? Now, locked: true);
         return bitmap;
     }
 

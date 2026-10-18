@@ -605,7 +605,7 @@ public sealed class AlertsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ConfirmedScheduleDeliversLeadAfterMinutesAndOnlyItsOwnGapInvalidatesIt()
+    public async Task SourceGapInvalidatesCountdownAuthorityButKeepsAnAlreadyDeliveredFixedReminder()
     {
         await using var fixture = new BossFixture(_folder, _time);
         using var service = new AlertsService(StorePath, _time, bosses: fixture.Bosses, settings: fixture.Settings);
@@ -627,9 +627,9 @@ public sealed class AlertsServiceTests : IDisposable
         fixture.Network.ProcessProgressGap("fixture");
         Assert.True(Assert.Single(fixture.Bosses.Schedule).Cached);
         Assert.True(Assert.Single(service.CountdownRows).Provisional);
-        Assert.Empty(fixture.Bosses.Alerts);
-        Assert.Empty(service.NotificationRows);
-        Assert.Empty(service.Active);
+        Assert.Single(fixture.Bosses.Alerts);
+        Assert.Single(service.NotificationRows);
+        Assert.Single(service.Active);
         fixture.ClockMessage();
         Assert.True(Assert.Single(fixture.Bosses.Schedule).Cached);
         fixture.Upcoming(60);
@@ -693,7 +693,7 @@ public sealed class AlertsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task BossWarningDoesNotExpandItsConfiguredOverlayWindow()
+    public async Task BossReminderBannerIsIndependentOfItsLegacyCountdownWindow()
     {
         await using var fixture = new BossFixture(_folder, _time);
         fixture.Settings.Current.BossAlertLeadSeconds = 3600;
@@ -702,9 +702,11 @@ public sealed class AlertsServiceTests : IDisposable
         Assert.True(service.SetBossPresentation("1110:111001", new() { OverlayLeadMinutes = 1, PlaySound = true }));
         fixture.Upcoming(600);
         var warning = Assert.Single(service.Active);
-        Assert.False(warning.ShowOverlay);
+        Assert.True(warning.ShowOverlay);
         Assert.True(warning.PlaySound);
-        Assert.Empty(service.OverlayRows);
+        Assert.Single(service.NotificationRows);
+        Assert.Single(service.OverlayRows);
+        Assert.Empty(service.CountdownRows);
     }
 
     [Fact]

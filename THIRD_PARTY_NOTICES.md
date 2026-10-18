@@ -32,6 +32,10 @@ Bildvergleich und den Erkennungstests. Spielgrafik © NCSOFT; keine freie Grafik
   Zielpositionen und (seit 2026-10-07) die Spawnpunkte der Monster von „Defeat …“-Aufgaben.
 - Npcap wird nicht mitgeliefert. Das Setup lädt auf Wunsch den offiziellen Installer von npcap.com
   (Version und SHA-256 fest im Setup); seine Lizenz zeigt der Npcap-Installer selbst.
+- DPS-Faktkatalog (2026-10-17): exakte NPC-/Map-IDs und EN/DE-Namen aus den lokal gesicherten
+  statischen `.d.json`-Dateien für Auldor/Krao. Kleine Faktentabelle mit Quellenreferenzen/Hashes,
+  keine fremde Meterimplementierung, Positionen oder Rohdatensätze. Rollen-/Endbelege stammen
+  getrennt aus eigenen passiven Beobachtungen. Die App lädt keine Katalogdaten aus dem Netz.
 - Verwendet: Kartenkacheln, Monster- und Objektpositionen, Kibelisk- und Ortsnamen, Pet-Porträts,
   englische/deutsche Namen, Soul-Beute. Faktenbelege je Zuordnung in `data/pets/soul-sources.json`.
 - Spielgrafiken und Spielinhalte © NCSOFT. Keine freie Grafiklizenz behauptet; die Erlaubnis von
@@ -66,3 +70,20 @@ Repositorys.
 | Soul-Beute der Abyss-Monster von aion2.gaming.tools (`data/pets/abyss-soul-sources.json`) | Faktendaten, Quelle je Eintrag | Monster → Pet auf den Abyss-Karten |
 
 Lizenztexte werden mit der jeweiligen Komponente unter `licenses/` abgelegt (Muster: Grindcrest).
+
+## AION2-Event-Symbole (2026-10-18)
+
+Vom Nutzer bereitgestellte Event-Symbole sowie
+ein auf Nutzerwunsch freigestelltes und mit Imagegen aufbereitetes Dimensional-Invasion-Symbol
+aus einem Screenshot werden lokal gebündelt. Shugo nutzt das ESC-Menüsymbol, Rift das
+Weltkartensymbol; das Siege-Symbol stammt aus der Abyss-Artifact-Familie. Spielgrafik © NCSOFT;
+keine freie Grafiklizenz behauptet. Die Invasion-Ableitung ist kein unverändertes Originalsymbol. Dateinamen
+und SHA-256-Werte: `src/Soulcrest.App/wwwroot/icons/events/SOURCE.md`. Kein Laufzeitdownload.
+
+## Noto Sans Bold – Schrift der Timer-Leiste
+
+Noto Sans Bold 2.015, Copyright 2022 The Noto Project Authors, wird unverändert unter der SIL
+Open Font License 1.1 lokal für Timer-Leiste und Menüvorschau mitgeliefert. Font, vollständige
+Lizenz und Quellenangaben: `src/Soulcrest.App/wwwroot/fonts/timer/`. Keine Font-Abfragen im Netz.
+Die zusätzlichen Reset-/Timer-/Boss-Ersatzsymbole sind eigene Soulcrest-Grafiken; vorhandene
+Original-Event- und Kartenporträts behalten ihre zuvor dokumentierte Herkunft.

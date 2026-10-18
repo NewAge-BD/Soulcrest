@@ -109,6 +109,26 @@ public sealed class BossAlertTests
         Assert.True(Assert.Single(policy.Evaluate(elapsed with { Bosses = [new(111001, true, Now + 600000)], Age = TimeSpan.Zero }, selected, 60)).Spawned);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnknownTimeNeverChoosesANextBossResolvesALeadOrConsumesAnAlertCycle(bool unknownSpawned)
+    {
+        var policy = new BossAlertPolicy();
+        var selected = new HashSet<string> { "20:2001", "20:2002" };
+        var snapshot = new BossRushSnapshot(20,
+            [new(2002, unknownSpawned, null), new(2001, false, Now + 10000)], Now, TimeSpan.Zero);
+        var resolved = new List<string>();
+        var trigger = Assert.Single(policy.Evaluate(snapshot, selected, key => { resolved.Add(key); return 60; }));
+        Assert.Equal(2001, trigger.Boss.SpawnId);
+        Assert.False(trigger.Spawned);
+        Assert.Equal(new[] { "20:2001" }, resolved);
+        Assert.Equal(2001, snapshot.Next!.SpawnId);
+        var announced = snapshot with { Bosses = [new(2002, false, Now + 20000), new(2001, false, Now + 10000)] };
+        Assert.Equal(2002, Assert.Single(policy.Evaluate(announced, selected, 60)).Boss.SpawnId);
+        Assert.Empty(policy.Evaluate(announced, selected, 60));
+    }
+
     [Fact]
     public void SimultaneousBossesKeepTheirOwnAlertsInSpawnOrder()
     {

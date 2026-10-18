@@ -275,3 +275,8 @@
 
 .alert-sound-choices > button.selected { color: var(--alert-color, var(--accent)); border-color: color-mix(in srgb, var(--alert-color, var(--accent)) 65%, var(--line)); background: color-mix(in srgb, var(--alert-color, var(--accent)) 10%, var(--bg)); }
 .alert-sound-choices > button:hover { border-color: var(--alert-color, var(--accent)); }
+
+/* Shared local artwork for event cards, reset details and timeline labels. */
+.event-dashboard .event-symbol > img, .event-detail-panel .event-symbol > img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.event-reset-icon { display: block; flex: none; width: 25px; height: 25px; object-fit: contain; }
+.event-timeline-label > img { display: block; flex: none; width: 20px; height: 20px; object-fit: contain; }

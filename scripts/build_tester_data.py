@@ -104,17 +104,9 @@ def read_tile_pack(path):
 def write_tiles(path, directory):
     metadata, entries = read_tile_pack(path)
     directory.mkdir(parents=True, exist_ok=True)
+    # Separate layout prevents stale 256 px tiles from an older package being mixed in.
     for z, x, y, encoded in entries:
-        image = cv2.imdecode(np.frombuffer(encoded, dtype=np.uint8), cv2.IMREAD_COLOR)
-        # 512 px source tiles become four 256 px tiles at z+1, retaining all detail.
-        for dx in range(2):
-            for dy in range(2):
-                tile = image[dy*256:(dy+1)*256, dx*256:(dx+1)*256]
-                cv2.imwrite(str(directory / f'{z+1}_{2*x+dx}_{2*y+dy}.webp'), tile,
-                            [cv2.IMWRITE_WEBP_QUALITY, 101])
-        if z == 0:
-            cv2.imwrite(str(directory / '0_0_0.webp'), cv2.resize(image, (256, 256), interpolation=cv2.INTER_AREA),
-                        [cv2.IMWRITE_WEBP_QUALITY, 101])
+        (directory / f'{z+1}_{x}_{y}.webp').write_bytes(encoded)
     return metadata
 
 
@@ -258,6 +250,86 @@ def boss_loot(npc_id, icons):
     return list(pool.values())
 
 
+# User-confirmed Global/EU calendar (2026-10-18), independently checked against the
+# seven exact cached Lower Reshanta spawn/schedule identities. This is not a generic
+# timezone claim for cache schedules and must never promote another map or changed rule.
+_LOWER_BOSS_CALENDARS = {
+    2002: ('2600089', '1006', '01:00', 180, ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')),
+    2003: ('2600084', '1013', '21:00', None, ('friday', 'sunday')),
+    2004: ('2600093', '1014', '21:00', None, ('friday', 'sunday')),
+    2005: ('2600094', '1015', '21:00', None, ('friday', 'sunday')),
+    2006: ('2600096', '1018', '21:30', None, ('monday', 'thursday', 'saturday')),
+    2007: ('2600097', '1019', '21:30', None, ('monday', 'thursday', 'saturday')),
+    2008: ('2600098', '1020', '21:30', None, ('monday', 'thursday', 'saturday')),
+}
+_CALENDAR_WEEKDAYS = {'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
+                      'thursday': 4, 'friday': 5, 'saturday': 6}
+
+
+def boss_calendar_schedule(map_details, spawn_id, npc_id):
+    """Only exact approved Lower rules become EU calendar metadata; unknown stays absent."""
+    if str(map_details.get('id')) != '20' or spawn_id not in _LOWER_BOSS_CALENDARS:
+        return None
+    expected_npc, schedule_id, start, cycle, weekdays = _LOWER_BOSS_CALENDARS[spawn_id]
+    if str(npc_id) != expected_npc:
+        return None
+    matches = [spawn for spawn in map_details.get('namedSpawns', [])
+               if isinstance(spawn, dict) and str(spawn.get('id')) == str(spawn_id)]
+    if len(matches) != 1 or not isinstance(matches[0].get('npc'), dict) or str(matches[0]['npc'].get('id')) != expected_npc:
+        return None
+    schedule = matches[0].get('schedule')
+    expected = {'id': schedule_id, 'timeOfDay': start, 'weekdays': list(weekdays), 'timezoneVerified': False}
+    if cycle is not None:
+        expected['cycleMinutes'] = cycle
+    # The source's false flag is preserved, not globally upgraded. Unknown additions or
+    # a changed signature require fresh evidence, even when a name or schedule ID matches.
+    if not isinstance(schedule, dict) or schedule.keys() != expected.keys() or any(
+            type(schedule[key]) is not type(value) or schedule[key] != value for key, value in expected.items()):
+        return None
+    if cycle is None:
+        times = [start]
+    else:
+        hour, minute = map(int, start.split(':'))
+        times = [f'{value // 60:02}:{value % 60:02}' for value in range(hour * 60 + minute, 1440, cycle)]
+    return {'kind': 2, 'timeZoneId': 'Europe/Berlin', 'times': [time + ':00' for time in times],
+            'weekdays': sorted(_CALENDAR_WEEKDAYS[day] for day in weekdays)}
+
+
+def build_bosses(points, translated_points, map_details, config, size, icons):
+    """Keep exact named-spawn identities even when their published position is ambiguous."""
+    # Network lists identify named spawns, not NPCs. Several spawn IDs for one NPC cannot be joined.
+    spawn_refs = collections.defaultdict(set)
+    for spawn in map_details.get('namedSpawns', []):
+        spawn_refs[str(spawn['npc']['id'])].add(int(spawn['id']))
+    spawn_ids = {npc: next(iter(ids)) for npc, ids in spawn_refs.items() if len(ids) == 1}
+    grouped = collections.defaultdict(list)
+    for point in points:
+        spawn_id = spawn_ids.get(str(point.get('entity', {}).get('id')))
+        if 'boss' in point.get('types', []) and spawn_id is not None:
+            grouped[spawn_id].append(point)
+    bosses = []
+    logical_scale = size / (512*2**config['maximumZoom'])
+    for spawn_id, placements in grouped.items():
+        point = placements[0]
+        entity = point['entity']
+        translated = translated_points.get(point['id'], {}).get('entity', {})
+        positions = {(p['x'], p['y']) for p in placements}
+        x = y = None
+        if len(positions) == 1:
+            px, py = to_pixel(config, *next(iter(positions)))
+            x, y = round(px*logical_scale, 3), round(py*logical_scale, 3)
+        # A multi-position spawn remains selectable, but must never acquire an arbitrary route target.
+        boss = {'spawnId': spawn_id, 'npcId': int(entity['id']),
+            'en': entity['name'], 'de': translated.get('name'), 'x': x, 'y': y,
+            'icon': icons.get(entity.get('iconPath')), 'loot': boss_loot(entity['id'], icons),
+            'sourceRefs': ['https://aion2.gaming.tools/npcs/' + entity['id']]}
+        calendar = boss_calendar_schedule(map_details, spawn_id, entity['id'])
+        if calendar is not None:
+            boss['calendarSchedule'] = calendar
+        bosses.append(boss)
+    return bosses
+
+
 def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
     en, de = data('interactive-map', mid), data('interactive-map', mid, 'de')
     map_details = data('maps', mid)
@@ -321,29 +393,9 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
                    de_entities.get(entity.get('id'), {}).get('name'), kind_icon, pet=pet,
                    extra={'npcId': entity.get('id'), 'derivedFrom': row.get('derivedFrom')} if row else None)
     name_kibelisks_by_village(payload)
-    # Network boss lists use named-spawn IDs, not NPC IDs. Join only by the source's exact entity ID.
-    spawn_refs = collections.defaultdict(set)
-    for spawn in map_details.get('namedSpawns', []):
-        spawn_refs[str(spawn['npc']['id'])].add(int(spawn['id']))
-    spawn_ids = {npc: next(iter(ids)) for npc, ids in spawn_refs.items() if len(ids) == 1}
-    payload['bosses'] = []
-    for point in en['points']:
-        entity = point.get('entity', {})
-        spawn_id = spawn_ids.get(str(entity.get('id')))
-        if 'boss' not in point.get('types', []) or spawn_id is None:
-            continue
-        translated = de_points.get(point['id'], {}).get('entity', {})
-        px, py = to_pixel(definition['map'], point['x'], point['y'])
-        logical_scale = payload['size'] / (512*2**definition['map']['maximumZoom'])
-        payload['bosses'].append({'spawnId': spawn_id, 'npcId': int(entity['id']),
-            'en': entity['name'], 'de': translated.get('name'),
-            'x': round(px*logical_scale, 3), 'y': round(py*logical_scale, 3),
-            'icon': icons.get(entity.get('iconPath')), 'loot': boss_loot(entity['id'], icons),
-            'sourceRefs': ['https://aion2.gaming.tools/npcs/' + entity['id']]})
+    payload['bosses'] = build_bosses(en['points'], de_points, map_details,
+                                    definition['map'], payload['size'], icons)
     payload['sourceMapId'] = int(mid)
-    # A spawn with several published positions is ambiguous. Never pick an arbitrary location.
-    boss_counts = collections.Counter(b['spawnId'] for b in payload['bosses'])
-    payload['bosses'] = [b for b in payload['bosses'] if boss_counts[b['spawnId']] == 1]
     add_pet_source_markers(payload, pets, cluster=0.03)
     # User request 2026-10-17: verified own client pools, bound to the unchanged source markers.
     if apply_hidden_cube_groups is not None:
@@ -371,8 +423,10 @@ def main():
         if mid not in MAPS: continue
         payload=build_map(mid,definition,icons,pets,numeric,sources)
         directory=args.out/MAPS[mid]; directory.mkdir(parents=True,exist_ok=True)
+        if args.skip_tiles and not (directory/'tiles512/1_0_0.webp').exists():
+            raise ValueError('Rebuild tiles once before using --skip-tiles: ' + str(directory))
         if not args.skip_tiles:
-            write_tiles(GAMINGTOOLS/'cdn'/definition['map']['tilePackPath'].lstrip('/'),directory/'tiles')
+            write_tiles(GAMINGTOOLS/'cdn'/definition['map']['tilePackPath'].lstrip('/'),directory/'tiles512')
         # Loot is only needed by Boss Rush. Keep it out of Leaflet/tracking's frequently read map file.
         map_payload = {**payload, 'bosses': [{k: v for k, v in boss.items() if k != 'loot'} for boss in payload['bosses']]}
         (directory/'data.js').write_text('window.SoulcrestMaps = window.SoulcrestMaps || {};\nwindow.SoulcrestMaps['+
@@ -381,7 +435,7 @@ def main():
             ensure_ascii=False, indent=1), encoding='utf-8')
         manifest['maps'].append({'id':MAPS[mid],'label':german_maps.get(mid,definition)['name'],
             'group':{'elyos':'Elyos','asmodians':'Asmodier','asmodian':'Asmodier','abyss':'Abyss'}.get(definition['group'],definition['groupName']),
-            'tiles':MAPS[mid]+'/tiles/{z}_{x}_{y}.webp','maxNativeZoom':definition['map']['maximumZoom']+1,
+            'tiles':MAPS[mid]+'/tiles512/{z}_{x}_{y}.webp','tileSize':512,'minNativeZoom':1,'maxNativeZoom':definition['map']['maximumZoom']+1,
             'refZoom':payload['refZoom'],'size':payload['size'],'minZoom':0,'maxZoom':payload['refZoom']+2,
             'attribution':ATTRIBUTION,
             'sourceMapId':mid,'calibrationResidualPixels':definition['map'].get('calibrationResidualPixels'),
@@ -400,6 +454,14 @@ def main():
         from build_quest_objectives import build as build_quest_objectives
         summary = build_quest_objectives(ROOT, load_json(stations), args.out)
         print('Quest monster stations', summary['stations'], 'spawn markers', summary['spawnMarkers'], flush=True)
+    # Remove only the recognized generated legacy tile layout after a successful build.
+    # Cached original imports and unrelated files are never cleanup candidates.
+    for map_id in MAPS.values():
+        legacy = args.out / map_id / 'tiles'
+        if legacy.is_dir() and not legacy.is_symlink():
+            files = list(legacy.iterdir())
+            if all(f.is_file() and not f.is_symlink() and re.fullmatch(r'\d+_\d+_\d+\.webp', f.name) for f in files):
+                shutil.rmtree(legacy)
     print('Pets',len(pets),'soul sources',len(sources),'conflicts',len(conflicts),flush=True)
 
 if __name__ == '__main__': main()

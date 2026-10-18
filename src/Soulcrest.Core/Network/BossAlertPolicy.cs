@@ -21,11 +21,12 @@ public sealed class BossAlertPolicy
         var alerts = new List<BossAlertTrigger>();
         foreach (var boss in snapshot.Bosses.OrderBy(b => b.SpawnUnixMs).ThenBy(b => b.SpawnId))
         {
+            if (boss.SpawnUnixMs is not { } at) continue; // No cycle, lead window or confirmed-spawn alert.
             var bossKey = $"{snapshot.MapId}:{boss.SpawnId}";
             if (!selected.Contains(bossKey) || leadSecondsFor(bossKey) is not { } leadSeconds) continue;
-            var remaining = boss.SpawnUnixMs - snapshot.ServerUnixMs;
+            var remaining = at - snapshot.ServerUnixMs;
             if (!boss.Spawned && (remaining <= 0 || remaining > Math.Clamp(leadSeconds, 0, 3600) * 1000L)) continue;
-            var key = (snapshot.MapId, boss.SpawnId, boss.SpawnUnixMs, boss.Spawned);
+            var key = (snapshot.MapId, boss.SpawnId, at, boss.Spawned);
             if (!_seen.Add(key)) continue;
             _history.Enqueue(key);
             while (_history.Count > 1024) _seen.Remove(_history.Dequeue());

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Soulcrest.App.Network;
 using Soulcrest.Core.Network;
 using Soulcrest.Core.Pets;
@@ -26,7 +27,7 @@ public sealed record MerchantSnapshot
 }
 
 public sealed record MerchantCounterRow(int SlotIndex, string PetId, string Counter, bool IsFresh, bool IsMax,
-    string FarmRegions = "");
+    string FarmRegions = "", string PetCategory = "", string FarmSpawns = "");
 
 /// <summary>Ephemeral, paired merchant lists projected onto the global pet collection.</summary>
 public sealed class MerchantService : IDisposable
@@ -82,11 +83,44 @@ public sealed class MerchantService : IDisposable
                     PetIdTable.Find(number)?.CatalogId is not { } petId) continue;
                 var counter = _progress.ReadMerchantCounter(petId);
                 rows.Add(new(slot, petId, counter.Counter, counter.IsFresh, counter.IsMax,
-                    PetFarmRegions.Find(number) is { } regions ? string.Join(" / ", regions) : "?"));
+                    PetFarmRegions.Find(number) is { } regions ? string.Join(" / ", regions) : "?",
+                    PetCategory(number), FarmSpawnText(number, _progress.Catalog, _progress.Maps)));
             }
             lock (_gate)
                 return !_disposed && ReferenceEquals(snapshot, _snapshot) ? rows.AsReadOnly() : [];
         }
+    }
+
+    /// <summary>The sourced pet genus, independent of its farm classification or the merchant tab.</summary>
+    internal static string PetCategory(int petNumber) => PetIdTable.Find(petNumber)?.Genus.ToLowerInvariant() switch
+    {
+        "cogni" => "Cogni",
+        "fera" => "Fera",
+        "natura" => "Natura",
+        "varian" => "Varian",
+        _ => "?"
+    };
+
+    /// <summary>Known source-monster placements, never the clustered pet symbols or a live population.</summary>
+    internal static string FarmSpawnText(int petNumber, PetCatalog catalog, IReadOnlyList<MapInfo> maps)
+    {
+        if (PetFarmRegions.Find(petNumber) is not { } regions) return "?";
+        var pet = PetIdTable.Find(petNumber)?.CatalogId is { } id ? catalog.Find(id) : null;
+        // Older/no-manifest packages can still carry these exact established map IDs. A present
+        // manifest is authoritative: do not guess a region from an unknown map's name or prefix.
+        var abyssMaps = (maps.Count == 0
+            ? new[] { "abyss-reshanta-a", "chaotic-middle-reshanta", "chaotic-upper-reshanta" }
+            : maps.Where(map => map.Group == "Abyss").Select(map => map.Id))
+            .ToHashSet(StringComparer.Ordinal);
+        return string.Join(" / ", regions.Select(region =>
+        {
+            if (region == "Special") return region;
+            var count = pet?.Monsters.Where(pair => pair.Value > 0 && (region == "Abyss"
+                    ? abyssMaps.Contains(pair.Key)
+                    : string.Equals(pair.Key, region.ToLowerInvariant(), StringComparison.Ordinal)))
+                .Sum(pair => (long)pair.Value) ?? 0;
+            return region + " (" + (count > 0 ? count.ToString(CultureInfo.InvariantCulture) : "?") + ")";
+        }));
     }
 
     private void OnMessage(MerchantNetworkMessage message)

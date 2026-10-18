@@ -97,26 +97,26 @@ public sealed class BossRushViewTests
             Assert.Contains("<dl class=\"boss-dashboard-summary\">", html);
             Assert.Matches("boss-dashboard-stat spawned[\\s\\S]*?<dd>2</dd>", html);
             Assert.Matches("boss-dashboard-stat upcoming[\\s\\S]*?<dd>1</dd>", html);
-            Assert.DoesNotContain("open", Element(markup, "details", "boss-loot-catalog"));
-            Assert.Contains("<summary class=\"boss-loot-header\">", html);
-            Assert.Contains("id=\"boss-loot-map\"", html);
-            Assert.Contains("id=\"boss-loot-search\"", html);
+            Assert.DoesNotContain("boss-loot-", html);
             Assert.Contains("boss-overlay-help", html);
-            Assert.Contains("boss-alert-help", html);
             Assert.DoesNotContain("boss-quick-stats", html);
             Assert.Contains("boss-timer-card", html);
             Assert.Contains("event-boss-live boss-timers-compact", html);
-            Assert.Equal(3, Regex.Matches(html, "class=\"boss-timer-overview\"").Count);
+            Assert.Equal(4, Regex.Matches(html, "class=\"boss-timer-overview\"").Count);
             var compactOptions = Regex.Matches(html, "<details class=\"boss-timer-options\"[^>]*>");
-            Assert.Equal(3, compactOptions.Count);
+            Assert.Equal(4, compactOptions.Count);
             Assert.All(compactOptions.Cast<Match>(), option => Assert.DoesNotContain("open", option.Value));
             Assert.Contains("data-boss=\"1110:111003\" data-selected=\"false\"", html);
+            Assert.Contains("data-boss=\"1110:111004\" data-selected=\"false\"", html); // Uncaptured catalogue bosses remain selectable after the separate card is removed.
+            Assert.Contains("boss-timer-search", html);
+            Assert.DoesNotContain("boss-alert-card", html);
+            Assert.Single(Regex.Matches(html, "data-boss-alerts-master"));
+            Assert.True(html.IndexOf("data-boss-alerts-master", StringComparison.Ordinal) > html.IndexOf("data-boss-list", StringComparison.Ordinal));
             Assert.Contains(language == "de" ? "Für Erinnerungen auswählen" : "Select for reminders", html);
             Assert.DoesNotContain("boss-upcoming-schedule", html);
             Assert.Contains(spawned, html);
             Assert.Contains(name, html);
             Assert.Contains(language == "de" ? "Spawn-Overlay" : "Spawn overlay", html);
-            Assert.Contains(language == "de" ? "Boss-Alerts" : "Boss alerts", html);
             Assert.Contains("<kbd>Alt</kbd>", html);
             Assert.Contains(language == "de" ? "Nach dem Loslassen sind sie wieder klickdurchlässig." : "Release to let clicks pass through again.", html);
             Assert.DoesNotContain(language == "de" ? "Overlay sperren" : "Lock overlay", html);
@@ -154,11 +154,9 @@ public sealed class BossRushViewTests
             var pausedHtml = System.Net.WebUtility.HtmlDecode(pausedMarkup);
             Assert.DoesNotContain("checked", Element(pausedMap, "input", "boss-rush-toggle"));
             Assert.DoesNotContain("checked", Element(pausedMarkup, "input", "boss-rush-mode"));
-            Assert.Contains("checked", Element(pausedMarkup, "input", "boss-alerts-toggle"));
-            Assert.DoesNotContain("disabled", Element(pausedMarkup, "button", "boss-alert-test"));
+            Assert.Contains("checked", Regex.Match(pausedMarkup, "<input[^>]*data-boss-alerts-master[^>]*>").Value);
             Assert.Contains(language == "de" ? "Boss Rush pausiert" : "Boss Rush paused", pausedHtml);
             Assert.Contains(language == "de" ? "Aktivierte Boss-Alerts bleiben eingeschaltet." : "Enabled boss alerts stay on.", pausedHtml);
-            Assert.Contains(language == "de" ? "auch bei ausgeschaltetem Boss Rush Mode" : "also work with Boss Rush Mode off", pausedHtml);
             Assert.True(settings.Current.BossOverlayEnabled);
             await ShowMap(renderer, mapView);
             AssertBossTimerPayload(js, "altgard", rush.Schedule); // Guidance off retains the known schedule on the map.

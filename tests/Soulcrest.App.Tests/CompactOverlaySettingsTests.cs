@@ -21,6 +21,7 @@ public sealed class CompactOverlaySettingsTests : IDisposable
         File.Delete(AppPaths.SettingsFile);
         var current = new SettingsService().Current;
         Assert.Equal(4, current.SettingsRevision);
+        Assert.Equal((104, 36), (current.AlertsOverlayX, current.AlertsOverlayY));
         Assert.Equal(340, current.AlertsOverlayWidth);
         Assert.Equal(720, current.EventTimelineOverlayWidth);
         Assert.Equal(340, current.AlertNotificationsWidth);

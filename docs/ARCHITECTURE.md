@@ -80,9 +80,11 @@ dedupliziert Auslösungen in einem atomaren Schema-1-Store `alerts.json`. Die Uh
 Boss-Hinweise konsumieren die vorhandenen `BossRushService.Alerts` einschließlich stabiler
 Karte/Spawn-ID; die vorhandene BossAlertPolicy bleibt die einzige Spawn-Triggerquelle.
 
-`AlertsView` und wiederverwendete `BossAlertsSettings` verwalten Zeitplan und individuelle
-Ausgaben. `AlertsOverlayForm` zeichnet die sichtbaren Countdowns ohne Fokuswechsel und übernimmt
-Schloss, Alt, Capture-Sichtbarkeit und Menü-/Minimap-Unterdrückung. Ton läuft im MainForm über
+`AlertsView` verwaltet Zeitpläne; die gemeinsame `LiveBossTimers`-Liste integriert die individuellen
+Boss-Erinnerungen und Anzeigedauern. Die separate Boss-Alerts-Kachel ist entfernt. `AlertsOverlayForm` zeichnet die sichtbaren Countdowns ohne Fokuswechsel und übernimmt
+Schloss, Alt und Capture-Sichtbarkeit. `TimerOverlayVisibility` wertet ausschließlich für diese
+Leiste die positiven AppSettings-Freigaben für Weltkarte, Menü und Instanzen aus den vorhandenen
+Trackingzuständen aus. Ohne laufendes Tracking gibt es keine Kontextunterdrückung. Ton läuft im MainForm über
 `NoticeRaised` unabhängig von Rendern und Sichtbarkeit. Das Boss-Rush-Overlay zeichnet im Host
 nur noch seine Liste; es erzeugt keine zweite Alarmanzeige. Einstellungen und Vorschau stehen im Alerts-Tab.
 
@@ -92,18 +94,56 @@ Vorkommen für die Zeitachse. `AlertsService.EventTimers` ist unabhängig von ak
 Stabile `catalog:<id>`-Erinnerungen nutzen denselben Scheduler; optionale `EventPresentation`-Werte
 in Schema 1 steuern die native Anzeige getrennt. Katalogpläne bleiben fest, eigene Alerts editierbar.
 Der native Countdown kann mittels `CountdownLabel` auf Portal-/Eventende zeigen; bestätigte
-Bossmeldungen behalten ihre bisherige Darstellung. Dashboard und erfasste Bosskarten sind getrennt.
+Bossmeldungen behalten ihre bisherige Darstellung. Dashboard und erfasste Bosskarten sind getrennt. Im Workspace stehen die vier Events als
+unabhängig aufklappbare Zeilen mit gemeinsamen lokalen Icons und eingebetteten `EventTimerDetails`.
 
-`CountdownRows` enthält ausschließlich HUD-Zeilen. `NotificationRows` enthält zeitlich aktive
+`TimerOverlayRows` ist seit 2026-10-18 die unabhängige Projektion für die neue native Timer-Leiste.
+`TimerOverlayChoices` liefert stabile Schlüssel, Auswahl, Icon-ID und Verfügbarkeit. Eine explizite
+`TimerOverlayTimerIds`-Liste in AppSettings ersetzt die alte Widget-Auswahl ausschließlich für
+die Leiste; `null` übernimmt alte Präferenzen, `[]` bleibt leer. `TimerOverlayPresentation` formatiert
+den gemeinsamen nativen/Razor-Countdown. `EventTimerDisplay` projiziert Rift ausschließlich auf
+die zehnminütige Öffnung und anschließend den nächsten Start. Tab, Kartenliste und native Leiste
+verwenden dieselbe Projektion; `EventWindows`, Kalenderdauer und Reminder bleiben unverändert.
+Der optionale `AlertDisplayRow.InlineLabel` reserviert während der Öffnung einen eigenen Namensslot
+neben dem Icon, unabhängig vom festen Countdownslot. Die frühere globale Vorfensteroption wird
+beim Laden auf 0 zurückgesetzt. `TimerStripRenderer` zeichnet 28-px-Originalicons und
+18-px-Noto-Sans-Bold-Text in 32-px-Zeilen auf eine echte Alpha-Fläche ohne Hintergrund.
+`TimerOverlayIcons` löst gemeinsame Symbol-IDs auf gebündelte Dateien oder validierte lokale
+Kartenpfade auf. `TimerIconCache` lädt abgelöste Bilder, gibt sie mit dem Fenster frei und merkt sich
+fehlende Bilder nicht dauerhaft. Die Menüvorschau nutzt den bestehenden lokalen Karten-VirtualHost.
+`TimerStripTypeface` lädt die mitgelieferte Schrift privat; installierte Fonts sind nicht nötig. Automatischer Umbruch statt fester Breite;
+die Nutzerskalierung wirkt genau einmal. `CountdownRows` bleibt als Kompatibilitätsprojektion.
+
+`NotificationRows` enthält zeitlich aktive
 Banner unabhängig von Minimap-/Menü-Unterdrückung. `AlertNotificationsForm` zeichnet diese in einem
-separaten, immer klickdurchlässigen Fenster an der Timer-Position. `AlertsOverlayForm` bleibt das
+separaten Fenster mit eigener gespeicherter Position; gesperrt ist es klickdurchlässig. `AlertsOverlayForm` bleibt das
 ausblendbare, interaktive Timer-HUD. `AlertSoundPlayer` liefert asynchrone lokale MP3-Wiedergabe über
 Windows MediaPlayer, mit Dateiauswahl, Abbruch bei neuer Wiedergabe/Dispose und Systemton-Fallback.
 `SoundFile` ist ein optionales Schema-1-Feld; neue Laufzeit-Netzwerkzugriffe entstehen nicht.
 
 
-Boss-Timer verwenden in Alerts und Boss Rush dieselbe `LiveBossTimers`-Komponente. Individuelle
-`BossReminderPreference`-Overrides in AppSettings erben ohne Eintrag die globale Vorwarnzeit.
+Boss-Timer verwenden in Alerts und Boss Rush dieselbe durchsuchbare `LiveBossTimers`-Komponente
+mit vollständigem Katalog. Die reine UI-Sortierung trennt bestätigte Spawns, positive Countdowns
+und wartende/unbestätigte Einträge; Navigation und Quellenauswahl bleiben unverändert. Individuelle
+`BossReminderPreference`-Overrides in AppSettings steuern ausschließlich Enabled/LeadSeconds
+und erben ohne Eintrag die globale Vorwarnzeit. `BossAlertDurationSeconds` und
+`BossAlertUntilSpawn` gelten global für alle Boss-Erinnerungen, bedienbar über der Suche.
+Jeder ausgewählte aktive Reminder erzeugt eine sichtbare Notification ohne zusätzliche
+Banner-/Minutenfenster-Gates. Legacy-ShowOverlay/AlwaysShowOverlay/OverlayLeadMinutes bleiben
+für Store- und Timer-Leisten-Kompatibilität erhalten, beeinflussen jedoch echte Bossnotices und
+Tests nicht. Die UI bietet daher nur Vorwarnzeit und optionalen Ton. Bereits zulässig erzeugte
+feste Notices überstehen Map-/Streamwechsel bis Expires; Metadatenänderungen löschen sie nicht.
+Neue Cache-Warnungen bleiben durch die unveränderte Triggerpolicy ausgeschlossen.
+Der Bestätigungsmodus hält zulässig erzeugte Vorwarnungen auch bei Restzeit 0 sowie nach
+Karten-/Quellenwechseln. Nur eine neu akzeptierte, vollständig bekannte Liste mit explizitem
+Spawned für dieselbe Map-/Spawn-ID beendet einen Hold; Kalender, Cache und Timerablauf nicht.
+Manuelles Deaktivieren/Abwählen bleibt möglich. Geplanter Countdownzeitpunkt und Lebensdauer
+sind getrennt; AwaitingConfirmation zeigt im Banner den Wartezustand statt eines Spawnanspruchs.
+Tests und bestätigte Spawns behalten die globale feste Dauer. Bereits zugestellte Holds werden
+still abgeglichen; keine erneute Ausgabe bei Timer-/Metadatenänderungen. Die bisherige native
+Begrenzung auf sechs Zeilen mit Überlaufhinweis bleibt; Holds blockieren nicht die Quellqueue
+neuer Warnungen. Alte per-Boss-Dauerfelder werden beim JSON-Lesen ignoriert, ohne daraus einen
+globalen Modus zu erraten.
 `BossAlertPolicy` löst weiterhin allein aus; ein per-key Resolver kann einen Boss pausieren,
 ohne die Timerauswahl zu verändern. Queue- und AlertsService-Prüfungen verwerfen deaktivierte
 echte Hinweise. Bestehende Zyklusidentität und Cache-/Freshness-Grenzen bleiben maßgeblich.
@@ -121,3 +161,91 @@ Timeline. Revision 4 übernimmt beim ersten Laden die frühere gemeinsame HUD-Po
 für Banner; spätere Anpassungen bleiben unabhängig. Größenregler verwenden die physische Breite;
 Monitoranpassung ist vorübergehend. Native Resize/Drag speichert beim Abschluss. Details stehen
 in ALERTS.md; die Scheduler-/Deduplizierungslogik bleibt unverändert.
+
+## Combat-Datenfundament (2026-10-17, offline implementiert)
+
+Der DPS-Meter erhält eigene versionierte Verträge und deterministische Offlineprojektionen in
+`Soulcrest.Core/Combat`. Run → Boss/Versuch → historische Teilnehmer bildet die Struktur;
+Ereignisse erhalten monotone Kampfzeit, Capture-UTC, Sequenz und Quellgeneration. Rosteränderungen,
+Skills, Schaden, Heilung, Effekte, HP, Tode und Datenlücken bleiben als lokale Primärdaten erhalten.
+Aktuelle Fünferplätze werden nicht mit historischer Charakteridentität gleichgesetzt.
+
+`CombatHistoryStore` legt Metadaten, append-only Journale und einen rekonstruierbaren Index
+unter `AppPaths.DataDirectory/combat/` ab. Vergleiche und Zeitachsen werden daraus berechnet;
+keine zweite Statistikablage, keine Kampfdaten-Uploads. Schemafehler und Korruption werden
+ausdrücklich gemeldet. Aufbewahrung/Löschen arbeitet auf ganzen Runs, Favoriten und aktive Runs
+bleiben geschützt. Die ersten Bausteine werden offline mit synthetischen Ereignissen geprüft.
+
+Belegte Global/EU-Teildecoder in `Core/Network` lesen neutrale Treffer-/HP-/Party-/CP-/Effektformen
+über `CombatProtocolDecoder`. Trefferbeträge werden nicht ohne Schadens-/Heilungsnachweis in
+Domänenereignisse umgewandelt. Vorhandene Boss-Rush- oder Dungeonabschlussmeldungen behaupten
+weder einzelne Dungeonboss-Kills noch Schadens-/Buffsemantik.
+
+`NetworkLootService` stellt `INetworkCombatSource` aus derselben nativen Erfassung bereit.
+Capture-UTC (Freigabepaket), monotone Empfangszeit, Sequenz, opaker Stromtoken und Transportgeneration
+gelangen über eine begrenzte `NetworkCombatSubscription` an `CombatNetworkService`. Capturecallbacks
+kopieren/enqueuen nur; Decoder, Verbraucher und späterer Persistenzarbeiter laufen außerhalb der
+Capture-Sperre. Überlauf liefert auch ohne Folgepaket eine globale Grenze. Dateireplay verwendet
+denselben Transport; Datei- und Lesefehler dürfen keine scheinbar vollständige Messung ergeben.
+
+Der Worker veröffentlicht nur nach frischem Own plus bestätigter Gruppenmitgliedschaft und filtert
+Entity-Updates auf eigene Gruppe beziehungsweise explizit belegte Bossziele. Jede Autoritätsgrenze
+verwirft Roster/Bossziele; logische Kontextrevision schützt zusätzlich gegen alte Encounteradapter
+bei Gruppenwechsel innerhalb derselben TCP-Generation. `NetworkCaptureCoordinator` trennt Loot-
+und Combatbedarf. Pet-Stopp deaktiviert Fortschrittsanwendung, ohne eine aktive Combatquelle zu
+beenden. Quellaufrufe erfolgen außerhalb der Coordinator-Sperre, reentrante Bedarfwechsel werden
+erneut abgeglichen. Shutdown weckt Leser und verhindert einen verspäteten nativen Neustart.
+
+Noch offen: vollständige Schaden-/Heilungs-/Boss-/Instanz-/Kampfendsemantik und DPS-Oberflächen.
+Konservativer Runcontroller/Persistenzanschluss siehe unten; Beleggrenzen in `DPS_METER.md`.
+
+### Empirische Betragsemantik und Encounter-Wirebelege
+
+`CombatAmountClassifier` liefert Damage/Healing nur für explizit ausgewähltes Evidenzprofil und
+belegten Form-/Effektschlüssel, sonst Unknown. Die 15 eingebauten selbst gemessenen V3-Fakten sind
+ein unvollständiger empirischer Korpus mit unbekanntem Spielbuild; keine automatische Livefreigabe.
+Ein zukünftiger Normalisierer muss Qualität/fehlende Semantik bis zur Vergleichsfreigabe erhalten.
+
+`CombatEncounterMessage` ergänzt NPC-Appear/Gone, Entity-Death und MiddleBossReward. Der Worker
+veröffentlicht nach Own+Roster neutrale NPC-Entdeckung sowie gruppen-/zielgebundene Todesmeldungen
+und DungeonState/Result. Erscheinung/Verschwinden entwertet alte Bossbindungen. `TryParseWorld`
+erhält rohe Mapfelder aus dem vollständig geprüften Own; Zugriff benötigt aktuelle Kontextrevision.
+Keine Instanzidentität aus MapKey, kein Bossrang aus HP und kein Sieg aus Verschwinden/HP null.
+DungeonState-Zeitfenster sind keine Bosskampfzeit. Der folgende Controller verwendet explizite Belege.
+
+### Konservativer Runcontroller und lokale Schreibstrecke
+
+`CombatRunController` ist reine begrenzte Fachlogik mit expliziten Dungeon-/Roster-/Boss-/Endverträgen.
+Gemeinsame monotone Kampfzeit, separate Präsentationsuhr und UTC-Metadatenanker; Capture-UTC bleibt
+am Originalereignis. Resultate bleiben standardmäßig 60 s, ein neuer Pull ersetzt sie.
+Bekannte Instanz kann nach frischer Autorisierung fortgesetzt werden; unbekannte wird über Lücken
+getrennt. Wipe/Reset brauchen einen eigenen Beleg. Kontextverlust und Speichergrenzen unterbrechen.
+
+`CombatRunAdapter` verlangt einen geprüften Map-/Dungeon-/NPC-Join und getrennten Endbeleg.
+Vier konservative Auldor-/Krao-Zielregeln stammen aus dem eingebetteten geprüften Faktkatalog;
+Rollen und Endbelege bleiben von AmountScope, Entity-/Gruppenautorität und Instanzkennung getrennt.
+`CombatUnclassifiedAmountEvent` hält neutrale Beträge in der lokalen Zeitachse; empirische Teilprofile
+liefern keine vollständigen DPS-/HPS-Fähigkeiten oder Vergleichsfreigaben. Keine geratenen Besitzer.
+Entitylebenszeiten und Party-/Bosskonflikte werden in beiden Richtungen geprüft.
+
+`CombatRunService` konsumiert den bestehenden Worker, taktet Checkpoints und entkoppelt sie über
+`CombatHistoryWriter` vom seriellen Disk-I/O. Kompatible wartende Stände desselben Runs werden
+zusammengefasst, nicht begrenzt viele fremde Runs still verworfen. Faults sind explizit; mögliche
+Teilappends werden nie blind wiederholt. Store versiegelt abgeschlossene Journale gegen neue Events.
+Regulärer Shutdown wartet asynchron auf die angenommenen Schreibaufträge. Automatisches Recovery
+alter aktiver Runs/Teiljournale und echte Lastabnahme sind noch offen; Konstruktion startet keinen
+Mitschnitt und öffnet keine Historie. Alle Daten bleiben unter dem lokalen Combatdatenordner.
+
+### Versionierter Bossfaktkatalog
+
+`CombatEncounterCatalog` lädt `Soulcrest.CombatEncounters.json` ohne Datei-/Netzwerkfallback oder
+Öffnen der Quellenreferenzen. Begrenztes strenges Schema, eindeutige IDs/Quellen, gehashte Belege,
+defensive Sammlungen; unbekannte Namen/Rollen/Enden bleiben getrennt darstellbar.
+`GlobalEuCombatBossCatalog` leitet nur die vier freigegebenen Auldor-/Krao-Zielregeln ab. Die fünfte
+bekannte NPC-Zuordnung (Berk) ist weiterhin keine Laufzeitrolle. Keine fremde Variantenkonversion.
+
+Der separate Offline-Aufbereiter überprüft den aktiven CDN-Cache, exakte Variantendatensätze und
+Mapgegenlisten gegen ein eingefrorenes Rezept. Das Ergebnis enthält keine Positionen/Rohpakete.
+Ein einmaliger gezielter öffentlicher Daten-Nachimport ist Entwicklerarbeit; die App ruft nichts ab.
+Konstruktion gewährt kein Amountprofil. Runmetadaten entstehen erst beim bestätigten Pull, behalten
+aber den früher beobachteten Dungeonzeitanker. Kontext-/Ersatzentity-Grenzen widerrufen alte Belege.

@@ -42,12 +42,14 @@
                     {
                         <div class="alerts-boss-presentation">
                             <div class="alerts-boss-channels"><label class="check"><input type="checkbox" checked="@presentation.ShowOverlay" @onchange="@(e => SavePresentation(choice.Key, presentation with { ShowOverlay = (bool)e.Value! }))" />@UiText.T("Overlay-Banner anzeigen")</label><label class="check"><input type="checkbox" checked="@presentation.PlaySound" @onchange="@(e => SavePresentation(choice.Key, presentation with { PlaySound = (bool)e.Value! }))" />@UiText.T("Signalton abspielen")</label></div>
-                            @if (presentation.ShowOverlay)
-                            {
-                                <div class="alerts-boss-fields"><label class="boss-field">@UiText.T("Countdown im Overlay")<select value="@presentation.AlwaysShowOverlay.ToString()" @onchange="@(e => SavePresentation(choice.Key, presentation with { AlwaysShowOverlay = e.Value?.ToString() == bool.TrueString }))"><option value="False">@UiText.T("Nur vor dem Event")</option><option value="True">@UiText.T("Dauerhaft")</option></select></label>
-                                    @if (!presentation.AlwaysShowOverlay) { <label class="boss-field">@UiText.T("Countdown einblenden ab (Minuten vorher)")<input type="number" min="0" max="1440" value="@presentation.OverlayLeadMinutes" @onchange="@(e => SetOverlayLead(choice.Key, e))" /></label> }
-                                </div>
-                            }
+                @if (presentation.ShowOverlay)
+                {
+                    <div class="alerts-boss-fields"><label class="boss-field">@UiText.T("Bannerfenster")<select value="@presentation.AlwaysShowOverlay.ToString()" @onchange="@(e => SavePresentation(choice.Key, presentation with { AlwaysShowOverlay = e.Value?.ToString() == bool.TrueString }))"><option value="False">@UiText.T("Nur im Bannerfenster")</option><option value="True">@UiText.T("Zu jeder Erinnerung")</option></select></label>
+                        @if (!presentation.AlwaysShowOverlay) { <label class="boss-field">@UiText.T("Banner ab (Minuten vor Spawn)")<input type="number" min="0" max="1440" value="@presentation.OverlayLeadMinutes" @onchange="@(e => SetBannerLead(choice.Key, e))" /></label> }
+                        <InfoTip><p>@UiText.T("Das Bannerfenster begrenzt die Ausgabe deiner Boss-Erinnerung. Die Timer-Leiste hat eine eigene Auswahl und Sichtbarkeit.")</p></InfoTip>
+                    </div>
+                }
+                            <span class="timer-strip-settings-link">@UiText.T("Timer-Auswahl unter Timer-Leiste")</span>
                             @if (presentation.PlaySound) { <AlertSoundPicker Sound="@presentation.Sound" SoundFile="@presentation.SoundFile" Disabled="@(Busy || _presentationBusy)" Changed="@(selection => SetSound(choice.Key, selection))" /> }
                         </div>
                     }
@@ -123,7 +125,7 @@
     }
     private Task SetSound(string key, AlertSoundPicker.Selection selection) => SavePresentation(key,
         (_presentations.GetValueOrDefault(key) ?? new BossAlertPresentation()) with { Sound = selection.Sound, SoundFile = selection.SoundFile });
-    private Task SetOverlayLead(string key, ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var minutes)
+    private Task SetBannerLead(string key, ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var minutes)
         ? SavePresentation(key, (_presentations.GetValueOrDefault(key) ?? new BossAlertPresentation()) with { OverlayLeadMinutes = Math.Clamp(minutes, 0, 1440) }) : Task.CompletedTask;
     public void Dispose() { _disposed = true; Interlocked.Increment(ref _presentationRevision); BossRush.Changed -= Refresh; Settings.Changed -= Refresh; Alerts.Changed -= Refresh; }
 }

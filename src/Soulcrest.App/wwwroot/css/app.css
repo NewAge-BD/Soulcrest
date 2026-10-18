@@ -594,8 +594,6 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
 .options-head h2 { margin: 0; }
 
 /* Patchnotes tab */
-.patchnotes .pn-release.current { border-color: var(--accent); }
-.patchnotes .sv-card-head h3 { margin: 0; }
 .pn-list { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .45rem; }
 .pn-list li { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: .6rem; align-items: baseline; margin: 0; line-height: 1.45; }
 .pn-kind { justify-self: start; padding: .05rem .5rem; border-radius: 999px; border: 1px solid var(--line); font-size: .74rem; font-weight: 600; white-space: nowrap; }
@@ -687,9 +685,9 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
 .boss-stat { display: flex; flex-direction: column; align-items: center; gap: .25rem; padding: .85rem .5rem; background: var(--panel); text-align: center; }
 .boss-stat > strong { font-size: 1.35rem; font-weight: 650; font-variant-numeric: tabular-nums; }
 .boss-stat > span { color: var(--muted); font-size: .7rem; line-height: 1.35; }
-.boss-panel-heading, .boss-loot-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-.boss-panel-heading > div, .boss-loot-header > div { min-width: 0; }
-.boss-panel-heading h3, .boss-loot-header h3 { margin-top: .2rem; letter-spacing: -.01em; }
+.boss-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.boss-panel-heading > div { min-width: 0; }
+.boss-panel-heading h3 { margin-top: .2rem; letter-spacing: -.01em; }
 .boss-panel-heading > .boss-map-label { padding: .25rem .55rem; border: 1px solid var(--line); border-radius: 6px; }
 .boss-count-badge { flex: none; padding: .25rem .55rem; border: 1px solid #ffffff12; border-radius: 999px; background: #ffffff05; color: var(--muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
 .boss-page h4.boss-section-label { display: flex; align-items: center; gap: .5rem; margin: .25rem 0 -.5rem; text-transform: none; letter-spacing: 0; font-size: .75rem; font-weight: 500; }
@@ -748,25 +746,6 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
 .boss-preview.boss-rush-marker span { background: #ef444420; border: 2px dashed #f87171; box-shadow: none; opacity: .5; }
 .boss-preview.boss-rush-label { opacity: .5; border-style: dashed; }
 
-.boss-loot-section { max-width: 92rem; margin: 1.1rem auto 0; }
-.boss-loot-header { align-items: flex-start; }
-.boss-loot-header .sv-hint { margin-top: .4rem; font-size: .78rem; }
-.boss-loot-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 1rem; padding: .85rem; border: 1px solid #ffffff0b; border-radius: 9px; background: #090d1429; }
-.boss-loot-filters .boss-field { flex-direction: column; align-items: stretch; gap: .4rem; min-width: 9rem; }
-.boss-loot-filters .boss-loot-search { flex: 1; min-width: min(16rem, 100%); }
-.boss-loot-filters :is(input,select) { width: 100%; min-width: 0; }
-.boss-loot-search input { padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
-.boss-loot-cards { display: grid; gap: .55rem; }
-.boss-loot-card { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.boss-loot-heading { display: flex; align-items: center; gap: .75rem; width: 100%; padding: .75rem .9rem; border: 0; background: #ffffff03; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.boss-loot-heading:hover, .boss-loot-heading[aria-expanded=true] { background: var(--panel-2); }
-.boss-loot-heading strong { flex: 1; min-width: 0; font-size: .88rem; font-weight: 550; overflow-wrap: anywhere; }
-.boss-loot-heading .note { flex: none; font-size: .72rem; }
-.boss-loot-heading > img { width: 38px; height: 38px; object-fit: cover; border-radius: 8px; }
-.boss-loot-heading > span:last-child { color: var(--muted); }
-.boss-loot-content { padding: 1rem; border-top: 1px solid var(--line); }
-.boss-loot-content > a { font-size: .78rem; }
-.boss-loot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: .55rem; margin-top: .85rem; }
 @media (max-width: 1120px) {
     .boss-layout { grid-template-columns: minmax(0, 1fr); }
     .boss-settings { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
@@ -779,7 +758,6 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
     .boss-page .boss-target-copy h3 { font-size: 1.35rem; }
     .boss-target-time { flex-basis: 100%; flex-direction: row; align-items: center; justify-content: space-between; border-top: 1px solid #ffffff0c; padding-top: .75rem; }
     .boss-command-footer { flex-wrap: wrap; }
-    .boss-loot-header { flex-wrap: wrap; }
 }
 @media (max-width: 440px) {
     .boss-page .card.sv-card { padding: 1rem; }
@@ -789,23 +767,8 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
     .boss-row-time { max-width: 7rem; }
     .boss-row-copy > strong { font-size: .8rem; }
     .boss-row img, .boss-row > .boss-icon-fallback { width: 32px; height: 32px; }
-    .boss-loot-filters .boss-field { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .boss-page input[role=switch], .boss-page input[role=switch]::before, .boss-alert-details > summary::before { transition: none; } }
-/* Item grades come from the gaming.tools CDN data (fetch script); the colours are Soulcrest's own palette
-   (user decision 2026-10-10: not taken from the website's stylesheet). Unknown grades remain neutral. */
-.boss-loot-item { --loot-color: var(--text); --loot-tint: transparent; display: flex; align-items: center; gap: .6rem; min-width: 0; padding: .5rem; border: 1px solid var(--line); border-color: color-mix(in srgb, var(--loot-color) 45%, var(--line)); border-radius: 6px; color: var(--loot-color); background: var(--loot-tint); text-decoration: none; }
-.boss-loot-item.rarity-common { --loot-color: #cbd5e1; --loot-tint: #cbd5e10a; }
-.boss-loot-item.rarity-rare { --loot-color: #4ade80; --loot-tint: #4ade8012; }
-.boss-loot-item.rarity-legend { --loot-color: #60a5fa; --loot-tint: #60a5fa14; }
-.boss-loot-item.rarity-unique { --loot-color: #facc15; --loot-tint: #facc1514; }
-.boss-loot-item.rarity-epic { --loot-color: #fb923c; --loot-tint: #fb923c16; }
-.boss-loot-item.rarity-special { --loot-color: #5eead4; --loot-tint: #5eead414; }
-.boss-loot-item:hover, .boss-loot-item:focus-visible { border-color: var(--loot-color); background: color-mix(in srgb, var(--loot-color) 16%, var(--panel-2)); }
-.boss-loot-item:focus-visible { outline: 2px solid var(--loot-color); outline-offset: 2px; }
-.boss-loot-item img { width: 36px; height: 36px; object-fit: contain; flex: none; }
-.boss-loot-copy { display: flex; flex-direction: column; gap: .2rem; min-width: 0; font-size: .85rem; overflow-wrap: anywhere; }
-.boss-loot-copy small { font-size: .7rem; }
 
 /* Leveling routes: a moving six-stop window and objective-coloured symbols. */
 .targetlist .target.completed { opacity: .28; }

@@ -151,10 +151,21 @@ public sealed class AppSettings
     public bool LevelingOverlayLocked { get; set; } = true;
     /// <summary>Event countdown HUD; alert definitions and delivery preferences live in alerts.json.</summary>
     public bool AlertsOverlayEnabled { get; set; } = true;
-    public int AlertsOverlayX { get; set; } = 420;
-    public int AlertsOverlayY { get; set; } = 520;
+    // User request 2026-10-18: initial placement below the native currency strip; saved positions survive.
+    public int AlertsOverlayX { get; set; } = 104;
+    public int AlertsOverlayY { get; set; } = 36;
     public double AlertsOverlayScale { get; set; } = 1;
     public int AlertsOverlayWidth { get; set; } = 340;
+    /// <summary>Independent timer strip; null inherits existing choices, an empty list explicitly selects none.</summary>
+    public string[]? TimerOverlayTimerIds { get; set; }
+    public int TimerOverlayGap { get; set; } = 18;
+    public bool TimerOverlayShowSeconds { get; set; } = true;
+    /// <summary>Legacy time-window preference, reset to permanent display when settings load.</summary>
+    public int TimerOverlayLeadMinutes { get; set; }
+    // User request 2026-10-18: independent positive visibility choices for the timer strip only.
+    public bool TimerOverlayShowWorldMap { get; set; } = true;
+    public bool TimerOverlayShowMenu { get; set; }
+    public bool TimerOverlayShowInstances { get; set; }
     /// <summary>User request 2026-10-12: compact banners can be positioned and resized independently.</summary>
     public int AlertNotificationsX { get; set; } = 420;
     public int AlertNotificationsY { get; set; } = 520;
@@ -174,6 +185,8 @@ public sealed class AppSettings
     /// <summary>Missing entries inherit the global lead time; disabling a reminder keeps its timer selected.</summary>
     public Dictionary<string, BossReminderPreference> BossReminderOverrides { get; set; } = new(StringComparer.Ordinal);
     public int BossAlertDurationSeconds { get; set; } = 15;
+    /// <summary>Global boss-warning hold: only a fresh explicit spawn confirmation ends a warning.</summary>
+    public bool BossAlertUntilSpawn { get; set; }
     public bool BossAlertSound { get; set; }
     private int? _targetArrivalRadius, _legacyArrivalRadius;
 
@@ -314,14 +327,21 @@ public sealed class SettingsService
         Current.AlertsOverlayScale = double.IsFinite(Current.AlertsOverlayScale) ? Math.Clamp(Current.AlertsOverlayScale, .6, 2) : 1;
         Current.EventTimelineOverlayScale = double.IsFinite(Current.EventTimelineOverlayScale) ? Math.Clamp(Current.EventTimelineOverlayScale, .6, 2) : 1;
         Current.AlertsOverlayWidth = Math.Clamp(Current.AlertsOverlayWidth, 240, 1000);
+        TimerOverlayPresentation.NormalizeSettings(Current);
+        // The context choices replace the former Show/time-window UI. Keep the JSON field readable,
+        // but never leave a hidden legacy lead filtering the selected timers after this upgrade.
+        Current.TimerOverlayLeadMinutes = 0;
         Current.EventTimelineOverlayWidth = Math.Clamp(Current.EventTimelineOverlayWidth, 360, 1600);
         if (Current.SettingsRevision < 4)
         {
             // Banners previously used the HUD coordinates; retain that placement on upgrade.
-            Current.AlertNotificationsX = Current.AlertsOverlayX;
-            Current.AlertNotificationsY = Current.AlertsOverlayY;
-            Current.AlertNotificationsScale = Current.AlertsOverlayScale;
-            Current.AlertNotificationsWidth = Current.AlertsOverlayWidth;
+            if (existed)
+            {
+                Current.AlertNotificationsX = Current.AlertsOverlayX;
+                Current.AlertNotificationsY = Current.AlertsOverlayY;
+                Current.AlertNotificationsScale = Current.AlertsOverlayScale;
+                Current.AlertNotificationsWidth = Current.AlertsOverlayWidth;
+            }
             Current.SettingsRevision = 4;
         }
         Current.AlertNotificationsWidth = Math.Clamp(Current.AlertNotificationsWidth, 240, 1000);

@@ -86,6 +86,14 @@ test('wrong map, unknown IDs, ambiguous catalogue and duplicate points never get
     assert(h.refs.every(r => r.content === null));
 });
 
+test('unlocated or nonnumeric catalogue positions never attach to a matching malformed marker', () => {
+    for (const [x, y] of [[null, null], [undefined, 20], [NaN, 20], [Infinity, 20], ['10', '20']]) {
+        const f = fixture([{ spawnId: 103, x, y }], [[0, x, y]]);
+        f.send([{ spawnId: 103, remaining: 60, age: 0, spawned: false }]);
+        assert(f.refs.every(r => r.content === null));
+    }
+});
+
 test('replacement list removes old labels and empty list stops ticking', () => {
     const f = fixture();
     const row = { remaining: 60, age: 0, spawned: false };
@@ -97,4 +105,20 @@ test('replacement list removes old labels and empty list stops ticking', () => {
     assert(f.refs.every(r => r.content === null));
     f.advance(30);
     assert(f.refs.every(r => r.content === null));
+});
+
+test('calendar times keep their source in both languages and never confirm a spawn', () => {
+    const f = fixture();
+    f.send([{ spawnId: 101, remaining: 239, age: 0, spawned: false, cached: false, calendar: true }]);
+    assert.match(f.refs[0].content, />03:59</);
+    assert.match(f.refs[0].content, /Game calendar · Europe\/Berlin/);
+    assert.doesNotMatch(f.refs[0].content, /Captured in game|Last update/);
+    f.api.language('de');
+    assert.match(f.refs[0].content, /Spielkalender · Europe\/Berlin/);
+    assert.doesNotMatch(f.refs[0].content, /Erfasst im Spiel|Letzter Stand/);
+    f.advance(239);
+    assert.doesNotMatch(f.refs[0].content, />Gespawnt</);
+    f.send([{ spawnId: 101, remaining: 30, age: 0, spawned: false, cached: false, calendar: false }]);
+    assert.match(f.refs[0].content, /Erfasst im Spiel/);
+    assert.doesNotMatch(f.refs[0].content, /Spielkalender/);
 });

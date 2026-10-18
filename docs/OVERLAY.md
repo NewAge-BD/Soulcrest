@@ -5,11 +5,18 @@ muss im **randlosen Fenstermodus** laufen; über exklusivem Vollbild kann nicht 
 
 ## 1. Pet-Fortschritt (kompakt)
 
+- **Nur bei aktueller Meldung** (Nutzerauftrag 2026-10-18): „Loot & Pet Progress“ bleibt
+  ohne neue Pet-Souls ausgeblendet. Ein echter angezeigter Soul-Gewinn öffnet das Panel für
+  die bestehende Minute; weitere Gewinne verlängern ihre jeweilige Einblendung. Ein ausgewähltes
+  Fokus-Pet oder der laufende Tracker allein hält das Fenster nicht offen. Bestätigte
+  Aufstiegsanimationen bleiben für ihre bestehenden 30 Sekunden sichtbar, einschließlich MAX.
+  Sobald weder aktuelle Soul-Einblendung noch Aufstiegsanimation vorliegt, verschwindet das
+  ganze Panel samt Schloss. Die Overlay-Einstellung bleibt dabei eingeschaltet.
 - Liste der **Fokus-Ziele** (vom Nutzer ausgewählte Pets), je Zeile: Gattungsfarbe, Pet-Name,
   Quellmonster, `Souls x / y` bis zur nächsten Stufe, Fortschrittsbalken, Stufe.
 - Darunter: letzter erkannter Soul-Drop, Souls/h der laufenden Erfassung, Erfassungsstatus
   (läuft / pausiert / Fehler).
-- **Toast** bei jedem bestätigten Soul-Drop: `+2 Magic Gravi → 17/25`, ca. 3 s, stapelbar.
+- **Toast** bei jedem bestätigten Soul-Drop: `+2 Magic Gravi → 17/25`, eine Minute, nach Pet gruppiert.
   Unbekanntes Monster: neutraler Toast `+2 ??? (Magic Gravi) – zuordnen`.
 - Kein Ton (Interview: nur Toast + Hotkeys).
 - **Namen im Loot-Overlay** (2026-10-08): Fokuszeilen und Loot-Einblendungen verwenden die
@@ -120,10 +127,14 @@ und Klicksperre sind im Boss-Rush-Tab konfigurierbar. Namen übernehmen die Over
 Aufnahme-Sichtbarkeit entspricht den gemeinsamen Overlay-Settings. Die bisherige Pet-Overlay-
 Sperre und ihre Hotkeys bleiben unabhängig.
 
-Ausgewählte Bosse können vor ihrem Spawn und nach bestätigtem Spawn alarmieren. Vorwarnzeit,
-Sichtdauer und optionaler Ton sind einstellbar (Ton standardmäßig aus; keine Änderung am
-Soul-Drop-Feedback). Drei Alerts parallel, weitere in einer Warteschlange. Veraltete Listen
-alarmieren nicht. Der Test-Button zeigt eine Vorschau ohne Spiel-Eingaben oder Aufnahme.
+Ausgewählte aktive Boss-Erinnerungen erscheinen als eigenständige Overlay-Benachrichtigung,
+unabhängig von Weltkarte, Menü, Instanzen und Sichtbarkeit oder Auswahl der Timer-Leiste.
+Die Vorwarnzeit je Boss legt den Beginn fest. Global gilt eine feste Sekundendauer oder das
+vollständige Vorwarnfenster bis zum bestätigten Spawn; Countdown 0 allein beendet es nicht.
+Es gibt kein zusätzliches Bannerfenster. Ton bleibt optional (standardmäßig aus; keine Änderung
+am Soul-Drop-Feedback). Bereits ausgelöste feste Meldungen behalten bei einem Kartenwechsel
+ihre Restdauer. Veraltete Listen lösen keine neuen Warnungen aus. Der Test-Button zeigt eine
+Vorschau ohne Spiel-Eingaben oder Aufnahme.
 
 ## Kompakte Alert-Oberflächen (2026-10-12)
 
@@ -134,6 +145,33 @@ Freigabe. Auf Abschluss/Capture-Verlust/Relock/Alt-Release wird eine Änderung b
 Die Timeline verzichtet auf Titelkopf, Zeitraumbuttons und Fußzeile. Resetlinien statt Resetspuren,
 Siege in der Invasionsspur; ausgewählte Bosse als lokale Icons in einer optionalen Einzelspur.
 Zeitpunkte und kollidierende Inhalte bleiben per Tooltip zugänglich. Siehe ALERTS.md.
+
+## Native Timer-Leiste (2026-10-18)
+
+Der Nutzerauftrag ersetzt die bisherige Timer-Kartenliste vollständig durch eine Currency-artige
+Leiste: vier lokale Event-Icons und kräftige helle Zeitwerte aus der lokal mitgelieferten
+Noto Sans Bold (18 px, klare dunkle Kontur), 28-px-Iconboxen in 32-px-Zeilen und wählbare Zwischenräume.
+Der nachfolgende Nutzerauftrag vom selben Tag entfernt Hintergrund und Fade vollständig, einschließlich
+der Einstellung; auch ein früher gespeicherter Hintergrundwunsch bleibt wirkungslos.
+Keine Überschrift und keine Einzelkarten. Bosse verwenden ihre belegten lokalen Kartenporträts in einer
+ruhigen runden Kontur. Täglicher Reset, wöchentlicher Reset, eigene Timer und fehlende Bossporträts haben
+unterscheidbare eigene Symbole in warmer Goldpalette (SVG-Quellen und transparente PNGs). Auswahl und aktive Phasen ändern keine
+Erinnerungs-/Banner-/Tonwünsche. Die neue sichtbare Sektion im Timer-Menü steuert Auswahl, Größe,
+Abstand, Sekunden und Overlay-Einstellungen. Dort lassen sich Weltkarte, Menü und Instanzen
+unabhängig freigeben. Die offene Spielwelt bleibt sichtbar; ohne laufendes Spielertracking
+wird kein Bereich angenommen. Das frühere gemeinsame Anzeigefenster entfällt. Viele ausgewählte
+Timer umbrechen innerhalb des Monitors; Reihenfolge und Countdownbreite bleiben bei Zeitwechseln
+stabil. Nur während der zehnminütigen Rift-Öffnung ergänzt ein eigener Namensbereich
+„Spacetime Rift offen“ bzw. „Spacetime Rift Open“ in Gold. Danach zählt Rift bis zum nächsten Start.
+Die gemeinsame reine Anzeigeprojektion verändert keine Kalender- oder Erinnerungsregeln.
+
+`AlertsOverlayForm` präsentiert die Leiste über `UpdateLayeredWindow`; die bisherigen Schutzregeln
+für Fokus, Alt/Schloss, Click-through und Capture-Sichtbarkeit bleiben bestehen. Die Timer-HUD-
+Ausblendung verwendet die neuen Bereichsfreigaben über das vorhandene Tracking.
+Der Schlossknopf sitzt neben der Leiste und verdeckt keine Zeit. Die alte zweizeilige Darstellung
+existiert nur noch für separate Erinnerungsbanner. Timeline und Banner bleiben unabhängig.
+Produktionsrenderer und Offline-Vorschau verwenden dieselben Layout-/Zeichenmethoden; keine
+Spielbedienung oder zweite App nötig. Herkunft der Originalgrafiken: `wwwroot/icons/events/SOURCE.md`.
 
 ## Händler-Soulcounter (2026-10-13)
 
@@ -196,6 +234,39 @@ aktuellen Quellenabgleich, unabhängig von Pet-Gattung und Händler-Tab. Fehlend
 `?`. Die Offline-Tabelle verknüpft Kartenmarker und explizite Pet-NPC-Orte; so werden auch Pets
 ohne platzierten Kartenmarker korrekt eingeordnet (Elite Klaw und Elite Guardite: Verteron).
 
+## Pet-Kategorie und Spawnzahlen im Händler (2026-10-18)
+
+Nach Nutzerpräzisierung stehen Cogni, Fera, Natura oder Varian mittig oberhalb des nativen
+Pet-Namens, im freien Streifen unter dem Auswahlkästchen. Der Soulcounter steht wieder
+mittig unter dem Preis und nutzt die volle Zeilenbreite. Dezente Blau-/Rot-/Grün-/Goldtöne
+ordnen die Kategorien ein; Quelle
+ist die numerische Pet-ID-Tabelle. Andere oder fehlende Kategorien bleiben `?`. Dies ist
+unabhängig von der Farmklassifikation Special und dem Special-Tab des Shops.
+
+Die Farmzeile ergänzt je Region die Anzahl belegter Soul-Quellmonster-Platzierungen,
+beispielsweise `Abyss (784) / Altgard (123)`. Gezählt wird `PetDefinition.Monsters` im
+kanonischen lokalen Katalog, nicht die geclusterten Pet-Symbole aus `Spawns` und keine
+aktuelle Population. Abyss summiert die Maps der gleichnamigen Manifestgruppe; ohne Manifest
+werden ausschließlich die drei etablierten Reshanta-IDs berücksichtigt. Fehlende positive
+Zahlen bleiben `?`: Elite Klaw und Elite Guardite behalten beispielsweise `Verteron (?)`,
+da die Ortsbelege die Map bestätigen, aber keine exakten Platzierungen liefern. Special
+bleibt ohne Zahl. Mehrere Maps behalten ihre Reihenfolge, Aliasse werden nicht doppelt gezählt.
+
+Die Kategorie wird ausschließlich als 13-Pixel-Text mit dezentem Schatten auf transparenter
+Fläche gezeichnet. Ihr 96×20-Pixel-Rechteck liegt zentriert auf der Preis-/Kartenachse und
+beginnt 228 skalierte Pixel über der Preisoberkante; alle Maße folgen nur der Ankerskala.
+Die fünf Referenzen bestätigen Abstand zu Auswahlkästchen, Rabattfähnchen und Pet-Name.
+Header und Fuß haben getrennte erlaubte Zeichenbereiche. Das Layered Window umschließt
+beide; Name und Artwork dazwischen bleiben vollständig transparent. Die Surface wird vor
+jedem Rendern explizit geleert. Außerhalb liegende Kategorieflächen verwerfen das ganze Set.
+
+Kategorie und Count-Text sind additive Wertfelder, damit unveränderte Angebotszeilen auch
+weiterhin gleiche Darstellungszustände ergeben. Fußhöhe/-breite, Preis-Aussparung, MAX- und
+Special-Hervorhebung sowie die Capture-/Stabilitäts-/Fokus-/Durchklicklogik bleiben erhalten.
+Die Metadatenfüße haben eine um 6 skalierte Pixel tiefere Schulter vor der kurzen Spitze;
+lange Farmzeilen sitzen zusätzlich 3 skalierte Pixel höher. So bleiben Glyphen und Schatten
+innerhalb der Goldkontur, mit Abstand zur ersten Zeile.
+
 ## Händlerstabilität und Diagnose (2026-10-16)
 
 Nach zwei bestätigenden Bildern wird die erste verifizierte Ankergeometrie einschließlich
@@ -254,6 +325,8 @@ Loot-Ereignisse, zusätzliche Persistenz oder Änderungen an Zählung/Quellenpr�
 Die Animation verwendet monotone Stopwatch-Zeit, eine aktive Meldung und höchstens acht
 wartende Pets. Höhere Stufen desselben Pets werden zusammengefasst; eine volle Warteschlange
 verwirft die älteste wartende Meldung. Ein 33-ms-Zeichentimer läuft nur während des Hinweises,
-der bisherige Datenrefresh bleibt bei 250 ms. Ausblenden, Unterdrückung, Abschalten und Dispose
-leeren den flüchtigen Zustand. Es gibt keinen späteren Nachholalarm und keine Fokusaktivierung.
+der bisherige Datenrefresh bleibt bei 250 ms. Ausdrückliches Ausblenden, Unterdrückung, Abschalten
+und Dispose leeren den flüchtigen Zustand. Automatisches Verbergen des leeren Panels hält die
+Annahme neuer Aufstiege aktiv; es zeigt dabei keine alten Meldungen erneut. Es gibt keinen späteren
+Nachholalarm und keine Fokusaktivierung.
 Die bestehende Klicksperre, Aufnahme-Sichtbarkeit und Capturelogik bleiben erhalten.

@@ -1,0 +1,120 @@
+@implements IDisposable
+@using System.Globalization
+@inject AlertsService Alerts
+@inject SettingsService Settings
+
+@{
+    var choices = Alerts.TimerOverlayChoices;
+    var rows = Alerts.TimerOverlayRows;
+    var current = Settings.Current;
+}
+
+<section class="timer-overlay-settings" id="timer-overlay-settings" aria-label="@UiText.T("Timer-Leiste")" aria-busy="@_saving">
+    <header><label class="check"><input id="alerts-overlay-visible" type="checkbox" role="switch" checked="@current.AlertsOverlayEnabled" disabled="@Disabled" @onchange="SetEnabled" /><strong>@UiText.T("Timer-Leiste")</strong></label><InfoTip><p>@UiText.T("Wähle, wo die Timer-Leiste zusätzlich zur offenen Spielwelt sichtbar bleibt.")</p><p>@UiText.T("Die Timer-Auswahl ändert keine Erinnerungen, Banner oder Töne.")</p></InfoTip></header>
+    <div class="timer-strip-preview @(!current.AlertsOverlayEnabled ? "paused" : "")" aria-label="@UiText.T("Vorschau der Timer-Leiste")" style="@PreviewStyle">
+        @if (rows.Count == 0)
+        {
+            <span class="timer-strip-empty">@UiText.T(choices.Any(choice => choice.Selected) ? "Noch kein aktueller Timer" : "Wähle unten die Timer für deine Leiste.")</span>
+        }
+        else
+        {
+            @foreach (var row in rows)
+            {
+                <span class="timer-strip-item @(row.Provisional ? "provisional" : row.Started ? "active" : "")" title="@(string.Join(" · ", new[] { row.Title, row.CountdownLabel }.Where(part => !string.IsNullOrEmpty(part))))" data-timer-preview="@row.Key">
+                    <img class="@(row.IconId?.StartsWith("map:", StringComparison.Ordinal) == true ? "timer-boss-portrait" : null)" src="@IconSource(row.IconId)" alt="" @onerror="@(() => IconFailed(row.IconId))" />
+                    @if (row.InlineLabel is { Length: > 0 } inlineLabel) { <span class="timer-strip-inline-label">@inlineLabel</span> }
+                    <span>@TimerOverlayPresentation.Countdown(row, Alerts.Now, current.TimerOverlayShowSeconds)</span>
+                </span>
+            }
+        }
+    </div>
+    <fieldset class="timer-strip-controls" disabled="@Disabled">
+        <label for="timer-overlay-scale">@UiText.T("Größe")<input id="timer-overlay-scale" type="range" min="60" max="200" step="5" value="@((int)Math.Round(current.AlertsOverlayScale * 100))" @onchange="SetScale" /><output for="timer-overlay-scale">@((int)Math.Round(current.AlertsOverlayScale * 100)) %</output></label>
+        <label for="timer-overlay-gap">@UiText.T("Abstand")<input id="timer-overlay-gap" type="range" min="4" max="48" step="1" value="@current.TimerOverlayGap" @onchange="SetGap" /><output for="timer-overlay-gap">@current.TimerOverlayGap px</output></label>
+        <div class="timer-strip-switches"><label><input id="timer-overlay-seconds" type="checkbox" checked="@current.TimerOverlayShowSeconds" @onchange="SetSeconds" />@UiText.T("Sekunden")</label></div>
+    </fieldset>
+    <details class="timer-overlay-context-settings">
+        <summary>@UiText.T("Overlay-Einstellungen")</summary>
+        <InfoTip><p>@UiText.T("Die Bereiche werden bei aktivem Spielertracking erkannt.")</p></InfoTip>
+        <fieldset class="timer-overlay-context-options" aria-label="@UiText.T("Overlay-Einstellungen")" disabled="@Disabled">
+            <label for="timer-overlay-worldmap"><input id="timer-overlay-worldmap" type="checkbox" checked="@current.TimerOverlayShowWorldMap" @onchange="SetWorldMap" />@UiText.T("Weltkarte")</label>
+            <label for="timer-overlay-menu"><input id="timer-overlay-menu" type="checkbox" checked="@current.TimerOverlayShowMenu" @onchange="SetMenu" />@UiText.T("Menü")</label>
+            <label for="timer-overlay-instances"><input id="timer-overlay-instances" type="checkbox" checked="@current.TimerOverlayShowInstances" @onchange="SetInstances" />@UiText.T("Instanzen")</label>
+        </fieldset>
+    </details>
+    <details class="timer-strip-selection" open><summary>@UiText.T("Timer auswählen")<span>@choices.Count(choice => choice.Selected)</span></summary>
+        <fieldset disabled="@Disabled">
+            @foreach (var group in new[] { "Events", "Bosse", "Eigene Alerts" })
+            {
+                var grouped = choices.Where(choice => Group(choice.Key) == group).ToArray();
+                @if (grouped.Length > 0)
+                {
+                    <div class="timer-strip-choice-group"><strong>@UiText.T(group)</strong>
+                        @foreach (var choice in grouped)
+                        {
+                            <label data-timer-choice="@choice.Key"><input type="checkbox" checked="@choice.Selected" @onchange="@(e => SelectTimer(choice.Key, e.Value is true))" />
+                                <img class="@(choice.IconId?.StartsWith("map:", StringComparison.Ordinal) == true ? "timer-boss-portrait" : null)" src="@IconSource(choice.IconId)" alt="" @onerror="@(() => IconFailed(choice.IconId))" />
+                                <span>@choice.Title @if (!choice.Available) { <small>@UiText.T("Noch kein aktueller Timer")</small> }</span>
+                            </label>
+                        }
+                    </div>
+                }
+            }
+        </fieldset>
+    </details>
+    @if (_saving) { <p class="timer-strip-feedback" role="status">@UiText.T("Wird gespeichert …")</p> }
+    else if (_feedback is not null) { <p class="timer-strip-feedback @(_error ? "error" : "")" role="@(_error ? "alert" : "status")">@_feedback</p> }
+</section>
+
+@code {
+    [Parameter] public bool Busy { get; set; }
+    private bool _saving, _disposed, _error;
+    private string? _feedback;
+    private readonly HashSet<string> _failedIcons = new(StringComparer.Ordinal);
+    private bool Disabled => Busy || _saving;
+    private string PreviewStyle => FormattableString.Invariant($"--timer-scale:{Settings.Current.AlertsOverlayScale};--timer-gap:{Settings.Current.TimerOverlayGap}px;");
+    private static string Group(string key) => key.StartsWith("event:catalog:", StringComparison.Ordinal) ? "Events"
+        : key.StartsWith("boss:", StringComparison.Ordinal) ? "Bosse" : "Eigene Alerts";
+    private string IconSource(string? iconId) => TimerOverlayIcons.BrowserSource(iconId is not null && _failedIcons.Contains(iconId)
+        ? iconId.StartsWith("map:", StringComparison.Ordinal) ? "boss" : "custom" : iconId);
+    private void IconFailed(string? iconId) { if (iconId is not null) _failedIcons.Add(iconId); }
+    protected override void OnInitialized() { Alerts.Changed += Refresh; Settings.Changed += Refresh; }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
+    private Task SetEnabled(ChangeEventArgs e) => Save(settings => settings.AlertsOverlayEnabled = e.Value is true);
+    private Task SetSeconds(ChangeEventArgs e) => Save(settings => settings.TimerOverlayShowSeconds = e.Value is true);
+    private Task SetScale(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+        ? Save(settings => settings.AlertsOverlayScale = Math.Clamp(value, 60, 200) / 100d) : Task.CompletedTask;
+    private Task SetGap(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+        ? Save(settings => settings.TimerOverlayGap = Math.Clamp(value, 4, 48)) : Task.CompletedTask;
+    private Task SetWorldMap(ChangeEventArgs e) => Save(settings => settings.TimerOverlayShowWorldMap = e.Value is true);
+    private Task SetMenu(ChangeEventArgs e) => Save(settings => settings.TimerOverlayShowMenu = e.Value is true);
+    private Task SetInstances(ChangeEventArgs e) => Save(settings => settings.TimerOverlayShowInstances = e.Value is true);
+    private Task SelectTimer(string key, bool selected)
+    {
+        if (Disabled || !Alerts.TimerOverlayChoices.Any(choice => choice.Key == key)) return Task.CompletedTask;
+        var legacy = Settings.Current.TimerOverlayTimerIds is null
+            ? Alerts.TimerOverlayChoices.Where(choice => choice.Selected).Select(choice => choice.Key).ToArray() : [];
+        return Save(settings =>
+        {
+            var keys = (settings.TimerOverlayTimerIds ?? legacy).ToHashSet(StringComparer.Ordinal);
+            if (selected) keys.Add(key); else keys.Remove(key);
+            settings.TimerOverlayTimerIds = keys.Order(StringComparer.Ordinal).ToArray();
+        });
+    }
+    private async Task Save(Action<AppSettings> change)
+    {
+        if (Disabled || _disposed) return;
+        _saving = true; _feedback = null; _error = false;
+        try
+        {
+            await Task.Run(() => Settings.Update(change));
+            _feedback = UiText.T("Timer-Leiste gespeichert.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            _error = true; _feedback = UiText.T("Timer-Leiste konnte nicht gespeichert werden.");
+        }
+        finally { _saving = false; }
+    }
+    public void Dispose() { _disposed = true; Alerts.Changed -= Refresh; Settings.Changed -= Refresh; }
+}

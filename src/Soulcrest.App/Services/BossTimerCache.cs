@@ -15,22 +15,37 @@ public sealed class BossTimerCache(string path, TimeProvider? time = null)
     private readonly TimeProvider _time = time ?? TimeProvider.System;
     private CacheDocument? _document;
 
-    /// <summary>Restores the last selected map once, extrapolating its saved server-time anchor by wall time.</summary>
+    /// <summary>Restores the last selected map, extrapolating its saved server-time anchor by wall time.</summary>
     public BossRushSnapshot? Load()
     {
         lock (_gate)
         {
             var document = Read();
-            if (!document.Maps.TryGetValue(document.LatestMap, out var saved)) return null;
-            var now = _time.GetUtcNow();
-            var elapsed = now - saved.SavedAtUtc;
-            var age = now - saved.ObservedAtUtc;
-            // A backwards system clock cannot safely advance the server clock.
-            if (elapsed < TimeSpan.Zero || age < TimeSpan.Zero || age > MaximumAge) return null;
-            var serverNow = saved.ServerUnixMs + (long)elapsed.TotalMilliseconds;
-            if (!ValidTime(serverNow)) return null;
-            return new(saved.MapId, saved.Bosses.ToArray(), serverNow, age, Cached: true);
+            return document.Maps.TryGetValue(document.LatestMap, out var saved) ? Restore(saved, _time.GetUtcNow()) : null;
         }
+    }
+
+    /// <summary>All valid observed maps remain available as provisional history, even after their timers elapsed.</summary>
+    public IReadOnlyList<BossRushSnapshot> LoadAll()
+    {
+        lock (_gate)
+        {
+            var now = _time.GetUtcNow();
+            return Read().Maps.OrderBy(pair => pair.Key).Select(pair => Restore(pair.Value, now))
+                .OfType<BossRushSnapshot>().ToArray();
+        }
+    }
+
+    private static BossRushSnapshot? Restore(CacheRecord saved, DateTimeOffset now)
+    {
+        var elapsed = now - saved.SavedAtUtc;
+        var age = now - saved.ObservedAtUtc;
+        // A backwards system clock cannot safely advance the server clock. Observation age alone
+        // does not erase a once captured list or turn an elapsed timer into a confirmed new spawn.
+        if (elapsed < TimeSpan.Zero || age < TimeSpan.Zero) return null;
+        var serverNow = saved.ServerUnixMs + (long)elapsed.TotalMilliseconds;
+        if (!ValidTime(serverNow)) return null;
+        return new(saved.MapId, saved.Bosses.ToArray(), serverNow, age, Cached: true);
     }
 
     /// <summary>Writes the first list, a changed list, or a changed map selection; identical refreshes do not write.</summary>
@@ -103,7 +118,8 @@ public sealed class BossTimerCache(string path, TimeProvider? time = null)
         && record.ObservedAtUtc <= record.SavedAtUtc && record.SavedAtUtc - record.ObservedAtUtc <= MaximumAge;
 
     private static bool ValidBosses(IReadOnlyList<BossSpawn>? bosses) => bosses is { Count: >= 1 and <= 128 }
-        && bosses.All(b => b is not null && b.SpawnId > 0 && ValidTime(b.SpawnUnixMs))
+        && bosses.All(b => b is not null && b.SpawnId > 0
+            && (b.SpawnUnixMs is { } at ? ValidTime(at) : !b.Spawned))
         && bosses.Select(b => b.SpawnId).Distinct().Count() == bosses.Count;
 
     private static bool ValidTime(long unixMs) => unixMs is >= 1577836800000 and < 4102444800000; // 2020–2100

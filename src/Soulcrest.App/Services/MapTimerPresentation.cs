@@ -16,11 +16,10 @@ public static class MapTimerPresentation
         List<MapTimerRow> rows = [];
         foreach (var timer in events)
         {
-            var window = timer.Window;
-            var portal = window.IsActive && window.PortalEndsAt > now;
-            var at = window.IsActive ? portal ? window.PortalEndsAt!.Value : window.EndsAt : window.StartsAt;
-            var state = UiText.T(window.IsActive ? portal ? "Portal schließt in" : "Endet in" : "Startet in");
-            rows.Add(new("event:" + timer.Definition.Id, UiText.T(timer.Definition.Title), timer.Definition.Symbol,
+            var display = EventTimerDisplay.From(timer);
+            var at = display.CountdownAt;
+            var state = display.CountdownLabel;
+            rows.Add(new("event:" + timer.Definition.Id, display.Title, timer.Definition.Symbol,
                 timer.Definition.Color, Countdown(at - now), state, state + " · " + Clock(at), at));
         }
         var ids = selected.ToHashSet(StringComparer.Ordinal);
@@ -29,7 +28,7 @@ public static class MapTimerPresentation
         {
             var timer = timers.GetValueOrDefault(choice.Key);
             var provisional = timer is null || timer.Cached;
-            var state = UiText.T(timer is null ? "Warte auf Boss-Timer" : provisional ? "Unbestätigt" : timer.Spawned ? "Gespawnt" : timer.Remaining > TimeSpan.Zero ? "Startet in" : "Warte auf Bestätigung");
+            var state = UiText.T(timer is null ? "Warte auf Boss-Timer" : timer.Calendar ? "Fester Spielzeitplan" : provisional ? "Unbestätigt" : timer.Spawned ? "Gespawnt" : timer.Remaining > TimeSpan.Zero ? "Startet in" : "Warte auf Bestätigung");
             DateTimeOffset? at = timer is { Remaining: var remaining } && remaining > TimeSpan.Zero ? now + remaining : null;
             var counter = timer is null ? "—" : timer.Spawned ? UiText.T(provisional ? "Unbestätigt" : "Gespawnt") : timer.Remaining > TimeSpan.Zero ? Countdown(timer.Remaining) : "—";
             rows.Add(new("boss:" + choice.Key, choice.Boss.Name(language), "◆", "#f87171", counter,

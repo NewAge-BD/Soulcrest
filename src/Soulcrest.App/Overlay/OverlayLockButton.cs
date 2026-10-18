@@ -1,7 +1,12 @@
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using Soulcrest.App.Services;
 
 namespace Soulcrest.App.Overlay;
+
+internal enum OverlayLockButtonStyle { Default, TimerStrip }
 
 /// <summary>
 /// A small, separate mouse surface above an overlay. It remains clickable while its target is
@@ -11,14 +16,17 @@ internal sealed class OverlayLockButton : Form
 {
     private const int LogicalSize = 28, LogicalInset = 8;
     private readonly Form _target;
+    private readonly OverlayLockButtonStyle _style;
     private readonly Func<Rectangle>? _boundsProvider;
     private readonly ToolTip _tooltip = new() { InitialDelay = 350, ReshowDelay = 100, AutoPopDelay = 4000, ShowAlways = true };
-    private bool _locked = true, _hover, _pressed, _targetHandleAvailable, _visibleInRecordings;
+    private bool _locked = true, _hover, _pressed, _targetHandleAvailable, _visibleInRecordings, _presenting;
 
     /// <param name="boundsProvider">Optional bounds in physical pixels relative to the target's client area.</param>
-    internal OverlayLockButton(Form target, Func<Rectangle>? boundsProvider = null)
+    internal OverlayLockButton(Form target, Func<Rectangle>? boundsProvider = null,
+        OverlayLockButtonStyle style = OverlayLockButtonStyle.Default)
     {
         _target = target;
+        _style = style;
         _boundsProvider = boundsProvider;
         _targetHandleAvailable = target.IsHandleCreated;
         FormBorderStyle = FormBorderStyle.None;
@@ -42,6 +50,7 @@ internal sealed class OverlayLockButton : Form
     }
 
     internal bool Locked => _locked;
+    internal OverlayLockButtonStyle Style => _style;
     internal event Action? Toggled;
 
     internal void SetLocked(bool locked)
@@ -49,7 +58,7 @@ internal sealed class OverlayLockButton : Form
         if (IsDisposed) return;
         _locked = locked;
         _tooltip.SetToolTip(this, TooltipText(locked));
-        Invalidate();
+        RefreshAppearance();
         RefreshTarget();
     }
 
@@ -87,6 +96,11 @@ internal sealed class OverlayLockButton : Form
         Bounds = new Rectangle(_target.PointToScreen(relative.Location), relative.Size);
         _tooltip.SetToolTip(this, TooltipText(_locked));
         if (Owner != _target) Owner = _target;
+        if (_style == OverlayLockButtonStyle.TimerStrip)
+        {
+            _ = Handle;
+            if (!PresentTimerGlyph()) { Hide(); return; }
+        }
         if (!Visible) Show(_target);
     }
 
@@ -99,6 +113,7 @@ internal sealed class OverlayLockButton : Form
             var parameters = base.CreateParams;
             parameters.ExStyle |= NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOPMOST;
             parameters.ExStyle &= ~NativeMethods.WS_EX_TRANSPARENT;
+            if (_style == OverlayLockButtonStyle.TimerStrip) parameters.ExStyle |= NativeMethods.WS_EX_LAYERED;
             return parameters;
         }
     }
@@ -107,6 +122,7 @@ internal sealed class OverlayLockButton : Form
     {
         base.OnHandleCreated(e);
         NativeMethods.SetCaptureVisibility(Handle, _visibleInRecordings);
+        if (_style == OverlayLockButtonStyle.TimerStrip) RefreshAppearance();
     }
 
     protected override void WndProc(ref Message message)
@@ -123,14 +139,25 @@ internal sealed class OverlayLockButton : Form
     {
         base.OnSizeChanged(e);
         if (Width <= 0 || Height <= 0) return;
+        if (_style == OverlayLockButtonStyle.TimerStrip)
+        {
+            RefreshAppearance();
+            return;
+        }
         using var outline = Rounded(new RectangleF(0, 0, Width, Height), 6f * Math.Min(Width, Height) / LogicalSize);
         var previous = Region;
         Region = new Region(outline);
         previous?.Dispose();
     }
 
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        if (_style != OverlayLockButtonStyle.TimerStrip) base.OnPaintBackground(e);
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
+        if (_style == OverlayLockButtonStyle.TimerStrip) return;
         base.OnPaint(e);
         var graphics = e.Graphics;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -161,6 +188,61 @@ internal sealed class OverlayLockButton : Form
         graphics.DrawLine(ink, 14, 16, 14, 19);
     }
 
+    private void RefreshAppearance()
+    {
+        if (IsDisposed || Disposing) return;
+        if (_style != OverlayLockButtonStyle.TimerStrip) { Invalidate(); return; }
+        if (IsHandleCreated && !PresentTimerGlyph()) Hide();
+    }
+
+    /// <summary>Uses real per-pixel alpha, including a fully transparent area around the lock glyph.</summary>
+    private bool PresentTimerGlyph()
+    {
+        if (_presenting) return true;
+        if (!IsHandleCreated || IsDisposed || Disposing || Width <= 0 || Height <= 0) return false;
+        _presenting = true;
+        try
+        {
+            var header = new NativeMethods.BitmapInfoHeader
+            { Size = 40, Width = Width, Height = -Height, Planes = 1, BitCount = 32 };
+            var dib = NativeMethods.CreateDIBSection(0, ref header, 0, out var bits, 0, 0);
+            if (dib == 0) return false;
+            try
+            {
+                using (var surface = new Bitmap(Width, Height, Width * 4, PixelFormat.Format32bppPArgb, bits))
+                using (var graphics = Graphics.FromImage(surface))
+                {
+                    graphics.Clear(Color.Transparent);
+                    TimerStripLockRenderer.Paint(graphics, ClientRectangle, _locked, _hover, _pressed);
+                }
+                var screen = NativeMethods.GetDC(0);
+                var memory = NativeMethods.CreateCompatibleDC(screen);
+                if (memory == 0) { NativeMethods.ReleaseDC(0, screen); return false; }
+                var old = NativeMethods.SelectObject(memory, dib);
+                try
+                {
+                    var target = new NativeMethods.NativePoint(Left, Top);
+                    var source = new NativeMethods.NativePoint(0, 0);
+                    var size = new NativeMethods.NativeSize(Width, Height);
+                    var blend = new NativeMethods.BlendFunction
+                    { BlendOp = NativeMethods.AC_SRC_OVER, SourceConstantAlpha = 255, AlphaFormat = NativeMethods.AC_SRC_ALPHA };
+                    var shown = NativeMethods.UpdateLayeredWindow(Handle, screen, ref target, ref size, memory,
+                        ref source, 0, ref blend, NativeMethods.ULW_ALPHA);
+                    if (!shown) Trace.TraceWarning("Timer lock presentation failed (Win32 {0}).", Marshal.GetLastWin32Error());
+                    return shown;
+                }
+                finally
+                {
+                    NativeMethods.SelectObject(memory, old);
+                    NativeMethods.DeleteDC(memory);
+                    NativeMethods.ReleaseDC(0, screen);
+                }
+            }
+            finally { NativeMethods.DeleteObject(dib); }
+        }
+        finally { _presenting = false; }
+    }
+
     private static GraphicsPath Rounded(RectangleF bounds, float radius)
     {
         var path = new GraphicsPath();
@@ -179,7 +261,7 @@ internal sealed class OverlayLockButton : Form
         if (e.Button != MouseButtons.Left || !ClientRectangle.Contains(e.Location) || !Visible) return;
         _pressed = true;
         Capture = true;
-        Invalidate();
+        RefreshAppearance();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -194,14 +276,14 @@ internal sealed class OverlayLockButton : Form
     {
         base.OnMouseEnter(e);
         _hover = true;
-        Invalidate();
+        RefreshAppearance();
     }
 
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
         _hover = false;
-        Invalidate();
+        RefreshAppearance();
     }
 
     protected override void OnMouseCaptureChanged(EventArgs e)
@@ -220,7 +302,7 @@ internal sealed class OverlayLockButton : Form
     {
         _pressed = false;
         if (Capture) Capture = false;
-        Invalidate();
+        RefreshAppearance();
     }
 
     private void TargetChanged(object? sender, EventArgs e) => RefreshTarget();

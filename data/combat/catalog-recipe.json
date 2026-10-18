@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "version": "global-eu-auldor-krao-20261017-v1",
+  "region": "global-eu",
+  "evidence": [
+    {
+      "id": "npcs-en-2300104",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300104.d.json",
+      "sha256": "c2a57d18045bb9db5434c0e4ae68a1d793b476e09a81b3bf7c6e5f2572104720",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/en/npcs/2300104.d.json"
+    },
+    {
+      "id": "npcs-en-2300206",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300206.d.json",
+      "sha256": "8c5d0d58786f2bfc3a9664066ca183414d98371a913af48f923d51c23fbe396b",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/en/npcs/2300206.d.json"
+    },
+    {
+      "id": "npcs-en-2300207",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300207.d.json",
+      "sha256": "590b232af2c6cdaf682ab6c4e729a924535c9ab668c73c2adddc6002cb1b36ea",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/en/npcs/2300207.d.json"
+    },
+    {
+      "id": "npcs-en-2300218",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300218.d.json",
+      "sha256": "c2cd38931a6613f0711aed168799a4d443c2f674f2541eb635165bc569eef05f",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/en/npcs/2300218.d.json"
+    },
+    {
+      "id": "npcs-en-2300171",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/en/npcs/2300171.d.json",
+      "sha256": "2eb85d5d4c95c6d815bb64efab4dbd04e2791c9d4cfa1f82c523ad7b300a0058",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/en/npcs/2300171.d.json"
+    },
+    {
+      "id": "npcs-de-2300104",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/de/npcs/2300104.d.json",
+      "sha256": "6a93cd1e6ce8ae1b004ef3f20377b7c13f30f6739d4e1fa9afa9a03cb834be5e",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/de/npcs/2300104.d.json"
+    },
+    {
+      "id": "npcs-de-2300206",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/de/npcs/2300206.d.json",
+      "sha256": "d4a57df81570643c5dc1e02e962c6dec903aacd0bd43bf766df7ef9144c94af6",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/de/npcs/2300206.d.json"
+    },
+    {
+      "id": "npcs-de-2300207",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/de/npcs/2300207.d.json",
+      "sha256": "637965a9921957cd4ad4b89296e24532e7cba37419724fb2ab0432486d19e058",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/de/npcs/2300207.d.json"
+    },
+    {
+      "id": "npcs-de-2300218",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/de/npcs/2300218.d.json",
+      "sha256": "eb4c4677b2c75c91d54ad0adf6856ecc787afd1ac52edd90f6dbd0cc3651d23b",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/de/npcs/2300218.d.json"
+    },
+    {
+      "id": "npcs-de-2300171",
+      "kind": "localNpcData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/de/npcs/2300171.d.json",
+      "sha256": "d21f45445703ad4cdee72390e9459932f241cfae4ebbfe2e6f5750d39cd65559",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/de/npcs/2300171.d.json"
+    },
+    {
+      "id": "maps-en-600001",
+      "kind": "localMapData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/en/maps/600001.d.json",
+      "sha256": "5af852b352b3eefb1e5426a485736f765263700d9fcbd5ce2e86c0cba882a417",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/en/maps/600001.d.json"
+    },
+    {
+      "id": "maps-en-600012",
+      "kind": "localMapData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/en/maps/600012.d.json",
+      "sha256": "d78c21fc36c8ec1d4913c1bd343af91bd161183972c3558d685d26078e624465",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/en/maps/600012.d.json"
+    },
+    {
+      "id": "maps-de-600001",
+      "kind": "localMapData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/de/maps/600001.d.json",
+      "sha256": "27ee7d632fe30d782d00e6459d1195f4c79bc616fb011b8298326d600d1c2bfd",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/de/maps/600001.d.json"
+    },
+    {
+      "id": "maps-de-600012",
+      "kind": "localMapData",
+      "sourceRef": "https://cdn-hosted.gaming.tools/aion2/data/de/maps/600012.d.json",
+      "sha256": "a078d47bfe36bed2ef35930623d61283f708199e6ae97aa67ab8328584bc1e9a",
+      "observations": 1,
+      "captures": 0,
+      "cachePath": "data/de/maps/600012.d.json"
+    },
+    {
+      "id": "context-auldor-600012",
+      "kind": "captureDungeonContext",
+      "sourceRef": "soulcrest:combat-observations-20261017/context-auldor-600012",
+      "sha256": "d995ef807c7e137f2e47090e621f226a34a80d7f4e0dfe6932bf343e663f1c7e",
+      "observations": 3,
+      "captures": 1,
+      "proofFile": "observation-evidence.json"
+    },
+    {
+      "id": "context-krao-600001",
+      "kind": "captureDungeonContext",
+      "sourceRef": "soulcrest:combat-observations-20261017/context-krao-600001",
+      "sha256": "d995ef807c7e137f2e47090e621f226a34a80d7f4e0dfe6932bf343e663f1c7e",
+      "observations": 2,
+      "captures": 1,
+      "proofFile": "observation-evidence.json"
+    },
+    {
+      "id": "reward-raur-2300206",
+      "kind": "captureMiddleBossReward",
+      "sourceRef": "soulcrest:combat-observations-20261017/reward-raur-2300206",
+      "sha256": "d995ef807c7e137f2e47090e621f226a34a80d7f4e0dfe6932bf343e663f1c7e",
+      "observations": 1,
+      "captures": 1,
+      "proofFile": "observation-evidence.json"
+    },
+    {
+      "id": "reward-urahum-2300207",
+      "kind": "captureMiddleBossReward",
+      "sourceRef": "soulcrest:combat-observations-20261017/reward-urahum-2300207",
+      "sha256": "d995ef807c7e137f2e47090e621f226a34a80d7f4e0dfe6932bf343e663f1c7e",
+      "observations": 1,
+      "captures": 1,
+      "proofFile": "observation-evidence.json"
+    },
+    {
+      "id": "reward-harcon-2300104",
+      "kind": "captureMiddleBossReward",
+      "sourceRef": "soulcrest:combat-observations-20261017/reward-harcon-2300104",
+      "sha256": "d995ef807c7e137f2e47090e621f226a34a80d7f4e0dfe6932bf343e663f1c7e",
+      "observations": 1,
+      "captures": 1,
+      "proofFile": "observation-evidence.json"
+    },
+    {
+      "id": "death-result-auldor-2300218",
+      "kind": "captureDeathDungeonSuccess",
+      "sourceRef": "soulcrest:combat-observations-20261017/death-result-auldor-2300218",
+      "sha256": "d995ef807c7e137f2e47090e621f226a34a80d7f4e0dfe6932bf343e663f1c7e",
+      "observations": 2,
+      "captures": 2,
+      "proofFile": "observation-evidence.json"
+    }
+  ],
+  "dungeons": [
+    {
+      "dungeonDataId": 600012,
+      "mapDataId": 600012,
+      "mapSources": {
+        "en": "maps-en-600012",
+        "de": "maps-de-600012"
+      },
+      "sourceRefs": [
+        "context-auldor-600012"
+      ],
+      "npcs": [
+        {
+          "npcDataId": 2300206,
+          "npcSources": {
+            "en": "npcs-en-2300206",
+            "de": "npcs-de-2300206"
+          },
+          "role": "intermediateBoss",
+          "roleSourceRefs": [
+            "reward-raur-2300206"
+          ],
+          "endProof": "middleBossReward",
+          "endSourceRefs": [
+            "reward-raur-2300206"
+          ]
+        },
+        {
+          "npcDataId": 2300207,
+          "npcSources": {
+            "en": "npcs-en-2300207",
+            "de": "npcs-de-2300207"
+          },
+          "role": "intermediateBoss",
+          "roleSourceRefs": [
+            "reward-urahum-2300207"
+          ],
+          "endProof": "middleBossReward",
+          "endSourceRefs": [
+            "reward-urahum-2300207"
+          ]
+        },
+        {
+          "npcDataId": 2300218,
+          "npcSources": {
+            "en": "npcs-en-2300218",
+            "de": "npcs-de-2300218"
+          },
+          "role": "finalBoss",
+          "roleSourceRefs": [
+            "death-result-auldor-2300218"
+          ],
+          "endProof": "dungeonSuccess",
+          "endSourceRefs": [
+            "death-result-auldor-2300218"
+          ]
+        }
+      ]
+    },
+    {
+      "dungeonDataId": 600001,
+      "mapDataId": 600001,
+      "mapSources": {
+        "en": "maps-en-600001",
+        "de": "maps-de-600001"
+      },
+      "sourceRefs": [
+        "context-krao-600001"
+      ],
+      "npcs": [
+        {
+          "npcDataId": 2300104,
+          "npcSources": {
+            "en": "npcs-en-2300104",
+            "de": "npcs-de-2300104"
+          },
+          "role": "intermediateBoss",
+          "roleSourceRefs": [
+            "reward-harcon-2300104"
+          ],
+          "endProof": "middleBossReward",
+          "endSourceRefs": [
+            "reward-harcon-2300104"
+          ]
+        },
+        {
+          "npcDataId": 2300171,
+          "npcSources": {
+            "en": "npcs-en-2300171",
+            "de": "npcs-de-2300171"
+          },
+          "role": "unknown",
+          "roleSourceRefs": [],
+          "endProof": "none",
+          "endSourceRefs": []
+        }
+      ]
+    }
+  ]
+}

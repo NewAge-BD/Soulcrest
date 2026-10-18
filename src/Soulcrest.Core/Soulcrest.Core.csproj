@@ -6,6 +6,7 @@
     <InternalsVisibleTo Include="Soulcrest.Core.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="..\..\data\combat\encounters.json" LogicalName="Soulcrest.CombatEncounters.json" />
     <EmbeddedResource Include="..\..\data\pets\name-overrides.json" LogicalName="Soulcrest.PetNameOverrides.json" />
     <EmbeddedResource Include="..\..\data\pets\pet-ids.json" LogicalName="Soulcrest.PetIds.json" />
     <EmbeddedResource Include="..\..\data\pets\merchant-items.json" LogicalName="Soulcrest.MerchantPetItems.json" />

@@ -2,6 +2,23 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.8.0 – 2026-10-18
+
+- **New:** In-game timer bar: a slim icon bar with countdowns for events and bosses, no background,
+  size 60–200 %, selectable sections, with a preview in the timer menu.
+- **New:** Boss reminders appear as notices of their own, even with the timer HUD off, and stay until
+  the spawn is confirmed. You set the display duration once, centrally.
+- **New:** The patch notes tab is a searchable version reader.
+- **New:** The merchant overlay shows the pet category above the name and the number of spawn points per
+  farm map.
+- **Improved:** The boss list sorts confirmed spawns first; boss times are kept permanently. Missing
+  times of the Lower Reshanta bosses are filled in from the game calendar.
+- **Improved:** Events in Alerts can be expanded; overlay sections are selectable. The boss search also
+  finds Reshanta maps under "Abyss". New Dimensional Invasion symbol.
+- **Improved:** The interactive map loads more compact data and draws its symbols more smoothly.
+- **Changed:** "Loot & Pet Progress" hides itself while there is nothing to show.
+- **Removed:** The boss loot pool in the Boss Rush tab.
+
 ## 0.7.6 – 2026-10-17
 
 - **Changed:** Cube Groups now show the actual spawn groups of the Hidden Cubes instead of areas:

@@ -1,13 +1,13 @@
 @* The entries of one version (Patchnotes tab and update notice). *@
-<ul class="pn-list">
+<ul class="@(ShowKind ? "pn-list" : "pn-list pn-grouped-list")">
     @foreach (var entry in Entries)
     {
         <li>
-            @if (entry.Kind.Length > 0)
+            @if (ShowKind && entry.Kind.Length > 0)
             {
                 <span class="pn-kind @KindClass(entry.Kind)">@UiText.T(entry.Kind)</span>
             }
-            else
+            else if (ShowKind)
             {
                 <span aria-hidden="true"></span>
             }
@@ -33,6 +33,8 @@
 </ul>
 
 @code {
+    [Parameter] public bool ShowKind { get; set; } = true;
+
     [Parameter, EditorRequired] public IReadOnlyList<PatchNotes.Entry> Entries { get; set; } = [];
 
     private static string KindClass(string kind) => kind switch

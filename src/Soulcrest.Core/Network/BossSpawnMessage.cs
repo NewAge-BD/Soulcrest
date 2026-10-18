@@ -2,7 +2,8 @@ using System.Buffers.Binary;
 
 namespace Soulcrest.Core.Network;
 
-public sealed record BossSpawn(int SpawnId, bool Spawned, long SpawnUnixMs);
+/// <summary>A null time means no usable timestamp was supplied; it never confirms a spawn cycle.</summary>
+public sealed record BossSpawn(int SpawnId, bool Spawned, long? SpawnUnixMs);
 public sealed record BossSpawnList(int MapId, IReadOnlyList<BossSpawn> Bosses);
 
 /// <summary>Observed 0191 boss lists (2026-10-03/06). Optional NPC data is skipped, never decoded.</summary>
@@ -33,8 +34,9 @@ public static class BossSpawnMessage
             if (pos > data.Length - 8 || (((mask >> (i % 8)) & 1) != 0) != spawned) return null;
             var at = BinaryPrimitives.ReadInt64LittleEndian(data[pos..]);
             pos += 8;
-            if (!ValidTime(at)) return null;
-            bosses.Add(new BossSpawn(id, spawned, at));
+            // Waiting records may have no announced time. Zero never proves a spawn or a cycle.
+            if (at == 0 ? spawned : !ValidTime(at)) return null;
+            bosses.Add(new BossSpawn(id, spawned, at == 0 ? null : at));
         }
         // Unknown suffix kept strict until another format is independently evidenced.
         if (data.Length - pos != 3 || data[pos] != 0 || data[pos + 1] != 0 || data[pos + 2] != 0)

@@ -555,7 +555,7 @@
     {
         var rows = _bossRush?.Schedule.Where(row => row.Place.Map == _mapId).Select(row => new {
             spawnId = row.Place.Boss.SpawnId, spawned = row.Spawned, remaining = row.Remaining.TotalSeconds,
-            age = row.Age.TotalSeconds, cached = row.Cached
+            age = row.Age.TotalSeconds, cached = row.Cached, calendar = row.Calendar
         }).ToArray();
         await JS.InvokeVoidAsync("soulcrestMap.setBossTimers", _mapId, JsonSerializer.Serialize(rows ?? []));
     }

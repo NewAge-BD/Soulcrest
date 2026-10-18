@@ -151,7 +151,7 @@ public sealed class AlertNotificationsTests
             using (var graphics = Graphics.FromImage(bitmap))
             {
                 graphics.Clear(Color.Fuchsia);
-                AlertsOverlayForm.PaintPanel(graphics, rows, now, false, notification: true, width: width);
+                AlertsOverlayForm.PaintNotifications(graphics, rows, now, false, width: width);
             }
             Assert.Equal(Color.Fuchsia.ToArgb(), bitmap.GetPixel(width + 10, height / 2).ToArgb());
             Assert.Equal(Color.Fuchsia.ToArgb(), bitmap.GetPixel(width / 2, height + 10).ToArgb());

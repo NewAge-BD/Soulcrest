@@ -112,7 +112,9 @@ public sealed class MerchantOverlayFormTests
     public void CardFeetStayAttachedAndSeparateAcrossUiScalesAndImageResolutions(double uiScale)
     {
         MerchantCounterRow[] rows = Enumerable.Range(0, 10).Select(slot =>
-            new MerchantCounterRow(slot, "synthetic-pet-" + slot, "24/25", true, false, "Abyss / Altgard / Verteron")).ToArray();
+            new MerchantCounterRow(slot, "synthetic-pet-" + slot, "24/25", true, false, "Abyss / Altgard / Verteron",
+                new[] { "Cogni", "Fera", "Natura", "Varian" }[slot % 4],
+                "Abyss (209) / Altgard (398) / Verteron (377)")).ToArray();
         var original = MerchantOverlayForm.BuildBadges(new Size(2560, 1440), ShopAnchors(uiScale, 1), rows);
         Assert.Equal(10, original.Count);
         foreach (var frameScale in new[] { .5, .75, 1 })
@@ -127,6 +129,17 @@ public sealed class MerchantOverlayFormTests
                 var price = anchors[slot].PriceBounds;
                 Assert.True(new Rectangle(Point.Empty, size).Contains(bounds));
                 Assert.Equal(price.Top, bounds.Top);
+                Assert.Equal(rows[slot].PetCategory, badges[slot].PetCategory);
+                Assert.Equal(rows[slot].FarmSpawns, badges[slot].FarmSpawns);
+                var header = badges[slot].CategoryBounds;
+                Assert.False(header.IsEmpty);
+                Assert.True(header.Bottom < price.Top);
+                Assert.InRange(Math.Abs(price.X + price.Width / 2d - header.X - header.Width / 2d), 0, .5);
+                Assert.True(new Rectangle(Point.Empty, size).Contains(MerchantOverlayForm.SurfaceBounds(badges[slot])));
+                Assert.InRange(Math.Abs(header.Left - original[slot].CategoryBounds.Left * frameScale), 0, 2);
+                Assert.InRange(Math.Abs(header.Top - original[slot].CategoryBounds.Top * frameScale), 0, 2);
+                Assert.InRange(Math.Abs(header.Right - original[slot].CategoryBounds.Right * frameScale), 0, 2);
+                Assert.InRange(Math.Abs(header.Bottom - original[slot].CategoryBounds.Bottom * frameScale), 0, 2);
                 Assert.Equal(new Rectangle(price.X, price.Y, price.Width, price.Height), badges[slot].PriceBounds);
                 Assert.InRange(Math.Abs(price.X + price.Width / 2d - bounds.X - bounds.Width / 2d), 0, .5);
                 Assert.InRange(Math.Abs(bounds.Left - original[slot].Bounds.Left * frameScale), 0, 2);
@@ -146,15 +159,20 @@ public sealed class MerchantOverlayFormTests
     public void PhysicalPixelRenderingDoesNotApplyBitmapDpiASecondTime(float dpi)
     {
         MerchantOverlayForm.Badge[] badges = [
-            new(new Rectangle(20, 20, 212, 52), "0/5", true, false, "Abyss / Altgard / Verteron"),
-            new(new Rectangle(260, 20, 212, 52), "max", true, true, "Altgard"),
-            new(new Rectangle(500, 20, 212, 52), "?", false, false, "Special")];
-        using var reference = Render(new Size(740, 96), Point.Empty, badges, 96);
+            new(new Rectangle(20, 60, 212, 52), "0/5", true, false, "Abyss / Altgard / Verteron",
+                PetCategory: "Varian", FarmSpawns: "Abyss (209) / Altgard (398) / Verteron (377)",
+                CategoryBounds: new Rectangle(78, 10, 96, 20)),
+            new(new Rectangle(260, 60, 212, 52), "max", true, true, "Altgard",
+                PetCategory: "Cogni", FarmSpawns: "Altgard (398)", CategoryBounds: new Rectangle(318, 10, 96, 20)),
+            new(new Rectangle(500, 60, 212, 52), "?", false, false, "Special",
+                PetCategory: "Natura", FarmSpawns: "Special", CategoryBounds: new Rectangle(558, 10, 96, 20))];
+        using var reference = Render(new Size(740, 140), Point.Empty, badges, 96);
         using var highDpi = Render(reference.Size, Point.Empty, badges, dpi);
 
         for (var y = 0; y < reference.Height; y++)
             for (var x = 0; x < reference.Width; x++) Assert.Equal(reference.GetPixel(x, y), highDpi.GetPixel(x, y));
-        AssertTransparentOutside(highDpi, badges.Select(b => b.Bounds).ToArray());
+        Assert.All(badges, badge => AssertContainsInk(highDpi, badge.CategoryBounds));
+        AssertTransparentOutside(highDpi, badges.SelectMany(Regions).ToArray());
     }
 
     [Theory]
@@ -166,9 +184,10 @@ public sealed class MerchantOverlayFormTests
     [InlineData(1.25)]
     public void NativePriceButtonAndItsSafetyMarginReceiveNoOverlayPixels(double scale)
     {
-        var badge = Assert.Single(MerchantOverlayForm.BuildBadges(GameSize, Anchors(scale),
-            [new(0, "synthetic-pet", "24/25", true, false, "Abyss / Altgard / Verteron")]));
-        using var image = Render(new Size(400, 300), Point.Empty, [badge]);
+        var badge = Assert.Single(MerchantOverlayForm.BuildBadges(GameSize, Anchors(scale, top: 300),
+            [new(0, "synthetic-pet", "24/25", true, false, "Abyss / Altgard / Verteron",
+                "Natura", "Abyss (209) / Altgard (398) / Verteron (377)")]));
+        using var image = Render(new Size(400, 500), Point.Empty, [badge]);
         for (var y = badge.PriceBounds.Top; y < badge.PriceBounds.Bottom; y++)
             for (var x = badge.PriceBounds.Left; x < badge.PriceBounds.Right; x++)
             {
@@ -180,7 +199,7 @@ public sealed class MerchantOverlayFormTests
             }
         AssertContainsInk(image, new Rectangle(badge.Bounds.Left, badge.PriceBounds.Bottom + 5,
             badge.Bounds.Width, badge.Bounds.Bottom - badge.PriceBounds.Bottom - 5));
-        AssertTransparentOutside(image, [badge.Bounds]);
+        AssertTransparentOutside(image, Regions(badge));
     }
 
     [Fact]
@@ -203,6 +222,171 @@ public sealed class MerchantOverlayFormTests
             using var later = Render(normal.Size, Point.Empty, [new(bounds, counter, true, counter == "max", "Altgard")]);
             Assert.Equal(regularEdge, later.GetPixel(bounds.Left, bounds.Top + 10));
         }
+    }
+
+    [Fact]
+    public void CategoryAndSpawnMetadataAreProjectedWithoutChangingTheFooterOrPriceBounds()
+    {
+        MerchantCounterRow[] rows = [new(0, "synthetic-a", "24/25", true, false,
+                "Abyss / Altgard / Verteron", "Varian", "Abyss (209) / Altgard (398) / Verteron (377)"),
+            new(9, "synthetic-b", "max", true, true, "Special", "Natura", "Special")];
+        var badges = MerchantOverlayForm.BuildBadges(GameSize, Anchors(top: 300), rows);
+        var old = MerchantOverlayForm.BuildBadges(GameSize, Anchors(top: 300), rows.Select(row =>
+            row with { PetCategory = "", FarmSpawns = "" }).ToArray());
+
+        Assert.Equal(rows.Length, badges.Count);
+        for (var i = 0; i < rows.Length; i++)
+        {
+            Assert.Equal(rows[i].PetCategory, badges[i].PetCategory);
+            Assert.Equal(rows[i].FarmSpawns, badges[i].FarmSpawns);
+            Assert.Equal(rows[i].FarmRegions, badges[i].FarmRegions);
+            Assert.Equal(old[i].Bounds, badges[i].Bounds);
+            Assert.Equal(old[i].PriceBounds, badges[i].PriceBounds);
+        }
+    }
+
+    [Theory]
+    [InlineData("Cogni")]
+    [InlineData("Fera")]
+    [InlineData("Natura")]
+    [InlineData("Varian")]
+    [InlineData("?")]
+    public void PetCategoryIsVisibleInItsOwnHeaderAboveThePetName(string category)
+    {
+        var badge = Assert.Single(MerchantOverlayForm.BuildBadges(GameSize, Anchors(top: 300),
+            [new(0, "synthetic-pet", "24/25", true, false, "Altgard", category, "Altgard (398)")]));
+        Assert.False(badge.CategoryBounds.IsEmpty);
+        Assert.True(badge.CategoryBounds.Bottom < badge.PriceBounds.Top);
+        Assert.InRange(Math.Abs(badge.CategoryBounds.X + badge.CategoryBounds.Width / 2d
+            - badge.PriceBounds.X - badge.PriceBounds.Width / 2d), 0, .5);
+        using var image = Render(new Size(400, 500), Point.Empty, [badge]);
+        using var absent = Render(image.Size, Point.Empty, [badge with { PetCategory = "", CategoryBounds = Rectangle.Empty }]);
+        AssertPixelsDiffer(image, absent, badge.CategoryBounds);
+        AssertContainsInk(image, badge.CategoryBounds);
+        AssertTransparentOutside(image, Regions(badge));
+    }
+
+    [Theory]
+    [InlineData(.9375)]
+    [InlineData(1)]
+    [InlineData(1.0625)]
+    [InlineData(1.125)]
+    [InlineData(1.25)]
+    public void CategoryHeadersLeaveTheCounterCenteredAndTheNativeCardBetweenRegionsTransparent(double scale)
+    {
+        var badge = Assert.Single(MerchantOverlayForm.BuildBadges(GameSize, Anchors(scale, top: 300),
+            [new(0, "synthetic-pet", "24/25", true, false, "Altgard", "Natura", "Altgard (398)")]));
+        using var withCategory = Render(new Size(400, 500), Point.Empty, [badge]);
+        using var withoutCategory = Render(withCategory.Size, Point.Empty,
+            [badge with { PetCategory = "", CategoryBounds = Rectangle.Empty }]);
+        Assert.InRange(Math.Abs(badge.Bounds.X + badge.Bounds.Width / 2d
+            - badge.PriceBounds.X - badge.PriceBounds.Width / 2d), 0, .5);
+        for (var y = badge.Bounds.Top; y < badge.Bounds.Bottom; y++)
+            for (var x = badge.Bounds.Left; x < badge.Bounds.Right; x++)
+                Assert.Equal(withoutCategory.GetPixel(x, y), withCategory.GetPixel(x, y));
+        Assert.Equal(Rectangle.Union(badge.Bounds, badge.CategoryBounds), MerchantOverlayForm.SurfaceBounds(badge));
+        Assert.Equal(badge.Bounds, MerchantOverlayForm.SurfaceBounds(badge with { CategoryBounds = Rectangle.Empty }));
+        AssertContainsInk(withCategory, badge.CategoryBounds);
+        AssertContainsInk(withCategory, badge.Bounds);
+        // Allow each drawn region separately; allowing the union would hide accidental paint
+        // across the native pet name, artwork or other controls between header and footer.
+        AssertTransparentOutside(withCategory, Regions(badge));
+    }
+
+    [Fact]
+    public void SpawnCountsReplaceTheRegionTextWithinItsExistingSecondLine()
+    {
+        var bounds = new Rectangle(20, 20, 212, 52);
+        var badge = new MerchantOverlayForm.Badge(bounds, "24/25", true, false, "Altgard",
+            PetCategory: "Fera", FarmSpawns: "Altgard (398)");
+        using var image = Render(new Size(260, 90), Point.Empty, [badge]);
+        using var namesOnly = Render(image.Size, Point.Empty, [badge with { FarmSpawns = "" }]);
+        AssertPixelsDiffer(image, namesOnly, new Rectangle(bounds.Left + 8, bounds.Top + 22, 196, 16));
+        AssertTransparentOutside(image, [bounds]);
+    }
+
+    [Theory]
+    [InlineData(.9375)]
+    [InlineData(1)]
+    [InlineData(1.0625)]
+    [InlineData(1.125)]
+    [InlineData(1.25)]
+    public void LongSpawnLinesStayInsideTheCardContourAndBelowTheCounter(double scale)
+    {
+        var badge = Assert.Single(MerchantOverlayForm.BuildBadges(GameSize, Anchors(scale, top: 300),
+            [new(0, "synthetic-pet", "24/25", true, false, "Abyss / Altgard / Verteron",
+                "Natura", "Abyss (209) / Altgard (398) / Verteron (377)")]));
+        var blank = badge with { FarmRegions = "" };
+        using var image = Render(new Size(400, 500), Point.Empty, [badge]);
+        using var withoutFarmText = Render(image.Size, Point.Empty, [blank]);
+        using var counterLabelOnly = Render(image.Size, Point.Empty, [blank with { Counter = "" }]);
+        // Derive the actual counter glyph height and the foot silhouette from rendered pixels,
+        // independently of the implementation's chosen line offsets or font sizes.
+        var counterBottom = -1;
+        for (var y = badge.Bounds.Top; y < badge.Bounds.Bottom; y++)
+            for (var x = badge.Bounds.Left; x < badge.Bounds.Right; x++)
+                if (withoutFarmText.GetPixel(x, y) != counterLabelOnly.GetPixel(x, y)) counterBottom = y;
+        Assert.True(counterBottom >= badge.PriceBounds.Bottom);
+        var farmPixels = 0;
+        for (var y = 0; y < image.Height; y++)
+        for (var x = 0; x < image.Width; x++)
+        {
+            if (image.GetPixel(x, y) == withoutFarmText.GetPixel(x, y)) continue;
+            farmPixels++;
+            Assert.True(y > counterBottom, $"Farm text overlaps the counter at ({x},{y}), scale {scale}.");
+            var touchesFoot = false;
+            // One physical pixel permits antialiasing and the subtle text shadow at the edge.
+            for (var nearbyY = Math.Max(0, y - 1); nearbyY <= Math.Min(image.Height - 1, y + 1); nearbyY++)
+                for (var nearbyX = Math.Max(0, x - 1); nearbyX <= Math.Min(image.Width - 1, x + 1); nearbyX++)
+                    touchesFoot |= withoutFarmText.GetPixel(nearbyX, nearbyY).A > 0;
+            Assert.True(touchesFoot, $"Farm text escapes the foot contour at ({x},{y}), scale {scale}.");
+        }
+        Assert.True(farmPixels > 0, "The long farm line must remain visible.");
+        AssertTransparentOutside(image, Regions(badge));
+    }
+
+    [Theory]
+    [InlineData("Altgard")]
+    [InlineData("Special")]
+    public void AnEmptySpawnLabelRetainsTheOriginalFarmRegionRendering(string regions)
+    {
+        var badge = new MerchantOverlayForm.Badge(new Rectangle(20, 20, 212, 52), "24/25", true, false,
+            regions, PetCategory: "Cogni");
+        using var fallback = Render(new Size(260, 90), Point.Empty, [badge]);
+        using var explicitLabel = Render(fallback.Size, Point.Empty, [badge with { FarmSpawns = regions }]);
+        for (var y = 0; y < fallback.Height; y++)
+            for (var x = 0; x < fallback.Width; x++)
+                Assert.Equal(fallback.GetPixel(x, y), explicitLabel.GetPixel(x, y));
+    }
+
+    [Fact]
+    public void SpecialHighlightDependsOnFarmClassificationRatherThanCategoryOrDisplayedSpawnText()
+    {
+        var bounds = new Rectangle(20, 20, 212, 52);
+        var normal = new MerchantOverlayForm.Badge(bounds, "24/25", true, false, "Altgard",
+            PetCategory: "Natura", FarmSpawns: "Altgard (398)");
+        using var reference = Render(new Size(260, 90), Point.Empty, [normal]);
+        using var misleadingText = Render(reference.Size, Point.Empty,
+            [normal with { PetCategory = "Special", FarmSpawns = "Special" }]);
+        using var actualSpecial = Render(reference.Size, Point.Empty,
+            [normal with { FarmRegions = "Special" }]);
+        var edge = new Point(bounds.Left, bounds.Top + 10);
+        Assert.Equal(reference.GetPixel(edge.X, edge.Y), misleadingText.GetPixel(edge.X, edge.Y));
+        Assert.True(actualSpecial.GetPixel(edge.X, edge.Y).GetBrightness() > reference.GetPixel(edge.X, edge.Y).GetBrightness());
+    }
+
+    [Fact]
+    public void AnOffscreenCategoryHeaderRejectsTheWholeSuppliedLayout()
+    {
+        MerchantCounterRow[] rows = [new(0, "synthetic-a", "24/25", true, false, "Altgard", "Cogni", "Altgard (398)"),
+            new(1, "synthetic-b", "?", false, false, "Special", "Natura", "Special")];
+        var anchors = Anchors(top: 300);
+        anchors[1] = anchors[1] with { PriceBounds = new Rect(350, 100, 146, 27) };
+        Assert.Empty(MerchantOverlayForm.BuildBadges(GameSize, anchors, rows));
+        var withoutHeaders = MerchantOverlayForm.BuildBadges(GameSize, anchors,
+            rows.Select(row => row with { PetCategory = "" }).ToArray());
+        Assert.Equal(rows.Length, withoutHeaders.Count);
+        Assert.All(withoutHeaders, badge => Assert.True(badge.CategoryBounds.IsEmpty));
     }
 
     [Fact]
@@ -241,10 +425,13 @@ public sealed class MerchantOverlayFormTests
     public void TranslatedBadgeSurfacesLeaveAllGapsAndOutsidePixelsFullyTransparent()
     {
         var origin = new Point(200, 300);
-        MerchantOverlayForm.Badge[] badges = [new(new Rectangle(220, 320, 212, 36), "?", false, false),
-            new(new Rectangle(470, 380, 212, 36), "max", true, true)];
+        MerchantOverlayForm.Badge[] badges = [new(new Rectangle(220, 320, 212, 36), "?", false, false,
+                PetCategory: "Cogni", CategoryBounds: new Rectangle(278, 305, 96, 10)),
+            new(new Rectangle(470, 380, 212, 36), "max", true, true,
+                PetCategory: "Fera", CategoryBounds: new Rectangle(528, 305, 96, 10))];
         using var bitmap = Render(new Size(520, 140), origin, badges);
-        var translated = badges.Select(b => new Rectangle(b.Bounds.X - origin.X, b.Bounds.Y - origin.Y, b.Bounds.Width, b.Bounds.Height)).ToArray();
+        var translated = badges.SelectMany(Regions).Select(bounds =>
+            new Rectangle(bounds.X - origin.X, bounds.Y - origin.Y, bounds.Width, bounds.Height)).ToArray();
         Assert.All(translated, footprint => AssertContainsInk(bitmap, footprint));
         Assert.Equal(0, bitmap.GetPixel(250, 65).A);
         AssertTransparentOutside(bitmap, translated);
@@ -290,8 +477,8 @@ public sealed class MerchantOverlayFormTests
         if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
-    private static MerchantCardAnchor[] Anchors(double scale = 1) => Enumerable.Range(0, 10).Select(i =>
-        new MerchantCardAnchor(i, new Rect(100 + i % 5 * 250, 100 + i / 5 * 300, (int)(146 * scale), (int)(27 * scale)), scale, .9)).ToArray();
+    private static MerchantCardAnchor[] Anchors(double scale = 1, int top = 100) => Enumerable.Range(0, 10).Select(i =>
+        new MerchantCardAnchor(i, new Rect(100 + i % 5 * 250, top + i / 5 * 300, (int)(146 * scale), (int)(27 * scale)), scale, .9)).ToArray();
 
     private static MerchantCardAnchor[] ShopAnchors(double uiScale, double frameScale)
     {
@@ -310,6 +497,9 @@ public sealed class MerchantOverlayFormTests
         }).ToArray();
     }
 
+    private static Rectangle[] Regions(MerchantOverlayForm.Badge badge) => badge.CategoryBounds.IsEmpty
+        ? [badge.Bounds] : [badge.Bounds, badge.CategoryBounds];
+
     private static Bitmap Render(Size size, Point origin, IReadOnlyList<MerchantOverlayForm.Badge> badges, float dpi = 96)
     {
         var bitmap = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppPArgb);
@@ -318,6 +508,14 @@ public sealed class MerchantOverlayFormTests
         graphics.Clear(Color.Transparent);
         MerchantOverlayForm.DrawBadges(graphics, origin, badges);
         return bitmap;
+    }
+
+    private static void AssertPixelsDiffer(Bitmap first, Bitmap second, Rectangle area)
+    {
+        for (var y = area.Top; y < area.Bottom; y++)
+            for (var x = area.Left; x < area.Right; x++)
+                if (first.GetPixel(x, y) != second.GetPixel(x, y)) return;
+        Assert.Fail("The requested metadata must add visible text within its existing line.");
     }
 
     private static void AssertContainsInk(Bitmap bitmap, Rectangle footprint)

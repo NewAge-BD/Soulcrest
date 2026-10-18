@@ -2,20 +2,48 @@
 @using System.Globalization
 @inject BossRushService BossRush
 @inject SettingsService Settings
+@inject TrackerService Loot
 @inject ProgressService Progress
 @inject AlertsService Alerts
 
 @{
     var selected = Settings.Current.BossAlertIds.ToHashSet(StringComparer.Ordinal);
+    var stripSelected = (Settings.Current.TimerOverlayTimerIds ?? Alerts.TimerOverlayChoices
+        .Where(choice => choice.Selected).Select(choice => choice.Key).ToArray()).ToHashSet(StringComparer.Ordinal);
     var captured = BossRush.Schedule.ToDictionary(row => row.Place.Key, StringComparer.Ordinal);
-    var choices = BossRush.Catalogue.Where(choice => selected.Contains(choice.Key) || IncludeAllCaptured && captured.ContainsKey(choice.Key))
-        .OrderByDescending(choice => captured.TryGetValue(choice.Key, out var entry) && entry.Spawned && !Provisional(entry))
-        .ThenBy(choice => captured.TryGetValue(choice.Key, out var entry) ? entry.Remaining : TimeSpan.MaxValue)
-        .ThenBy(choice => choice.Boss.Name(Settings.Current.NameLanguage)).ToArray();
+    var choices = BossRush.Catalogue.Where(choice => IncludeCatalogue || selected.Contains(choice.Key) ||
+            ShowTimerStripSelection && stripSelected.Contains("boss:" + choice.Key) || IncludeAllCaptured && captured.ContainsKey(choice.Key))
+        .OrderBy(choice => SortKey(captured.GetValueOrDefault(choice.Key)))
+        .ThenBy(choice => choice.Boss.Name(Settings.Current.NameLanguage), StringComparer.OrdinalIgnoreCase)
+        .ThenBy(choice => choice.MapId).ThenBy(choice => choice.Boss.SpawnId).ToArray();
+    var visible = choices.Where(MatchesSearch).ToArray();
+    var heading = UiText.T(IncludeCatalogue ? "Boss-Timer" : "Erfasste Boss-Timer");
 }
 
-<section class="@(Compact ? "event-boss-live boss-timers-compact" : "event-boss-live")" aria-label="@UiText.T("Erfasste Boss-Timer")">
-    <div class="alerts-section-heading"><div><span class="alerts-eyebrow">@UiText.T("Live aus dem Spiel")</span><h3>@UiText.T("Erfasste Boss-Timer")</h3></div><span class="event-schedule-badge">@UiText.T(IncludeAllCaptured ? "Alle erfassten Bosse" : "Eigene Boss-Auswahl")</span></div>
+<section class="@(Compact ? "event-boss-live boss-timers-compact" : "event-boss-live")" data-boss-list data-boss-searchable="@Searchable.ToString().ToLowerInvariant()" aria-label="@heading">
+    <div class="alerts-section-heading"><div><span class="alerts-eyebrow">@UiText.T("Live aus dem Spiel")</span><h3>@heading</h3></div><div class="alerts-header-actions">
+        <label class="opt-toggle" for="@_masterId"><input id="@_masterId" type="checkbox" role="switch" data-boss-alerts-master checked="@Settings.Current.BossAlertsEnabled" disabled="@Disabled" @onchange="ToggleAlerts" />@UiText.T("Alerts für ausgewählte Bosse")</label>
+        <span class="boss-alert-help"><InfoTip><p>@UiText.T("Je Spawn eine Vorwarnung und ein Alert bei bestätigtem Spawn. 0 Sekunden bedeutet nur Spawn-Alert. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p></InfoTip></span>
+        <span class="event-schedule-badge">@UiText.T(IncludeCatalogue ? "Alle bekannten Bosse" : IncludeAllCaptured ? "Alle erfassten Bosse" : "Eigene Boss-Auswahl")</span></div></div>
+    @if ((_savingKey == MasterKey || _savingKey == DurationKey)) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Wird gespeichert …")</p> }
+    else if ((_feedbackKey == MasterKey || _feedbackKey == DurationKey) && _feedback is not null) { <p class="@(_error ? "alerts-error" : "alerts-feedback")" role="@(_error ? "alert" : "status")">@_feedback</p> }
+    <div class="alerts-boss-fields boss-timer-duration" data-boss-duration-global role="group" aria-label="@UiText.T("Anzeigedauer")" aria-busy="@_saving">
+        <label class="boss-field">@UiText.T("Anzeigedauer")<select id="@(_masterId + "-duration-mode")" data-boss-duration-mode value="@(Settings.Current.BossAlertUntilSpawn ? "until-spawn" : "fixed")" disabled="@Disabled" @onchange="SetDurationMode"><option value="fixed">@UiText.T("Feste Dauer")</option><option value="until-spawn">@UiText.T("Gesamtes Vorwarnfenster")</option></select></label>
+        <label class="boss-field">@UiText.T(Settings.Current.BossAlertUntilSpawn ? "Bestätigter Spawn & Test (Sekunden)" : "Feste Dauer (Sekunden)")<input id="@(_masterId + "-duration-seconds")" data-boss-duration-seconds type="number" min="3" max="60" value="@Settings.Current.BossAlertDurationSeconds" disabled="@Disabled" @onchange="SetDuration" /></label>
+    </div>
+    <p class="alerts-hint">@(UiText.T("Gilt für alle Boss-Erinnerungen.") + " " + UiText.T("Jede aktivierte Boss-Erinnerung erscheint als Overlay-Benachrichtigung, unabhängig von der Timer-Leiste.")) @if (Settings.Current.BossAlertUntilSpawn) { @(" " + UiText.T("Die Benachrichtigung bleibt ab der eingestellten Vorwarnzeit bis zum bestätigten Spawn sichtbar, auch wenn der Countdown 0 erreicht.")) }</p>
+    @if (Searchable)
+    {
+        <div class="boss-timer-search-row">
+            <div class="boss-timer-search">
+                <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m12.5 12.5 4 4" /></svg>
+                <label class="boss-timer-sr-only" for="@_searchId">@UiText.T("Bosse oder Karten suchen")</label>
+                <input id="@_searchId" type="search" value="@_query" @oninput="Search" placeholder="@UiText.T("Bossname oder Karte")" autocomplete="off" spellcheck="false" />
+                @if (_query.Length > 0) { <button type="button" @onclick="ClearSearch" aria-label="@UiText.T("Suche zurücksetzen")">×</button> }
+            </div>
+            <span class="boss-timer-search-count" role="status">@UiText.F("{0} / {1} Bosse", visible.Length, choices.Length)</span>
+        </div>
+    }
     @if (choices.Length == 0)
     {
         <div class="event-boss-empty"><span aria-hidden="true">◆</span><div><strong>@UiText.T("Wähle deine Bosse")</strong><p>@UiText.T("Wähle unten die Bosse, für die du Timer und Alerts sehen möchtest.")</p></div></div>
@@ -23,8 +51,12 @@
     else
     {
         @if (!Settings.Current.BossAlertsEnabled) { <p class="boss-timer-master-status" role="status">@UiText.T("Boss-Erinnerungen global pausiert. Deine Timer und individuellen Einstellungen bleiben erhalten.")</p> }
+        @if (visible.Length == 0)
+        {
+            <div class="boss-timer-no-results" role="status"><strong>@UiText.T("Keine passenden Bosse")</strong><p>@UiText.T("Versuche einen anderen Bossnamen oder eine Karte.")</p><button type="button" class="btn" @onclick="ClearSearch">@UiText.T("Suche zurücksetzen")</button></div>
+        }
         <div class="event-cards boss-timer-grid">
-            @foreach (var choice in choices)
+            @foreach (var choice in visible)
             {
                 var row = captured.GetValueOrDefault(choice.Key);
                 var provisional = row is not null && Provisional(row);
@@ -39,11 +71,11 @@
                         <div class="boss-timer-overview">
                             <div class="event-card-heading">
                                 <span class="event-symbol" aria-hidden="true">@if (choice.Boss.Icon is { } icon) { <img src="@($"https://{MainForm.MapDataHost}/{icon}")" alt="" loading="lazy" /> } else { <span>◆</span> }</span>
-                                <div><span class="event-phase @(spawned ? "live" : "")">@UiText.T(row is null ? "Warte auf Boss-Timer" : provisional ? "Gespeichert · unbestätigt" : spawned ? "Bestätigter Spawn" : "Erfasster Timer")</span><h4>@choice.Boss.Name(Settings.Current.NameLanguage)</h4></div>
+                                <div><span class="event-phase @(spawned ? "live" : "")">@UiText.T(row is null ? "Warte auf Boss-Timer" : row.Calendar ? "Fester Spielzeitplan" : provisional ? "Gespeichert · unbestätigt" : spawned ? "Bestätigter Spawn" : "Erfasster Timer")</span><h4>@choice.Boss.Name(Settings.Current.NameLanguage)</h4></div>
                             </div>
                             <div class="event-countdown @(waiting ? "boss-timer-waiting" : "")"><span>@UiText.T(row is null ? "Noch nicht erfasst" : spawned ? "Bestätigter Spawn" : provisional ? "Unbestätigter Timer" : "Spawn in")</span><strong>@Counter(row)</strong></div>
                             <div class="boss-timer-meta">
-                                <span>@UiText.T(Progress.Maps.FirstOrDefault(map => map.Id == choice.Map)?.Label ?? choice.Map)</span>
+                                <span>@MapName(choice)</span>
                                 @if (row is { Spawned: false, Remaining: var remaining } && remaining > TimeSpan.Zero) { <span title="@UiText.T("Erwarteter Spawn")">@SpawnTime(remaining) · Europe/Berlin</span> }
                                 <span class="boss-timer-capture" title="@CaptureStatus(row)">@CompactCaptureStatus(row)</span>
                             </div>
@@ -53,8 +85,8 @@
                     {
                         <div class="event-card-heading">
                             <span class="event-symbol" aria-hidden="true">@if (choice.Boss.Icon is { } icon) { <img src="@($"https://{MainForm.MapDataHost}/{icon}")" alt="" loading="lazy" /> } else { <span>◆</span> }</span>
-                            <div><span class="event-phase @(spawned ? "live" : "")">@UiText.T(row is null ? "Warte auf Boss-Timer" : provisional ? "Gespeichert · unbestätigt" : spawned ? "Bestätigter Spawn" : "Erfasster Timer")</span><h4>@choice.Boss.Name(Settings.Current.NameLanguage)</h4></div>
-                            <span class="event-schedule-badge"><i class="boss-timer-source-dot" aria-hidden="true"></i>@UiText.T(row is not null && !provisional ? "Erfasst im Spiel" : "Soulcrest-Erkennung")</span>
+                            <div><span class="event-phase @(spawned ? "live" : "")">@UiText.T(row is null ? "Warte auf Boss-Timer" : row.Calendar ? "Fester Spielzeitplan" : provisional ? "Gespeichert · unbestätigt" : spawned ? "Bestätigter Spawn" : "Erfasster Timer")</span><h4>@choice.Boss.Name(Settings.Current.NameLanguage)</h4></div>
+                            <span class="event-schedule-badge"><i class="boss-timer-source-dot" aria-hidden="true"></i>@UiText.T(row is { Calendar: true } ? "Spielkalender" : row is not null && !provisional ? "Erfasst im Spiel" : "Soulcrest-Erkennung")</span>
                         </div>
                         <div class="event-countdown @(waiting ? "boss-timer-waiting" : "")"><span>@UiText.T(row is null ? "Noch nicht erfasst" : spawned ? "Bestätigter Spawn" : provisional ? "Unbestätigter Timer" : "Spawn in")</span><strong>@Counter(row)</strong></div>
                         <div class="event-time-range"><span>@UiText.T("Karte") <b>@UiText.T(Progress.Maps.FirstOrDefault(map => map.Id == choice.Map)?.Label ?? choice.Map)</b></span>@if (row is { Spawned: false, Remaining: var remaining } && remaining > TimeSpan.Zero) { <span>@UiText.T("Erwarteter Spawn") <b>@SpawnTime(remaining) · Europe/Berlin</b></span> }<span>@UiText.T("Quelle") <b>Soulcrest</b></span></div>
@@ -62,13 +94,15 @@
                     }
                     @if (Compact)
                     {
-                        <details class="boss-timer-options" open="@_optionsExpanded.Contains(choice.Key)">
-                            <summary @onclick="@(() => ToggleOptions(choice.Key))" @onclick:preventDefault><span>@UiText.T("Erinnerung")</span><span>@(isSelected ? ReminderStatus(reminder) : UiText.T("Nicht ausgewählt"))</span><span class="boss-timer-options-chevron" aria-hidden="true">⌄</span></summary>
+                        <details class="boss-timer-options" data-boss-options="@choice.Key" open="@_optionsExpanded.Contains(choice.Key)">
+                            <summary @onclick="@(() => ToggleOptions(choice.Key))" @onclick:preventDefault><span>@UiText.T(ShowTimerStripSelection ? "Einstellungen" : "Erinnerung")</span><span>@(isSelected ? ReminderStatus(reminder) : UiText.T("Nicht ausgewählt"))</span><span class="boss-timer-options-chevron" aria-hidden="true">⌄</span></summary>
+                            @if (ShowTimerStripSelection) { @StripControls(choice, stripSelected.Contains("boss:" + choice.Key)) }
                             @ReminderControls(choice, isSelected, reminder, presentation)
                         </details>
                     }
                     else
                     {
+                        @if (ShowTimerStripSelection) { @StripControls(choice, stripSelected.Contains("boss:" + choice.Key)) }
                         @ReminderControls(choice, isSelected, reminder, presentation)
                     }
                     @if (_savingKey == choice.Key) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Wird gespeichert …")</p> }
@@ -83,15 +117,63 @@
     [Parameter] public bool Busy { get; set; }
     [Parameter] public bool IncludeAllCaptured { get; set; }
     [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool IncludeCatalogue { get; set; }
+    [Parameter] public bool Searchable { get; set; }
+    [Parameter] public bool ShowTimerStripSelection { get; set; }
     private static readonly TimeZoneInfo Berlin = TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
     private bool _disposed, _saving, _error;
     private string? _savingKey, _feedbackKey, _feedback;
     private long _revision;
     private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _optionsExpanded = new(StringComparer.Ordinal);
+    private const string MasterKey = "boss-alerts-master", DurationKey = "boss-alert-duration";
+    private readonly string _searchId = "live-boss-search-" + Guid.NewGuid().ToString("N");
+    private readonly string _masterId = "boss-alerts-toggle-" + Guid.NewGuid().ToString("N");
+    private string _query = "";
     private Dictionary<string, BossAlertPresentation> _presentations = new(StringComparer.Ordinal);
     private Dictionary<string, BossReminderPreference> _reminders = new(StringComparer.Ordinal);
     private bool Disabled => Busy || _saving;
+    private RenderFragment StripControls(BossChoice choice, bool selected) => @<div class="boss-timer-strip">
+        <label><input type="checkbox" data-boss-strip="@("boss:" + choice.Key)" checked="@selected" disabled="@Disabled" @onchange="@(e => SelectStrip(choice.Key, e.Value is true))" />@UiText.T("In Timer-Leiste anzeigen")</label>
+        <p>@UiText.T("Die Symbol- und Countdown-Leiste hat eine eigene Auswahl. Erinnerungen und Zeitachse bleiben unabhängig.")</p>
+    </div>;
+
+    private string MapName(BossChoice choice) => UiText.T(Progress.Maps.FirstOrDefault(map => map.Id == choice.Map)?.Label ?? choice.Map);
+    private bool MatchesSearch(BossChoice choice)
+    {
+        if (!Searchable) return true;
+        var map = Progress.Maps.FirstOrDefault(map => map.Id == choice.Map);
+        var mapName = UiText.T(map?.Label ?? choice.Map);
+        return _query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .All(word => choice.Boss.Name(Settings.Current.NameLanguage).Contains(word, StringComparison.OrdinalIgnoreCase)
+                || mapName.Contains(word, StringComparison.OrdinalIgnoreCase)
+                || map?.Group.Contains(word, StringComparison.OrdinalIgnoreCase) == true);
+    }
+    private void Search(ChangeEventArgs args) => _query = args.Value?.ToString() ?? "";
+    private void ClearSearch() => _query = "";
+    private async Task SelectStrip(string key, bool selected)
+    {
+        if (Disabled || _disposed || !ShowTimerStripSelection || !BossRush.Catalogue.Any(choice => choice.Key == key)) return;
+        var legacy = Settings.Current.TimerOverlayTimerIds is null
+            ? Alerts.TimerOverlayChoices.Where(choice => choice.Selected).Select(choice => choice.Key).ToArray() : [];
+        BeginSave(key);
+        try
+        {
+            await Task.Run(() => Settings.Update(settings =>
+            {
+                // Preserve explicit unavailable IDs; only null materializes the unfiltered legacy selection.
+                var keys = (settings.TimerOverlayTimerIds ?? legacy).ToHashSet(StringComparer.Ordinal);
+                if (selected) keys.Add("boss:" + key); else keys.Remove("boss:" + key);
+                settings.TimerOverlayTimerIds = keys.Order(StringComparer.Ordinal).ToArray();
+            }));
+            if (!_disposed) _feedback = UiText.T("Timer-Leiste gespeichert.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            _error = true; _feedback = UiText.T("Timer-Leiste konnte nicht gespeichert werden.");
+        }
+        finally { EndSave(); }
+    }
     private RenderFragment ReminderControls(BossChoice choice, bool isSelected, BossReminderPreference reminder, BossAlertPresentation presentation) => @<div class="event-reminder">
         @{
             var controlsDisabled = Disabled || !isSelected;
@@ -100,24 +182,21 @@
             var customLead = active && reminder.LeadSeconds is not (120 or 300 or 600 or 900);
         }
         @if (IncludeAllCaptured) { <label class="boss-timer-select"><input type="checkbox" checked="@isSelected" disabled="@Disabled" @onchange="@(e => SelectChoice(choice.Key, (bool)e.Value!))" />@UiText.T("Für Erinnerungen auswählen")</label> }
-        <div class="event-reminder-heading"><span>@UiText.T("Erinnerung")</span><span>@(isSelected ? ReminderStatus(reminder) : UiText.T("Nicht ausgewählt"))</span></div>
-        <div class="event-quick-reminders" role="group" aria-label="@UiText.F("Erinnerung für {0}", choice.Boss.Name(Settings.Current.NameLanguage))">
-            <button type="button" class="@(!active ? "selected" : "")" aria-pressed="@(!active)" disabled="@controlsDisabled" @onclick="@(() => SetReminder(choice.Key, reminder with { Enabled = false }))">@UiText.T("Aus")</button>
-            @foreach (var minutes in new[] { 2, 5, 10, 15 }) { <button type="button" class="@(active && reminder.LeadSeconds == minutes * 60 ? "selected" : "")" aria-pressed="@(active && reminder.LeadSeconds == minutes * 60)" disabled="@controlsDisabled" @onclick="@(() => SetReminder(choice.Key, reminder with { Enabled = true, LeadSeconds = minutes * 60 }))">@UiText.F("{0} Min.", minutes)</button> }
+        <div class="event-reminder-heading"><span>@UiText.T("Vorwarnzeit")</span><span>@(isSelected ? ReminderStatus(reminder) : UiText.T("Nicht ausgewählt"))</span></div>
+        <div class="event-quick-reminders" role="group" aria-label="@UiText.F("Vorwarnzeit für {0}", choice.Boss.Name(Settings.Current.NameLanguage))">
+            <button type="button" class="@(!active ? "selected" : "")" aria-pressed="@(!active)" disabled="@controlsDisabled" @onclick="@(() => SetEnabled(choice.Key, false))">@UiText.T("Aus")</button>
+            @foreach (var minutes in new[] { 2, 5, 10, 15 }) { <button type="button" class="@(active && reminder.LeadSeconds == minutes * 60 ? "selected" : "")" aria-pressed="@(active && reminder.LeadSeconds == minutes * 60)" disabled="@controlsDisabled" @onclick="@(() => SetQuickLead(choice.Key, minutes * 60))">@UiText.F("{0} Min.", minutes)</button> }
             <button type="button" class="event-reminder-custom @(advanced || customLead ? "selected" : "")" disabled="@controlsDisabled" aria-expanded="@advanced" title="@UiText.T("Individuell einstellen")" aria-label="@UiText.F("Erinnerung für {0}", choice.Boss.Name(Settings.Current.NameLanguage))" @onclick="@(() => ToggleAdvanced(choice.Key))">⋯</button>
         </div>
-        <div class="event-reminder-channels"><label><input type="checkbox" checked="@presentation.ShowOverlay" disabled="@controlsDisabled" @onchange="@(e => SavePresentation(choice.Key, presentation with { ShowOverlay = (bool)e.Value! }))" />@UiText.T("Banner & Widget")</label><button type="button" disabled="@(controlsDisabled || !Settings.Current.BossAlertsEnabled)" @onclick="@(() => Preview(choice.Key))">@UiText.T("Testen")</button></div>
-        <AlertSoundPicker Sound="@presentation.Sound" SoundFile="@presentation.SoundFile" Enabled="@presentation.PlaySound" Disabled="@controlsDisabled" Changed="@(selection => SavePresentation(choice.Key, presentation with { Sound = selection.Sound, SoundFile = selection.SoundFile, PlaySound = selection.Enabled }))" />
+        <div class="event-reminder-channels"><button type="button" disabled="@(controlsDisabled || !Settings.Current.BossAlertsEnabled)" @onclick="@(() => Preview(choice.Key))">@UiText.T("Testen")</button></div>
+        <AlertSoundPicker Sound="@presentation.Sound" SoundFile="@presentation.SoundFile" Enabled="@presentation.PlaySound" Disabled="@controlsDisabled" Changed="@(selection => SetSound(choice.Key, selection))" />
         <details class="boss-timer-advanced" open="@advanced">
             <summary @onclick="@(() => ToggleAdvanced(choice.Key))" @onclick:preventDefault>@UiText.T("Individuell einstellen")</summary>
             <div class="alerts-boss-presentation">
-                <label class="check"><input type="checkbox" checked="@reminder.Enabled" disabled="@controlsDisabled" @onchange="@(e => SetReminder(choice.Key, reminder with { Enabled = (bool)e.Value! }))" />@UiText.T("Erinnerung aktivieren")</label>
-                <div class="alerts-boss-fields"><label class="boss-field">@UiText.T("Vorwarnzeit (Sekunden)")<input type="number" min="0" max="3600" value="@reminder.LeadSeconds" disabled="@controlsDisabled" @onchange="@(e => SetLead(choice.Key, reminder, e))" /></label><label class="boss-field">@UiText.T("Anzeigedauer (Sekunden)")<input type="number" min="3" max="60" value="@Settings.Current.BossAlertDurationSeconds" disabled readonly /></label></div>
-                <p class="alerts-hint">@UiText.T("0 Sekunden bedeutet nur bestätigter Spawn. Die Anzeigedauer gilt gemeinsam für alle Boss-Erinnerungen.")</p>
-                @if (presentation.ShowOverlay)
-                {
-                    <div class="alerts-boss-fields"><label class="boss-field">@UiText.T("Countdown im Overlay")<select value="@presentation.AlwaysShowOverlay.ToString()" disabled="@controlsDisabled" @onchange="@(e => SavePresentation(choice.Key, presentation with { AlwaysShowOverlay = e.Value?.ToString() == bool.TrueString }))"><option value="False">@UiText.T("Nur vor dem Event")</option><option value="True">@UiText.T("Dauerhaft")</option></select></label>@if (!presentation.AlwaysShowOverlay) { <label class="boss-field">@UiText.T("Countdown einblenden ab (Minuten vorher)")<input type="number" min="0" max="1440" value="@presentation.OverlayLeadMinutes" disabled="@controlsDisabled" @onchange="@(e => SetOverlayLead(choice.Key, presentation, e))" /></label> }</div>
-                }
+                <label class="check"><input type="checkbox" checked="@reminder.Enabled" disabled="@controlsDisabled" @onchange="@(e => SetEnabled(choice.Key, e.Value is true))" />@UiText.T("Erinnerung aktivieren")</label>
+                <div class="alerts-boss-fields"><label class="boss-field">@UiText.T("Vorwarnzeit (Sekunden)")<input type="number" min="0" max="3600" value="@reminder.LeadSeconds" disabled="@controlsDisabled" @onchange="@(e => SetLead(choice.Key, reminder, e))" /></label></div>
+                <p class="alerts-hint">@UiText.T("0 Sekunden Vorwarnzeit bedeutet nur bestätigter Spawn.")</p>
+                <span class="timer-strip-settings-link">@UiText.T("Timer-Auswahl unter Timer-Leiste")</span>
 
             </div>
         </details>
@@ -125,6 +204,7 @@
 
     private void ToggleOptions(string key) { if (!_optionsExpanded.Add(key)) _optionsExpanded.Remove(key); }
     private static string CompactCaptureStatus(BossRushEntry? row) => row is null ? UiText.T("Noch nicht erfasst")
+        : row.Calendar ? UiText.T("Spielkalender · Europe/Berlin")
         : Provisional(row) ? UiText.T("Gespeichert · unbestätigt")
         : UiText.F("Letzter Stand vor {0} Sek.", Math.Max(0, (int)row.Age.TotalSeconds));
 
@@ -158,6 +238,11 @@
             StateHasChanged();
         });
     }
+    // User request 2026-10-18: confirmed spawns, future countdowns, then every waiting state.
+    private static (int Group, TimeSpan Remaining) SortKey(BossRushEntry? row) =>
+        row is { Spawned: true } && !Provisional(row) ? (0, TimeSpan.Zero)
+        : row is { Spawned: false, Remaining: var remaining } && remaining > TimeSpan.Zero ? (1, remaining)
+        : (2, TimeSpan.Zero);
     private static bool Provisional(BossRushEntry row) => row.Cached;
     private static string Counter(BossRushEntry? row) => row is null ? UiText.T("Warte auf Boss-Timer")
         : row.Spawned ? UiText.T(Provisional(row) ? "Unbestätigt" : "Gespawnt")
@@ -168,6 +253,7 @@
         catch (ArgumentOutOfRangeException) { return "—"; }
     }
     private static string CaptureStatus(BossRushEntry? row) => row is null ? UiText.T("Öffne die Bossliste im Spiel. Hier erscheinen die erfassten Timer deiner Auswahl.")
+        : row.Calendar ? UiText.T("Fester Spielzeitplan in Europe/Berlin. Ein Spawn wird dadurch nicht bestätigt.")
         : Provisional(row) ? UiText.T("Gespeicherte Timer bestätigen keinen Spawn und lösen keine Erinnerungen aus.")
         : UiText.F("Letzter Stand vor {0} Sek.", Math.Max(0, (int)row.Age.TotalSeconds));
     private string ReminderStatus(BossReminderPreference preference) => !preference.Enabled ? UiText.T("Aus")
@@ -196,6 +282,8 @@
         }
         finally { EndSave(); }
     }
+    private Task SetSound(string key, AlertSoundPicker.Selection selection) => SavePresentation(key, Alerts.GetBossPresentation(key) with
+        { Sound = selection.Sound, SoundFile = selection.SoundFile, PlaySound = selection.Enabled });
     private async Task SavePresentation(string key, BossAlertPresentation presentation)
     {
         if (Disabled || _disposed || !Settings.Current.BossAlertIds.Contains(key)) return;
@@ -207,6 +295,50 @@
             if (saved) _presentations[key] = presentation;
             _error = !saved;
             _feedback = saved ? UiText.T("Boss-Alert gespeichert.") : Alerts.Status ?? UiText.T("Bitte gültige Boss-Alert-Einstellungen wählen.");
+        }
+        finally { EndSave(); }
+    }
+    private async Task ToggleAlerts(ChangeEventArgs e)
+    {
+        if (Disabled || _disposed) return;
+        var enabled = e.Value is true;
+        BeginSave(MasterKey);
+        try
+        {
+            await Task.Run(() =>
+            {
+                Settings.Update(settings => settings.BossAlertsEnabled = enabled);
+                if (enabled && !Loot.Running) Loot.Start();
+            });
+            if (!_disposed) _feedback = UiText.T("Boss-Alert gespeichert.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            _error = true; _feedback = UiText.T("Boss-Erinnerung konnte nicht gespeichert werden.");
+        }
+        finally { EndSave(); }
+    }
+    private Task SetDuration(ChangeEventArgs e) =>
+        int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds) && seconds is >= 3 and <= 60
+            ? SaveDuration(settings => settings.BossAlertDurationSeconds = seconds) : Task.CompletedTask;
+    private Task SetDurationMode(ChangeEventArgs e)
+    {
+        var mode = e.Value?.ToString();
+        return mode is "fixed" or "until-spawn"
+            ? SaveDuration(settings => settings.BossAlertUntilSpawn = mode == "until-spawn") : Task.CompletedTask;
+    }
+    private async Task SaveDuration(Action<AppSettings> change)
+    {
+        if (Disabled || _disposed) return;
+        BeginSave(DurationKey);
+        try
+        {
+            await Task.Run(() => Settings.Update(change));
+            if (!_disposed) _feedback = UiText.T("Boss-Alert gespeichert.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            _error = true; _feedback = UiText.T("Boss-Erinnerung konnte nicht gespeichert werden.");
         }
         finally { EndSave(); }
     }
@@ -230,9 +362,10 @@
         // Changes from another tab during this save still need their final snapshot.
         if (!_disposed) _ = RefreshAsync();
     }
-    private Task SetLead(string key, BossReminderPreference preference, ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var seconds)
-        ? SetReminder(key, preference with { LeadSeconds = Math.Clamp(seconds, 0, 3600) }) : Task.CompletedTask;
-    private Task SetOverlayLead(string key, BossAlertPresentation presentation, ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var minutes)
-        ? SavePresentation(key, presentation with { OverlayLeadMinutes = Math.Clamp(minutes, 0, 1440) }) : Task.CompletedTask;
+    private Task SetEnabled(string key, bool enabled) => SetReminder(key, BossRush.GetReminder(key) with { Enabled = enabled });
+    private Task SetQuickLead(string key, int seconds) => SetReminder(key, BossRush.GetReminder(key) with
+        { Enabled = true, LeadSeconds = Math.Clamp(seconds, 0, 3600) });
+    private Task SetLead(string key, BossReminderPreference _, ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var seconds)
+        ? SetReminder(key, BossRush.GetReminder(key) with { LeadSeconds = Math.Clamp(seconds, 0, 3600) }) : Task.CompletedTask;
     public void Dispose() { _disposed = true; Interlocked.Increment(ref _revision); BossRush.Changed -= Refresh; Settings.Changed -= Refresh; Alerts.Changed -= Refresh; }
 }

@@ -306,7 +306,15 @@ public sealed class OverlayManualLockTests : IDisposable
     {
         var panel = (Form)Field(host, field)!;
         var settings = host.Services.GetRequiredService<SettingsService>();
-        if (panel is PetOverlayForm) settings.Current.OverlayEnabled = true;
+        if (panel is PetOverlayForm pet)
+        {
+            settings.Current.OverlayEnabled = true;
+            // Lock behavior needs an active soul notification; an empty/focus-only panel stays hidden.
+            var progress = host.Services.GetRequiredService<ProgressService>();
+            ((List<LoggedSoul>)Field(progress, "_recent")!).Insert(0,
+                new(DateTimeOffset.Now, "synthetic-manual-lock-pet", 1, "network", "synthetic notification"));
+            typeof(PetOverlayForm).GetMethod("RefreshLayout", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(pet, null);
+        }
         if (panel is LevelingOverlayForm leveling)
         {
             settings.Current.LevelingOverlayEnabled = true;

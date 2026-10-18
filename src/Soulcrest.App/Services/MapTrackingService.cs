@@ -91,7 +91,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     // (compass rose, emblems), a cut-out of one Abyss map reached 20 pairs on another one.
     private const int SwitchMinInliers = 30;
 
-    private sealed record MapDefinition(string Id, string Label, string Tiles, int RefZoom, int Size, int MaxNativeZoom)
+    private sealed record MapDefinition(string Id, string Label, string Tiles, int RefZoom, int Size, int MaxNativeZoom, int TileSize = 256)
     {
         /// <summary>Zoom of the ~4096 px reference used to find which map is shown.</summary>
         public int CoarseZoom => Math.Clamp(RefZoom - (int)Math.Round(Math.Log2(Size / (double)ReferenceZoomWidth)), 0, MaxNativeZoom);
@@ -1126,7 +1126,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             if (!Found)
                 SetStatus($"{definition.Label} wird für das Tracking vorbereitet (einmalig, einige Sekunden) …");
             var pattern = Path.Combine(progress.MapDataDirectory!, definition.Tiles.Replace('/', Path.DirectorySeparatorChar));
-            using var gray = MapReference.ComposeTiles(pattern, zoom);
+            using var gray = MapReference.ComposeTiles(pattern, zoom, definition.TileSize);
             reference = MapReference.Build(definition.Id, gray, worldPerPixel, cancellationToken: token);
             reference.Save(cache);
         }
@@ -1217,7 +1217,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 m.GetProperty("tiles").GetString()!,
                 m.GetProperty("refZoom").GetInt32(),
                 m.GetProperty("size").GetInt32(),
-                m.GetProperty("maxNativeZoom").GetInt32()))
+                m.GetProperty("maxNativeZoom").GetInt32(),
+                m.TryGetProperty("tileSize", out var tileSize) ? tileSize.GetInt32() : 256))
             .ToList();
     }
 

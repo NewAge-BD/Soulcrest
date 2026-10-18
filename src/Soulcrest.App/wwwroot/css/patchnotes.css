@@ -1,0 +1,115 @@
+/* A quiet version reader; the shared update-notice entries keep their compact presentation. */
+.page.patchnotes { padding: 1.45rem 1.75rem 1.65rem; overflow: hidden; }
+.patchnotes .pn-inner { display: flex; flex-direction: column; gap: 1.2rem; width: 100%; max-width: 78rem; height: 100%; min-height: 0; margin: 0 auto; }
+.patchnotes .pn-page-head { flex: none; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem 1.5rem; }
+.patchnotes .pn-page-head h2 { margin: 0; color: var(--text); font-size: 1.65rem; font-weight: 650; line-height: 1.2; letter-spacing: -.025em; }
+.patchnotes .pn-lead { margin: .4rem 0 0; color: var(--muted); font-size: .88rem; line-height: 1.5; }
+.patchnotes .pn-page-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem 1.1rem; }
+.patchnotes .pn-installed-summary { display: flex; flex-direction: column; gap: .15rem; color: var(--muted); font-size: .7rem; line-height: 1.35; }
+.patchnotes .pn-installed-summary strong { color: #ccd7e5; font-size: .88rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.patchnotes .btn.pn-latest { min-height: 2.4rem; padding: .45rem .8rem; border-color: #42625f; background: #1b2c2f; color: #b8e9df; font-size: .8rem; }
+.patchnotes .btn.pn-latest:hover:not(:disabled) { border-color: var(--accent); background: #23393b; }
+.patchnotes .btn.pn-latest:disabled { opacity: .55; }
+
+.patchnotes .pn-layout { flex: 1; display: grid; grid-template-columns: 16rem minmax(0, 1fr); gap: 1.2rem; min-height: 0; }
+.patchnotes .pn-sidebar { display: flex; flex-direction: column; gap: .8rem; min-width: 0; min-height: 0; padding: 1rem .75rem .7rem; border: 1px solid var(--line); border-radius: 11px; background: #121922; }
+.patchnotes .pn-sidebar-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: 0 .35rem; }
+.patchnotes .pn-sidebar-head h3 { margin: 0; color: #c8d2df; font-size: .85rem; font-weight: 600; }
+.patchnotes .pn-version-count { padding: .05rem .4rem; border: 1px solid #ffffff12; border-radius: 5px; background: #ffffff03; color: var(--muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
+.patchnotes .pn-search { flex: none; display: flex; align-items: center; gap: .45rem; min-width: 0; min-height: 2.5rem; margin: 0 .1rem; padding: .4rem .55rem; border: 1px solid #334052; border-radius: 7px; background: var(--bg); color: var(--muted); }
+.patchnotes .pn-search > svg { flex: none; width: 1rem; height: 1rem; }
+.patchnotes .pn-search input { flex: 1; min-width: 0; width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--text); font: inherit; font-size: .8rem; line-height: 1.5; outline: none; }
+.patchnotes .pn-search input::placeholder { color: #7f8fa4; opacity: 1; }
+.patchnotes .pn-search input::-webkit-search-cancel-button { display: none; }
+.patchnotes .pn-search:focus-within { border-color: var(--accent); outline: 2px solid #5eead42e; outline-offset: 2px; }
+.patchnotes .pn-clear { flex: none; display: grid; place-items: center; width: 1.4rem; height: 1.4rem; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font: inherit; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+.patchnotes .pn-clear:hover { color: var(--text); background: #ffffff0a; }
+.patchnotes .pn-mobile-version { display: none; }
+.patchnotes .pn-version-list { flex: 1; display: flex; flex-direction: column; gap: .3rem; min-height: 0; padding: .1rem .25rem .3rem; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #3c4a5f transparent; scrollbar-gutter: stable; }
+.patchnotes .pn-version { flex: none; display: flex; flex-direction: column; gap: .25rem; width: 100%; min-width: 0; padding: .65rem .7rem; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #c2cddd; font: inherit; text-align: left; cursor: pointer; }
+.patchnotes .pn-version:hover { border-color: #ffffff0e; background: #ffffff04; color: var(--text); }
+.patchnotes .pn-version.active { border-color: #507c76; background: #1c3033; color: #dcf5ef; box-shadow: inset 2px 0 0 #85d8c9; }
+.patchnotes .pn-version-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .3rem .5rem; min-width: 0; }
+.patchnotes .pn-version-top strong { font-size: .92rem; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.patchnotes .pn-nav-installed { color: #9acbbf; font-size: .62rem; line-height: 1.4; }
+.patchnotes .pn-version time { color: #8292a7; font-size: .72rem; font-variant-numeric: tabular-nums; line-height: 1.4; }
+.patchnotes .pn-version.active time { color: #9ebdb9; }
+
+.patchnotes .pn-release { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid #334052; border-radius: 12px; background: var(--panel); }
+.patchnotes .pn-release-head { flex: none; padding: 1.55rem 1.85rem 1.25rem; border-bottom: 1px solid #ffffff0c; background: linear-gradient(125deg, #1b2933, #17212c 65%, #161e29); }
+.patchnotes .pn-release-tags { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .65rem; min-height: 1.25rem; margin-bottom: .6rem; }
+.patchnotes .pn-label { display: inline-flex; align-items: center; padding: .12rem .5rem; border: 1px solid #ffffff15; border-radius: 5px; color: #9cacc0; background: #ffffff03; font-size: .65rem; font-weight: 550; line-height: 1.4; }
+.patchnotes .pn-label.latest { border-color: #5eead43d; background: #5eead40b; color: #a7e1d5; }
+.patchnotes .pn-label.installed { color: #bac7d7; }
+.patchnotes .pn-release-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: .4rem 1.1rem; min-width: 0; }
+.patchnotes .pn-release-title h3 { margin: 0; color: #f0f4f9; font-size: 2.4rem; font-weight: 650; line-height: 1.1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.patchnotes .pn-release-title time { color: #94a6bb; font-size: .82rem; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.patchnotes .pn-release-meta { margin: .6rem 0 0; color: #9aabbd; font-size: .78rem; line-height: 1.5; }
+.patchnotes .pn-body { flex: 1; min-height: 0; padding: 1.5rem 1.85rem 1.85rem; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #3c4a5f transparent; scrollbar-gutter: stable; }
+.patchnotes .pn-group { --pn-group-color: #a6b5c8; max-width: 70ch; margin: 0; }
+.patchnotes .pn-group + .pn-group { margin-top: 1.65rem; }
+.patchnotes .pn-group.new { --pn-group-color: #9be0d0; }
+.patchnotes .pn-group.improved { --pn-group-color: #a2c3f0; }
+.patchnotes .pn-group.fixed { --pn-group-color: #a3d5ae; }
+.patchnotes .pn-group.changed { --pn-group-color: #dbc491; }
+.patchnotes .pn-group.removed { --pn-group-color: #d3abb1; }
+.patchnotes .pn-group h4 { display: flex; align-items: center; gap: .5rem; margin: 0 0 .65rem; color: var(--pn-group-color); font-size: .81rem; font-weight: 600; line-height: 1.5; letter-spacing: .01em; }
+.patchnotes .pn-group-dot { flex: none; width: .4rem; height: .4rem; border-radius: 50%; background: var(--pn-group-color); opacity: .85; }
+.patchnotes .pn-list.pn-grouped-list { display: grid; gap: .8rem; margin: 0; padding: 0; list-style: none; }
+.patchnotes .pn-grouped-list li { position: relative; display: block; margin: 0; padding: 0 0 0 1rem; color: #d4dde8; font-size: 1rem; line-height: 1.65; overflow-wrap: anywhere; }
+.patchnotes .pn-grouped-list li::before { content: ""; position: absolute; left: .1rem; top: .72em; width: .22rem; height: .22rem; border-radius: 50%; background: #738399; }
+.patchnotes .pn-grouped-list .pn-kind, .patchnotes .pn-grouped-list li > span[aria-hidden="true"] { display: none; }
+.patchnotes .pn-grouped-list .pn-text { display: block; min-width: 0; }
+.patchnotes .pn-text b { color: #edf2f8; font-weight: 600; }
+.patchnotes .pn-text code { padding: .04rem .3rem; border: 1px solid #ffffff0e; border-radius: 4px; background: #ffffff06; color: #dce7f3; font-size: .9em; overflow-wrap: anywhere; }
+.patchnotes .pn-release-footer { flex: none; display: flex; align-items: stretch; gap: .75rem; padding: .85rem 1.25rem; border-top: 1px solid #ffffff0c; background: #141c26; }
+.patchnotes .pn-step { flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: .2rem; min-width: 0; min-height: 3.3rem; padding: .5rem .65rem; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #aab9cb; font: inherit; font-size: .75rem; line-height: 1.4; text-align: left; cursor: pointer; }
+.patchnotes .pn-step:last-child { align-items: flex-end; text-align: right; }
+.patchnotes .pn-step small { color: #d7e2ef; font-size: .85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.patchnotes .pn-step:hover:not(:disabled) { border-color: #ffffff12; background: #ffffff04; color: var(--text); }
+.patchnotes .pn-step:disabled { opacity: .35; cursor: default; }
+.patchnotes .pn-empty { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: .7rem; min-width: 0; min-height: 0; padding: 2rem; border: 1px dashed #3a495b; border-radius: 12px; background: #151c26; }
+.patchnotes .pn-empty h3 { margin: 0; color: #d7e2ef; font-size: 1.2rem; line-height: 1.4; }
+.patchnotes .pn-empty p { max-width: 42ch; margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.6; overflow-wrap: anywhere; }
+.patchnotes .pn-empty .btn { margin-top: .4rem; }
+.patchnotes :is(button, select, .pn-body):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.patchnotes .pn-body:focus-visible { outline-offset: -3px; }
+.patchnotes .pn-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+@media (max-width: 1100px) {
+    .page.patchnotes { padding: 1.15rem 1.25rem; }
+    .patchnotes .pn-inner { gap: 1rem; }
+    .patchnotes .pn-layout { grid-template-columns: 15rem minmax(0, 1fr); gap: 1rem; }
+    .patchnotes .pn-release-head { padding: 1.25rem 1.45rem 1.1rem; }
+    .patchnotes .pn-body { padding: 1.3rem 1.45rem 1.5rem; }
+}
+
+@media (max-width: 800px) {
+    .page.patchnotes { padding: 1rem; overflow: hidden; }
+    .patchnotes .pn-inner { height: 100%; min-height: 0; }
+    .patchnotes .pn-page-head { align-items: flex-start; }
+    .patchnotes .pn-page-head h2 { font-size: 1.5rem; }
+    .patchnotes .pn-layout { flex: 1; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .patchnotes .pn-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: .7rem; padding: .85rem; }
+    .patchnotes .pn-sidebar-head { grid-column: 1 / -1; padding: 0; }
+    .patchnotes .pn-search { align-self: end; margin: 0; min-height: 2.55rem; }
+    .patchnotes .pn-version-list { display: none; }
+    .patchnotes .pn-mobile-version { display: flex; flex-direction: column; gap: .35rem; min-width: 0; color: var(--muted); font-size: .7rem; line-height: 1.4; }
+    .patchnotes .pn-mobile-version select { width: 100%; min-width: 0; min-height: 2.55rem; padding: .4rem .55rem; border-color: #334052; font-size: .85rem; }
+    .patchnotes .pn-release { overflow: hidden; }
+    .patchnotes .pn-release-head { padding: 1.25rem; border-radius: 11px 11px 0 0; }
+    .patchnotes .pn-release-title h3 { font-size: 2.1rem; }
+    .patchnotes .pn-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 1.3rem 1.25rem 1.6rem; }
+    .patchnotes .pn-release-footer { padding: .7rem; border-radius: 0 0 11px 11px; }
+    .patchnotes .pn-empty { min-height: 15rem; padding: 1.5rem; }
+}
+
+@media (max-width: 500px) {
+    .patchnotes .pn-page-head { gap: .85rem; }
+    .patchnotes .pn-page-actions { justify-content: space-between; width: 100%; }
+    .patchnotes .pn-sidebar { grid-template-columns: minmax(0, 1fr); }
+    .patchnotes .pn-sidebar-head { grid-column: auto; }
+    .patchnotes .pn-release-head { padding: 1.1rem; }
+    .patchnotes .pn-body { padding: 1.2rem 1.1rem 1.5rem; }
+    .patchnotes .pn-release-footer { gap: .3rem; padding: .6rem .45rem; }
+}

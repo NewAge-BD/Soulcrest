@@ -25,6 +25,8 @@ public sealed class MainForm : Form
     private readonly MerchantOverlayForm _merchantOverlay;
     private readonly SettingsService _settings;
     private readonly TrackerService _tracker;
+    private readonly CombatNetworkService _combat;
+    private readonly CombatRunService _combatRuns;
     private readonly MapTrackingService _map;
     private readonly Capture.GameCaptureService _gameCapture;
     private readonly CancellationTokenSource _watchdog = new();
@@ -60,6 +62,12 @@ public sealed class MainForm : Form
         services.AddSingleton<Network.NetworkLootService>();
         services.AddSingleton<Network.INetworkLootSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkMerchantSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkCombatSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<NetworkCaptureCoordinator>();
+        services.AddSingleton<CombatNetworkService>();
+        services.AddSingleton(_ => new CombatHistoryStore(AppPaths.CombatDirectory));
+        services.AddSingleton<CombatHistoryWriter>();
+        services.AddSingleton<CombatRunService>(sp => new(sp.GetRequiredService<CombatNetworkService>(), sp.GetRequiredService<CombatHistoryWriter>()));
         services.AddSingleton<MerchantService>();
         services.AddSingleton<TrackerService>();
         services.AddSingleton<ExplorationService>();
@@ -81,6 +89,8 @@ public sealed class MainForm : Form
         UpdateLanguage();
         _settings.Changed += UpdateLanguage;
         _tracker = _services.GetRequiredService<TrackerService>();
+        _combat = _services.GetRequiredService<CombatNetworkService>();
+        _combatRuns = _services.GetRequiredService<CombatRunService>();
         _map = _services.GetRequiredService<MapTrackingService>();
         _gameCapture = _services.GetRequiredService<Capture.GameCaptureService>();
         var progress = _services.GetRequiredService<ProgressService>();
@@ -129,7 +139,7 @@ public sealed class MainForm : Form
         _alerts = _services.GetRequiredService<AlertsService>();
         _alertSounds = _services.GetRequiredService<AlertSoundPlayer>();
         _alerts.NoticeRaised += DeliverAlertSound;
-        _alertsOverlay = new AlertsOverlayForm(_alerts, _settings);
+        _alertsOverlay = new AlertsOverlayForm(_alerts, _settings, progress.MapDataDirectory);
         _eventTimelineOverlay = new EventTimelineOverlayForm(_alerts, _services.GetRequiredService<BossRushService>(), _settings, _services.GetRequiredService<ProgressService>());
         _alertNotifications = new AlertNotificationsForm(_alerts, _settings);
         _bossOverlay = new BossOverlayForm(_services.GetRequiredService<BossRushService>(), _settings, progress, externalAlerts: true);
@@ -236,7 +246,8 @@ public sealed class MainForm : Form
         _overlay.SetSuppressed(suppressed);
         _levelingOverlay.SetSuppressed(suppressed);
         _bossOverlay.SetSuppressed(minimapHidden || escMenuOpen);
-        _alertsOverlay.SetSuppressed(minimapHidden || escMenuOpen);
+        _alertsOverlay.SetSuppressed(TimerOverlayVisibility.IsSuppressed(_settings.Current,
+            _map.Running, _map.Found, _map.WorldMapOpen, _map.EscMenuOpen, _map.InInstance));
         _eventTimelineOverlay.SetSuppressed(_settings.Current.EventTimelineFollowMinimap && (minimapHidden || escMenuOpen));
         _routeOverlay.SetSuppressed(escMenuOpen);
         var alt = OverlayInteraction.IsAltHeld;
@@ -339,7 +350,11 @@ public sealed class MainForm : Form
     {
         // WebView disposal can pump window messages. A second WM_CLOSE must not resolve
         // services from a provider whose shutdown already started.
-        if (_closing || _cleanupStarted) return;
+        if (_closing || _cleanupStarted)
+        {
+            if (!_cleanupStarted && !_combatRuns.Completion.IsCompleted) e.Cancel = true;
+            return;
+        }
         base.OnFormClosing(e);
         if (e.Cancel || _cleanupStarted) return;
         _closing = true;
@@ -359,12 +374,25 @@ public sealed class MainForm : Form
         _levelingOverlay.Close();
         _routeOverlay.Close();
         _merchantOverlay.Close();
+        if (!_combatRuns.Completion.IsCompleted)
+        {
+            e.Cancel = true;
+            _ = CloseAfterCombatDrainAsync();
+        }
+    }
+
+    private async Task CloseAfterCombatDrainAsync()
+    {
+        try { await _combatRuns.Completion; }
+        finally { if (!IsDisposed && IsHandleCreated) Close(); }
     }
 
     private void StopTracking()
     {
         if (_trackingStopped) return;
         _trackingStopped = true;
+        _combatRuns?.Dispose();
+        _combat?.Dispose();
         _tracker?.Dispose();
         _map?.Shutdown();
     }

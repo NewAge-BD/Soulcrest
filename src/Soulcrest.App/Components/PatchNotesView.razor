@@ -1,32 +1,205 @@
-<div class="page info patchnotes">
-    <header class="sv-head">
-        <h2>@UiText.T("Patchnotes")</h2>
-        <p class="sv-lead">@UiText.T("Was sich in jeder Version geändert hat, die neueste oben.")</p>
-    </header>
+@* Patchnotes reader redesign (user request 2026-10-17); original release contents and version boundary stay intact. *@
+@inject IJSRuntime JS
 
-    @if (PatchNotes.Shown.Count == 0)
-    {
-        <div class="status error">@UiText.T("Patchnotes nicht gefunden.")</div>
-    }
-    @foreach (var release in PatchNotes.Shown)
-    {
-        var installed = release.Version == InstalledVersion;
-        <section class="card sv-card pn-release @(installed ? "current" : "")">
-            <div class="sv-card-head">
-                <h3>@release.Version</h3>
-                <span class="note">@release.Date</span>
-                @if (installed)
+<div class="page patchnotes">
+    <div class="pn-inner">
+        <header class="pn-page-head">
+            <div>
+                <h2>@UiText.T("Patchnotes")</h2>
+                <p class="pn-lead">@UiText.T("Versionen und Änderungen von Soulcrest.")</p>
+            </div>
+            <div class="pn-page-actions">
+                <span class="pn-installed-summary"><span>@UiText.T("Installierte Version")</span><strong>@Installed</strong></span>
+                <button type="button" class="btn pn-latest" disabled="@(_releases.Count == 0 || (_query.Length == 0 && _selectedVersion == _releases[0].Version))" @onclick="ShowLatest">
+                    @UiText.T("Zur neuesten Version") <span aria-hidden="true">↗</span>
+                </button>
+            </div>
+        </header>
+
+        @if (_releases.Count == 0)
+        {
+            <div class="status error" role="status">@UiText.T("Patchnotes nicht gefunden.")</div>
+        }
+        else
+        {
+            <div class="pn-layout">
+                <aside class="pn-sidebar">
+                    <header class="pn-sidebar-head">
+                        <h3>@UiText.T("Versionsverlauf")</h3>
+                        <span class="pn-version-count" aria-live="polite">@VersionCount</span>
+                    </header>
+                    <div class="pn-search">
+                        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m12.5 12.5 4 4" /></svg>
+                        <label class="pn-sr-only" for="pn-search-input">@UiText.T("Patchnotes durchsuchen")</label>
+                        <input id="pn-search-input" type="search" value="@_query" @oninput="Search" placeholder="@UiText.T("Version oder Stichwort")" autocomplete="off" spellcheck="false" />
+                        @if (_query.Length > 0)
+                        {
+                            <button type="button" class="pn-clear" @onclick="ClearSearch" title="@UiText.T("Suche zurücksetzen")" aria-label="@UiText.T("Suche zurücksetzen")">×</button>
+                        }
+                    </div>
+                    <div class="pn-mobile-version">
+                        <label for="pn-version-select">@UiText.T("Version")</label>
+                        <select id="pn-version-select" value="@Selected?.Version" @onchange="SelectMobile" disabled="@(_matches.Count == 0)">
+                            @foreach (var release in _matches)
+                            {
+                                <option value="@release.Version">@release.Version · @PatchNotesReader.FormatDate(release.Date, Language, compact: true)</option>
+                            }
+                        </select>
+                    </div>
+                    <nav class="pn-version-list" @ref="_versionList" aria-label="@UiText.T("Versionen")">
+                        @foreach (var release in _matches)
+                        {
+                            var active = release.Version == Selected?.Version;
+                            <button type="button" @key="release.Version" class="pn-version @(active ? "active" : "")" aria-current="@(active ? "true" : null)" aria-controls="pn-release" @onclick="() => SelectVersion(release.Version)">
+                                <span class="pn-version-top">
+                                    <strong>@release.Version</strong>
+                                    @if (release.Version == Installed)
+                                    {
+                                        <span class="pn-nav-installed">@UiText.T("installiert")</span>
+                                    }
+                                </span>
+                                <time datetime="@release.Date">@PatchNotesReader.FormatDate(release.Date, Language, compact: true)</time>
+                            </button>
+                        }
+                    </nav>
+                </aside>
+
+                @if (Selected is { } selected)
                 {
-                    <span class="sv-badge on">@UiText.T("installiert")</span>
+                    var index = SelectedIndex;
+                    var newer = index > 0 ? _matches[index - 1] : null;
+                    var older = index + 1 < _matches.Count ? _matches[index + 1] : null;
+                    <article class="pn-release" id="pn-release" aria-labelledby="pn-release-title">
+                        <header class="pn-release-head">
+                            <div class="pn-release-tags">
+                                @if (selected.Version == _releases[0].Version)
+                                {
+                                    <span class="pn-label latest">@UiText.T("Neueste Version")</span>
+                                }
+                                @if (selected.Version == Installed)
+                                {
+                                    <span class="pn-label installed">@UiText.T("installiert")</span>
+                                }
+                            </div>
+                            <div class="pn-release-title">
+                                <h3 id="pn-release-title"><span class="pn-sr-only">@UiText.T("Version") </span>@selected.Version</h3>
+                                <time datetime="@selected.Date">@PatchNotesReader.FormatDate(selected.Date, Language)</time>
+                            </div>
+                            <p class="pn-release-meta">@EntryCount(selected)</p>
+                        </header>
+                        @* A fresh body per version/language starts at the top without JavaScript or moving the navigation. *@
+                        <div class="pn-body" tabindex="0" aria-labelledby="pn-release-title" @key="(selected.Version, Language)">
+                            @foreach (var group in PatchNotesReader.Groups(selected.Entries))
+                            {
+                                <section class="pn-group @group.Style">
+                                    <h4><span class="pn-group-dot" aria-hidden="true"></span>@UiText.T(group.Label)</h4>
+                                    <PatchNotesEntries Entries="@group.Entries" ShowKind="false" />
+                                </section>
+                            }
+                        </div>
+                        <footer class="pn-release-footer">
+                            <button type="button" class="pn-step" disabled="@(newer is null)" @onclick="() => Step(-1)">
+                                <span><span aria-hidden="true">←</span> @UiText.T("Neuere Version")</span>
+                                @if (newer is not null) { <small>@newer.Version</small> }
+                            </button>
+                            <button type="button" class="pn-step" disabled="@(older is null)" @onclick="() => Step(1)">
+                                <span>@UiText.T("Ältere Version") <span aria-hidden="true">→</span></span>
+                                @if (older is not null) { <small>@older.Version</small> }
+                            </button>
+                        </footer>
+                    </article>
+                }
+                else
+                {
+                    <section class="pn-empty" role="status">
+                        <h3>@UiText.T("Keine passenden Versionen")</h3>
+                        <p>@UiText.T("Versuche einen anderen Suchbegriff.")</p>
+                        <button type="button" class="btn" @onclick="ClearSearch">@UiText.T("Suche zurücksetzen")</button>
+                    </section>
                 }
             </div>
-            <PatchNotesEntries Entries="@release.Entries" />
-        </section>
-    }
+        }
+    </div>
 </div>
 
 @code {
-    // "0.1.28+a4b8137.tester…" -> "0.1.28"
-    private static string InstalledVersion => AppPaths.Version.Split('+', 2)[0];
+    [Parameter] public string Language { get; set; } = UiText.Language;
+    [Parameter] public string InstalledVersion { get; set; } = AppPaths.Version;
+    [Parameter] public string? InitialVersion { get; set; }
+    [Parameter] public string? InitialQuery { get; set; }
+    [Parameter] public IReadOnlyList<PatchNotes.Release>? Releases { get; set; }
 
+    private IReadOnlyList<PatchNotes.Release> _releases = [], _matches = [];
+    private string? _selectedVersion;
+    private string _query = "";
+    private ElementReference _versionList;
+    private bool _revealSelection;
+    private string Installed => InstalledVersion.Split('+', 2)[0];
+    private PatchNotes.Release? Selected => PatchNotesReader.Select(_matches, _selectedVersion);
+    private string VersionCount => UiText.F(_matches.Count == 1 ? "{0} Version" : "{0} Versionen", _matches.Count);
+    private static string EntryCount(PatchNotes.Release release) => UiText.F(release.Entries.Count == 1 ? "{0} Änderung" : "{0} Änderungen", release.Entries.Count);
+    private int SelectedIndex => _matches.ToList().FindIndex(release => release.Version == Selected?.Version);
+
+    protected override void OnInitialized()
+    {
+        _selectedVersion = InitialVersion;
+        _query = InitialQuery ?? "";
+    }
+
+    protected override void OnParametersSet()
+    {
+        _releases = PatchNotesReader.Shown(Releases ?? PatchNotes.For(Language));
+        ApplySearch();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_revealSelection || Selected is null) return;
+        _revealSelection = false;
+        await JS.InvokeVoidAsync("soulcrestUi.revealPatchnotesVersion", _versionList);
+    }
+
+    private void ApplySearch()
+    {
+        _revealSelection = true;
+        _matches = PatchNotesReader.Filter(_releases, _query);
+        // Keep the requested version through an empty result so clearing the query can restore it.
+        if (_matches.Count > 0) _selectedVersion = PatchNotesReader.Select(_matches, _selectedVersion)?.Version;
+    }
+
+    private void Search(ChangeEventArgs args)
+    {
+        _query = args.Value?.ToString() ?? "";
+        ApplySearch();
+    }
+
+    private void ClearSearch()
+    {
+        _query = "";
+        ApplySearch();
+    }
+
+    private void SelectMobile(ChangeEventArgs args) => SelectVersion(args.Value?.ToString() ?? "");
+    private void SelectVersion(string version)
+    {
+        if (_matches.Any(release => release.Version == version))
+        {
+            _selectedVersion = version;
+            _revealSelection = true;
+        }
+    }
+
+    private void Step(int offset)
+    {
+        var index = SelectedIndex + offset;
+        if (index >= 0 && index < _matches.Count) SelectVersion(_matches[index].Version);
+    }
+
+    private void ShowLatest()
+    {
+        _query = "";
+        _matches = _releases;
+        _selectedVersion = _releases.FirstOrDefault()?.Version;
+        _revealSelection = true;
+    }
 }

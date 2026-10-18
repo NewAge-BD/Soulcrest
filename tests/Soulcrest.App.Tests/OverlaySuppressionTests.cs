@@ -73,6 +73,7 @@ public sealed class OverlaySuppressionTests : IDisposable
         var targets = host.Services.GetRequiredService<MapTargetsService>();
         var settings = host.Services.GetRequiredService<SettingsService>();
         var pet = Panel<PetOverlayForm>(host, "_overlay");
+        SeedSoulNotification(host, pet);
         var leveling = Panel<LevelingOverlayForm>(host, "_levelingOverlay");
         var boss = Panel<BossOverlayForm>(host, "_bossOverlay");
         targets.StartRoute("first");
@@ -114,6 +115,7 @@ public sealed class OverlaySuppressionTests : IDisposable
         var settings = host.Services.GetRequiredService<SettingsService>();
         var exploration = host.Services.GetRequiredService<ExplorationService>();
         var pet = Panel<PetOverlayForm>(host, "_overlay");
+        SeedSoulNotification(host, pet);
         var leveling = Panel<LevelingOverlayForm>(host, "_levelingOverlay");
         targets.StartRoute("first");
         pet.Show();
@@ -171,6 +173,7 @@ public sealed class OverlaySuppressionTests : IDisposable
         var targets = host.Services.GetRequiredService<MapTargetsService>();
         var settings = host.Services.GetRequiredService<SettingsService>();
         var pet = Panel<PetOverlayForm>(host, "_overlay");
+        SeedSoulNotification(host, pet);
         var leveling = Panel<LevelingOverlayForm>(host, "_levelingOverlay");
         targets.StartRoute("first");
         pet.Show();
@@ -211,6 +214,7 @@ public sealed class OverlaySuppressionTests : IDisposable
         var targets = host.Services.GetRequiredService<MapTargetsService>();
         var settings = host.Services.GetRequiredService<SettingsService>();
         var pet = Panel<PetOverlayForm>(host, "_overlay");
+        SeedSoulNotification(host, pet);
         var leveling = Panel<LevelingOverlayForm>(host, "_levelingOverlay");
         var boss = Panel<BossOverlayForm>(host, "_bossOverlay");
         targets.StartRoute("first");
@@ -263,6 +267,7 @@ public sealed class OverlaySuppressionTests : IDisposable
         var map = host.Services.GetRequiredService<MapTrackingService>();
         var targets = host.Services.GetRequiredService<MapTargetsService>();
         var pet = Panel<PetOverlayForm>(host, "_overlay");
+        SeedSoulNotification(host, pet);
         var leveling = Panel<LevelingOverlayForm>(host, "_levelingOverlay");
         var boss = Panel<BossOverlayForm>(host, "_bossOverlay");
         var routes = Panel<RouteOverlayForm>(host, "_routeOverlay");
@@ -291,6 +296,77 @@ public sealed class OverlaySuppressionTests : IDisposable
             Assert.Equal(bytes, File.Exists(path) ? File.ReadAllBytes(path) : null);
     });
 
+
+    [Fact]
+    public Task TimerContextChoicesControlOnlyTheStripAndRespectInstanceAndEscPermissionsSeparately() => RunSta(() =>
+    {
+        using var host = new MainForm(); // No host show: no game capture, WebView startup or network.
+        var map = host.Services.GetRequiredService<MapTrackingService>();
+        var settings = host.Services.GetRequiredService<SettingsService>();
+        var strip = Panel<AlertsOverlayForm>(host, "_alertsOverlay");
+        var notifications = Panel<AlertNotificationsForm>(host, "_alertNotifications");
+        var boss = Panel<BossOverlayForm>(host, "_bossOverlay");
+        settings.Current.TimerOverlayTimerIds = ["event:catalog:shugo"];
+        var before = File.ReadAllBytes(AppPaths.SettingsFile);
+        _ = strip.Handle;
+        strip.RefreshPanel();
+        notifications.Show();
+        Assert.True(strip.Visible);
+        Field(map, "<Running>k__BackingField").SetValue(map, true);
+        Field(map, "<Found>k__BackingField").SetValue(map, false);
+        Field(map, "_worldMapOpen").SetValue(map, true);
+        host.UpdateOverlayState();
+        Assert.True(strip.Visible); // Worldmap is allowed by default, even without the minimap.
+        strip.ToggleManualInteraction();
+        Assert.True(strip.ManualInteractionEnabled);
+        settings.Current.TimerOverlayShowWorldMap = false;
+        host.UpdateOverlayState();
+        Assert.False(strip.Visible);
+        Assert.False(strip.ManualInteractionEnabled);
+        Assert.False(((Form)Field(strip, "_lockButton").GetValue(strip)!).Visible);
+        strip.Show(); strip.RefreshPanel();
+        Assert.False(strip.Visible);
+        settings.Current.TimerOverlayShowWorldMap = true;
+        host.UpdateOverlayState();
+        Assert.True(strip.Visible);
+        Field(map, "_worldMapOpen").SetValue(map, false);
+        host.UpdateOverlayState();
+        Assert.False(strip.Visible); // Unexplained minimap loss follows the Menu permission.
+        settings.Current.TimerOverlayShowMenu = true;
+        host.UpdateOverlayState();
+        Assert.True(strip.Visible);
+        Assert.True((bool)Field(boss, "_suppressed").GetValue(boss)!); // Other HUDs still follow their original rule.
+        settings.Current.TimerOverlayShowMenu = false;
+        map.UpdateInstanceContext(false, false, TimeSpan.FromSeconds(30), null);
+        Assert.True(map.InInstance);
+        host.UpdateOverlayState();
+        Assert.False(strip.Visible);
+        settings.Current.TimerOverlayShowInstances = true;
+        host.UpdateOverlayState();
+        Assert.True(strip.Visible); // An allowed instance is not hidden by the missing minimap again.
+        map.UpdateEscMenuContext(true);
+        host.UpdateOverlayState();
+        Assert.False(strip.Visible); // Explicit ESC inside an instance needs both choices.
+        settings.Current.TimerOverlayShowMenu = true;
+        host.UpdateOverlayState();
+        Assert.True(strip.Visible);
+        Assert.True(notifications.Visible);
+        Assert.False((bool)Field(strip, "_suppressed").GetValue(notifications)!);
+        settings.Current.TimerOverlayShowWorldMap = settings.Current.TimerOverlayShowMenu = settings.Current.TimerOverlayShowInstances = false;
+        Field(map, "<Running>k__BackingField").SetValue(map, false);
+        host.UpdateOverlayState();
+        Assert.True(strip.Visible); // Stale context cannot suppress with tracking stopped.
+        Assert.Equal(before, File.ReadAllBytes(AppPaths.SettingsFile));
+    });
+
+    private static void SeedSoulNotification(MainForm host, PetOverlayForm pet)
+    {
+        // These cases exercise HUD suppression with an actual notification, not the now-hidden empty header.
+        var progress = host.Services.GetRequiredService<ProgressService>();
+        ((List<LoggedSoul>)Field(progress, "_recent").GetValue(progress)!).Insert(0,
+            new(DateTimeOffset.Now, "synthetic-visibility-pet", 1, "network", "synthetic notification"));
+        Refresh(pet, "RefreshLayout");
+    }
 
     private static T Panel<T>(MainForm host, string name) where T : Form =>
         (T)typeof(MainForm).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(host)!;
