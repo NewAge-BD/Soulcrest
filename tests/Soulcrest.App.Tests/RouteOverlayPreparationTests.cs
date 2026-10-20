@@ -179,6 +179,28 @@ public sealed class RouteOverlayPreparationTests
         Assert.Empty(hidden.Resources);
     }
 
+    [Theory]
+    [InlineData("aion2", "aion2-stylized")]
+    [InlineData("aion2-stylized", "aion2-stylized")]
+    [InlineData("aion2-neutral", "aion2-neutral")]
+    [InlineData("obsidian", "obsidian")]
+    [InlineData("aurora", "aurora")]
+    [InlineData("runic", "runic")]
+    public void PreparedMapContentCapturesTheThemeWithoutChangingTargetsOrProjectionData(string theme, string expected)
+    {
+        using var fixture = new Fixture();
+        fixture.Settings.OverlayTheme = theme;
+        var current = fixture.Prepare();
+        fixture.Settings.OverlayTheme = "soulcrest-legacy";
+        var legacy = fixture.Prepare();
+        Assert.Equal(expected, current.ThemeId);
+        Assert.Equal("soulcrest-legacy", legacy.ThemeId);
+        Assert.Equal(current.Targets, legacy.Targets);
+        Assert.Equal(current.Pets.Select(p => (p.X, p.Y)), legacy.Pets.Select(p => (p.X, p.Y)));
+        Assert.Equal(current.Resources.Select(p => (p.X, p.Y)), legacy.Resources.Select(p => (p.X, p.Y)));
+        Assert.Equal(current.MetersPerPixel, legacy.MetersPerPixel);
+    }
+
     [Fact]
     public void DeferredVisibleIconRetriesTransientFailureAndReusesSuccessfulSymbol()
     {

@@ -1,5 +1,6 @@
 @implements IDisposable
 @using System.Globalization
+@using Soulcrest.App.Overlay
 @inject AlertsService Alerts
 @inject SettingsService Settings
 
@@ -9,7 +10,7 @@
     var current = Settings.Current;
 }
 
-<section class="timer-overlay-settings" id="timer-overlay-settings" aria-label="@UiText.T("Timer-Leiste")" aria-busy="@_saving">
+<section class="@($"timer-overlay-settings overlay-theme-{Theme.Id}")" style="@ThemeVariables" id="timer-overlay-settings" aria-label="@UiText.T("Timer-Leiste")" aria-busy="@_saving">
     @if (ShowGeneralControls)
     {
     <header><label class="check"><input id="alerts-overlay-visible" type="checkbox" role="switch" checked="@current.AlertsOverlayEnabled" disabled="@Disabled" @onchange="SetEnabled" /><strong>@UiText.T("Timer-Leiste")</strong></label><InfoTip><p>@UiText.T("Wähle, wo die Timer-Leiste zusätzlich zur offenen Spielwelt sichtbar bleibt.")</p><p>@UiText.T("Die Timer-Auswahl ändert keine Erinnerungen, Banner oder Töne.")</p></InfoTip></header>
@@ -82,6 +83,16 @@
     private string? _feedback;
     private readonly HashSet<string> _failedIcons = new(StringComparer.Ordinal);
     private bool Disabled => Busy || _saving;
+    private OverlayThemeDefinition Theme => OverlayThemeDefinition.Resolve(Settings.Current.OverlayTheme);
+    private string ThemeVariables
+    {
+        get
+        {
+            var theme = Theme;
+            return $"--timer-ink:{Css(theme.IsLegacy ? System.Drawing.Color.FromArgb(237, 237, 230) : theme.Primary)};--timer-active:{Css(theme.IsLegacy ? System.Drawing.Color.FromArgb(244, 215, 142) : theme.Gold)};--timer-muted:{Css(theme.IsLegacy ? System.Drawing.Color.FromArgb(171, 180, 184) : theme.Secondary)};--timer-portrait-border:{(theme.IsLegacy ? "#d3c297bb" : Css(theme.Gold) + "d2")};--timer-outline:{(theme.IsLegacy ? "#10171c" : Css(theme.Surface) + "f0")};--timer-shadow:{(theme.IsLegacy ? "#000c" : Css(theme.Surface) + "aa")};";
+        }
+    }
+    private static string Css(System.Drawing.Color color) => $"#{color.R:x2}{color.G:x2}{color.B:x2}";
     private string PreviewStyle => FormattableString.Invariant($"--timer-scale:{Settings.Current.AlertsOverlayScale};--timer-gap:{Settings.Current.TimerOverlayGap}px;");
     private static string Group(string key) => key.StartsWith("event:catalog:", StringComparison.Ordinal) ? "Events"
         : key.StartsWith("boss:", StringComparison.Ordinal) ? "Bosse" : "Eigene Alerts";

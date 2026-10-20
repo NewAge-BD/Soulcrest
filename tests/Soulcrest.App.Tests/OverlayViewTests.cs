@@ -61,6 +61,8 @@ public sealed class OverlayViewTests
         Assert.DoesNotContain("id=\"overlay-x\"", html);
         Assert.DoesNotContain("id=\"overlay-context-menu\"", html);
         Assert.Equal(before, JsonSerializer.Serialize(fixture.Settings.Current));
+        if (id == "merchant")
+            Assert.Contains("The shop overlay always uses the Soulcrest Legacy style and is excluded from themes.", html);
         if (id == "map")
         {
             Assert.Contains("id=\"map-overlay-routes\"", html);
@@ -132,6 +134,58 @@ public sealed class OverlayViewTests
         Assert.Equal("always", fixture.Settings.Current.OverlayShowMode);
         await fixture.Invoke("SetShowMode", new ChangeEventArgs { Value = "foreground" });
         Assert.Equal("foreground", new SettingsService().Current.OverlayShowMode);
+        Assert.Equal(before, OtherSettings(fixture.Settings.Current));
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.False(fixture.Placement.Active);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task AllSixThemesAreLocalizedPersistImmediatelyAndRefreshThePreviewWithoutChangingOtherSettings(string language)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Settings.Current.OverlayTheme = OverlayThemeDefinition.DefaultId;
+        static string OtherSettings(AppSettings settings)
+        {
+            var node = JsonSerializer.SerializeToNode(settings)!.AsObject();
+            node.Remove(nameof(AppSettings.OverlayTheme));
+            return node.ToJsonString();
+        }
+        static string PreviewImage(string markup) => System.Text.RegularExpressions.Regex.Match(markup, "data:image/png;base64,[^\"]+").Value;
+        var before = OtherSettings(fixture.Settings.Current);
+        var html = await fixture.Render();
+        Assert.Matches("id=\"overlay-theme\"[^>]*value=\"aion2-stylized\"", html);
+        var themeSelect = System.Text.RegularExpressions.Regex.Match(html, "<select id=\"overlay-theme\"[^>]*>(.*?)</select>", System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+        var expectedIds = new[] { "aion2-stylized", "aion2-neutral", "obsidian", "aurora", "runic", "soulcrest-legacy" };
+        var expectedLabels = language == "de"
+            ? new[] { "Aion2 - stilisierte", "Aion2 - neutral", "Obsidian", "Nordlicht", "Runen", "Soulcrest legacy" }
+            : new[] { "Aion2 - stylized", "Aion2 - neutral", "Obsidian", "Aurora", "Runic", "Soulcrest legacy" };
+        var options = System.Text.RegularExpressions.Regex.Matches(themeSelect,
+            "<option\\b[^>]*\\bvalue=\"([^\"]*)\"[^>]*>(.*?)</option>", System.Text.RegularExpressions.RegexOptions.Singleline);
+        Assert.Equal(6, options.Count);
+        for (var index = 0; index < expectedIds.Length; index++)
+        {
+            Assert.Equal(expectedIds[index], options[index].Groups[1].Value);
+            var label = System.Text.RegularExpressions.Regex.Replace(options[index].Groups[2].Value,
+                "<!--.*?-->", "", System.Text.RegularExpressions.RegexOptions.Singleline);
+            Assert.Equal(expectedLabels[index], WebUtility.HtmlDecode(label).Trim());
+        }
+        var previews = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in expectedIds)
+        {
+            html = await fixture.Invoke("SetTheme", new ChangeEventArgs { Value = id });
+            Assert.Equal(id, fixture.Settings.Current.OverlayTheme);
+            Assert.Equal(id, new SettingsService().Current.OverlayTheme);
+            Assert.Matches("id=\"overlay-theme\"[^>]*value=\"" + id + "\"", html);
+            Assert.Equal(before, OtherSettings(fixture.Settings.Current));
+            Assert.NotEmpty(PreviewImage(html));
+            Assert.True(previews.Add(PreviewImage(html)), id + " must refresh the production preview");
+        }
+        await fixture.Invoke("SetTheme", new ChangeEventArgs { Value = "unknown" });
+        Assert.Equal("soulcrest-legacy", fixture.Settings.Current.OverlayTheme);
+        await fixture.Invoke("SetTheme", new ChangeEventArgs { Value = "aion2" });
+        Assert.Equal(OverlayThemeDefinition.DefaultId, new SettingsService().Current.OverlayTheme);
         Assert.Equal(before, OtherSettings(fixture.Settings.Current));
         Assert.Empty(fixture.Alerts.Items);
         Assert.False(fixture.Placement.Active);

@@ -1,4 +1,5 @@
 using System.Drawing;
+using Soulcrest.App.Overlay;
 
 namespace Soulcrest.App.Services;
 
@@ -11,6 +12,8 @@ public sealed class AppSettings
     public string? DetectedGameLanguage { get; set; }
     public string OverlayLanguage { get; set; } = "auto";
     public string OverlayShowMode { get; set; } = "foreground";
+    /// <summary>User request 2026-10-20: the approved stylized Aion2 theme is the shared default.</summary>
+    public string OverlayTheme { get; set; } = OverlayThemeDefinition.DefaultId;
     [System.Text.Json.Serialization.JsonIgnore]
     public string EffectiveOcrLanguage => AutoOcrLanguage ? "auto" : OcrLanguage;
 
@@ -295,6 +298,7 @@ public sealed class SettingsService
         if (Current.UiLanguage is not ("de" or "en")) Current.UiLanguage = Current.NameLanguage == "de" ? "de" : "en";
         if (Current.OverlayLanguage is not ("auto" or "de" or "en")) Current.OverlayLanguage = "auto";
         if (Current.OverlayShowMode is not ("foreground" or "always")) Current.OverlayShowMode = "foreground";
+        Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
         if (Current.DetectedGameLanguage is not ("de" or "en")) Current.DetectedGameLanguage = null;
         if (Current.OcrLanguage is not ("de-DE" or "en-US"))
         {
@@ -394,6 +398,7 @@ public sealed class SettingsService
         lock (_gate)
         {
             change(Current);
+            Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
             UiText.Language = Current.UiLanguage;
             JsonFile.Save(AppPaths.SettingsFile, Current);
         }

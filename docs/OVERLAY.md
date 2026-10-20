@@ -375,3 +375,45 @@ Die gemeinsame Einstellung gilt für sämtliche acht Overlayarten. Standard ist
 hebt ausschließlich diese Fokusbedingung auf. Die übrigen Kontext- und Inhaltsregeln bleiben
 wirksam. Auch der Händler verwendet bei Immer weiterhin ausschließlich frische, bestätigte
 Anker im sichtbaren Spielfenster. Der Place Mode bleibt unabhängig davon nutzbar.
+
+
+## Gemeinsame Themes (2026-10-20)
+
+Overlay → Gemeinsame Einstellungen → Theme bietet Aion2 - stilisierte (Standard, auch bei alten
+Einstellungsdateien), Aion2 - neutral, Obsidian, Nordlicht, Runen und Soulcrest legacy.
+`AppSettings.OverlayTheme` speichert `aion2-stylized`, `aion2-neutral`, `obsidian`,
+`aurora`, `runic` oder `soulcrest-legacy`. Die alte ID `aion2` sowie fehlende/ungültige
+Werte ergeben `aion2-stylized`; ausdrücklich gespeicherte Themeauswahlen bleiben erhalten. Es gibt ein gemeinsames Layout, keine Themeprofile.
+Die Auswahl gilt für sieben Overlayarten. Das Händler-/Shop-Overlay ist seit der
+Nutzerpräzisierung vom 2026-10-20 ausdrücklich ausgenommen: Liveanzeige und Vorschau
+verwenden immer den festen bisherigen Soulcrest-Stil.
+
+`OverlayThemeDefinition` bündelt unveränderliche Farben, Schriftrollen und Abstände.
+Die Produktionspainter erhalten das Theme ausdrücklich; die bisherigen optionalen
+Painter-Aufrufe ohne Theme bleiben für Legacy-Renderfälle kompatibel. Themeabhängige
+Messgeometrie liefert Fenstergrößen, Zeilen, Lock- und Buttonflächen. Livefenster,
+PNG-Vorschauen und Place Mode teilen diese Zeichenfunktionen. Die HTML-Timervorschau
+bezieht ihre Themefarben aus derselben Definition.
+
+Die beiden Aion2-Varianten zeichnen Flächen in #171B1F mit Alpha 204: neutral mit
+ungefärbtem Außenrand, stilisierte mit abgeschrägten Ecken und doppelter Metallkontur.
+Ihr Innenlayout und ihre Farben bleiben gleich. Obsidian verwendet kontraststarkes
+Schwarz/Grauweiß mit Segoe-UI-Überschriften, Nordlicht Blau/Mint mit Bahnschrift und
+leicht gerundeten Konturen, Runen Braun/Bronze mit Palatino-Linotype-Überschriften und
+Rautenornamenten. Aion2 verwendet Georgia Bold. Beschriftungen bleiben kräftig in
+Segoe UI Semibold, Countdowns in der lokalen Noto Sans Bold. Loot bleibt nach Fokus/Beute gegliedert, Leveling
+folgt der Questhierarchie, Boss-Spawns behalten Warnfarben. Timer bleiben hintergrundlos.
+Karte und Händler behalten Projektion, native Anker, Preise und semantische Farben.
+
+`LayeredOverlayPresenter` präsentiert die freien Panels aller neuen Themes mit Alpha pro Pixel;
+Schrift bleibt deckend, während der Hintergrund durchscheint. Legacy verwendet seinen
+bisherigen Paint-/Opacity-Pfad. Beim Wechsel der Layered-Betriebsart bleiben Capture-
+Sichtbarkeit und Klickdurchlässigkeit erhalten; Schlossfenster folgen derselben Theme-
+und Geometriewahl. Reine Darstellung ändert keine Fortschritts- oder Ereignisfristen.
+Kartenframes und Sprite-Caches tragen die Theme-ID, veraltete Frames werden verworfen.
+Der Händler-Painter erhält keinen Themeparameter; ein Themewechsel verändert weder
+seine festen Fonts/Materialien noch seine Vorschau und löst keine Theme-Neuzeichnung aus.
+
+Während einer aktiven Geste bleibt die bisherige Geometrie gültig. Nach Geste-Ende
+wird das aktuelle Theme angewendet, auch bei einer wirkungslosen Place-Mode-Geste.
+Der Wechsel selbst speichert weder Positionen noch Skalierungen oder Breiten neu.

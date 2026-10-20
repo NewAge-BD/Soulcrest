@@ -44,7 +44,7 @@ public sealed partial class PetOverlayForm
             return;
         }
         RefreshLevelUpFrame();
-        Invalidate();
+        RenderPanel();
     }
 
     private void ClearLevelUp(bool updateSize = true)
@@ -56,7 +56,7 @@ public sealed partial class PetOverlayForm
         _lootRows = _baseLootRows;
         _animationTimer.Stop();
         if (updateSize && !Disposing && !IsDisposed)
-            SetLogicalHeight(LootLogicalHeight(_focusRows.Count, _lootRows.Count));
+            SetLogicalHeight(LootLogicalHeight(_focusRows.Count, _lootRows.Count, theme: _theme));
     }
 
     private void RefreshLevelUpFrame()
@@ -78,7 +78,7 @@ public sealed partial class PetOverlayForm
         var rows = PlaceLevelUpRows(_baseFocusRows, _baseLootRows, frame, _baseLevelUpFallback);
         _focusRows = rows.Focus;
         _lootRows = rows.Drops;
-        SetLogicalHeight(LootLogicalHeight(_focusRows.Count, _lootRows.Count, frame is { IsMax: true }));
+        SetLogicalHeight(LootLogicalHeight(_focusRows.Count, _lootRows.Count, frame is { IsMax: true }, _theme));
         if (frame is not null) _animationTimer.Start();
         else _animationTimer.Stop();
     }

@@ -44,8 +44,9 @@ internal static class TimerStripRenderer
     }
 
     internal static void Paint(Graphics graphics, TimerStripLayout layout, DateTimeOffset now,
-        bool seconds = true, bool locked = true, Func<string, Image?>? icon = null)
+        bool seconds = true, bool locked = true, Func<string, Image?>? icon = null, OverlayThemeDefinition? theme = null)
     {
+        theme ??= OverlayThemeDefinition.Legacy;
         var state = graphics.Save();
         graphics.SetClip(new Rectangle(Point.Empty, layout.Size), CombineMode.Intersect);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -56,25 +57,26 @@ internal static class TimerStripRenderer
         {
             var id = IconId(cell.Row);
             var image = icon?.Invoke(id) ?? Icons.Load(id);
-            if (image is not null) DrawIcon(graphics, image, cell.IconBounds, id.StartsWith("map:", StringComparison.Ordinal));
-            var ink = cell.Row.Provisional ? Color.FromArgb(171, 180, 184)
-                : cell.Row.Started ? Color.FromArgb(244, 215, 142) : Ink;
+            if (image is not null) DrawIcon(graphics, image, cell.IconBounds, id.StartsWith("map:", StringComparison.Ordinal), theme);
+            var ink = cell.Row.Provisional ? theme.IsLegacy ? Color.FromArgb(171, 180, 184) : theme.Secondary
+                : cell.Row.Started ? theme.IsLegacy ? Color.FromArgb(244, 215, 142) : theme.Gold
+                : theme.IsLegacy ? Ink : theme.Primary;
             if (cell.LabelBounds is { } labelBounds && cell.Row.InlineLabel is { } label)
-                DrawText(graphics, label, labelBounds, ink);
-            DrawText(graphics, TimerOverlayPresentation.Countdown(cell.Row, now, seconds), cell.TextBounds, ink);
+                DrawText(graphics, label, labelBounds, ink, theme);
+            DrawText(graphics, TimerOverlayPresentation.Countdown(cell.Row, now, seconds), cell.TextBounds, ink, theme);
             // A steady small gold tick distinguishes an active event without introducing a badge.
             if (cell.Row.Started && !cell.Row.Provisional)
             {
-                using var active = new SolidBrush(Color.FromArgb(231, 202, 131));
+                using var active = new SolidBrush(theme.IsLegacy ? Color.FromArgb(231, 202, 131) : theme.Gold);
                 graphics.FillEllipse(active, cell.IconBounds.Right - 4, cell.IconBounds.Bottom - 4, 3, 3);
             }
         }
         if (!locked)
         {
-            using var grip = new Pen(Color.FromArgb(150, 224, 214, 189));
+            using var grip = new Pen(theme.IsLegacy ? Color.FromArgb(150, 224, 214, 189) : Color.FromArgb(150, theme.Gold));
             var width = layout.Size.Width; var height = layout.Size.Height;
             // A filled edit-only corner remains hittable even with the normal surface disabled.
-            using var handle = new SolidBrush(Color.FromArgb(180, 43, 54, 64));
+            using var handle = new SolidBrush(theme.IsLegacy ? Color.FromArgb(180, 43, 54, 64) : Color.FromArgb(180, theme.Surface));
             graphics.FillPolygon(handle, new Point[] { new(width - 14, height - 1),
                 new(width - 1, height - 14), new(width - 1, height - 1) });
             graphics.DrawLine(grip, width - 10, height - 3, width - 3, height - 10);
@@ -83,13 +85,14 @@ internal static class TimerStripRenderer
         graphics.Restore(state);
     }
 
-    private static void DrawText(Graphics graphics, string text, Rectangle bounds, Color color)
+    private static void DrawText(Graphics graphics, string text, Rectangle bounds, Color color, OverlayThemeDefinition theme)
     {
-        var family = TimerStripTypeface.Family;
+        using var font = theme.Countdown(TimerStripTypeface.Size);
+        var family = font.FontFamily;
         using var format = new StringFormat(StringFormat.GenericTypographic)
         { LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap };
         using var path = new GraphicsPath();
-        path.AddString(text, family, (int)TimerStripTypeface.Style, TimerStripTypeface.Size, bounds, format);
+        path.AddString(text, family, (int)font.Style, font.Size, bounds, format);
         var inkBounds = path.GetBounds();
         if (inkBounds.Width > bounds.Width - 2)
         {
@@ -102,13 +105,13 @@ internal static class TimerStripRenderer
         }
         using (var cast = (GraphicsPath)path.Clone())
         using (var shift = new Matrix())
-        using (var shade = new SolidBrush(Color.FromArgb(170, 8, 12, 16)))
+        using (var shade = new SolidBrush(theme.IsLegacy ? Color.FromArgb(170, 8, 12, 16) : Color.FromArgb(170, theme.Surface)))
         {
             shift.Translate(0, 1);
             cast.Transform(shift);
             graphics.FillPath(shade, cast);
         }
-        using var shadow = new Pen(Color.FromArgb(240, 17, 23, 28), 1.6f) { LineJoin = LineJoin.Round };
+        using var shadow = new Pen(theme.IsLegacy ? Color.FromArgb(240, 17, 23, 28) : Color.FromArgb(240, theme.Surface), 1.6f) { LineJoin = LineJoin.Round };
         graphics.DrawPath(shadow, path);
         using var brush = new SolidBrush(color);
         graphics.FillPath(brush, path);
@@ -119,7 +122,7 @@ internal static class TimerStripRenderer
     private static string IconId(AlertDisplayRow row) => row.IconId ?? (row.Key.StartsWith("event:catalog:", StringComparison.Ordinal)
         ? row.Key["event:catalog:".Length..] : row.Key.StartsWith("boss:", StringComparison.Ordinal) ? "boss" : "custom");
 
-    private static void DrawIcon(Graphics graphics, Image image, Rectangle bounds, bool portrait)
+    private static void DrawIcon(Graphics graphics, Image image, Rectangle bounds, bool portrait, OverlayThemeDefinition theme)
     {
         if (!portrait) { graphics.DrawImage(image, bounds); return; }
         var state = graphics.Save();
@@ -129,8 +132,8 @@ internal static class TimerStripRenderer
         graphics.SetClip(circle, CombineMode.Intersect);
         graphics.DrawImage(image, inset);
         graphics.Restore(state);
-        using var shadow = new Pen(Color.FromArgb(210, 17, 23, 28), 2);
-        using var gold = new Pen(Color.FromArgb(210, 211, 194, 151), .8f);
+        using var shadow = new Pen(theme.IsLegacy ? Color.FromArgb(210, 17, 23, 28) : Color.FromArgb(210, theme.Surface), 2);
+        using var gold = new Pen(theme.IsLegacy ? Color.FromArgb(210, 211, 194, 151) : Color.FromArgb(210, theme.Gold), .8f);
         graphics.DrawPath(shadow, circle);
         graphics.DrawPath(gold, circle);
     }

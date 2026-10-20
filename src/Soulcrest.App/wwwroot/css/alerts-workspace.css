@@ -145,13 +145,13 @@
 .timer-overlay-settings > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
 .timer-overlay-settings > header .check { display: inline-flex; align-items: center; gap: 7px; }
 .timer-overlay-settings input[type=checkbox] { accent-color: var(--accent); margin: 0; }
-.timer-strip-preview { display: flex; flex-wrap: wrap; align-items: center; column-gap: calc(var(--timer-gap) * var(--timer-scale)); row-gap: 0; min-height: calc(32px * var(--timer-scale)); margin: 13px 0; padding: 2px 8px; overflow-x: auto; border-radius: 5px; color: #edede6; }
+.timer-strip-preview { display: flex; flex-wrap: wrap; align-items: center; column-gap: calc(var(--timer-gap) * var(--timer-scale)); row-gap: 0; min-height: calc(32px * var(--timer-scale)); margin: 13px 0; padding: 2px 8px; overflow-x: auto; border-radius: 5px; color: var(--timer-ink, #edede6); }
 .timer-strip-preview.paused { opacity: .5; }
-.timer-strip-item { display: inline-flex; flex: 0 0 auto; align-items: center; gap: calc(4px * var(--timer-scale)); width: calc(122px * var(--timer-scale)); font: 700 calc(18px * var(--timer-scale))/1 "Soulcrest Timer", "Noto Sans", sans-serif; font-variant-numeric: tabular-nums; text-shadow: -1px 0 #10171c, 1px 0 #10171c, 0 -1px #10171c, 0 1px #10171c, 0 2px 2px #000c; white-space: nowrap; }
+.timer-strip-item { display: inline-flex; flex: 0 0 auto; align-items: center; gap: calc(4px * var(--timer-scale)); width: calc(122px * var(--timer-scale)); font: 700 calc(18px * var(--timer-scale))/1 "Soulcrest Timer", "Noto Sans", sans-serif; font-variant-numeric: tabular-nums; text-shadow: -1px 0 var(--timer-outline, #10171c), 1px 0 var(--timer-outline, #10171c), 0 -1px var(--timer-outline, #10171c), 0 1px var(--timer-outline, #10171c), 0 2px 2px var(--timer-shadow, #000c); white-space: nowrap; }
 .timer-strip-item img { width: calc(28px * var(--timer-scale)); height: calc(28px * var(--timer-scale)); object-fit: contain; }
 .timer-strip-item > span:last-child { width: calc(90px * var(--timer-scale)); }
-.timer-strip-item.active { color: #f4d78e; }
-.timer-strip-item.provisional { color: #abb4b8; }
+.timer-strip-item.active { color: var(--timer-active, #f4d78e); }
+.timer-strip-item.provisional { color: var(--timer-muted, #abb4b8); }
 .timer-strip-empty { color: var(--muted); font-size: 11px; line-height: 1.5; }
 .timer-strip-controls, .timer-strip-selection fieldset { display: grid; min-width: 0; margin: 0; padding: 0; border: 0; gap: 10px; }
 .timer-strip-controls > label { display: grid; grid-template-columns: 52px minmax(45px, 1fr) 47px; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
@@ -179,7 +179,7 @@ a.timer-strip-settings-link:hover { color: var(--accent); }
 .timer-strip-feedback.error { color: var(--danger, #f4a29b); }
 .timer-overlay-settings:has(fieldset:disabled) { opacity: .75; }
 
-.timer-overlay-settings img.timer-boss-portrait { border-radius: 50%; box-sizing: border-box; padding: 1px; border: 1px solid #d3c297bb; }
+.timer-overlay-settings img.timer-boss-portrait { border-radius: 50%; box-sizing: border-box; padding: 1px; border: 1px solid var(--timer-portrait-border, #d3c297bb); }
 
 /* Visibility is independent of the chosen timers and reminder settings. */
 .timer-overlay-context-settings { margin-top: 12px; border-top: 1px solid var(--line); }

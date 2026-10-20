@@ -153,7 +153,7 @@ public sealed partial class RouteOverlayForm : Form
     }
 
     /// <summary>A composed overlay picture (GDI bitmap with alpha) and where it goes; null = nothing to show.</summary>
-    internal sealed record Frame(nint Bitmap, Point Location, Size Size, long CapturedAt = 0, MapPlacement? Placement = null) : IDisposable
+    internal sealed record Frame(nint Bitmap, Point Location, Size Size, long CapturedAt = 0, MapPlacement? Placement = null, string ThemeId = "soulcrest-legacy") : IDisposable
     {
         // Written only by the compositor before publishing through the dispatcher's gate.
         internal long ComposeStartedAt { get; set; }
@@ -174,13 +174,14 @@ public sealed partial class RouteOverlayForm : Form
         var guards = VisibleGuardZones(placement, prepared);
         if (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0 && guards is null && prepared.HiddenCubeGroups.Count == 0)
             return null;
-        return RenderFrame(placement, onMap, pets, resources, souls, guards, prepared.TargetIcons, prepared.HiddenCubeGroups);
+        return RenderFrame(placement, onMap, pets, resources, souls, guards, prepared.TargetIcons, prepared.HiddenCubeGroups, OverlayThemeDefinition.Resolve(prepared.ThemeId));
     }
 
     internal static Frame RenderFrame(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> onMap,
         IReadOnlyList<PetSymbol> pets, IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null,
-        GuardZones? guards = null, IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null)
+        GuardZones? guards = null, IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null, OverlayThemeDefinition? theme = null)
     {
+        theme ??= OverlayThemeDefinition.Legacy;
         // Drawn straight into a GDI DIB section that UpdateLayeredWindow takes as it is: converting a
         // full-screen picture with GetHbitmap cost 30 ms each time (measured 2026-10-05).
         var size = placement.Region.Size;
@@ -192,14 +193,14 @@ public sealed partial class RouteOverlayForm : Form
         {
             using var surface = new Bitmap(size.Width, size.Height, size.Width * 4, PixelFormat.Format32bppPArgb, bits);
             using var graphics = Graphics.FromImage(surface);
-            DrawInto(graphics, placement, onMap, pets, resources, souls, guards, targetIcons, hiddenCubeGroups); // a new DIB is all zeros: transparent
+            DrawInto(graphics, placement, onMap, pets, resources, souls, guards, targetIcons, hiddenCubeGroups, theme); // a new DIB is all zeros: transparent
         }
         catch
         {
             NativeMethods.DeleteObject(dib);
             throw;
         }
-        return new Frame(dib, placement.Region.Location, size, placement.CapturedAt, placement);
+        return new Frame(dib, placement.Region.Location, size, placement.CapturedAt, placement, theme.Id);
     }
 
     /// <summary>UI thread: hands the latest picture to Windows; the dispatcher owns its lifetime.</summary>
@@ -213,7 +214,7 @@ public sealed partial class RouteOverlayForm : Form
             NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
         }
         if (_suppressed || PresentationHidden || frame is null || !_settings.Current.MapOverlayEnabled
-            || !MatchesCurrentPlacement(frame, _tracking.Placement))
+            || !MatchesCurrentPlacement(frame, _tracking.Placement) || !MatchesCurrentTheme(frame, _settings.Current.OverlayTheme))
         {
             _tracking.ResetOverlayPresentation();
             if (Visible) Hide();
@@ -236,22 +237,31 @@ public sealed partial class RouteOverlayForm : Form
         frame.Placement is not { } composed || current is not null
             && composed.MapId == current.MapId && composed.WorldMap == current.WorldMap && composed.Region == current.Region;
 
+    internal static bool MatchesCurrentTheme(Frame frame, string? themeId) =>
+        frame.ThemeId == OverlayThemeDefinition.Resolve(themeId).Id;
+
     /// <summary>The overlay picture for the marked map area: lines, arrows, rings and names (transparent elsewhere).</summary>
     public static Bitmap Draw(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets, IReadOnlyList<PetSymbol>? pets = null,
+        IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null,
+        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null)
+        => DrawThemed(OverlayThemeDefinition.Legacy, placement, targets, pets, resources, souls, guards, targetIcons, hiddenCubeGroups);
+
+    internal static Bitmap DrawThemed(OverlayThemeDefinition theme, MapPlacement placement,
+        IReadOnlyList<(MapTarget Target, int Index)> targets, IReadOnlyList<PetSymbol>? pets = null,
         IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null,
         IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null)
     {
         var bitmap = new Bitmap(placement.Region.Width, placement.Region.Height, PixelFormat.Format32bppPArgb);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.Clear(Color.Transparent);
-        DrawInto(graphics, placement, targets, pets, resources, souls, guards, targetIcons, hiddenCubeGroups);
+        DrawInto(graphics, placement, targets, pets, resources, souls, guards, targetIcons, hiddenCubeGroups, theme);
         return bitmap;
     }
 
     /// <summary>Draws the overlay into a transparent, premultiplied 32-bit surface of the region's size.</summary>
     private static void DrawInto(Graphics graphics, MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets,
-        IReadOnlyList<PetSymbol>? pets, IReadOnlyList<ResourceSymbol>? resources, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null,
-        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null)
+        IReadOnlyList<PetSymbol>? pets, IReadOnlyList<ResourceSymbol>? resources, IReadOnlyList<SoulMonster>? souls, GuardZones? guards,
+        IReadOnlyDictionary<string, Bitmap?>? targetIcons, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups, OverlayThemeDefinition theme)
     {
         var region = placement.Region;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -259,13 +269,14 @@ public sealed partial class RouteOverlayForm : Form
         var origin = new PointF(region.X, region.Y);
         if (guards is not null)
             DrawGuardZones(graphics, placement, origin, guards); // beneath everything else
-        DrawHiddenCubeGroups(graphics, placement, origin, hiddenCubeGroups ?? []);
+        DrawHiddenCubeGroups(graphics, placement, origin, hiddenCubeGroups ?? [], theme);
         var area = new RectangleF(4, 4, region.Width - 8, region.Height - 8);
         PointF? player = placement.PlayerOnScreen is { } p ? Offset(p, origin) : null;
         foreach (var resource in resources ?? [])
         {
             var at = Offset(placement.WorldToScreen(resource.X, resource.Y), origin);
-            DrawResource(graphics, at, resource.Icon, resource.Color, resource.Opacity);
+            DrawResource(graphics, at, resource.Icon, resource.Color, resource.Opacity, theme,
+                drawBackground: placement.WorldMap || resource.Opacity >= 1f);
             if (resource.OutlineColor is { } outlineColor)
             {
                 using var rim = new Pen(Color.FromArgb(230, ColorTranslator.FromHtml(outlineColor)), 1.5f);
@@ -284,15 +295,18 @@ public sealed partial class RouteOverlayForm : Form
             }
         }
         foreach (var pet in pets ?? [])
-            DrawPet(graphics, Offset(placement.WorldToScreen(pet.X, pet.Y), origin), pet);
+            DrawPet(graphics, Offset(placement.WorldToScreen(pet.X, pet.Y), origin), pet, theme,
+                drawBackground: placement.WorldMap || !pet.Done);
         foreach (var (target, index) in targets)
         {
             var color = target.Color is { } explicitColor ? ColorTranslator.FromHtml(explicitColor)
-                : index < 0 ? Color.White : ColorTranslator.FromHtml(MapTargetsService.ColorOf(target, index));
+                : index < 0 ? theme.IsLegacy ? Color.White : theme.Primary : ColorTranslator.FromHtml(MapTargetsService.ColorOf(target, index));
             var preview = target.Id == "boss-next";
             var dashed = preview || target.MonsterBranch;
             if (preview) color = Color.FromArgb(105, color);
             if (target.Completed) color = Color.FromArgb(71, color);
+            // User request 2026-10-20: faded minimap markers need no filled backing.
+            var drawBackground = placement.WorldMap || color.A == 255;
             var at = Offset(placement.WorldToScreen(target.X, target.Y), origin);
             // A chained target (Shift + right click) starts at its predecessor, all others at the player.
             var before = target.After is { } after ? targets.FirstOrDefault(t => t.Target.Id == after).Target : null;
@@ -306,9 +320,9 @@ public sealed partial class RouteOverlayForm : Form
             // Lines leave a predecessor's ring (or the player marker) at its rim, never from its centre.
             var startGap = target.BranchX is not null ? 0f : before is not null ? RingRadius + 2 : PlayerGap;
             if (start is { } from)
-                DrawRoute(graphics, from, at, area, label, color, dashed, icon, startGap);
+                DrawRoute(graphics, from, at, area, label, color, dashed, icon, startGap, theme, drawBackground);
             else if (area.Contains(at))
-                DrawTargetRing(graphics, at, area, label, color, dashed, icon); // world map of another zone: no player, rings only
+                DrawTargetRing(graphics, at, area, label, color, dashed, icon, theme, drawBackground); // world map of another zone: no player, rings only
         }
     }
 
@@ -437,15 +451,15 @@ public sealed partial class RouteOverlayForm : Form
         return icon;
     }
 
-    /// <summary>Legend icon on a dark disc, readable on any map colour; a dot if the icon is missing.</summary>
-    private static void DrawResource(Graphics graphics, PointF at, Bitmap? icon, string? tint = null, float opacity = 1f)
+    /// <summary>Legend icon with optional backing; faded minimap symbols leave the map visible.</summary>
+    private static void DrawResource(Graphics graphics, PointF at, Bitmap? icon, string? tint, float opacity, OverlayThemeDefinition theme, bool drawBackground)
     {
         const int disc = ResourceIconSize + 4;
         if (tint is not null)
         {
             var color = ColorTranslator.FromHtml(tint);
-            using var back = new SolidBrush(Color.FromArgb((int)(210 * opacity), 10, 14, 22));
-            graphics.FillEllipse(back, at.X - disc / 2f, at.Y - disc / 2f, disc, disc);
+            using var back = new SolidBrush(theme.IsLegacy ? Color.FromArgb((int)(210 * opacity), 10, 14, 22) : Color.FromArgb((int)(theme.Surface.A * opacity), theme.Surface));
+            if (drawBackground) graphics.FillEllipse(back, at.X - disc / 2f, at.Y - disc / 2f, disc, disc);
             if (icon is null)
             {
                 using var dot = new SolidBrush(Color.FromArgb((int)(255 * opacity), color));
@@ -464,25 +478,32 @@ public sealed partial class RouteOverlayForm : Form
         }
         if (icon is null)
         {
-            using var back = new SolidBrush(Color.FromArgb(150, 10, 14, 22));
-            using var dot = new SolidBrush(Color.FromArgb(94, 234, 212));
-            graphics.FillEllipse(back, at.X - disc / 2f, at.Y - disc / 2f, disc, disc);
+            using var back = new SolidBrush(theme.IsLegacy ? Color.FromArgb(150, 10, 14, 22) : theme.Surface);
+            using var dot = new SolidBrush(theme.IsLegacy ? Color.FromArgb(94, 234, 212) : theme.Mint);
+            if (drawBackground) graphics.FillEllipse(back, at.X - disc / 2f, at.Y - disc / 2f, disc, disc);
             graphics.FillEllipse(dot, at.X - 4, at.Y - 4, 8, 8);
+            return;
+        }
+        if (!drawBackground)
+        {
+            // The cached sprite contains the disc, so copy only the original icon here.
+            graphics.DrawImage(icon, new Rectangle((int)MathF.Round(at.X - ResourceIconSize / 2f),
+                (int)MathF.Round(at.Y - ResourceIconSize / 2f), ResourceIconSize, ResourceIconSize));
             return;
         }
         Bitmap sprite;
         lock (ResourceSprites)
         {
-            if (!ResourceSprites.TryGetValue(icon, out sprite!))
+            if (!ResourceSprites.TryGetValue((icon, theme.Id), out sprite!))
             {
                 sprite = new Bitmap(disc, disc, PixelFormat.Format32bppPArgb);
                 using var g = Graphics.FromImage(sprite);
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.Clear(Color.Transparent);
-                using var back = new SolidBrush(Color.FromArgb(150, 10, 14, 22));
+                using var back = new SolidBrush(theme.IsLegacy ? Color.FromArgb(150, 10, 14, 22) : theme.Surface);
                 g.FillEllipse(back, 0, 0, disc - 1, disc - 1);
                 g.DrawImage(icon, 2, 2, ResourceIconSize, ResourceIconSize);
-                ResourceSprites[icon] = sprite;
+                ResourceSprites[(icon, theme.Id)] = sprite;
             }
         }
         graphics.DrawImageUnscaled(sprite, (int)MathF.Round(at.X - disc / 2f), (int)MathF.Round(at.Y - disc / 2f));
@@ -517,26 +538,26 @@ public sealed partial class RouteOverlayForm : Form
     // Pet and resource symbols are drawn once into small sprites and then only copied: measuring and
     // drawing ~200 labels for each world-map picture took 67 ms, the overlay asked for 30 pictures per
     // second, and Soulcrest stopped responding while the world map was open (diagnosis 2026-10-05).
-    private static readonly Dictionary<(Bitmap? Icon, string Label, bool Done), (Bitmap Sprite, PointF Centre)> PetSprites = [];
-    private static readonly Dictionary<Bitmap, Bitmap> ResourceSprites = new(ReferenceEqualityComparer.Instance);
+    private static readonly Dictionary<(Bitmap? Icon, string Label, bool Done, string Theme, bool Background), (Bitmap Sprite, PointF Centre)> PetSprites = [];
+    private static readonly Dictionary<(Bitmap Icon, string Theme), Bitmap> ResourceSprites = [];
     private const int SpriteCacheLimit = 4000;
 
-    private static void DrawPet(Graphics graphics, PointF at, PetSymbol pet)
+    private static void DrawPet(Graphics graphics, PointF at, PetSymbol pet, OverlayThemeDefinition theme, bool drawBackground)
     {
-        var (sprite, centre) = PetSprite(pet);
+        var (sprite, centre) = PetSprite(pet, theme, drawBackground);
         graphics.DrawImageUnscaled(sprite, (int)MathF.Round(at.X - centre.X), (int)MathF.Round(at.Y - centre.Y));
     }
 
-    private static (Bitmap Sprite, PointF Centre) PetSprite(PetSymbol pet)
+    private static (Bitmap Sprite, PointF Centre) PetSprite(PetSymbol pet, OverlayThemeDefinition theme, bool drawBackground)
     {
-        var key = (pet.Icon, pet.Label, pet.Done);
+        var key = (pet.Icon, pet.Label, pet.Done, theme.Id, drawBackground);
         lock (PetSprites)
         {
             if (PetSprites.TryGetValue(key, out var cached))
                 return cached;
             if (PetSprites.Count > SpriteCacheLimit)
                 ClearSprites(PetSprites.Values.Select(v => v.Sprite));
-            var made = MakePetSprite(pet);
+            var made = MakePetSprite(pet, theme, drawBackground);
             PetSprites[key] = made;
             return made;
         }
@@ -550,12 +571,14 @@ public sealed partial class RouteOverlayForm : Form
     }
 
     /// <summary>Portrait with ring and the label on a dark plate beside it, as one transparent picture.</summary>
-    private static (Bitmap Sprite, PointF Centre) MakePetSprite(PetSymbol pet)
+    private static (Bitmap Sprite, PointF Centre) MakePetSprite(PetSymbol pet, OverlayThemeDefinition theme, bool drawBackground)
     {
+        using var themedFont = theme.IsLegacy ? null : theme.Body(12, FontStyle.Bold);
+        var labelFont = themedFont ?? LabelFont;
         SizeF labelSize;
         using (var probe = new Bitmap(1, 1))
         using (var measure = Graphics.FromImage(probe))
-            labelSize = measure.MeasureString(pet.Label, LabelFont);
+            labelSize = measure.MeasureString(pet.Label, labelFont);
         const float margin = 3; // half the shadow pen
         var height = (int)MathF.Ceiling(Math.Max(PetIconSize + 2 * margin, labelSize.Height));
         var width = (int)MathF.Ceiling(PetIconSize + 2 * margin + 3 + labelSize.Width);
@@ -566,7 +589,7 @@ public sealed partial class RouteOverlayForm : Form
         graphics.Clear(Color.Transparent);
         var centre = new PointF(margin + PetIconSize / 2f, height / 2f);
         var rect = new RectangleF(margin, centre.Y - PetIconSize / 2f, PetIconSize, PetIconSize);
-        using var ring = new Pen(pet.Done ? Color.FromArgb(160, 148, 163, 184) : Color.White, 2);
+        using var ring = new Pen(pet.Done ? Color.FromArgb(160, 148, 163, 184) : theme.IsLegacy ? Color.White : theme.Gold, 2);
         using var shadow = new Pen(Color.FromArgb(170, 0, 0, 0), 4);
         graphics.DrawEllipse(shadow, rect);
         if (pet.Icon is { } icon)
@@ -586,31 +609,35 @@ public sealed partial class RouteOverlayForm : Form
 
         // Label beside the symbol, dark plate for readability on any map colour.
         var plate = new RectangleF(rect.Right + 3, centre.Y - labelSize.Height / 2, labelSize.Width, labelSize.Height);
-        using var back = new SolidBrush(Color.FromArgb(200, 15, 20, 30));
-        using var text = new SolidBrush(pet.Done ? Color.FromArgb(148, 163, 184) : Color.FromArgb(248, 250, 252));
-        graphics.FillRectangle(back, plate);
-        graphics.DrawString(pet.Label, LabelFont, text, plate.Location);
+        using var back = new SolidBrush(theme.IsLegacy ? Color.FromArgb(200, 15, 20, 30) : theme.Surface);
+        using var text = new SolidBrush(pet.Done ? Color.FromArgb(148, 163, 184) : theme.IsLegacy ? Color.FromArgb(248, 250, 252) : theme.Primary);
+        if (drawBackground)
+        {
+            if (theme.IsLegacy) graphics.FillRectangle(back, plate);
+            else theme.Panel(graphics, Rectangle.Ceiling(plate));
+        }
+        graphics.DrawString(pet.Label, labelFont, text, plate.Location);
         return (sprite, centre);
     }
 
-    private static void DrawTargetRing(Graphics graphics, PointF target, RectangleF area, string name, Color color, bool dashed = false, Bitmap? icon = null)
+    private static void DrawTargetRing(Graphics graphics, PointF target, RectangleF area, string name, Color color, bool dashed, Bitmap? icon, OverlayThemeDefinition theme, bool drawBackground)
     {
         using var outline = new Pen(Color.FromArgb(Math.Min(dashed ? 50 : 170, (int)color.A), 0, 0, 0), 7) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
         using var ring = new Pen(color, 3) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
         graphics.DrawEllipse(outline, target.X - RingRadius, target.Y - RingRadius, 2 * RingRadius, 2 * RingRadius);
         graphics.DrawEllipse(ring, target.X - RingRadius, target.Y - RingRadius, 2 * RingRadius, 2 * RingRadius);
-        DrawTargetLabel(graphics, name, icon, target, color, area);
+        DrawTargetLabel(graphics, name, icon, target, color, area, theme, drawBackground);
     }
 
     /// <summary>
     /// Beside the ring: the resource icon (with the distance after it) or the name. The icon sits on the side
     /// facing away from the line that arrives (<paramref name="from"/>), so the line never runs through it.
     /// </summary>
-    private static void DrawTargetLabel(Graphics graphics, string name, Bitmap? icon, PointF target, Color color, RectangleF area, PointF? from = null)
+    private static void DrawTargetLabel(Graphics graphics, string name, Bitmap? icon, PointF target, Color color, RectangleF area, OverlayThemeDefinition theme, bool drawBackground, PointF? from = null)
     {
         if (icon is null)
         {
-            DrawLabel(graphics, name, new PointF(target.X + RingRadius + 4, target.Y - 10), color, area, target.X - RingRadius - 4);
+            DrawLabel(graphics, name, new PointF(target.X + RingRadius + 4, target.Y - 10), color, area, theme, drawBackground, target.X - RingRadius - 4);
             return;
         }
         var (dirX, dirY) = (1f, 0f);
@@ -622,8 +649,9 @@ public sealed partial class RouteOverlayForm : Form
         var inner = RectangleF.Inflate(area, -3, -3);
         var box = new[] { BoxAt(dirX, dirY), BoxAt(-dirY, dirX), BoxAt(dirY, -dirX), BoxAt(-dirX, -dirY) }
             .FirstOrDefault(inner.Contains, BoxAt(dirX, dirY));
-        using (var back = new SolidBrush(Color.FromArgb(Math.Min(210, (int)color.A), 15, 20, 30)))
-            graphics.FillEllipse(back, RectangleF.Inflate(box, 3, 3));
+        using (var back = new SolidBrush(theme.IsLegacy ? Color.FromArgb(Math.Min(210, (int)color.A), 15, 20, 30)
+            : Color.FromArgb(Math.Min(theme.Surface.A, color.A), theme.Surface)))
+            if (drawBackground) graphics.FillEllipse(back, RectangleF.Inflate(box, 3, 3));
         using (var rim = new Pen(color, 1.5f))
             graphics.DrawEllipse(rim, RectangleF.Inflate(box, 3, 3));
         if (color.A == 255)
@@ -636,11 +664,11 @@ public sealed partial class RouteOverlayForm : Form
             graphics.DrawImage(icon, Rectangle.Round(box), 0, 0, icon.Width, icon.Height, GraphicsUnit.Pixel, attributes);
         }
         if (name.Length > 0)
-            DrawLabel(graphics, name, new PointF(box.Right + 5, box.Top - 1), color, area, box.Left - 5);
+            DrawLabel(graphics, name, new PointF(box.Right + 5, box.Top - 1), color, area, theme, drawBackground, box.Left - 5);
     }
 
-    private static void DrawRoute(Graphics graphics, PointF player, PointF target, RectangleF area, string name, Color color, bool dashed = false,
-        Bitmap? icon = null, float startGap = 0)
+    private static void DrawRoute(Graphics graphics, PointF player, PointF target, RectangleF area, string name, Color color, bool dashed,
+        Bitmap? icon, float startGap, OverlayThemeDefinition theme, bool drawBackground)
     {
         {
             // Start at the rim of the ring (or the player marker) the line leaves, not in its middle.
@@ -674,7 +702,7 @@ public sealed partial class RouteOverlayForm : Form
             using var ring = new Pen(color, 3) { DashStyle = dashed ? DashStyle.Dash : DashStyle.Solid };
             graphics.DrawEllipse(outline, target.X - RingRadius, target.Y - RingRadius, 2 * RingRadius, 2 * RingRadius);
             graphics.DrawEllipse(ring, target.X - RingRadius, target.Y - RingRadius, 2 * RingRadius, 2 * RingRadius);
-            DrawTargetLabel(graphics, name, icon, target, color, area, player);
+            DrawTargetLabel(graphics, name, icon, target, color, area, theme, drawBackground, player);
         }
         else
         {
@@ -683,9 +711,9 @@ public sealed partial class RouteOverlayForm : Form
             DrawChevron(graphics, segment.End, angle, 16, color);
             var labelAt = new PointF(segment.End.X - 40, segment.End.Y + (segment.End.Y > area.Height / 2 ? -34 : 14));
             if (icon is null)
-                DrawLabel(graphics, name, labelAt, color, area);
+                DrawLabel(graphics, name, labelAt, color, area, theme, drawBackground);
             else
-                DrawTargetLabel(graphics, name, icon, new PointF(labelAt.X - RingRadius, labelAt.Y + 10), color, area);
+                DrawTargetLabel(graphics, name, icon, new PointF(labelAt.X - RingRadius, labelAt.Y + 10), color, area, theme, drawBackground);
         }
     }
 
@@ -707,18 +735,23 @@ public sealed partial class RouteOverlayForm : Form
     /// edge). Beside a ring it moves to the ring's left side (<paramref name="leftOf"/>) when the right
     /// side is too narrow.
     /// </summary>
-    private static void DrawLabel(Graphics graphics, string text, PointF at, Color color, RectangleF area, float? leftOf = null)
+    private static void DrawLabel(Graphics graphics, string text, PointF at, Color color, RectangleF area, OverlayThemeDefinition theme, bool drawBackground, float? leftOf = null)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         using var path = new GraphicsPath();
-        using var family = new FontFamily("Segoe UI");
-        path.AddString(text, family, (int)FontStyle.Bold, 15, at, StringFormat.GenericDefault);
+        using var font = theme.Body(15, FontStyle.Bold);
+        path.AddString(text, font.FontFamily, (int)font.Style, font.Size, at, StringFormat.GenericDefault);
         var (dx, dy) = LabelShift(path.GetBounds(), area, leftOf);
         if (dx != 0 || dy != 0)
         {
             using var shift = new Matrix();
             shift.Translate(dx, dy);
             path.Transform(shift);
+        }
+        if (!theme.IsLegacy && drawBackground)
+        {
+            var plate = RectangleF.Inflate(path.GetBounds(), 2, 2);
+            theme.Panel(graphics, Rectangle.Ceiling(plate));
         }
         using var outline = new Pen(Color.FromArgb(Math.Min(220, (int)color.A), 0, 0, 0), 4) { LineJoin = LineJoin.Round };
         using var fill = new SolidBrush(color);

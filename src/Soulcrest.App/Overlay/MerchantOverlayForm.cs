@@ -10,6 +10,7 @@ using Soulcrest.Ocr.Shop;
 namespace Soulcrest.App.Overlay;
 
 /// <summary>Passive, always click-through soul counters integrated into the merchant card feet.</summary>
+// User request 2026-10-20: this shop-native style is fixed and deliberately independent of overlay themes.
 public sealed class MerchantOverlayForm : Form
 {
     private readonly MerchantService _merchant;

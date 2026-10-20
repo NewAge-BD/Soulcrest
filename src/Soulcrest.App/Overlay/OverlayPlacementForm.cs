@@ -400,6 +400,8 @@ public sealed class OverlayPlacementForm : Form
             _grip = OverlayPlacementGrip.None;
             Capture = false;
             if (changed && item is not null) _placement.UpdateLayout(item.Id, item.Layout);
+            // A setting may have changed during a no-op gesture; apply its pending presentation now.
+            if (!_closing && IsHandleCreated) RefreshState();
         }
         catch (Exception error) when (IsPlacementError(error)) { Fail(error); }
         finally { _finishingGesture = false; }
@@ -436,7 +438,7 @@ public sealed class OverlayPlacementForm : Form
         base.OnDpiChanged(e);
         FinishGesture();
         _placement.RefreshMonitors();
-        if (!_closing) RefreshState();
+        if (!_closing && IsHandleCreated) RefreshState();
     }
 
     private static bool IsPlacementError(Exception error) => error is IOException or UnauthorizedAccessException

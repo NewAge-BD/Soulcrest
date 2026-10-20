@@ -35,6 +35,7 @@ public class AlertsOverlayForm : Form
     private double _renderScale = 1;
     private double _requestedScale = 1;
     private string _tooltipText = "";
+    private OverlayThemeDefinition _theme = OverlayThemeDefinition.Legacy;
 
     public AlertsOverlayForm(AlertsService alerts, SettingsService settings, string? mapDataDirectory = null)
         : this(alerts, settings, notification: false, mapDataDirectory) { }
@@ -44,6 +45,7 @@ public class AlertsOverlayForm : Form
         _alerts = alerts;
         _settings = settings;
         _notification = notification;
+        _theme = OverlayThemeDefinition.Resolve(settings.Current.OverlayTheme);
         _icons = new TimerIconCache(notification ? null : mapDataDirectory ?? AppPaths.FindMapData());
         if (notification) _timer.Interval = 200;
         FormBorderStyle = FormBorderStyle.None;
@@ -51,11 +53,12 @@ public class AlertsOverlayForm : Form
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         BackColor = Surface;
-        if (notification) Opacity = .95;
+        if (notification) Opacity = _theme.IsLegacy ? .95 : 1;
         DoubleBuffered = true;
         AutoScaleMode = AutoScaleMode.None;
         _lockButton = new OverlayLockButton(this, LockBounds,
             notification ? OverlayLockButtonStyle.Default : OverlayLockButtonStyle.TimerStrip);
+        _lockButton.SetTheme(_theme);
         _lockButton.Toggled += ToggleManualInteraction;
         _lockButton.SetVisibleInRecordings(settings.Current.OverlaysInRecordings);
         _timer.Tick += (_, _) => RefreshPanel();
@@ -134,6 +137,7 @@ public class AlertsOverlayForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
+        LayeredOverlayPresenter.Configure(this, !_notification || !_theme.IsLegacy, .95);
         _inRecordings = _settings.Current.OverlaysInRecordings;
         NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
         ApplyInteractionStyle();
@@ -206,7 +210,7 @@ public class AlertsOverlayForm : Form
     {
         base.OnSizeChanged(e);
         if (Width <= 0 || Height <= 0) return;
-        if (!_notification)
+        if (!_notification || !_theme.IsLegacy)
         {
             var old = Region; Region = null; old?.Dispose();
             return;
@@ -221,6 +225,20 @@ public class AlertsOverlayForm : Form
     {
         if (_suppressed || PresentationHidden || !IsHandleCreated || IsDisposed || SmokeTest.Enabled) return;
         var settings = _settings.Current;
+        if (_drag is null && _resize is null)
+        {
+            var theme = OverlayThemeDefinition.Resolve(settings.OverlayTheme);
+            if (_theme != theme)
+            {
+                _theme = theme;
+                LayeredOverlayPresenter.Configure(this, !_notification || !theme.IsLegacy, .95);
+                var oldRegion = Region; Region = null; oldRegion?.Dispose();
+                if (theme.IsLegacy && _notification) OnSizeChanged(EventArgs.Empty);
+                _lockButton.SetTheme(theme);
+                NativeMethods.SetCaptureVisibility(Handle, settings.OverlaysInRecordings);
+                ApplyInteractionStyle();
+            }
+        }
         var now = _alerts.Now;
         _rows = _notification
             ? _alerts.NotificationRows.Select(notice => new AlertDisplayRow(notice.Key, notice.Title,
@@ -253,7 +271,8 @@ public class AlertsOverlayForm : Form
     }
 
     internal static bool PanelVisible(AppSettings settings, int rows) => settings.AlertsOverlayEnabled && rows > 0;
-    internal static int LogicalHeight(int rows) => HeaderHeight + Math.Clamp(rows, 0, MaximumRows) * RowStride + FooterHeight;
+    internal static int LogicalHeight(int rows, OverlayThemeDefinition? theme = null) =>
+        NotificationLayout.Create(PanelWidth, rows, theme ?? OverlayThemeDefinition.Legacy).Size.Height;
 
     internal static Rectangle FitBounds(Rectangle area, Point location, int logicalWidth, int logicalHeight, double scale)
     {
@@ -284,7 +303,7 @@ public class AlertsOverlayForm : Form
             _lockButton.RefreshTarget();
             return;
         }
-        var height = LogicalHeight(_rows.Count);
+        var height = LogicalHeight(_rows.Count, _theme);
         var fitted = FitBounds(area, location, width, height, scale);
         _requestedScale = double.IsFinite(scale) ? Math.Clamp(scale, .6, 2) : 1;
         _renderScale = Math.Min(fitted.Width / (double)width, fitted.Height / (double)height);
@@ -311,7 +330,20 @@ public class AlertsOverlayForm : Form
     private void RenderPanel()
     {
         if (PresentationHidden) return;
-        if (_notification) { Invalidate(); return; }
+        if (_notification)
+        {
+            if (_theme.IsLegacy) { Invalidate(); return; }
+            if (!IsHandleCreated || IsDisposed || _rows.Count == 0) return;
+            using var bitmap = new Bitmap(Math.Max(1, Width), Math.Max(1, Height), PixelFormat.Format32bppPArgb);
+            using (var graphics = Graphics.FromImage(bitmap))
+            {
+                graphics.Clear(Color.Transparent);
+                graphics.ScaleTransform((float)_renderScale, (float)_renderScale);
+                PaintNotifications(graphics, _rows, _alerts.Now, _locked, _logicalWidth, _theme);
+            }
+            LayeredOverlayPresenter.Present(this, bitmap);
+            return;
+        }
         if (!IsHandleCreated || IsDisposed || _rows.Count == 0) return;
         var header = new NativeMethods.BitmapInfoHeader
         { Size = 40, Width = Width, Height = -Height, Planes = 1, BitCount = 32 };
@@ -325,7 +357,7 @@ public class AlertsOverlayForm : Form
                 graphics.Clear(Color.Transparent);
                 graphics.ScaleTransform((float)_renderScale, (float)_renderScale);
                 TimerStripRenderer.Paint(graphics, _stripLayout, _alerts.Now,
-                    _settings.Current.TimerOverlayShowSeconds, _locked, _icons.Load);
+                    _settings.Current.TimerOverlayShowSeconds, _locked, _icons.Load, _theme);
             }
             var screen = NativeMethods.GetDC(0);
             var memory = NativeMethods.CreateCompatibleDC(screen);
@@ -355,20 +387,33 @@ public class AlertsOverlayForm : Form
         var size = Math.Max(10, (int)Math.Round(18 * _renderScale));
         var inset = Math.Max(1, (int)Math.Round(3 * _renderScale));
         // The separate lock window sits outside the strip and never covers a countdown.
+        if (_notification && !_theme.IsLegacy)
+        {
+            var bounds = NotificationLayout.Create(_logicalWidth, _rows.Count, _theme).LockBounds;
+            return new Rectangle((int)Math.Round(bounds.X * _renderScale), (int)Math.Round(bounds.Y * _renderScale),
+                Math.Max(1, (int)Math.Round(bounds.Width * _renderScale)), Math.Max(1, (int)Math.Round(bounds.Height * _renderScale)));
+        }
         return _notification ? new Rectangle(Math.Max(0, ClientSize.Width - size - inset), inset, size, size)
             : new Rectangle(ClientSize.Width + inset, 0, size, size);
     }
 
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        if (_notification && _theme.IsLegacy) base.OnPaintBackground(e);
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
-        if (!_notification) return;
+        if (!_notification || !_theme.IsLegacy) return;
         e.Graphics.ScaleTransform((float)_renderScale, (float)_renderScale);
         PaintNotifications(e.Graphics, _rows, _alerts.Now, _locked, _logicalWidth);
     }
 
     internal static void PaintNotifications(Graphics g, IReadOnlyList<AlertDisplayRow> rows, DateTimeOffset now,
-        bool locked, int width = PanelWidth)
+        bool locked, int width = PanelWidth, OverlayThemeDefinition? theme = null)
     {
+        theme ??= OverlayThemeDefinition.Legacy;
+        if (!theme.IsLegacy) { PaintAion2Notifications(g, rows, now, locked, width, theme); return; }
         width = Math.Clamp(width, MinimumWidth, MaximumWidth);
         var height = LogicalHeight(rows.Count);
         var saved = g.Save();
@@ -423,6 +468,67 @@ public class AlertsOverlayForm : Form
             using var brush = new SolidBrush(color);
             g.FillPath(brush, path);
         }
+    }
+
+    internal sealed record NotificationLayout(Size Size, Rectangle Header, Rectangle LockBounds, List<Rectangle> Rows)
+    {
+        internal static NotificationLayout Create(int width, int count, OverlayThemeDefinition theme)
+        {
+            width = Math.Clamp(width, MinimumWidth, MaximumWidth);
+            var header = theme.IsLegacy ? HeaderHeight : 24;
+            var stride = theme.IsLegacy ? RowStride : 56;
+            var footer = theme.IsLegacy ? FooterHeight : 8;
+            return new(new(width, header + Math.Clamp(count, 0, MaximumRows) * stride + footer),
+                new(0, 0, width, header), new(width - 24, 4, 16, 16),
+                Enumerable.Range(0, Math.Clamp(count, 0, MaximumRows)).Select(index => new Rectangle(8, header + index * stride, width - 16, stride)).ToList());
+        }
+    }
+
+    private static void PaintAion2Notifications(Graphics graphics, IReadOnlyList<AlertDisplayRow> rows,
+        DateTimeOffset now, bool locked, int width, OverlayThemeDefinition theme)
+    {
+        var layout = NotificationLayout.Create(width, rows.Count, theme);
+        var state = graphics.Save();
+        graphics.SetClip(new Rectangle(Point.Empty, layout.Size), CombineMode.Intersect);
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        theme.Panel(graphics, new Rectangle(Point.Empty, layout.Size));
+        using var heading = theme.Body(10);
+        using var title = theme.Heading(15);
+        using var body = theme.Body(11);
+        using var countdown = theme.Countdown(13);
+        using var muted = new SolidBrush(theme.Secondary);
+        using var main = new SolidBrush(theme.Primary);
+        using var divider = new Pen(Color.FromArgb(70, theme.Border));
+        using var line = new StringFormat { FormatFlags = StringFormatFlags.NoWrap, Trimming = StringTrimming.EllipsisCharacter };
+        using var right = new StringFormat { Alignment = StringAlignment.Far, FormatFlags = StringFormatFlags.NoWrap, Trimming = StringTrimming.EllipsisCharacter };
+        graphics.DrawString(UiText.T("Benachrichtigung"), heading, muted, new RectangleF(8, 4, width - 40, 16), line);
+        if (rows.Count > MaximumRows)
+            graphics.DrawString(UiText.F("{0} weitere im Alerts-Tab", rows.Count - MaximumRows), heading, muted,
+                new RectangleF(120, 4, Math.Max(1, width - 152), 16), right);
+        for (var index = 0; index < layout.Rows.Count; index++)
+        {
+            var bounds = layout.Rows[index]; var row = rows[index];
+            var color = ColorTranslator.FromHtml(row.Color);
+            using var accent = new SolidBrush(color);
+            // A small semantic diamond is the reminder icon; it creates no event or source action.
+            theme.Diamond(graphics, new PointF(bounds.Left + 8, bounds.Top + 13), 5, color);
+            graphics.DrawString(row.Title, title, accent, new RectangleF(bounds.Left + 24, bounds.Top + 1, bounds.Width - 32, 22), line);
+            var message = row.Provisional ? UiText.T("Timer nicht aktuell · Spawn unbestätigt") : row.Message;
+            graphics.DrawString(message, body, main, new RectangleF(bounds.Left + 24, bounds.Top + 24, bounds.Width - 32, 16), line);
+            var text = CountdownText(row, now);
+            if (row.CountdownLabel is { } label) text = label + " " + text;
+            graphics.DrawString(text, countdown, row.Provisional ? muted : accent,
+                new RectangleF(bounds.Left + 24, bounds.Top + 39, bounds.Width - 32, 17), right);
+            if (index < layout.Rows.Count - 1)
+                graphics.DrawLine(divider, bounds.Left + 24, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1);
+        }
+        if (!locked)
+        {
+            using var grip = new Pen(theme.Secondary);
+            graphics.DrawLine(grip, width - 12, layout.Size.Height - 3, width - 3, layout.Size.Height - 12);
+        }
+        graphics.Restore(state);
     }
 
     internal static string CountdownText(AlertDisplayRow row, DateTimeOffset now)
@@ -483,7 +589,7 @@ public class AlertsOverlayForm : Form
         {
             var pointer = PointToScreen(e.Location);
             var desiredHeight = Math.Max(1, resize.Size.Height + pointer.Y - resize.Pointer.Y);
-            var scale = _notification ? Math.Clamp(desiredHeight / (double)LogicalHeight(_rows.Count), .6, 2)
+            var scale = _notification ? Math.Clamp(desiredHeight / (double)LogicalHeight(_rows.Count, _theme), .6, 2)
                 : ResizeScale(resize.Scale, resize.Size.Height, desiredHeight);
             var desiredWidth = resize.Size.Width + pointer.X - resize.Pointer.X;
             if (_notification) _logicalWidth = Math.Clamp((int)Math.Round(desiredWidth / scale), MinimumWidth, MaximumWidth);
@@ -493,9 +599,11 @@ public class AlertsOverlayForm : Form
         else
         {
             Cursor = IsResizePoint(e.Location) ? Cursors.SizeNWSE : Cursors.SizeAll;
-            var rowIndex = (int)(e.Y / _renderScale - HeaderHeight) / RowStride;
+            var logicalPoint = new Point((int)(e.X / _renderScale), (int)(e.Y / _renderScale));
+            var rowIndex = _theme.IsLegacy ? (int)(e.Y / _renderScale - HeaderHeight) / RowStride
+                : NotificationLayout.Create(_logicalWidth, _rows.Count, _theme).Rows.FindIndex(bounds => bounds.Contains(logicalPoint));
             var hit = _notification
-                ? e.Y / _renderScale >= HeaderHeight && rowIndex >= 0 && rowIndex < Math.Min(_rows.Count, MaximumRows) ? _rows[rowIndex] : null
+                ? e.Y / _renderScale >= (_theme.IsLegacy ? HeaderHeight : 24) && rowIndex >= 0 && rowIndex < Math.Min(_rows.Count, MaximumRows) ? _rows[rowIndex] : null
                 : _stripLayout.Cells.FirstOrDefault(cell => cell.Bounds.Contains((int)(e.X / _renderScale), (int)(e.Y / _renderScale)))?.Row;
             var text = hit is not null ? RowTooltip(hit, _alerts.Now) : BossOverlayForm.HotkeyHint(_locked);
             if (text != _tooltipText) { _tooltipText = text; _tooltip.SetToolTip(this, text); }
@@ -544,6 +652,7 @@ public class AlertsOverlayForm : Form
                 if (resized) s.AlertsOverlayScale = _requestedScale;
             }
         });
+        RefreshPanel();
     }
 
     private sealed record ResizeGesture(Point Pointer, Size Size, double Scale);

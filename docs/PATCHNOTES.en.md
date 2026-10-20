@@ -2,7 +2,7 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
-## 0.9.0 – 2026-10-20
+## 0.9.1 – 2026-10-20
 
 - **New:** **Overlays** tab: all eight overlays in one place, with settings, previews, language,
   visibility in recordings and hotkeys. The feature views link straight to it.
@@ -13,6 +13,11 @@ Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 o
   or always.
 - **New:** Progression mode: option "Highest mob density first". It picks the pet with the most spawns on
   the current map and leads to its densest farm area (200 m radius) instead of the nearest spawn.
+- **New:** Overlay themes in the Overlays tab: Aion2 (stylised or neutral), Obsidian, Northern Lights,
+  Runes and Soulcrest legacy. The merchant overlay keeps its previous style.
+- **Changed:** The Aion2 theme is the new default. Anyone who explicitly chose the old look before keeps
+  "Soulcrest legacy".
+- **Improved:** Faded markers on the minimap no longer have background plates and cover less.
 
 ## 0.8.3 – 2026-10-20
 

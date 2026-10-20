@@ -37,16 +37,18 @@ public sealed class OverlayPreviewRenderer : IDisposable
     public Bitmap Render(string id, AppSettings settings, int? maximumWidth = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        // The shop keeps its original native-card styling regardless of the global overlay theme.
+        if (id == "merchant") return FitBound(Merchant(settings), maximumWidth);
+        var theme = OverlayThemeDefinition.Resolve(settings.OverlayTheme);
         return id switch
         {
-            "loot" => Loot(settings),
-            "boss" => Boss(settings),
-            "leveling" => Leveling(),
-            "alerts" => Timers(settings, maximumWidth),
-            "notifications" => Notifications(settings),
-            "event-timeline" => Timeline(settings),
-            "map" => FitBound(Map(settings), maximumWidth),
-            "merchant" => FitBound(Merchant(settings), maximumWidth),
+            "loot" => Loot(settings, theme),
+            "boss" => Boss(settings, theme),
+            "leveling" => Leveling(settings, theme),
+            "alerts" => Timers(settings, theme, maximumWidth),
+            "notifications" => Notifications(settings, theme),
+            "event-timeline" => Timeline(settings, theme),
+            "map" => FitBound(Map(settings, theme), maximumWidth),
             _ => throw new ArgumentOutOfRangeException(nameof(id), id, "Unknown overlay.")
         };
     }
@@ -59,7 +61,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
         return "data:image/png;base64," + Convert.ToBase64String(stream.ToArray());
     }
 
-    private Bitmap Loot(AppSettings settings)
+    private Bitmap Loot(AppSettings settings, OverlayThemeDefinition theme)
     {
         var pets = _catalog.Pets.Take(3).ToArray();
         PetOverlayForm.LootRow Row(int index, int quantity)
@@ -71,23 +73,23 @@ public sealed class OverlayPreviewRenderer : IDisposable
         }
         PetOverlayForm.LootRow[] focus = [Row(0, 2)];
         PetOverlayForm.LootRow[] drops = [Row(1, 1), Row(2, 3)];
-        return Surface(new(PetOverlayFormWidth, PetOverlayForm.LootLogicalHeight(1, 2)),
-            graphics => PetOverlayForm.PaintLootPanel(graphics, focus, drops, running: true, locked: true));
+        return Surface(new(PetOverlayFormWidth, PetOverlayForm.LootLogicalHeight(1, 2, theme: theme)),
+            graphics => PetOverlayForm.PaintLootPanel(graphics, focus, drops, running: true, locked: true, theme: theme));
     }
 
     private const int PetOverlayFormWidth = 360;
 
-    private Bitmap Boss(AppSettings settings)
+    private Bitmap Boss(AppSettings settings, OverlayThemeDefinition theme)
     {
         var rows = Enumerable.Range(0, Math.Clamp(settings.BossOverlayCount, 1, 12))
             .Select(index => new BossRushEntry(new(0, "preview", BossAt(index)), false,
                 TimeSpan.FromMinutes(3 + index * 7), TimeSpan.Zero)).ToArray();
-        return Surface(new(BossOverlayForm.PanelWidth, BossOverlayForm.LogicalHeight(rows.Length, 0, true)),
+        return Surface(new(BossOverlayForm.PanelWidth, BossOverlayForm.LogicalHeight(rows.Length, 0, true, theme)),
             graphics => BossOverlayForm.PaintPanel(graphics, rows, [], list: true, locked: true,
-                settings.LootNameLanguage, boss => Image(boss.Icon)));
+                settings.LootNameLanguage, boss => Image(boss.Icon), theme));
     }
 
-    private Bitmap Leveling()
+    private Bitmap Leveling(AppSettings settings, OverlayThemeDefinition theme)
     {
         var targets = Enumerable.Range(0, 6).Select(index => new MapTarget("preview-" + index,
             "preview", 100 + index * 20, 200, UiText.F("Station {0}", index + 1), "NPCs", null,
@@ -95,31 +97,31 @@ public sealed class OverlayPreviewRenderer : IDisposable
             Leveling: true, Completed: index < 2, StopIndex: index)).ToArray();
         var snapshot = new LevelingOverlaySnapshot("preview", UiText.T("Vorschau"), "preview",
             UiText.T("Vorschau"), new(2, 6), targets[2], targets);
-        return Surface(new(LevelingOverlayForm.PanelWidth, LevelingOverlayForm.LogicalHeight(targets.Length)),
-            graphics => LevelingOverlayForm.PaintPanel(graphics, snapshot, locked: true));
+        return Surface(new(LevelingOverlayForm.PanelWidth, LevelingOverlayForm.LogicalHeight(targets.Length, theme)),
+            graphics => LevelingOverlayForm.PaintPanel(graphics, snapshot, locked: true, theme: theme));
     }
 
     private AlertDisplayRow[] TimerRows() => EventCatalog.All.Take(4).Select((definition, index) =>
         new AlertDisplayRow("event:catalog:" + definition.Id, UiText.T(definition.Title), "", definition.Color,
             _now.AddMinutes(12 + index * 17), false, IconId: definition.Id)).ToArray();
 
-    private Bitmap Timers(AppSettings settings, int? maximumWidth)
+    private Bitmap Timers(AppSettings settings, OverlayThemeDefinition theme, int? maximumWidth)
     {
         var layout = TimerStripRenderer.Layout(TimerRows(), settings.TimerOverlayGap,
             Math.Max(160, maximumWidth ?? 1000));
         return Surface(layout.Size, graphics => TimerStripRenderer.Paint(graphics, layout, _now,
-            settings.TimerOverlayShowSeconds, locked: true, _timerIcons.Load));
+            settings.TimerOverlayShowSeconds, locked: true, _timerIcons.Load, theme));
     }
 
-    private Bitmap Notifications(AppSettings settings)
+    private Bitmap Notifications(AppSettings settings, OverlayThemeDefinition theme)
     {
         var width = Math.Clamp(settings.AlertNotificationsWidth, 240, 1000);
         var rows = TimerRows().Take(2).Select(row => row with { Message = UiText.T("Vorschau") }).ToArray();
-        return Surface(new(width, AlertsOverlayForm.LogicalHeight(rows.Length)), graphics =>
-            AlertsOverlayForm.PaintNotifications(graphics, rows, _now, locked: true, width));
+        return Surface(new(width, AlertsOverlayForm.LogicalHeight(rows.Length, theme)), graphics =>
+            AlertsOverlayForm.PaintNotifications(graphics, rows, _now, locked: true, width, theme));
     }
 
-    private Bitmap Timeline(AppSettings settings)
+    private Bitmap Timeline(AppSettings settings, OverlayThemeDefinition theme)
     {
         var events = EventCatalog.All.Select(definition => new EventTimerSnapshot(definition,
             EventWindows.At(definition.Schedule, _now, TimeSpan.FromMinutes(definition.DurationMinutes),
@@ -128,11 +130,11 @@ public sealed class OverlayPreviewRenderer : IDisposable
         var snapshot = EventTimelinePresentation.Create(events, [boss], [boss.Place.Key], _now,
             settings.EventTimelineHours, settings.LootNameLanguage);
         var width = Math.Clamp(settings.EventTimelineOverlayWidth, 360, 1600);
-        return Surface(new(width, EventTimelineOverlayForm.LogicalHeight(snapshot)), graphics =>
-            EventTimelineOverlayForm.PaintPanel(graphics, snapshot, locked: true, width, row => Image(row.Icon)));
+        return Surface(new(width, EventTimelineOverlayForm.LogicalHeight(snapshot, theme)), graphics =>
+            EventTimelineOverlayForm.PaintPanel(graphics, snapshot, locked: true, width, row => Image(row.Icon), theme));
     }
 
-    private Bitmap Map(AppSettings settings)
+    private Bitmap Map(AppSettings settings, OverlayThemeDefinition theme)
     {
         var size = new Size(600, 300);
         var placement = new MapPlacement("preview", new MapFix(1, 0, 0, 0, 1, 0, 0, 0, 0, false),
@@ -143,7 +145,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
                 After: "preview-map-1")];
         var pets = _catalog.Pets.Take(2).Select((pet, index) => new RouteOverlayForm.PetSymbol(
             220 + index * 180, 175 - index * 65, Image(pet.Icon), pet.DisplayName(settings.LootNameLanguage), false)).ToArray();
-        using var overlay = RouteOverlayForm.Draw(placement, targets.Select((target, index) => (target, index)).ToArray(), pets);
+        using var overlay = RouteOverlayForm.DrawThemed(theme, placement, targets.Select((target, index) => (target, index)).ToArray(), pets);
         return Surface(size, graphics =>
         {
             graphics.Clear(Color.FromArgb(22, 30, 36));

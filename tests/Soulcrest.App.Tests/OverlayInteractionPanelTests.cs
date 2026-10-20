@@ -277,9 +277,12 @@ public sealed class OverlayInteractionPanelTests : IDisposable
     [DllImport("user32.dll")]
     private static extern nint WindowFromPoint(Point point);
 
-    [Fact]
-    public Task RawAltEnablesNativeLevelingButtonsAndDragAndReleaseCancelsInput() => RunOnSta(() =>
+    [Theory]
+    [InlineData("aion2")]
+    [InlineData("soulcrest-legacy")]
+    public Task RawAltEnablesNativeLevelingButtonsAndDragAndReleaseCancelsInput(string theme) => RunOnSta(() =>
     {
+        new SettingsService().Update(settings => settings.OverlayTheme = theme);
         RouteFile.Save(AppPaths.RoutesFile, new[]
         {
             new SavedRoute("input-test", "Input test",
@@ -302,7 +305,7 @@ public sealed class OverlayInteractionPanelTests : IDisposable
             keyboard.ProcessKeyboard(1, OverlayKeyboardInput.AltKey, 0x38, 0);
             main.SetOverlayInteractionEnabled(OverlayInteraction.IsAltHeld);
             var snapshot = (LevelingOverlaySnapshot)GetField(panel, "_snapshot")!;
-            var button = LevelingOverlayForm.ButtonBounds(LevelingOverlayAction.Next, snapshot.Window.Count);
+            var button = LevelingOverlayForm.ButtonBounds(LevelingOverlayAction.Next, snapshot.Window.Count, OverlayThemeDefinition.Resolve(theme));
             var click = new Point((int)button.X + 10, (int)button.Y + 10);
             SendMessage(panel.Handle, 0x0201, 1, MousePoint(click));
             SendMessage(panel.Handle, 0x0202, 0, MousePoint(click));

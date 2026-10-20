@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Soulcrest.App.Capture;
 using Soulcrest.App.Components;
 using Soulcrest.App.Network;
+using Soulcrest.App.Overlay;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Alerts;
 using Xunit;
@@ -440,6 +441,36 @@ public sealed class AlertsViewTests
         await fixture.InvokePicker("Select", new AlertSoundPicker.Selection("standard", null, false));
         Assert.False(selections[^1].Enabled);
         Assert.Equal(0, fixture.SoundPlaybacks);
+    }
+
+    [Theory]
+    [InlineData("aion2-stylized")]
+    [InlineData("aion2-neutral")]
+    [InlineData("obsidian")]
+    [InlineData("aurora")]
+    [InlineData("runic")]
+    [InlineData("soulcrest-legacy")]
+    [InlineData("aion2")]
+    public async Task TimerDomPreviewUsesEverySelectedNativeThemeTokenWithoutChangingItsSelection(string themeId)
+    {
+        await using var fixture = new Fixture("en");
+        fixture.Settings.Current.OverlayTheme = themeId;
+        fixture.Settings.Current.TimerOverlayTimerIds = ["event:catalog:shugo", "event:catalog:rift"];
+        var before = System.Text.Json.JsonSerializer.Serialize(fixture.Settings.Current);
+        var theme = OverlayThemeDefinition.Resolve(themeId);
+        static string Css(System.Drawing.Color color) => $"#{color.R:x2}{color.G:x2}{color.B:x2}";
+        var html = await fixture.RenderTimerSettings();
+        Assert.Contains("overlay-theme-" + theme.Id, html);
+        Assert.Contains("--timer-ink:" + (theme.IsLegacy ? "#edede6" : Css(theme.Primary)), html);
+        Assert.Contains("--timer-active:" + (theme.IsLegacy ? "#f4d78e" : Css(theme.Gold)), html);
+        Assert.Contains("--timer-muted:" + (theme.IsLegacy ? "#abb4b8" : Css(theme.Secondary)), html);
+        Assert.Contains("--timer-portrait-border:" + (theme.IsLegacy ? "#d3c297bb" : Css(theme.Gold) + "d2"), html);
+        Assert.Contains("--timer-outline:" + (theme.IsLegacy ? "#10171c" : Css(theme.Surface) + "f0"), html);
+        Assert.Contains("--timer-shadow:" + (theme.IsLegacy ? "#000c" : Css(theme.Surface) + "aa"), html);
+        Assert.DoesNotContain("timer-overlay-background", html);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(fixture.Settings.Current));
+        Assert.Equal(0, fixture.SoundPlaybacks);
+        Assert.False(fixture.Tracker.Running);
     }
 
     [Theory]

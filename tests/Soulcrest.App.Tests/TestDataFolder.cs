@@ -16,6 +16,8 @@ internal static class TestDataFolder
     [ModuleInitializer]
     internal static void Redirect()
     {
+        // Fail native callback regressions in the test host instead of opening modal JIT dialogs on the user desktop.
+        System.Windows.Forms.Application.SetUnhandledExceptionMode(System.Windows.Forms.UnhandledExceptionMode.ThrowException, threadScope: false);
         if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SOULCREST_DATA")))
             return;
         var folder = Path.Combine(Path.GetTempPath(), "soulcrest-tests-" + Environment.ProcessId);

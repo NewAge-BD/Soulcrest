@@ -8,7 +8,7 @@ public sealed partial class RouteOverlayForm
     private readonly PreparationCache<PreparationKey, PreparedOverlay> _preparation = new();
     private readonly TargetDistanceCache _distances = new();
 
-    private readonly record struct PreparationKey(string Map, MapSurface Surface, string Language, string? MapData);
+    private readonly record struct PreparationKey(string Map, MapSurface Surface, string Language, string? MapData, string ThemeId);
 
     /// <summary>Map-level choices and labels, independent of the current screen transform and player position.</summary>
     internal sealed record PreparedOverlay(
@@ -22,7 +22,7 @@ public sealed partial class RouteOverlayForm
         double? MetersPerPixel,
         IReadOnlyDictionary<string, Bitmap?> TargetIcons,
         IReadOnlyList<TargetSymbol> TargetSymbols,
-        IReadOnlyList<HiddenCubeGroup> HiddenCubeGroups);
+        IReadOnlyList<HiddenCubeGroup> HiddenCubeGroups, string ThemeId = "soulcrest-legacy");
 
     internal sealed record TargetSymbol(MapTarget Target, ResourceSymbol? Symbol);
 
@@ -58,9 +58,10 @@ public sealed partial class RouteOverlayForm
 
     private PreparedOverlay PreparationFor(MapPlacement placement)
     {
-        var key = new PreparationKey(placement.MapId, SurfaceOf(placement), UiText.Language, _progress.MapDataDirectory);
+        var key = new PreparationKey(placement.MapId, SurfaceOf(placement), UiText.Language, _progress.MapDataDirectory,
+            OverlayThemeDefinition.Resolve(_settings.Current.OverlayTheme).Id);
         return _preparation.Get(key, () => PrepareOverlay(key.Map, key.Surface, key.Language,
-            _settings.Current, _progress, _targets, IconFor, ResourceIcon));
+            _settings.Current, _progress, _targets, IconFor, ResourceIcon, key.ThemeId));
     }
 
     /// <summary>
@@ -69,7 +70,7 @@ public sealed partial class RouteOverlayForm
     /// </summary>
     internal static PreparedOverlay PrepareOverlay(string map, MapSurface surface, string language,
         AppSettings settings, ProgressService progress, MapTargetsService targets,
-        Func<PetSpawn, string, Bitmap?> petIcon, Func<string?, string, Bitmap?> resourceIcon)
+        Func<PetSpawn, string, Bitmap?> petIcon, Func<string?, string, Bitmap?> resourceIcon, string? themeId = null)
     {
         var onMap = targets.VisibleTargets.Select((t, i) => (Target: t, Index: i)).Where(t => t.Target.MapId == map).ToList();
         if (targets.Progression is { } next && next.MapId == map) onMap.Add((next, -1));
@@ -144,7 +145,8 @@ public sealed partial class RouteOverlayForm
         }
         return new PreparedOverlay(map, onMap, onMap.Select(t => t.Target.Id).ToHashSet(StringComparer.Ordinal),
             pets, resources, souls, guards, metersPerPixel, targetIcons, targetSymbols,
-            mapdata is null ? [] : PrepareHiddenCubeGroups(settings, map, surface, mapdata));
+            mapdata is null ? [] : PrepareHiddenCubeGroups(settings, map, surface, mapdata),
+            themeId ?? OverlayThemeDefinition.Resolve(settings.OverlayTheme).Id);
     }
 
     // Cube orientation stays independent of selected markers, route settings and player position.

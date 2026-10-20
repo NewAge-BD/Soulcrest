@@ -36,6 +36,8 @@ public sealed class BossOverlayForm : Form
     private bool _placementHidden, _foregroundSuppressed;
     private bool PresentationHidden => _placementHidden || _foregroundSuppressed;
     private long _lastSoundId;
+    private OverlayThemeDefinition _theme = OverlayThemeDefinition.Legacy;
+    private bool _renderingTheme;
 
     public BossOverlayForm(BossRushService bosses, SettingsService settings, ProgressService progress, bool externalAlerts = false)
     {
@@ -48,9 +50,11 @@ public sealed class BossOverlayForm : Form
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         BackColor = Surface;
-        Opacity = 0.94;
+        _theme = OverlayThemeDefinition.Resolve(settings.Current.OverlayTheme);
+        LayeredOverlayPresenter.Configure(this, !_theme.IsLegacy, .94);
         DoubleBuffered = true;
-        _lockButton = new OverlayLockButton(this);
+        _lockButton = new OverlayLockButton(this, LockBounds);
+        _lockButton.SetTheme(_theme);
         _lockButton.Toggled += ToggleManualInteraction;
         _lockButton.SetVisibleInRecordings(_settings.Current.OverlaysInRecordings);
         _timer.Tick += (_, _) => RefreshPanel();
@@ -130,6 +134,7 @@ public sealed class BossOverlayForm : Form
         NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings);
         _inRecordings = _settings.Current.OverlaysInRecordings;
         ApplyInteractionStyle();
+        RenderPanel();
     }
 
     /// <summary>Temporary interaction state; legacy lock preferences have no effect.</summary>
@@ -171,7 +176,7 @@ public sealed class BossOverlayForm : Form
         if (_locked) FinishDrag();
         ApplyInteractionStyle();
         Cursor = _locked ? Cursors.Default : Cursors.SizeAll;
-        Invalidate();
+        RenderPanel();
     }
 
     private void ApplyInteractionStyle()
@@ -194,6 +199,11 @@ public sealed class BossOverlayForm : Form
     {
         base.OnSizeChanged(e);
         if (Width <= 0 || Height <= 0) return;
+        if (!_theme.IsLegacy)
+        {
+            var old = Region; Region = null; old?.Dispose();
+            return;
+        }
         using var outline = Rounded(new RectangleF(0, 0, Width, Height), 12);
         var previous = Region;
         Region = new Region(outline);
@@ -204,6 +214,7 @@ public sealed class BossOverlayForm : Form
     {
         if (_suppressed || PresentationHidden || !IsHandleCreated || IsDisposed || SmokeTest.Enabled) return;
         var settings = _settings.Current;
+        ApplyTheme();
         _showList = ScheduleEnabled(settings);
         _rows = _showList ? _bosses.OverlaySpawns : [];
         _alerts = _externalAlerts ? [] : _bosses.Alerts;
@@ -218,17 +229,21 @@ public sealed class BossOverlayForm : Form
         _lockButton?.SetVisibleInRecordings(_inRecordings);
         }
         var scale = Math.Clamp(settings.BossOverlayScale, .6, 2);
-        Size = new Size((int)(PanelWidth * scale), (int)(LogicalHeight(_rows.Count, _alerts.Count, _showList) * scale));
+        Size = new Size((int)(PanelWidth * scale), (int)(LogicalHeight(_rows.Count, _alerts.Count, _showList, _theme) * scale));
         if (_drag is null) Location = new Point(settings.BossOverlayX, settings.BossOverlayY);
         if (!Visible) Show();
-        Invalidate();
+        _lockButton?.RefreshTarget();
+        RenderPanel();
     }
+
+    protected override void OnPaintBackground(PaintEventArgs e) { if (_theme.IsLegacy) base.OnPaintBackground(e); }
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        if (!_theme.IsLegacy) return;
         var settings = _settings.Current;
         e.Graphics.ScaleTransform((float)Math.Clamp(settings.BossOverlayScale, .6, 2), (float)Math.Clamp(settings.BossOverlayScale, .6, 2));
-        PaintPanel(e.Graphics, _rows, _alerts, _showList, _locked, settings.LootNameLanguage, BossIcon);
+        PaintPanel(e.Graphics, _rows, _alerts, _showList, _locked, settings.LootNameLanguage, BossIcon, _theme);
     }
 
     internal static bool ScheduleEnabled(AppSettings settings) => settings.BossRushEnabled && settings.BossOverlayEnabled;
@@ -239,12 +254,30 @@ public sealed class BossOverlayForm : Form
     internal static string HotkeyHint(bool locked) => UiText.T(locked
         ? "Schloss klicken zum Entsperren" : "Schloss: sperren · Kopf ziehen");
 
-    internal static int LogicalHeight(int rows, int alerts, bool list) => HeaderHeight + Math.Max(0, alerts) * AlertStride
-        + (list ? rows > 0 ? HeroStride + (rows - 1) * RowStride : 72 : 0) + FooterHeight;
+    internal sealed record BossPanelLayout(Size Size, RectangleF HeaderBounds, RectangleF DragBounds, RectangleF LockBounds,
+        int ContentTop, int AlertHeight, int RowHeight, int HeroHeight, int FooterHeight);
+
+    internal static BossPanelLayout Measure(int rows, int alerts, bool list, OverlayThemeDefinition? theme = null)
+    {
+        var legacy = theme is not { IsLegacy: false };
+        var header = legacy ? HeaderHeight : 32;
+        var alert = legacy ? AlertStride : 56;
+        var row = legacy ? RowStride : 48;
+        var hero = legacy ? HeroStride : 48;
+        var footer = legacy ? FooterHeight : 24;
+        var height = header + Math.Max(0, alerts) * alert
+            + (list ? rows > 0 ? hero + (rows - 1) * row : legacy ? 72 : 52 : 0) + footer;
+        return new(new(PanelWidth, height), new(0, 0, PanelWidth, header), new(0, 0, PanelWidth, height),
+            legacy ? new(PanelWidth - 36, 8, 28, 28) : new(PanelWidth - 28, 7, 18, 18), header, alert, row, hero, footer);
+    }
+
+    internal static int LogicalHeight(int rows, int alerts, bool list, OverlayThemeDefinition? theme = null) =>
+        Measure(rows, alerts, list, theme).Size.Height;
 
     internal static void PaintPanel(Graphics g, IReadOnlyList<BossRushEntry> rows, IReadOnlyList<BossNotice> alerts,
-        bool list, bool locked, string language, Func<BossPlace, Image?> icon)
+        bool list, bool locked, string language, Func<BossPlace, Image?> icon, OverlayThemeDefinition? theme = null)
     {
+        if (theme is { IsLegacy: false }) { PaintAionPanel(g, rows, alerts, list, locked, language, icon, theme); return; }
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         using var title = new Font("Segoe UI", 14, FontStyle.Bold, GraphicsUnit.Pixel);
@@ -375,6 +408,138 @@ public sealed class BossOverlayForm : Form
         }
     }
 
+    private void ApplyTheme()
+    {
+        if (_drag is not null) return;
+        var requested = OverlayThemeDefinition.Resolve(_settings.Current.OverlayTheme);
+        if (requested.Id == _theme.Id) return;
+        _theme = requested;
+        LayeredOverlayPresenter.Configure(this, !_theme.IsLegacy, .94);
+        _lockButton.SetTheme(_theme);
+        if (!_theme.IsLegacy) { var old = Region; Region = null; old?.Dispose(); }
+        else OnSizeChanged(EventArgs.Empty);
+    }
+
+    private Rectangle LockBounds()
+    {
+        if (_theme.IsLegacy)
+        {
+            var size = Math.Max(1, (int)Math.Round(28 * DeviceDpi / 96d));
+            var inset = Math.Max(0, (int)Math.Round(8 * DeviceDpi / 96d));
+            return new(Math.Max(0, ClientSize.Width - size - inset), inset, size, size);
+        }
+        var scale = Math.Clamp(_settings.Current.BossOverlayScale, .6, 2);
+        var bounds = Measure(_rows.Count, _alerts.Count, _showList, _theme).LockBounds;
+        return Rectangle.Round(new RectangleF((float)(bounds.X * scale), (float)(bounds.Y * scale),
+            (float)(bounds.Width * scale), (float)(bounds.Height * scale)));
+    }
+
+    private void RenderPanel()
+    {
+        if (_theme.IsLegacy) { Invalidate(); return; }
+        if (_renderingTheme || !IsHandleCreated || IsDisposed || Disposing || PresentationHidden || _suppressed) return;
+        _renderingTheme = true;
+        try
+        {
+            using var image = RenderBitmap(_rows, _alerts, _showList, _locked, _settings.Current.LootNameLanguage,
+                BossIcon, _theme, Math.Clamp(_settings.Current.BossOverlayScale, .6, 2));
+            LayeredOverlayPresenter.Present(this, image);
+        }
+        finally { _renderingTheme = false; }
+    }
+
+    internal static Bitmap RenderBitmap(IReadOnlyList<BossRushEntry> rows, IReadOnlyList<BossNotice> alerts,
+        bool list, bool locked, string language, Func<BossPlace, Image?> icon, OverlayThemeDefinition theme, double scale = 1)
+    {
+        var image = new Bitmap(Math.Max(1, (int)(PanelWidth * scale)),
+            Math.Max(1, (int)(LogicalHeight(rows.Count, alerts.Count, list, theme) * scale)),
+            System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+        try
+        {
+            using var graphics = Graphics.FromImage(image);
+            graphics.Clear(Color.Transparent);
+            graphics.ScaleTransform((float)scale, (float)scale);
+            PaintPanel(graphics, rows, alerts, list, locked, language, icon, theme);
+            return image;
+        }
+        catch { image.Dispose(); throw; }
+    }
+
+    private static void PaintAionPanel(Graphics graphics, IReadOnlyList<BossRushEntry> rows, IReadOnlyList<BossNotice> alerts,
+        bool list, bool locked, string language, Func<BossPlace, Image?> icon, OverlayThemeDefinition theme)
+    {
+        var layout = Measure(rows.Count, alerts.Count, list, theme);
+        var height = layout.Size.Height;
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        theme.Panel(graphics, new(0, 0, PanelWidth, height));
+        using var heading = theme.Heading(15);
+        using var body = theme.Body(12, FontStyle.Bold);
+        using var small = theme.Body(10.5f);
+        using var countdown = theme.Countdown(19);
+        using var primary = new SolidBrush(theme.Primary);
+        using var secondary = new SolidBrush(theme.Secondary);
+        using var gold = new SolidBrush(theme.Gold);
+        using var warning = new SolidBrush(Accent);
+        using var amber = new SolidBrush(Amber);
+        using var edge = new Pen(theme.Border);
+        using var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
+        using var right = new StringFormat { Alignment = StringAlignment.Far, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
+        theme.Diamond(graphics, new(13, 15), 4, theme.Gold);
+        graphics.DrawString("BOSS RUSH", heading, gold, new RectangleF(25, 5, 160, 24), format);
+        graphics.DrawString(UiText.T(list ? "Nächste Spawns" : "Boss-Alerts"), small, secondary,
+            new RectangleF(185, 10, layout.LockBounds.Left - 193, 17), right);
+        graphics.DrawLine(edge, 12, layout.ContentTop - 1, PanelWidth - 12, layout.ContentTop - 1);
+        var y = layout.ContentTop;
+        foreach (var alert in alerts)
+        {
+            DrawIcon(alert.Boss, new(14, y + 10, 32, 32), Accent);
+            graphics.DrawString(alert.Boss.Name(language), body, primary, new RectangleF(57, y + 6, PanelWidth - 71, 19), format);
+            var text = alert.Spawned ? UiText.T("Bereits gespawnt")
+                : alert.Remaining > TimeSpan.Zero ? UiText.F("Spawn in {0}", BossRushService.Countdown(alert.Remaining)) : UiText.T("Spawn unbestätigt");
+            graphics.DrawString(text, small, alert.Spawned || alert.Remaining > TimeSpan.Zero ? warning : amber, new RectangleF(57, y + 29, PanelWidth - 71, 17), format);
+            graphics.DrawLine(edge, 13, y + layout.AlertHeight - 1, PanelWidth - 13, y + layout.AlertHeight - 1);
+            y += layout.AlertHeight;
+        }
+        if (list)
+        {
+            if (rows.Count == 0)
+            {
+                graphics.DrawString(UiText.T("Keine angekündigten Spawns. Bossliste öffnen."), small, secondary,
+                    new RectangleF(14, y + 15, PanelWidth - 28, 30), format);
+                y += 52;
+            }
+            for (var index = 0; index < rows.Count; index++)
+            {
+                var row = rows[index];
+                DrawIcon(row.Place.Boss, new(14, y + 8, 32, 32), index == 0 ? theme.Gold : theme.Border);
+                graphics.DrawString(row.Place.Boss.Name(language), body, primary, new RectangleF(57, y + 6, 205, 18), format);
+                var description = index == 0 ? UiText.T("Nächster Spawn") : (index + 1).ToString();
+                graphics.DrawString(description, small, index == 0 ? gold : secondary, new RectangleF(57, y + 26, 205, 16), format);
+                if (row.Remaining > TimeSpan.Zero)
+                    graphics.DrawString(BossRushService.Countdown(row.Remaining), countdown, warning,
+                        new RectangleF(267, y + 12, PanelWidth - 282, 26), right);
+                else graphics.DrawString(UiText.T("Unbestätigt"), small, amber,
+                    new RectangleF(267, y + 18, PanelWidth - 282, 19), right);
+                if (index + 1 < rows.Count) graphics.DrawLine(edge, 57, y + layout.RowHeight - 1, PanelWidth - 14, y + layout.RowHeight - 1);
+                y += layout.RowHeight;
+            }
+        }
+        var cached = list && rows.Any(row => row.Cached);
+        var pending = list && rows.Any(row => row.Remaining <= TimeSpan.Zero);
+        graphics.DrawString(!locked ? HotkeyHint(false) : UiText.T(cached ? "Gespeicherter Stand · Countdowns laufen weiter"
+            : pending ? "Spawn unbestätigt" : "Countdowns laufen weiter"), small, cached || pending ? amber : secondary,
+            new RectangleF(13, y + 4, PanelWidth - 26, 17), format);
+
+        void DrawIcon(BossPlace boss, Rectangle bounds, Color border)
+        {
+            if (icon(boss) is { } image) graphics.DrawImage(image, bounds);
+            else theme.Diamond(graphics, new(bounds.Left + bounds.Width / 2f, bounds.Top + bounds.Height / 2f), 5, theme.Gold);
+            using var outline = new Pen(border);
+            graphics.DrawRectangle(outline, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        }
+    }
+
     private static GraphicsPath Rounded(RectangleF bounds, float radius)
     {
         var path = new GraphicsPath();
@@ -433,6 +598,7 @@ public sealed class BossOverlayForm : Form
         _drag = null;
         Capture = false;
         _settings.Update(s => { s.BossOverlayX = Location.X; s.BossOverlayY = Location.Y; });
+        if (_theme.Id != OverlayThemeDefinition.Resolve(_settings.Current.OverlayTheme).Id) RefreshPanel();
     }
     protected override void Dispose(bool disposing)
     {

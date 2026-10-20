@@ -14,12 +14,14 @@ internal enum OverlayLockButtonStyle { Default, TimerStrip }
 /// </summary>
 internal sealed class OverlayLockButton : Form
 {
-    private const int LogicalSize = 28, LogicalInset = 8;
+    private const int LogicalSize = 28, LogicalInset = 8, MaximumGlyphExtent = 1024;
     private readonly Form _target;
     private readonly OverlayLockButtonStyle _style;
     private readonly Func<Rectangle>? _boundsProvider;
     private readonly ToolTip _tooltip = new() { InitialDelay = 350, ReshowDelay = 100, AutoPopDelay = 4000, ShowAlways = true };
-    private bool _locked = true, _hover, _pressed, _targetHandleAvailable, _visibleInRecordings, _presenting;
+    private OverlayThemeDefinition _theme = OverlayThemeDefinition.Legacy;
+    private bool _locked = true, _hover, _pressed, _targetHandleAvailable, _visibleInRecordings, _presenting, _changingTheme;
+    private bool _creatingHandle, _updatingShape, _recoveringRender;
 
     /// <param name="boundsProvider">Optional bounds in physical pixels relative to the target's client area.</param>
     internal OverlayLockButton(Form target, Func<Rectangle>? boundsProvider = null,
@@ -49,6 +51,24 @@ internal sealed class OverlayLockButton : Form
         RefreshTarget();
     }
 
+    internal void SetTheme(OverlayThemeDefinition theme)
+    {
+        if (_theme == theme || IsDisposed) return;
+        _changingTheme = true;
+        try
+        {
+            CancelPress();
+            _theme = theme;
+            var previous = Region; Region = null; previous?.Dispose();
+            // Finish WinForms handle recreation before submitting a per-pixel surface to the new HWND.
+            if (IsHandleCreated) RecreateHandle();
+            UpdateWindowShape();
+        }
+        finally { _changingTheme = false; }
+        RefreshAppearance();
+        RefreshTarget();
+    }
+
     internal bool Locked => _locked;
     internal OverlayLockButtonStyle Style => _style;
     internal event Action? Toggled;
@@ -74,7 +94,7 @@ internal sealed class OverlayLockButton : Form
     /// <summary>Repositions the button and shows it only while the target is visible and usable.</summary>
     internal void RefreshTarget()
     {
-        if (IsDisposed || Disposing) return;
+        if (IsDisposed || Disposing || _changingTheme || _creatingHandle || _recoveringRender) return;
         if (_target.IsDisposed || !_targetHandleAvailable || !_target.IsHandleCreated || !_target.Visible)
         {
             CancelPress();
@@ -96,10 +116,10 @@ internal sealed class OverlayLockButton : Form
         Bounds = new Rectangle(_target.PointToScreen(relative.Location), relative.Size);
         _tooltip.SetToolTip(this, TooltipText(_locked));
         if (Owner != _target) Owner = _target;
-        if (_style == OverlayLockButtonStyle.TimerStrip)
+        if (!_theme.IsLegacy || _style == OverlayLockButtonStyle.TimerStrip)
         {
             _ = Handle;
-            if (!PresentTimerGlyph()) { Hide(); return; }
+            if (!PresentGlyph()) { HideUnavailableGlyph(); return; }
         }
         if (!Visible) Show(_target);
     }
@@ -113,7 +133,7 @@ internal sealed class OverlayLockButton : Form
             var parameters = base.CreateParams;
             parameters.ExStyle |= NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOPMOST;
             parameters.ExStyle &= ~NativeMethods.WS_EX_TRANSPARENT;
-            if (_style == OverlayLockButtonStyle.TimerStrip) parameters.ExStyle |= NativeMethods.WS_EX_LAYERED;
+            if (!_theme.IsLegacy || _style == OverlayLockButtonStyle.TimerStrip) parameters.ExStyle |= NativeMethods.WS_EX_LAYERED;
             return parameters;
         }
     }
@@ -122,7 +142,17 @@ internal sealed class OverlayLockButton : Form
     {
         base.OnHandleCreated(e);
         NativeMethods.SetCaptureVisibility(Handle, _visibleInRecordings);
-        if (_style == OverlayLockButtonStyle.TimerStrip) RefreshAppearance();
+    }
+
+    protected override void CreateHandle()
+    {
+        _creatingHandle = true;
+        try { base.CreateHandle(); }
+        finally { _creatingHandle = false; }
+        // WM_CREATE can expose temporary client dimensions. Never allocate/present until it is complete.
+        if (IsDisposed || Disposing || _changingTheme) return;
+        UpdateWindowShape();
+        RefreshAppearance();
     }
 
     protected override void WndProc(ref Message message)
@@ -138,30 +168,55 @@ internal sealed class OverlayLockButton : Form
     protected override void OnSizeChanged(EventArgs e)
     {
         base.OnSizeChanged(e);
-        if (Width <= 0 || Height <= 0) return;
-        if (_style == OverlayLockButtonStyle.TimerStrip)
+        if (_creatingHandle || IsDisposed || Disposing) return;
+        UpdateWindowShape();
+        if (!_theme.IsLegacy || _style == OverlayLockButtonStyle.TimerStrip) RefreshAppearance();
+    }
+
+    private void UpdateWindowShape()
+    {
+        if (_creatingHandle || _updatingShape || Width <= 0 || Height <= 0) return;
+        _updatingShape = true;
+        try
         {
-            RefreshAppearance();
-            return;
+            if (!_theme.IsLegacy || _style == OverlayLockButtonStyle.TimerStrip)
+            {
+                var previousRegion = Region; Region = null; previousRegion?.Dispose();
+                return;
+            }
+            using var outline = Rounded(new RectangleF(0, 0, Width, Height), 6f * Math.Min(Width, Height) / LogicalSize);
+            var previous = Region;
+            Region = new Region(outline);
+            previous?.Dispose();
         }
-        using var outline = Rounded(new RectangleF(0, 0, Width, Height), 6f * Math.Min(Width, Height) / LogicalSize);
-        var previous = Region;
-        Region = new Region(outline);
-        previous?.Dispose();
+        catch (Exception error) when (IsDrawingFailure(error)) { LogFile.Error("Overlay lock shape", error); HideUnavailableGlyph(); }
+        finally { _updatingShape = false; }
     }
 
     protected override void OnPaintBackground(PaintEventArgs e)
     {
-        if (_style != OverlayLockButtonStyle.TimerStrip) base.OnPaintBackground(e);
+        if (_theme.IsLegacy && _style != OverlayLockButtonStyle.TimerStrip) base.OnPaintBackground(e);
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        if (_style == OverlayLockButtonStyle.TimerStrip) return;
+        if (_creatingHandle || !_theme.IsLegacy || _style == OverlayLockButtonStyle.TimerStrip) return;
+        var dimensions = ClientSize;
+        if (!IsRenderableGlyphSize(dimensions)) return;
+        try { PaintLegacy(e, dimensions); }
+        catch (Exception error) when (IsDrawingFailure(error))
+        {
+            LogFile.Error($"Overlay lock paint {dimensions.Width}x{dimensions.Height}", error);
+            HideUnavailableGlyph();
+        }
+    }
+
+    private void PaintLegacy(PaintEventArgs e, Size dimensions)
+    {
         base.OnPaint(e);
         var graphics = e.Graphics;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        graphics.ScaleTransform(ClientSize.Width / (float)LogicalSize, ClientSize.Height / (float)LogicalSize);
+        graphics.ScaleTransform(dimensions.Width / (float)LogicalSize, dimensions.Height / (float)LogicalSize);
         var surface = _pressed ? Color.FromArgb(55, 45, 77)
             : _hover ? Color.FromArgb(39, 48, 64) : BackColor;
         using var fill = new SolidBrush(surface);
@@ -190,30 +245,95 @@ internal sealed class OverlayLockButton : Form
 
     private void RefreshAppearance()
     {
-        if (IsDisposed || Disposing) return;
-        if (_style != OverlayLockButtonStyle.TimerStrip) { Invalidate(); return; }
-        if (IsHandleCreated && !PresentTimerGlyph()) Hide();
+        if (IsDisposed || Disposing || _changingTheme || _creatingHandle || _recoveringRender) return;
+        if (_theme.IsLegacy && _style != OverlayLockButtonStyle.TimerStrip) { Invalidate(); return; }
+        if (IsHandleCreated && !PresentGlyph()) HideUnavailableGlyph();
+    }
+
+    private void HideUnavailableGlyph()
+    {
+        if (_recoveringRender || IsDisposed || Disposing || _creatingHandle) return;
+        _recoveringRender = true;
+        try { CancelPress(); Hide(); }
+        finally { _recoveringRender = false; }
+    }
+
+    private static bool IsDrawingFailure(Exception error) => error is ArgumentException or ExternalException
+        or InvalidOperationException or OutOfMemoryException;
+
+    // A lock is normally 20–84 physical pixels. WM_CREATE can briefly report invalid/huge client bounds.
+    internal static bool IsRenderableGlyphSize(Size size) => size.Width is > 0 and <= MaximumGlyphExtent
+        && size.Height is > 0 and <= MaximumGlyphExtent;
+
+    private bool PresentGlyph()
+    {
+        if (_theme.IsLegacy) return PresentTimerGlyph();
+        if (_presenting) return true;
+        if (_creatingHandle || !IsHandleCreated || IsDisposed || Disposing) return false;
+        var size = ClientSize;
+        if (!IsRenderableGlyphSize(size)) return false;
+        _presenting = true;
+        try
+        {
+            using var image = RenderThemedGlyph(size, _theme, _locked, _hover, _pressed);
+            return LayeredOverlayPresenter.Present(this, image);
+        }
+        catch (Exception error) when (IsDrawingFailure(error))
+        {
+            LogFile.Error($"Overlay lock rendering {size.Width}x{size.Height} ({_theme.Id})", error);
+            return false;
+        }
+        finally { _presenting = false; }
+    }
+
+    internal static Bitmap RenderThemedGlyph(Size size, OverlayThemeDefinition theme, bool locked, bool hover, bool pressed)
+    {
+        if (!IsRenderableGlyphSize(size)) throw new ArgumentOutOfRangeException(nameof(size), size, "Invalid overlay lock surface size.");
+        var image = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppPArgb);
+        try
+        {
+            using var graphics = Graphics.FromImage(image);
+            graphics.Clear(Color.Transparent);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.ScaleTransform(size.Width / 28f, size.Height / 28f);
+            theme.Panel(graphics, new Rectangle(0, 0, 28, 28));
+            if (hover || pressed)
+            {
+                using var fill = new SolidBrush(Color.FromArgb(pressed ? 80 : 35, theme.Gold));
+                graphics.FillRectangle(fill, 1, 1, 26, 26);
+            }
+            using var ink = new Pen(locked ? theme.Primary : theme.Gold, 1.5f);
+            graphics.DrawRectangle(ink, 8, 12, 12, 10);
+            graphics.DrawArc(ink, locked ? 10 : 14, 4, 8, 12, 180, 180);
+            graphics.DrawLine(ink, locked ? 10 : 14, 10, locked ? 10 : 14, 12);
+            if (locked) graphics.DrawLine(ink, 18, 10, 18, 12);
+            graphics.DrawLine(ink, 14, 16, 14, 19);
+            return image;
+        }
+        catch { image.Dispose(); throw; }
     }
 
     /// <summary>Uses real per-pixel alpha, including a fully transparent area around the lock glyph.</summary>
     private bool PresentTimerGlyph()
     {
         if (_presenting) return true;
-        if (!IsHandleCreated || IsDisposed || Disposing || Width <= 0 || Height <= 0) return false;
+        if (_creatingHandle || !IsHandleCreated || IsDisposed || Disposing) return false;
+        var dimensions = ClientSize;
+        if (!IsRenderableGlyphSize(dimensions)) return false;
         _presenting = true;
         try
         {
             var header = new NativeMethods.BitmapInfoHeader
-            { Size = 40, Width = Width, Height = -Height, Planes = 1, BitCount = 32 };
+            { Size = 40, Width = dimensions.Width, Height = -dimensions.Height, Planes = 1, BitCount = 32 };
             var dib = NativeMethods.CreateDIBSection(0, ref header, 0, out var bits, 0, 0);
             if (dib == 0) return false;
             try
             {
-                using (var surface = new Bitmap(Width, Height, Width * 4, PixelFormat.Format32bppPArgb, bits))
+                using (var surface = new Bitmap(dimensions.Width, dimensions.Height, dimensions.Width * 4, PixelFormat.Format32bppPArgb, bits))
                 using (var graphics = Graphics.FromImage(surface))
                 {
                     graphics.Clear(Color.Transparent);
-                    TimerStripLockRenderer.Paint(graphics, ClientRectangle, _locked, _hover, _pressed);
+                    TimerStripLockRenderer.Paint(graphics, new Rectangle(Point.Empty, dimensions), _locked, _hover, _pressed);
                 }
                 var screen = NativeMethods.GetDC(0);
                 var memory = NativeMethods.CreateCompatibleDC(screen);
@@ -223,7 +343,7 @@ internal sealed class OverlayLockButton : Form
                 {
                     var target = new NativeMethods.NativePoint(Left, Top);
                     var source = new NativeMethods.NativePoint(0, 0);
-                    var size = new NativeMethods.NativeSize(Width, Height);
+                    var size = new NativeMethods.NativeSize(dimensions.Width, dimensions.Height);
                     var blend = new NativeMethods.BlendFunction
                     { BlendOp = NativeMethods.AC_SRC_OVER, SourceConstantAlpha = 255, AlphaFormat = NativeMethods.AC_SRC_ALPHA };
                     var shown = NativeMethods.UpdateLayeredWindow(Handle, screen, ref target, ref size, memory,
@@ -239,6 +359,11 @@ internal sealed class OverlayLockButton : Form
                 }
             }
             finally { NativeMethods.DeleteObject(dib); }
+        }
+        catch (Exception error) when (IsDrawingFailure(error))
+        {
+            LogFile.Error($"Timer lock rendering {dimensions.Width}x{dimensions.Height}", error);
+            return false;
         }
         finally { _presenting = false; }
     }

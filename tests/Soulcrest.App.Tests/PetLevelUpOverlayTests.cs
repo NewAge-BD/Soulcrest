@@ -173,6 +173,35 @@ public sealed class PetLevelUpOverlayTests
     });
 
     [Fact]
+    public Task ThemeSwitchWaitsForNativeGestureAndKeepsTheOriginalLevelUpDeadlineAndStoredProgress() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Upgrade(1135, 2);
+        Refresh(fixture.Form);
+        var themeField = typeof(PetOverlayForm).GetField("_theme", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var dragField = typeof(PetOverlayForm).GetField("_dragStart", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var clockField = typeof(PetLevelUpAnimation).GetField("_startedAt", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var started = clockField.GetValue(Animation(fixture.Form));
+        var before = File.Exists(AppPaths.SettingsFile) ? File.ReadAllBytes(AppPaths.SettingsFile) : null;
+        var progressBefore = File.ReadAllBytes(Path.Combine(fixture.Folder, "progress.json"));
+        var legacyHeight = fixture.Form.Height;
+        dragField.SetValue(fixture.Form, new Point(20, 20));
+        fixture.Settings.Current.OverlayTheme = OverlayThemeDefinition.Aion2.Id;
+        Refresh(fixture.Form);
+        Assert.Same(OverlayThemeDefinition.Legacy, themeField.GetValue(fixture.Form));
+        Assert.Equal(legacyHeight, fixture.Form.Height);
+        dragField.SetValue(fixture.Form, null); // Release an unmodified synthetic gesture; no layout write.
+        Refresh(fixture.Form);
+        Assert.Same(OverlayThemeDefinition.Aion2, themeField.GetValue(fixture.Form));
+        Assert.NotEqual(legacyHeight, fixture.Form.Height);
+        Assert.Equal(started, clockField.GetValue(Animation(fixture.Form)));
+        Assert.Equal(2, Assert.IsType<PetOverlayForm.LevelUpRow>(Current(fixture.Form)).Level);
+        Assert.Equal(before, File.Exists(AppPaths.SettingsFile) ? File.ReadAllBytes(AppPaths.SettingsFile) : null);
+        Assert.Equal(progressBefore, File.ReadAllBytes(Path.Combine(fixture.Folder, "progress.json")));
+        AssertUnshown(fixture.Form);
+    });
+
+    [Fact]
     public Task DisposingTheOverlayDisconnectsItsSourceEvenWhenTheServiceContinuesPublishing() => RunSta(() =>
     {
         using var fixture = new Fixture();
@@ -494,6 +523,7 @@ public sealed class PetLevelUpOverlayTests
                 if (path != AppPaths.SettingsFile) File.Delete(path);
             }
             Settings = new SettingsService();
+            Settings.Current.OverlayTheme = OverlayThemeDefinition.Legacy.Id;
             Settings.Current.OverlayEnabled = enabled;
             Settings.Current.OverlayLanguage = "en";
             Settings.Current.ProgressionEnabled = false;

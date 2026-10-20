@@ -1,4 +1,5 @@
 {
+  "Theme": "Theme",
   "Farmkarten": "Farming maps",
   "Auf diesen Karten findest du das zugehörige Pet oder Monster, die seine Souls droppen.": "These maps contain the associated pet or monsters that drop its souls.",
   "Farmorte des Pets: {0} Pet-Spawns · {1} Quellmonster auf {2}": "Pet farming locations: {0} pet spawns · {1} soul sources on {2}",
@@ -1607,5 +1608,12 @@
   "Treffen mehrere Regeln zu, müssen alle freigegeben sein. Ohne Minimap außerhalb einer Instanz gelten Menü und „Ohne erkannte Minimap“ gemeinsam.": "When several rules apply, all must be allowed. Without a minimap outside an instance, Menu and “Without a detected minimap” apply together.",
   "Wann anzeigen": "When to Show",
   "Wenn Aion2 im Vordergrund ist": "When Aion2 is in the foreground",
-  "Immer": "Always"
+  "Immer": "Always",
+  "Das Shop-Overlay verwendet immer den Soulcrest-Legacy-Stil und ist von Themes ausgenommen.": "The shop overlay always uses the Soulcrest Legacy style and is excluded from themes.",
+  "Aion2 - stilisierte": "Aion2 - stylized",
+  "Aion2 - neutral": "Aion2 - neutral",
+  "Obsidian": "Obsidian",
+  "Nordlicht": "Aurora",
+  "Runen": "Runic",
+  "Soulcrest legacy": "Soulcrest legacy"
 }

@@ -47,6 +47,7 @@ public sealed partial class PetOverlayForm : Form
     private const int BaseWidth = 360, CornerGrip = 16;
     private const double MinScale = 0.6, MaxScale = 2.5;
     private double _scale;
+    private OverlayThemeDefinition _theme = OverlayThemeDefinition.Legacy;
     private int _logicalHeight = LootLogicalHeight(0, 0);
     private Corner _resizing;
     private Point _resizeFrom;
@@ -67,11 +68,14 @@ public sealed partial class PetOverlayForm : Form
         StartPosition = FormStartPosition.Manual;
         Location = new Point(settings.Current.OverlayX, settings.Current.OverlayY);
         _scale = Math.Clamp(settings.Current.OverlayScale, MinScale, MaxScale);
+        _theme = OverlayThemeDefinition.Resolve(settings.Current.OverlayTheme);
+        _logicalHeight = LootLogicalHeight(0, 0, theme: _theme);
         ApplySize();
         BackColor = PanelColor;
-        Opacity = 0.94;
+        LayeredOverlayPresenter.Configure(this, !_theme.IsLegacy, .94);
         DoubleBuffered = true;
-        _lockButton = new OverlayLockButton(this);
+        _lockButton = new OverlayLockButton(this, LockBounds);
+        _lockButton.SetTheme(_theme);
         _lockButton.Toggled += ToggleManualInteraction;
         _lockButton.SetVisibleInRecordings(_settings.Current.OverlaysInRecordings);
         _progress.PetLeveled += OnPetLeveled;
@@ -190,13 +194,14 @@ public sealed partial class PetOverlayForm : Form
         base.OnHandleCreated(e);
         NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings);
         ApplyLockState();
+        RenderPanel();
         _settings.Changed += ApplyCaptureVisibility;
     }
 
     private void ApplyCaptureVisibility()
     {
         if (IsHandleCreated && !IsDisposed)
-            BeginInvoke(() => { NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings); _lockButton.SetVisibleInRecordings(_settings.Current.OverlaysInRecordings); Invalidate(); });
+            BeginInvoke(() => { NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings); _lockButton.SetVisibleInRecordings(_settings.Current.OverlaysInRecordings); RenderPanel(); });
     }
 
     protected override void OnHandleDestroyed(EventArgs e)
@@ -251,7 +256,7 @@ public sealed partial class PetOverlayForm : Form
         if (_locked) FinishDrag();
         ApplyLockState();
         Cursor = _locked ? Cursors.Default : Cursors.SizeAll;
-        Invalidate();
+        RenderPanel();
     }
 
     private void ApplyLockState()
@@ -283,6 +288,11 @@ public sealed partial class PetOverlayForm : Form
 
     private void UpdateWindowShape()
     {
+        if (!_theme.IsLegacy)
+        {
+            var old = Region; Region = null; old?.Dispose();
+            return;
+        }
         using var path = RoundedRectangle(new RectangleF(0, 0, Width, Height), (float)(12 * _scale));
         var previous = Region;
         Region = new Region(path);
@@ -367,7 +377,7 @@ public sealed partial class PetOverlayForm : Form
         var y = _resizing.HasFlag(Corner.Top) ? _resizeBounds.Bottom - height : _resizeBounds.Y;
         Bounds = new Rectangle(x, y, width, height);
         UpdateWindowShape();
-        Invalidate();
+        RenderPanel();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -396,6 +406,7 @@ public sealed partial class PetOverlayForm : Form
             s.OverlayY = Location.Y;
             s.OverlayScale = Math.Round(_scale, 3);
         });
+        if (_theme.Id != OverlayThemeDefinition.Resolve(_settings.Current.OverlayTheme).Id) RefreshLayout();
     }
 
     private void RefreshLayout()
@@ -403,6 +414,7 @@ public sealed partial class PetOverlayForm : Form
         ApplySuppression();
         if (_suppressed) return;
         _levelUps.SetEnabled(_settings.Current.OverlayEnabled);
+        ApplyTheme();
         if (_dragStart is null && _resizing == Corner.None)
         {
             // Place mode writes the same persisted physical layout fields as native gestures.
@@ -426,16 +438,17 @@ public sealed partial class PetOverlayForm : Form
         ApplyLevelUpFrame(levelUp);
         if (!SmokeTest.Enabled && (IsHandleCreated || _showRequested))
             SetVisibleCore(_settings.Current.OverlayEnabled);
-        Invalidate();
+        RenderPanel();
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        if (!_theme.IsLegacy) return;
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
         g.ScaleTransform((float)_scale, (float)_scale); // laid out at 360 px, everything scales along
-        PaintLootPanel(g, _focusRows, _lootRows, _tracker.Running, _locked, _levelUpRow);
+        PaintLootPanel(g, _focusRows, _lootRows, _tracker.Running, _locked, _levelUpRow, _theme);
     }
 
     /// <summary>
@@ -451,15 +464,16 @@ public sealed partial class PetOverlayForm : Form
             ?? (settings.ProgressionEnabled && !string.IsNullOrWhiteSpace(progression?.PetId) ? progression : null);
     }
 
-    internal static int LootLogicalHeight(int focus, int drops, bool celebrating = false) => focus == 0 && drops == 0 && !celebrating ? 54
-        : 54 + (celebrating ? LevelUpHeight : 0) + (focus == 0 ? 0 : 24 + focus * RowHeight + 8) + (drops == 0 ? 0 : 24 + drops * RowHeight + 8) + 28;
+    internal static int LootLogicalHeight(int focus, int drops, bool celebrating = false, OverlayThemeDefinition? theme = null) =>
+        Measure(focus, drops, celebrating, theme).Size.Height;
 
     internal static string HotkeyHint(bool locked) => UiText.T(locked
         ? "Schloss klicken zum Entsperren" : "Schloss: sperren · Kopf ziehen");
 
     /// <summary>One layout for the live panel and offline previews; rows are a consistent progress snapshot.</summary>
-    internal static void PaintLootPanel(Graphics g, IReadOnlyList<LootRow> focus, IReadOnlyList<LootRow> drops, bool running, bool locked, LevelUpRow? levelUp = null)
+    internal static void PaintLootPanel(Graphics g, IReadOnlyList<LootRow> focus, IReadOnlyList<LootRow> drops, bool running, bool locked, LevelUpRow? levelUp = null, OverlayThemeDefinition? theme = null)
     {
+        if (theme is { IsLegacy: false }) { PaintAionLootPanel(g, focus, drops, running, locked, levelUp, theme); return; }
         var banner = levelUp is { IsMax: true } ? levelUp : null;
         var height = LootLogicalHeight(focus.Count, drops.Count, banner is not null);
         g.SmoothingMode = SmoothingMode.AntiAlias;

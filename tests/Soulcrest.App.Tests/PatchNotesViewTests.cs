@@ -182,7 +182,8 @@ public sealed class PatchNotesViewTests
         Assert.Equal(shown.Length, VersionButtons(html).Count);
         Assert.Equal(latest.Version, Assert.Single(VersionButtons(html), button => button.Active).Version);
         var firstText = string.Concat(PatchNotes.Spans(latest.Entries[0].Text).Select(span => span.Text));
-        Assert.Contains(Normalize(firstText), Text(html));
+        // Inline markup becomes separate elements; compare the visible text without whitespace.
+        Assert.Contains(Regex.Replace(firstText, @"\s+", ""), Regex.Replace(Text(html), @"\s+", ""));
         await fixture.Export(html, "current");
         var archive = shown.Where(release => release.Version != latest.Version).MaxBy(release => release.Entries.Count) ?? latest;
         await fixture.Export(await fixture.View(installed: latest.Version, selected: archive.Version), "archive");

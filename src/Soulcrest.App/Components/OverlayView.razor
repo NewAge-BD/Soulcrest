@@ -99,13 +99,21 @@
                     break;
                 case "merchant":
                     <p class="overlay-data-note">@UiText.T("Soul-Zähler und Farmkarten direkt an den Pet-Angeboten des Black Cloud Merchants.")</p>
+                    <p class="overlay-data-note">@UiText.T("Das Shop-Overlay verwendet immer den Soulcrest-Legacy-Stil und ist von Themes ausgenommen.")</p>
                     break;
             }
             @if (_selected != "merchant") { <OverlayHotkeyOptions OverlayId="@_selected" ShowVisibility="false" /> }
         </main>
     </div>
 
-    <section class="overlay-common-settings"><h3>@UiText.T("Gemeinsame Einstellungen")</h3><div class="overlay-common-grid"><label for="overlay-show-mode">@UiText.T("Wann anzeigen")<select id="overlay-show-mode" value="@Settings.Current.OverlayShowMode" disabled="@_saving" @onchange="SetShowMode"><option value="foreground">@UiText.T("Wenn Aion2 im Vordergrund ist")</option><option value="always">@UiText.T("Immer")</option></select></label><label for="overlay-language">@UiText.T("Overlay-Sprache")<select id="overlay-language" value="@Settings.Current.OverlayLanguage" @onchange="SetLanguage"><option value="auto">@UiText.T("Automatisch (Spielsprache)")</option><option value="de">Deutsch</option><option value="en">English</option></select></label><label class="check"><input id="overlays-in-recordings" type="checkbox" checked="@Settings.Current.OverlaysInRecordings" @onchange="@(e => Save(s => s.OverlaysInRecordings = e.Value is true))" />@UiText.T("Overlays in Aufnahmen sichtbar")</label></div><p>@UiText.T("Schloss oder Alt gibt die normalen Overlays zur Bedienung frei. Im Place Mode sind alle freien Panels direkt bearbeitbar.")</p></section>
+    <section class="overlay-common-settings"><h3>@UiText.T("Gemeinsame Einstellungen")</h3><div class="overlay-common-grid"><label for="overlay-theme">@UiText.T("Theme")
+            <select id="overlay-theme" value="@OverlayThemeDefinition.NormalizeId(Settings.Current.OverlayTheme)" disabled="@_saving" @onchange="SetTheme">
+                @foreach (var theme in OverlayThemeDefinition.All)
+                {
+                    <option value="@theme.Id">@UiText.T(theme.Label)</option>
+                }
+            </select>
+        </label><label for="overlay-show-mode">@UiText.T("Wann anzeigen")<select id="overlay-show-mode" value="@Settings.Current.OverlayShowMode" disabled="@_saving" @onchange="SetShowMode"><option value="foreground">@UiText.T("Wenn Aion2 im Vordergrund ist")</option><option value="always">@UiText.T("Immer")</option></select></label><label for="overlay-language">@UiText.T("Overlay-Sprache")<select id="overlay-language" value="@Settings.Current.OverlayLanguage" @onchange="SetLanguage"><option value="auto">@UiText.T("Automatisch (Spielsprache)")</option><option value="de">Deutsch</option><option value="en">English</option></select></label><label class="check"><input id="overlays-in-recordings" type="checkbox" checked="@Settings.Current.OverlaysInRecordings" @onchange="@(e => Save(s => s.OverlaysInRecordings = e.Value is true))" />@UiText.T("Overlays in Aufnahmen sichtbar")</label></div><p>@UiText.T("Schloss oder Alt gibt die normalen Overlays zur Bedienung frei. Im Place Mode sind alle freien Panels direkt bearbeitbar.")</p></section>
 </div>
 
 @code {
@@ -127,6 +135,12 @@
     private void StopPlaceMode() => Placement.Stop();
     private void Refresh() { if (!_disposed) { _preview = null; _ = InvokeAsync(StateHasChanged); } }
     private Task SetEnabled(ChangeEventArgs e) => Save(s => OverlayRegistry.SetEnabled(s, _selected, e.Value is true));
+    private Task SetTheme(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString();
+        return OverlayThemeDefinition.IsKnown(id)
+            ? Save(settings => settings.OverlayTheme = OverlayThemeDefinition.NormalizeId(id)) : Task.CompletedTask;
+    }
     private Task SetShowMode(ChangeEventArgs e) => e.Value?.ToString() is "foreground" or "always" ? Save(s => s.OverlayShowMode = e.Value!.ToString()!) : Task.CompletedTask;
     private Task SetLanguage(ChangeEventArgs e) => e.Value?.ToString() is "auto" or "de" or "en" ? Save(s => s.OverlayLanguage = e.Value!.ToString()!) : Task.CompletedTask;
     private Task SetBossCount(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) ? Save(s => s.BossOverlayCount = Math.Clamp(n, 1, 12)) : Task.CompletedTask;

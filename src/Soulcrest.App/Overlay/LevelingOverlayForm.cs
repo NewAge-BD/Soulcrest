@@ -36,6 +36,9 @@ public sealed class LevelingOverlayForm : Form
     private bool _altInteractionRequested, _blockAltUntilRelease;
     private bool _locked = true, _inRecordings, _suppressed;
     private bool _placementHidden, _foregroundSuppressed;
+    private OverlayThemeDefinition _theme = OverlayThemeDefinition.Legacy;
+    private double _renderScale = 1;
+    private bool _rendering;
     private bool PresentationHidden => _placementHidden || _foregroundSuppressed;
 
     public LevelingOverlayForm(MapTargetsService targets, ExplorationService exploration, SettingsService settings)
@@ -43,6 +46,7 @@ public sealed class LevelingOverlayForm : Form
         _targets = targets;
         _exploration = exploration;
         _settings = settings;
+        _theme = OverlayThemeDefinition.Resolve(settings.Current.OverlayTheme);
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
@@ -50,7 +54,8 @@ public sealed class LevelingOverlayForm : Form
         BackColor = Surface;
         Opacity = .97;
         DoubleBuffered = true;
-        _lockButton = new OverlayLockButton(this);
+        _lockButton = new OverlayLockButton(this, LockBounds);
+        _lockButton.SetTheme(_theme);
         _lockButton.Toggled += ToggleManualInteraction;
         _lockButton.SetVisibleInRecordings(_settings.Current.OverlaysInRecordings);
         _timer.Tick += (_, _) => RefreshPanel();
@@ -133,6 +138,7 @@ public sealed class LevelingOverlayForm : Form
         NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
         _lockButton?.SetVisibleInRecordings(_inRecordings);
         ApplyInteractionStyle();
+        LayeredOverlayPresenter.Configure(this, !_theme.IsLegacy, .97);
     }
 
     internal bool ManualInteractionEnabled => _manualInteraction;
@@ -174,7 +180,7 @@ public sealed class LevelingOverlayForm : Form
         if (_locked) ResetInteraction();
         ApplyInteractionStyle();
         Cursor = Cursors.Default;
-        Invalidate();
+        InvalidatePanel();
     }
 
     private void ApplyInteractionStyle()
@@ -197,6 +203,16 @@ public sealed class LevelingOverlayForm : Form
     {
         base.OnSizeChanged(e);
         if (Width <= 0 || Height <= 0) return;
+        UpdateWindowShape();
+    }
+
+    private void UpdateWindowShape()
+    {
+        if (!_theme.IsLegacy)
+        {
+            var old = Region; Region = null; old?.Dispose();
+            return;
+        }
         using var outline = Rounded(new RectangleF(0, 0, Width, Height), 14);
         var previous = Region;
         Region = new Region(outline);
@@ -207,6 +223,7 @@ public sealed class LevelingOverlayForm : Form
     {
         if (_suppressed || PresentationHidden || !IsHandleCreated || IsDisposed || SmokeTest.Enabled) return;
         var settings = _settings.Current;
+        ApplyRequestedTheme();
         var id = _targets.ActiveLevelingRouteId;
         var characterId = _exploration.ActiveId;
         var snapshot = BuildSnapshot(_targets.Routes.FirstOrDefault(r => r.Id == id),
@@ -229,8 +246,16 @@ public sealed class LevelingOverlayForm : Form
         _lockButton?.SetVisibleInRecordings(_inRecordings);
         }
         var scale = Scale(settings.LevelingOverlayScale);
-        Size = new Size((int)Math.Ceiling(PanelWidth * scale),
-            (int)Math.Ceiling(LogicalHeight(snapshot!.Window.Count) * scale));
+        var logicalSize = Measure(snapshot!.Window.Count, _theme).Size;
+        _renderScale = scale;
+        if (!_theme.IsLegacy)
+        {
+            var desired = _drag is null ? new Point(settings.LevelingOverlayX, settings.LevelingOverlayY) : Location;
+            var area = Screen.FromPoint(desired).WorkingArea;
+            _renderScale = Math.Min(scale, Math.Min(area.Width / (double)logicalSize.Width, area.Height / (double)logicalSize.Height));
+        }
+        Size = new Size(Math.Max(1, (int)Math.Ceiling(logicalSize.Width * _renderScale)),
+            Math.Max(1, (int)Math.Ceiling(logicalSize.Height * _renderScale)));
         if (_drag is null)
         {
             var desired = new Point(settings.LevelingOverlayX, settings.LevelingOverlayY);
@@ -240,23 +265,83 @@ public sealed class LevelingOverlayForm : Form
             Location = ClampLocation(desired, Size, area);
         }
         if (!Visible) Show();
-        Invalidate();
+        _lockButton?.RefreshTarget();
+        InvalidatePanel();
     }
+
+    private void ApplyRequestedTheme()
+    {
+        if (_drag is not null || _pressed != LevelingOverlayAction.None) return;
+        var requested = OverlayThemeDefinition.Resolve(_settings.Current.OverlayTheme);
+        if (requested.Id == _theme.Id) return;
+        _theme = requested;
+        LayeredOverlayPresenter.Configure(this, !_theme.IsLegacy, .97);
+        UpdateWindowShape();
+        _lockButton.SetTheme(_theme);
+        _hover = LevelingOverlayAction.None;
+    }
+
+    private Rectangle LockBounds()
+    {
+        if (_theme.IsLegacy)
+        {
+            var size = Math.Max(1, (int)Math.Round(28 * DeviceDpi / 96d));
+            var inset = Math.Max(0, (int)Math.Round(8 * DeviceDpi / 96d));
+            return new(Math.Max(0, ClientSize.Width - size - inset), inset, size, size);
+        }
+        var logical = Measure(_snapshot?.Window.Count ?? 0, _theme).LockBounds;
+        return Rectangle.Round(new RectangleF((float)(logical.X * _renderScale), (float)(logical.Y * _renderScale),
+            (float)(logical.Width * _renderScale), (float)(logical.Height * _renderScale)));
+    }
+
+    private void InvalidatePanel()
+    {
+        if (_theme.IsLegacy) { Invalidate(); return; }
+        if (_rendering || !IsHandleCreated || IsDisposed || PresentationHidden || _snapshot is not { } snapshot || Width <= 0 || Height <= 0) return;
+        _rendering = true;
+        try
+        {
+            using var bitmap = new Bitmap(Width, Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            using (var graphics = Graphics.FromImage(bitmap))
+            {
+                graphics.Clear(Color.Transparent);
+                graphics.ScaleTransform((float)_renderScale, (float)_renderScale);
+                PaintPanel(graphics, snapshot, _locked, _hover, _pressed, _theme);
+            }
+            LayeredOverlayPresenter.Present(this, bitmap);
+        }
+        finally { _rendering = false; }
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e) { if (_theme.IsLegacy) base.OnPaintBackground(e); }
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        if (!_theme.IsLegacy) return;
         base.OnPaint(e);
         if (_snapshot is not { } snapshot) return;
         var scale = (float)Scale(_settings.Current.LevelingOverlayScale);
         e.Graphics.ScaleTransform(scale, scale);
-        PaintPanel(e.Graphics, snapshot, _locked, _hover, _pressed);
+        PaintPanel(e.Graphics, snapshot, _locked, _hover, _pressed, _theme);
     }
 
     internal static double Scale(double value) => double.IsFinite(value) ? Math.Clamp(value, .7, 1.6) : 1;
     internal static bool PanelVisible(AppSettings settings, LevelingOverlaySnapshot? snapshot) =>
         settings.LevelingOverlayEnabled && snapshot is not null;
-    internal static int LogicalHeight(int rows) => WindowTop + Math.Clamp(rows, 0, 6) * RowStride + 80;
+    internal static int LogicalHeight(int rows, OverlayThemeDefinition? theme = null) => Measure(rows, theme ?? OverlayThemeDefinition.Legacy).Size.Height;
     internal static int ControlsTop(int rows) => WindowTop + Math.Clamp(rows, 0, 6) * RowStride + 12;
+    internal sealed record LevelingPanelLayout(Size Size, RectangleF DragBounds, RectangleF LockBounds,
+        int HeroTop, int RowsTop, int RowHeight, int ControlsTop);
+
+    internal static LevelingPanelLayout Measure(int rows, OverlayThemeDefinition theme)
+    {
+        rows = Math.Clamp(rows, 0, 6);
+        return theme.IsLegacy
+            ? new(new(PanelWidth, WindowTop + rows * RowStride + 80), new(0, 0, PanelWidth, HeaderHeight),
+                new(324, 8, 28, 28), HeaderHeight, WindowTop, RowStride, ControlsTop(rows))
+            : new(new(PanelWidth, 174 + rows * 32 + 66), new(0, 0, PanelWidth, 68),
+                new(330, 8, 22, 22), 70, 174, 32, 174 + rows * 32 + 8);
+    }
     internal static string HotkeyHint(bool locked) => UiText.T(locked
         ? "Schloss klicken zum Entsperren" : "Schloss: sperren · Kopf ziehen");
     internal static string TargetLabel(MapTarget target) => string.IsNullOrWhiteSpace(target.Name)
@@ -277,22 +362,28 @@ public sealed class LevelingOverlayForm : Form
         Math.Clamp(desired.X, workingArea.Left, Math.Max(workingArea.Left, workingArea.Right - panel.Width)),
         Math.Clamp(desired.Y, workingArea.Top, Math.Max(workingArea.Top, workingArea.Bottom - panel.Height)));
 
-    internal static RectangleF ButtonBounds(LevelingOverlayAction action, int rows) => action switch
+    internal static RectangleF ButtonBounds(LevelingOverlayAction action, int rows, OverlayThemeDefinition? theme = null) => (theme ?? OverlayThemeDefinition.Legacy).IsLegacy ? action switch
     {
         LevelingOverlayAction.Back => new(16, ControlsTop(rows), 92, 34),
         LevelingOverlayAction.Next => new(116, ControlsTop(rows), 92, 34),
         LevelingOverlayAction.Cancel => new(216, ControlsTop(rows), 128, 34),
         _ => RectangleF.Empty
+    } : action switch
+    {
+        LevelingOverlayAction.Back => new(12, Measure(rows, theme!).ControlsTop, 94, 30),
+        LevelingOverlayAction.Next => new(112, Measure(rows, theme!).ControlsTop, 112, 30),
+        LevelingOverlayAction.Cancel => new(230, Measure(rows, theme!).ControlsTop, 118, 30),
+        _ => RectangleF.Empty
     };
 
-    internal static LevelingOverlayAction HitTest(PointF point, bool locked, LevelingOverlaySnapshot? snapshot)
+    internal static LevelingOverlayAction HitTest(PointF point, bool locked, LevelingOverlaySnapshot? snapshot, OverlayThemeDefinition? theme = null)
     {
         if (locked || snapshot is null) return LevelingOverlayAction.None;
         foreach (var action in new[] { LevelingOverlayAction.Back, LevelingOverlayAction.Next, LevelingOverlayAction.Cancel })
-            if (ButtonBounds(action, snapshot.Window.Count).Contains(point)
+            if (ButtonBounds(action, snapshot.Window.Count, theme).Contains(point)
                 && (action != LevelingOverlayAction.Back || snapshot.Progress.CanGoBack)
                 && (action != LevelingOverlayAction.Next || snapshot.Progress.CanGoNext)) return action;
-        return new RectangleF(0, 0, PanelWidth, HeaderHeight).Contains(point)
+        return Measure(snapshot.Window.Count, theme ?? OverlayThemeDefinition.Legacy).DragBounds.Contains(point)
             ? LevelingOverlayAction.Drag : LevelingOverlayAction.None;
     }
 
@@ -306,12 +397,12 @@ public sealed class LevelingOverlayForm : Form
         CanApplyAction(pressedRouteId, pressedCharacterId, activeRouteId, activeCharacterId)
         && pressedProgress is not null && pressedProgress == activeProgress;
 
-    internal static Color ObjectiveColor(MapTarget target) => target.Color switch
+    internal static Color ObjectiveColor(MapTarget target, OverlayThemeDefinition? theme = null) => target.Color switch
     {
         LevelingRouteStyle.MainQuest => Color.FromArgb(250, 204, 21),
         LevelingRouteStyle.Teleport => Accent,
         LevelingRouteStyle.RegionalQuest => Color.FromArgb(74, 222, 128),
-        _ => Color.White
+        _ => theme is { IsLegacy: false } ? theme.Primary : Color.White
     };
     internal static Color Mix(Color foreground, Color background, double amount) => Color.FromArgb(
         (int)Math.Round(background.R + (foreground.R - background.R) * amount),
@@ -319,8 +410,10 @@ public sealed class LevelingOverlayForm : Form
         (int)Math.Round(background.B + (foreground.B - background.B) * amount));
 
     internal static void PaintPanel(Graphics g, LevelingOverlaySnapshot snapshot, bool locked,
-        LevelingOverlayAction hover = LevelingOverlayAction.None, LevelingOverlayAction pressed = LevelingOverlayAction.None)
+        LevelingOverlayAction hover = LevelingOverlayAction.None, LevelingOverlayAction pressed = LevelingOverlayAction.None,
+        OverlayThemeDefinition? theme = null)
     {
+        if (theme is { IsLegacy: false }) { PaintAion2(g, snapshot, locked, hover, pressed, theme); return; }
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
         using var title = new Font("Segoe UI", 12, FontStyle.Bold, GraphicsUnit.Pixel);
@@ -408,6 +501,85 @@ public sealed class LevelingOverlayForm : Form
         }
     }
 
+    private static void PaintAion2(Graphics g, LevelingOverlaySnapshot snapshot, bool locked,
+        LevelingOverlayAction hover, LevelingOverlayAction pressed, OverlayThemeDefinition theme)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        var layout = Measure(snapshot.Window.Count, theme);
+        theme.Panel(g, new Rectangle(Point.Empty, layout.Size));
+        using var title = theme.Heading(17);
+        using var heading = theme.Heading(15);
+        using var body = theme.Body(12);
+        using var small = theme.Body(10);
+        using var bold = theme.Body(12, FontStyle.Bold);
+        using var white = new SolidBrush(theme.Primary);
+        using var muted = new SolidBrush(theme.Secondary);
+        using var gold = new SolidBrush(theme.Gold);
+        using var rule = new Pen(theme.Border);
+        using var single = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
+        using var right = new StringFormat(single) { Alignment = StringAlignment.Far };
+        using var center = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        using var wrapped = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit };
+        theme.Diamond(g, new(16, 17), 3, theme.Gold);
+        g.DrawString(UiText.T("Leveling Routes"), heading, gold, new RectangleF(27, 6, 295, 23), single);
+        g.DrawString(snapshot.CharacterName, small, muted, new RectangleF(12, 29, 324, 16), single);
+        g.DrawString(snapshot.RouteName, title, white, new RectangleF(12, 44, 336, 24), single);
+        g.DrawLine(rule, 12, layout.HeroTop - 1, 348, layout.HeroTop - 1);
+
+        var progress = snapshot.Progress;
+        var fraction = progress.Total <= 0 ? 1 : Math.Clamp((double)progress.Completed / progress.Total, 0, 1);
+        var objectiveColor = snapshot.Current is { } current ? ObjectiveColor(current, theme) : theme.Mint;
+        using var objective = new SolidBrush(objectiveColor);
+        using var hero = new SolidBrush(Color.FromArgb(95, Mix(Color.Black, theme.Surface, .45)));
+        g.FillRectangle(hero, 8, layout.HeroTop + 3, 344, 94);
+        theme.Diamond(g, new(19, layout.HeroTop + 17), 4, objectiveColor);
+        g.DrawString(UiText.F("Station {0} von {1}", Math.Min(progress.Completed + 1, progress.Total), progress.Total),
+            small, muted, new RectangleF(31, layout.HeroTop + 8, 240, 18), single);
+        g.DrawString($"{Math.Round(fraction * 100)}%", bold, objective, new RectangleF(275, layout.HeroTop + 6, 61, 21), right);
+        g.DrawString(snapshot.Current is { } heroTarget ? TargetLabel(heroTarget) : UiText.T("Route abgeschlossen"),
+            heading, objective, new RectangleF(18, layout.HeroTop + 31, 318, 44), wrapped);
+        using (var trough = new SolidBrush(Color.FromArgb(150, Mix(Color.Black, theme.Surface, .7)))) g.FillRectangle(trough, 18, layout.HeroTop + 81, 318, 3);
+        if (fraction > 0) g.FillRectangle(objective, 18, layout.HeroTop + 81, Math.Max(1, (float)(318 * fraction)), 3);
+
+        for (var index = 0; index < Math.Min(6, snapshot.Window.Count); index++)
+        {
+            var target = snapshot.Window[index];
+            var y = layout.RowsTop + index * layout.RowHeight;
+            var active = target.Id == snapshot.Current?.Id;
+            var color = ObjectiveColor(target, theme);
+            if (active)
+            {
+                using var shade = new SolidBrush(Color.FromArgb(110, Mix(theme.Primary, theme.Surface, .06)));
+                g.FillRectangle(shade, 8, y, 344, layout.RowHeight - 2);
+            }
+            theme.Diamond(g, new(18, y + 14), active ? 4 : 3,
+                target.Completed ? Color.FromArgb(105, color) : color);
+            using var label = new SolidBrush(target.Completed ? Color.FromArgb(120, theme.Secondary) : active ? color : theme.Primary);
+            g.DrawString(((target.StopIndex ?? index) + 1).ToString(), small, label, new RectangleF(28, y + 7, 25, 18), right);
+            g.DrawString(TargetLabel(target), active ? bold : body, label, new RectangleF(64, y + 6, 270, 20), single);
+            if (target.Completed) g.DrawLine(rule, 64, y + 16, Math.Min(330, 64 + g.MeasureString(TargetLabel(target), body).Width), y + 16);
+        }
+
+        DrawButton(LevelingOverlayAction.Back, UiText.T("Zurück"), progress.CanGoBack, false);
+        DrawButton(LevelingOverlayAction.Next, UiText.T("Weiter"), progress.CanGoNext, true);
+        DrawButton(LevelingOverlayAction.Cancel, UiText.T("Abbrechen"), true, false);
+        g.DrawString(HotkeyHint(locked), small, muted, new RectangleF(12, layout.ControlsTop + 36, 336, 18), single);
+
+        void DrawButton(LevelingOverlayAction action, string label, bool enabled, bool primary)
+        {
+            var bounds = ButtonBounds(action, snapshot.Window.Count, theme);
+            var active = enabled && !locked;
+            using var plate = new SolidBrush(active && pressed == action ? Color.FromArgb(220, Mix(theme.Gold, theme.Surface, .2))
+                : active && hover == action ? Color.FromArgb(220, Mix(theme.Gold, theme.Surface, .12)) : Color.FromArgb(160, theme.Surface));
+            using var edge = new Pen(primary && enabled ? theme.Gold : theme.Border);
+            using var ink = new SolidBrush(!enabled ? Color.FromArgb(110, theme.Secondary) : primary ? theme.Gold : theme.Primary);
+            g.FillRectangle(plate, bounds);
+            g.DrawRectangle(edge, bounds.X + .5f, bounds.Y + .5f, bounds.Width - 1, bounds.Height - 1);
+            g.DrawString(label, body, ink, bounds, center);
+        }
+    }
+
     private static GraphicsPath Rounded(RectangleF bounds, float radius)
     {
         var path = new GraphicsPath();
@@ -422,7 +594,7 @@ public sealed class LevelingOverlayForm : Form
 
     private PointF LogicalPoint(Point point)
     {
-        var scale = (float)Scale(_settings.Current.LevelingOverlayScale);
+        var scale = (float)(_theme.IsLegacy ? Scale(_settings.Current.LevelingOverlayScale) : _renderScale);
         return new PointF(point.X / scale, point.Y / scale);
     }
 
@@ -431,7 +603,7 @@ public sealed class LevelingOverlayForm : Form
         base.OnMouseDown(e);
         if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         if (e.Button != MouseButtons.Left) return;
-        var action = HitTest(LogicalPoint(e.Location), _locked, _snapshot);
+        var action = HitTest(LogicalPoint(e.Location), _locked, _snapshot, _theme);
         if (action == LevelingOverlayAction.Drag) _drag = e.Location;
         else if (action != LevelingOverlayAction.None)
         {
@@ -441,7 +613,7 @@ public sealed class LevelingOverlayForm : Form
             _pressedProgress = _snapshot?.Progress;
         }
         if (action != LevelingOverlayAction.None) Capture = true;
-        Invalidate();
+        InvalidatePanel();
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -450,17 +622,17 @@ public sealed class LevelingOverlayForm : Form
         if (!InteractionAllowed) { SetInteractionEnabled(OverlayInteraction.IsAltHeld); return; }
         if (_drag is { } from)
             Location = new Point(Location.X + e.X - from.X, Location.Y + e.Y - from.Y);
-        _hover = HitTest(LogicalPoint(e.Location), _locked, _snapshot);
+        _hover = HitTest(LogicalPoint(e.Location), _locked, _snapshot, _theme);
         Cursor = _hover == LevelingOverlayAction.Drag ? Cursors.SizeAll
             : _hover != LevelingOverlayAction.None ? Cursors.Hand : Cursors.Default;
-        Invalidate();
+        InvalidatePanel();
     }
 
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
         _hover = LevelingOverlayAction.None;
-        Invalidate();
+        InvalidatePanel();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -472,7 +644,7 @@ public sealed class LevelingOverlayForm : Form
         var routeId = _pressedRouteId;
         var characterId = _pressedCharacterId;
         var progress = _pressedProgress;
-        var released = HitTest(LogicalPoint(e.Location), _locked, _snapshot);
+        var released = HitTest(LogicalPoint(e.Location), _locked, _snapshot, _theme);
         ResetInteraction();
         if (action == released && CanApplyAction(routeId, characterId, _targets.ActiveLevelingRouteId, _exploration.ActiveId,
             progress, routeId is null ? null : _targets.GetRouteProgress(routeId)))

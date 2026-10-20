@@ -108,6 +108,40 @@ public sealed class OverlayPlacementLifecycleTests : IDisposable
         Assert.False(form.IsHandleCreated);
     });
 
+    [Theory]
+    [InlineData("aion2-stylized", "aion2-neutral")]
+    [InlineData("aion2-neutral", "obsidian")]
+    [InlineData("obsidian", "aurora")]
+    [InlineData("aurora", "runic")]
+    [InlineData("runic", "soulcrest-legacy")]
+    [InlineData("soulcrest-legacy", "aion2-stylized")]
+    public Task ThemeChangeDuringANoOpGestureWaitsForItsEndWithoutSavingAnyLayout(string previous, string next) => RunSta(() =>
+    {
+        var settings = Fresh();
+        settings.Current.OverlayTheme = previous;
+        using var placement = new OverlayPlacementService(settings, () => [Monitor], () => null);
+        using var renderer = new OverlayPreviewRenderer(new PetCatalog([]));
+        Assert.True(placement.Start());
+        using var form = new OverlayPlacementForm(settings, placement, renderer);
+        _ = form.Handle; // An unshown own HWND exercises the real deferred presentation path.
+        var refresh = typeof(OverlayPlacementForm).GetMethod("RefreshState", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        refresh.Invoke(form, null);
+        var layouts = OverlayRegistry.All.Where(item => item.CanPlace)
+            .Select(item => OverlayRegistry.ReadLayout(settings.Current, item.Id)).ToArray();
+        Field("_gestureId").SetValue(form, "loot");
+        Field("_gestureChanged").SetValue(form, false);
+        var changes = 0; settings.Changed += () => changes++;
+        settings.Update(current => current.OverlayTheme = next);
+        Assert.Equal(previous, ((AppSettings)Field("_renderSettings").GetValue(form)!).OverlayTheme);
+        typeof(OverlayPlacementForm).GetMethod("FinishGesture", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(form, null);
+        Assert.Equal(next, ((AppSettings)Field("_renderSettings").GetValue(form)!).OverlayTheme);
+        Assert.Equal(layouts, OverlayRegistry.All.Where(item => item.CanPlace)
+            .Select(item => OverlayRegistry.ReadLayout(settings.Current, item.Id)).ToArray());
+        Assert.Equal(1, changes);
+        Assert.True(placement.Active);
+        Assert.False(form.Visible);
+    });
+
     private static void SeedGesture(OverlayPlacementForm form, OverlayLayout layout)
     {
         var previews = (List<OverlayPlacementPreview>)Field("_previews").GetValue(form)!;

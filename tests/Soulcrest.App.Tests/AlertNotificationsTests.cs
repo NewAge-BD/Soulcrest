@@ -70,13 +70,15 @@ public sealed class AlertNotificationsTests
         await completed.Task.WaitAsync(TimeSpan.FromSeconds(20));
     }
 
-    [Fact]
-    public Task BannerResizeUsesIndependentDimensionsAndKeepsItsOwnClickThroughLock() => WithNotification((alerts, settings, panel, clock) =>
+    [Theory]
+    [InlineData("aion2")]
+    [InlineData("soulcrest-legacy")]
+    public Task BannerResizeUsesIndependentDimensionsAndKeepsItsOwnClickThroughLock(string theme) => WithNotification((alerts, settings, panel, clock) =>
     {
         var previousHudWidth = settings.Current.AlertsOverlayWidth;
         var previousHudScale = settings.Current.AlertsOverlayScale;
         Assert.Equal(224, panel.Width);
-        Assert.InRange(panel.Height, 57, 58);
+        Assert.Equal((int)Math.Ceiling(AlertsOverlayForm.LogicalHeight(1, OverlayThemeDefinition.Resolve(theme)) * .8), panel.Height);
         var changes = 0;
         settings.Changed += () => changes++;
         panel.ToggleManualInteraction();
@@ -117,7 +119,7 @@ public sealed class AlertNotificationsTests
         Assert.Equal(finalSize, panel.Size);
         Assert.True(LockButton(panel).Locked);
         Assert.Equal(1, changes); // Context permissions and presentation never save the resize twice.
-    });
+    }, theme);
 
     [Fact]
     public Task BannerRelockBlocksHeldAltAndExpiryClosesItsIndependentLockSurface() => WithNotification((alerts, settings, panel, clock) =>
@@ -147,10 +149,13 @@ public sealed class AlertNotificationsTests
     });
 
     [Theory]
-    [InlineData("en", 240)]
-    [InlineData("de", 340)]
-    [InlineData("de", 1000)]
-    public void CompactNotificationRowsPaintWithinTheirIndependentWidth(string language, int width)
+    [InlineData("en", 240, "soulcrest-legacy")]
+    [InlineData("de", 340, "soulcrest-legacy")]
+    [InlineData("de", 1000, "soulcrest-legacy")]
+    [InlineData("en", 240, "aion2")]
+    [InlineData("de", 340, "aion2")]
+    [InlineData("de", 1000, "aion2")]
+    public void CompactNotificationRowsPaintWithinTheirIndependentWidth(string language, int width, string theme)
     {
         var previous = UiText.Language;
         try
@@ -161,12 +166,13 @@ public sealed class AlertNotificationsTests
                 "Langer Hinweis · 슈고 축제 · " + new string('W', 100),
                 "Ausführliche Nachricht · " + new string('M', 160),
                 index == 6 ? "invalid overflow color" : "#a78bfa", now.AddMinutes(index), false)).ToArray();
-            var height = AlertsOverlayForm.LogicalHeight(rows.Length);
+            var definition = OverlayThemeDefinition.Resolve(theme);
+            var height = AlertsOverlayForm.LogicalHeight(rows.Length, definition);
             using var bitmap = new Bitmap(width + 20, height + 20);
             using (var graphics = Graphics.FromImage(bitmap))
             {
                 graphics.Clear(Color.Fuchsia);
-                AlertsOverlayForm.PaintNotifications(graphics, rows, now, false, width: width);
+                AlertsOverlayForm.PaintNotifications(graphics, rows, now, false, width: width, theme: definition);
             }
             Assert.Equal(Color.Fuchsia.ToArgb(), bitmap.GetPixel(width + 10, height / 2).ToArgb());
             Assert.Equal(Color.Fuchsia.ToArgb(), bitmap.GetPixel(width / 2, height + 10).ToArgb());
@@ -179,7 +185,7 @@ public sealed class AlertNotificationsTests
         finally { UiText.Language = previous; }
     }
 
-    private static async Task WithNotification(Action<AlertsService, SettingsService, AlertNotificationsForm, ManualTime> action)
+    private static async Task WithNotification(Action<AlertsService, SettingsService, AlertNotificationsForm, ManualTime> action, string theme = "soulcrest-legacy")
     {
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() =>
@@ -193,7 +199,7 @@ public sealed class AlertNotificationsTests
             {
                 JsonFile.Save(AppPaths.SettingsFile, new AppSettings
                 {
-                    SettingsRevision = 4, AlertsOverlayWidth = 700, AlertsOverlayScale = 1.6,
+                    SettingsRevision = 4, OverlayTheme = theme, AlertsOverlayWidth = 700, AlertsOverlayScale = 1.6,
                     AlertNotificationsWidth = 280, AlertNotificationsScale = .8,
                     AlertNotificationsX = 240, AlertNotificationsY = 180, UiLanguage = "en"
                 });
