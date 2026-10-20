@@ -37,6 +37,8 @@ public sealed partial class PetOverlayForm : Form
     private bool _locked = true;
     private bool _suppressRequested, _suppressed;
     private bool _showRequested, _hidingEmptyContent;
+    private bool _placementHidden, _foregroundSuppressed;
+    private bool PresentationHidden => _placementHidden || _foregroundSuppressed;
 
     private bool Suppressed => _suppressRequested;
     private Point? _dragStart;
@@ -98,7 +100,7 @@ public sealed partial class PetOverlayForm : Form
             FinishDrag();
             if (Capture) Capture = false;
             SetInteractionEnabled(false);
-            ClearLevelUp();
+            if (!PresentationHidden) ClearLevelUp();
             Hide();
             return;
         }
@@ -107,13 +109,50 @@ public sealed partial class PetOverlayForm : Form
         else Hide();
     }
 
+    /// <summary>Only hides presentation; live level-up deadlines and real progress keep running.</summary>
+    public void SetPlacementHidden(bool hidden)
+    {
+        if (_placementHidden == hidden) return;
+        _placementHidden = hidden;
+        ApplyPresentationVisibility();
+    }
+
+    /// <summary>Temporarily hides presentation while retaining live content deadlines and user preferences.</summary>
+    public void SetForegroundSuppressed(bool suppressed)
+    {
+        if (_foregroundSuppressed == suppressed) return;
+        _foregroundSuppressed = suppressed;
+        ApplyPresentationVisibility();
+    }
+
+    private void ApplyPresentationVisibility()
+    {
+        if (PresentationHidden)
+        {
+            _dragStart = null;
+            _resizing = Corner.None;
+            _manualInteraction = false;
+            SetInteractionEnabled(false);
+            if (IsHandleCreated) Capture = false;
+            Hide();
+            _lockButton.Hide();
+        }
+        else
+        {
+            _manualInteraction = false;
+            SetInteractionEnabled(false);
+            RefreshLayout();
+        }
+        _blockAltUntilRelease = true;
+    }
+
     protected override void SetVisibleCore(bool value)
     {
         if (!value)
         {
             // Hide may be called before the first visible frame, so OnVisibleChanged need not run.
             // Empty-content auto-hide deliberately calls base below and keeps accepting new events.
-            if (_settings is not null && _levelUps is not null && _animationTimer is not null && !Disposing && !IsDisposed) ClearLevelUp();
+            if (!PresentationHidden && _settings is not null && _levelUps is not null && _animationTimer is not null && !Disposing && !IsDisposed) ClearLevelUp();
             base.SetVisibleCore(false);
             return;
         }
@@ -123,8 +162,8 @@ public sealed partial class PetOverlayForm : Form
         var enabled = _settings?.Current.OverlayEnabled == true;
         var content = HasActiveNotification(_focusRows, _lootRows, _levelUpRow);
         var previous = _hidingEmptyContent;
-        _hidingEmptyContent = enabled && !_suppressed && !content;
-        try { base.SetVisibleCore(enabled && !_suppressed && content); }
+        _hidingEmptyContent = enabled && !_suppressed && !PresentationHidden && !content;
+        try { base.SetVisibleCore(enabled && !_suppressed && !PresentationHidden && content); }
         finally { _hidingEmptyContent = previous; }
     }
 
@@ -176,7 +215,7 @@ public sealed partial class PetOverlayForm : Form
     private void SetManualInteraction(bool enabled)
     {
         // An explicit lock wins over an already active Alt signal until its next release.
-        _manualInteraction = enabled;
+        _manualInteraction = enabled && !PresentationHidden;
         var alt = _altInteractionRequested || OverlayInteraction.IsAltHeld;
         _blockAltUntilRelease = !enabled && alt;
         SetInteractionEnabled(alt);
@@ -192,20 +231,20 @@ public sealed partial class PetOverlayForm : Form
         }
         // Hiding an empty panel must keep accepting later live upgrades. A worker may enqueue one
         // between this UI snapshot and Hide; explicit Hide/suppression still clear it as before.
-        if (!_hidingEmptyContent) ClearLevelUp();
+        if (!_hidingEmptyContent && !PresentationHidden) ClearLevelUp();
         _manualInteraction = false;
         _lockButton?.SetLocked(true);
         SetInteractionEnabled(false);
     }
 
-    private bool InteractionAllowed => !_suppressed && (_manualInteraction || (!_blockAltUntilRelease && OverlayInteraction.IsAltHeld));
+    private bool InteractionAllowed => !_suppressed && !PresentationHidden && (_manualInteraction || (!_blockAltUntilRelease && OverlayInteraction.IsAltHeld));
 
     /// <summary>Alt temporarily enables mouse input. Releasing it ends a drag or resize and restores click-through.</summary>
     public void SetInteractionEnabled(bool enabled)
     {
         _altInteractionRequested = enabled;
         if (!enabled) _blockAltUntilRelease = false;
-        enabled = (_manualInteraction || (enabled && !_blockAltUntilRelease)) && !_suppressed;
+        enabled = (_manualInteraction || (enabled && !_blockAltUntilRelease)) && !_suppressed && !PresentationHidden;
         if (_lockButton is { } button && button.Locked != !enabled) button.SetLocked(!enabled);
         if (_locked == !enabled) return;
         _locked = !enabled;
@@ -364,6 +403,13 @@ public sealed partial class PetOverlayForm : Form
         ApplySuppression();
         if (_suppressed) return;
         _levelUps.SetEnabled(_settings.Current.OverlayEnabled);
+        if (_dragStart is null && _resizing == Corner.None)
+        {
+            // Place mode writes the same persisted physical layout fields as native gestures.
+            var scale = Math.Clamp(_settings.Current.OverlayScale, MinScale, MaxScale);
+            if (_scale != scale) { _scale = scale; ApplySize(); }
+            Location = new Point(_settings.Current.OverlayX, _settings.Current.OverlayY);
+        }
         var levelUp = CurrentLevelUp();
         var focus = SelectFocusTarget(_settings.Current, _targets.Targets, _targets.Progression);
         var loot = LootToasts(_progress.Recent(), _progress.Catalog, focus?.PetId, DateTimeOffset.Now,

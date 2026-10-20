@@ -97,7 +97,7 @@ public sealed class SettingsMigrationTests
             File.WriteAllText(path, $$"""{"ExplorationCompletionRadius":{{saved}}}""");
             var settings = new SettingsService();
             Assert.Equal(expected, settings.Current.TargetArrivalRadius);
-            Assert.Equal(4, settings.Current.SettingsRevision);
+            Assert.Equal(5, settings.Current.SettingsRevision);
         }
         finally
         {

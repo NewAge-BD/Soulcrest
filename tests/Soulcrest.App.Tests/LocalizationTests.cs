@@ -49,22 +49,10 @@ public sealed class LocalizationTests
             Assert.DoesNotContain(">Pet Scan</button>", html);
             Assert.Contains(label, html);
             Assert.Contains("id=\"ui-language\"", html);
-            Assert.Contains("id=\"overlay-language\"", html);
-            Assert.Contains("id=\"map-layers-legend-hint\"", html);
-            Assert.Contains(language == "de" ? "getrennt für interaktive Karte, Minimap und Weltkarte" : "separately for the interactive map, minimap and world map", html);
-            Assert.DoesNotContain(language == "de" ? "Pet-Symbole mit Stand" : "Pet symbols with progress", html);
-            Assert.Contains(language == "de" ? "Overlay-Sprache" : "Overlay language", html);
-            Assert.Contains(language == "de" ? "Automatisch (Spielsprache)" : "Automatic (game language)", html);
-            Assert.Contains(language == "de" ? "Schloss im Overlay anklicken" : "Click the overlay lock", html);
-            Assert.DoesNotContain("Auf der Weltkarte im Spiel: Alt", html);
-            Assert.Contains(language == "de" ? "Overlay-Hotkeys" : "Overlay hotkeys", html);
-            Assert.Contains("hotkey-record", html);
-            Assert.Contains("hotkey-label-leveling.unlock", html);
-            Assert.Contains("hotkey-label-notifications.unlock", html);
-            Assert.Contains(language == "de" ? "Alert-Benachrichtigungen" : "Alert notifications", html);
-            Assert.DoesNotContain("hotkey-label-exploration-scan.toggle", html);
-            Assert.DoesNotContain("hotkey-label-pet-scan.toggle", html);
-            Assert.Contains(language == "de" ? "Nicht belegt" : "Unassigned", html);
+            Assert.Contains("data-overlay-link=\"loot\"", html);
+            Assert.Contains("data-overlay-link=\"map\"", html);
+            Assert.DoesNotContain("id=\"overlay-language\"", html);
+            Assert.DoesNotContain("hotkey-record", html);
             if (Environment.GetEnvironmentVariable("SOULCREST_SCAN_UI_PREVIEW") is { Length: > 0 } output)
             {
                 Directory.CreateDirectory(output);

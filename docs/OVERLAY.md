@@ -1,6 +1,6 @@
 # Ingame-Overlays
 
-Zwei Overlay-Arten, beide als native, transparente Top-Level-Fenster über dem Spiel. Das Spiel
+Soulcrest enthält acht Overlayarten als native, transparente Top-Level-Fenster über dem Spiel. Das Spiel
 muss im **randlosen Fenstermodus** laufen; über exklusivem Vollbild kann nicht gezeichnet werden.
 
 ## 1. Pet-Fortschritt (kompakt)
@@ -20,7 +20,7 @@ muss im **randlosen Fenstermodus** laufen; über exklusivem Vollbild kann nicht 
   Unbekanntes Monster: neutraler Toast `+2 ??? (Magic Gravi) – zuordnen`.
 - Kein Ton (Interview: nur Toast + Hotkeys).
 - **Namen im Loot-Overlay** (2026-10-08): Fokuszeilen und Loot-Einblendungen verwenden die
-  Monsternamen der Spielsprache, unabhängig von der Oberfläche. Unter Optionen → Overlays →
+  Monsternamen der Spielsprache, unabhängig von der Oberfläche. Unter Overlay → Gemeinsame Einstellungen →
   „Overlay-Sprache“ sind Automatisch (Spielsprache), Deutsch und Englisch wählbar; Standard ist
   Automatisch. Eine feste Overlay-Auswahl hat Vorrang, danach die explizite Scan-Sprache, danach
   die zuletzt sicher erkannte Sprache aus Pet- oder Erkundungsscan. Vor der ersten Erkennung gilt
@@ -122,8 +122,8 @@ Eigener Tab statt Karten-Kachel. Das rote Ziel führt zum ältesten bestätigten
 Spawn hängt als blasse, gestrichelte Kette daran. Ohne aktiven Boss beginnt die Vorschau beim
 Spieler. Beide Ziele sind flüchtig und werden nicht durch Ankunft oder manuelle Routen beendet.
 
-Ein eigenes natives Boss-Panel zeigt 1–12 nächste Spawns mit Porträts/Countdowns. Größe, Position
-und Klicksperre sind im Boss-Rush-Tab konfigurierbar. Namen übernehmen die Overlay-/Spielsprache;
+Ein eigenes natives Boss-Panel zeigt 1–12 nächste Spawns mit Porträts/Countdowns. Größe und Position
+sind im Overlay-Tab konfigurierbar; Schloss und Alt steuern die Klicksperre. Namen übernehmen die Overlay-/Spielsprache;
 Aufnahme-Sichtbarkeit entspricht den gemeinsamen Overlay-Settings. Die bisherige Pet-Overlay-
 Sperre und ihre Hotkeys bleiben unabhängig.
 
@@ -157,7 +157,7 @@ der Einstellung; auch ein früher gespeicherter Hintergrundwunsch bleibt wirkung
 Keine Überschrift und keine Einzelkarten. Bosse verwenden ihre belegten lokalen Kartenporträts in einer
 ruhigen runden Kontur. Täglicher Reset, wöchentlicher Reset, eigene Timer und fehlende Bossporträts haben
 unterscheidbare eigene Symbole in warmer Goldpalette (SVG-Quellen und transparente PNGs). Auswahl und aktive Phasen ändern keine
-Erinnerungs-/Banner-/Tonwünsche. Die neue sichtbare Sektion im Timer-Menü steuert Auswahl, Größe,
+Erinnerungs-/Banner-/Tonwünsche. Der Eintrag Timer-Leiste im Overlay-Tab steuert Auswahl, Größe,
 Abstand, Sekunden und Overlay-Einstellungen. Dort lassen sich Weltkarte, Menü und Instanzen
 unabhängig freigeben. Die offene Spielwelt bleibt sichtbar; ohne laufendes Spielertracking
 wird kein Bereich angenommen. Das frühere gemeinsame Anzeigefenster entfällt. Viele ausgewählte
@@ -178,8 +178,8 @@ Spielbedienung oder zweite App nötig. Herkunft der Originalgrafiken: `wwwroot/i
 
 Ein eigenes stets durchklickbares Layered Window ergänzt aktuelle Pet-Soulcounter im Kartenfuß
 unter den Preisen des Black Cloud Merchant. Special behält seine gemischten Slots; Skins bekommen
-keine Ergänzung. „Owned“/„Sold Out“ beeinflussen die Anzeige nicht. Schalter unter Optionen →
-Overlays, standardmäßig an. Frische Counter sind warmweiß, bestätigtes `MAX` hellgrün,
+keine Ergänzung. „Owned“/„Sold Out“ beeinflussen die Anzeige nicht. Schalter unter Overlay →
+Händler-Soulcounter, standardmäßig an. Frische Counter sind warmweiß, bestätigtes `MAX` hellgrün,
 gespeicherte/unbekannte Stände gedämpft graugold; `?` ersetzt eine unbekannte Balance.
 
 Gestaltung auf Nutzerwunsch 2026-10-13: Der Kartenfuß setzt die vorhandenen Seiten mit einer
@@ -337,3 +337,41 @@ und Dispose leeren den flüchtigen Zustand. Automatisches Verbergen des leeren P
 Annahme neuer Aufstiege aktiv; es zeigt dabei keine alten Meldungen erneut. Es gibt keinen späteren
 Nachholalarm und keine Fokusaktivierung.
 Die bestehende Klicksperre, Aufnahme-Sichtbarkeit und Capturelogik bleiben erhalten.
+
+
+## Zentrale Einstellungen und Place Mode (2026-10-20)
+
+Der Tab **Overlay** enthält die Darstellung, Position, Größe, Hotkeys und Kontextfreigaben
+aller acht Overlayarten. Die bisherigen Fachansichten verlinken direkt auf den passenden
+Eintrag. Routen, Erinnerungsdefinitionen und Töne bleiben dort; ebenso die gemeinsame
+Drei-Spalten-Kartenlegende. Overlay-Sprache und Aufnahmesichtbarkeit gelten gemeinsam.
+
+Der **Place Mode** zeigt die sechs frei platzierbaren Panels gemeinsam mit reinen
+Vorschauinhalten auf einem gewählten Monitor. Spielmonitor automatisch, sonst App-Monitor;
+auch ohne Spiel nutzbar. Ein eigenes aktivierbares Fenster dimmt den gesamten Monitor um
+65 Prozent. Raster und Einrasten (16 physische Pixel) sind unabhängig schaltbar.
+Verschieben und proportional skalieren über die Auswahlrahmen; Banner und Timeline haben
+zusätzlich eine getrennte Breite. Jede abgeschlossene Geste wird atomar gespeichert;
+Escape und Beenden beenden ohne Rücknahme. Nicht bearbeitete Vorschaupositionen werden
+nicht gespeichert. Karte und Händler bleiben spielgebunden und haben separate Vorschauen.
+
+Ein separater Präsentationszustand verbirgt währenddessen echte Fenster und Schlösser.
+Er erzeugt keine Fachereignisse und verlängert keine laufenden Erinnerungs-/Aufstiegsfristen.
+Bei Rückkehr zählt der aktuelle Inhalt, die normalen Kontextregeln und gesperrte Interaktion.
+
+Vier überlappende Freigaben je HUD: Weltkarte, Menü, Instanzen, fehlende Minimap.
+Nur laufendes Tracking darf Kontexte feststellen. Menü umfasst ESC und Minimapverlust
+außerhalb einer Instanz; fehlende Minimap gilt auch innerhalb einer Instanz, außer bei
+geöffneter Weltkarte. Alle aktiven Bedingungen benötigen ihre Freigabe. Boss-Spawns und
+Benachrichtigungen sind initial überall freigegeben. Loot/Leveling initial nirgends;
+Timer und Timeline übernehmen die bisherigen individuellen Regeln. Inhaltsvoraussetzungen
+bleiben bestehen. Die früheren festen Boss-Ausblendregeln sind damit ersetzt.
+
+
+### Wann anzeigen / When to Show
+
+Die gemeinsame Einstellung gilt für sämtliche acht Overlayarten. Standard ist
+**When Aion2 is in the foreground** / **Wenn Aion2 im Vordergrund ist**; **Always** / **Immer**
+hebt ausschließlich diese Fokusbedingung auf. Die übrigen Kontext- und Inhaltsregeln bleiben
+wirksam. Auch der Händler verwendet bei Immer weiterhin ausschließlich frische, bestätigte
+Anker im sichtbaren Spielfenster. Der Place Mode bleibt unabhängig davon nutzbar.

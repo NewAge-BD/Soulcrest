@@ -4,6 +4,15 @@ namespace Soulcrest.App.Services;
 public sealed class UiState
 {
     public string Tab { get; private set; } = "map";
+    public string? OverlaySection { get; private set; }
+
+    /// <summary>Opens the central overlay settings without changing their enabled state.</summary>
+    public void ShowOverlay(string? id = null)
+    {
+        OverlaySection = id;
+        Navigate("overlay");
+    }
+
     public string? PendingPetFocus { get; private set; }
 
     private MapTarget? _pendingBoss;

@@ -77,13 +77,8 @@
 
         <aside class="boss-settings" aria-label="@UiText.T("Einstellungen")">
             <section class="card sv-card boss-setting-card">
-                <div class="boss-panel-heading"><div><span class="boss-panel-kicker">@UiText.T("Ingame-Anzeige")</span><h3>@UiText.T("Spawn-Overlay")</h3></div></div>
-                <label class="opt-toggle"><input type="checkbox" role="switch" checked="@Settings.Current.BossOverlayEnabled" @onchange="@(e => Settings.Update(s => s.BossOverlayEnabled = (bool)e.Value!))" /> @UiText.T("Nächste Spawns im Overlay anzeigen")</label>
-                <div class="boss-setting-grid">
-                    <label class="boss-field">@UiText.T("Anzahl der Spawns") <input type="number" min="1" max="12" value="@Settings.Current.BossOverlayCount" @onchange="SetCount" /></label>
-                    <label class="boss-field boss-scale-field">@UiText.T("Overlay-Größe") <span><input type="range" min="60" max="200" step="5" value="@((int)(Settings.Current.BossOverlayScale * 100))" @onchange="SetScale" /><output>@((int)(Settings.Current.BossOverlayScale * 100)) %</output></span></label>
-                </div>
-                <div class="boss-overlay-help"><kbd>Alt</kbd><span>@UiText.T("Ingame-Anzeige")</span><InfoTip><p>@UiText.T("Gedrückt halten, um Overlays zu bedienen und zu verschieben. Nach dem Loslassen sind sie wieder klickdurchlässig.")</p></InfoTip></div>
+                <h3>@UiText.T("Spawn-Overlay")</h3>
+                <OverlaySettingsLink OverlayId="boss" />
             </section>
         </aside>
     </div>
@@ -108,7 +103,5 @@
     private string? Icon(BossPlace boss) => boss.Icon is { } icon ? $"https://{MainForm.MapDataHost}/{icon}" : null;
     private static string Status(bool spawned, TimeSpan remaining) => spawned ? UiText.T("Bereits gespawnt")
         : remaining > TimeSpan.Zero ? UiText.F("Spawn in {0}", BossRushService.Countdown(remaining)) : UiText.T("Spawn fällig · warte auf Bestätigung");
-    private void SetCount(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossOverlayCount = Math.Clamp(n, 1, 12)); }
-    private void SetScale(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossOverlayScale = Math.Clamp(n, 60, 200) / 100d); }
     public void Dispose() { BossRush.Changed -= Refresh; Settings.Changed -= Refresh; Loot.Changed -= Refresh; }
 }

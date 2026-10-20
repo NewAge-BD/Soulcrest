@@ -290,3 +290,26 @@ test('follow skips only Leaflet zero-pixel offsets and keeps animation, bounds a
     api.setPlayer('first', 20, 20, true, true);
     assert.equal(map.pans.at(-1).options.animate, false);
 });
+
+
+test('density guidance draws the southern target ring and line, and keeps it through player fixes', async () => {
+    const { api, callbacks, context } = fixture();
+    const data = context.window.SoulcrestMaps.first;
+    data.markers = [[1, 0, 100, 'Pet A', 'Pet A DE', 1, 'pet-a'], [1, 1000, 100, 'Pet A', 'Pet A DE', 1, 'pet-a'],
+        [2, 0, 100, 'North source', null, -1, 'pet-a'], [2, 1000, 100, 'South source', null, -1, 'pet-a'],
+        [2, 1010, 100, 'South source two', null, -1, 'pet-a']];
+    await api.show('first', 'en');
+    data.def.metersPerPixel = 1;
+    api.setPlayer('first', 0, 100, false, true);
+    api.setProgression(true, 105, '{}', '["pets"]', false, '', '{}', true, '{"pet-a":3}');
+    assert.deepEqual(callbacks.at(-1).slice(0, 5), ['OnProgressionTarget', 'first', 'pet-a', 1000, 100]);
+    const ring = api.layers().find(layer => layer.kind === 'circle' && layer.options.color === '#ffffff');
+    assert.deepEqual(serial(ring.at), { lng: 1000, lat: -100 });
+    const line = lines(api)[0];
+    assert.deepEqual(serial(line.at.at(-1)), { lng: 1000, lat: -100 });
+    api.setPlayer('first', 1, 100, false, true);
+    assert.equal(api.layers().includes(ring), true);
+    assert.deepEqual(serial(line.at.at(-1)), { lng: 1000, lat: -100 });
+    api.setProgression(true, 105, '{}', '["pets"]', false, '', '{}', false, '{"pet-a":3}');
+    assert.equal(callbacks.at(-1)[3], 0);
+});

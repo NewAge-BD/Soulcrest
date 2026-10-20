@@ -75,7 +75,7 @@ else
                     <div class="event-quick-reminders" role="group" aria-label="@UiText.F("Erinnerung für {0}", UiText.T(timer.Definition.Title))"><button type="button" disabled="@(Busy || EditorOpen)" class="@(timer.Reminder?.Enabled != true ? "selected" : "")" @onclick="@(() => SetReminder(timer, -1))">@UiText.T("Aus")</button>@foreach (var minutes in new[] { 2, 5, 10, 15 }) { <button type="button" disabled="@(Busy || EditorOpen)" class="@(timer.Reminder?.Enabled == true && timer.Reminder.LeadMinutes == minutes ? "selected" : "")" @onclick="@(() => SetReminder(timer, minutes))">@UiText.F("{0} Min.", minutes)</button> }<button type="button" class="event-reminder-custom" disabled="@(Busy || EditorOpen)" title="@UiText.T("Individuell einstellen")" aria-label="@UiText.T("Individuell einstellen")" @onclick="@(() => EditReminder.InvokeAsync(timer.Definition.Id))">⋯</button></div>
                     @if (timer.Reminder is { Enabled: true } resetReminder) { <div class="event-reminder-channels"><label><input type="checkbox" checked="@resetReminder.ShowOverlay" disabled="@(Busy || EditorOpen)" @onchange="@(e => ReminderSaved.InvokeAsync(resetReminder with { ShowOverlay = (bool)e.Value! }))" />@UiText.T("Banner")</label></div> }
                     @if (timer.Reminder is { Enabled: true } soundReminder) { <AlertSoundPicker Sound="@soundReminder.Sound" SoundFile="@soundReminder.SoundFile" Enabled="@soundReminder.PlaySound" Disabled="@(Busy || EditorOpen)" Changed="@(selection => ReminderSaved.InvokeAsync(soundReminder with { Sound = selection.Sound, SoundFile = selection.SoundFile, PlaySound = selection.Enabled }))" /> }
-                <a class="timer-strip-settings-link" href="#timer-overlay-settings">@UiText.T("Timer-Auswahl unter Timer-Leiste") ↗</a>
+                <OverlaySettingsLink OverlayId="alerts" Text="Timer-Leiste einstellen" />
                 </details>
             </article>
         }
@@ -123,7 +123,7 @@ else
                 </div>
                 <AlertSoundPicker Sound="@reminder.Sound" SoundFile="@reminder.SoundFile" Enabled="@reminder.PlaySound" Disabled="@(Busy || EditorOpen)" Changed="@(selection => SoundSaved.InvokeAsync(reminder with { Sound = selection.Sound, SoundFile = selection.SoundFile, PlaySound = selection.Enabled }))" />
                 @if (!reminder.Enabled) { <p class="alerts-hint">@UiText.T("Ton wird bei aktivierter Erinnerung abgespielt.")</p> }
-                <a class="timer-strip-settings-link" href="#timer-overlay-settings">@UiText.T("Timer-Auswahl unter Timer-Leiste") ↗</a>
+                <OverlaySettingsLink OverlayId="alerts" Text="Timer-Leiste einstellen" />
             </article>
         }
     </div>

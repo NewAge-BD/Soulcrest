@@ -7,12 +7,12 @@
     <p class="sv-lead">@UiText.T("Auf eine Belegung klicken und die gewünschte Tastenkombination drücken. Änderungen werden sofort gespeichert.")</p>
     <p class="sv-hint">@UiText.T("Strg, Alt, Umschalt oder Win mit einer Taste kombinieren; F1–F24 funktionieren auch allein. Escape bricht die Eingabe ab.")</p>
     <div class="overlay-hotkey-list">
-        @foreach (var group in OverlayHotkeys.Actions.GroupBy(a => a.Overlay))
+        @foreach (var group in OverlayHotkeys.Actions.Where(Include).GroupBy(a => a.Overlay))
         {
             <div class="overlay-hotkey-group" @key="group.Key">
                 <div class="overlay-hotkey-heading">
                     <strong>@UiText.T(group.Key)</strong>
-                    @if (group.FirstOrDefault(action => !action.Unlock) is { } visibility)
+                    @if (ShowVisibility && group.FirstOrDefault(action => !action.Unlock) is { } visibility)
                     {
                         <label><input type="checkbox" checked="@OverlayHotkeys.IsVisible(Settings.Current, visibility.Id)" @onchange="e => SetVisible(visibility.Id, e.Value is true)" />@UiText.T("Anzeigen")</label>
                     }
@@ -36,10 +36,13 @@
         }
     </div>
     @if (_message is not null) { <p class="hotkey-error" role="status">@UiText.T(_message)</p> }
-    <p class="sv-hint">@UiText.T("Hotkeys blenden nur die Anzeige um. Routenfortschritt und laufende Scans bleiben erhalten. Loot und Leveling bleiben in Dungeons und auf der Weltkarte ausgeblendet.")</p>
+    <p class="sv-hint">@UiText.T("Hotkeys ändern die Overlay-Anzeige. Laufender Fortschritt und die Sichtbarkeitsregeln bleiben erhalten.")</p>
 </section>
 
 @code {
+    [Parameter] public string? OverlayId { get; set; }
+    [Parameter] public bool ShowVisibility { get; set; } = true;
+    private bool Include(OverlayHotkeyAction action) => OverlayId is null || action.Id.StartsWith(OverlayId + ".", StringComparison.Ordinal);
     private string? _recording, _message;
     protected override void OnInitialized() { Hotkeys.Changed += Refresh; Settings.Changed += Refresh; }
     private void Refresh() => InvokeAsync(StateHasChanged);

@@ -100,8 +100,23 @@ public sealed class AlertNotificationsTests
         var style = NativeMethods.GetWindowLongPtr(panel.Handle, NativeMethods.GWL_EXSTYLE);
         Assert.NotEqual((nint)0, style & NativeMethods.WS_EX_TRANSPARENT);
         Assert.NotEqual((nint)0, style & NativeMethods.WS_EX_NOACTIVATE);
-        panel.SetSuppressed(true); // Timed notifications ignore normal HUD suppression.
+        var context = new OverlayContext(true, false, true, true, true);
+        Assert.True(OverlayVisibilityPolicy.IsSuppressed(settings.Current, "alerts", context));
+        Assert.False(OverlayVisibilityPolicy.IsSuppressed(settings.Current, "notifications", context));
+        panel.SetSuppressed(OverlayVisibilityPolicy.IsSuppressed(settings.Current, "notifications", context));
+        Assert.True(panel.Visible); // Banner defaults remain independent of the restricted timer HUD.
+        var notificationBefore = alerts.NotificationRows.ToArray();
+        settings.Current.OverlayVisibility["notifications"] = new(false, false, false, false);
+        panel.SetSuppressed(OverlayVisibilityPolicy.IsSuppressed(settings.Current, "notifications", context));
+        panel.Show(); panel.RefreshPanel();
+        Assert.False(panel.Visible);
+        Assert.False(LockButton(panel).Visible);
+        Assert.Equal(notificationBefore, alerts.NotificationRows.ToArray());
+        panel.SetSuppressed(false);
         Assert.True(panel.Visible);
+        Assert.Equal(finalSize, panel.Size);
+        Assert.True(LockButton(panel).Locked);
+        Assert.Equal(1, changes); // Context permissions and presentation never save the resize twice.
     });
 
     [Fact]

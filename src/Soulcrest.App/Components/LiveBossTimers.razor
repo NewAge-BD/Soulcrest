@@ -196,7 +196,7 @@
                 <label class="check"><input type="checkbox" checked="@reminder.Enabled" disabled="@controlsDisabled" @onchange="@(e => SetEnabled(choice.Key, e.Value is true))" />@UiText.T("Erinnerung aktivieren")</label>
                 <div class="alerts-boss-fields"><label class="boss-field">@UiText.T("Vorwarnzeit (Sekunden)")<input type="number" min="0" max="3600" value="@reminder.LeadSeconds" disabled="@controlsDisabled" @onchange="@(e => SetLead(choice.Key, reminder, e))" /></label></div>
                 <p class="alerts-hint">@UiText.T("0 Sekunden Vorwarnzeit bedeutet nur bestätigter Spawn.")</p>
-                <span class="timer-strip-settings-link">@UiText.T("Timer-Auswahl unter Timer-Leiste")</span>
+                <OverlaySettingsLink OverlayId="alerts" Text="Timer-Leiste einstellen" />
 
             </div>
         </details>

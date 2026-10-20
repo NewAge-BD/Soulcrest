@@ -16,6 +16,28 @@ public sealed class MerchantOverlayFormTests
 {
     private static readonly Size GameSize = new(1600, 900);
 
+    [Theory]
+    [InlineData("always", true)]
+    [InlineData("foreground", false)]
+    [InlineData("unknown", false)]
+    public void SharedShowModeChangesOnlyTheMerchantForegroundRequirement(string mode, bool always)
+    {
+        var game = new Rectangle(-1600, 40, 1600, 900);
+        var gameReads = 0; var foregroundReads = 0;
+        var bounds = MerchantOverlayForm.ResolveGameBounds(mode,
+            () => { gameReads++; return game; }, () => { foregroundReads++; return null; });
+        Assert.Equal(always ? game : (Rectangle?)null, bounds);
+        Assert.Equal(always ? 1 : 0, gameReads);
+        Assert.Equal(always ? 0 : 1, foregroundReads);
+    }
+
+    [Fact]
+    public void MerchantAlwaysHasNoDesktopFallbackWhenTheGameWindowIsUnavailableOrMinimized()
+    {
+        Assert.Null(MerchantOverlayForm.ResolveGameBounds("always", () => null,
+            () => new Rectangle(0, 0, 1600, 900)));
+    }
+
     [Fact]
     public void MixedOfferSlotsOnlyReceiveBadgesForTheirSuppliedPetRows()
     {

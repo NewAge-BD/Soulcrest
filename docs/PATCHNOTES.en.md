@@ -2,6 +2,18 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.9.0 – 2026-10-20
+
+- **New:** **Overlays** tab: all eight overlays in one place, with settings, previews, language,
+  visibility in recordings and hotkeys. The feature views link straight to it.
+- **New:** Place mode: all overlays appear with sample data on the game monitor (even without the game
+  running) and can be moved and resized, optionally with a 16-pixel grid and snapping. Escape keeps the
+  last state.
+- **New:** "When to show" for all overlays together: only while AION 2 is in the foreground (default)
+  or always.
+- **New:** Progression mode: option "Highest mob density first". It picks the pet with the most spawns on
+  the current map and leads to its densest farm area (200 m radius) instead of the nearest spawn.
+
 ## 0.8.3 – 2026-10-20
 
 - **Improved:** After an instance (e.g. Abyss → Altgard) Soulcrest recognises the new map faster: while

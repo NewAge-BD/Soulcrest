@@ -86,7 +86,7 @@ Schloss, Alt und Capture-Sichtbarkeit. `TimerOverlayVisibility` wertet ausschlie
 Leiste die positiven AppSettings-Freigaben für Weltkarte, Menü und Instanzen aus den vorhandenen
 Trackingzuständen aus. Ohne laufendes Tracking gibt es keine Kontextunterdrückung. Ton läuft im MainForm über
 `NoticeRaised` unabhängig von Rendern und Sichtbarkeit. Das Boss-Rush-Overlay zeichnet im Host
-nur noch seine Liste; es erzeugt keine zweite Alarmanzeige. Einstellungen und Vorschau stehen im Alerts-Tab.
+nur noch seine Liste; es erzeugt keine zweite Alarmanzeige. Overlay-Einstellungen und Vorschau stehen im Overlay-Tab; Erinnerungsregeln bleiben unter Alerts.
 
 `EventCatalog` hält sechs lokale Nichtboss-EU-Zeitpläne nach der gewählten Community-Referenz.
 `Core.Alerts.EventWindows` trennt Kalenderstart, Eventlaufzeit und Portalphase und liefert begrenzte
@@ -170,3 +170,26 @@ Der Nutzer hat den DPS-Meter vollständig verworfen. Die zugehörigen Komponente
 Datenverträge, Erfassungsabnehmer, Historie und Katalogressourcen wurden entfernt.
 Die bestehende Pet-, Fortschritts- und Boss-Timer-Erfassung bleibt eigenständig erhalten.
 
+
+
+## Overlay-Verwaltung und Platzierung (2026-10-20)
+
+`OverlayRegistry` inventarisiert acht Overlayarten und adaptiert die bestehenden absoluten
+Layoutfelder. `OverlayVisibilityPolicy` entscheidet je freiem Panel über vier überlappende
+Kontextfreigaben; Settingsrevision 5 übernimmt die bisherigen Präferenzen und gibt Boss-Spawns
+auf Nutzerwunsch in allen Kontexten frei. Fehlende Minimap und Menü bleiben getrennte Bedingungen.
+
+`OverlayPlacementService` liefert Monitor-/Moduszustand und Änderungen. Der native Host
+verbirgt die echten Fenster mit `SetPlacementHidden`, statt deren Fachzustand zurückzusetzen.
+`OverlayPlacementForm` zeichnet Dimmung, Raster, Auswahl und reine Vorschauinhalte in einem
+aktivierbaren Layered Window. `OverlayPreviewRenderer` nutzt die Produktions-Zeichenmethoden;
+keine Ereignisse werden zur Vorschau ausgelöst. Persistenz ausschließlich über bestehende
+Settingsfelder und atomare Updates am Geste-Ende. Physische Desktopkoordinaten einschließlich
+negativer Monitorursprünge; ein Layout, keine Monitorprofile. Monitoränderungen beenden sicher.
+
+
+Die gemeinsame Einstellung `OverlayShowMode` ergänzt die Kontextpolicies um ein globales
+Vordergrundgate (foreground standardmäßig, optional always). Der Host verteilt dafür einen
+eigenen Präsentationszustand `SetForegroundSuppressed` an alle acht Fenster; Placement und
+Vordergrund sind unabhängige Bedingungen. Händlerprüfungen wählen bei always die sichtbare
+Spielgeometrie ohne Vordergrundzwang, behalten aber Fensterbindung, Frische und Ankerprüfung.

@@ -20,6 +20,8 @@ public sealed partial class RouteOverlayForm : Form
     private readonly LatestFrameDispatcher<Frame> _frames;
     private bool _inRecordings;
     private volatile bool _suppressed;
+    private volatile bool _placementHidden, _foregroundSuppressed;
+    private bool PresentationHidden => _placementHidden || _foregroundSuppressed;
     private volatile bool _disposing;
     private readonly object _composeGate = new();
 
@@ -53,7 +55,33 @@ public sealed partial class RouteOverlayForm : Form
         ScheduleInvalidated();
     }
 
-    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed);
+    /// <summary>Suppresses only presentation; tracking and target preparation remain current.</summary>
+    public void SetPlacementHidden(bool hidden)
+    {
+        if (_placementHidden == hidden) return;
+        _placementHidden = hidden;
+        ApplyPresentationVisibility();
+    }
+
+    /// <summary>Keeps target and placement data current while the common foreground gate hides drawing.</summary>
+    public void SetForegroundSuppressed(bool suppressed)
+    {
+        if (_foregroundSuppressed == suppressed) return;
+        _foregroundSuppressed = suppressed;
+        ApplyPresentationVisibility();
+    }
+
+    private void ApplyPresentationVisibility()
+    {
+        if (PresentationHidden)
+        {
+            Hide();
+            _tracking.ResetOverlayPresentation();
+        }
+        ScheduleInvalidated();
+    }
+
+    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed && !PresentationHidden);
 
     protected override bool ShowWithoutActivation => true;
 
@@ -184,7 +212,7 @@ public sealed partial class RouteOverlayForm : Form
             _inRecordings = _settings.Current.OverlaysInRecordings;
             NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
         }
-        if (_suppressed || frame is null || !_settings.Current.MapOverlayEnabled
+        if (_suppressed || PresentationHidden || frame is null || !_settings.Current.MapOverlayEnabled
             || !MatchesCurrentPlacement(frame, _tracking.Placement))
         {
             _tracking.ResetOverlayPresentation();

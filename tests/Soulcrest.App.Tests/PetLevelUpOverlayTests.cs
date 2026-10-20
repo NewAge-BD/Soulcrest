@@ -102,6 +102,76 @@ public sealed class PetLevelUpOverlayTests
         AssertUnshown(fixture.Form);
     });
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task PresentationHidingPreservesActiveAndQueuedUpgradesAcrossShowHideAndContextChanges(bool foreground) => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        void SetHidden(bool hidden)
+        {
+            if (foreground) fixture.Form.SetForegroundSuppressed(hidden);
+            else fixture.Form.SetPlacementHidden(hidden);
+        }
+        fixture.Upgrade(1135, 1);
+        fixture.Upgrade(1163, 1);
+        Refresh(fixture.Form);
+        var animation = Animation(fixture.Form);
+        var started = typeof(PetLevelUpAnimation).GetField("_startedAt", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(animation);
+        var first = Assert.IsType<PetOverlayForm.LevelUpRow>(Current(fixture.Form));
+        var settingsBefore = File.Exists(AppPaths.SettingsFile) ? File.ReadAllBytes(AppPaths.SettingsFile) : null;
+        SetHidden(true);
+        fixture.Form.Hide();
+        fixture.Form.Show();
+        fixture.Form.SetSuppressed(true);
+        fixture.Form.SetSuppressed(false);
+        Refresh(fixture.Form);
+        typeof(PetOverlayForm).GetMethod("AnimateLevelUp", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(fixture.Form, [null, EventArgs.Empty]);
+        Assert.False(fixture.Form.Visible);
+        Assert.Equal(first.PetId, Assert.IsType<PetOverlayForm.LevelUpRow>(Current(fixture.Form)).PetId);
+        Assert.Equal(started, typeof(PetLevelUpAnimation).GetField("_startedAt", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(animation));
+        SetHidden(false);
+        Assert.True(fixture.Form.Visible);
+        Assert.True(fixture.Form.Locked);
+        Assert.Equal(first.PetId, Assert.IsType<PetOverlayForm.LevelUpRow>(Current(fixture.Form)).PetId);
+        Assert.Equal(started, typeof(PetLevelUpAnimation).GetField("_startedAt", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(animation));
+        var next = animation.Sample(Stopwatch.GetTimestamp() + (long)Math.Ceiling(PetLevelUpAnimation.DurationSeconds * Stopwatch.Frequency));
+        Assert.Equal(Fixture.Id(1163), Assert.IsType<PetLevelUpAnimation.Frame>(next).Change.PetId);
+        Assert.Empty(fixture.Progress.Recent());
+        Assert.False(File.Exists(Path.Combine(fixture.Folder, "events.jsonl")));
+        Assert.Equal(settingsBefore, File.Exists(AppPaths.SettingsFile) ? File.ReadAllBytes(AppPaths.SettingsFile) : null);
+    });
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task PresentationTimeConsumesTheOriginalAnimationDeadlineAndAcceptsRealNewEvents(bool foreground) => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        void SetHidden(bool hidden)
+        {
+            if (foreground) fixture.Form.SetForegroundSuppressed(hidden);
+            else fixture.Form.SetPlacementHidden(hidden);
+        }
+        fixture.Upgrade(1135, 1);
+        Refresh(fixture.Form);
+        SetHidden(true);
+        // Use the same monotonic source as production instead of sleeping for 30 seconds.
+        typeof(PetLevelUpAnimation).GetField("_startedAt", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(Animation(fixture.Form), Stopwatch.GetTimestamp() - 31 * Stopwatch.Frequency);
+        typeof(PetOverlayForm).GetMethod("AnimateLevelUp", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(fixture.Form, [null, EventArgs.Empty]);
+        Assert.Null(Current(fixture.Form));
+        fixture.Upgrade(1163, 1);
+        Refresh(fixture.Form);
+        Assert.Equal(Fixture.Id(1163), Assert.IsType<PetOverlayForm.LevelUpRow>(Current(fixture.Form)).PetId);
+        Assert.False(fixture.Form.Visible);
+        SetHidden(false);
+        Assert.Equal(Fixture.Id(1163), Assert.IsType<PetOverlayForm.LevelUpRow>(Current(fixture.Form)).PetId);
+        Assert.Empty(fixture.Progress.Recent());
+    });
+
     [Fact]
     public Task DisposingTheOverlayDisconnectsItsSourceEvenWhenTheServiceContinuesPublishing() => RunSta(() =>
     {

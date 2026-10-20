@@ -10,6 +10,7 @@ public sealed class AppSettings
     public string OcrLanguage { get; set; } = "en-US";
     public string? DetectedGameLanguage { get; set; }
     public string OverlayLanguage { get; set; } = "auto";
+    public string OverlayShowMode { get; set; } = "foreground";
     [System.Text.Json.Serialization.JsonIgnore]
     public string EffectiveOcrLanguage => AutoOcrLanguage ? "auto" : OcrLanguage;
 
@@ -25,6 +26,7 @@ public sealed class AppSettings
     public bool CheckUpdatesOnStart { get; set; } = true;
 
     public Dictionary<string, OverlayHotkey?> OverlayHotkeys { get; set; } = Services.OverlayHotkeys.Defaults();
+    public Dictionary<string, OverlayVisibilityRules> OverlayVisibility { get; set; } = new(StringComparer.Ordinal);
     public bool MapOverlayEnabled { get; set; } = true;
     public bool BossOverlayVisible { get; set; } = true;
     public bool OverlayEnabled { get; set; } = true;
@@ -228,6 +230,9 @@ public sealed class AppSettings
     /// <summary>Pets: true = the pet missing the fewest souls to finish its level, false = up to <see cref="ProgressionGoal"/>.</summary>
     public bool ProgressionPetsClosest { get; set; }
 
+    /// <summary>Prefer the most source-monster spawns on this map, then its densest 200-metre pet-symbol area (user request 2026-10-20).</summary>
+    public bool ProgressionPetsHighestDensity { get; set; }
+
     public bool ProgressionIncludes(string kind) => ProgressionKinds.Contains(kind, StringComparer.Ordinal);
 
     /// <summary>Total souls a pet should reach: 5 (unlocked), 30 (level 2) or 105 (max).</summary>
@@ -289,6 +294,7 @@ public sealed class SettingsService
         Current = JsonFile.Load<AppSettings>(AppPaths.SettingsFile);
         if (Current.UiLanguage is not ("de" or "en")) Current.UiLanguage = Current.NameLanguage == "de" ? "de" : "en";
         if (Current.OverlayLanguage is not ("auto" or "de" or "en")) Current.OverlayLanguage = "auto";
+        if (Current.OverlayShowMode is not ("foreground" or "always")) Current.OverlayShowMode = "foreground";
         if (Current.DetectedGameLanguage is not ("de" or "en")) Current.DetectedGameLanguage = null;
         if (Current.OcrLanguage is not ("de-DE" or "en-US"))
         {
@@ -318,6 +324,7 @@ public sealed class SettingsService
         Current.MapMinimapLayers = MapLayerVisibility.Normalize(Current.MapMinimapLayers);
         Current.MapWorldmapLayers = MapLayerVisibility.Normalize(Current.MapWorldmapLayers);
         OverlayHotkeys.Normalize(Current);
+        Current.OverlayScale = double.IsFinite(Current.OverlayScale) ? Math.Clamp(Current.OverlayScale, .6, 2.5) : 1;
         Current.BossOverlayCount = Math.Clamp(Current.BossOverlayCount, 1, 12);
         Current.BossOverlayScale = double.IsFinite(Current.BossOverlayScale) ? Math.Clamp(Current.BossOverlayScale, .6, 2) : 1;
         Current.LevelingOverlayScale = double.IsFinite(Current.LevelingOverlayScale) ? Math.Clamp(Current.LevelingOverlayScale, .7, 1.6) : 1;
@@ -350,6 +357,8 @@ public sealed class SettingsService
         Current.BossReminderOverrides = (Current.BossReminderOverrides ?? [])
             .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && pair.Value is not null)
             .ToDictionary(pair => pair.Key, pair => pair.Value with { LeadSeconds = Math.Clamp(pair.Value.LeadSeconds, 0, 3600) }, StringComparer.Ordinal);
+        OverlayVisibilityPolicy.Normalize(Current);
+        if (Current.SettingsRevision < 5) Current.SettingsRevision = 5;
         UiText.Language = Current.UiLanguage;
     }
 

@@ -31,6 +31,13 @@ public sealed partial class PetOverlayForm
 
     private void AnimateLevelUp(object? sender, EventArgs e)
     {
+        if (PresentationHidden)
+        {
+            // Sampling advances the original monotonic deadline; hidden time is never replayed.
+            if (_settings.Current.OverlayEnabled) RefreshLevelUpFrame();
+            else ClearLevelUp();
+            return;
+        }
         if (!Visible || Suppressed || !_settings.Current.OverlayEnabled)
         {
             ClearLevelUp();

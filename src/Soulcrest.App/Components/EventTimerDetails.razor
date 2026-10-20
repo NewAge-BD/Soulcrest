@@ -28,7 +28,7 @@
         <AlertSoundPicker Sound="@reminder.Sound" SoundFile="@reminder.SoundFile" Enabled="@reminder.PlaySound" Disabled="@Disabled" Changed="@(selection => SoundSaved.InvokeAsync(reminder with { Sound = selection.Sound, SoundFile = selection.SoundFile, PlaySound = selection.Enabled }))" />
         @if (!reminder.Enabled) { <InfoTip><p>@UiText.T("Ton wird bei aktivierter Erinnerung abgespielt.")</p></InfoTip> }
     </div>
-    <a class="timer-strip-settings-link" href="#timer-overlay-settings">@UiText.T("Timer-Auswahl unter Timer-Leiste") ↗</a>
+    <OverlaySettingsLink OverlayId="alerts" Text="Timer-Leiste einstellen" />
     <details class="event-next-times"><summary>@UiText.T("Nächste Termine")<span>@UiText.T("3 Termine")</span></summary><ol>@foreach (var at in NextStarts) { <li><span>@At(at)</span>@if (Timer.Definition.DurationMinutes > 0) { <span>@ShortAt(at + (display.Window.EndsAt - display.Window.StartsAt))</span> }</li> }</ol></details>
     <div class="event-detail-actions"><button type="button" class="btn event-detail-test" disabled="@(Disabled || Timer.Reminder is null)" title="@(Timer.Reminder is null ? UiText.T("Erinnerung zuerst speichern.") : null)" @onclick="@(() => PreviewReminder.InvokeAsync(Timer.Definition.Id))">@UiText.T("Testen")</button>
     <button type="button" class="btn event-detail-edit" disabled="@Disabled" @onclick="@(() => EditReminder.InvokeAsync(Timer.Definition.Id))">@UiText.T("Individuell einstellen") ↗</button></div>

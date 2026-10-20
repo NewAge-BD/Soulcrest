@@ -34,28 +34,12 @@ public sealed class AlertsViewTests
         Assert.DoesNotContain("boss-alert-card", html);
         Assert.DoesNotContain("id=\"alerts-boss-settings\"", html);
         Assert.True(html.IndexOf("data-boss-alerts-master", StringComparison.Ordinal) > html.IndexOf("data-boss-list", StringComparison.Ordinal));
-        Assert.Contains("id=\"alerts-overlay-visible\"", html);
-        Assert.Contains("id=\"event-timeline-visible\"", html);
-        Assert.Contains("id=\"event-timeline-follow-minimap\"", html);
-        Assert.Contains("id=\"event-timeline-hours\"", html);
-        foreach (var overlay in new[] { "alert-notifications", "event-timeline" })
-        {
-            Assert.Contains($"id=\"{overlay}-width\"", html);
-            Assert.Contains($"id=\"{overlay}-scale\"", html);
-        }
-        foreach (var option in new[] { "scale", "gap", "seconds", "worldmap", "menu", "instances" })
-            Assert.Contains($"id=\"timer-overlay-{option}\"", html);
-        Assert.Contains("id=\"timer-overlay-settings\"", html);
-        Assert.DoesNotContain("id=\"timer-overlay-window\"", html);
-        Assert.DoesNotContain("id=\"timer-overlay-lead\"", html);
-        Assert.DoesNotContain("id=\"alerts-overlay-width\"", html);
-        Assert.DoesNotContain("timer-overlay-background", html);
-        Assert.DoesNotContain("with-background", html);
-        Assert.DoesNotContain(language == "de" ? "Overlay-Widget" : "Overlay widget", html);
-        Assert.Contains(language == "de" ? "Benachrichtigungsbanner" : "Notification banners", html);
-        Assert.Contains(language == "de" ? "unteren rechten Ecke" : "bottom right corner", html);
+        foreach (var id in new[] { "alerts", "notifications", "event-timeline" })
+            Assert.Contains($"data-overlay-link=\"{id}\"", html);
+        Assert.DoesNotContain("id=\"timer-overlay-settings\"", html);
+        Assert.DoesNotContain("id=\"event-timeline-visible\"", html);
+        Assert.DoesNotContain("data-boss-strip=", html);
         Assert.DoesNotContain("Zeitraum auch direkt im Overlay", html);
-        Assert.Contains("value=\"48\"", html);
         Assert.Empty(fixture.Alerts.Items);
         Assert.False(fixture.Tracker.Running);
         await fixture.Export(html, "empty");
@@ -110,8 +94,8 @@ public sealed class AlertsViewTests
     }
 
     [Theory]
-    [InlineData("de", "Timer-Auswahl unter Timer-Leiste", "Ton")]
-    [InlineData("en", "Choose timers under Timer strip", "Sound")]
+    [InlineData("de", "Timer-Leiste einstellen", "Ton")]
+    [InlineData("en", "Configure timer strip", "Sound")]
     public async Task SelectedBossHasIndependentPresentationAndDoesNotCreateAScheduledCopy(string language, string countdown, string sound)
     {
         await using var fixture = new Fixture(language);
@@ -170,7 +154,7 @@ public sealed class AlertsViewTests
         Assert.Contains("data-event-details=\"shugo\"", html);
         Assert.Contains("event-timeline-portal", html);
         Assert.DoesNotContain(language == "de" ? "Overlay-Widget" : "Overlay widget", html);
-        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "id=\"timer-overlay-settings\""));
+        Assert.Contains("data-overlay-link=\"alerts\"", html);
         Assert.Contains("09:00", html); // 07:00 UTC daily reset shown in Berlin daylight time.
         var calendar = html[..html.IndexOf("<section class=\"event-boss-live", StringComparison.Ordinal)];
         Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(calendar, "data-event-options=").Count);
@@ -238,7 +222,7 @@ public sealed class AlertsViewTests
         Assert.Contains("event-reset-options", html);
         Assert.DoesNotContain("workspace-event-select", html);
         Assert.DoesNotContain(language == "de" ? "Overlay-Widget" : "Overlay widget", html);
-        Assert.Equal(6, System.Text.RegularExpressions.Regex.Matches(html, "class=\"timer-strip-settings-link\"").Count);
+        Assert.Equal(6, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-link=\"alerts\"").Count);
         Assert.Empty(fixture.Alerts.Items);
         Assert.False(fixture.Tracker.Running);
     }
@@ -612,9 +596,9 @@ public sealed class AlertsViewTests
     }
 
     [Theory]
-    [InlineData("de", "In Timer-Leiste anzeigen")]
-    [InlineData("en", "Show in Timeline Strip")]
-    public async Task CapturedBossListIsCompactSearchableAndOffersStripSelectionWithoutSelectingReminders(string language, string label)
+    [InlineData("de", "Timer-Leiste einstellen")]
+    [InlineData("en", "Configure timer strip")]
+    public async Task CapturedBossListIsCompactSearchableAndLinksToStripSettingsWithoutSelectingReminders(string language, string label)
     {
         await using var fixture = new Fixture(language);
         fixture.Settings.Current.TimerOverlayTimerIds = [];
@@ -629,10 +613,8 @@ public sealed class AlertsViewTests
         Assert.Contains("00:01:01", html);
         Assert.Contains(label, html);
         Assert.Contains(language == "de" ? "Alle bekannten Bosse" : "All known bosses", html);
-        var input = System.Text.RegularExpressions.Regex.Match(html, "<input[^>]+data-boss-strip=\"boss:1110:111001\"[^>]*>").Value;
-        Assert.NotEmpty(input);
-        Assert.DoesNotContain("disabled", input);
-        Assert.DoesNotContain("checked", input);
+        Assert.Contains("data-overlay-link=\"alerts\"", html);
+        Assert.DoesNotContain("data-boss-strip=", html);
         Assert.Empty(fixture.Settings.Current.BossAlertIds);
         Assert.Empty(fixture.Settings.Current.TimerOverlayTimerIds!);
         Assert.Empty(fixture.Alerts.Items);

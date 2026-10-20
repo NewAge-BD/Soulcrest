@@ -35,6 +35,8 @@ public sealed class LevelingOverlayForm : Form
     private bool _manualInteraction;
     private bool _altInteractionRequested, _blockAltUntilRelease;
     private bool _locked = true, _inRecordings, _suppressed;
+    private bool _placementHidden, _foregroundSuppressed;
+    private bool PresentationHidden => _placementHidden || _foregroundSuppressed;
 
     public LevelingOverlayForm(MapTargetsService targets, ExplorationService exploration, SettingsService settings)
     {
@@ -71,7 +73,45 @@ public sealed class LevelingOverlayForm : Form
         else RefreshPanel();
     }
 
-    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed);
+    /// <summary>Hides live windows for placement without changing settings or executing pending actions.</summary>
+    public void SetPlacementHidden(bool hidden)
+    {
+        if (_placementHidden == hidden) return;
+        _placementHidden = hidden;
+        ApplyPresentationVisibility();
+    }
+
+    /// <summary>Temporarily hides presentation while retaining live content deadlines and user preferences.</summary>
+    public void SetForegroundSuppressed(bool suppressed)
+    {
+        if (_foregroundSuppressed == suppressed) return;
+        _foregroundSuppressed = suppressed;
+        ApplyPresentationVisibility();
+    }
+
+    private void ApplyPresentationVisibility()
+    {
+        if (PresentationHidden)
+        {
+            _drag = null;
+            ResetInteraction();
+            _manualInteraction = false;
+            SetInteractionEnabled(false);
+            if (IsHandleCreated) Capture = false;
+            Hide();
+            _lockButton.Hide();
+        }
+        else
+        {
+            // A modifier held while leaving placement must be released before native input resumes.
+            _manualInteraction = false;
+            SetInteractionEnabled(false);
+            RefreshPanel();
+        }
+        _blockAltUntilRelease = true;
+    }
+
+    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed && !PresentationHidden);
 
     protected override CreateParams CreateParams
     {
@@ -105,7 +145,7 @@ public sealed class LevelingOverlayForm : Form
     private void SetManualInteraction(bool enabled)
     {
         // An explicit lock wins over an already active Alt signal until its next release.
-        _manualInteraction = enabled;
+        _manualInteraction = enabled && !PresentationHidden;
         var alt = _altInteractionRequested || OverlayInteraction.IsAltHeld;
         _blockAltUntilRelease = !enabled && alt;
         SetInteractionEnabled(alt);
@@ -120,14 +160,14 @@ public sealed class LevelingOverlayForm : Form
         SetInteractionEnabled(false);
     }
 
-    private bool InteractionAllowed => !_suppressed && (_manualInteraction || (!_blockAltUntilRelease && OverlayInteraction.IsAltHeld));
+    private bool InteractionAllowed => !_suppressed && !PresentationHidden && (_manualInteraction || (!_blockAltUntilRelease && OverlayInteraction.IsAltHeld));
 
     /// <summary>Temporary interaction state; releasing Alt cancels any pending button action.</summary>
     public void SetInteractionEnabled(bool enabled)
     {
         _altInteractionRequested = enabled;
         if (!enabled) _blockAltUntilRelease = false;
-        enabled = (_manualInteraction || (enabled && !_blockAltUntilRelease)) && !_suppressed;
+        enabled = (_manualInteraction || (enabled && !_blockAltUntilRelease)) && !_suppressed && !PresentationHidden;
         if (_lockButton is { } button && button.Locked != !enabled) button.SetLocked(!enabled);
         if (_locked == !enabled) return;
         _locked = !enabled;
@@ -165,7 +205,7 @@ public sealed class LevelingOverlayForm : Form
 
     private void RefreshPanel()
     {
-        if (_suppressed || !IsHandleCreated || IsDisposed || SmokeTest.Enabled) return;
+        if (_suppressed || PresentationHidden || !IsHandleCreated || IsDisposed || SmokeTest.Enabled) return;
         var settings = _settings.Current;
         var id = _targets.ActiveLevelingRouteId;
         var characterId = _exploration.ActiveId;
@@ -195,8 +235,9 @@ public sealed class LevelingOverlayForm : Form
         {
             var desired = new Point(settings.LevelingOverlayX, settings.LevelingOverlayY);
             var area = Screen.FromRectangle(new Rectangle(desired, Size)).WorkingArea;
+            // A display-only clamp must not rewrite an off-screen saved layout on refresh/placement exit.
+            // Native gestures and the explicit placement action remain the persistence boundaries.
             Location = ClampLocation(desired, Size, area);
-            if (Location != desired) SavePosition();
         }
         if (!Visible) Show();
         Invalidate();

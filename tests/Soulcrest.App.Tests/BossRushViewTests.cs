@@ -98,7 +98,7 @@ public sealed class BossRushViewTests
             Assert.Matches("boss-dashboard-stat spawned[\\s\\S]*?<dd>2</dd>", html);
             Assert.Matches("boss-dashboard-stat upcoming[\\s\\S]*?<dd>1</dd>", html);
             Assert.DoesNotContain("boss-loot-", html);
-            Assert.Contains("boss-overlay-help", html);
+            Assert.Contains("data-overlay-link=\"boss\"", html);
             Assert.DoesNotContain("boss-quick-stats", html);
             Assert.Contains("boss-timer-card", html);
             Assert.Contains("event-boss-live boss-timers-compact", html);
@@ -117,11 +117,11 @@ public sealed class BossRushViewTests
             Assert.Contains(spawned, html);
             Assert.Contains(name, html);
             Assert.Contains(language == "de" ? "Spawn-Overlay" : "Spawn overlay", html);
-            Assert.Contains("<kbd>Alt</kbd>", html);
-            Assert.Contains(language == "de" ? "Nach dem Loslassen sind sie wieder klickdurchlässig." : "Release to let clicks pass through again.", html);
+            Assert.DoesNotContain("boss-scale-field", html);
+            Assert.Contains("data-overlay-link=\"boss\"", html);
             Assert.DoesNotContain(language == "de" ? "Overlay sperren" : "Lock overlay", html);
             Assert.DoesNotContain("<kbd>L</kbd>", html);
-            Assert.Contains("min=\"1\" max=\"12\"", html);
+            Assert.DoesNotContain("boss-scale-field", html);
             MapView? mapView = null;
             var mapRoot = await renderer.Dispatcher.InvokeAsync(async () =>
                 await renderer.RenderComponentAsync<MapHost>(ParameterView.FromDictionary(new Dictionary<string, object?>

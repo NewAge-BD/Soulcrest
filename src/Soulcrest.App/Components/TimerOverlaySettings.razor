@@ -10,7 +10,10 @@
 }
 
 <section class="timer-overlay-settings" id="timer-overlay-settings" aria-label="@UiText.T("Timer-Leiste")" aria-busy="@_saving">
+    @if (ShowGeneralControls)
+    {
     <header><label class="check"><input id="alerts-overlay-visible" type="checkbox" role="switch" checked="@current.AlertsOverlayEnabled" disabled="@Disabled" @onchange="SetEnabled" /><strong>@UiText.T("Timer-Leiste")</strong></label><InfoTip><p>@UiText.T("Wähle, wo die Timer-Leiste zusätzlich zur offenen Spielwelt sichtbar bleibt.")</p><p>@UiText.T("Die Timer-Auswahl ändert keine Erinnerungen, Banner oder Töne.")</p></InfoTip></header>
+    }
     <div class="timer-strip-preview @(!current.AlertsOverlayEnabled ? "paused" : "")" aria-label="@UiText.T("Vorschau der Timer-Leiste")" style="@PreviewStyle">
         @if (rows.Count == 0)
         {
@@ -29,19 +32,25 @@
         }
     </div>
     <fieldset class="timer-strip-controls" disabled="@Disabled">
+        @if (ShowGeneralControls)
+        {
         <label for="timer-overlay-scale">@UiText.T("Größe")<input id="timer-overlay-scale" type="range" min="60" max="200" step="5" value="@((int)Math.Round(current.AlertsOverlayScale * 100))" @onchange="SetScale" /><output for="timer-overlay-scale">@((int)Math.Round(current.AlertsOverlayScale * 100)) %</output></label>
+        }
         <label for="timer-overlay-gap">@UiText.T("Abstand")<input id="timer-overlay-gap" type="range" min="4" max="48" step="1" value="@current.TimerOverlayGap" @onchange="SetGap" /><output for="timer-overlay-gap">@current.TimerOverlayGap px</output></label>
         <div class="timer-strip-switches"><label><input id="timer-overlay-seconds" type="checkbox" checked="@current.TimerOverlayShowSeconds" @onchange="SetSeconds" />@UiText.T("Sekunden")</label></div>
     </fieldset>
+    @if (ShowGeneralControls)
+    {
     <details class="timer-overlay-context-settings">
         <summary>@UiText.T("Overlay-Einstellungen")</summary>
         <InfoTip><p>@UiText.T("Die Bereiche werden bei aktivem Spielertracking erkannt.")</p></InfoTip>
         <fieldset class="timer-overlay-context-options" aria-label="@UiText.T("Overlay-Einstellungen")" disabled="@Disabled">
-            <label for="timer-overlay-worldmap"><input id="timer-overlay-worldmap" type="checkbox" checked="@current.TimerOverlayShowWorldMap" @onchange="SetWorldMap" />@UiText.T("Weltkarte")</label>
-            <label for="timer-overlay-menu"><input id="timer-overlay-menu" type="checkbox" checked="@current.TimerOverlayShowMenu" @onchange="SetMenu" />@UiText.T("Menü")</label>
-            <label for="timer-overlay-instances"><input id="timer-overlay-instances" type="checkbox" checked="@current.TimerOverlayShowInstances" @onchange="SetInstances" />@UiText.T("Instanzen")</label>
+            <label for="timer-overlay-worldmap"><input id="timer-overlay-worldmap" type="checkbox" checked="@OverlayVisibilityPolicy.Get(current, "alerts").WorldMap" @onchange="SetWorldMap" />@UiText.T("Weltkarte")</label>
+            <label for="timer-overlay-menu"><input id="timer-overlay-menu" type="checkbox" checked="@OverlayVisibilityPolicy.Get(current, "alerts").Menu" @onchange="SetMenu" />@UiText.T("Menü")</label>
+            <label for="timer-overlay-instances"><input id="timer-overlay-instances" type="checkbox" checked="@OverlayVisibilityPolicy.Get(current, "alerts").Instances" @onchange="SetInstances" />@UiText.T("Instanzen")</label>
         </fieldset>
     </details>
+    }
     <details class="timer-strip-selection" open><summary>@UiText.T("Timer auswählen")<span>@choices.Count(choice => choice.Selected)</span></summary>
         <fieldset disabled="@Disabled">
             @foreach (var group in new[] { "Events", "Bosse", "Eigene Alerts" })
@@ -67,6 +76,7 @@
 </section>
 
 @code {
+    [Parameter] public bool ShowGeneralControls { get; set; } = true;
     [Parameter] public bool Busy { get; set; }
     private bool _saving, _disposed, _error;
     private string? _feedback;
@@ -86,9 +96,9 @@
         ? Save(settings => settings.AlertsOverlayScale = Math.Clamp(value, 60, 200) / 100d) : Task.CompletedTask;
     private Task SetGap(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
         ? Save(settings => settings.TimerOverlayGap = Math.Clamp(value, 4, 48)) : Task.CompletedTask;
-    private Task SetWorldMap(ChangeEventArgs e) => Save(settings => settings.TimerOverlayShowWorldMap = e.Value is true);
-    private Task SetMenu(ChangeEventArgs e) => Save(settings => settings.TimerOverlayShowMenu = e.Value is true);
-    private Task SetInstances(ChangeEventArgs e) => Save(settings => settings.TimerOverlayShowInstances = e.Value is true);
+    private Task SetWorldMap(ChangeEventArgs e) => Save(settings => { settings.TimerOverlayShowWorldMap = e.Value is true; settings.OverlayVisibility["alerts"] = OverlayVisibilityPolicy.Get(settings, "alerts") with { WorldMap = e.Value is true }; });
+    private Task SetMenu(ChangeEventArgs e) => Save(settings => { settings.TimerOverlayShowMenu = e.Value is true; settings.OverlayVisibility["alerts"] = OverlayVisibilityPolicy.Get(settings, "alerts") with { Menu = e.Value is true }; });
+    private Task SetInstances(ChangeEventArgs e) => Save(settings => { settings.TimerOverlayShowInstances = e.Value is true; settings.OverlayVisibility["alerts"] = OverlayVisibilityPolicy.Get(settings, "alerts") with { Instances = e.Value is true }; });
     private Task SelectTimer(string key, bool selected)
     {
         if (Disabled || !Alerts.TimerOverlayChoices.Any(choice => choice.Key == key)) return Task.CompletedTask;

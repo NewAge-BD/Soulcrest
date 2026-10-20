@@ -161,6 +161,7 @@ public sealed class EventTimersDashboardTests
             Alerts = new(Path.Combine(_directory, "alerts.json"), Clock, runTimer: false);
             var services = new ServiceCollection();
             services.AddLogging();
+            services.AddSingleton<UiState>();
             services.AddSingleton(Alerts);
             services.AddSingleton(new AlertSoundPlayer(() => throw new InvalidOperationException("No playback expected"), _ => SoundPlaybacks++));
             _provider = services.BuildServiceProvider();

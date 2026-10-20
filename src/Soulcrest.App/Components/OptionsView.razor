@@ -104,58 +104,23 @@
     </section>
 
     <section class="card sv-card">
-        <div class="sv-card-head">
-            <h3>Overlays</h3>
-        </div>
-        <p class="sv-lead">@UiText.T("Einblendungen über dem Spiel. Eigene Tastenkürzel lassen sich unter Overlay-Hotkeys festlegen.")</p>
-        <p class="sv-hint">@UiText.T("Schloss im Overlay anklicken, um es zu bedienen und zu verschieben. Erneut klicken, um Klicks durchzulassen.")</p>
-        <label for="overlay-language">@UiText.T("Overlay-Sprache")</label>
-        <select id="overlay-language" value="@Settings.Current.OverlayLanguage" @onchange="SetOverlayLanguage">
-            <option value="auto">@UiText.T("Automatisch (Spielsprache)")</option>
-            <option value="de">Deutsch</option>
-            <option value="en">English</option>
+        <h3>@UiText.T("Deine Fraktion")</h3>
+        <select value="@(Settings.Current.Faction ?? "")" @onchange="@(e => Factions.Choose(Settings, (string?)e.Value))">
+            <option value="">@UiText.T("keine Angabe")</option>
+            <option value="elyos">Elyos</option>
+            <option value="asmodian">@UiText.T("Asmodier")</option>
         </select>
-        <p class="sv-hint">@UiText.T("Namen im Loot-Overlay sind unabhängig von der Oberfläche. Automatisch nutzt die erkannte oder gewählte Spielsprache; bis dahin die Namenssprache. Fehlende deutsche Namen bleiben Englisch.")</p>
-        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.ShowRoutesInGame" @onchange="@(e => Settings.Update(s => s.ShowRoutesInGame = (bool)e.Value!))" /><span><b>@UiText.T("Linien zu Zielen")</b><small>@UiText.T("auf der Spielkarte")</small></span></label>
-        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.MerchantOverlayEnabled" @onchange="@(e => Settings.Update(s => s.MerchantOverlayEnabled = (bool)e.Value!))" /><span><b>@UiText.T("Händler-Soulcounter")</b><small>@UiText.T("Soul-Zähler und Farmkarten direkt an den Pet-Angeboten des Black Cloud Merchants.")</small></span></label>
-        <p class="sv-hint" id="map-layers-legend-hint">@UiText.T("Kartensymbole wählst du im Karten-Tab in der Legende getrennt für interaktive Karte, Minimap und Weltkarte.")</p>
-        <div class="opt-toggle opt-guards">
-            <span>
-                <b>@UiText.T("Gefahrenzonen der Wachen")</b>
-                <small>@UiText.T("Roter Kreis um die Wachen an den Kibelisken (<Dawn Legion> Guard, <Vigilante Group> Guard), die Spieler der anderen Fraktion mit einem Schlag töten. Auf Minimap und Vollbildkarte.")</small>
-                <span class="opt-guard-maps">
-                    @foreach (var (id, label) in GuardMaps)
-                    {
-                        <label><input type="checkbox" checked="@Settings.Current.GuardZoneMaps.Contains(id)" @onchange="@(e => SetGuardMap(id, (bool)e.Value!))" /> @label</label>
-                    }
-                </span>
-                <label class="opt-guard-radius">
-                    @UiText.T("Radius")
-                    <input type="range" min="5" max="60" step="1" value="@Settings.Current.GuardRadiusMeters" @onchange="@(e => Settings.Update(s => s.GuardRadiusMeters = int.Parse((string)e.Value!)))" />
-                    <output>@Settings.Current.GuardRadiusMeters m</output>
-                </label>
-                <label class="opt-guard-radius">
-                    @UiText.T("Deine Fraktion")
-                    <select value="@(Settings.Current.Faction ?? "")" @onchange="@(e => Factions.Choose(Settings, (string?)e.Value))">
-                        <option value="">@UiText.T("keine Angabe")</option>
-                        <option value="elyos">Elyos</option>
-                        <option value="asmodian">@UiText.T("Asmodier")</option>
-                    </select>
-                </label>
-                <small>@UiText.T("Die Fraktion schaltet die Zonen auf der Karte der anderen Fraktion ein: Elyos auf Altgard, Asmodier auf Verteron.")</small>
-            </span>
-        </div>
-        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.OverlaysInRecordings" @onchange="@(e => Settings.Update(s => s.OverlaysInRecordings = (bool)e.Value!))" /><span><b>@UiText.T("Overlays in Aufnahmen sichtbar")</b><small>@UiText.T("Für OBS (Bildschirmaufnahme) und Screenshots. Aus: Overlays sind nur auf dem Monitor zu sehen.")</small></span></label>
+        <p class="sv-hint">@UiText.T("Die Fraktion schaltet die Zonen auf der Karte der anderen Fraktion ein: Elyos auf Altgard, Asmodier auf Verteron.")</p>
+        <OverlaySettingsLink OverlayId="map" />
     </section>
-    <OverlayHotkeyOptions />
+    <section class="card sv-card">
+        <h3>Overlay</h3>
+        <p class="sv-lead">@UiText.T("Alle Overlay-Einstellungen und der Place Mode sind im Tab Overlay zusammengefasst.")</p>
+        <OverlaySettingsLink />
+    </section>
 </div>
 
 @code {
-    private static readonly (string Id, string Label)[] GuardMaps = [("altgard", "Altgard"), ("verteron", "Verteron")];
-
-    private void SetGuardMap(string id, bool on) => Settings.Update(s =>
-        s.GuardZoneMaps = on ? s.GuardZoneMaps.Append(id).Distinct().ToArray() : s.GuardZoneMaps.Where(m => m != id).ToArray());
-
     private bool _borderBusy;
     private string? _borderStatus;
     private async Task DisableBorder()
@@ -171,13 +136,6 @@
         var language = e.Value?.ToString();
         if (language is "de" or "en")
             Settings.Update(s => { s.UiLanguage = language; s.NameLanguage = language; });
-    }
-
-    private void SetOverlayLanguage(ChangeEventArgs e)
-    {
-        var language = e.Value?.ToString();
-        if (language is "auto" or "de" or "en")
-            Settings.Update(s => s.OverlayLanguage = language);
     }
 
     protected override void OnInitialized()

@@ -1,0 +1,170 @@
+@implements IDisposable
+@using System.Globalization
+@using Soulcrest.App.Overlay
+@inject SettingsService Settings
+@inject OverlayPlacementService Placement
+@inject OverlayPreviewRenderer Preview
+@inject UiState Ui
+
+@{
+    var descriptor = OverlayRegistry.Get(_selected);
+    var layout = descriptor.CanPlace ? OverlayRegistry.ReadLayout(Settings.Current, _selected) : null;
+    var rules = descriptor.CanPlace ? OverlayVisibilityPolicy.Get(Settings.Current, _selected) : new OverlayVisibilityRules();
+}
+
+<div class="page overlay-page">
+    <header class="overlay-heading">
+        <div><span class="overlay-eyebrow">SOULCREST</span><h2>Overlay</h2><p>@UiText.T("Alle Einblendungen über dem Spiel an einem Ort.")</p></div>
+        <div class="overlay-place-actions">
+            <label for="overlay-monitor">@UiText.T("Monitor")<select id="overlay-monitor" @bind="_monitorId" disabled="@Placement.Active"><option value="">@UiText.T("Automatisch (Spielmonitor)")</option>@foreach (var monitor in Placement.Monitors) { <option value="@monitor.Id">@monitor.Label</option> }</select></label>
+            @if (Placement.Active)
+            {
+                <button type="button" class="btn primary" id="overlay-place-stop" @onclick="StopPlaceMode">@UiText.T("Place Mode beenden")</button>
+            }
+            else
+            {
+                <button type="button" class="btn primary" id="overlay-place-start" @onclick="StartPlaceMode">@UiText.T("Place Mode starten")</button>
+            }
+        </div>
+    </header>
+
+    <section class="overlay-placement-card @(Placement.Active ? "active" : "")" aria-label="Place Mode">
+        <div><strong>@UiText.T(Placement.Active ? "Place Mode aktiv" : "Overlays gemeinsam anordnen")</strong><p>@UiText.T("Der gewählte Monitor wird abgedunkelt. Alle frei platzierbaren Overlays erscheinen mit Beispieldaten und lassen sich verschieben und skalieren.")</p><small>@UiText.T("Änderungen werden nach dem Ziehen gespeichert. Escape oder Beenden schließt den Place Mode.")</small></div>
+        <div class="overlay-placement-switches"><label><input id="overlay-place-grid" type="checkbox" checked="@Placement.GridVisible" @onchange="@(e => Placement.GridVisible = e.Value is true)" />@UiText.T("Raster anzeigen")</label><label><input id="overlay-place-snap" type="checkbox" checked="@Placement.SnapToGrid" @onchange="@(e => Placement.SnapToGrid = e.Value is true)" />@UiText.T("Am Raster einrasten")</label></div>
+    </section>
+    @if (Placement.Error is { } error) { <div class="status error" role="alert">@UiText.T(error)</div> }
+    @if (_feedback is not null) { <div class="overlay-feedback" role="status" aria-busy="@_saving">@_feedback</div> }
+
+    <div class="overlay-workspace">
+        <nav class="overlay-list" aria-label="@UiText.T("Overlays auswählen")">
+            @foreach (var overlay in OverlayRegistry.All)
+            {
+                <button type="button" class="@(_selected == overlay.Id ? "selected" : "")" data-overlay-select="@overlay.Id" aria-current="@(_selected == overlay.Id ? "true" : null)" disabled="@_saving" @onclick="@(() => SelectOverlay(overlay.Id))">
+                    <span class="overlay-list-icon" aria-hidden="true">@Symbol(overlay.Id)</span><span><strong>@UiText.T(overlay.Title)</strong><small>@UiText.T(overlay.CanPlace ? "Frei platzierbar" : "An Spielinhalt gebunden")</small></span><i class="@(OverlayRegistry.IsEnabled(Settings.Current, overlay.Id) ? "enabled" : "")" aria-label="@UiText.T(OverlayRegistry.IsEnabled(Settings.Current, overlay.Id) ? "An" : "Aus")"></i>
+                </button>
+            }
+        </nav>
+
+        <main class="overlay-detail" data-overlay-detail="@_selected" aria-busy="@_saving">
+            <header class="overlay-detail-heading"><div><span class="overlay-eyebrow">@UiText.T(descriptor.CanPlace ? "Frei platzierbar" : "An Spielinhalt gebunden")</span><h3>@UiText.T(descriptor.Title)</h3></div>
+                @if (_selected != "notifications") { <label class="overlay-enabled"><input id="overlay-enabled" type="checkbox" role="switch" checked="@OverlayRegistry.IsEnabled(Settings.Current, _selected)" disabled="@_saving" @onchange="SetEnabled" />@UiText.T("Overlay anzeigen")</label> }
+            </header>
+
+            <div class="overlay-preview" aria-label="@UiText.T("Overlay-Vorschau")"><span>@UiText.T("Vorschau")</span><img src="@PreviewSource" style="@(descriptor.CanPlace ? FormattableString.Invariant($"zoom:{layout!.Scale};") : null)" alt="@UiText.F("Vorschau: {0}", UiText.T(descriptor.Title))" /></div>
+            @if (!descriptor.CanPlace)
+            {
+                <p class="overlay-bound-note">@UiText.T("Dieses Overlay folgt erkannten Spielinhalten. Seine Position und Größe werden automatisch daran ausgerichtet. Die Vorschau verändert keine Spiel- oder Trackingdaten.")</p>
+            }
+
+            @if (descriptor.CanPlace && layout is not null)
+            {
+                <section class="overlay-settings-card"><h4>@UiText.T("Größe & Position")</h4>
+                    <fieldset disabled="@_saving" class="overlay-layout-controls">
+                        <label for="overlay-scale">@UiText.T("Skalierung")<input id="overlay-scale" type="range" min="@((int)Math.Round(descriptor.MinScale * 100))" max="@((int)Math.Round(descriptor.MaxScale * 100))" step="1" value="@((int)Math.Round(layout.Scale * 100))" @onchange="SetScale" /><output for="overlay-scale">@((int)Math.Round(layout.Scale * 100)) %</output></label>
+                        @if (layout.Width is { } width && descriptor.MinWidth is { } minWidth && descriptor.MaxWidth is { } maxWidth)
+                        {
+                            <label for="overlay-width">@UiText.T("Breite")<input id="overlay-width" type="range" min="@minWidth" max="@maxWidth" step="1" value="@width" @onchange="SetWidth" /><output for="overlay-width">@((int)Math.Round(width * layout.Scale)) px</output></label>
+                        }
+                        <div class="overlay-position-fields"><label for="overlay-x">X<input id="overlay-x" type="number" value="@(layout.X)" @onchange="@(e => SetCoordinate(e, true))" /></label><label for="overlay-y">Y<input id="overlay-y" type="number" value="@(layout.Y)" @onchange="@(e => SetCoordinate(e, false))" /></label><button type="button" class="btn" @onclick="BringToMonitor">@UiText.T("Auf Monitor holen")</button><button type="button" class="btn" @onclick="ResetLayout">@UiText.T("Layout zurücksetzen")</button></div>
+                    </fieldset>
+                </section>
+                <section class="overlay-settings-card"><div class="overlay-rules-heading"><h4>@UiText.T("Sichtbarkeitsregeln")</h4><InfoTip><p>@UiText.T("Treffen mehrere Regeln zu, müssen alle freigegeben sein. Ohne Minimap außerhalb einer Instanz gelten Menü und „Ohne erkannte Minimap“ gemeinsam.")</p></InfoTip></div><p>@UiText.T("In der offenen Spielwelt sichtbar. Diese Regeln erlauben die Anzeige zusätzlich in anderen Bereichen; benötigte Live-Daten müssen weiterhin vorliegen.")</p>
+                    <fieldset class="overlay-visibility-options" disabled="@_saving"><label><input id="overlay-context-worldmap" type="checkbox" checked="@rules.WorldMap" @onchange="@(e => SetRule("worldmap", e.Value is true))" />@UiText.T("Weltkarte")</label><label><input id="overlay-context-menu" type="checkbox" checked="@rules.Menu" @onchange="@(e => SetRule("menu", e.Value is true))" />@UiText.T("Menü")</label><label><input id="overlay-context-instances" type="checkbox" checked="@rules.Instances" @onchange="@(e => SetRule("instances", e.Value is true))" />@UiText.T("Instanzen")</label><label><input id="overlay-context-missing-minimap" type="checkbox" checked="@rules.MissingMinimap" @onchange="@(e => SetRule("missing", e.Value is true))" />@UiText.T("Ohne erkannte Minimap")</label></fieldset>
+                </section>
+            }
+
+            @switch (_selected)
+            {
+                case "loot":
+                    <p class="overlay-data-note">@UiText.T("Erscheint bei neuen Souls und bestätigten Pet-Aufstiegen. Fokus und Sammlung verwaltest du unter Pets.")</p>
+                    break;
+                case "boss":
+                    <section class="overlay-settings-card"><h4>@UiText.T("Spawnliste")</h4><label class="check"><input id="boss-overlay-enabled" type="checkbox" checked="@Settings.Current.BossOverlayEnabled" @onchange="@(e => Save(s => s.BossOverlayEnabled = e.Value is true))" />@UiText.T("Spawnliste anzeigen")</label><label class="overlay-number-field" for="boss-overlay-count">@UiText.T("Anzahl der Spawns")<input id="boss-overlay-count" type="number" min="1" max="12" value="@Settings.Current.BossOverlayCount" @onchange="SetBossCount" /></label><p>@UiText.T("Boss Rush steuert die Wegführung. Vorwarnzeiten und Töne stellst du weiterhin bei den Boss-Erinnerungen ein.")</p></section>
+                    break;
+                case "leveling":
+                    <p class="overlay-data-note">@UiText.T("Zeigt die aktive Leveling-Route. Route, Charakter und Fortschritt bleiben im Karten-Tab.")</p>
+                    break;
+                case "alerts":
+                    <TimerOverlaySettings ShowGeneralControls="false" Busy="@_saving" />
+                    break;
+                case "notifications":
+                    <p class="overlay-data-note">@UiText.T("Banner werden pro Erinnerung ausgewählt. Zeitpläne, Anzeigedauer und Töne bleiben unter Alerts und Boss Rush.")</p>
+                    break;
+                case "event-timeline":
+                    <section class="overlay-settings-card"><label class="overlay-number-field" for="event-timeline-hours">@UiText.T("Zeitraum")<select id="event-timeline-hours" value="@Settings.Current.EventTimelineHours" @onchange="SetTimelineHours">@foreach (var hours in new[] { 12, 24, 48 }) { <option value="@hours">@hours h</option> }</select></label></section>
+                    break;
+                case "map":
+                    <section class="overlay-settings-card"><h4>@UiText.T("Karteninhalt")</h4><label class="check"><input id="map-overlay-routes" type="checkbox" checked="@Settings.Current.ShowRoutesInGame" @onchange="@(e => Save(s => s.ShowRoutesInGame = e.Value is true))" />@UiText.T("Linien zu Zielen")</label><p id="map-layers-legend-hint">@UiText.T("Kartensymbole wählst du im Karten-Tab in der Legende getrennt für interaktive Karte, Minimap und Weltkarte.")</p><button type="button" class="btn" @onclick="@(() => Ui.Navigate("map"))">@UiText.T("Kartenlegende öffnen") ↗</button></section>
+                    <section class="overlay-settings-card"><h4>@UiText.T("Gefahrenzonen der Wachen")</h4><div class="overlay-visibility-options">@foreach (var map in GuardMaps) { <label><input type="checkbox" checked="@Settings.Current.GuardZoneMaps.Contains(map.Id)" @onchange="@(e => SetGuardMap(map.Id, e.Value is true))" />@map.Label</label> }</div><label for="guard-overlay-radius">@UiText.T("Radius")<input id="guard-overlay-radius" type="range" min="5" max="60" value="@Settings.Current.GuardRadiusMeters" @onchange="SetGuardRadius" /><output for="guard-overlay-radius">@Settings.Current.GuardRadiusMeters m</output></label><p>@UiText.T("Deine Fraktion legst du im Setup oder unter Optionen fest.")</p></section>
+                    break;
+                case "merchant":
+                    <p class="overlay-data-note">@UiText.T("Soul-Zähler und Farmkarten direkt an den Pet-Angeboten des Black Cloud Merchants.")</p>
+                    break;
+            }
+            @if (_selected != "merchant") { <OverlayHotkeyOptions OverlayId="@_selected" ShowVisibility="false" /> }
+        </main>
+    </div>
+
+    <section class="overlay-common-settings"><h3>@UiText.T("Gemeinsame Einstellungen")</h3><div class="overlay-common-grid"><label for="overlay-show-mode">@UiText.T("Wann anzeigen")<select id="overlay-show-mode" value="@Settings.Current.OverlayShowMode" disabled="@_saving" @onchange="SetShowMode"><option value="foreground">@UiText.T("Wenn Aion2 im Vordergrund ist")</option><option value="always">@UiText.T("Immer")</option></select></label><label for="overlay-language">@UiText.T("Overlay-Sprache")<select id="overlay-language" value="@Settings.Current.OverlayLanguage" @onchange="SetLanguage"><option value="auto">@UiText.T("Automatisch (Spielsprache)")</option><option value="de">Deutsch</option><option value="en">English</option></select></label><label class="check"><input id="overlays-in-recordings" type="checkbox" checked="@Settings.Current.OverlaysInRecordings" @onchange="@(e => Save(s => s.OverlaysInRecordings = e.Value is true))" />@UiText.T("Overlays in Aufnahmen sichtbar")</label></div><p>@UiText.T("Schloss oder Alt gibt die normalen Overlays zur Bedienung frei. Im Place Mode sind alle freien Panels direkt bearbeitbar.")</p></section>
+</div>
+
+@code {
+    private static readonly (string Id, string Label)[] GuardMaps = [("altgard", "Altgard"), ("verteron", "Verteron")];
+    private string _selected = "loot", _monitorId = "";
+    private string? _feedback, _preview;
+    private bool _saving, _disposed;
+    private string PreviewSource => _preview ??= Preview.ToDataUri(_selected, Settings.Current, 620);
+    protected override void OnInitialized()
+    {
+        if (Ui.OverlaySection is { } id && OverlayRegistry.All.Any(item => item.Id == id)) _selected = id;
+        if (OverlayRegistry.Get(_selected).CanPlace) Placement.SelectedOverlayId = _selected;
+        Placement.RefreshMonitors();
+        Settings.Changed += Refresh; Placement.Changed += Refresh; Ui.Changed += NavigateToSection;
+    }
+    private void NavigateToSection() { if (Ui.Tab == "overlay" && Ui.OverlaySection is { } id && OverlayRegistry.All.Any(item => item.Id == id)) SelectOverlay(id); }
+    private void SelectOverlay(string id) { _selected = id; _preview = null; if (OverlayRegistry.Get(id).CanPlace) Placement.SelectedOverlayId = id; }
+    private void StartPlaceMode() { Placement.Start(string.IsNullOrEmpty(_monitorId) ? null : _monitorId); }
+    private void StopPlaceMode() => Placement.Stop();
+    private void Refresh() { if (!_disposed) { _preview = null; _ = InvokeAsync(StateHasChanged); } }
+    private Task SetEnabled(ChangeEventArgs e) => Save(s => OverlayRegistry.SetEnabled(s, _selected, e.Value is true));
+    private Task SetShowMode(ChangeEventArgs e) => e.Value?.ToString() is "foreground" or "always" ? Save(s => s.OverlayShowMode = e.Value!.ToString()!) : Task.CompletedTask;
+    private Task SetLanguage(ChangeEventArgs e) => e.Value?.ToString() is "auto" or "de" or "en" ? Save(s => s.OverlayLanguage = e.Value!.ToString()!) : Task.CompletedTask;
+    private Task SetBossCount(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) ? Save(s => s.BossOverlayCount = Math.Clamp(n, 1, 12)) : Task.CompletedTask;
+    private Task SetTimelineHours(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) && n is 12 or 24 or 48 ? Save(s => s.EventTimelineHours = n) : Task.CompletedTask;
+    private Task SetGuardRadius(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) ? Save(s => s.GuardRadiusMeters = Math.Clamp(n, 5, 60)) : Task.CompletedTask;
+    private Task SetGuardMap(string id, bool enabled) => Save(s => s.GuardZoneMaps = enabled ? s.GuardZoneMaps.Append(id).Distinct().ToArray() : s.GuardZoneMaps.Where(item => item != id).ToArray());
+    private Task SetRule(string context, bool enabled) => Save(s =>
+    {
+        var old = OverlayVisibilityPolicy.Get(s, _selected);
+        s.OverlayVisibility[_selected] = context switch { "worldmap" => old with { WorldMap = enabled }, "menu" => old with { Menu = enabled }, "instances" => old with { Instances = enabled }, _ => old with { MissingMinimap = enabled } };
+    });
+    private Task SetScale(ChangeEventArgs e) => double.TryParse(e.Value?.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var n) ? SaveLayout(OverlayRegistry.ReadLayout(Settings.Current, _selected) with { Scale = n / 100d }) : Task.CompletedTask;
+    private Task SetWidth(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) ? SaveLayout(OverlayRegistry.ReadLayout(Settings.Current, _selected) with { Width = n }) : Task.CompletedTask;
+    private Task SetCoordinate(ChangeEventArgs e, bool x) => int.TryParse(e.Value?.ToString(), out var n) ? SaveLayout(x ? OverlayRegistry.ReadLayout(Settings.Current, _selected) with { X = n } : OverlayRegistry.ReadLayout(Settings.Current, _selected) with { Y = n }) : Task.CompletedTask;
+    private Task ResetLayout() => SaveLayout(OverlayRegistry.ReadLayout(new AppSettings(), _selected));
+    private Task BringToMonitor()
+    {
+        var monitor = Placement.Monitors.FirstOrDefault(item => item.Id == (string.IsNullOrEmpty(_monitorId) ? Placement.PreferredMonitorId : _monitorId)) ?? Placement.Monitor ?? Placement.Monitors.FirstOrDefault();
+        if (monitor is null) return Task.CompletedTask;
+        return SaveLayout(OverlayRegistry.ReadLayout(Settings.Current, _selected) with { X = monitor.Bounds.Left + 40, Y = monitor.Bounds.Top + 80 });
+    }
+    private async Task SaveLayout(OverlayLayout layout)
+    {
+        if (_saving) return;
+        _saving = true; _feedback = UiText.T("Wird gespeichert …");
+        var id = _selected;
+        try { await Task.Run(() => Placement.UpdateLayout(id, layout)); _feedback = UiText.T("Overlay-Einstellungen gespeichert."); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _feedback = UiText.T("Overlay-Einstellungen konnten nicht gespeichert werden."); }
+        finally { _saving = false; }
+    }
+    private async Task Save(Action<AppSettings> update)
+    {
+        if (_saving) return;
+        _saving = true; _feedback = UiText.T("Wird gespeichert …");
+        try { await Task.Run(() => Settings.Update(update)); _feedback = UiText.T("Overlay-Einstellungen gespeichert."); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _feedback = UiText.T("Overlay-Einstellungen konnten nicht gespeichert werden."); }
+        finally { _saving = false; }
+    }
+    private static string Symbol(string id) => id switch { "loot" => "✦", "boss" => "◆", "leveling" => "➜", "alerts" => "◷", "notifications" => "◇", "event-timeline" => "↔", "map" => "⌖", _ => "▱" };
+    public void Dispose() { _disposed = true; Settings.Changed -= Refresh; Placement.Changed -= Refresh; Ui.Changed -= NavigateToSection; Placement.Stop(); }
+}

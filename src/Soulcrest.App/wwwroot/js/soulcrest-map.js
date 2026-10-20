@@ -49,12 +49,14 @@ window.soulcrestMap = (() => {
     let markedPets = new Set();
     let spawnLayer = null;
     let spawnKey = '';
-    // Progression mode: always the nearest spawn of a pet that has fewer souls than the goal (5/30/105).
+    // Progression mode: eligible pets by distance/completion, optionally by map-wide and local spawn density.
     let progression = { enabled: false, goal: 5, souls: {} };
     let explorationPlaces = [];
     // Markers the progression mode may pick, rebuilt only when map, souls or exploration change: the
     // nearest one is looked for on every player position (10 per second), not all 25,000 markers.
     let progressionCandidates = null;
+    // Geometry only: immutable map payload -> densest pet-symbol indexes, shared across soul/settings updates.
+    const progressionDensityAreas = new WeakMap();
     let progressionTarget = null;   // {petId, x, y, name}
 
     // Icons grow when zooming in (user request 2026-10-03): ×1.3 per zoom level above the overview,
@@ -697,38 +699,39 @@ window.soulcrestMap = (() => {
 
     // Any selection of 'pets', 'dungeon' and 'stronghold' (user request 2026-10-10). Pets: nearest below the
     // goal, or with petsClosest the pet missing the fewest souls to finish its level, the nearest one on a
-    // tie (user request 2026-10-05). Between the kinds the nearest open target comes first.
+    // tie (user request 2026-10-05). Density can precede these priorities (2026-10-20). Places compete by distance.
     const includes = kind => (progression.kinds || []).includes(kind);
     const isPlace = target => !!target && target.group === 'Locations';
 
-    function setProgression(enabled, goal, soulsJson, kindsJson = '["pets"]', petsClosest = false, character = '', missingJson = '{}') {
+    function setProgression(enabled, goal, soulsJson, kindsJson = '["pets"]', petsClosest = false, character = '', missingJson = '{}', petsHighestDensity = false, spawnCountsJson = '{}') {
         if (progression.character !== character) {
             progressionTarget = null;
             map?.closePopup();
         }
-        progression = { enabled, goal, souls: JSON.parse(soulsJson || '{}'), kinds: JSON.parse(kindsJson || '[]'), petsClosest, character, missing: JSON.parse(missingJson || '{}') };
+        progression = { enabled, goal, souls: JSON.parse(soulsJson || '{}'), kinds: JSON.parse(kindsJson || '[]'), petsClosest, character, missing: JSON.parse(missingJson || '{}'), petsHighestDensity, spawnCounts: JSON.parse(spawnCountsJson || '{}'), spawnMap: current?.id };
         progressionCandidates = null;
         drawTargets();
         updateProgression();
     }
 
-    // Nearest spawn (pet spawn or soul monster) of a pet below the goal, measured from the player, or from
-    // the view centre while the player is not on this map. Reports changes to .NET for the in-game overlay.
+    // Density first (when selected), then completion and distance to the best area. Places still compete
+    // by distance to that actual target. Without a player, use the view centre. Report the chosen point to .NET.
     function updateProgression() {
         let next = null;
         if (progression.enabled && current) {
             const [ox, oy] = player ? fromLatLng(player.getLatLng()) : fromLatLng(map.getCenter());
             if (!progressionCandidates) progressionCandidates = buildProgressionCandidates();
-            // The best pet (fewest missing souls first when petsClosest) and the nearest place; then the nearer one.
-            let pet = null, petDistance = Infinity, fewest = Infinity, place = null, placeDistance = Infinity;
+            let pet = null, petDistance = Infinity, mostSpawns = -Infinity, fewest = Infinity, place = null, placeDistance = Infinity;
             for (const c of progressionCandidates) {
                 const d = (c.x - ox) * (c.x - ox) + (c.y - oy) * (c.y - oy);
                 if (isPlace(c)) {
                     if (d < placeDistance) { placeDistance = d; place = c; }
                     continue;
                 }
-                const missing = c.missing ?? 0;
-                if (missing < fewest || (missing === fewest && d < petDistance)) { fewest = missing; petDistance = d; pet = c; }
+                const missing = c.missing ?? 0, spawns = c.spawnCount ?? 0;
+                if (spawns > mostSpawns || (spawns === mostSpawns && (missing < fewest || (missing === fewest && d < petDistance)))) {
+                    mostSpawns = spawns; fewest = missing; petDistance = d; pet = c;
+                }
             }
             next = petDistance <= placeDistance ? pet : place;
         }
@@ -750,10 +753,11 @@ window.soulcrestMap = (() => {
             if (m) result.push({ petId: p.id, x: m[1], y: m[2], name: nameOf(m), group: 'Locations' });
         }
         if (!includes('pets')) return result;
+        const denseAreas = progression.petsHighestDensity ? densestPetAreas() : null;
         // The pet symbol is the target (user report: a nearby soul monster looked like a miss).
         // Soul monsters only stand in for pets without a symbol on this map.
         const withSymbol = new Set(current.markers.filter(m => m[6] && current.categories[m[0]].group === 'Pets').map(m => m[6]));
-        for (const m of current.markers) {
+        for (const [index, m] of current.markers.entries()) {
             const petId = m[6];
             if (!petId) continue;
             const closest = !!progression.petsClosest;
@@ -761,9 +765,50 @@ window.soulcrestMap = (() => {
             if (closest ? !(progression.missing[petId] > 0) : (progression.souls[petId] || 0) >= progression.goal) continue;
             const group = current.categories[m[0]].group;
             if (group !== 'Pets' && !(group === 'Monsters' && !withSymbol.has(petId))) continue;
-            result.push({ petId, x: m[1], y: m[2], name: m[3] || petId, group, missing: closest ? progression.missing[petId] : 0 });
+            if (denseAreas && !denseAreas.has(index)) continue;
+            const count = progression.spawnMap === current.id ? progression.spawnCounts?.[petId] : 0;
+            const spawnCount = progression.petsHighestDensity && Number.isFinite(count) && count > 0 ? count : 0;
+            result.push({ petId, x: m[1], y: m[2], name: m[3] || petId, group, missing: closest ? progression.missing[petId] : 0, spawnCount });
         }
         return result;
+    }
+
+    // User request 2026-10-20: the most populated 200-metre area around an existing pet symbol.
+    // Keep all equally dense symbols so movement can choose the nearest without recounting spawns.
+    function densestPetAreas() {
+        const metres = current.def?.metersPerPixel;
+        if (!Number.isFinite(metres) || metres <= 0) return null; // retain nearest-symbol guidance without a known scale
+        const cached = progressionDensityAreas.get(current);
+        if (cached && cached.metres === metres) return cached.indexes;
+        const radiusSquared = (200 / metres) ** 2;
+        if (!Number.isFinite(radiusSquared)) return null;
+        const pets = new Map();
+        for (const [index, m] of current.markers.entries()) {
+            const petId = m[6], group = current.categories[m[0]].group;
+            if (!petId || (group !== 'Pets' && group !== 'Monsters')) continue;
+            if (!pets.has(petId)) pets.set(petId, { symbols: [], monsters: [] });
+            pets.get(petId)[group === 'Pets' ? 'symbols' : 'monsters'].push(index);
+        }
+        const indexes = new Set();
+        for (const { symbols, monsters } of pets.values()) {
+            const areas = symbols.length ? symbols : monsters;
+            let bestCount = -1, best = [];
+            for (const index of areas) {
+                const centre = current.markers[index];
+                let count = 0;
+                for (const spawn of monsters) {
+                    const m = current.markers[spawn];
+                    const distanceSquared = (m[1] - centre[1]) ** 2 + (m[2] - centre[2]) ** 2;
+                    // Roundoff at non-integral map scales must not drop a point exactly 200 metres away.
+                    if (distanceSquared <= radiusSquared * (1 + 1e-12)) count++;
+                }
+                if (count > bestCount) { bestCount = count; best = [index]; }
+                else if (count === bestCount) best.push(index);
+            }
+            for (const index of best) indexes.add(index);
+        }
+        progressionDensityAreas.set(current, { metres, indexes });
+        return indexes;
     }
 
     function flyToProgression() {

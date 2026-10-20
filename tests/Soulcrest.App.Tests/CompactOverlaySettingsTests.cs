@@ -20,7 +20,7 @@ public sealed class CompactOverlaySettingsTests : IDisposable
     {
         File.Delete(AppPaths.SettingsFile);
         var current = new SettingsService().Current;
-        Assert.Equal(4, current.SettingsRevision);
+        Assert.Equal(5, current.SettingsRevision);
         Assert.Equal((104, 36), (current.AlertsOverlayX, current.AlertsOverlayY));
         Assert.Equal(340, current.AlertsOverlayWidth);
         Assert.Equal(720, current.EventTimelineOverlayWidth);
@@ -48,7 +48,7 @@ public sealed class CompactOverlaySettingsTests : IDisposable
             BossReminderOverrides = new() { ["fixture-boss"] = new() { Enabled = false, LeadSeconds = 300 } }
         });
         var settings = new SettingsService();
-        Assert.Equal(4, settings.Current.SettingsRevision);
+        Assert.Equal(5, settings.Current.SettingsRevision);
         Assert.Equal(-900, settings.Current.AlertNotificationsX);
         Assert.Equal(175, settings.Current.AlertNotificationsY);
         Assert.Equal(865, settings.Current.AlertNotificationsWidth);

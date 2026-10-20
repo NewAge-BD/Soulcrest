@@ -1,0 +1,9 @@
+@inject UiState Ui
+
+<button type="button" class="overlay-settings-link" data-overlay-link="@(OverlayId ?? "loot")" @onclick="@(() => Ui.ShowOverlay(OverlayId))">@UiText.T(Text ?? Label) <span aria-hidden="true">↗</span></button>
+
+@code {
+    [Parameter] public string? OverlayId { get; set; }
+    [Parameter] public string? Text { get; set; }
+    private string Label => OverlayId switch { "boss" => "Spawn-Overlay einstellen", "leveling" => "Leveling-Overlay einstellen", "alerts" => "Timer-Leiste einstellen", "notifications" => "Benachrichtigungsbanner einstellen", "event-timeline" => "Timeline-Overlay einstellen", "map" => "Karten-Overlay einstellen", _ => "Overlay-Einstellungen öffnen" };
+}

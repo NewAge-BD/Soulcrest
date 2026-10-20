@@ -24,6 +24,9 @@ public sealed class MainForm : Form
     private readonly RouteOverlayForm _routeOverlay;
     private readonly MerchantOverlayForm _merchantOverlay;
     private readonly SettingsService _settings;
+    private readonly OverlayPlacementService _placement;
+    private OverlayPlacementForm? _placementWindow;
+    private bool _placementPresented;
     private readonly TrackerService _tracker;
     private readonly MapTrackingService _map;
     private readonly Capture.GameCaptureService _gameCapture;
@@ -35,6 +38,8 @@ public sealed class MainForm : Form
     private bool _overlayKeyboardStarted;
     private bool _overlaysStarted;
     private bool? _lastAlt, _lastShift;
+    private long _foregroundCheckedAt;
+    private bool _gameInForeground;
 
     public IServiceProvider Services => _services;
 
@@ -55,6 +60,8 @@ public sealed class MainForm : Form
         services.AddWindowsFormsBlazorWebView();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<OverlayHotkeyService>();
+        services.AddSingleton<OverlayPlacementService>();
+        services.AddSingleton<OverlayPreviewRenderer>();
         services.AddSingleton<Capture.GameCaptureService>();
         services.AddSingleton<ProgressService>();
         services.AddSingleton<Network.NetworkLootService>();
@@ -146,6 +153,9 @@ public sealed class MainForm : Form
             _services.GetRequiredService<ProgressService>());
         _overlayInteractionTimer.Tick += (_, _) => UpdateOverlayState();
         OverlayInteraction.Changed += ScheduleOverlayState;
+        _placement = _services.GetRequiredService<OverlayPlacementService>();
+        _placement.RefreshMonitors(Bounds);
+        _placement.Changed += PlacementStateChanged;
     }
 
     private void UpdateLanguage()
@@ -228,18 +238,27 @@ public sealed class MainForm : Form
     internal void UpdateOverlayState()
     {
         if (_closing || _cleanupStarted) return;
-        // Follow the minimap's existing detection/hold rules, including menu transitions.
-        // Disabled tracking cannot establish a hidden minimap and must leave the HUD usable.
-        var minimapHidden = _map.Running && !_map.Found && !_map.WorldMapOpen;
-        var escMenuOpen = _map.Running && _map.EscMenuOpen;
-        var suppressed = _map.WorldMapOpen || _map.InInstance || minimapHidden || escMenuOpen;
-        _overlay.SetSuppressed(suppressed);
-        _levelingOverlay.SetSuppressed(suppressed);
-        _bossOverlay.SetSuppressed(minimapHidden || escMenuOpen);
-        _alertsOverlay.SetSuppressed(TimerOverlayVisibility.IsSuppressed(_settings.Current,
-            _map.Running, _map.Found, _map.WorldMapOpen, _map.EscMenuOpen, _map.InInstance));
-        _eventTimelineOverlay.SetSuppressed(_settings.Current.EventTimelineFollowMinimap && (minimapHidden || escMenuOpen));
-        _routeOverlay.SetSuppressed(escMenuOpen);
+        if (_placement.Active) { SetOverlayInteractionEnabled(false); return; }
+        if (_overlaysStarted)
+        {
+            var now = Environment.TickCount64;
+            if (_foregroundCheckedAt == 0 || now - _foregroundCheckedAt >= 100)
+            {
+                _gameInForeground = Soulcrest.App.Capture.MonitorCapture.ForegroundGameWindowBounds() is not null;
+                _foregroundCheckedAt = now;
+            }
+            UpdateForegroundVisibility(_gameInForeground);
+        }
+        var context = new OverlayContext(_map.Running, _map.Found, _map.WorldMapOpen, _map.EscMenuOpen, _map.InInstance);
+        bool Suppressed(string id) => OverlayVisibilityPolicy.IsSuppressed(_settings.Current, id, context);
+        _overlay.SetSuppressed(Suppressed("loot"));
+        _levelingOverlay.SetSuppressed(Suppressed("leveling"));
+        _bossOverlay.SetSuppressed(Suppressed("boss"));
+        _alertsOverlay.SetSuppressed(Suppressed("alerts"));
+        _alertNotifications.SetSuppressed(Suppressed("notifications"));
+        _eventTimelineOverlay.SetSuppressed(Suppressed("event-timeline"));
+        _routeOverlay.SetSuppressed(_map.Running && _map.EscMenuOpen);
+        var suppressed = Suppressed("loot");
         var alt = OverlayInteraction.IsAltHeld;
         var shift = OverlayInteraction.IsShiftHeld;
         SetOverlayInteractionEnabled(alt);
@@ -251,6 +270,19 @@ public sealed class MainForm : Form
         }
     }
 
+    internal void UpdateForegroundVisibility(bool gameInForeground)
+    {
+        var suppressed = OverlayVisibilityPolicy.IsForegroundSuppressed(_settings.Current, gameInForeground);
+        _overlay.SetForegroundSuppressed(suppressed);
+        _bossOverlay.SetForegroundSuppressed(suppressed);
+        _levelingOverlay.SetForegroundSuppressed(suppressed);
+        _alertsOverlay.SetForegroundSuppressed(suppressed);
+        _alertNotifications.SetForegroundSuppressed(suppressed);
+        _eventTimelineOverlay.SetForegroundSuppressed(suppressed);
+        _routeOverlay.SetForegroundSuppressed(suppressed);
+        _merchantOverlay.SetForegroundSuppressed(suppressed);
+    }
+
     private void ScheduleOverlayState()
     {
         if (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) return;
@@ -258,11 +290,60 @@ public sealed class MainForm : Form
         catch (InvalidOperationException) when (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) { }
     }
 
+    private void PlacementStateChanged()
+    {
+        if (_closing || _cleanupStarted || !IsHandleCreated || !_overlaysStarted || SmokeTest.Enabled) return;
+        if (InvokeRequired)
+        {
+            try { BeginInvoke(PlacementStateChanged); }
+            catch (InvalidOperationException) when (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) { }
+            return;
+        }
+        if (_placementPresented == _placement.Active) return;
+        _placementPresented = _placement.Active;
+        if (_placementPresented)
+        {
+            try
+            {
+                SetOverlayPlacementHidden(true);
+                _placementWindow = new OverlayPlacementForm(_settings, _placement, _services.GetRequiredService<OverlayPreviewRenderer>());
+                _placementWindow.FormClosed += (_, _) => _placement.Stop();
+                _placementWindow.Show(this);
+            }
+            catch (Exception error) when (error is InvalidOperationException or ArgumentException
+                or System.Runtime.InteropServices.ExternalException or IOException or UnauthorizedAccessException or OutOfMemoryException)
+            {
+                LogFile.Append("overlay-placement.log", $"{DateTime.Now:O} placement startup: {error.GetType().Name}{Environment.NewLine}");
+                _placement.Fail("Place Mode konnte nicht geöffnet werden.");
+            }
+        }
+        else
+        {
+            var window = _placementWindow;
+            _placementWindow = null;
+            if (window is { IsDisposed: false, PlacementClosing: false }) { window.Close(); window.Dispose(); }
+            UpdateOverlayState();
+            SetOverlayPlacementHidden(false);
+        }
+    }
+
+    private void SetOverlayPlacementHidden(bool hidden)
+    {
+        _overlay.SetPlacementHidden(hidden);
+        _bossOverlay.SetPlacementHidden(hidden);
+        _levelingOverlay.SetPlacementHidden(hidden);
+        _alertsOverlay.SetPlacementHidden(hidden);
+        _alertNotifications.SetPlacementHidden(hidden);
+        _eventTimelineOverlay.SetPlacementHidden(hidden);
+        _routeOverlay.SetPlacementHidden(hidden);
+        _merchantOverlay.SetPlacementHidden(hidden);
+    }
+
     private void StartOverlayKeyboard() => _overlayKeyboardStarted = OverlayInteraction.StartKeyboard(Handle);
 
     private void ExecuteOverlayHotkey(string action)
     {
-        if (_closing || _cleanupStarted) return;
+        if (_closing || _cleanupStarted || _placement.Active) return;
         switch (action)
         {
             case "loot.toggle": ToggleOverlay(); return;
@@ -334,6 +415,7 @@ public sealed class MainForm : Form
     {
         base.OnResizeEnd(e);
         SaveWindowBounds();
+        _placement.RefreshMonitors(Bounds);
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
@@ -347,6 +429,8 @@ public sealed class MainForm : Form
         base.OnFormClosing(e);
         if (e.Cancel || _cleanupStarted) return;
         _closing = true;
+        _placementWindow?.Close();
+        _placement.Stop();
         _overlaysStarted = false;
         _overlayInteractionTimer.Stop();
         StopOverlayKeyboard();
@@ -387,6 +471,9 @@ public sealed class MainForm : Form
         _cleanupStarted = true;
         _overlaysStarted = false;
         OverlayInteraction.Changed -= ScheduleOverlayState;
+        _placement.Changed -= PlacementStateChanged;
+        _placementWindow?.Dispose();
+        _placement.Stop();
         _overlayInteractionTimer.Dispose();
         StopOverlayKeyboard();
         _settings.Changed -= UpdateLanguage;

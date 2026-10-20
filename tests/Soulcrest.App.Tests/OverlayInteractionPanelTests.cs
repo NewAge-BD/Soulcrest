@@ -185,6 +185,8 @@ public sealed class OverlayInteractionPanelTests : IDisposable
         {
             var settings = main.Services.GetRequiredService<SettingsService>();
             settings.Current.OverlayEnabled = true;
+            settings.Current.OverlayX = behind.Left;
+            settings.Current.OverlayY = behind.Top;
             var progress = main.Services.GetRequiredService<ProgressService>();
             ((List<LoggedSoul>)GetField(progress, "_recent")!).Insert(0,
                 new(DateTimeOffset.Now, "synthetic-pointer-pet", 1, "network", "synthetic notification"));

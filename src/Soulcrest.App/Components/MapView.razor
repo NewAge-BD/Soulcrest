@@ -61,6 +61,7 @@
         <h3 class="layers-head"><span>@UiText.T("Ebenen")</span> <small>@_markerCount Marker</small>
             <InfoTip>@UiText.T("Monster-Ebenen sind anfangs ausgeblendet. Ein Pet aus der Pet-Liste („Karte“) hebt seine Spawns und Quellmonster hervor.")</InfoTip></h3>
         <div class="legend-surfaces" aria-hidden="true"><span>@UiText.T("Anzeigen auf")</span><abbr title="@UiText.T("Minimap")">@UiText.T("Minimap")</abbr><abbr title="@UiText.T("Interaktive Karte")">@UiText.T("Karte")</abbr><abbr title="@UiText.T("Worldmap")">@UiText.T("Worldmap")</abbr></div>
+        <div class="map-overlay-shortcut"><OverlaySettingsLink OverlayId="map" /></div>
         <div class="layers">
             @foreach (var group in _groups)
             {
@@ -231,6 +232,8 @@
                     <p>@UiText.T("Führt zum nächsten offenen Ziel auf dieser Karte. Ohne Spielerposition zählt die Kartenmitte.")</p>
                     <p>@UiText.T("Mehrere Ziele: Das nächstgelegene offene Ziel kommt zuerst.")</p>
                     <p>@UiText.T("Führt zum Pet, dem die wenigsten Souls zur vollen Stufe fehlen; bei Gleichstand zum nächstgelegenen.")</p>
+                    <p>@UiText.T("Höchste Mob-Dichte zuerst: Wählt das passende Pet mit den meisten Monster-Spawnpunkten auf dieser Karte. Die Wegführung führt zu seinem Pet-Symbol mit den meisten zugehörigen Spawns im Umkreis von 200 Metern. Ohne Pet-Symbol werden die Monster-Spawns als Zielpunkte geprüft.")</p>
+                    <p>@UiText.T("Bei gleicher Gesamtzahl entscheiden gegebenenfalls die fehlenden Souls und danach die Entfernung zum dichtesten Bereich. Gleich dichte Bereiche werden nach Entfernung gewählt. Nähere Dungeons und Strongholds bleiben vorrangig.")</p>
                     <p>@UiText.T("Die Wegführung verändert keinen Dungeon- oder Garnisonsfortschritt. Netzwerkdaten und manuelle Korrekturen werden in der Erkundungsübersicht verwaltet; unbestätigte Netzwerkzustände bleiben unbestätigt.")</p>
                 </InfoTip>
             </div>
@@ -252,6 +255,9 @@
                     <option value="105">@UiText.T("105 Souls · max")</option>
                     <option value="closest">@UiText.T("Am nächsten an der vollen Stufe")</option>
                 </select>
+            </div>
+            <div class="tile-field progression-kinds">
+                <label class="chip-check" for="progression-highest-density"><input id="progression-highest-density" type="checkbox" checked="@Settings.Current.ProgressionPetsHighestDensity" @onchange="SetProgressionHighestDensity" /> @UiText.T("Höchste Mob-Dichte zuerst")</label>
             </div>
             }
             @if (ExplorationMode) {
@@ -300,18 +306,7 @@
                 </details>
             </div>
 
-            <div class="route-overlay-settings">
-                <label><input type="checkbox" checked="@Settings.Current.LevelingOverlayEnabled" @onchange="@(e => Settings.Update(s => s.LevelingOverlayEnabled = (bool)e.Value!))" /> @UiText.T("Leveling-Overlay")</label>
-                <details>
-                    <summary>@UiText.T("Anpassen")</summary>
-                    <div class="route-overlay-controls">
-                        <label>@UiText.T("Größe") <span>@UiText.F("{0} %", (int)Math.Round(Settings.Current.LevelingOverlayScale * 100))</span></label>
-                        <input type="range" min="70" max="160" step="5" value="@((int)Math.Round(Settings.Current.LevelingOverlayScale * 100))" aria-label="@UiText.T("Größe des Leveling-Overlays")" @onchange="@(e => Settings.Update(s => s.LevelingOverlayScale = Math.Clamp(int.Parse(e.Value!.ToString()!, System.Globalization.CultureInfo.InvariantCulture), 70, 160) / 100d))" />
-                        <button type="button" class="btn small" @onclick="@(() => Settings.Update(s => { s.LevelingOverlayX = 40; s.LevelingOverlayY = 80; }))">@UiText.T("Position zurücksetzen")</button>
-                        <p>@UiText.T("Schloss im Overlay anklicken, um es zu bedienen und zu verschieben. Erneut klicken, um Klicks durchzulassen.")</p>
-                    </div>
-                </details>
-            </div>
+            <div class="route-overlay-settings"><OverlaySettingsLink OverlayId="leveling" /></div>
 
             @if (ActiveLevelingRoute is { } currentRoute && Targets.GetRouteProgress(currentRoute.Id) is { } currentProgress)
             {
@@ -633,6 +628,12 @@
         await PushProgression();
     }
 
+    private async Task SetProgressionHighestDensity(ChangeEventArgs e)
+    {
+        Settings.Update(s => s.ProgressionPetsHighestDensity = (bool)e.Value!);
+        await PushProgression();
+    }
+
     private static readonly (string Kind, string Label)[] ProgressionKindLabels =
         [("pets", "Pets"), ("dungeon", "Sealed Dungeons"), ("stronghold", "Strongholds")];
 
@@ -661,6 +662,8 @@
         var souls = Progress.Catalog.Pets.ToDictionary(p => p.Id, p => Progress.Souls(p.Id));
         // Souls still missing to finish each pet's current level (0 = max), for "closest to completion".
         var missing = souls.ToDictionary(p => p.Key, p => Math.Max(0, Progress.NeededForNextLevel(p.Key) - Progress.SoulsInLevel(p.Key)));
+        // Source-monster placements on this exact map, not clustered pet-symbol counts or an Abyss region sum.
+        var spawnCounts = Progress.Catalog.Pets.ToDictionary(p => p.Id, p => Math.Max(0, p.Monsters.GetValueOrDefault(_mapId)));
         var profile = Exploration.Snapshot();
         var done = profile.Completed;
         // locked/needs: sealed dungeons that open only after others (progression skips them, the popup names them).
@@ -672,7 +675,7 @@
                 needs = needs.Select(n => n.Name(Settings.Current.NameLanguage)).ToArray() };
         });
         await JS.InvokeVoidAsync("soulcrestMap.setExploration", JsonSerializer.Serialize(places));
-        await JS.InvokeVoidAsync("soulcrestMap.setProgression", Settings.Current.ProgressionEnabled, Settings.Current.ProgressionGoal, JsonSerializer.Serialize(souls), JsonSerializer.Serialize(Settings.Current.ProgressionKinds), Settings.Current.ProgressionPetsClosest, profile.CharacterId, JsonSerializer.Serialize(missing));
+        await JS.InvokeVoidAsync("soulcrestMap.setProgression", Settings.Current.ProgressionEnabled, Settings.Current.ProgressionGoal, JsonSerializer.Serialize(souls), JsonSerializer.Serialize(Settings.Current.ProgressionKinds), Settings.Current.ProgressionPetsClosest, profile.CharacterId, JsonSerializer.Serialize(missing), Settings.Current.ProgressionPetsHighestDensity, JsonSerializer.Serialize(spawnCounts));
         if (!Settings.Current.ProgressionEnabled)
             Targets.SetProgression(null);
     }

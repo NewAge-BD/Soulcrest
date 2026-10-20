@@ -2,6 +2,19 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.9.0 – 2026-10-20
+
+- **Neu:** Tab **Overlays**: alle acht Overlays an einem Ort, mit Einstellungen, Vorschau, Sprache,
+  Sichtbarkeit in Aufnahmen und Hotkeys. Die Fachansichten verlinken direkt dorthin.
+- **Neu:** Platzierungsmodus: Alle Overlays erscheinen mit Beispieldaten auf dem Spielmonitor (auch ohne
+  laufendes Spiel) und lassen sich verschieben und skalieren, wahlweise mit 16-Pixel-Raster und Einrasten.
+  Escape übernimmt den letzten Stand.
+- **Neu:** „Wann anzeigen“ für alle Overlays gemeinsam: nur wenn AION 2 im Vordergrund ist (Standard)
+  oder immer.
+- **Neu:** Progressionsmodus: Option „Höchste Mob-Dichte zuerst“. Sie wählt das Pet mit den meisten
+  Spawns auf der aktuellen Karte und führt zum dichtesten Farmbereich (200 m Umkreis) statt zum
+  nächstgelegenen Spawn.
+
 ## 0.8.3 – 2026-10-20
 
 - **Verbessert:** Nach einer Instanz (z. B. Abyss → Altgard) erkennt Soulcrest die neue Karte schneller:

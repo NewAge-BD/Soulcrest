@@ -25,7 +25,8 @@ public sealed class MerchantOverlayForm : Form
     private Rectangle _shownBounds;
     private long _shownFrameAt;
     private IReadOnlyList<Badge> _shownBadges = [];
-    private bool _inRecordings;
+    private bool _inRecordings, _placementHidden, _foregroundSuppressed;
+    private bool PresentationHidden => _placementHidden || _foregroundSuppressed;
     internal static MerchantOverlayHealth Health { get; } = new();
 
     internal sealed record Badge(Rectangle Bounds, string Counter, bool IsFresh, bool IsMax, string FarmRegions = "",
@@ -46,6 +47,36 @@ public sealed class MerchantOverlayForm : Form
         _visibility.Tick += (_, _) => CheckVisibility();
     }
 
+    /// <summary>Keeps passive merchant state fresh while the placement surface owns presentation.</summary>
+    public void SetPlacementHidden(bool hidden)
+    {
+        if (_placementHidden == hidden) return;
+        _placementHidden = hidden;
+        ApplyPresentationVisibility();
+    }
+
+    /// <summary>Only gates presentation; strict window capture, freshness and confirmed anchors remain authoritative.</summary>
+    public void SetForegroundSuppressed(bool suppressed)
+    {
+        if (_foregroundSuppressed == suppressed) return;
+        _foregroundSuppressed = suppressed;
+        ApplyPresentationVisibility();
+    }
+
+    private void ApplyPresentationVisibility()
+    {
+        if (PresentationHidden) Hide();
+        else if (IsHandleCreated && !_closed) Present(Volatile.Read(ref _latestPicture));
+    }
+
+    private Rectangle? CurrentGameBounds() => ResolveGameBounds(_settings.Current.OverlayShowMode,
+        MonitorCapture.GameWindowBounds, MonitorCapture.ForegroundGameWindowBounds);
+
+    // Always relaxes only foreground ownership, never the visible/non-minimized game-window requirement.
+    internal static Rectangle? ResolveGameBounds(string showMode, Func<Rectangle?> gameBounds, Func<Rectangle?> foregroundBounds) =>
+        showMode == "always" ? gameBounds() : foregroundBounds();
+
+    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !PresentationHidden);
     protected override bool ShowWithoutActivation => true;
     protected override CreateParams CreateParams
     {
@@ -76,7 +107,7 @@ public sealed class MerchantOverlayForm : Form
             try
             {
                 var snapshot = _merchant.Snapshot;
-                var bounds = MonitorCapture.ForegroundGameWindowBounds();
+                var bounds = CurrentGameBounds();
                 if (!_settings.Current.MerchantOverlayEnabled || snapshot is null || snapshot.Offers.Count != 10 || bounds is null)
                 {
                     stability.Reset();
@@ -121,7 +152,7 @@ public sealed class MerchantOverlayForm : Form
                         var ready = stability.Update(snapshot, bounds.Value, frameAt, anchors);
                         Health.Observe(anchors.Length != 10 ? "layout-missing" : !ready ? "confirming-layout" : "layout-ready", frameAt);
                         if (ready && ReferenceEquals(snapshot, _merchant.Snapshot)
-                            && MonitorCapture.ForegroundGameWindowBounds() == bounds)
+                            && CurrentGameBounds() == bounds)
                         {
                             var rows = _merchant.Rows;
                             if (ReferenceEquals(snapshot, _merchant.Snapshot))
@@ -137,7 +168,7 @@ public sealed class MerchantOverlayForm : Form
             catch (Exception error) when (CaptureReadback.IsBusy(error))
             {
                 var snapshot = _merchant.Snapshot;
-                var bounds = MonitorCapture.ForegroundGameWindowBounds();
+                var bounds = CurrentGameBounds();
                 retainPicture = _settings.Current.MerchantOverlayEnabled && snapshot is not null && bounds is not null
                     && stability.RetainAfterMissingCapture(snapshot, bounds.Value, Fresh(stability.ConfirmedFrameAt));
                 if (!retainPicture) stability.Reset();
@@ -228,7 +259,7 @@ public sealed class MerchantOverlayForm : Form
         if (_shownSnapshot is null) return;
         if (_closed || Volatile.Read(ref _latestPicture) is null || !_settings.Current.MerchantOverlayEnabled || !Fresh(_shownFrameAt) ||
             !ReferenceEquals(_shownSnapshot, _merchant.Snapshot) ||
-            MonitorCapture.ForegroundGameWindowBounds() != _shownBounds)
+            CurrentGameBounds() != _shownBounds)
         {
             Health.Present("hidden");
             Hide();
@@ -239,10 +270,11 @@ public sealed class MerchantOverlayForm : Form
 
     private void Present(Picture? picture)
     {
+        if (PresentationHidden) { Hide(); return; }
         if (picture is null || !ReferenceEquals(picture, Volatile.Read(ref _latestPicture)) ||
             !_settings.Current.MerchantOverlayEnabled || !Fresh(picture.FrameAt) ||
             !ReferenceEquals(picture.Snapshot, _merchant.Snapshot) ||
-            MonitorCapture.ForegroundGameWindowBounds() != picture.GameBounds)
+            CurrentGameBounds() != picture.GameBounds)
         {
             Health.Present("hidden");
             Hide();

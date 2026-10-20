@@ -29,6 +29,8 @@ public sealed class EventTimelineOverlayForm : Form
     private string? _tooltipText;
     private bool _manualInteraction, _altInteractionRequested, _blockAltUntilRelease;
     private bool _locked = true, _inRecordings, _suppressed;
+    private bool _placementHidden, _foregroundSuppressed;
+    private bool PresentationHidden => _placementHidden || _foregroundSuppressed;
 
     public EventTimelineOverlayForm(AlertsService alerts, BossRushService bosses, SettingsService settings, ProgressService? progress = null)
     {
@@ -65,7 +67,46 @@ public sealed class EventTimelineOverlayForm : Form
         else RefreshPanel();
     }
 
-    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed);
+    /// <summary>Hides live windows for placement without changing settings or executing pending actions.</summary>
+    public void SetPlacementHidden(bool hidden)
+    {
+        if (_placementHidden == hidden) return;
+        _placementHidden = hidden;
+        ApplyPresentationVisibility();
+    }
+
+    /// <summary>Temporarily hides presentation while retaining live content deadlines and user preferences.</summary>
+    public void SetForegroundSuppressed(bool suppressed)
+    {
+        if (_foregroundSuppressed == suppressed) return;
+        _foregroundSuppressed = suppressed;
+        ApplyPresentationVisibility();
+    }
+
+    private void ApplyPresentationVisibility()
+    {
+        if (PresentationHidden)
+        {
+            _drag = null;
+            _resize = null;
+            SetTooltip(null);
+            _manualInteraction = false;
+            SetInteractionEnabled(false);
+            if (IsHandleCreated) Capture = false;
+            Hide();
+            _lockButton.Hide();
+        }
+        else
+        {
+            // A modifier held while leaving placement must be released before native input resumes.
+            _manualInteraction = false;
+            SetInteractionEnabled(false);
+            RefreshPanel();
+        }
+        _blockAltUntilRelease = true;
+    }
+
+    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && !_suppressed && !PresentationHidden);
     protected override bool ShowWithoutActivation => true;
     protected override CreateParams CreateParams
     {
@@ -93,7 +134,7 @@ public sealed class EventTimelineOverlayForm : Form
     internal void ToggleManualInteractionFromHotkey() => SetManualInteraction(!_manualInteraction);
     private void SetManualInteraction(bool enabled)
     {
-        _manualInteraction = enabled;
+        _manualInteraction = enabled && !PresentationHidden;
         var alt = _altInteractionRequested || OverlayInteraction.IsAltHeld;
         _blockAltUntilRelease = !enabled && alt;
         SetInteractionEnabled(alt);
@@ -108,14 +149,14 @@ public sealed class EventTimelineOverlayForm : Form
         SetInteractionEnabled(false);
     }
 
-    private bool InteractionAllowed => !_suppressed
+    private bool InteractionAllowed => !_suppressed && !PresentationHidden
         && (_manualInteraction || (!_blockAltUntilRelease && OverlayInteraction.IsAltHeld));
 
     public void SetInteractionEnabled(bool enabled)
     {
         _altInteractionRequested = enabled;
         if (!enabled) _blockAltUntilRelease = false;
-        enabled = (_manualInteraction || (enabled && !_blockAltUntilRelease)) && !_suppressed;
+        enabled = (_manualInteraction || (enabled && !_blockAltUntilRelease)) && !_suppressed && !PresentationHidden;
         if (_lockButton is { } button && button.Locked != !enabled) button.SetLocked(!enabled);
         if (_locked == !enabled) return;
         _locked = !enabled;
@@ -148,7 +189,7 @@ public sealed class EventTimelineOverlayForm : Form
 
     private void RefreshPanel()
     {
-        if (_suppressed || !IsHandleCreated || IsDisposed || SmokeTest.Enabled) return;
+        if (_suppressed || PresentationHidden || !IsHandleCreated || IsDisposed || SmokeTest.Enabled) return;
         var settings = _settings.Current;
         if (!settings.EventTimelineOverlayEnabled) { FinishGesture(); Hide(); return; }
         if (_resize is not null) return;

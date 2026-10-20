@@ -108,7 +108,8 @@ public sealed class RouteTileRenderTests
             Assert.Contains("Route abbrechen", leveling);
             Assert.Contains("Route beenden und Fortschritt behalten", leveling);
             Assert.Contains("Leveling-Overlay", leveling);
-            Assert.Contains("Größe des Leveling-Overlays", leveling);
+            Assert.Contains("data-overlay-link=\"leveling\"", leveling);
+            Assert.DoesNotContain("Größe des Leveling-Overlays", leveling);
             Assert.Contains("open", FactionTag(leveling, "Asmodian"));
             Assert.DoesNotContain("open", FactionTag(leveling, "Elyos"));
             Assert.DoesNotContain("name=", FactionTag(leveling, "Asmodian")); // Native details remain independent.
@@ -117,9 +118,9 @@ public sealed class RouteTileRenderTests
             Assert.Contains("Am Ende startet die nächste Episode automatisch.", leveling);
             Assert.DoesNotContain("class=\"route-repeat-option\"", leveling);
             Assert.Equal(3, Regex.Matches(leveling, "class=\"btn small route-repeat ").Count); // Running farm, ordinary library and custom leveling routes retain Repeat.
-            Assert.Contains("Erneut klicken, um Klicks durchzulassen.", leveling);
+            Assert.DoesNotContain("route-overlay-controls", leveling);
             Assert.DoesNotContain("Auf der Weltkarte im Spiel: Alt + Rechtsklick", leveling);
-            Assert.Contains("Schloss im Overlay anklicken", leveling);
+            Assert.Contains("Leveling-Overlay einstellen", leveling);
             Assert.DoesNotContain("Strg+Alt+L", leveling);
             Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(leveling, "class=\"route-stop completed ").Count);
             Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(leveling, "class=\"route-stop upcoming ").Count);
@@ -140,8 +141,9 @@ public sealed class RouteTileRenderTests
             Assert.Contains("Stop 5 / 10", english);
             Assert.Contains("Back", english);
             Assert.Contains("Cancel route", english);
-            Assert.Contains("Leveling overlay", english);
-            Assert.Contains("Click the overlay lock to interact and move it.", english);
+            Assert.Contains("Configure leveling overlay", english);
+            Assert.Contains("data-overlay-link=\"leveling\"", english);
+            Assert.DoesNotContain("Click the overlay lock to interact and move it.", english);
             Assert.DoesNotContain("On the in-game world map: Alt + right-click", english);
             Assert.Contains("Other leveling routes", english);
             Assert.Contains("The next episode starts automatically at the end.", english);
