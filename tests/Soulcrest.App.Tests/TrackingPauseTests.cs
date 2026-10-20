@@ -26,10 +26,10 @@ public sealed class TrackingPauseTests
     }
 
     [Fact]
-    public void ItLooksOftenFirstThenRarely()
+    public void LongInstancesKeepTheSameTwoSecondRecoveryProbe()
     {
         Assert.Equal(2000, MapTrackingService.PausedProbeMs(S(3)));
-        Assert.Equal(5000, MapTrackingService.PausedProbeMs(S(25)));
+        Assert.Equal(2000, MapTrackingService.PausedProbeMs(S(25)));
     }
 
     [Fact]

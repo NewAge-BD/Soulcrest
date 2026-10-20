@@ -2,6 +2,15 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.8.3 – 2026-10-20
+
+- **Verbessert:** Nach einer Instanz (z. B. Abyss → Altgard) erkennt Soulcrest die neue Karte schneller:
+  Während der Ruhe in Instanzen schaut es alle 2 Sekunden nach und prüft dabei mehrere Karten auf einmal.
+- **Verbessert:** „My Routes“ ist kompakter: Wiederholen ist direkt erreichbar, lange Ziellisten zeigen
+  die ersten drei Einträge und den Rest zusammengefasst.
+- **Behoben:** Die Wiederholen-Einstellung einer Route bleibt jetzt dauerhaft gespeichert.
+- **Behoben:** Das Händler-Overlay flackerte bei manchen Shop-Ansichten.
+
 ## 0.8.2 – 2026-10-18
 
 - **Entfernt:** Die DPS-Vorschau ist vorerst wieder entfernt.

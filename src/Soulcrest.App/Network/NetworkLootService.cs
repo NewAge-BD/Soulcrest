@@ -47,26 +47,12 @@ public sealed record NetworkProgressSources(bool IdentityIsLive, string? Charact
 /// reconnect) by looking at the game's connections every few seconds.
 /// </summary>
 public sealed class NetworkLootService(ProgressService progress, ExplorationService? exploration = null) : INetworkLootSource, INetworkMerchantSource,
-    INetworkProgressControl, IDisposable
+    IDisposable
 {
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
     private readonly object _gate = new();
     private readonly object _connectionGate = new();
     private int _disposed;
-    public bool ProgressProcessingEnabled { get; private set; } = true;
-
-    public void SetProgressProcessingEnabled(bool enabled)
-    {
-        lock (_gate)
-        {
-            if (ProgressProcessingEnabled == enabled) return;
-            ProgressProcessingEnabled = enabled;
-            // No combat/capture boundary: only progress authority is revoked. Re-enable needs
-            // fresh snapshots/Own proof; persisted progress is never cleared or replayed.
-            ResetProgressContext(enabled ? "progress-enabled" : "progress-disabled");
-        }
-        SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
-    }
     private readonly Dictionary<CaptureConnection, (TcpReassembler Tcp, GameMessageStream Messages)> _streams = [];
     private IReadOnlySet<CaptureEndpoint> _installedCoverage = new HashSet<CaptureEndpoint>();
     private readonly List<NetworkSoul> _recent = [];
@@ -171,10 +157,10 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     {
         get
         {
-            lock (_gate) return new(Running && ProgressProcessingEnabled && _identity is not null, Character, PetBaselineAt,
+            lock (_gate) return new(Running && _identity is not null, Character, PetBaselineAt,
                 QuestBaselineAt, TeleportBaselineAt, _petActivityAt, ProgressStatus,
                 _petFormatRejected, _questFormatRejected, _teleportFormatRejected, _dungeonActivityAt, _dungeonFormatRejected,
-                _kibeliskActivityAt, _kibeliskFormatRejected) { PetCanCount = Running && ProgressProcessingEnabled };
+                _kibeliskActivityAt, _kibeliskFormatRejected) { PetCanCount = Running };
         }
     }
     public bool ProgressIsLive => ProgressSources is { PetCanCount: true, PetBaselineAt: not null } or
@@ -1049,7 +1035,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                     _identityStream == stream ? _identity?.ServerId : null, at, message.ToArray()), "Händler-Netzwerkdaten");
                 return;
             }
-            if (!ProgressProcessingEnabled) return;
             if (opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014)
             {
                 ProcessPetMessage(stream, opcode, message, at);
@@ -1501,7 +1486,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             QuestBaselineAt = TeleportBaselineAt = null;
             ProgressStatus = "Warte auf die eigene Charaktererkennung.";
             var resetGeneration = _progressGeneration;
-            if (reason is "manual" or "capture-closed" or "capture-stopped" or "progress-disabled" or "progress-enabled")
+            if (reason is "manual" or "capture-closed" or "capture-stopped")
             {
                 _merchantStreams.Clear();
                 ResetPetContext();
@@ -1570,9 +1555,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
-        try { Stop(); }
-        finally
-        {
-        }
+        Stop();
     }
 }

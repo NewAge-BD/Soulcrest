@@ -2,9 +2,6 @@ using System.Text;
 
 namespace Soulcrest.Core.Network;
 
-/// <summary>Fully validated Own metadata. The raw map key does not prove an instance or dungeon run.</summary>
-public sealed record OwnWorldObservation(OwnCharacterIdentity Identity, long RawMapKey, int MapDataId);
-
 /// <summary>
 /// Validates the whole known MyCharAppear (0x3633) schema and returns the own identity.
 /// Other strings and coordinates are skipped without decoding or retaining them. Unknown flag
@@ -56,10 +53,7 @@ public static class OwnIdentityMessage
         catch (InvalidDataException) { return false; }
     }
 
-    public static OwnCharacterIdentity? TryParse(ReadOnlySpan<byte> message) => TryParseWorld(message)?.Identity;
-
-    /// <summary>The complete Own schema, with raw map fields. RawMapKey is not a proven instance/run identity.</summary>
-    public static OwnWorldObservation? TryParseWorld(ReadOnlySpan<byte> message)
+    public static OwnCharacterIdentity? TryParse(ReadOnlySpan<byte> message)
     {
         if (!PetProgressMessage.HasOpcode(message, 0x3633)) return null;
         try
@@ -77,8 +71,7 @@ public static class OwnIdentityMessage
             var equips = r.Count(21);
             for (var i = 0; i < equips; i++) Equip(ref r);
             SkipIf(ref r, flags, 2, 1); // appear reason
-            var mapKey = r.I64(); // Opaque map-context value; never a character, run or inferred instance id.
-            var mapId = r.I32(); // Data id, not a position or a sufficient dungeon/boss catalog.
+            r.Skip(12); // Map context is not part of the own-character identity.
             SkipIf(ref r, flags, 4, 4);
             SkipIf(ref r, flags, 8, 4);
             SkipIf(ref r, flags, 16, 12);
@@ -125,7 +118,7 @@ public static class OwnIdentityMessage
             if ((flags & 536870912) != 0) r.Skip(r.Count(8) * 8);
             r.Exact();
             return entity > 0 && server > 0 && characterId > 0 && name.Length is >= 2 and <= 32
-                && name.All(char.IsLetterOrDigit) ? new(new(characterId, server, entity, name), mapKey, mapId) : null;
+                && name.All(char.IsLetterOrDigit) ? new(characterId, server, entity, name) : null;
         }
         catch (InvalidDataException) { return null; }
         catch (DecoderFallbackException) { return null; }

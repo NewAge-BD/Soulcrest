@@ -70,36 +70,42 @@ public static class MerchantCardLocator
         using var edges = new Mat();
         Cv2.Canny(gray, edges, 8, 25);
         using var closed = new Mat();
-        using var closingKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
-        Cv2.MorphologyEx(edges, closed, MorphTypes.Close, closingKernel);
-        var seals = FindSeals(closed);
-        if (seals.Count < MinimumSeals && image.Width <= 1920)
+        var preferred = PreferredGeometry(previousAnchors, image.Size());
+        // User report 2026-10-20: unrelated artwork can supply enough false candidates to
+        // suppress the old count-only repair. Each pass must independently verify the whole shop.
+        foreach (var kernelSize in image.Width <= 1920 ? new[] { 3, 5 } : new[] { 3 })
         {
-            // User reference 2026-10-13: Area downsampling can leave small gaps in tiny seals.
-            // Repair candidate contours only; every price and both sides still require raw edges.
-            using var repairKernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(5, 5));
-            Cv2.MorphologyEx(edges, closed, MorphTypes.Close, repairKernel);
-            seals = FindSeals(closed);
+            using var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(kernelSize, kernelSize));
+            Cv2.MorphologyEx(edges, closed, MorphTypes.Close, kernel);
+            var anchors = FindInPass(closed, edges, image.Size(), preferred, previousAnchors);
+            if (anchors.Count == Slots.Length) return anchors;
         }
-        if (seals.Count is < MinimumSeals or > MaximumCandidates) return [];
+        return [];
+    }
 
+    private static IReadOnlyList<MerchantCardAnchor> FindInPass(Mat closed, Mat edges, Size imageSize,
+        Layout? preferred, IReadOnlyList<MerchantCardAnchor>? previousAnchors)
+    {
         // User report 2026-10-16: tiny changes in antialiased seal contours can move a new fit
         // by one pixel. An earlier layout is only a hypothesis: this very image must still
         // supply eight independently matched seals and every raw price/card-side edge.
-        if (PreferredLayout(previousAnchors, seals, image.Size()) is { } preferred)
+        // User report 2026-10-20: inspect its bounded seal positions before global artwork clutter
+        // can exhaust the free search's candidate limit. No evidence is carried between passes.
+        if (preferred is not null && FindSeals(closed, preferred).Count >= MinimumSeals)
         {
             using var preferredEdges = NearbyEdges(edges, preferred.Spacing);
-            var verified = ValidateCardEdges(preferred, preferredEdges, image.Size(), out _);
+            var verified = ValidateCardEdges(preferred, preferredEdges, imageSize, out _);
             if (verified.Count == Slots.Length)
                 return previousAnchors!.OrderBy(anchor => anchor.SlotIndex).Select((anchor, index) =>
                     anchor with { Confidence = verified[index].Confidence }).ToArray();
         }
-        if (FitLayout(seals, image.Size()) is not { } layout) return [];
+        var seals = FindSeals(closed);
+        if (seals.Count is < MinimumSeals or > MaximumCandidates || FitLayout(seals, imageSize) is not { } layout) return [];
 
         // A small edge tolerance covers antialiasing and the measured rounded-coordinate differences.
         // Validate raw edges, not the closed image: morphology may repair a seal but cannot invent a price.
         using var nearbyEdges = NearbyEdges(edges, layout.Spacing);
-        var anchors = ValidateCardEdges(layout, nearbyEdges, image.Size(), out var edgeMismatch);
+        var anchors = ValidateCardEdges(layout, nearbyEdges, imageSize, out var edgeMismatch);
         if (anchors.Count == Slots.Length || !edgeMismatch) return anchors;
 
         // Refined centers of antialiased seals may round a pixel away from the price geometry.
@@ -109,7 +115,7 @@ public static class MerchantCardLocator
         foreach (var offset in offsets)
         {
             var shifted = layout with { Origin = new(layout.Origin.X + offset.X, layout.Origin.Y + offset.Y) };
-            anchors = ValidateCardEdges(shifted, nearbyEdges, image.Size(), out _);
+            anchors = ValidateCardEdges(shifted, nearbyEdges, imageSize, out _);
             if (anchors.Count == Slots.Length) return anchors;
         }
         return [];
@@ -128,8 +134,7 @@ public static class MerchantCardLocator
         catch { nearby.Dispose(); throw; }
     }
 
-    private static Layout? PreferredLayout(IReadOnlyList<MerchantCardAnchor>? previousAnchors,
-        IReadOnlyList<Seal> seals, Size imageSize)
+    private static Layout? PreferredGeometry(IReadOnlyList<MerchantCardAnchor>? previousAnchors, Size imageSize)
     {
         if (previousAnchors is null || previousAnchors.Count != Slots.Length) return null;
         var anchors = new MerchantCardAnchor[Slots.Length];
@@ -167,27 +172,7 @@ public static class MerchantCardLocator
                 Math.Abs((long)price.X + price.Width - expected.Right) > 1 ||
                 Math.Abs((long)price.Y + price.Height - expected.Bottom) > 1) return null;
         }
-        var used = new HashSet<int>();
-        var count = 0;
-        for (var slot = 0; slot < Slots.Length; slot++)
-        {
-            var predicted = Position(layout, Slots[slot]);
-            var nearest = -1;
-            var distance = Math.Pow(spacing * .035, 2);
-            for (var candidate = 0; candidate < seals.Count; candidate++)
-            {
-                if (used.Contains(candidate) || spacing < seals[candidate].Bounds.Height * 7 ||
-                    spacing > seals[candidate].Bounds.Height * 12) continue;
-                var next = DistanceSquared(predicted, seals[candidate].Center);
-                if (next >= distance) continue;
-                nearest = candidate;
-                distance = next;
-            }
-            if (nearest < 0) continue;
-            used.Add(nearest);
-            count++;
-        }
-        return count >= MinimumSeals ? layout with { Count = count } : null;
+        return layout;
     }
 
     private static IReadOnlyList<MerchantCardAnchor> ValidateCardEdges(Layout layout, Mat nearbyEdges,
@@ -217,10 +202,11 @@ public static class MerchantCardLocator
         return anchors;
     }
 
-    private static List<Seal> FindSeals(Mat closed)
+    private static List<Seal> FindSeals(Mat closed, Layout? preferred = null)
     {
         Cv2.FindContours(closed, out Point[][] contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
         var seals = new List<Seal>();
+        var matched = new Seal?[Slots.Length];
         var minimumSize = Math.Max(7, closed.Height * .01);
         var maximumSize = closed.Height * .06;
         foreach (var contour in contours)
@@ -232,10 +218,30 @@ public static class MerchantCardLocator
                 Cv2.ContourArea(contour) < bounds.Width * bounds.Height * .8) continue;
             if (Cv2.ApproxPolyDP(contour, Cv2.ArcLength(contour, true) * .03, true).Length > 8) continue;
             var center = new Point2d(bounds.X + bounds.Width / 2.0, bounds.Y + bounds.Height / 2.0);
+            if (preferred is not null)
+            {
+                if (preferred.Spacing < bounds.Height * 7 || preferred.Spacing > bounds.Height * 12) continue;
+                var nearest = -1;
+                var distance = Math.Pow(preferred.Spacing * .035, 2);
+                for (var slot = 0; slot < Slots.Length; slot++)
+                {
+                    var next = DistanceSquared(Position(preferred, Slots[slot]), center);
+                    if (next >= distance) continue;
+                    nearest = slot;
+                    distance = next;
+                }
+                if (nearest < 0) continue;
+                // One current contour belongs to at most one slot; nested contours cannot add votes.
+                if (matched[nearest] is not { } current ||
+                    distance < DistanceSquared(Position(preferred, Slots[nearest]), current.Center))
+                    matched[nearest] = new(bounds, center);
+                continue;
+            }
             if (seals.Any(seal => DistanceSquared(seal.Center, center) < Math.Pow(Math.Min(bounds.Width, seal.Bounds.Width) * .25, 2))) continue;
             seals.Add(new(bounds, center));
             if (seals.Count > MaximumCandidates) return seals; // bound work on unrelated/cluttered screens
         }
+        if (preferred is not null) return matched.OfType<Seal>().ToList();
         return seals.OrderBy(seal => seal.Center.X).ToList();
     }
 

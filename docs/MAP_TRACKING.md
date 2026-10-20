@@ -247,3 +247,26 @@ Boss-Ebene und verschwindet zusammen mit ihr. Ein einmaliger Markerindex vermeid
 Scans des gesamten Kartenpakets. Lokale monotone Countdowns aktualisieren nur den Tooltiptext;
 gespeicherte oder mehr als 15 Sekunden alte Daten bleiben sichtbar als unbestätigt. Null bedeutet
 „Warte auf Bestätigung“, bis eine Servernachricht einen Spawn bestätigt.
+
+
+## Schnellere Wiedererkennung nach Instanzen und Kartenwechseln (2026-10-19)
+
+Nutzermeldung: Abyss -> Altgard wird sehr spät erkannt; bis dahin bleibt der Instanzmodus aktiv.
+Die bisherige Suche prüfte im Ruhezustand nur eine Karte je zwei bzw. fünf Sekunden und schob
+zwischen andere Karten wieder die alte Karte ein. Nun bleibt der Ruheabstand bei zwei Sekunden.
+Ein Probe-Bild prüft mehrere vorbereitete Referenzen in einem auf 1,2 Sekunden begrenzten Lauf.
+Zuletzt besuchte mögliche Zielkarten kommen zuerst, die alte Karte bleibt erreichbar. Nach einem
+abgebrochenen Suchlauf geht es beim nächsten Kandidaten weiter statt immer von vorne anzufangen.
+Das gilt auch nach mehreren Fehlversuchen außerhalb des pausierten Modus.
+
+Eine schwache grobe Übereinstimmung bereitet die nötige Detailreferenz im Hintergrund vor; sie
+blockiert die weiteren Kandidaten nicht. Nach Fertigstellung wird das Tracking geweckt und diese
+Karte mit einer neuen Aufnahme bevorzugt geprüft. Je Karte läuft höchstens eine solche Aufbereitung;
+beim Beenden werden Erkennung und Aufbereitung beendet bzw. abgewartet, bevor native Referenzen
+freigegeben werden. Keine Vorbereitung aller Detailkarten auf Vorrat.
+
+Die Mindestbestätigung für einen Kartenwechsel (30 geometrisch stimmige Paare), Weltkartenprüfung,
+Zoomplausibilität und Generation des Aufnahmekontexts bleiben erhalten. Ein schwacher Treffer,
+Ladebildschirm oder bloßes Wecken beendet den Instanzmodus nicht. Der gesamte Suchlauf berücksichtigt
+eine Altersgrenze für seine Ergebnisse; veraltete Ergebnisse werden nicht als neue Position gemeldet.
+Die Positionsquelle bleibt die bisherige Aufnahme und Bildauswertung, ohne Speicherzugriff.

@@ -397,6 +397,124 @@ public sealed class MerchantCardLocatorTests
         Assert.Empty(MerchantCardLocator.Find(image, previous));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PreferredGeometryRevalidatesItsOwnSealsDespiteMoreThanFortyEightUnrelatedCandidates(bool right)
+    {
+        using var original = Shop(1);
+        var previous = MerchantCardLocator.Find(original);
+        Assert.Equal(10, previous.Count);
+        using var current = original.Clone();
+        AddSealClutter(current, right);
+        using var before = current.Clone();
+
+        // User report 2026-10-20: clutter on either side changes contour enumeration order.
+        // The unbounded free fit remains forbidden; a prior still needs all current shop evidence.
+        Assert.Empty(MerchantCardLocator.Find(current));
+        AssertSameGeometry(previous, MerchantCardLocator.Find(current, previous));
+        Assert.Equal(0, Cv2.Norm(before, current, NormTypes.INF));
+    }
+
+    [Theory]
+    [InlineData("price", false)]
+    [InlineData("price", true)]
+    [InlineData("side", false)]
+    [InlineData("side", true)]
+    [InlineData("seven-seals", false)]
+    [InlineData("seven-seals", true)]
+    [InlineData("closed", false)]
+    [InlineData("closed", true)]
+    [InlineData("dialog", false)]
+    [InlineData("dialog", true)]
+    [InlineData("false-prior", false)]
+    [InlineData("false-prior", true)]
+    public void PreferredClutterSearchCannotReplaceMissingCurrentEvidenceOrValidateAFalsePrior(string change, bool right)
+    {
+        using var original = Shop(1);
+        var previous = MerchantCardLocator.Find(original);
+        Assert.Equal(10, previous.Count);
+        using var current = Shop(1, missingSeals: change == "seven-seals" ? [6, 7, 8] : null);
+        if (change == "price")
+        {
+            var price = PriceCenter(4, 1);
+            Cv2.Rectangle(current, new Rect(price.X - 80, price.Y - 20, 160, 40), Scalar.All(18), -1);
+        }
+        else if (change == "side")
+        {
+            var seal = SealCenter(0, 1);
+            Cv2.Rectangle(current, new Rect(seal.X - 111, seal.Y + 40, 10, 220), Scalar.All(18), -1);
+        }
+        else if (change == "closed") current.SetTo(Scalar.All(18));
+        else if (change == "dialog") Cv2.Rectangle(current, new Rect(750, 300, 850, 760), Scalar.All(35), -1);
+        else if (change == "false-prior") previous = previous.Select(anchor => anchor with
+        {
+            PriceBounds = new Rect(anchor.PriceBounds.X + 35, anchor.PriceBounds.Y,
+                anchor.PriceBounds.Width, anchor.PriceBounds.Height)
+        }).ToArray();
+        AddSealClutter(current, right);
+
+        Assert.Empty(MerchantCardLocator.Find(current, previous));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FailedWholeLayoutRetriesSealRepairEvenWhenArtworkSuppliesEnoughUnrelatedCandidates(bool withPreferred)
+    {
+        using var original = Shop(.9375);
+        using var reference = new Mat();
+        Cv2.Resize(original, reference, new Size(), .75, .75, InterpolationFlags.Area);
+        var previous = MerchantCardLocator.Find(reference);
+        Assert.Equal(10, previous.Count);
+        using var current = ReducedShopWithTinySealGaps();
+        // Four broken seals leave six real candidates. Three unrelated boxes defeat a count-only retry.
+        AddSealClutter(current, right: false, count: 3);
+
+        var anchors = MerchantCardLocator.Find(current, withPreferred ? previous : null);
+
+        Assert.Equal(10, anchors.Count);
+        Assert.All(anchors, anchor => Assert.InRange(anchor.Confidence, .72, 1));
+        if (withPreferred) AssertSameGeometry(previous, anchors);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    [InlineData(9)]
+    public void RepairAfterMisleadingArtworkStillCannotReplaceAMissingRawPrice(int slot)
+    {
+        using var current = ReducedShopWithTinySealGaps();
+        AddSealClutter(current, right: false, count: 3);
+        var price = PriceCenter(slot, .9375);
+        var center = new Point((int)Math.Round(price.X * .75), (int)Math.Round(price.Y * .75));
+        Cv2.Rectangle(current, new Rect(center.X - 60, center.Y - 16, 120, 32), Scalar.All(18), -1);
+
+        Assert.Empty(MerchantCardLocator.Find(current));
+    }
+
+    [Fact]
+    public void RepairAfterMisleadingArtworkStillCannotSupplyAnEighthIndependentSeal()
+    {
+        using var current = ReducedShopWithTinySealGaps(missingSeals: [6, 7, 8]);
+        AddSealClutter(current, right: false, count: 3);
+
+        Assert.Empty(MerchantCardLocator.Find(current));
+    }
+
+    private static void AddSealClutter(Mat image, bool right, int count = 64)
+    {
+        var size = (int)Math.Round(image.Height * .025);
+        for (var index = 0; index < count; index++)
+        {
+            var x = right ? image.Width - 40 - index % 8 * 44 : 24 + index % 8 * 44;
+            var y = (int)Math.Round(image.Height * .2) + index / 8 * (size + 30);
+            var bounds = new Rect(x, y, size, size);
+            Cv2.Rectangle(image, bounds, Scalar.All(28), -1);
+            Cv2.Rectangle(image, bounds, Scalar.All(145), 1, LineTypes.AntiAlias);
+        }
+    }
+
     private static void AssertSameGeometry(IReadOnlyList<MerchantCardAnchor> expected,
         IReadOnlyList<MerchantCardAnchor> actual)
     {

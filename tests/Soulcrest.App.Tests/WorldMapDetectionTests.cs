@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Drawing;
 using OpenCvSharp;
@@ -98,7 +99,11 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         using var capture = new GameCaptureService();
         using var tracking = new MapTrackingService(settings, progress, capture);
         using var normal = LoadFrame("live-2026-10-03-screen.png");
-        tracking.ProcessMiniMapFrame(SmallMap, Screen, normal, CancellationToken.None);
+        // The first look at an unknown zoom prepares the detail reference off the detection path and
+        // publishes nothing (2026-10-19); like the live loop, a later capture then confirms the player.
+        var ready = Stopwatch.StartNew();
+        do tracking.ProcessMiniMapFrame(SmallMap, Screen, normal, CancellationToken.None);
+        while (tracking.Position is null && ready.Elapsed < TimeSpan.FromSeconds(30) && WaitBriefly());
         var player = tracking.Position;
         Assert.NotNull(player);
         Assert.False(tracking.WorldMapOpen);
@@ -129,6 +134,12 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         Assert.NotSame(player, tracking.Position);
         Assert.InRange(Math.Abs(tracking.Position!.X - player.X), 0, 3);
         Assert.InRange(Math.Abs(tracking.Position.Y - player.Y), 0, 3);
+    }
+
+    private static bool WaitBriefly()
+    {
+        Thread.Sleep(100);
+        return true;
     }
 
     private static Mat LoadFrame(string name)

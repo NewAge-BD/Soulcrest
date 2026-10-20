@@ -35,38 +35,70 @@ public sealed class MapTargetsTests
         }
     }
 
-    /// <summary>User report 2026-10-07: a route ended with "Alle entfernen" still showed repeat as on.</summary>
-    [Fact]
-    public void EndingARunningRouteSwitchesItsRepeatOff()
+    /// <summary>User request 2026-10-20: repeat is a saved choice, independent of which route is running.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RepeatPreferenceSurvivesClearStopRouteReplacementAndReloadWithoutRestartingInactiveRoutes(bool repeat)
     {
         File.Delete(AppPaths.TargetsFile);
         File.Delete(AppPaths.RoutesFile);
         try
         {
-            var targets = new MapTargetsService();
+            using var targets = new MapTargetsService();
             targets.Toggle("altgard", 100, 100, "A", "Locations", null);
             targets.Toggle("altgard", 200, 200, "B", "Locations", null, chain: true);
-            var first = targets.SaveRoute("altgard", "Eins")!;
+            var first = targets.SaveRoute("altgard", "First synthetic route")!;
             targets.Clear();
             targets.Toggle("altgard", 300, 300, "C", "Locations", null);
             targets.Toggle("altgard", 400, 400, "D", "Locations", null, chain: true);
-            var second = targets.SaveRoute("altgard", "Zwei")!;
+            var second = targets.SaveRoute("altgard", "Second synthetic route")!;
+            targets.SetRouteRepeat(first.Id, repeat);
+            targets.SetRouteRepeat(second.Id, !repeat);
 
-            // "Alle entfernen" ends the running route: repeat goes off, also after a restart.
             targets.StartRoute(first.Id);
-            targets.SetRouteRepeat(first.Id, true);
+            var clearedTarget = targets.Targets[0].Id;
             targets.Clear();
-            Assert.False(targets.Routes.Single(r => r.Id == first.Id).Repeat);
-            Assert.False(new MapTargetsService().Routes.Single(r => r.Id == first.Id).Repeat);
+            targets.Arrive(clearedTarget); // A late callback must not restart the saved repeat preference.
+            Assert.Empty(targets.Targets);
+            Assert.Empty(targets.ActiveRoutes);
+            Assert.Equal(repeat, targets.Routes.Single(route => route.Id == first.Id).Repeat);
+            using (var cleared = new MapTargetsService())
+            {
+                Assert.Empty(cleared.Targets);
+                Assert.Empty(cleared.ActiveRoutes);
+                Assert.Equal(repeat, cleared.Routes.Single(route => route.Id == first.Id).Repeat);
+                cleared.SetRouteRepeat(first.Id, !repeat); // Only an explicit toggle changes the stored choice.
+                Assert.Equal(!repeat, RouteFile.Load(AppPaths.RoutesFile).Single(route => route.Id == first.Id).Repeat);
+                Assert.Empty(cleared.Targets);
+                cleared.SetRouteRepeat(first.Id, repeat);
+            }
 
-            // Another route replaces the running one: the replaced one stops repeating, the started one keeps its switch.
-            targets.SetRouteRepeat(first.Id, true);
             targets.StartRoute(first.Id);
-            Assert.True(targets.Routes.Single(r => r.Id == first.Id).Repeat); // restarting the same route keeps it
-            targets.SetRouteRepeat(second.Id, true);
+            var stoppedTarget = targets.Targets[0].Id;
+            targets.StopRoute(first.Id);
+            targets.Arrive(stoppedTarget);
+            Assert.Empty(targets.Targets);
+            Assert.Empty(targets.ActiveRoutes);
+            Assert.Equal(repeat, targets.Routes.Single(route => route.Id == first.Id).Repeat);
+            using (var stopped = new MapTargetsService())
+            {
+                Assert.Empty(stopped.Targets);
+                Assert.Empty(stopped.ActiveRoutes);
+                Assert.Equal(repeat, stopped.Routes.Single(route => route.Id == first.Id).Repeat);
+            }
+
+            targets.StartRoute(first.Id);
             targets.StartRoute(second.Id);
-            Assert.False(targets.Routes.Single(r => r.Id == first.Id).Repeat);
-            Assert.True(targets.Routes.Single(r => r.Id == second.Id).Repeat);
+            Assert.Equal(repeat, targets.Routes.Single(route => route.Id == first.Id).Repeat);
+            Assert.Equal(!repeat, targets.Routes.Single(route => route.Id == second.Id).Repeat);
+            Assert.All(targets.Targets, target => Assert.Equal(second.Id, target.RouteId));
+            targets.StopRoute(second.Id);
+            using var reloaded = new MapTargetsService();
+            Assert.Empty(reloaded.Targets);
+            Assert.Empty(reloaded.ActiveRoutes);
+            Assert.Equal(repeat, reloaded.Routes.Single(route => route.Id == first.Id).Repeat);
+            Assert.Equal(!repeat, reloaded.Routes.Single(route => route.Id == second.Id).Repeat);
         }
         finally
         {

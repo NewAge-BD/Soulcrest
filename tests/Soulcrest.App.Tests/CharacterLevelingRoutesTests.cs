@@ -96,6 +96,60 @@ public sealed class CharacterLevelingRoutesTests : IDisposable
         Assert.Equal(new RouteProgress(1, 8), service.GetRouteProgress("first"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RepeatChoicesRemainSharedAcrossCharacterAndRouteChangesWhileStoppedProfilesStayInactive(bool repeat)
+    {
+        var exploration = Exploration();
+        exploration.Rename("Synthetic route character A");
+        var firstCharacter = exploration.ActiveId;
+        string secondCharacter;
+        using (var service = new MapTargetsService(exploration))
+        {
+            service.SetRouteRepeat("first", repeat);
+            service.SetRouteRepeat("second", !repeat);
+            service.StartRoute("first");
+            for (var i = 0; i < 2; i++) service.AdvanceRoute("first");
+            service.StartRoute("second");
+            service.AdvanceRoute("second");
+            Assert.Equal(repeat, service.Routes.Single(route => route.Id == "first").Repeat);
+            Assert.Equal(!repeat, service.Routes.Single(route => route.Id == "second").Repeat);
+
+            exploration.Add("Synthetic route character B");
+            secondCharacter = exploration.ActiveId;
+            Assert.Empty(service.VisibleTargets);
+            Assert.Null(service.ActiveLevelingRouteId);
+            service.StartRoute("first");
+            service.AdvanceRoute("first");
+            exploration.Select(firstCharacter);
+            Assert.Equal("second", service.ActiveLevelingRouteId);
+            Assert.Equal(new RouteProgress(1, 8), service.GetRouteProgress("second"));
+            Assert.Equal(new RouteProgress(2, 8), service.GetSavedRouteProgress("first"));
+            service.StopRoute("second");
+            service.Clear();
+            Assert.Empty(service.VisibleTargets);
+            Assert.Null(service.ActiveLevelingRouteId);
+        }
+
+        exploration = Exploration();
+        using var reloaded = new MapTargetsService(exploration);
+        Assert.Empty(reloaded.VisibleTargets);
+        Assert.Null(reloaded.ActiveLevelingRouteId);
+        Assert.Equal(repeat, reloaded.Routes.Single(route => route.Id == "first").Repeat);
+        Assert.Equal(!repeat, reloaded.Routes.Single(route => route.Id == "second").Repeat);
+        exploration.Select(secondCharacter);
+        Assert.Equal("first", reloaded.ActiveLevelingRouteId);
+        Assert.Equal(new RouteProgress(1, 8), reloaded.GetRouteProgress("first"));
+        Assert.Equal(repeat, reloaded.Routes.Single(route => route.Id == "first").Repeat);
+        reloaded.StopRoute("first");
+        using var stopped = new MapTargetsService(Exploration());
+        Assert.Empty(stopped.VisibleTargets);
+        Assert.Null(stopped.ActiveLevelingRouteId);
+        Assert.Equal(repeat, stopped.Routes.Single(route => route.Id == "first").Repeat);
+        Assert.Equal(!repeat, stopped.Routes.Single(route => route.Id == "second").Repeat);
+    }
+
     [Fact]
     public void ClearHidesRoutesAndRestartResetsOnlyTheSelectedCharacterAndRoute()
     {
@@ -276,7 +330,7 @@ public sealed class CharacterLevelingRoutesTests : IDisposable
             Assert.Equal(ordinaryIds.Append(extraId), service.Targets.Select(t => t.Id));
             Assert.Null(service.Targets.Single(t => t.Id == extraId).After);
             Assert.True(service.Routes.Single(r => r.Id == "ordinary").Repeat);
-            Assert.False(service.Routes.Single(r => r.Id == "first").Repeat);
+            Assert.True(service.Routes.Single(r => r.Id == "first").Repeat);
             service.AdvanceRoute("first");
             service.RewindRoute("first");
             service.StopRoute("first");
@@ -288,6 +342,7 @@ public sealed class CharacterLevelingRoutesTests : IDisposable
         Assert.Null(reloaded.ActiveLevelingRouteId);
         Assert.Equal(new RouteProgress(5, 8), reloaded.GetSavedRouteProgress("first"));
         Assert.Equal(ordinaryIds.Append(extraId), reloaded.Targets.Select(t => t.Id));
+        Assert.True(reloaded.Routes.Single(route => route.Id == "first").Repeat);
         reloaded.StartRoute("first");
         Assert.Equal(new RouteProgress(5, 8), reloaded.GetRouteProgress("first"));
         Assert.Equal(5, reloaded.Targets.First(t => t.Leveling).StopIndex);

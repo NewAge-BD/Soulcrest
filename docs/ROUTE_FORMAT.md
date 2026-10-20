@@ -118,6 +118,29 @@ entfernter Trace-Punkt. Die Entfernung automatisch erzeugter Monsterzweige
 ändert die Stationenliste nicht. Das Paket enthält keine Monsterzweige oder
 Auslösesperren für nahe beieinander liegende Quests.
 
+## Routen im Karten-Tab
+
+Die Routenbibliothek zeigt **Wiederholen an/aus** direkt auf jeder geeigneten
+Routenkarte. Bei einer laufenden gewöhnlichen Route steht derselbe Schalter
+zusätzlich oberhalb ihrer markierten Ziele; die Routenoptionen müssen dafür
+nicht geöffnet werden (Nutzerauftrag 2026-10-19). Beide Anzeigen verwenden
+die gespeicherte Repeat-Einstellung. Seit dem Nutzerauftrag vom 2026-10-20 bleibt
+sie pro Route dauerhaft erhalten: auch nach einem App-Neustart, beim Stoppen,
+beim Leeren markierter Ziele, beim Start einer anderen Route und beim Charakterwechsel.
+Nur das ausdrückliche Umschalten ändert die Wahl. Wiederholen an aktiviert keine
+gestoppte Route automatisch; es gilt beim nächsten ausdrücklich gestarteten Lauf.
+Mitgelieferte Leveling-Episoden behalten ihre automatische Episodenfolge und
+bieten keinen Repeat-Schalter.
+
+**Markierte Ziele** zeigt zunächst die ersten drei Ziele in ihrer Reihenfolge,
+mit Positionsnummer, Name und Karte. **Weitere … Ziele** klappt den Rest auf;
+der aufgeklappte Bereich scrollt bei langen Farmrouten unabhängig. Die Gesamtzahl,
+das Speichern einer neuen Folge und **Alle entfernen** bleiben außerhalb dieses
+Bereichs erreichbar. Das Einklappen verändert weder Ziele noch Reihenfolge,
+Kartenlinien, Overlay oder gespeicherte Route. Einzelziele lassen sich weiterhin
+auf der Karte zeigen und entfernen. Der Offenstatus ist nur ein Zustand der
+Ansicht und wird nicht in der Routenbibliothek gespeichert.
+
 ## Speicherung in der App
 
 Die lokale Bibliothek liegt als `routes.soulroute` im Soulcrest-Datenordner.

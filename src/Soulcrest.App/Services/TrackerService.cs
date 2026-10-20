@@ -1,12 +1,10 @@
 namespace Soulcrest.App.Services;
 
-/// <summary>Passive loot consumer and per-session totals, sharing the source with combat.</summary>
-public sealed class TrackerService(SettingsService settings, Network.INetworkLootSource? network = null,
-    NetworkCaptureCoordinator? capture = null) : IDisposable
+/// <summary>Passive loot source control and per-session totals.</summary>
+public sealed class TrackerService(SettingsService settings, Network.INetworkLootSource? network = null) : IDisposable
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, int> _session = new(StringComparer.Ordinal);
-    private readonly NetworkCaptureCoordinator? _capture = capture ?? (network is null ? null : new(network));
     private bool _requested;
     public bool Running { get { lock (_gate) return _requested && (network?.Running ?? false); } }
     public string Status => network?.Status ?? "Netzwerk-Quelle nicht verfügbar.";
@@ -38,14 +36,14 @@ public sealed class TrackerService(SettingsService settings, Network.INetworkLoo
         network.Changed += OnChanged;
         network.SoulGained -= OnSoul;
         network.SoulGained += OnSoul;
-        _capture!.SetDemand(NetworkCaptureConsumer.Loot, true);
+        if (!network.Running) network.Start();
         Changed?.Invoke();
     }
     public void Stop()
     {
         settings.Update(s => s.LootTrackingEnabled = false);
         lock (_gate) _requested = false;
-        _capture?.SetDemand(NetworkCaptureConsumer.Loot, false);
+        network?.Stop();
         Changed?.Invoke();
     }
     private void OnChanged() => Changed?.Invoke();
@@ -64,6 +62,6 @@ public sealed class TrackerService(SettingsService settings, Network.INetworkLoo
         if (network is null) return;
         network.Changed -= OnChanged;
         network.SoulGained -= OnSoul;
-        _capture?.SetDemand(NetworkCaptureConsumer.Loot, false); // Preserve the user's preference on shutdown.
+        network?.Stop(); // Preserve the user's preference on shutdown.
     }
 }

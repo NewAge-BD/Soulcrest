@@ -39,7 +39,7 @@ Ergebnis ist nur die Gruppenzuordnung der Cubes; Werkzeuge und Zwischenstände b
 ## Ausnahme: passiver Netzwerk-Mitschnitt (Nutzerentscheidungen 2026-10-03/12)
 
 Der Nutzer hat entschieden, dass das Loot-Tracking den eigenen Spielverkehr als Alternative zur OCR
-auswerten darf (DPS-Meter sind für Aion 2 laut Nutzer erlaubt). Dafür gilt:
+auswerten darf. Dafür gilt:
 
 - **standardmäßig aktiv auf ausdrücklichen Nutzerwunsch vom 2026-10-04**, dauerhaft ausschaltbar; nur per Npcap/`dumpcap`, nur **lesend**;
 - nur der Verkehr des Spielprozesses (Filter auf dessen TCP-Gegenstellen und UDP-Ports), kein
@@ -67,6 +67,10 @@ auswerten darf (DPS-Meter sind für Aion 2 laut Nutzer erlaubt). Dafür gilt:
   Auf Nutzerwunsch bleibt die letzte Bossliste lokal in `cache/boss-timers.json` erhalten;
   keine IPs/Verbindungsdaten. Nach Loads/Neustart ist sie bis zur frischen Liste vorläufig.
 
+### Verworfenes Feature: DPS-Meter (2026-10-19)
+
+Der Nutzer hat den DPS-Meter vollständig verworfen. Die dafür vorgesehene zusätzliche
+Verarbeitung von Gruppen-Kampfdaten ist kein Bestandteil der App.
 
 Aufnahme: `scripts/Record-GameTraffic.ps1`.
 

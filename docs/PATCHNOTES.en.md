@@ -2,6 +2,15 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.8.3 – 2026-10-20
+
+- **Improved:** After an instance (e.g. Abyss → Altgard) Soulcrest recognises the new map faster: while
+  resting in instances it looks every 2 seconds and checks several maps at once.
+- **Improved:** "My Routes" is more compact: Repeat is directly accessible, long target lists show the
+  first three entries and summarise the rest.
+- **Fixed:** A route's Repeat setting is now saved permanently.
+- **Fixed:** The merchant overlay flickered in some shop views.
+
 ## 0.8.2 – 2026-10-18
 
 - **Removed:** The DPS preview has been removed for now.

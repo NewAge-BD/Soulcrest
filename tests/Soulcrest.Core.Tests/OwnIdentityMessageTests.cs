@@ -18,24 +18,6 @@ public sealed class OwnIdentityMessageTests
         NetworkProgressMessageTests.EveryCutRejected(message, d => OwnIdentityMessage.TryParse(d));
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void WorldFieldsRequireTheSameWholeOwnSchemaAndDoNotClaimAnInstance(bool optional)
-    {
-        var message = OwnMessage(optional, mapKey: 987654321, mapId: 12345);
-        var world = Assert.IsType<OwnWorldObservation>(OwnIdentityMessage.TryParseWorld(message));
-        Assert.Equal(987654321, world.RawMapKey);
-        Assert.Equal(12345, world.MapDataId);
-        Assert.Equal(OwnIdentityMessage.TryParse(message), world.Identity);
-        NetworkProgressMessageTests.EveryCutRejected(message, d => OwnIdentityMessage.TryParseWorld(d));
-        Assert.Null(OwnIdentityMessage.TryParseWorld([.. message, 0]));
-        var otherMap = OwnIdentityMessage.TryParseWorld(OwnMessage(optional, mapKey: 123, mapId: 54321));
-        Assert.NotNull(otherMap);
-        Assert.Equal(world.Identity, otherMap.Identity);
-        Assert.NotEqual(world, otherMap);
-    }
-
     [Fact]
     public void RejectsOtherPlayerOpcodesUnknownFlagsAndInvalidOwnNameEncoding()
     {

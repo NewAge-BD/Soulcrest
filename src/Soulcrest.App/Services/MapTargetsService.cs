@@ -414,12 +414,6 @@ public sealed class MapTargetsService : IDisposable
             var marks = _targets.Where(t => t.RouteId == routeId).ToArray();
             if (marks.Length == 0) return;
             CaptureCharacterProgress();
-            var index = _routes.FindIndex(r => r.Id == routeId && r.Repeat);
-            if (index >= 0)
-            {
-                _routes[index] = _routes[index] with { Repeat = false };
-                RouteFile.Save(AppPaths.RoutesFile, _routes);
-            }
             // Ordinary targets may have been chained to this route. Keep them and reconnect their
             // lines instead of leaving a reference to a removed stop.
             foreach (var mark in marks)
@@ -436,7 +430,6 @@ public sealed class MapTargetsService : IDisposable
             if (_routes.FirstOrDefault(r => r.Id == routeId) is not { } route)
                 return;
             CaptureCharacterProgress();
-            StopRepeating(except: routeId, levelingOnly: _exploration is not null && route.IsLeveling);
             if (_exploration is not null && route.IsLeveling)
             {
                 _targets.RemoveAll(t => t.Leveling);
@@ -453,6 +446,7 @@ public sealed class MapTargetsService : IDisposable
         Changed?.Invoke();
     }
 
+    // User request 2026-10-20: repeat is a persistent per-route preference, independent of active marks.
     public void SetRouteRepeat(string routeId, bool repeat) => UpdateRoute(routeId, r => r with { Repeat = repeat });
 
     /// <summary>Gives the route one of the palette <see cref="Colors"/>; its marked stops change along.</summary>
@@ -557,7 +551,6 @@ public sealed class MapTargetsService : IDisposable
             var total = next.Stops.Count(s => !LevelingRouteStyle.IsTrace(s));
             var completed = GetSavedRouteProgress(next.Id)?.Completed ?? 0;
             if (completed >= total) continue;
-            StopRepeating(except: next.Id, levelingOnly: true);
             foreach (var mark in _targets.Where(t => t.Leveling).ToArray())
                 if (_targets.FirstOrDefault(t => t.Id == mark.Id) is { } current) RemoveFromChain(current);
             AddStops(next, completed);
@@ -723,31 +716,9 @@ public sealed class MapTargetsService : IDisposable
     {
         lock (_gate)
         {
-            StopRepeating();
             _targets.Clear();
             SaveTargets();
         }
         Changed?.Invoke();
-    }
-
-    /// <summary>
-    /// A running route that is ended ("Alle entfernen", or replaced by another route) loses its repeat
-    /// switch; it was still shown as on (user report 2026-10-07). Called under the lock, before the marks go.
-    /// </summary>
-    private void StopRepeating(string? except = null, bool levelingOnly = false)
-    {
-        var running = _targets.Where(t => !levelingOnly || t.Leveling).Select(t => t.RouteId).OfType<string>()
-            .Where(id => id != except).ToHashSet(StringComparer.Ordinal);
-        var changed = false;
-        for (var i = 0; i < _routes.Count; i++)
-        {
-            if (_routes[i].Repeat && running.Contains(_routes[i].Id))
-            {
-                _routes[i] = _routes[i] with { Repeat = false };
-                changed = true;
-            }
-        }
-        if (changed)
-            RouteFile.Save(AppPaths.RoutesFile, _routes);
     }
 }

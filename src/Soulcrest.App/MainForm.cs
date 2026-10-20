@@ -60,7 +60,6 @@ public sealed class MainForm : Form
         services.AddSingleton<Network.NetworkLootService>();
         services.AddSingleton<Network.INetworkLootSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkMerchantSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
-        services.AddSingleton<NetworkCaptureCoordinator>();
         services.AddSingleton<MerchantService>();
         services.AddSingleton<TrackerService>();
         services.AddSingleton<ExplorationService>();

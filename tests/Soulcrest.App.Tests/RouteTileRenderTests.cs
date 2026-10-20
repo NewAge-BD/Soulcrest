@@ -116,15 +116,15 @@ public sealed class RouteTileRenderTests
             Assert.Contains("<span class=\"route-faction-percent\">40 %</span>", leveling);
             Assert.Contains("Am Ende startet die nächste Episode automatisch.", leveling);
             Assert.DoesNotContain("class=\"route-repeat-option\"", leveling);
-            Assert.Equal(2, Regex.Matches(leveling, "class=\"btn small route-repeat ").Count); // Ordinary and custom leveling routes retain Repeat.
+            Assert.Equal(3, Regex.Matches(leveling, "class=\"btn small route-repeat ").Count); // Running farm, ordinary library and custom leveling routes retain Repeat.
             Assert.Contains("Erneut klicken, um Klicks durchzulassen.", leveling);
             Assert.DoesNotContain("Auf der Weltkarte im Spiel: Alt + Rechtsklick", leveling);
             Assert.Contains("Schloss im Overlay anklicken", leveling);
             Assert.DoesNotContain("Strg+Alt+L", leveling);
             Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(leveling, "class=\"route-stop completed ").Count);
             Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(leveling, "class=\"route-stop upcoming ").Count);
-            Assert.Contains("A <small>", leveling); // manually marked targets are retained beside the itinerary
-            Assert.Contains("B <small>", leveling);
+            Assert.Contains("class=\"route-target-name\">A</span>", leveling); // manually marked targets are retained beside the itinerary
+            Assert.Contains("class=\"route-target-name\">B</span>", leveling);
             WritePreview("routes.html", leveling);
             var matchingFaction = await Render(provider, "Elyos");
             Assert.Contains("open", FactionTag(matchingFaction, "Elyos"));
@@ -153,7 +153,7 @@ public sealed class RouteTileRenderTests
             var inactive = await Render(provider);
             Assert.DoesNotContain("class=\"route-active\"", inactive);
             Assert.DoesNotContain("class=\"btn route-cancel\"", inactive);
-            Assert.Contains("A <small>", inactive);
+            Assert.Contains("class=\"route-target-name\">A</span>", inactive);
             Assert.Contains("4 / 10 erledigt", inactive);
             Assert.Contains("Fortsetzen", inactive);
             WritePreview("routes-library.html", inactive);
@@ -186,6 +186,301 @@ public sealed class RouteTileRenderTests
             else File.WriteAllBytes(progressFile, previousProgress);
         }
     }
+
+    [Theory]
+    [InlineData("de", 0)]
+    [InlineData("de", 2)]
+    [InlineData("de", 60)]
+    [InlineData("en", 0)]
+    [InlineData("en", 2)]
+    [InlineData("en", 60)]
+    public async Task MarkedTargetsShowOnlyThreeBeforeNativeDisclosureWithoutChangingTheirState(string language, int count)
+    {
+        await using var fixture = new RouteScenario(language);
+        fixture.MarkTargets(count);
+        var state = fixture.State();
+        var files = fixture.StoredFiles();
+        var html = await fixture.Render();
+        var marked = ElementByClass(html, "section", "route-marked");
+        Assert.Equal(count, MarkedIds(marked).Length);
+        Assert.Equal(fixture.Targets.VisibleTargets.Where(target => !target.Leveling).Select(target => target.Id), MarkedIds(marked));
+        if (count == 0)
+        {
+            Assert.DoesNotContain("route-marked-preview", marked);
+            Assert.DoesNotContain("route-marked-more", marked);
+            Assert.Contains(language == "de" ? "Route aus der Bibliothek starten" : "Start a route from the library", marked);
+        }
+        else
+        {
+            var preview = ElementByClass(marked, "div", "route-marked-preview");
+            Assert.Equal(Math.Min(3, count), MarkedIds(preview).Length);
+            Assert.Matches("<button[^>]*class=\"name\"", preview);
+            Assert.Contains("Altgard", marked);
+            Assert.Contains("Verteron", marked);
+            Assert.Contains("class=\"remove\"", marked);
+            if (count <= 3) Assert.DoesNotContain("route-marked-more", marked);
+            else
+            {
+                var more = ElementByClass(marked, "details", "route-marked-more");
+                var opening = more[..(more.IndexOf('>') + 1)];
+                Assert.DoesNotMatch(@"\bopen(?:\s|=|>)", opening);
+                Assert.DoesNotContain("name=", opening);
+                Assert.Contains(language == "de" ? "Weitere 57 Ziele" : "57 more targets", more);
+                Assert.Contains(language == "de" ? "Weniger anzeigen" : "Show fewer", more);
+                var overflow = ElementByClass(more, "div", "route-marked-overflow");
+                Assert.Equal(57, MarkedIds(overflow).Length);
+                Assert.Contains("tabindex=\"0\"", overflow);
+                Assert.Contains("role=\"region\"", overflow);
+                Assert.Contains("<span class=\"route-target-index\"", overflow);
+                Assert.Matches(">60</span>", overflow);
+                Assert.DoesNotContain("route-save", more);
+                Assert.DoesNotContain(language == "de" ? "Alle entfernen" : "Remove all", more);
+            }
+        }
+        Assert.Equal(state, fixture.State());
+        Assert.Equal(files, fixture.StoredFiles());
+        await fixture.Export($"my-routes-marked-{count}");
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task LibraryRepeatIsDirectlyAvailableForOrdinaryAndCustomRoutesButNotEpisodes(string language)
+    {
+        await using var fixture = new RouteScenario(language);
+        var state = fixture.State();
+        var html = await fixture.Render();
+        foreach (var id in new[] { "synthetic-farm", "synthetic-custom" })
+        {
+            var card = ElementByAttribute(html, "article", "data-route-card", id);
+            var actions = ElementByClass(card, "div", "route-card-actions");
+            Assert.True(actions.IndexOf("data-route-repeat=", StringComparison.Ordinal) < actions.IndexOf("<details", StringComparison.Ordinal));
+            Assert.Contains("aria-pressed=\"false\"", RepeatButton(actions, id));
+            Assert.Contains(language == "de" ? "aria-label=\"Wiederholung für " : "aria-label=\"Repeat ", actions);
+            Assert.DoesNotContain("data-route-repeat", ElementByClass(actions, "details", "route-card-menu"));
+        }
+        Assert.DoesNotContain("data-route-repeat", ElementByAttribute(html, "article", "data-route-card", "synthetic-episode"));
+        Assert.Equal(state, fixture.State());
+    }
+
+    [Theory]
+    [InlineData("de", false)]
+    [InlineData("de", true)]
+    [InlineData("en", false)]
+    [InlineData("en", true)]
+    public async Task RunningFarmRepeatIsAboveTargetsAndAnOlderClickStillTogglesTheCurrentPreference(string language, bool repeat)
+    {
+        await using var fixture = new RouteScenario(language, longFarm: true);
+        const string id = "synthetic-farm";
+        fixture.Targets.SetRouteRepeat(id, repeat);
+        fixture.Targets.StartRoute(id);
+        var marks = System.Text.Json.JsonSerializer.Serialize(fixture.Targets.Targets);
+        var settings = System.Text.Json.JsonSerializer.Serialize(fixture.Settings.Current);
+        var html = await fixture.Render();
+        var marked = ElementByClass(html, "section", "route-marked");
+        var running = ElementByAttribute(marked, "div", "data-running-route", id);
+        Assert.Contains(fixture.FarmName, running);
+        Assert.True(marked.IndexOf("data-running-route=", StringComparison.Ordinal) < marked.IndexOf("route-marked-preview", StringComparison.Ordinal));
+        Assert.Contains($"aria-pressed=\"{repeat.ToString().ToLowerInvariant()}\"", RepeatButton(running, id));
+        Assert.Equal(2, Regex.Matches(html, "data-route-repeat=\"synthetic-farm\"").Count);
+        await fixture.Export("my-routes-active-farm-repeat-" + (repeat ? "on" : "off"));
+        if (repeat) await fixture.Export("my-routes-active-farm-long");
+        var callback = await fixture.RepeatCallback(id);
+        await fixture.Click(callback);
+        Assert.Equal(!repeat, fixture.Targets.Routes.Single(route => route.Id == id).Repeat);
+        await fixture.Click(callback); // The old render must not keep writing its captured Repeat value.
+        Assert.Equal(repeat, fixture.Targets.Routes.Single(route => route.Id == id).Repeat);
+        Assert.Equal(marks, System.Text.Json.JsonSerializer.Serialize(fixture.Targets.Targets));
+        Assert.Equal(settings, System.Text.Json.JsonSerializer.Serialize(fixture.Settings.Current));
+    }
+
+    [Theory]
+    [InlineData("de", false)]
+    [InlineData("de", true)]
+    [InlineData("en", false)]
+    [InlineData("en", true)]
+    public async Task ActiveLevelingKeepsManualMarksAndCustomRepeatOutsideItsOptions(string language, bool episode)
+    {
+        await using var fixture = new RouteScenario(language);
+        var id = episode ? "synthetic-episode" : "synthetic-custom";
+        fixture.Targets.StartRoute(id);
+        fixture.Targets.AdvanceRoute(id);
+        fixture.MarkTargets(60);
+        var state = fixture.State();
+        var files = fixture.StoredFiles();
+        var html = await fixture.Render();
+        var active = ElementByClass(html, "section", "route-active");
+        if (episode) Assert.DoesNotContain("data-route-repeat", active);
+        else
+        {
+            Assert.True(active.IndexOf("data-route-repeat=", StringComparison.Ordinal) < active.IndexOf("route-active-options", StringComparison.Ordinal));
+            Assert.Contains("aria-pressed=\"false\"", RepeatButton(active, id));
+        }
+        Assert.DoesNotContain("data-route-repeat", ElementByClass(active, "details", "route-active-options"));
+        var marked = ElementByClass(html, "section", "route-marked");
+        Assert.Equal(60, MarkedIds(marked).Length);
+        Assert.Equal(3, MarkedIds(ElementByClass(marked, "div", "route-marked-preview")).Length);
+        Assert.Equal(57, MarkedIds(ElementByClass(marked, "div", "route-marked-overflow")).Length);
+        Assert.DoesNotContain("data-running-route", marked); // The leveling itinerary has its own panel.
+        Assert.Equal(state, fixture.State());
+        Assert.Equal(files, fixture.StoredFiles());
+        await fixture.Export("my-routes-active-leveling-" + (episode ? "episode" : "custom") + "-marks");
+    }
+
+    private static string[] MarkedIds(string html) => Regex.Matches(html, "data-marked-target=\"([^\"]+)\"")
+        .Select(match => match.Groups[1].Value).ToArray();
+
+    private static string RepeatButton(string html, string id)
+    {
+        var button = Regex.Match(html, "<button\\b[^>]*data-route-repeat=\"" + Regex.Escape(id) + "\"[^>]*>[\\s\\S]*?</button>");
+        Assert.True(button.Success, $"Missing repeat button for {id}.");
+        return button.Value;
+    }
+
+    private static string ElementByClass(string html, string tag, string className) => Element(html, tag,
+        opening => Regex.Match(opening, "\\bclass=\"([^\"]*)\"").Groups[1].Value.Split(' ').Contains(className));
+    private static string ElementByAttribute(string html, string tag, string attribute, string value) => Element(html, tag,
+        opening => Regex.IsMatch(opening, "\\b" + Regex.Escape(attribute) + "=\"" + Regex.Escape(value) + "\""));
+    private static string Element(string html, string tag, Func<string, bool> matches)
+    {
+        var opening = Regex.Matches(html, "<" + tag + "\\b[^>]*>").FirstOrDefault(match => matches(match.Value));
+        Assert.NotNull(opening);
+        var depth = 0;
+        foreach (Match token in Regex.Matches(html[opening.Index..], "</?" + tag + "\\b[^>]*>"))
+        {
+            depth += token.Value.StartsWith("</", StringComparison.Ordinal) ? -1 : 1;
+            if (depth == 0) return html.Substring(opening.Index, token.Index + token.Length);
+        }
+        throw new InvalidOperationException("Unclosed HTML element: " + tag);
+    }
+
+    private sealed class RouteScenario : IAsyncDisposable
+    {
+        private readonly string _folder = Path.Combine(Path.GetTempPath(), "soulcrest-routes-view-" + Guid.NewGuid().ToString("N"));
+        private readonly string? _previousMapData = Environment.GetEnvironmentVariable("SOULCREST_MAPDATA");
+        private readonly string _previousLanguage = UiText.Language;
+        private readonly Dictionary<string, byte[]?> _backups = [];
+        private readonly HtmlRenderer _renderer;
+        private Microsoft.AspNetCore.Components.Web.HtmlRendering.HtmlRootComponent _root;
+        private MapView? _view;
+        private readonly string _language;
+        public ServiceProvider Provider { get; }
+        public SettingsService Settings => Provider.GetRequiredService<SettingsService>();
+        public MapTargetsService Targets => Provider.GetRequiredService<MapTargetsService>();
+        public string FarmName => _language == "de" ? "Synthetische Farmrunde mit besonders langem Namen durch Altgard und Verteron" : "Synthetic farming circuit with a particularly long name through Altgard and Verteron";
+
+        public RouteScenario(string language, bool longFarm = false)
+        {
+            Assert.StartsWith(Path.GetTempPath(), AppPaths.DataDirectory, StringComparison.OrdinalIgnoreCase);
+            _language = language;
+            Directory.CreateDirectory(_folder);
+            foreach (var path in new[] { AppPaths.SettingsFile, AppPaths.TargetsFile, AppPaths.RoutesFile, AppPaths.LegacyRoutesFile,
+                AppPaths.LearnedPetsFile, AppPaths.LearnedNamesFile, Path.Combine(AppPaths.DataDirectory, "routes.seeded.json"),
+                Path.Combine(AppPaths.DataDirectory, "leveling-progress.json") })
+            {
+                _backups[path] = File.Exists(path) ? File.ReadAllBytes(path) : null;
+                if (File.Exists(path)) File.Delete(path);
+            }
+            File.WriteAllText(Path.Combine(_folder, "manifest.json"), """{"maps":[{"id":"altgard","label":"Altgard","group":"Asmodian"},{"id":"verteron","label":"Verteron","group":"Elyos"}]}""");
+            Environment.SetEnvironmentVariable("SOULCREST_MAPDATA", _folder);
+            RouteFile.Save(AppPaths.RoutesFile,
+            [
+                new SavedRoute("synthetic-farm", FarmName, Stops("Synthetic farming target with a long descriptive waypoint name", "Locations", longFarm ? 60 : 6), Color: "#38bdf8"),
+                new SavedRoute("synthetic-custom", "Synthetic custom leveling practice", Stops("Synthetic custom objective", "NPCs · Hero Quest"), Category: LevelingRouteStyle.Category),
+                new SavedRoute("synthetic-episode", "Asmodian · Episode 2 · Level 10–16", Stops("Synthetic episode objective", "NPCs · Hero Quest"), Category: LevelingRouteStyle.Category)
+            ]);
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton<SettingsService>();
+            services.AddSingleton<GameCaptureService>();
+            services.AddSingleton(new ProgressService(Path.Combine(_folder, "progress.json"), new Soulcrest.Core.Pets.PetCatalog([])));
+            services.AddSingleton<NetworkLootService>();
+            services.AddSingleton(sp => new TrackerService(sp.GetRequiredService<SettingsService>(), network: null));
+            services.AddSingleton<MapTrackingService>();
+            services.AddSingleton(new ExplorationService(Path.Combine(_folder, "exploration.json"), []));
+            services.AddSingleton<MapTargetsService>();
+            services.AddSingleton<UiState>();
+            services.AddSingleton<UpdateService>();
+            services.AddSingleton(_ => new AlertsService(Path.Combine(_folder, "alerts.json"), runTimer: false));
+            services.AddSingleton<IJSRuntime, NoJs>();
+            Provider = services.BuildServiceProvider();
+            Settings.Update(settings => { settings.UiLanguage = settings.NameLanguage = language; settings.LastMap = "altgard"; settings.FollowPlayer = false; settings.ProgressionEnabled = false; });
+            Provider.GetRequiredService<ExplorationService>().Rename("Synthetic route profile");
+            _ = Targets;
+            _renderer = new HtmlRenderer(Provider, Provider.GetRequiredService<ILoggerFactory>());
+        }
+
+        private static RouteStop[] Stops(string name, string kind, int count = 6) => Enumerable.Range(1, count)
+            .Select(index => new RouteStop(index % 2 == 1 ? "altgard" : "verteron", 100 + index * 25, 100 + index * 30,
+                name + " " + index, kind, null)).ToArray();
+        public void MarkTargets(int count)
+        {
+            for (var index = 0; index < count; index++)
+                Targets.Toggle(index % 2 == 0 ? "altgard" : "verteron", 1000 + index * 20, 2000 + index * 20,
+                    (_language == "de" ? "Synthetisches markiertes Ziel " : "Synthetic marked target ") + (index + 1).ToString("00") +
+                    " · LongTargetNameWithoutSpacesForLayoutVerification · additional descriptive location text", "Locations", null, chain: true);
+        }
+        public string State() => System.Text.Json.JsonSerializer.Serialize(new { Targets.Targets, Targets.Routes, Settings = Settings.Current,
+            Progress = Provider.GetRequiredService<ExplorationService>().Completed.Order().ToArray() });
+        public string StoredFiles() => System.Text.Json.JsonSerializer.Serialize(_backups.Keys.ToDictionary(path => path,
+            path => File.Exists(path) ? Convert.ToBase64String(File.ReadAllBytes(path)) : null));
+        public async Task<string> Render()
+        {
+            _root = await _renderer.Dispatcher.InvokeAsync(() => _renderer.RenderComponentAsync<RouteQueryHost>(ParameterView.FromDictionary(
+                new Dictionary<string, object?> { [nameof(RouteQueryHost.Capture)] = (Action<MapView>)(view => _view = view) })));
+            return await Html();
+        }
+        public Task<string> Html() => _renderer.Dispatcher.InvokeAsync(() => System.Net.WebUtility.HtmlDecode(_root.ToHtmlString()));
+        // Extract only real rendered callbacks; no UI logic is reproduced in the fixture.
+#pragma warning disable BL0006
+        public Task<object?> RepeatCallback(string id) => _renderer.Dispatcher.InvokeAsync<object?>(() =>
+        {
+            using var tree = new RenderTreeBuilder();
+            typeof(MapView).GetMethod("BuildRenderTree", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_view, [tree]);
+            var frames = tree.GetFrames();
+            var attribute = Enumerable.Range(0, frames.Count).First(index => frames.Array[index].FrameType == Microsoft.AspNetCore.Components.RenderTree.RenderTreeFrameType.Attribute
+                && frames.Array[index].AttributeName == "data-route-repeat" && Equals(frames.Array[index].AttributeValue, id));
+            var parent = attribute;
+            while (frames.Array[parent].FrameType != Microsoft.AspNetCore.Components.RenderTree.RenderTreeFrameType.Element) parent--;
+            var end = parent + frames.Array[parent].ElementSubtreeLength;
+            return Enumerable.Range(parent + 1, end - parent - 1).Select(index => frames.Array[index])
+                .First(frame => frame.FrameType == Microsoft.AspNetCore.Components.RenderTree.RenderTreeFrameType.Attribute && frame.AttributeName == "onclick").AttributeValue;
+        });
+#pragma warning restore BL0006
+        public Task Click(object? callback) => _renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            switch (callback)
+            {
+                case EventCallback<Microsoft.AspNetCore.Components.Web.MouseEventArgs> typed: await typed.InvokeAsync(new()); break;
+                case EventCallback untyped: await untyped.InvokeAsync(); break;
+                case MulticastDelegate handler: if (handler.DynamicInvoke() is Task task) await task; break;
+                default: throw new InvalidOperationException("Unexpected route click callback.");
+            }
+            await _view!.SetParametersAsync(ParameterView.Empty);
+        });
+        public async Task Export(string state)
+        {
+            if (Environment.GetEnvironmentVariable("SOULCREST_ROUTE_UI_PREVIEW") is not { Length: > 0 } output) return;
+            Directory.CreateDirectory(output);
+            var raw = await _renderer.Dispatcher.InvokeAsync(_root.ToHtmlString);
+            await File.WriteAllTextAsync(Path.Combine(output, state + "-" + _language + ".html"),
+                "<!doctype html><html lang=\"" + _language + "\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/css/map-legend.css\"><link rel=\"stylesheet\" href=\"/css/monster-search.css\"><style>html,body{height:100%;margin:0}.mapview{height:100vh}#map{background:linear-gradient(135deg,#1b302c,#253c32)}</style></head><body>" + raw + "</body></html>");
+        }
+        public async ValueTask DisposeAsync()
+        {
+            await _renderer.DisposeAsync();
+            await Provider.DisposeAsync();
+            foreach (var (path, bytes) in _backups)
+            {
+                if (bytes is null) { if (File.Exists(path)) File.Delete(path); }
+                else { Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllBytes(path, bytes); }
+            }
+            Environment.SetEnvironmentVariable("SOULCREST_MAPDATA", _previousMapData);
+            UiText.Language = _previousLanguage;
+            Directory.Delete(_folder, true);
+        }
+    }
+
 
     private static void WritePreview(string filename, string markup)
     {

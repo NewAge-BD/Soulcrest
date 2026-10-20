@@ -357,44 +357,54 @@
                     </ol>
                     <div class="route-save-state">@UiText.T("Fortschritt für diesen Charakter gespeichert")</div>
                     <button type="button" class="btn route-cancel" title="@UiText.T("Route beenden und Fortschritt behalten")" @onclick="@(() => Targets.StopRoute(currentRoute.Id))"><span aria-hidden="true">■</span> @UiText.T("Route abbrechen")</button>
+                    @if (!LevelingRouteStyle.TryGetEpisode(currentRoute, out _, out _))
+                    {
+                        @RepeatControl(currentRoute)
+                    }
                     <details class="route-active-options">
                         <summary>@UiText.T("Routenoptionen")</summary>
-                        @if (!LevelingRouteStyle.TryGetEpisode(currentRoute, out _, out _))
-                        {
-                            <label class="route-repeat-option"><input type="checkbox" checked="@currentRoute.Repeat" @onchange="@(_ => Targets.SetRouteRepeat(currentRoute.Id, !currentRoute.Repeat))" /> @UiText.T("Route wiederholen")</label>
-                        }
                         <button type="button" class="btn small" @onclick="@(() => RestartRoute(currentRoute))">↺ @UiText.T("Von vorne starten")</button>
                     </details>
                 </section>
             }
 
-            @if (Targets.VisibleTargets.Any(t => !t.Leveling) || ActiveLevelingRoute is null)
+            @{ var markedTargets = Targets.VisibleTargets.Where(t => !t.Leveling).ToArray(); }
+            @if (markedTargets.Length > 0 || ActiveLevelingRoute is null)
             {
                 <section class="route-marked">
                     <div class="route-section-heading">
                         <span>@UiText.T("Markierte Ziele")</span>
-                        <span class="routes-count">@Targets.Targets.Count(t => !t.Leveling)</span>
-                        @if (Targets.VisibleTargets.Count > 0)
+                        <span class="routes-count">@markedTargets.Length</span>
+                        @if (markedTargets.Length > 0)
                         {
                             <button type="button" class="btn link" @onclick="Targets.Clear">@UiText.T("Alle entfernen")</button>
                         }
                     </div>
-                    @if (!Targets.VisibleTargets.Any(t => !t.Leveling))
+                    @foreach (var route in Targets.Routes.Where(r => !r.IsLeveling && markedTargets.Any(t => t.RouteId == r.Id)))
+                    {
+                        <div class="route-marked-running" data-running-route="@route.Id" @key="route.Id" style="--route-color:@route.Color">
+                            <div><span>@UiText.T("Laufende Route")</span><strong>@route.Name</strong></div>
+                            @RepeatControl(route)
+                        </div>
+                    }
+                    @if (markedTargets.Length == 0)
                     {
                         <div class="route-empty">@UiText.T("Route aus der Bibliothek starten oder Ziele per Rechtsklick auf der Karte markieren.")</div>
                     }
                     else
                     {
-                        <div class="targetlist route-marked-list">
-                            @foreach (var (target, index) in Targets.VisibleTargets.Where(t => !t.Leveling).Select((t, i) => (t, i)))
-                            {
-                                <div class="target">
-                                    <span class="swatch" style="background:@MapTargetsService.ColorOf(target, index)"></span>
-                                    <span class="name" title="@target.Kind" @onclick="@(() => FlyToTarget(target))">@target.Name <small>· @MapLabelOf(target.MapId)</small></span>
-                                    <button type="button" class="remove" title="@UiText.T("Ziel entfernen")" @onclick="@(() => Targets.Remove(target.Id))">✕</button>
-                                </div>
-                            }
+                        <div class="targetlist route-marked-list route-marked-preview">
+                            @MarkedTargetRows(markedTargets.Take(3), 0)
                         </div>
+                        @if (markedTargets.Length > 3)
+                        {
+                            <details class="route-marked-more">
+                                <summary><span class="route-more-closed">@UiText.F("Weitere {0} Ziele", markedTargets.Length - 3)</span><span class="route-more-open">@UiText.T("Weniger anzeigen")</span></summary>
+                                <div class="targetlist route-marked-list route-marked-overflow" tabindex="0" role="region" aria-label="@UiText.T("Weitere markierte Ziele")">
+                                    @MarkedTargetRows(markedTargets.Skip(3), 3)
+                                </div>
+                            </details>
+                        }
                     }
                     @if (!Targets.Targets.Any(t => t.Leveling) && Targets.ChainOn(_mapId) is { Count: >= 2 } chain)
                     {
@@ -745,7 +755,7 @@
             var running = route.IsLeveling ? Targets.ActiveLevelingRouteId == route.Id : Targets.ActiveRoutes.Contains(route.Id);
             var savedProgress = route.IsLeveling ? Targets.GetSavedRouteProgress(route.Id) : null;
             var picking = _paletteFor == route.Id;
-            <article class="route-card @(running ? "running" : "")" style="--route-color:@color">
+            <article class="route-card @(running ? "running" : "")" style="--route-color:@color" data-route-card="@route.Id" @key="route.Id">
                 <div class="route-card-heading">
                     @if (route.IsLeveling)
                     {
@@ -766,16 +776,16 @@
                 }
                 <div class="route-card-actions">
                     <button type="button" class="btn small route-start" title="@UiText.T("Route starten (ersetzt die markierten Ziele)")" @onclick="@(() => StartRoute(route))">@(running ? UiText.T("Auf Karte zeigen") : RouteActionText(savedProgress)) <span aria-hidden="true">›</span></button>
+                    @if (!LevelingRouteStyle.TryGetEpisode(route, out _, out _))
+                    {
+                        @RepeatControl(route)
+                    }
                     <details class="route-card-menu">
                         <summary aria-label="@UiText.F("Optionen für {0}", route.Name)">@UiText.T("Routenoptionen")</summary>
                         <div class="route-card-menu-content">
                             @if (route.IsLeveling)
                             {
                                 <button type="button" class="btn small" @onclick="@(() => RestartRoute(route))">↺ @UiText.T("Von vorne starten")</button>
-                            }
-                            @if (!LevelingRouteStyle.TryGetEpisode(route, out _, out _))
-                            {
-                                <button type="button" class="btn small route-repeat @(route.Repeat ? "on" : "")" aria-pressed="@(route.Repeat ? "true" : "false")" @onclick="@(() => Targets.SetRouteRepeat(route.Id, !route.Repeat))">⟳ @(route.Repeat ? UiText.T("Wiederholen an") : UiText.T("Wiederholen aus"))</button>
                             }
                             <button type="button" class="btn small route-delete" @onclick="@(() => DeleteRoute(route))">@UiText.T("Route löschen")</button>
                         </div>
@@ -793,6 +803,26 @@
             </article>
         }
     </div>;
+
+    // User request 2026-10-19: keep repeat reachable without opening route options or scrolling past every stop.
+    private RenderFragment RepeatControl(SavedRoute route) => @<button type="button" class="btn small route-repeat @(route.Repeat ? "on" : "")" data-route-repeat="@route.Id" aria-label="@UiText.F("Wiederholung für {0}", route.Name)" aria-pressed="@(route.Repeat ? "true" : "false")" title="@(route.Repeat ? UiText.T("Wiederholen an: nach dem letzten Ziel beginnt die Route von vorn") : UiText.T("Route wiederholen"))" @onclick="@(() => ToggleRouteRepeat(route.Id))"><span aria-hidden="true">⟳</span> @(route.Repeat ? UiText.T("Wiederholen an") : UiText.T("Wiederholen aus"))</button>;
+
+    private void ToggleRouteRepeat(string routeId)
+    {
+        if (Targets.Routes.FirstOrDefault(route => route.Id == routeId) is { } route)
+            Targets.SetRouteRepeat(routeId, !route.Repeat);
+    }
+
+    private RenderFragment MarkedTargetRows(IEnumerable<MapTarget> targets, int offset) => @<text>
+        @foreach (var (target, index) in targets.Select((target, index) => (target, offset + index)))
+        {
+            <div class="target" data-marked-target="@target.Id" @key="target.Id">
+                <span class="route-target-index" style="--target-color:@MapTargetsService.ColorOf(target, index)">@((index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture))</span>
+                <button type="button" class="name" title="@($"{target.Name} · {target.Kind}")" @onclick="@(() => FlyToTarget(target))"><span class="route-target-name">@target.Name</span><small>@MapLabelOf(target.MapId)</small></button>
+                <button type="button" class="remove" title="@UiText.T("Ziel entfernen")" aria-label="@UiText.F("Ziel {0} entfernen", target.Name)" @onclick="@(() => Targets.Remove(target.Id))">✕</button>
+            </div>
+        }
+    </text>;
 
     private static int RoutePercent(RouteProgress progress) => progress.Total > 0 ? (int)Math.Round(100d * progress.Completed / progress.Total) : 0;
     private static string RouteActionText(RouteProgress? progress) => progress switch

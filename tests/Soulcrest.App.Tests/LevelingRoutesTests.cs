@@ -90,7 +90,7 @@ public sealed class LevelingRoutesTests : IDisposable
     }
 
     [Fact]
-    public void FinishKeepsHistoryRepeatAndClearResetIt()
+    public void FinishLoopsOnlyWhileActiveAndClearKeepsItsRepeatPreference()
     {
         var service=Service();service.StartRoute("route");
         for(var i=0;i<8;i++)service.AdvanceRoute("route");
@@ -102,9 +102,49 @@ public sealed class LevelingRoutesTests : IDisposable
         Assert.Equal(8,service.Targets.Count);
         Assert.Equal(3,service.VisibleTargets.Count);
         Assert.DoesNotContain(service.VisibleTargets,t=>t.Completed);
-        service.AdvanceRoute("route");service.Clear();
+        service.AdvanceRoute("route");
+        var oldTarget = service.Targets[0].Id;
+        service.Clear();
+        service.Arrive(oldTarget);
         Assert.Empty(service.VisibleTargets);
-        Assert.Empty(new MapTargetsService().VisibleTargets);
+        Assert.True(service.Routes.Single(route => route.Id == "route").Repeat);
+        using var cleared = new MapTargetsService();
+        Assert.Empty(cleared.VisibleTargets);
+        Assert.Null(cleared.ActiveLevelingRouteId);
+        Assert.True(cleared.Routes.Single(route => route.Id == "route").Repeat);
+    }
+
+    [Fact]
+    public void EpisodeContinuationKeepsRepeatPreferencesWithoutLoopingCompletedEpisodes()
+    {
+        RouteStop[] stops = [new("altgard", 100, 100, "Synthetic quest A", "NPCs", null),
+            new("altgard", 200, 100, "Synthetic quest B", "NPCs", null)];
+        RouteFile.Save(AppPaths.RoutesFile,
+        [
+            new SavedRoute("episode-one", "Asmodian · Episode 1 · Level 1–5", stops, Repeat: true, Category: LevelingRouteStyle.Category),
+            new SavedRoute("episode-two", "Asmodian · Episode 2 · Level 5–10", stops, Repeat: true, Category: LevelingRouteStyle.Category)
+        ]);
+        using (var service = new MapTargetsService())
+        {
+            service.StartRoute("episode-one");
+            for (var i = 0; i < 2; i++) service.AdvanceRoute("episode-one");
+            Assert.Equal("episode-two", service.ActiveLevelingRouteId);
+            Assert.Equal(new RouteProgress(0, 2), service.GetRouteProgress("episode-two"));
+            Assert.All(service.Routes, route => Assert.True(route.Repeat));
+            for (var i = 0; i < 2; i++) service.AdvanceRoute("episode-two");
+            Assert.Empty(service.Targets);
+            Assert.Empty(service.ActiveRoutes);
+            Assert.Equal(new RouteProgress(2, 2), service.GetRouteProgress("episode-two"));
+        }
+        using var reloaded = new MapTargetsService();
+        Assert.Empty(reloaded.Targets);
+        Assert.Equal(new RouteProgress(2, 2), reloaded.GetRouteProgress("episode-two"));
+        Assert.All(reloaded.Routes, route => Assert.True(route.Repeat));
+        reloaded.Clear();
+        using var cleared = new MapTargetsService();
+        Assert.Empty(cleared.VisibleTargets);
+        Assert.Null(cleared.ActiveLevelingRouteId);
+        Assert.All(cleared.Routes, route => Assert.True(route.Repeat));
     }
 
     [Fact]

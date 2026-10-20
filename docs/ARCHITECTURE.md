@@ -164,4 +164,9 @@ für Banner; spätere Anpassungen bleiben unabhängig. Größenregler verwenden 
 Monitoranpassung ist vorübergehend. Native Resize/Drag speichert beim Abschluss. Details stehen
 in ALERTS.md; die Scheduler-/Deduplizierungslogik bleibt unverändert.
 
+## Verworfenes Feature: DPS-Meter (2026-10-19)
+
+Der Nutzer hat den DPS-Meter vollständig verworfen. Die zugehörigen Komponenten,
+Datenverträge, Erfassungsabnehmer, Historie und Katalogressourcen wurden entfernt.
+Die bestehende Pet-, Fortschritts- und Boss-Timer-Erfassung bleibt eigenständig erhalten.
 

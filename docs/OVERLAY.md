@@ -214,7 +214,9 @@ keinen Monitor-/GDI-Fallback. MerchantCardLocator erkennt Siegel, Preis-Pillen u
 ohne OCR oder Spielbild-Templates. Erst zwei verschiedene frische Frames mit zehn bestätigten
 Kartenplätzen erlauben die Anzeige. Alle fünf gelieferten UI-Skalen sind offline im produktiven
 C#-Locator geprüft, zusätzlich in der auf 1920 Pixel Breite reduzierten Analyseauflösung.
-Bei Siegelmangel darf dort ein zweites 5×5-Closing ausschließlich Kandidatenkonturen reparieren.
+Nach einer erfolglosen vollständigen 3×3-Prüfung darf bei höchstens 1920 Pixeln Breite ein
+zweites 5×5-Closing ausschließlich Kandidatenkonturen reparieren. Zusätzliche falsche Konturen
+dürfen diesen Versuch nicht verhindern: ihre globale Anzahl beweist keine acht passenden Siegel.
 Ein gültiges gemeinsames Layout darf bei fehlgeschlagenen Ränderprüfungen um höchstens einen
 Analysepixel gemeinsam verschoben werden. Acht Siegel sowie alle zehn Preise und Kartenränder
 bleiben mit denselben Schwellen Pflicht. Scheitert ein kleineres Bild (960–1919 px Breite),
@@ -274,7 +276,11 @@ Nach zwei bestätigenden Bildern wird die erste verifizierte Ankergeometrie eins
 Skala festgehalten. Kleine Messschwankungen verschieben das Fenster und die Preis-Aussparungen
 nicht mehr. Die vorherigen Anker sind im Locator nur eine Hypothese: acht aktuelle unabhängige
 Siegel und alle zehn Preise/Kartenränder müssen weiterhin die bestehenden Rohkantenprüfungen
-bestehen. Echte Layout-, Fenster- und Quellenwechsel verlangen erneut zwei verschiedene Bilder.
+bestehen. Die bekannte Geometrie sammelt dafür aktuelle Siegelbelege nur um ihre zehn erwarteten
+Positionen, bevor die freie Suche ihre globale Kandidatenbegrenzung anwendet. Fremde Konturen
+können diesen Abgleich nicht vorzeitig abbrechen. Jeder Morphologiepass muss für sich acht
+verschiedene aktuelle Siegel und alle Rohkantenprüfungen erfüllen; Belege werden nicht addiert.
+Echte Layout-, Fenster- und Quellenwechsel verlangen erneut zwei verschiedene Bilder.
 Eine zur Fenstergröße unpassende Capturefläche wird verworfen; ein Pixel Rundungsdifferenz des
 HDR-Verkleinerungspfads bleibt zulässig. Keine zweite DPI-Skalierung und kein Capture-Fallback.
 

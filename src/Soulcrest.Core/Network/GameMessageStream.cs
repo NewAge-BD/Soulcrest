@@ -16,24 +16,16 @@ public sealed class GameMessageStream
     private const int MaxDecodedMessages = 65536;
     private readonly List<byte> _buffer = [];
     private readonly bool _requireVerifiedSync;
-    private readonly bool _allowObservedControlFrames;
     private int _verifiedScan;
     private bool _synced;
 
     /// <summary>
     /// Live progress requires a validated bundle, own-character message or exact server clock to
     /// establish framing. The default retains the generic chain mode for transport-only consumers.
-    /// The separately selected observed transport profile may consume canonical one-byte L=4/5
-    /// controls. They never emit a message, establish an anchor or count toward a sync chain.
-    /// This option requires verified synchronization; generic sync is intentionally unavailable for
-    /// this profile. Existing live callers leave this option disabled.
     /// </summary>
-    public GameMessageStream(bool requireVerifiedSync = false, bool allowObservedControlFrames = false)
+    public GameMessageStream(bool requireVerifiedSync = false)
     {
-        if (allowObservedControlFrames && !requireVerifiedSync)
-            throw new ArgumentException("Observed controls require verified synchronization.", nameof(allowObservedControlFrames));
         _requireVerifiedSync = requireVerifiedSync;
-        _allowObservedControlFrames = allowObservedControlFrames;
     }
 
     /// <summary>Messages lost to resynchronisation (diagnosis).</summary>
@@ -117,7 +109,7 @@ public sealed class GameMessageStream
 
     private bool Expand(ReadOnlySpan<byte> message, List<byte[]> into, int depth, ref int expandedBytes)
     {
-        if (message.Length < 2) return _allowObservedControlFrames;
+        if (message.Length < 2) return false;
         if (message[0] == 0xff && message[1] == 0xff)
         {
             if (message.Length < 6 || depth >= MaxBundleDepth) return false;
@@ -157,8 +149,7 @@ public sealed class GameMessageStream
                 break;
         }
         var size = value - 4 + n;
-        if (size > MaxMessage || size < n + 2 &&
-            !(_allowObservedControlFrames && n == 1 && value is 4 or 5))
+        if (size > MaxMessage || size < n + 2)
             return null;
         return new FrameInfo(pos + n, pos + size);
     }

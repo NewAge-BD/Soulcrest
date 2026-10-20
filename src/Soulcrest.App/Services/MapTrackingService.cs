@@ -113,6 +113,9 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     private string? _currentMap;
     private int _misses;
     private int _searchTick;
+    private int _recoverySearchTick;
+    private string? _confirmationMap;
+    private readonly Dictionary<string, Task> _confirmationPreparations = [];
     private double? _lastZoom;
     private readonly List<string> _recentMaps = [];
 
@@ -253,11 +256,10 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     internal static readonly TimeSpan PauseAfterLoadingScreen = TimeSpan.FromSeconds(8);
     internal static readonly TimeSpan PauseWithoutLoadingScreen = TimeSpan.FromSeconds(30);
     /// <summary>
-    /// Gap between two looks while resting: every 2 s in the first 20 s (a short loss after a teleport in
-    /// the world), then every 5 s. Replayed on the speedrun video (2026-10-06): same rest in instances,
-    /// half the lost world positions (112 instead of 203 s in 3 h).
+    /// Resting still avoids continuous capture/flow, but checks at least every 2 s even after long
+    /// instances (user request 2026-10-19). Each look searches several ready maps, not just one.
     /// </summary>
-    internal static int PausedProbeMs(TimeSpan pausedFor) => pausedFor < TimeSpan.FromSeconds(20) ? 2000 : 5000;
+    internal static int PausedProbeMs(TimeSpan pausedFor) => 2000;
     private long _pausedAt;
     private long _lostSince;        // Stopwatch timestamp of the first second without a map (0: found)
     private long _loadingScreenAt;  // last loading screen reported by the network (0: none)
@@ -761,10 +763,46 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             StepWorldMap(region, maps, small, token, generation);
             return;
         }
-        Step(region, maps, crop, screen, small, MapWindowEmblem.Shows(fullFrame), token, generation);
+        var header = MapWindowEmblem.Shows(fullFrame);
+        var searchStarted = Stopwatch.GetTimestamp();
+        if (Paused || InInstance || _misses >= MissesBeforeOtherMaps)
+        {
+            // user request 2026-10-19: one paused look must not mean one map followed by
+            // another five-second sleep. Search ready references in one bounded pass.
+            var ready = maps.Where(m => Ready(_coarse, m.Id) is not null).Select(m => m.Id).ToList();
+            var confirmation = Interlocked.Exchange(ref _confirmationMap, null);
+            var candidates = RecoveryCandidates(_currentMap, ready, _recentMaps, _recoverySearchTick);
+            if (confirmation is not null && ready.Contains(confirmation) && Ready(_fine, confirmation) is not null)
+                candidates = new[] { confirmation }.Concat(candidates.Where(id => id != confirmation)).ToArray();
+            foreach (var candidate in candidates)
+            {
+                token.ThrowIfCancellationRequested();
+                if (!IsCurrentMapContext(generation) || Stopwatch.GetElapsedTime(searchStarted) >= RecoverySearchBudget)
+                    break;
+                _recoverySearchTick++;
+                var previousFix = Interlocked.Read(ref _lastFixAt);
+                Step(region, maps, crop, screen, small, header, token, generation, candidate, searchStarted);
+                if ((Found && Interlocked.Read(ref _lastFixAt) != previousFix) || _worldMapOpen) break;
+            }
+            return;
+        }
+        Step(region, maps, crop, screen, small, header, token, generation, frameStarted: searchStarted);
     }
 
-    private void Step(Rectangle region, List<MapDefinition> maps, Mat frame, Rectangle screen, Mat screenFrame, bool windowHeader, CancellationToken token, long contextGeneration)
+    internal static readonly TimeSpan RecoverySearchBudget = TimeSpan.FromMilliseconds(1200);
+
+    internal static string[] RecoveryCandidates(string? current, IReadOnlyList<string> ready,
+        IReadOnlyList<string> recent, int tick)
+    {
+        var ordered = recent.Where(id => id != current && ready.Contains(id))
+            .Concat(ready.Where(id => id != current)).Concat(ready.Where(id => id == current)).Distinct().ToArray();
+        if (ordered.Length == 0) return [];
+        var start = (int)((uint)tick % (uint)ordered.Length);
+        return ordered.Skip(start).Concat(ordered.Take(start)).ToArray();
+    }
+
+    private void Step(Rectangle region, List<MapDefinition> maps, Mat frame, Rectangle screen, Mat screenFrame, bool windowHeader, CancellationToken token, long contextGeneration,
+        string? searchMap = null, long? frameStarted = null)
     {
         var anchor = new Point2d(region.Width * settings.Current.PlayerAnchorX, region.Height * settings.Current.PlayerAnchorY);
 
@@ -775,7 +813,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 .OrderBy(m => _recentMaps.IndexOf(m.Id) is var i and >= 0 ? i : int.MaxValue)
                 .Select(m => m.Id).ToList()
             : [];
-        var candidate = NextCandidate(_currentMap, _misses, others, _searchTick++);
+        var tick = _searchTick++;
+        var candidate = searchMap ?? NextCandidate(_currentMap, _misses, others, tick);
         if (candidate is null || maps.FirstOrDefault(m => m.Id == candidate) is not { } definition)
             return;
 
@@ -797,17 +836,16 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             // (Altgard after Abyss: 26 coarse pairs, 73 fine pairs; diagnosis 2026-10-13). Verify the
             // same candidate and capture at the finer zoom before rejecting it. Keep the 30-pair
             // switch requirement: a weak coarse hint alone must never publish a position or wake
-            // an inferred instance. Loading here is cancellable and only needed once per map.
+            // an inferred instance. Missing detail references are prepared off the detection path.
             if (definition.FineZoom > definition.CoarseZoom)
             {
-                locator = Ready(_fine, candidate) ?? Load(definition, definition.FineZoom, _fine, token);
-                if (watch.Elapsed > MaximumFrameAge)
+                var prepared = Ready(_fine, candidate);
+                if (prepared is null)
                 {
-                    // First-time reference building can take seconds. Retry this candidate with a
-                    // new capture instead of publishing the picture from before preparation.
-                    _searchTick--;
-                    return;
+                    PrepareConfirmation(definition, token);
+                    return; // no blocking reference build and no publication of the weak hint
                 }
+                locator = prepared;
                 fix = LocateAt(locator, frame, FineFrameScaleFor(region.Size));
             }
             if (fix is not null && fix.Inliers < SwitchMinInliers)
@@ -827,6 +865,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             return;
         token.ThrowIfCancellationRequested();
         if (!IsCurrentMapContext(contextGeneration))
+            return;
+        if (frameStarted is { } captured && Stopwatch.GetElapsedTime(captured) > MaximumFrameAge)
             return;
         LocateMs = watch.ElapsedMilliseconds;
         Inliers = locator.LastInfo.Inliers;
@@ -1098,6 +1138,25 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         }
     }
 
+    private void PrepareConfirmation(MapDefinition definition, CancellationToken token)
+    {
+        lock (_gate)
+        {
+            if (_confirmationPreparations.TryGetValue(definition.Id, out var previous))
+            {
+                if (!previous.IsCompleted) return;
+                _ = previous.Exception; // observe a failed attempt before allowing a retry
+            }
+            _confirmationPreparations[definition.Id] = Task.Run(() =>
+            {
+                Load(definition, definition.FineZoom, _fine, token);
+                token.ThrowIfCancellationRequested();
+                Interlocked.Exchange(ref _confirmationMap, definition.Id);
+                _wake.TrySetResult(); // retry on a new capture, even while resting in an instance
+            }, token);
+        }
+    }
+
     private readonly System.Collections.Concurrent.ConcurrentDictionary<(string, int), object> _loadGates = new();
 
     private MapLocator Load(MapDefinition definition, int zoom, Dictionary<string, MapLocator> into, CancellationToken token)
@@ -1245,6 +1304,12 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         SafeEvent.Raise(Changed, "Spieler-Tracking"); // subscribers save (arrival), a failure must not end tracking
     }
 
+    private static bool WaitUntilFinished(Task[] tasks)
+    {
+        try { return Task.WaitAll(tasks, TimeSpan.FromSeconds(3)); }
+        catch (AggregateException) { return tasks.All(task => task.IsCompleted); }
+    }
+
     public void Dispose()
     {
         _cancel?.Cancel();
@@ -1252,15 +1317,11 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         // crashed the app on close (0xc0000005, live 2026-10-03). If they do not end in time, the native
         // memory is left to the exiting process instead.
         var running = new[] { _loop, _detecting, _preparing }.OfType<Task>().ToArray();
-        try
-        {
-            if (!Task.WaitAll(running, TimeSpan.FromSeconds(3)))
-                return;
-        }
-        catch (AggregateException)
-        {
-            // cancelled or failed: finished either way
-        }
+        if (!WaitUntilFinished(running)) return;
+        // Snapshot after detection stopped: it may have enqueued work during shutdown.
+        Task[] preparations;
+        lock (_gate) preparations = _confirmationPreparations.Values.ToArray();
+        if (!WaitUntilFinished(preparations)) return;
         lock (_gate)
         {
             foreach (var locator in _coarse.Values.Concat(_fine.Values))
