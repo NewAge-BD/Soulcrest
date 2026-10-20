@@ -18,6 +18,49 @@ public sealed class OwnIdentityMessageTests
         NetworkProgressMessageTests.EveryCutRejected(message, d => OwnIdentityMessage.TryParse(d));
     }
 
+    [Theory]
+    [InlineData(5, "Gladiator")] [InlineData(8, "Gladiator")]
+    [InlineData(9, "Templar")] [InlineData(12, "Templar")]
+    [InlineData(13, "Ranger")] [InlineData(16, "Ranger")]
+    [InlineData(17, "Assassin")] [InlineData(20, "Assassin")]
+    [InlineData(21, "Elementalist")] [InlineData(24, "Elementalist")]
+    [InlineData(25, "Sorcerer")] [InlineData(28, "Sorcerer")]
+    [InlineData(29, "Cleric")] [InlineData(31, "Cleric")] [InlineData(32, "Cleric")]
+    [InlineData(33, "Chanter")] [InlineData(36, "Chanter")]
+    public void NativePcVariantsMapToExactBoardClassKeysAfterFullOwnValidation(int pcId, string expected)
+    {
+        foreach (var optional in new[] { false, true })
+        {
+            var message = OwnMessage(optional, pcId: pcId);
+            var identity = Assert.IsType<OwnCharacterIdentity>(OwnIdentityMessage.TryParse(message));
+            Assert.Equal(expected, identity.ClassId);
+            Assert.Equal(123456789, identity.CharacterId);
+            NetworkProgressMessageTests.EveryCutRejected(message, d => OwnIdentityMessage.TryParse(d));
+            Assert.Null(OwnIdentityMessage.TryParse([.. message, 0]));
+        }
+    }
+
+    [Theory]
+    [InlineData(int.MinValue)] [InlineData(-1)] [InlineData(0)]
+    [InlineData(1)] [InlineData(4)] [InlineData(37)] [InlineData(40)]
+    [InlineData(41)] [InlineData(44)] [InlineData(45)] [InlineData(48)] [InlineData(int.MaxValue)]
+    public void UnknownBaseTestAndFutureClassesKeepAValidOwnIdentity(int pcId)
+    {
+        var identity = Assert.IsType<OwnCharacterIdentity>(OwnIdentityMessage.TryParse(OwnMessage(true, pcId: pcId)));
+        Assert.Null(identity.ClassId);
+        Assert.Equal(new(123456789, 42, 300, "Testchar"), identity);
+    }
+
+    [Fact]
+    public void ExistingFourArgumentIdentityAndDeconstructionRemainCompatible()
+    {
+        var identity = new OwnCharacterIdentity(101, 501, 300, "SyntheticAlpha");
+        var (character, server, entity, name) = identity;
+        Assert.Equal((101L, 501, 300, "SyntheticAlpha"), (character, server, entity, name));
+        Assert.Null(identity.ClassId);
+        Assert.Equal("Cleric", (identity with { ClassId = "Cleric" }).ClassId);
+    }
+
     [Fact]
     public void RejectsOtherPlayerOpcodesUnknownFlagsAndInvalidOwnNameEncoding()
     {
@@ -76,11 +119,11 @@ public sealed class OwnIdentityMessageTests
         return w.Bytes;
     }
 
-    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0)
+    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0, int pcId = 0)
     {
         using var w = new Packet(0x3633);
         w.V(300); w.I(optional ? 0x3fffffff : 0);
-        w.B(optional ? (byte)63 : (byte)1); w.S(name); w.U(server); w.I(0);
+        w.B(optional ? (byte)63 : (byte)1); w.S(name); w.U(server); w.I(pcId);
         if (optional) w.B(1);
         w.Z(36);
         if (optional) w.B(1);

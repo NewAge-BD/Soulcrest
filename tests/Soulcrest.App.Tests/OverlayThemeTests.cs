@@ -71,7 +71,7 @@ public sealed class OverlayThemeTests : IDisposable
     [Theory]
     [InlineData("de")]
     [InlineData("en")]
-    public void SevenOverlaysUseThemedProductionPreviewsWhileMerchantKeepsItsFixedStyle(string language)
+    public void ThemedProductionPreviewsPreserveMerchantAndDaevanionFixedStyles(string language)
     {
         UiText.Language = language;
         using var renderer = new OverlayPreviewRenderer(new PetCatalog([
@@ -90,7 +90,7 @@ public sealed class OverlayThemeTests : IDisposable
                 using var image = renderer.Render(overlay.Id, settings);
                 Assert.Equal(before, JsonSerializer.Serialize(settings));
                 Assert.Equal(PixelFormat.Format32bppPArgb, image.PixelFormat);
-                if (overlay.Id == "merchant" || theme.IsLegacy) Assert.Equal(reference, Hash(image));
+                if (overlay.Id is "merchant" or "daevanion" || theme.IsLegacy) Assert.Equal(reference, Hash(image));
                 else Assert.NotEqual(reference, Hash(image));
                 if (!theme.IsLegacy && overlay.CanPlace && overlay.Id != "alerts")
                     Assert.True(Pixels(image).Any(pixel => pixel.A is >= 190 and < 250), overlay.Id + ": " + theme.Id);
@@ -102,7 +102,7 @@ public sealed class OverlayThemeTests : IDisposable
 
     [Theory]
     [MemberData(nameof(ThemeIds))]
-    public void OfflinePreviewSheetIncludesAllEightOverlaysOnLightAndDarkBackgrounds(string theme)
+    public void OfflinePreviewSheetIncludesAllOverlaysOnLightAndDarkBackgrounds(string theme)
     {
         var mapdata = AppPaths.FindMapData();
         var catalogPath = mapdata is null ? null : Path.Combine(mapdata, "pets.json");
@@ -110,11 +110,12 @@ public sealed class OverlayThemeTests : IDisposable
         using var renderer = new OverlayPreviewRenderer(catalog, mapdata);
         var settings = new AppSettings { OverlayTheme = theme, BossOverlayCount = 5 };
         var output = Environment.GetEnvironmentVariable("SOULCREST_OVERLAY_PREVIEW_OUTPUT");
-        using var sheet = new Bitmap(1600, 1800, PixelFormat.Format32bppPArgb);
+        var height = 24 + OverlayRegistry.All.Count * 220;
+        using var sheet = new Bitmap(1600, height, PixelFormat.Format32bppPArgb);
         using var graphics = Graphics.FromImage(sheet);
         graphics.Clear(Color.FromArgb(45, 54, 62));
         using var light = new SolidBrush(Color.FromArgb(207, 207, 187));
-        graphics.FillRectangle(light, 800, 0, 800, 1800);
+        graphics.FillRectangle(light, 800, 0, 800, height);
         var y = 24;
         foreach (var descriptor in OverlayRegistry.All)
         {

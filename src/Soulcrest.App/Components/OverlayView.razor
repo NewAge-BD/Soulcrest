@@ -50,7 +50,7 @@
                 @if (_selected != "notifications") { <label class="overlay-enabled"><input id="overlay-enabled" type="checkbox" role="switch" checked="@OverlayRegistry.IsEnabled(Settings.Current, _selected)" disabled="@_saving" @onchange="SetEnabled" />@UiText.T("Overlay anzeigen")</label> }
             </header>
 
-            <div class="overlay-preview" aria-label="@UiText.T("Overlay-Vorschau")"><span>@UiText.T("Vorschau")</span><img src="@PreviewSource" style="@(descriptor.CanPlace ? FormattableString.Invariant($"zoom:{layout!.Scale};") : null)" alt="@UiText.F("Vorschau: {0}", UiText.T(descriptor.Title))" /></div>
+            @if (_selected != "daevanion") { <div class="overlay-preview" aria-label="@UiText.T("Overlay-Vorschau")"><span>@UiText.T("Vorschau")</span><img src="@PreviewSource" style="@(descriptor.CanPlace ? FormattableString.Invariant($"zoom:{layout!.Scale};") : null)" alt="@UiText.F("Vorschau: {0}", UiText.T(descriptor.Title))" /></div> }
             @if (!descriptor.CanPlace)
             {
                 <p class="overlay-bound-note">@UiText.T("Dieses Overlay folgt erkannten Spielinhalten. Seine Position und Größe werden automatisch daran ausgerichtet. Die Vorschau verändert keine Spiel- oder Trackingdaten.")</p>
@@ -96,6 +96,9 @@
                 case "map":
                     <section class="overlay-settings-card"><h4>@UiText.T("Karteninhalt")</h4><label class="check"><input id="map-overlay-routes" type="checkbox" checked="@Settings.Current.ShowRoutesInGame" @onchange="@(e => Save(s => s.ShowRoutesInGame = e.Value is true))" />@UiText.T("Linien zu Zielen")</label><p id="map-layers-legend-hint">@UiText.T("Kartensymbole wählst du im Karten-Tab in der Legende getrennt für interaktive Karte, Minimap und Weltkarte.")</p><button type="button" class="btn" @onclick="@(() => Ui.Navigate("map"))">@UiText.T("Kartenlegende öffnen") ↗</button></section>
                     <section class="overlay-settings-card"><h4>@UiText.T("Gefahrenzonen der Wachen")</h4><div class="overlay-visibility-options">@foreach (var map in GuardMaps) { <label><input type="checkbox" checked="@Settings.Current.GuardZoneMaps.Contains(map.Id)" @onchange="@(e => SetGuardMap(map.Id, e.Value is true))" />@map.Label</label> }</div><label for="guard-overlay-radius">@UiText.T("Radius")<input id="guard-overlay-radius" type="range" min="5" max="60" value="@Settings.Current.GuardRadiusMeters" @onchange="SetGuardRadius" /><output for="guard-overlay-radius">@Settings.Current.GuardRadiusMeters m</output></label><p>@UiText.T("Deine Fraktion legst du im Setup oder unter Optionen fest.")</p></section>
+                    break;
+                case "daevanion":
+                    <DaevanionOverlayOptions />
                     break;
                 case "merchant":
                     <p class="overlay-data-note">@UiText.T("Soul-Zähler und Farmkarten direkt an den Pet-Angeboten des Black Cloud Merchants.")</p>

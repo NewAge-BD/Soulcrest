@@ -83,3 +83,17 @@ Open Font License 1.1 lokal für Timer-Leiste und Menüvorschau mitgeliefert. Fo
 Lizenz und Quellenangaben: `src/Soulcrest.App/wwwroot/fonts/timer/`. Keine Font-Abfragen im Netz.
 Die zusätzlichen Reset-/Timer-/Boss-Ersatzsymbole sind eigene Soulcrest-Grafiken; vorhandene
 Original-Event- und Kartenporträts behalten ihre zuvor dokumentierte Herkunft.
+
+## Daevanion-Boards
+
+Originale Skillbilder und Node-Rahmen sowie die belegten DE/EN-Spieltexte werden für das
+Daevanion-Overlay lokal gebündelt. Spielgrafiken und Spielinhalte © NCSOFT; keine freie
+Grafiklizenz behauptet. Der kompakte Darstellungskatalog enthält unveränderte Skillbindungen
+und formatierte Node-Boni; Kürzel sind eigene UI-Beschriftungen. Es gibt keine Laufzeitabfragen
+an Drittanbieter oder Spieldateien. Rohdaten und interne Herkunftsbelege werden nicht gebündelt.
+
+Die vom Nutzer gelieferte runde Node-Maske und der zugehörige Stein-Hintergrund sind unverändert
+als lokale Ressourcen enthalten. Ausschließlich der verbundene inverse Alphakanal der Maske
+begrenzt Skillbilder und Werte; der Hintergrund wird mit seinem Originalalpha gezeichnet.
+Versteckte RGB-Daten außerhalb der Alphakontur werden nicht übernommen. Die zugrunde liegende
+Spielgrafik bleibt Eigentum von NCSOFT. Palatino Linotype wird aus Windows verwendet, nicht mitgeliefert.

@@ -29,7 +29,7 @@ public sealed class OverlayViewTests
         var html = await fixture.Render();
         foreach (var overlay in OverlayRegistry.All)
             Assert.Contains($"data-overlay-select=\"{overlay.Id}\"", html);
-        Assert.Equal(8, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
+        Assert.Equal(9, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
         Assert.Contains(shared, html);
         Assert.Contains(place, html);
         Assert.Contains("data:image/png;base64,", html);
@@ -48,6 +48,7 @@ public sealed class OverlayViewTests
     [Theory]
     [InlineData("map")]
     [InlineData("merchant")]
+    [InlineData("daevanion")]
     public async Task BoundOverlaysHavePurePreviewsAndNoFreeLayoutControls(string id)
     {
         await using var fixture = new Fixture("en");

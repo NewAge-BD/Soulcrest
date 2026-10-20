@@ -1,6 +1,6 @@
 # Ingame-Overlays
 
-Soulcrest enthält acht Overlayarten als native, transparente Top-Level-Fenster über dem Spiel. Das Spiel
+Soulcrest enthält neun Overlayarten als native, transparente Top-Level-Fenster über dem Spiel. Das Spiel
 muss im **randlosen Fenstermodus** laufen; über exklusivem Vollbild kann nicht gezeichnet werden.
 
 ## 1. Pet-Fortschritt (kompakt)
@@ -417,3 +417,38 @@ seine festen Fonts/Materialien noch seine Vorschau und löst keine Theme-Neuzeic
 Während einer aktiven Geste bleibt die bisherige Geometrie gültig. Nach Geste-Ende
 wird das aktuelle Theme angewendet, auch bei einer wirkungslosen Place-Mode-Geste.
 Der Wechsel selbst speichert weder Positionen noch Skalierungen oder Breiten neu.
+
+
+## Daevanion-Board (2026-10-20)
+
+- Automatisch am geöffneten Spielbrett ausgerichtete, vollständig klickdurchlässige Ergänzung
+  für Nezekan, Zikel, Vaizel, Triniel und Azphel in allen acht unterstützten Klassen.
+- Skill-Nodes zeigen ihr originales Skillbild und +1 für den Skillstufenbonus. Stat-Nodes
+  zeigen ein lokalisiertes Kürzel und den exakten Bonus; Azphel-Doppelboni bleiben zwei getrennte Zeilen.
+- Native Rahmen, Auswahlmarkierung und Start-Node bleiben erhalten. Abgedunkelte Nodes bleiben
+  lesbar; daraus wird kein erworbener Bonus abgeleitet. Die ergänzte Innenfläche verwendet immer
+  einen festen Spielstil, unabhängig vom globalen Theme.
+- Die Klasse stammt ausschließlich aus der vollständig bestätigten eigenen Netzwerkidentität.
+  Ohne bestätigte Klasse wartet die Anzeige. Charakter-/Verbindungswechsel entwerten den Kontext;
+  eine unbekannte Klasse beeinflusst weder Loot- noch Erkundungsfortschritt.
+- Gemeinsame WGC-Fensteraufnahme ohne Monitor-Fallback. Fünf unterschiedliche Rastermasken,
+  originale Rahmen und Startkontur bestätigen das Board. Zwei verschiedene frische Frames müssen
+  die Geometrie bestätigen; unklare Ansichten und verdeckte Nodes werden nicht überzeichnet.
+- Der Overlay-Tab enthält Schalter, Erkennungsstatus, Kürzellegende und eine reine Vorschau aller
+  Klassen/Boards. Vorschauwahl ist keine manuelle Live-Zuordnung. Kein freies Layout und kein
+  Entsperren; der optionale Ein-/Ausblend-Hotkey ist zunächst unbelegt.
+- Sprache, Vordergrundmodus, Aufnahmesichtbarkeit und Place-Mode-Unterdrückung gelten gemeinsam
+  mit den anderen Overlays. Die Erkennung benötigt kein laufendes Karten-Tracking.
+
+Die neue runde Nutzermaske begrenzt alle Ergänzungen auf etwa 65% des Node-Durchmessers.
+Originaler Aktivierungsring, quadratischer Außenrahmen und farbige Ecken bleiben frei. Statwerte
+liegen auf dem gelieferten Stein-Hintergrund, mit Palatino Linotype Bold und dunkler Kontur;
+Skillbilder verwenden dieselbe runde Alphaform. Azphels zwei Boni bleiben getrennte Zeilen.
+
+Wie beim Shop wird ein bestätigtes Raster anschließend als bevorzugte Suchhypothese verwendet.
+Jedes neue Bild prüft Rahmen, Startkontur und belegte/leere Felder erneut; alte Geometrie ist
+kein Bildnachweis. Identische Inhalte benötigen kein erneutes Layered-Window-Zeichnen. Ein frischer
+Snapshotwechsel während des Zeichnens oder Sichtbarkeitsticks erzeugt keine unnötige Ausblendung.
+Die Fensterfläche bleibt bei veränderten sichtbaren Nodes am ganzen Board ausgerichtet.
+Fehlende oder kurz blockierte WGC-Lesezugriffe behalten nur die ursprüngliche Ein-Sekunden-Frist;
+widersprechende Bilder und Kontextwechsel verwerfen die Darstellung weiterhin.

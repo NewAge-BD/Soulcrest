@@ -115,6 +115,10 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     private bool _pendingProgressOverflow;
     private string? _identityStream;
     private OwnCharacterIdentity? _identity;
+    private OwnCharacterContext? _ownCharacter;
+
+    /// <summary>Atomic live own identity/class binding; null on every network context boundary.</summary>
+    public OwnCharacterContext? OwnCharacter { get { lock (_gate) return _ownCharacter; } }
     private long _progressGeneration, _merchantGeneration;
     private long _progressSequence;
     private long _petGeneration, _petSequence;
@@ -184,6 +188,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     /// <summary>The own character entered the world (after a loading screen): its name.</summary>
     public event Action<string>? CharacterEntered;
     public event Action<OwnCharacterIdentity>? OwnCharacterEntered;
+    /// <summary>Own identity/class was bound or invalidated; read OwnCharacter atomically in the handler.</summary>
+    public event Action? OwnCharacterChanged;
 
     /// <summary>Only unencrypted clock/boss messages; the stream key is transient and never persisted.</summary>
     public event Action<string, byte[]>? BossMessageReceived;
@@ -997,11 +1003,13 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         {
             var characterAffected = stream == "*" || _identityStream == stream || _entryCandidate?.Stream == stream;
             var characterGeneration = _progressGeneration;
+            var ownCharacterChanged = characterAffected && _ownCharacter is not null;
             var petAffected = stream == "*" || _petStreams.Remove(stream);
             var merchantAffected = stream == "*" || _merchantStreams.Remove(stream);
             // Revoke the entity proof before any service event can reenter with a broadcast.
             if (characterAffected)
             {
+                _ownCharacter = null;
                 _identity = null;
                 _identityStream = null;
                 Character = null;
@@ -1012,6 +1020,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             if (characterAffected && characterGeneration == _progressGeneration)
                 ResetProgressContext(DiagnosticResetReason(reason));
             else if (!characterAffected && merchantAffected) ResetMerchantContext();
+            if (ownCharacterChanged) SafeEvent.Raise(OwnCharacterChanged, "Eigener Charakter");
             if (characterAffected || petAffected) SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
         }
         // Boss schedules can belong to a different stream; notify only after revoking stale Own authority.
@@ -1438,6 +1447,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             ResetProgressContext("world-entry", at);
             if (_generation != captureGeneration || _progressGeneration != ownGeneration || _identity is not null) return;
             _identity = identity;
+            _ownCharacter = new(identity, ownGeneration);
             _identityStream = stream;
             Character = identity.Name;
             _questFormatRejected = rejectedSources.Contains((ushort)0x8D09);
@@ -1447,6 +1457,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             exploration?.BindNetworkContext(context);
             if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
             _identityBindings++;
+            SafeEvent.Raise(OwnCharacterChanged, "Eigener Charakter");
+            if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
             UpdateProgressStatus();
             BossSessionReset?.Invoke();
             OwnCharacterEntered?.Invoke(identity);
@@ -1479,6 +1491,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             _progressGeneration++;
             _progressSequence = 0;
             _identity = null;
+            var ownCharacterChanged = _ownCharacter is not null;
+            _ownCharacter = null;
             _identityStream = null;
             Character = null;
             _entryCandidate = null;
@@ -1495,6 +1509,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             ResetMerchantContext();
             if (_progressGeneration != resetGeneration) return;
             exploration?.MarkNetworkStale();
+            if (ownCharacterChanged && _progressGeneration == resetGeneration)
+                SafeEvent.Raise(OwnCharacterChanged, "Eigener Charakter");
         }
     }
 

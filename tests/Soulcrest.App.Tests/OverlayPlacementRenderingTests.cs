@@ -65,6 +65,7 @@ public sealed class OverlayPlacementRenderingTests
     [Theory]
     [InlineData("map")]
     [InlineData("merchant")]
+    [InlineData("daevanion")]
     public void BoundPreviewsHaveStandalonePngDataAndFitTheirRequestedWidth(string id)
     {
         using var renderer = Renderer();

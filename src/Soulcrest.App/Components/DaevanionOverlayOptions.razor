@@ -1,0 +1,66 @@
+@implements IDisposable
+@using Microsoft.Extensions.DependencyInjection
+@using Soulcrest.App.Overlay
+@using Soulcrest.Core.Daevanion
+@inject IServiceProvider Provider
+@inject SettingsService Settings
+
+<section class="overlay-settings-card" data-daevanion-status>
+    <h4>@UiText.T("Erkennung")</h4>
+    <p role="status">@UiText.T(_service?.Status ?? "Warte auf Klassenerkennung.")</p>
+    @if (_service?.ClassId is { } classId)
+    {
+        <p>@ClassName(classId)@(_service.Snapshot is { } snapshot ? " · " + snapshot.Board.Name.For(Settings.Current.LootNameLanguage) : "")</p>
+    }
+    <p>@UiText.T("Klasse und Charakter werden über das Netzwerk erkannt. Das Board richtet sich automatisch am Spiel aus.")</p>
+    <p>@UiText.T("Der feste Spielstil bleibt unabhängig vom Theme. Alle Nodes sind lesbar; die Rahmen und Spielbedienung bleiben erhalten.")</p>
+</section>
+<section class="overlay-settings-card">
+    <h4>@UiText.T("Vorschau")</h4>
+    <div class="overlay-position-fields">
+        <label>@UiText.T("Vorschauklasse")<select @bind="_classId">@foreach (var id in Catalog.Boards.Select(b => b.ClassId).Distinct()) { <option value="@id">@ClassName(id)</option> }</select></label>
+        <label>@UiText.T("Vorschauboard")<select @bind="_family">@foreach (var board in Catalog.Boards.Where(b => b.ClassId == _classId)) { <option value="@board.FamilyId">@board.Name.For(Settings.Current.LootNameLanguage)</option> }</select></label>
+    </div>
+    <div class="overlay-preview"><img style="max-width:100%;height:auto" src="@PreviewSource" alt="@UiText.T("Daevanion-Board-Vorschau")" /></div>
+    <p>@UiText.T("Die Vorschauauswahl verändert weder die Live-Erkennung noch Spiel- oder Fortschrittsdaten.")</p>
+    <InfoTip>
+        <p>@UiText.T("Skillbilder mit +1 bedeuten eine zusätzliche Skillstufe. Azphel-Nodes können zwei Statboni enthalten.")</p>
+        <dl>@foreach (var item in Legend) { <dt>@item.Short</dt><dd>@item.Title</dd> }</dl>
+    </InfoTip>
+</section>
+
+@code {
+    private static DaevanionCatalog Catalog => DaevanionCatalog.Default;
+    private readonly DaevanionOverlayRenderer _renderer = new();
+    private DaevanionService? _service;
+    private string _classId = "Cleric", _family = "nezekan", _key = "", _preview = "", _lastStatus = "";
+    private bool _disposed;
+    private string ClassName(string id) => Catalog.Classes.First(c => c.Id == id).Name.For(Settings.Current.LootNameLanguage);
+    private IEnumerable<(string Short, string Title)> Legend => Catalog.Boards.SelectMany(b => b.Nodes)
+        .Where(n => n.Kind == DaevanionNodeKind.Stat && n.Effects.Count == 1)
+        .Select(n => (Effect: n.Effects[0], n.Title)).GroupBy(n => n.Effect.StatId)
+        .Select(g => (g.First().Effect.ShortLabel.For(Settings.Current.LootNameLanguage), g.First().Title.For(Settings.Current.LootNameLanguage)));
+    private string PreviewSource
+    {
+        get
+        {
+            var key = _classId + ":" + _family + ":" + Settings.Current.LootNameLanguage;
+            if (key != _key)
+            {
+                using var image = _renderer.Preview(_classId, _family, Settings.Current.LootNameLanguage);
+                using var stream = new MemoryStream(); image.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+                _preview = "data:image/png;base64," + Convert.ToBase64String(stream.ToArray()); _key = key;
+            }
+            return _preview;
+        }
+    }
+    protected override void OnInitialized() { _service = Provider.GetService<DaevanionService>(); if (_service is not null) _service.Changed += RefreshStatus; }
+    private void RefreshStatus()
+    {
+        if (_disposed) return;
+        var status = _service?.Status + ":" + _service?.ClassId + ":" + _service?.Snapshot?.Board.Id;
+        if (status == _lastStatus) return;
+        _lastStatus = status; _ = InvokeAsync(StateHasChanged);
+    }
+    public void Dispose() { _disposed = true; if (_service is not null) _service.Changed -= RefreshStatus; _renderer.Dispose(); }
+}

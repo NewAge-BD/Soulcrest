@@ -1,7 +1,14 @@
 namespace Soulcrest.Core.Network;
 
 /// <summary>Only the own world-entry message supplies this identity; never a nearby player's nameplate.</summary>
-public sealed record OwnCharacterIdentity(long CharacterId, int ServerId, int EntityKey, string Name);
+public sealed record OwnCharacterIdentity(long CharacterId, int ServerId, int EntityKey, string Name)
+{
+    /// <summary>Native board class key; unknown/future PC types do not invalidate the own identity.</summary>
+    public string? ClassId { get; init; }
+}
+
+/// <summary>Current own identity and its transient network generation; never a persisted character choice.</summary>
+public sealed record OwnCharacterContext(OwnCharacterIdentity Identity, long Generation);
 
 /// <summary>Untrusted login-batch candidate. Only a later full own message can confirm both fields and supply the server.</summary>
 public sealed record OwnEntryCandidate(long CharacterId, int EntityKey);

@@ -18,7 +18,8 @@ public static class OverlayRegistry
         new OverlayDescriptor("notifications", "Benachrichtigungen", true, .6, 2, 240, 1000),
         new OverlayDescriptor("event-timeline", "Timeline", true, .6, 2, 360, 1600),
         new OverlayDescriptor("map", "Karten-Overlay", false),
-        new OverlayDescriptor("merchant", "Händler-Soulcounter", false)
+        new OverlayDescriptor("merchant", "Händler-Soulcounter", false),
+        new OverlayDescriptor("daevanion", "Daevanion-Board", false)
     });
 
     public static OverlayDescriptor Get(string id) => All.FirstOrDefault(item => item.Id == id)
@@ -70,7 +71,7 @@ public static class OverlayRegistry
         "loot" => settings.OverlayEnabled, "boss" => settings.BossOverlayVisible,
         "leveling" => settings.LevelingOverlayEnabled, "alerts" => settings.AlertsOverlayEnabled,
         "event-timeline" => settings.EventTimelineOverlayEnabled, "map" => settings.MapOverlayEnabled,
-        "merchant" => settings.MerchantOverlayEnabled, "notifications" => true,
+        "merchant" => settings.MerchantOverlayEnabled, "daevanion" => settings.DaevanionOverlayEnabled, "notifications" => true,
         _ => throw new ArgumentException("Unknown overlay.", nameof(id))
     };
 
@@ -85,6 +86,7 @@ public static class OverlayRegistry
             case "event-timeline": settings.EventTimelineOverlayEnabled = enabled; break;
             case "map": settings.MapOverlayEnabled = enabled; break;
             case "merchant": settings.MerchantOverlayEnabled = enabled; break;
+            case "daevanion": settings.DaevanionOverlayEnabled = enabled; break;
             case "notifications": break; // Delivery remains a per-reminder preference.
             default: throw new ArgumentException("Unknown overlay.", nameof(id));
         }

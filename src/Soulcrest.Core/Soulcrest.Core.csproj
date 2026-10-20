@@ -10,5 +10,6 @@
     <EmbeddedResource Include="..\..\data\pets\pet-ids.json" LogicalName="Soulcrest.PetIds.json" />
     <EmbeddedResource Include="..\..\data\pets\merchant-items.json" LogicalName="Soulcrest.MerchantPetItems.json" />
     <EmbeddedResource Include="..\..\data\pets\merchant-farm-regions.json" LogicalName="Soulcrest.PetFarmRegions.json" />
+    <EmbeddedResource Include="..\..\data\daevanion\catalog.json" LogicalName="Soulcrest.DaevanionCatalog.json" />
   </ItemGroup>
 </Project>

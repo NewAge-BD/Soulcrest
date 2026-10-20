@@ -193,3 +193,17 @@ Vordergrundgate (foreground standardmäßig, optional always). Der Host verteilt
 eigenen Präsentationszustand `SetForegroundSuppressed` an alle acht Fenster; Placement und
 Vordergrund sind unabhängige Bedingungen. Händlerprüfungen wählen bei always die sichtbare
 Spielgeometrie ohne Vordergrundzwang, behalten aber Fensterbindung, Frische und Ankerprüfung.
+
+
+## Daevanion (2026-10-20)
+
+`Core.Daevanion` enthält den lokal gebündelten Darstellungskatalog mit fünf Boardfamilien für acht
+Klassen. Statboni und Skillstufenboni bleiben unterschiedliche Effekte; Nodes können zwei Statboni
+enthalten. Die optionale Klasse der eigenen Netzwerkidentität und ihre Generation bilden den
+aktuellen Daevanion-Kontext, ohne die Gültigkeit einer Own-Identität an Klassenunterstützung zu binden.
+
+`Ocr.Daevanion.DaevanionBoardLocator` erkennt native Rahmen, Startkontur und Rastermaske.
+`DaevanionService` nutzt die gemeinsame WGC-Spielaufnahme, bestätigt zwei unterschiedliche Frames
+und verbindet Klasse, Board, Geometrie, Sprache und Frische in einem Snapshot. Unmittelbar vor
+Darstellung prüft `DaevanionOverlayForm` den Kontext erneut. Der gemeinsame Produktionsrenderer
+zeichnet nur Node-Innenflächen; Menüvorschau und Offline-Bildprüfung verwenden denselben Painter.

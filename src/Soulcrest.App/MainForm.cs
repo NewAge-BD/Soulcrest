@@ -23,6 +23,7 @@ public sealed class MainForm : Form
     private readonly LevelingOverlayForm _levelingOverlay;
     private readonly RouteOverlayForm _routeOverlay;
     private readonly MerchantOverlayForm _merchantOverlay;
+    private readonly DaevanionOverlayForm _daevanionOverlay;
     private readonly SettingsService _settings;
     private readonly OverlayPlacementService _placement;
     private OverlayPlacementForm? _placementWindow;
@@ -68,6 +69,7 @@ public sealed class MainForm : Form
         services.AddSingleton<Network.INetworkLootSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkMerchantSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<MerchantService>();
+        services.AddSingleton<DaevanionService>();
         services.AddSingleton<TrackerService>();
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<MapTrackingService>();
@@ -92,6 +94,7 @@ public sealed class MainForm : Form
         _gameCapture = _services.GetRequiredService<Capture.GameCaptureService>();
         var progress = _services.GetRequiredService<ProgressService>();
         _merchantOverlay = new MerchantOverlayForm(_services.GetRequiredService<MerchantService>(), _settings, _gameCapture);
+        _daevanionOverlay = new DaevanionOverlayForm(_services.GetRequiredService<DaevanionService>(), _settings);
         RestoreWindowBounds();
 
         var webView = new BlazorWebView
@@ -197,6 +200,7 @@ public sealed class MainForm : Form
         _ = _levelingOverlay.Handle;
         _ = _routeOverlay.Handle; // shown by itself while the map is tracked and targets are marked
         _merchantOverlay.Start();
+        _daevanionOverlay.Start();
         SetOverlayInteractionEnabled(OverlayInteraction.IsAltHeld);
         _overlayInteractionTimer.Start();
         // Like Grindcrest before tracking: ask Windows for capture without the yellow border (a prompt
@@ -281,6 +285,7 @@ public sealed class MainForm : Form
         _eventTimelineOverlay.SetForegroundSuppressed(suppressed);
         _routeOverlay.SetForegroundSuppressed(suppressed);
         _merchantOverlay.SetForegroundSuppressed(suppressed);
+        _daevanionOverlay.SetForegroundSuppressed(suppressed);
     }
 
     private void ScheduleOverlayState()
@@ -337,6 +342,7 @@ public sealed class MainForm : Form
         _eventTimelineOverlay.SetPlacementHidden(hidden);
         _routeOverlay.SetPlacementHidden(hidden);
         _merchantOverlay.SetPlacementHidden(hidden);
+        _daevanionOverlay.SetPlacementHidden(hidden);
     }
 
     private void StartOverlayKeyboard() => _overlayKeyboardStarted = OverlayInteraction.StartKeyboard(Handle);
@@ -447,6 +453,7 @@ public sealed class MainForm : Form
         _levelingOverlay.Close();
         _routeOverlay.Close();
         _merchantOverlay.Close();
+        _daevanionOverlay.Close();
     }
 
     private void StopTracking()
@@ -492,6 +499,7 @@ public sealed class MainForm : Form
             _levelingOverlay?.Dispose();
             _routeOverlay?.Dispose();
             _merchantOverlay?.Dispose();
+            _daevanionOverlay?.Dispose();
         }
         finally
         {

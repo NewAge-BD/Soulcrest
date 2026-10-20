@@ -62,7 +62,7 @@ public static class OwnIdentityMessage
             var entity = r.Vi32();
             var flags = r.U32();
             if ((flags & 0xC0000000) != 0) return null;
-            var (name, server) = Detail(ref r);
+            var (name, server, classId) = Detail(ref r);
             State(ref r);
             if ((flags & 1) != 0) Guild(ref r);
             Stats(ref r);
@@ -118,19 +118,19 @@ public static class OwnIdentityMessage
             if ((flags & 536870912) != 0) r.Skip(r.Count(8) * 8);
             r.Exact();
             return entity > 0 && server > 0 && characterId > 0 && name.Length is >= 2 and <= 32
-                && name.All(char.IsLetterOrDigit) ? new(characterId, server, entity, name) : null;
+                && name.All(char.IsLetterOrDigit) ? new(characterId, server, entity, name) { ClassId = classId } : null;
         }
         catch (InvalidDataException) { return null; }
         catch (DecoderFallbackException) { return null; }
     }
 
-    private static (string Name, int Server) Detail(ref ProgressPacketReader r)
+    private static (string Name, int Server, string? ClassId) Detail(ref ProgressPacketReader r)
     {
         var flags = r.U8();
         if ((flags & 0xC0) != 0) throw new InvalidDataException("Unknown own detail flags.");
         var name = (flags & 1) != 0 ? r.String(128) : "";
         var server = r.U16();
-        r.I32();
+        var classId = ClassIdForPcId(r.I32());
         SkipIf(ref r, flags, 2, 1);
         r.Skip(4 * 4 + 8 + 4 + 8); // levels and experience
         SkipIf(ref r, flags, 4, 1);
@@ -141,8 +141,25 @@ public static class OwnIdentityMessage
         SkipIf(ref r, flags, 8, 1);
         if ((flags & 16) != 0) Points(ref r);
         if ((flags & 32) != 0) Points(ref r);
-        return (name, server);
+        return (name, server, classId);
     }
+
+    // User request 2026-10-20: class comes only from full MyCharAppear.detail.pcId (i32 LE).
+    // Native PC rows use four gender/race variants per class. The local structural PC export,
+    // independently inspected wire schema and own-PCAP observations (31, 28) agree on this bridge.
+    // Only the eight classes with a qualified Daevanion catalogue are supported; unknown stays null.
+    internal static string? ClassIdForPcId(int pcId) => pcId switch
+    {
+        >= 5 and <= 8 => "Gladiator",
+        >= 9 and <= 12 => "Templar",
+        >= 13 and <= 16 => "Ranger",
+        >= 17 and <= 20 => "Assassin",
+        >= 21 and <= 24 => "Elementalist",
+        >= 25 and <= 28 => "Sorcerer",
+        >= 29 and <= 32 => "Cleric",
+        >= 33 and <= 36 => "Chanter",
+        _ => null
+    };
 
     private static void State(ref ProgressPacketReader r)
     {

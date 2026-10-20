@@ -18,6 +18,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
     private readonly PetCatalog _catalog;
     private readonly string? _mapDataDirectory;
     private readonly TimerIconCache _timerIcons;
+    private readonly DaevanionOverlayRenderer _daevanion = new();
     private readonly Dictionary<string, Bitmap> _images = new(StringComparer.OrdinalIgnoreCase);
     private readonly IReadOnlyList<BossPlace> _bosses;
     private readonly DateTimeOffset _now = DateTimeOffset.UtcNow;
@@ -39,6 +40,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         // The shop keeps its original native-card styling regardless of the global overlay theme.
         if (id == "merchant") return FitBound(Merchant(settings), maximumWidth);
+        if (id == "daevanion") return FitBound(_daevanion.Preview(language: settings.LootNameLanguage), maximumWidth);
         var theme = OverlayThemeDefinition.Resolve(settings.OverlayTheme);
         return id switch
         {
@@ -264,6 +266,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
         if (_disposed) return;
         _disposed = true;
         _timerIcons.Dispose();
+        _daevanion.Dispose();
         foreach (var image in _images.Values) image.Dispose();
         _images.Clear();
     }

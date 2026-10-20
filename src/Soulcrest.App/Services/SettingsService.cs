@@ -34,6 +34,7 @@ public sealed class AppSettings
     public bool BossOverlayVisible { get; set; } = true;
     public bool OverlayEnabled { get; set; } = true;
     public bool MerchantOverlayEnabled { get; set; } = true;
+    public bool DaevanionOverlayEnabled { get; set; } = true;
     public int OverlayX { get; set; } = 40;
     public int OverlayY { get; set; } = 200;
     public string LastMap { get; set; } = "altgard";

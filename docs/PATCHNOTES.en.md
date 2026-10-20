@@ -2,6 +2,16 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.10.0 – 2026-10-21
+
+- **New:** Daevanion overlay: when a Daevanion board is open in the game, Soulcrest shows on every node
+  what it gives: skill nodes with their skill image and "+1", stat nodes with an abbreviation and the
+  exact bonus (e.g. "Crit +5"). For Nezekan, Zikel, Vaizel, Triniel and Azphel in all eight classes, in
+  English and German.
+- **New:** The overlay aligns itself to the board automatically and is always click-through. Soulcrest
+  detects your class by itself; the on/off switch, abbreviation legend and a preview of all boards are
+  in the Overlays tab.
+
 ## 0.9.1 – 2026-10-20
 
 - **New:** **Overlays** tab: all eight overlays in one place, with settings, previews, language,
