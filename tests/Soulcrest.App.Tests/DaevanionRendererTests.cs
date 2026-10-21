@@ -17,6 +17,7 @@ public sealed class DaevanionRendererTests
     [InlineData("zikel")]
     [InlineData("vaizel")]
     [InlineData("triniel")]
+    [InlineData("ariel")]
     [InlineData("azphel")]
     public void EveryClassRendersBothLanguagesWithoutTouchingNativeFrames(string family)
     {
@@ -48,10 +49,12 @@ public sealed class DaevanionRendererTests
         Assert.All(Pixels(image), value => Assert.Equal(0, value));
     }
 
-    [Fact]
-    public void AzphelDoubleValuesPaintTwoSeparateReadableRows()
+    [Theory]
+    [InlineData("ariel")]
+    [InlineData("azphel")]
+    public void DoubleValuesPaintTwoSeparateReadableRows(string family)
     {
-        var board = DaevanionCatalog.Default.GetBoard("Cleric", "azphel")!;
+        var board = DaevanionCatalog.Default.GetBoard("Cleric", family)!;
         var node = board.Nodes.First(n => n.Effects.Count == 2);
         using var renderer = new DaevanionOverlayRenderer();
         using var image = renderer.Render(new(110, 110), board, [new(node.Row, node.Column, new(10, 10, 90, 90), 1)], "en");

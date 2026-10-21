@@ -58,6 +58,7 @@ public sealed class DaevanionBoardLocatorTests
     [InlineData("zikel")]
     [InlineData("vaizel")]
     [InlineData("triniel")]
+    [InlineData("ariel")]
     [InlineData("azphel")]
     public void EveryFamilyUsesOccupiedAndEmptyCellMask(string family)
     {
@@ -181,6 +182,7 @@ public sealed class DaevanionBoardLocatorTests
     [InlineData("zikel")]
     [InlineData("vaizel")]
     [InlineData("triniel")]
+    [InlineData("ariel")]
     [InlineData("azphel")]
     public void PreferredRasterIndependentlyReconfirmsEveryFamily(string family)
     {
@@ -218,6 +220,56 @@ public sealed class DaevanionBoardLocatorTests
         Assert.Null(DaevanionBoardLocator.Find(menu, Patterns, preferred));
         using var blank = new Mat(original.Size(), original.Type(), new Scalar(29, 33, 34));
         Assert.Null(DaevanionBoardLocator.Find(blank, Patterns, preferred));
+    }
+
+    [Fact]
+    public void ArielAndAzphelHaveDistinctNativeMasksForEveryClass()
+    {
+        var ariel = Patterns.Single(p => p.Family == "ariel");
+        var azphel = Patterns.Single(p => p.Family == "azphel");
+        var arielCells = ariel.Cells.Select(c => (c.Row, c.Column)).ToHashSet();
+        var azphelCells = azphel.Cells.Select(c => (c.Row, c.Column)).ToHashSet();
+        Assert.Equal(153, ariel.Cells.Count);
+        Assert.Equal(153, azphel.Cells.Count);
+        Assert.Equal((8, 8), (ariel.Cells.Single(c => c.IsStart).Row, ariel.Cells.Single(c => c.IsStart).Column));
+        Assert.Equal(46, arielCells.Except(azphelCells).Count());
+        Assert.Equal(46, azphelCells.Except(arielCells).Count());
+        foreach (var family in new[] { "ariel", "azphel" })
+        {
+            var reference = Patterns.Single(p => p.Family == family).Cells.Select(c => (c.Row, c.Column, c.IsStart)).ToHashSet();
+            foreach (var board in DaevanionCatalog.Default.Boards.Where(b => b.FamilyId == family))
+                Assert.True(reference.SetEquals(board.Nodes.Select(n => (n.Row, n.Column, n.Kind == DaevanionNodeKind.Start))));
+        }
+    }
+
+    [Theory]
+    [InlineData("ariel", "azphel")]
+    [InlineData("azphel", "ariel")]
+    public void EqualSizedBoardsSwitchByTheirFreshNativeOccupancy(string previousFamily, string currentFamily)
+    {
+        using var previous = RenderReference(previousFamily);
+        var preferred = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(previous, Patterns));
+        Assert.Equal(previousFamily, preferred.Family);
+        using var current = RenderReference(currentFamily);
+        var result = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(current, Patterns, preferred));
+        Assert.Equal(currentFamily, result.Family);
+        Assert.Equal(152, result.Nodes.Count);
+        Assert.Equal(1, result.Confidence);
+    }
+
+    [Theory]
+    [InlineData("ariel", "azphel")]
+    [InlineData("azphel", "ariel")]
+    public void CoveredDistinctiveNodesCannotKeepAnEqualSizedFamilyAlive(string family, string otherFamily)
+    {
+        using var current = RenderReference(family);
+        var preferred = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(current, Patterns));
+        var other = Patterns.Single(p => p.Family == otherFamily).Cells.Select(c => (c.Row, c.Column)).ToHashSet();
+        foreach (var cell in Patterns.Single(p => p.Family == family).Cells.Where(c => !other.Contains((c.Row, c.Column))))
+            Cv2.Rectangle(current, new Rect(140 + (cell.Column - 1) * 68 - 33, 100 + (cell.Row - 1) * 68 - 33, 66, 66),
+                new Scalar(29, 33, 34), -1);
+        Assert.Null(DaevanionBoardLocator.Find(current, Patterns));
+        Assert.Null(DaevanionBoardLocator.Find(current, Patterns, preferred));
     }
 
     [Fact]

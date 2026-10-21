@@ -172,7 +172,7 @@ Ausblendung verwendet die neuen Bereichsfreigaben über das vorhandene Tracking.
 Der Schlossknopf sitzt neben der Leiste und verdeckt keine Zeit. Die alte zweizeilige Darstellung
 existiert nur noch für separate Erinnerungsbanner. Timeline und Banner bleiben unabhängig.
 Produktionsrenderer und Offline-Vorschau verwenden dieselben Layout-/Zeichenmethoden; keine
-Spielbedienung oder zweite App nötig. Herkunft der Originalgrafiken: `wwwroot/icons/events/SOURCE.md`.
+Spielbedienung oder zweite App nötig.
 
 ## Händler-Soulcounter (2026-10-13)
 
@@ -422,16 +422,17 @@ Der Wechsel selbst speichert weder Positionen noch Skalierungen oder Breiten neu
 ## Daevanion-Board (2026-10-20)
 
 - Automatisch am geöffneten Spielbrett ausgerichtete, vollständig klickdurchlässige Ergänzung
-  für Nezekan, Zikel, Vaizel, Triniel und Azphel in allen acht unterstützten Klassen.
+  für Nezekan, Zikel, Vaizel, Triniel, Ariel und Azphel in allen acht unterstützten Klassen.
 - Skill-Nodes zeigen ihr originales Skillbild und +1 für den Skillstufenbonus. Stat-Nodes
-  zeigen ein lokalisiertes Kürzel und den exakten Bonus; Azphel-Doppelboni bleiben zwei getrennte Zeilen.
+  zeigen ein lokalisiertes Kürzel und den exakten Bonus; Ariel-/Azphel-Doppelboni bleiben zwei getrennte
+  Zeilen. Ariels PvE- und Boss-Boni behalten ihre unterscheidbaren Kürzel.
 - Native Rahmen, Auswahlmarkierung und Start-Node bleiben erhalten. Abgedunkelte Nodes bleiben
   lesbar; daraus wird kein erworbener Bonus abgeleitet. Die ergänzte Innenfläche verwendet immer
   einen festen Spielstil, unabhängig vom globalen Theme.
 - Die Klasse stammt ausschließlich aus der vollständig bestätigten eigenen Netzwerkidentität.
   Ohne bestätigte Klasse wartet die Anzeige. Charakter-/Verbindungswechsel entwerten den Kontext;
   eine unbekannte Klasse beeinflusst weder Loot- noch Erkundungsfortschritt.
-- Gemeinsame WGC-Fensteraufnahme ohne Monitor-Fallback. Fünf unterschiedliche Rastermasken,
+- Gemeinsame WGC-Fensteraufnahme ohne Monitor-Fallback. Sechs unterschiedliche Rastermasken,
   originale Rahmen und Startkontur bestätigen das Board. Zwei verschiedene frische Frames müssen
   die Geometrie bestätigen; unklare Ansichten und verdeckte Nodes werden nicht überzeichnet.
 - Der Overlay-Tab enthält Schalter, Erkennungsstatus, Kürzellegende und eine reine Vorschau aller
@@ -443,7 +444,7 @@ Der Wechsel selbst speichert weder Positionen noch Skalierungen oder Breiten neu
 Die neue runde Nutzermaske begrenzt alle Ergänzungen auf etwa 65% des Node-Durchmessers.
 Originaler Aktivierungsring, quadratischer Außenrahmen und farbige Ecken bleiben frei. Statwerte
 liegen auf dem gelieferten Stein-Hintergrund, mit Palatino Linotype Bold und dunkler Kontur;
-Skillbilder verwenden dieselbe runde Alphaform. Azphels zwei Boni bleiben getrennte Zeilen.
+Skillbilder verwenden dieselbe runde Alphaform. Bei Ariel und Azphel bleiben zwei Boni getrennte Zeilen.
 
 Wie beim Shop wird ein bestätigtes Raster anschließend als bevorzugte Suchhypothese verwendet.
 Jedes neue Bild prüft Rahmen, Startkontur und belegte/leere Felder erneut; alte Geometrie ist

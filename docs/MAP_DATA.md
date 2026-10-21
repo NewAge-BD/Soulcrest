@@ -169,10 +169,7 @@ Quellmonster desselben Pets an; dort zeigt die Notiz ausdrücklich Pet-Farmorte.
 
 ## Cube-Gruppen (2026-10-17)
 
-Die Cube Groups verbinden die möglichen Positionen derselben Hidden-Cube-Spawngruppe. Die
-Zuordnung hat Soulcrest selbst ermittelt; sie wird beim Bau des Kartenpakets an die vorhandenen
-gaming.tools-Cube-Marker gebunden. Die Zuordnungstabelle und ihre Aufbereitung sind privat und
-nicht Teil des öffentlichen Repositorys; ohne sie entsteht das Kartenpaket ohne Cube Groups.
+Die Cube Groups verbinden die möglichen Positionen derselben Hidden-Cube-Spawngruppe.
 
 | Karte | Gruppen | Vorhandene Cube-Marker | Verbindungen |
 | --- | ---: | ---: | ---: |

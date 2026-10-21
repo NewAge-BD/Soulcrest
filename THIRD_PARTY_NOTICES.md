@@ -41,12 +41,6 @@ Bildvergleich und den Erkennungstests. Spielgrafik © NCSOFT; keine freie Grafik
 - Frontend-Code wurde nur zur Prüfung des öffentlichen Dateiformats/Datenwegs gelesen;
   kein fremder Renderer wird in Soulcrest eingebunden.
 
-## Hidden-Cube-Spawngruppen
-
-Welche Hidden Cubes zu einer Spawngruppe gehören, hat Soulcrest selbst ermittelt; die Gruppen
-werden an die vorhandenen gaming.tools-Marker gebunden. Spielinhalte bleiben Eigentum von NCSOFT;
-eine Datenlizenz von NCSOFT wird nicht behauptet. Die Zuordnungstabelle ist nicht Teil dieses
-Repositorys.
 
 ## Komponenten (werden mit Phase 0/1 ergänzt)
 
@@ -67,33 +61,18 @@ Repositorys.
 
 Lizenztexte werden mit der jeweiligen Komponente unter `licenses/` abgelegt (Muster: Grindcrest).
 
-## AION2-Event-Symbole (2026-10-18)
 
-Vom Nutzer bereitgestellte Event-Symbole sowie
-ein auf Nutzerwunsch freigestelltes und mit Imagegen aufbereitetes Dimensional-Invasion-Symbol
-aus einem Screenshot werden lokal gebündelt. Shugo nutzt das ESC-Menüsymbol, Rift das
-Weltkartensymbol; das Siege-Symbol stammt aus der Abyss-Artifact-Familie. Spielgrafik © NCSOFT;
-keine freie Grafiklizenz behauptet. Die Invasion-Ableitung ist kein unverändertes Originalsymbol. Dateinamen
-und SHA-256-Werte: `src/Soulcrest.App/wwwroot/icons/events/SOURCE.md`. Kein Laufzeitdownload.
+## Spielgrafiken und Spieltexte
+
+Für Event-Timer und Daevanion-Boards bündelt Soulcrest einzelne Spielsymbole, Skillbilder und
+Spieltexte von Aion 2 lokal. Sie sind Eigentum von NCSOFT; eine freie Lizenz wird nicht behauptet.
+Es gibt keine Laufzeitabfragen.
 
 ## Noto Sans Bold – Schrift der Timer-Leiste
 
 Noto Sans Bold 2.015, Copyright 2022 The Noto Project Authors, wird unverändert unter der SIL
 Open Font License 1.1 lokal für Timer-Leiste und Menüvorschau mitgeliefert. Font, vollständige
 Lizenz und Quellenangaben: `src/Soulcrest.App/wwwroot/fonts/timer/`. Keine Font-Abfragen im Netz.
-Die zusätzlichen Reset-/Timer-/Boss-Ersatzsymbole sind eigene Soulcrest-Grafiken; vorhandene
-Original-Event- und Kartenporträts behalten ihre zuvor dokumentierte Herkunft.
+Die zusätzlichen Reset-/Timer-/Boss-Ersatzsymbole sind eigene Soulcrest-Grafiken.
 
-## Daevanion-Boards
 
-Originale Skillbilder und Node-Rahmen sowie die belegten DE/EN-Spieltexte werden für das
-Daevanion-Overlay lokal gebündelt. Spielgrafiken und Spielinhalte © NCSOFT; keine freie
-Grafiklizenz behauptet. Der kompakte Darstellungskatalog enthält unveränderte Skillbindungen
-und formatierte Node-Boni; Kürzel sind eigene UI-Beschriftungen. Es gibt keine Laufzeitabfragen
-an Drittanbieter oder Spieldateien. Rohdaten und interne Herkunftsbelege werden nicht gebündelt.
-
-Die vom Nutzer gelieferte runde Node-Maske und der zugehörige Stein-Hintergrund sind unverändert
-als lokale Ressourcen enthalten. Ausschließlich der verbundene inverse Alphakanal der Maske
-begrenzt Skillbilder und Werte; der Hintergrund wird mit seinem Originalalpha gezeichnet.
-Versteckte RGB-Daten außerhalb der Alphakontur werden nicht übernommen. Die zugrunde liegende
-Spielgrafik bleibt Eigentum von NCSOFT. Palatino Linotype wird aus Windows verwendet, nicht mitgeliefert.

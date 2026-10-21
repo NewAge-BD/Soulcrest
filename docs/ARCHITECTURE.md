@@ -197,7 +197,7 @@ Spielgeometrie ohne Vordergrundzwang, behalten aber Fensterbindung, Frische und 
 
 ## Daevanion (2026-10-20)
 
-`Core.Daevanion` enthält den lokal gebündelten Darstellungskatalog mit fünf Boardfamilien für acht
+`Core.Daevanion` enthält den lokal gebündelten Darstellungskatalog mit sechs Boardfamilien für acht
 Klassen. Statboni und Skillstufenboni bleiben unterschiedliche Effekte; Nodes können zwei Statboni
 enthalten. Die optionale Klasse der eigenen Netzwerkidentität und ihre Generation bilden den
 aktuellen Daevanion-Kontext, ohne die Gültigkeit einer Own-Identität an Klassenunterstützung zu binden.

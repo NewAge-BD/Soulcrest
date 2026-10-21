@@ -2,6 +2,11 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.10.2 – 2026-10-21
+
+- **Neu:** Das Daevanion-Overlay unterstützt jetzt auch das Board **Ariel** in allen acht Klassen,
+  einschließlich der PvE- und Boss-Boni und der Doppelboni.
+
 ## 0.10.1 – 2026-10-21
 
 - **Behoben:** Das Daevanion-Overlay verschwand, solange levelbare Nodes blau leuchteten. Es bleibt

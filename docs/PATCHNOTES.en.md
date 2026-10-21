@@ -2,6 +2,11 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.10.2 – 2026-10-21
+
+- **New:** The Daevanion overlay now also supports the **Ariel** board in all eight classes, including
+  its PvE and boss bonuses and double bonuses.
+
 ## 0.10.1 – 2026-10-21
 
 - **Fixed:** The Daevanion overlay disappeared while levelable nodes were glowing blue. It now stays

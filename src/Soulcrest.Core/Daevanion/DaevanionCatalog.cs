@@ -87,7 +87,7 @@ public sealed record DaevanionBoard
 public sealed class DaevanionCatalog
 {
     private const string ResourceName = "Soulcrest.DaevanionCatalog.json";
-    private static readonly string[] FamilyOrder = ["nezekan", "zikel", "vaizel", "triniel", "azphel"];
+    private static readonly string[] FamilyOrder = ["nezekan", "zikel", "vaizel", "triniel", "ariel", "azphel"];
     private static readonly Lazy<DaevanionCatalog> Embedded = new(LoadEmbedded);
     private readonly FrozenDictionary<(string ClassId, string FamilyId), DaevanionBoard> _boards;
     private readonly FrozenDictionary<int, DaevanionSkill> _skills;
@@ -161,7 +161,7 @@ public sealed class DaevanionCatalog
         {
             if (!valid) throw new InvalidDataException("Inconsistent Daevanion catalog.");
         }
-        Require(Classes.Count == 8 && Boards.Count == 40 && Skills.Count == 176 && Stats.Count == 24 && Assets.Count == 170);
+        Require(Classes.Count == 8 && Boards.Count == 48 && Skills.Count == 176 && Stats.Count == 34 && Assets.Count == 170);
         var classes = Classes.Select(value => value.Id).ToHashSet(StringComparer.Ordinal);
         Require(classes.Count == Classes.Count && Classes.All(value => !string.IsNullOrWhiteSpace(value.Id) && HasText(value.Name)));
         Require(Boards.Select(board => board.Id).Distinct().Count() == Boards.Count);
@@ -174,7 +174,7 @@ public sealed class DaevanionCatalog
         foreach (var board in Boards)
         {
             Require(classes.Contains(board.ClassId) && FamilyOrder.Contains(board.FamilyId) && HasText(board.Name));
-            Require(board.Nodes.Count == (board.FamilyId == "azphel" ? 153 : board.FamilyId == "triniel" ? 117 : 89));
+            Require(board.Nodes.Count == (board.FamilyId is "ariel" or "azphel" ? 153 : board.FamilyId == "triniel" ? 117 : 89));
             Require(board.Nodes.Select(node => (node.Row, node.Column)).Distinct().Count() == board.Nodes.Count);
             Require(board.Nodes.Count(node => node.Kind == DaevanionNodeKind.Start) == 1);
             foreach (var node in board.Nodes)
