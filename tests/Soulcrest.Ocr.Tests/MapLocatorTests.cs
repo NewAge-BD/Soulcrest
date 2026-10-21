@@ -14,24 +14,15 @@ namespace Soulcrest.Ocr.Tests;
 /// </summary>
 public sealed class MapLocatorTests(ITestOutputHelper output)
 {
-    private static string? MapData()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var candidate = Path.Combine(dir.FullName, "imports", "generated", "mapdata");
-            if (File.Exists(Path.Combine(candidate, "manifest.json")))
-                return candidate;
-        }
-        return null;
-    }
+    private static string? MapData() => TestPrerequisites.MapDataDirectory;
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData(2100, 1900)]
     [InlineData(1700, 2350)]
     public void FindsThePlayerOnACutOutOfVerteron(int worldX, int worldY)
     {
-        if (MapData() is not { } mapdata)
-            return;
+        var mapdata = MapData();
+        Assert.NotNull(mapdata);
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(mapdata, "manifest.json")));
         var definition = manifest.RootElement.GetProperty("maps").EnumerateArray().Single(m => m.GetProperty("id").GetString() == "verteron");
         var pattern = Path.Combine(mapdata, definition.GetProperty("tiles").GetString()!);
@@ -74,11 +65,11 @@ public sealed class MapLocatorTests(ITestOutputHelper output)
         Assert.InRange(p2.Y * reference.WorldPerPixel, worldY - 20 - 4, worldY - 20 + 4);
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void ForeignPictureIsNotPlaced()
     {
-        if (MapData() is not { } mapdata)
-            return;
+        var mapdata = MapData();
+        Assert.NotNull(mapdata);
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(mapdata, "manifest.json")));
         var definition = manifest.RootElement.GetProperty("maps").EnumerateArray().Single(m => m.GetProperty("id").GetString() == "verteron");
         var pattern = Path.Combine(mapdata, definition.GetProperty("tiles").GetString()!);

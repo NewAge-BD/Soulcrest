@@ -1680,8 +1680,8 @@
   "Jede gewählte Vorwarnzeit und jeder bestätigte Spawn lösen einen Alert aus. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.": "Each selected advance warning and confirmed spawn triggers an alert. Alerts require current boss data and also work with Boss Rush Mode off.",
   "Individuelle Erinnerungen stellst du direkt an den Boss-Kacheln ein. Die Standard-Vorwarnzeiten gelten für Bosse ohne eigene Einstellung.": "Set individual reminders directly on the boss cards. The default advance warnings apply to bosses without their own setting.",
   "Vorwarnzeiten für {0}": "Advance warnings for {0}",
-  "Ohne Netzwerk in Instanzen ruhen": "Rest in instances without network tracking",
-  "Bei ausgeschaltetem Netzwerk-Tracking werden Instanzen anhand der fehlenden Karte vermutet. Mit Netzwerk-Tracking ruht die Kartenerkennung in bestätigten Instanzen automatisch.": "With network tracking off, instances are inferred from a missing map. With network tracking on, map detection automatically rests in confirmed instances.",
+  "Bei visueller Erkennung in Instanzen ruhen": "Rest in instances during visual detection",
+  "Ohne verfügbare Netzwerk-Ortserkennung werden Instanzen anhand der fehlenden Karte vermutet. Mit verfügbarer Netzwerk-Ortserkennung ruht die Kartenerkennung in bestätigten Instanzen automatisch.": "Without available network location detection, instances are inferred from a missing map. With network location detection available, map detection automatically rests in confirmed instances.",
   "Netzwerk-Tracking wartet auf ein unterstütztes Gebiet – Kartenprüfung ruht.": "Network tracking is waiting for a supported area – map detection is resting.",
   "Visueller Rückfall: keine Karte erkannt – prüft alle paar Sekunden.": "Visual fallback: no map detected – checking every few seconds.",
   "Kartenkontext geändert – Kartenerkennung wird fortgesetzt.": "Area context changed – map detection is resuming."

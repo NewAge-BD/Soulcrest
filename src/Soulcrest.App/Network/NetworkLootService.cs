@@ -280,26 +280,6 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         return found;
     }
 
-    /// <summary>Characters entering the world in a recorded capture file (diagnosis/tests).</summary>
-    public static List<(DateTimeOffset At, string Name)> ReadCharacters(string path, IReadOnlySet<int> serverPorts)
-    {
-        var found = new List<(DateTimeOffset, string)>();
-        var streams = new Dictionary<(string, int, int), (TcpReassembler, GameMessageStream)>();
-        using var device = new CaptureFileReaderDevice(path);
-        device.Open();
-        while (device.GetNextPacket(out var capture) == GetPacketStatus.PacketRead)
-        {
-            var raw = capture.GetPacket();
-            foreach (var received in Feed(streams, raw, serverPorts, null))
-            {
-                if (CharacterMessage.TryParseName(received.Data) is { } name)
-                    found.Add((new DateTimeOffset(raw.Timeval.Date), name));
-            }
-        }
-        return found;
-    }
-
-
     private void CheckConnection()
     {
         CheckConnectionCore();

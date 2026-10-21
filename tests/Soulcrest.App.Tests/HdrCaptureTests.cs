@@ -65,7 +65,8 @@ public sealed class HdrCaptureTests(ITestOutputHelper output)
         }
     }
 
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public void MonitorsReportTheirHdrState()
     {
         // Read only: shows what this PC reports (no assertion on the hardware).

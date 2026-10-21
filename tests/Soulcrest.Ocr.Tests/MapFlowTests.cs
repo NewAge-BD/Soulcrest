@@ -11,8 +11,7 @@ public sealed class MapFlowTests
     public void MeasuresTheShiftOfTheMap()
     {
         var file = Path.Combine(AppContext.BaseDirectory, "fixtures", "map-tracking", "live-2026-10-03-region.png");
-        if (!File.Exists(file))
-            return;
+        Assert.True(File.Exists(file), $"Required regression fixture missing: {file}");
         using var image = Cv2.ImRead(file, ImreadModes.Grayscale);
         using var first = new Mat(image, new Rect(20, 20, 440, 400)).Clone();
         using var second = new Mat(image, new Rect(26, 17, 440, 400)).Clone(); // view moved right 6, up 3 -> picture moves left 6, down 3

@@ -410,7 +410,7 @@ public sealed class MapZoomPlausibilityTests
 
     /// <summary>User request 2026-10-06: a pet marked by hand stays until it reaches its next level.</summary>
     [Fact]
-    public void AHandMarkedPetStaysUntilItsNextLevel()
+    public void AHandMarkedPetFollowsManualLevelCorrections()
     {
         File.Delete(AppPaths.TargetsFile);
         File.Delete(AppPaths.ProgressFile);
@@ -418,15 +418,13 @@ public sealed class MapZoomPlausibilityTests
         {
             var settings = new SettingsService();
             var progress = new ProgressService();
-            progress.AddSouls("kailin", 5, "test", "");    // level 1
+            progress.SetLevel("kailin", 1, 0);
             var targets = new MapTargetsService();
             using var cleaner = new FarmedTargetCleaner(targets, progress, settings);
             targets.Toggle("altgard", 100, 100, "Kailin", "Pets · Fera", null, petId: "kailin");
-            var levelTwo = progress.Thresholds.Steps.Take(2).Sum();
-
-            progress.AddSouls("kailin", levelTwo - 6, "test", "");   // one short of level 2: stays
+            progress.SetLevel("kailin", 1, 24); // One short of level 2: stays.
             Assert.Single(targets.Targets);
-            progress.AddSouls("kailin", 1, "test", "");               // level 2 reached: mark removed
+            progress.SetLevel("kailin", 2, 0); // Level 2 reached: mark removed.
             Assert.Empty(targets.Targets);
         }
         finally
@@ -532,10 +530,9 @@ public sealed class MapZoomPlausibilityTests
         try
         {
             var progress = new ProgressService();
-            var levelTwo = progress.Thresholds.Steps.Take(2).Sum();
-            progress.AddSouls("kailin", levelTwo - 1, "test", "");
+            progress.SetLevel("kailin", 1, 24);
             Assert.Equal($"{progress.Thresholds.Steps[1] - 1}/{progress.Thresholds.Steps[1]}", progress.SoulCount("kailin")); // e.g. 24/25
-            progress.AddSouls("kailin", progress.Thresholds.Max, "test", "");
+            progress.SetLevel("kailin", 3, 0);
             Assert.Equal("max", progress.SoulCount("kailin"));
         }
         finally
@@ -545,7 +542,7 @@ public sealed class MapZoomPlausibilityTests
     }
 
     [Fact]
-    public void AMarkVanishesWhenItsPetIsFarmedIntoAHiddenLevel()
+    public void AMarkVanishesWhenItsPetIsManuallyCorrectedToAHiddenLevel()
     {
         File.Delete(AppPaths.TargetsFile);
         File.Delete(AppPaths.ProgressFile);
@@ -559,9 +556,9 @@ public sealed class MapZoomPlausibilityTests
             targets.Toggle("altgard", 100, 100, "Kailin", "Pets · Fera", null, petId: "kailin");
             targets.Toggle("altgard", 200, 200, "Ursus", "Pets · Fera", null, petId: "ursus");
 
-            progress.AddSouls("kailin", 4, "test", "");   // 4/5: still locked, still shown
+            progress.SetLevel("kailin", 0, 4); // 4/5: still locked, still shown.
             Assert.Equal(2, targets.Targets.Count);
-            progress.AddSouls("kailin", 1, "test", "");   // level 1 reached, hidden on the map: mark removed
+            progress.SetLevel("kailin", 1, 0); // Level 1 reached, hidden on the map: mark removed.
             Assert.Equal(["Ursus"], targets.Targets.Select(t => t.Name));
         }
         finally

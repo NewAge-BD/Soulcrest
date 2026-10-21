@@ -13,18 +13,11 @@ namespace Soulcrest.Ocr.Tests;
 /// </summary>
 public sealed class MapReferenceAllMapsTests(ITestOutputHelper output)
 {
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void CutOutIsFoundOnItsOwnMapOnly()
     {
-        string? mapdata = null;
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null && mapdata is null; dir = dir.Parent)
-        {
-            var candidate = Path.Combine(dir.FullName, "imports", "generated", "mapdata");
-            if (File.Exists(Path.Combine(candidate, "manifest.json")))
-                mapdata = candidate;
-        }
-        if (mapdata is null)
-            return;
+        var mapdata = TestPrerequisites.MapDataDirectory;
+        Assert.NotNull(mapdata);
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(mapdata, "manifest.json")));
         var version = manifest.RootElement.GetProperty("version").GetString();
         var maps = manifest.RootElement.GetProperty("maps").EnumerateArray()

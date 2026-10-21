@@ -9,10 +9,9 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")]
 public sealed class OverlayLockButtonTests
 {
-    [Fact]
+    [RequiresFact(TestRequirement.InteractiveDesktop)]
     public Task NativeHotspotRemainsClickableAboveAClickThroughTarget() => RunOnSta(() =>
     {
-        if (InteractiveDesktop.Missing) return; // needs real window hit-testing
         using var behind = CreateBehind();
         using var target = CreateTarget(behind.Bounds);
         using var button = new OverlayLockButton(target);
@@ -84,7 +83,7 @@ public sealed class OverlayLockButtonTests
         Assert.Equal(new Rectangle(target.PointToScreen(relative.Location), relative.Size), button.Bounds);
     });
 
-    [Fact]
+    [RequiresFact(TestRequirement.InteractiveDesktop)]
     public Task TargetAndHotspotHandleRecreationPreserveNativeClickability() => RunOnSta(() =>
     {
         using var target = CreateTarget(CreateBounds());
@@ -164,10 +163,9 @@ public sealed class OverlayLockButtonTests
         Assert.False(IsWindow(handle));
     });
 
-    [Fact]
+    [RequiresFact(TestRequirement.InteractiveDesktop)]
     public Task DisposingHotspotLeavesItsTargetUsableAndClickThrough() => RunOnSta(() =>
     {
-        if (InteractiveDesktop.Missing) return; // needs real window hit-testing
         using var behind = CreateBehind();
         using var target = CreateTarget(behind.Bounds);
         using var button = new OverlayLockButton(target);
@@ -259,10 +257,9 @@ public sealed class OverlayLockButtonTests
         }
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.InteractiveDesktop)]
     public Task TimerGlyphUsesPhysicalProviderBoundsAndRemainsClickableAcrossHandleRecreation() => RunOnSta(() =>
     {
-        if (InteractiveDesktop.Missing) return;
         using var behind = CreateBehind();
         using var target = CreateTarget(behind.Bounds);
         var relative = new Rectangle(14, 16, 36, 36);

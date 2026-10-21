@@ -13,11 +13,11 @@ namespace Soulcrest.Ocr.Tests;
 /// </summary>
 public sealed class MapDetectionCostExploration(ITestOutputHelper output)
 {
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public void StepCosts()
     {
-        if (Environment.GetEnvironmentVariable("SOULCREST_MAP_COST") != "1")
-            return;
+        TestPrerequisites.RequiredFlag("SOULCREST_MAP_COST");
         string? mapdata = null;
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null && mapdata is null; dir = dir.Parent)
         {
@@ -72,11 +72,11 @@ public sealed class MapDetectionCostExploration(ITestOutputHelper output)
     /// Detection with OpenCV on all threads and on one (2026-10-07): the 60 fps flow costs half the CPU
     /// on one thread, and the setting holds for the whole process.
     /// </summary>
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public void DetectionCostByOpenCvThreads()
     {
-        if (Environment.GetEnvironmentVariable("SOULCREST_MAP_COST") != "1")
-            return;
+        TestPrerequisites.RequiredFlag("SOULCREST_MAP_COST");
         string? mapdata = null;
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null && mapdata is null; dir = dir.Parent)
         {

@@ -9,12 +9,11 @@ namespace Soulcrest.Ocr.Tests;
 /// <summary>Probe (SOULCREST_PROBE_IMAGE): can the locator find a minimap picture from a diagnosis package?</summary>
 public sealed class ColleagueMinimapExploration(ITestOutputHelper output)
 {
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public void Probe()
     {
-        var image = Environment.GetEnvironmentVariable("SOULCREST_PROBE_IMAGE");
-        if (image is null || !File.Exists(image))
-            return;
+        var image = TestPrerequisites.RequiredFile("SOULCREST_PROBE_IMAGE");
         string? mapdata = null;
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null && mapdata is null; dir = dir.Parent)
         {
@@ -22,6 +21,7 @@ public sealed class ColleagueMinimapExploration(ITestOutputHelper output)
             if (File.Exists(Path.Combine(candidate, "manifest.json")))
                 mapdata = candidate;
         }
+        Assert.NotNull(mapdata);
         using var picture = Cv2.ImRead(image);
         using var frame = new Mat();
         Cv2.Resize(picture, frame, new OpenCvSharp.Size(514, 292), 0, 0, InterpolationFlags.Cubic);

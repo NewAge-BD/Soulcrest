@@ -100,7 +100,8 @@ public sealed class OverlayThemeTests : IDisposable
 
     public static IEnumerable<object[]> ThemeIds => OverlayThemeDefinition.All.Select(theme => new object[] { theme.Id });
 
-    [Theory]
+    [DiagnosticTheory]
+    [Trait("Category", "Diagnostic")]
     [MemberData(nameof(ThemeIds))]
     public void OfflinePreviewSheetIncludesAllOverlaysOnLightAndDarkBackgrounds(string theme)
     {
@@ -109,7 +110,7 @@ public sealed class OverlayThemeTests : IDisposable
         var catalog = catalogPath is not null && File.Exists(catalogPath) ? PetCatalog.Load(catalogPath) : new PetCatalog([]);
         using var renderer = new OverlayPreviewRenderer(catalog, mapdata);
         var settings = new AppSettings { OverlayTheme = theme, BossOverlayCount = 5 };
-        var output = Environment.GetEnvironmentVariable("SOULCREST_OVERLAY_PREVIEW_OUTPUT");
+        var output = TestPrerequisites.RequiredValue("SOULCREST_OVERLAY_PREVIEW_OUTPUT");
         var height = 24 + OverlayRegistry.All.Count * 220;
         using var sheet = new Bitmap(1600, height, PixelFormat.Format32bppPArgb);
         using var graphics = Graphics.FromImage(sheet);

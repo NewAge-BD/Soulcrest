@@ -1,6 +1,7 @@
 using Soulcrest.App.Network;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Network;
+using Soulcrest.Core.Pets;
 using Xunit;
 
 namespace Soulcrest.App.Tests;
@@ -20,32 +21,43 @@ public sealed class ReviewRegressionTests
 
 
     [Fact]
-    public void BatchLevelsPersistsAllPetsWithOneNotification()
-    {
-        var progress = new ProgressService();
-        var changes = 0;
-        progress.Changed += () => changes++;
-        progress.SetLevels([("review-a", 1, 2), ("review-b", 2, 3)]);
-        Assert.Equal(1, changes);
-        var reloaded = new ProgressService();
-        Assert.Equal(progress.Thresholds.Total(1, 2), reloaded.Souls("review-a"));
-        Assert.Equal(progress.Thresholds.Total(2, 3), reloaded.Souls("review-b"));
-        progress.SetLevels([]);
-        Assert.Equal(1, changes);
-    }
-
-    [Fact]
     public void NetworkPetWithoutMapEntryIsVisibleAndPersistent()
     {
-        var progress = new ProgressService();
-        var source = new PetIdEntry(999999, "Review Network Pet", "Fera", null);
-        var id = progress.EnsureNetworkPet(source);
-        progress.AddSouls(id, 2, "test", "test");
-        Assert.Equal(id, progress.EnsureNetworkPet(source));
-        var reloaded = new ProgressService();
-        Assert.Single(reloaded.Catalog.Pets, p => p.Id == id);
-        Assert.Equal(source.En, reloaded.Catalog.Find(id)!.En);
-        Assert.Equal(2, reloaded.Souls(id));
+        Assert.StartsWith(Path.GetTempPath(), AppPaths.DataDirectory, StringComparison.OrdinalIgnoreCase);
+        var folder = Path.Combine(Path.GetTempPath(), "soulcrest-review-network-pet-" + Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(folder, "progress.json");
+        var savedFiles = new[] { AppPaths.LearnedPetsFile, AppPaths.LearnedNamesFile, AppPaths.EventsFile }
+            .ToDictionary(file => file, file => File.Exists(file) ? File.ReadAllBytes(file) : null);
+        Directory.CreateDirectory(folder);
+        try
+        {
+            // A local progress path still shares the learned catalogue. Exercise a true first
+            // observation without leaving a sourced pet visible to later UI fixtures.
+            JsonFile.Save(AppPaths.LearnedPetsFile, Array.Empty<PetDefinition>());
+            JsonFile.Save(AppPaths.LearnedNamesFile, new Dictionary<string, string>());
+            var progress = new ProgressService(path, new PetCatalog([]));
+            Assert.Empty(progress.Catalog.Pets);
+            var source = PetIdTable.Find(1062)!;
+            var id = progress.EnsureNetworkPet(source);
+            var at = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
+            Assert.True(progress.BindPetSession(new(1, 1, at)));
+            Assert.True(progress.ApplyPetGain([new(source.Id, 2)], new(1, 2, at.AddSeconds(1))));
+            Assert.Equal(id, progress.EnsureNetworkPet(source));
+            var reloaded = new ProgressService(path, new PetCatalog([]));
+            Assert.Single(reloaded.Catalog.Pets, p => p.Id == id);
+            Assert.Equal(source.En, reloaded.Catalog.Find(id)!.En);
+            Assert.Equal(2, reloaded.Souls(id));
+            Assert.Equal(2, Assert.Single(progress.Recent()).Quantity);
+        }
+        finally
+        {
+            foreach (var (file, bytes) in savedFiles)
+            {
+                if (bytes is null) File.Delete(file);
+                else File.WriteAllBytes(file, bytes);
+            }
+            Directory.Delete(folder, recursive: true);
+        }
     }
 
     [Fact]

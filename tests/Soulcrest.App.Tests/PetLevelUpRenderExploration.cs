@@ -48,11 +48,11 @@ public sealed class PetLevelUpRenderExploration
         finally { UiText.Language = previousLanguage; }
     }
 
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public void RenderOptionalLevelUpAnimationFramesAndLayoutVariants()
     {
-        var output = Environment.GetEnvironmentVariable("SOULCREST_LEVELUP_PREVIEW");
-        if (string.IsNullOrWhiteSpace(output)) return;
+        var output = TestPrerequisites.RequiredValue("SOULCREST_LEVELUP_PREVIEW");
         var previousLanguage = UiText.Language;
         var images = new List<Image>();
         var portraits = new Dictionary<string, Image>(StringComparer.Ordinal);

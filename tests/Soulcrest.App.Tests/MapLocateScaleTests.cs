@@ -9,19 +9,13 @@ namespace Soulcrest.App.Tests;
 /// <summary>The fine reference follows the player with a 0.6× picture; the fix must equal the full-size one.</summary>
 public sealed class MapLocateScaleTests
 {
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void ShrunkPictureGivesTheSamePlayerPosition()
     {
-        string? mapdata = null;
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null && mapdata is null; dir = dir.Parent)
-        {
-            var candidate = Path.Combine(dir.FullName, "imports", "generated", "mapdata");
-            if (File.Exists(Path.Combine(candidate, "manifest.json")))
-                mapdata = candidate;
-        }
+        var mapdata = TestPrerequisites.MapDataDirectory;
         var live = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "tests", "fixtures", "map-tracking", "live-2026-10-03-region.png");
-        if (mapdata is null || !File.Exists(live))
-            return;
+        Assert.NotNull(mapdata);
+        Assert.True(File.Exists(live), $"Required regression fixture missing: {live}");
         using var reference = Reference(mapdata, 5);
         using var frame = Cv2.ImRead(live);
         using var full = new MapLocator(reference);

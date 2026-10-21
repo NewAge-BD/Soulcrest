@@ -186,12 +186,12 @@ public sealed class DaevanionRendererTests
         Assert.NotNull(previous);
     }
 
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public void ExportActualScreenshotWithProductionPainterWhenRequested()
     {
-        var input = Environment.GetEnvironmentVariable("SOULCREST_DAEVANION_SCREENSHOT");
-        var output = Environment.GetEnvironmentVariable("SOULCREST_DAEVANION_PREVIEW");
-        if (string.IsNullOrEmpty(input) || string.IsNullOrEmpty(output)) return;
+        var input = TestPrerequisites.RequiredFile("SOULCREST_DAEVANION_SCREENSHOT");
+        _ = TestPrerequisites.RequiredValue("SOULCREST_DAEVANION_PREVIEW");
         var catalog = DaevanionCatalog.Default;
         var patterns = catalog.Boards.GroupBy(b => b.FamilyId).Select(g => new DaevanionBoardPattern(g.Key,
             g.First().Nodes.Select(n => new DaevanionPatternCell(n.Row, n.Column, n.Kind == DaevanionNodeKind.Start)).ToArray())).ToArray();

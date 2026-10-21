@@ -163,14 +163,13 @@ public sealed class OverlayInteractionPanelTests : IDisposable
         }
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.InteractiveDesktop)]
     [InlineData("_overlay")]
     [InlineData("_bossOverlay")]
     [InlineData("_levelingOverlay")]
     [InlineData("_alertsOverlay")]
     public Task WindowsRoutesPointerToThePanelOnlyWhileInteractionIsEnabled(string field) => RunOnSta(() =>
     {
-        if (InteractiveDesktop.Missing) return; // needs real window hit-testing
         using var main = new MainForm();
         var panel = (Form)GetField(main, field)!;
         var area = (Screen.AllScreens.FirstOrDefault(screen => !screen.Primary) ?? Screen.PrimaryScreen!).WorkingArea;

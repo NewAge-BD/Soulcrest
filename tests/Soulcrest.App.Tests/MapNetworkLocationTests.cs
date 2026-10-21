@@ -21,12 +21,11 @@ public sealed class MapNetworkLocationTests
 {
     private static readonly DateTimeOffset At = new(2026, 10, 21, 10, 0, 0, TimeSpan.Zero);
 
-    [Theory]
+    [RequiresTheory(TestRequirement.PrivateInstanceCatalog)]
     [InlineData("de", "Kraohöhle", "Expeditionen · Eroberung", "Bestätigt")]
     [InlineData("en", "Krao Cave", "Expedition · Conquest", "Confirmed")]
     public async Task NativeLocationAndModeRenderInsideTheNetworkTrackingTile(string language, string name, string detail, string status)
     {
-        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
         await using var f = new Fixture(language);
         f.ConfirmKrao();
         await f.RenderMap();
@@ -44,12 +43,11 @@ public sealed class MapNetworkLocationTests
         await f.Export(markup);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.PrivateInstanceCatalog)]
     [InlineData("de")]
     [InlineData("en")]
     public async Task ConfirmedClientMapSelectsMapTabBeforePlayerAcquisitionWithoutFollowingOrProgression(string language)
     {
-        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
         await using var f = new Fixture(language);
         f.Settings.Update(s => { s.FollowPlayer = false; s.ProgressionEnabled = false; });
         f.World.ObserveOwn(1010, 1, At);
@@ -68,12 +66,11 @@ public sealed class MapNetworkLocationTests
         await f.Export(markup, "client-map-");
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.PrivateInstanceCatalog)]
     [InlineData("de")]
     [InlineData("en")]
     public async Task OwnTransitionAndNextOwnRefreshImmediatelyWhileMapTrackingIsStopped(string language)
     {
-        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
         await using var f = new Fixture(language);
         var view = await f.RenderMap();
         // Suppress the independent loot refresh path: location updates must use WorldContext.Changed.
@@ -99,12 +96,11 @@ public sealed class MapNetworkLocationTests
         Assert.Equal(0, f.Capture.Diagnostics.Grabs);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.PrivateInstanceCatalog)]
     [InlineData("de")]
     [InlineData("en")]
     public async Task DisabledNetworkPreferenceHidesPreviouslyConfirmedDetails(string language)
     {
-        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
         await using var f = new Fixture(language);
         f.ConfirmKrao();
         await f.RenderMap();

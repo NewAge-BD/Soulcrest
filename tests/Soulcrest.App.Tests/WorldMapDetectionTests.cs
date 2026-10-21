@@ -20,15 +20,15 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
     private static readonly Rectangle SmallMap = new(1792, 960, 518, 469);
     private static readonly Rectangle Screen = new(0, 0, 2560, 1440);
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData("live-2026-10-03-lost-screen.png", true)]   // "Map: Verteron", full screen
     [InlineData("live-2026-10-03-screen.png", false)]       // fight scene, small map bottom right
     public void TellsTheWorldMapFromTheSmallMap(string file, bool worldMap)
     {
         var path = Path.Combine(AppContext.BaseDirectory, "fixtures", "map-tracking", file);
         var progress = new ProgressService();
-        if (progress.MapDataDirectory is null || !File.Exists(path))
-            return;
+        Assert.NotNull(progress.MapDataDirectory);
+        Assert.True(File.Exists(path), $"Required regression fixture missing: {path}");
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(progress.MapDataDirectory, "manifest.json")));
         var version = manifest.RootElement.GetProperty("version").GetString();
         var cache = Path.Combine(Path.GetTempPath(), "soulcrest-tests-mapref", $"verteron-z4-{version}-full-app.bin");

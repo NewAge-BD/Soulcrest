@@ -129,44 +129,6 @@ public sealed partial class ExplorationService
         lock (_gate) { var c = new CharacterExploration { Name = name.Trim() }; _state.Characters.Add(c); _state.Active = c.Id; Persist(); }
         Changed?.Invoke();
     }
-    /// <summary>
-    /// The character detected after a loading screen (user request 2026-10-06): its profile is chosen.
-    /// An unknown name takes over the oldest never-renamed default profile ("Character 1"), so progress
-    /// checked off before the detection stays; otherwise a new profile is made.
-    /// </summary>
-    public CharacterChoice UseCharacter(string name)
-    {
-        name = name.Trim();
-        if (name.Length == 0) return CharacterChoice.Unchanged;
-        CharacterChoice choice;
-        lock (_gate)
-        {
-            var known = _state.Characters.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (known is not null)
-            {
-                if (known.Id == _state.Active) return CharacterChoice.Unchanged;
-                _state.Active = known.Id;
-                choice = CharacterChoice.Selected;
-            }
-            else if (_state.Characters.FirstOrDefault(c => DefaultName().IsMatch(c.Name)) is { } unnamed)
-            {
-                unnamed.Name = name;
-                _state.Active = unnamed.Id;
-                choice = CharacterChoice.Adopted;
-            }
-            else
-            {
-                var created = new CharacterExploration { Name = name };
-                _state.Characters.Add(created);
-                _state.Active = created.Id;
-                choice = CharacterChoice.Created;
-            }
-            Persist();
-        }
-        Changed?.Invoke();
-        return choice;
-    }
-
     [GeneratedRegex(@"^Character \d+$")]
     private static partial Regex DefaultName();
 

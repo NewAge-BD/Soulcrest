@@ -85,12 +85,11 @@ public sealed class WorldLocationStatusTests
         Assert.Contains("&lt;script&gt;", markup);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.PrivateInstanceCatalog)]
     [InlineData("de")]
     [InlineData("en")]
     public async Task BundledCatalogueRendersOriginalLocationAndCategory(string language)
     {
-        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
         var previous = UiText.Language;
         try
         {

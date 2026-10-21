@@ -14,11 +14,11 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")]
 public sealed class OverlayRenderExploration
 {
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public void RenderOverlay()
     {
-        var target = Environment.GetEnvironmentVariable("SOULCREST_OVERLAY_PNG");
-        if (string.IsNullOrEmpty(target)) return;
+        var target = TestPrerequisites.RequiredValue("SOULCREST_OVERLAY_PNG");
         var previousLanguage = UiText.Language;
         var images = new List<Image>();
         var portraits = new Dictionary<string, Image?>();

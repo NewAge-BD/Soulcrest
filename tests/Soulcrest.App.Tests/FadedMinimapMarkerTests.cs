@@ -80,7 +80,8 @@ public sealed class FadedMinimapMarkerTests
         SamePixels(activeWorld, activeMini);
     }
 
-    [Theory]
+    [DiagnosticTheory]
+    [Trait("Category", "Diagnostic")]
     [MemberData(nameof(ThemeIds))]
     public void ProductionMinimapExampleRendersHistoryPreviewAndActiveTargets(string id)
     {
@@ -93,7 +94,7 @@ public sealed class FadedMinimapMarkerTests
         ];
         using var layer = RouteOverlayForm.DrawThemed(OverlayThemeDefinition.Resolve(id), placement, targets,
             resources: [new(110, 90, null, "#facc15", .28f)]);
-        if (Environment.GetEnvironmentVariable("SOULCREST_FADED_MARKER_PREVIEW") is not { Length: > 0 } output) return;
+        var output = TestPrerequisites.RequiredValue("SOULCREST_FADED_MARKER_PREVIEW");
         Directory.CreateDirectory(output);
         using var scene = new Bitmap(640, 340, PixelFormat.Format32bppPArgb);
         using var graphics = Graphics.FromImage(scene);

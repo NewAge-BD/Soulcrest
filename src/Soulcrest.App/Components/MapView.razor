@@ -162,7 +162,7 @@
             }
             <div class="row">
                 <label class="check"><input type="checkbox" checked="@Settings.Current.FollowPlayer" @onchange="ToggleFollow" /> @UiText.T("Spieler verfolgen")</label>
-                <label class="check" title="@UiText.T("Bei ausgeschaltetem Netzwerk-Tracking werden Instanzen anhand der fehlenden Karte vermutet. Mit Netzwerk-Tracking ruht die Kartenerkennung in bestätigten Instanzen automatisch.")"><input type="checkbox" checked="@Settings.Current.PauseTrackingInInstances" disabled="@Settings.Current.LootTrackingEnabled" @onchange="@(e => Settings.Update(s => s.PauseTrackingInInstances = (bool)e.Value!))" /> @UiText.T("Ohne Netzwerk in Instanzen ruhen")</label>
+                <label class="check" title="@UiText.T("Ohne verfügbare Netzwerk-Ortserkennung werden Instanzen anhand der fehlenden Karte vermutet. Mit verfügbarer Netzwerk-Ortserkennung ruht die Kartenerkennung in bestätigten Instanzen automatisch.")"><input type="checkbox" checked="@Settings.Current.PauseTrackingInInstances" id="pause-tracking-in-instances" disabled="@(!Tracking.UsesVisualFallback)" @onchange="@(e => Settings.Update(s => s.PauseTrackingInInstances = (bool)e.Value!))" /> @UiText.T("Bei visueller Erkennung in Instanzen ruhen")</label>
                 @if (Tracking.Position is not null)
                 {
                     <button type="button" class="btn link push" @onclick="CenterOnPlayer">@UiText.T("⌖ Zum Spieler")</button>

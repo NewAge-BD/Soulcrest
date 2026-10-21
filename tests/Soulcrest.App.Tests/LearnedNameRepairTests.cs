@@ -10,12 +10,12 @@ namespace Soulcrest.App.Tests;
 /// </summary>
 public sealed class LearnedNameRepairTests
 {
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void MisreadLearnedPetsMoveToTheRightPet()
     {
         var progressBefore = new ProgressService();
-        if (progressBefore.MapDataDirectory is null || progressBefore.Catalog.Find("dracuni-herbalist") is null)
-            return;
+        Assert.NotNull(progressBefore.MapDataDirectory);
+        Assert.NotNull(progressBefore.Catalog.Find("dracuni-herbalist"));
         var learnedFile = AppPaths.LearnedPetsFile;
         var portraits = AppPaths.LearnedPortraitsDirectory;
         Directory.CreateDirectory(portraits);

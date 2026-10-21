@@ -36,29 +36,73 @@ public static class UiResponsiveness
     /// with its full length once the thread answers again, together with the window that had the focus
     /// when it began.
     /// </summary>
-    public static void Watch(Control window, Func<string> context, CancellationToken stop)
+    public static IDisposable Watch(Control window, Func<string> context) =>
+        new Watchdog(callback => window.BeginInvoke(callback), context);
+
+    /// <summary>Owns cancellation until the worker has finished; stopping never waits for the UI thread.</summary>
+    internal sealed class Watchdog : IDisposable
     {
-        var thread = new Thread(() =>
+        private readonly CancellationTokenSource _stop = new();
+        private int _disposed;
+        internal Task Completion { get; }
+
+        internal Watchdog(Action<Action> post, Func<string> context,
+            Func<Task, CancellationToken, Task<bool>>? waitForResponse = null,
+            Func<CancellationToken, Task>? pause = null, Action<TimeSpan, string>? record = null,
+            Func<string>? foreground = null)
+        {
+            Completion = Task.Run(() => WatchAsync(post, context, _stop.Token,
+                waitForResponse, pause, record, foreground));
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            _stop.Cancel();
+            _ = Completion.ContinueWith(completed =>
+            {
+                if (completed.IsFaulted) Trace.TraceWarning("UI watchdog stopped: {0}", completed.Exception);
+                _stop.Dispose();
+            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
+    }
+
+    internal static async Task WatchAsync(Action<Action> post, Func<string> context, CancellationToken stop,
+        Func<Task, CancellationToken, Task<bool>>? waitForResponse = null,
+        Func<CancellationToken, Task>? pause = null, Action<TimeSpan, string>? record = null,
+        Func<string>? foreground = null)
+    {
+        waitForResponse ??= WaitForResponse;
+        pause ??= token => Task.Delay(500, token);
+        record ??= (duration, state) => Record("Programmfenster", duration, state);
+        foreground ??= ForegroundProcess;
+        try
         {
             while (!stop.IsCancellationRequested)
             {
-                using var answered = new ManualResetEventSlim();
+                // A queued callback may outlive cancellation or the window. A TCS has no disposed
+                // wait handle, so a late or repeated acknowledgement remains harmless.
+                var answered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 var started = Stopwatch.GetTimestamp();
-                try { window.BeginInvoke(answered.Set); }
-                catch (Exception error) when (error is InvalidOperationException or ObjectDisposedException) { return; }
-                if (!answered.Wait(1000, stop) && !stop.IsCancellationRequested)
+                try { post(() => answered.TrySetResult()); }
+                catch (InvalidOperationException) { return; }
+                if (!await waitForResponse(answered.Task, stop).ConfigureAwait(false))
                 {
-                    var foreground = ForegroundProcess();
-                    while (!answered.Wait(250, stop) && !stop.IsCancellationRequested) { }
-                    if (!stop.IsCancellationRequested)
-                        Record("Programmfenster", Stopwatch.GetElapsedTime(started), $"{context()}, Vordergrund beim Beginn: {foreground}");
+                    var foregroundAtStart = foreground();
+                    await answered.Task.WaitAsync(stop).ConfigureAwait(false);
+                    stop.ThrowIfCancellationRequested();
+                    record(Stopwatch.GetElapsedTime(started), $"{context()}, Vordergrund beim Beginn: {foregroundAtStart}");
                 }
-                if (stop.WaitHandle.WaitOne(500))
-                    return;
+                await pause(stop).ConfigureAwait(false);
             }
-        })
-        { IsBackground = true, Name = "Soulcrest UI watchdog" };
-        thread.Start();
+        }
+        catch (OperationCanceledException) when (stop.IsCancellationRequested) { }
+    }
+
+    private static async Task<bool> WaitForResponse(Task answered, CancellationToken stop)
+    {
+        try { await answered.WaitAsync(TimeSpan.FromSeconds(1), stop).ConfigureAwait(false); return true; }
+        catch (TimeoutException) { return false; }
     }
 
     internal static string ForegroundProcess()

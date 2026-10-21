@@ -99,141 +99,14 @@ public sealed partial class ProgressService
         return new PetCatalog(mapPets.Concat(_learned.Where(l => PanelPetName.CanLearn(l.En) && mapPets.All(m => m.Id != l.Id))), _aliases);
     }
 
-    /// <summary>Catalog pet still named after its icon (no override, nothing learned yet).</summary>
-    public bool IsPlaceholder(string petId) => Catalog.Find(petId) is { } pet && PetNameOverrides.IsPlaceholder(pet);
-
-    /// <summary>
-    /// Gives a placeholder pet ("KrallWar 01 V01") the name the game shows for it (pet window panel).
-    /// Ids stay the same, so progress is kept.
-    /// </summary>
-    public void NamePlaceholder(string petId, string name)
-    {
-        lock (_gate)
-        {
-            _learnedNames[petId] = PanelPetName.Clean(name);
-            JsonFile.Save(AppPaths.LearnedNamesFile, _learnedNames);
-            Catalog = BuildCatalog();
-        }
-        Changed?.Invoke();
-    }
-
-    /// <summary>
-    /// A pet learned from the pet window turned out to be a placeholder pet of the map data (same
-    /// portrait): the placeholder gets the learned name, progress moves over (higher value wins), the
-    /// learned duplicate is dropped.
-    /// </summary>
-    public void MergeLearnedIntoPlaceholder(string learnedId, string placeholderId)
-    {
-        lock (_gate)
-        {
-            if (_learned.FirstOrDefault(l => l.Id == learnedId) is not { } learned || _mapPets.All(m => m.Id != placeholderId))
-                return;
-            _learned.Remove(learned);
-            _learnedNames[placeholderId] = learned.En;
-            MergeProfile(learnedId, placeholderId);
-            var oldPortrait = Path.Combine(AppPaths.LearnedPortraitsDirectory, $"{learnedId}.png");
-            var newPortrait = Path.Combine(AppPaths.LearnedPortraitsDirectory, $"{placeholderId}.png");
-            if (File.Exists(oldPortrait))
-            {
-                if (File.Exists(newPortrait))
-                    File.Delete(oldPortrait);
-                else
-                    File.Move(oldPortrait, newPortrait);
-            }
-            JsonFile.Save(AppPaths.LearnedPetsFile, _learned);
-            JsonFile.Save(AppPaths.LearnedNamesFile, _learnedNames);
-            Persist();
-            Catalog = BuildCatalog();
-        }
-        Changed?.Invoke();
-    }
-
     public string? MapDataDirectory { get; }
 
-    /// <summary>Map-data pets plus pets learned from the in-game pet window. Replaced when a pet is learned.</summary>
+    /// <summary>Map-data pets, compatible legacy entries and sourced pets observed through the network.</summary>
     public PetCatalog Catalog { get; private set; }
 
     public IReadOnlyList<PetDefinition> VerifiedPets => PetSoulIdentity.Verified(Catalog);
 
     public int? SoulId(string petId) => Catalog.Find(petId) is { } pet ? PetSoulIdentity.Resolve(pet, Catalog) : null;
-
-    public bool IsLearned(string petId)
-    {
-        lock (_gate)
-            return _learned.Any(p => p.Id == petId);
-    }
-
-    /// <summary>
-    /// Adds a pet known only from the in-game pet window (name read from its info panel).
-    /// Genus and spawns are unknown; the portrait is stored for recognition.
-    /// </summary>
-    public PetDefinition LearnPet(string name, byte[] portraitPng, string language = "en")
-    {
-        PetDefinition pet;
-        lock (_gate)
-        {
-            name = PanelPetName.Clean(name);
-            var id = PetCatalog.Slug(name);
-            if (FindByName(name) is null && Catalog.Find(id) is null && !PanelPetName.CanLearn(name))
-                throw new ArgumentException("Pet name is incomplete or identifies a panel label.", nameof(name));
-            pet = FindByName(name) ?? Catalog.Find(id) ?? new PetDefinition { Id = id, En = name, De = language == "de" ? name : null, Genus = "unknown" };
-            id = pet.Id;
-            if (_mapPets.All(m => m.Id != id) && _learned.All(l => l.Id != id))
-            {
-                _learned.Add(pet);
-                JsonFile.Save(AppPaths.LearnedPetsFile, _learned);
-                Catalog = BuildCatalog();
-            }
-            SaveLearnedPortrait(id, portraitPng);
-        }
-        Changed?.Invoke();
-        return pet;
-    }
-
-    /// <summary>A German name read twice for a confidently recognised learned pet keeps its existing ID.</summary>
-    public void NameLearnedGerman(string petId, string name)
-    {
-        lock (_gate)
-        {
-            var index = _learned.FindIndex(p => p.Id == petId);
-            if (index < 0 || !string.IsNullOrWhiteSpace(_learned[index].De) || PanelPetName.IsTruncated(name)) return;
-            _learned[index] = _learned[index] with { De = PanelPetName.Clean(name) };
-            JsonFile.Save(AppPaths.LearnedPetsFile, _learned);
-            Catalog = BuildCatalog();
-        }
-        Changed?.Invoke();
-    }
-
-    /// <summary>
-    /// Remembers a confirmed card portrait so the pet is recognised directly next time. Returns the path
-    /// when it was written now (an existing portrait is kept).
-    /// </summary>
-    public static string? SaveLearnedPortrait(string petId, byte[] portraitPng)
-    {
-        Directory.CreateDirectory(AppPaths.LearnedPortraitsDirectory);
-        var path = Path.Combine(AppPaths.LearnedPortraitsDirectory, $"{petId}.png");
-        if (File.Exists(path))
-            return null;
-        File.WriteAllBytes(path, portraitPng);
-        return path;
-    }
-
-    public static IEnumerable<(string PetId, string Path)> LearnedPortraits() =>
-        Directory.Exists(AppPaths.LearnedPortraitsDirectory)
-            ? Directory.GetFiles(AppPaths.LearnedPortraitsDirectory, "*.png").Select(p => (Path.GetFileNameWithoutExtension(p), p))
-            : [];
-
-    /// <summary>
-    /// One portrait identity per catalog pet, including a legacy-file fallback. Loading a scan
-    /// never needs to rename or discard stored alias portraits just to remove duplicate references.
-    /// </summary>
-    public IReadOnlyList<(string PetId, string Path)> RecognitionPortraits() => LearnedPortraits()
-        .Where(p => Catalog.Find(p.PetId) is not null)
-        .Select(p => (PetId: CanonicalId(p.PetId), p.Path, OriginalId: p.PetId))
-        .OrderBy(p => p.PetId != p.OriginalId)
-        .ThenBy(p => p.OriginalId, StringComparer.Ordinal)
-        .DistinctBy(p => p.PetId)
-        .Select(p => (p.PetId, p.Path)).ToArray();
 
     /// <summary>Finds a pet by its displayed name (English or German), tolerant to case and punctuation.</summary>
     public PetDefinition? FindByName(string name)
@@ -361,36 +234,6 @@ public sealed partial class ProgressService
             return _recent.ToList();
     }
 
-    public void AddSouls(string petId, int quantity, string source, string rawText)
-    {
-        lock (_gate)
-        {
-            petId = CanonicalId(petId);
-            var logged = new LoggedSoul(DateTimeOffset.Now, petId, quantity, source, rawText);
-            var entry = EntryForWrite(petId);
-            entry.Souls += quantity;
-            entry.UpdatedAt = logged.At;
-            entry.Source = source;
-            _recent.Insert(0, logged);
-            if (_recent.Count > 200)
-                _recent.RemoveAt(_recent.Count - 1);
-            // Runs on the network capture thread: a save that fails even after the retries is logged and
-            // the soul stays counted in memory, so the next save writes it (review 2026-10-07).
-            var line = JsonSerializer.Serialize(logged);
-            try
-            {
-                Persist();
-                Directory.CreateDirectory(AppPaths.DataDirectory);
-                JsonFile.Retry(() => File.AppendAllText(AppPaths.EventsFile, line + Environment.NewLine));
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                LogFile.Error($"Soul nicht gespeichert {line}", e);
-            }
-        }
-        SafeEvent.Raise(Changed, "Soul-Fortschritt");
-    }
-
     public void SetSouls(string petId, int souls)
     {
         lock (_gate)
@@ -401,26 +244,6 @@ public sealed partial class ProgressService
             entry.Source = "manual";
             entry.ManualOverride = true;
             entry.Freshness = ProgressFreshness.Unknown;
-            Persist();
-        }
-        Changed?.Invoke();
-    }
-
-    /// <summary>One profile write and notification for a reviewed scan batch.</summary>
-    public void SetLevels(IReadOnlyList<(string PetId, int Level, int InLevel)> values)
-    {
-        if (values.Count == 0) return;
-        lock (_gate)
-        {
-            foreach (var (petId, level, inLevel) in values)
-            {
-                var entry = EntryForWrite(petId);
-                entry.Souls = Thresholds.Total(level, inLevel);
-                entry.UpdatedAt = DateTimeOffset.Now;
-                entry.Source = "manual";
-                entry.ManualOverride = true;
-                entry.Freshness = ProgressFreshness.Unknown;
-            }
             Persist();
         }
         Changed?.Invoke();
@@ -447,10 +270,12 @@ public sealed partial class ProgressService
     public void SetLevel(string petId, int level, int soulsInLevel) =>
         SetSouls(petId, Thresholds.Total(level, soulsInLevel));
 
-    /// <summary>"St. 1 · 6/25" (level reached, souls towards the next level) or "St. 3 · max": beside the pet
-    /// symbols on the interactive map and on the in-game map.</summary>
     /// <summary>Souls of the current level, "24/25", or "max": shown beside marked pet targets in game.</summary>
-    public string SoulCount(string petId) => IsMax(petId) ? "max" : $"{SoulsInLevel(petId)}/{NeededForNextLevel(petId)}";
+    public string SoulCount(string petId)
+    {
+        lock (_gate)
+            return IsMax(petId) ? "max" : $"{SoulsInLevel(petId)}/{NeededForNextLevel(petId)}";
+    }
 
     /// <summary>A read-only projection of the global collection under one profile lock.</summary>
     internal (string Counter, bool IsFresh, bool IsMax) ReadMerchantCounter(string petId)
@@ -465,16 +290,23 @@ public sealed partial class ProgressService
         }
     }
 
-    public string PetMapLabel(string petId) => IsMax(petId)
-        ? UiText.F("St. {0} · max", Thresholds.MaxLevel)
-        : UiText.F("St. {0} · {1}/{2}", Level(petId), SoulsInLevel(petId), NeededForNextLevel(petId));
+    public string PetMapLabel(string petId)
+    {
+        lock (_gate)
+            return IsMax(petId)
+                ? UiText.F("St. {0} · max", Thresholds.MaxLevel)
+                : UiText.F("St. {0} · {1}/{2}", Level(petId), SoulsInLevel(petId), NeededForNextLevel(petId));
+    }
 
     public string LevelText(string petId)
     {
-        if (IsMax(petId)) return "max";
-        var level = Level(petId);
-        return level == 0 ? $"{SoulsInLevel(petId)}/{NeededForNextLevel(petId)}"
-            : UiText.F("St. {0} · {1}/{2}", level, SoulsInLevel(petId), NeededForNextLevel(petId));
+        lock (_gate)
+        {
+            if (IsMax(petId)) return "max";
+            var level = Level(petId);
+            return level == 0 ? $"{SoulsInLevel(petId)}/{NeededForNextLevel(petId)}"
+                : UiText.F("St. {0} · {1}/{2}", level, SoulsInLevel(petId), NeededForNextLevel(petId));
+        }
     }
 
     /// <summary>Acquired level and unspent balance stay independent; enough souls do not acquire a level.</summary>
@@ -510,7 +342,15 @@ public sealed partial class ProgressService
         }
     }
     public bool IsMax(string petId) => Level(petId) >= Thresholds.MaxLevel;
-    public int NeededForNextLevel(string petId) => IsMax(petId) ? 0 : Thresholds.Steps[Level(petId)];
+    public int NeededForNextLevel(string petId)
+    {
+        lock (_gate)
+        {
+            // A live upgrade can change the level between two separate reads.
+            var level = Level(petId);
+            return level >= Thresholds.MaxLevel ? 0 : Thresholds.Steps[level];
+        }
+    }
 
     public PetProgressEntry EntrySnapshot(string petId)
     {

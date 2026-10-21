@@ -1518,6 +1518,13 @@ public sealed class MapTrackingService : IDisposable
         var cache = Path.Combine(AppPaths.MapReferenceDirectory, $"{definition.Id}-z{zoom}-{version}.bin");
         PruneReferences(AppPaths.MapReferenceDirectory, version);
         var reference = MapReference.Load(cache);
+        var expectedDimension = 256 * (1 << zoom);
+        if (reference is not null && (reference.MapId != definition.Id || reference.WorldPerPixel != worldPerPixel
+            || reference.Width != expectedDimension || reference.Height != expectedDimension))
+        {
+            reference.Dispose();
+            reference = null; // A valid cache for another map/scale is still a miss for this reference.
+        }
         if (reference is null)
         {
             if (!Found)

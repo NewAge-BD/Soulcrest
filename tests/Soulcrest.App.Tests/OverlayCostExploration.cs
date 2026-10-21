@@ -12,12 +12,13 @@ namespace Soulcrest.App.Tests;
 /// <summary>Cost of one in-game overlay picture on the world map with real data (SOULCREST_OVERLAY_COST=1).</summary>
 public sealed class OverlayCostExploration(ITestOutputHelper output)
 {
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public void WorldMapPictureCost()
     {
-        if (Environment.GetEnvironmentVariable("SOULCREST_OVERLAY_COST") != "1")
-            return;
+        TestPrerequisites.RequiredFlag("SOULCREST_OVERLAY_COST");
         var mapdata = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "imports", "generated", "mapdata"));
+        Assert.True(File.Exists(Path.Combine(mapdata, "manifest.json")), "Diagnostic requires the local map data package.");
         var spawns = MapPetMarkers.For(mapdata, "altgard");
         using var icon = new Bitmap(26, 26);
         var pets = spawns.Select(s => new RouteOverlayForm.PetSymbol(s.X, s.Y, icon, "St. 1 · 6/25", false)).ToList();

@@ -63,13 +63,12 @@ public sealed class ExplorationUnlockTests
         }
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void TheNamesExistInTheMapData()
     {
         // The chain names must match the map data, or the rules would silently do nothing.
-        var mapdata = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "imports", "generated", "mapdata"));
-        if (!Directory.Exists(mapdata))
-            return;
+        var mapdata = TestPrerequisites.MapDataDirectory;
+        Assert.NotNull(mapdata);
         foreach (var (map, names) in new[] { ("verteron", new[] { "Distorted Cave Entrance", "Fissure Cave Entrance", "Rift Cave Entrance" }),
                      ("altgard", new[] { "Lost Ruin Entrance", "Twisted Pit Entrance", "Rift Fissure Entrance" }) })
         {

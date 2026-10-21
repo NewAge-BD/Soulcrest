@@ -8,11 +8,12 @@ namespace Soulcrest.App.Tests;
 /// <summary>Diagnose report on this PC (SOULCREST_DIAG=1), on the test data folder.</summary>
 public sealed class DiagnosticsExploration(ITestOutputHelper output)
 {
-    [Fact]
+    [DiagnosticFact(liveDesktop: true)]
+    [Trait("Category", "Diagnostic")]
+    [Trait("DiagnosticKind", "LiveDesktop")]
     public void WritesTheReport()
     {
-        if (Environment.GetEnvironmentVariable("SOULCREST_DIAG") != "1")
-            return;
+        TestPrerequisites.RequiredFlag("SOULCREST_DIAG");
         var settings = new SettingsService();
         var progress = new ProgressService();
         using var capture = new GameCaptureService();

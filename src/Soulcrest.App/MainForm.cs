@@ -32,7 +32,7 @@ public sealed class MainForm : Form
     private readonly MapTrackingService _map;
     private readonly WorldContextService _worldContext;
     private readonly Capture.GameCaptureService _gameCapture;
-    private readonly CancellationTokenSource _watchdog = new();
+    private IDisposable? _watchdog;
     private readonly System.Windows.Forms.Timer _overlayInteractionTimer = new() { Interval = 25 };
     private bool _closing;
     private bool _cleanupStarted;
@@ -222,7 +222,7 @@ public sealed class MainForm : Form
         updates.ExitRequested += () => BeginInvoke(() => { if (!IsDisposed) Close(); });
         updates.StartAutomaticCheck();
         var ui = _services.GetRequiredService<UiState>();
-        UiResponsiveness.Watch(this, () => $"Tab {ui.Tab}, Tracking {(_map.Running ? (_map.Found ? "gefunden" : "sucht") : "aus")}", _watchdog.Token);
+        _watchdog = UiResponsiveness.Watch(this, () => $"Tab {ui.Tab}, Tracking {(_map.Running ? (_map.Found ? "gefunden" : "sucht") : "aus")}");
         _tracker.StartIfEnabled();
         if (_settings.Current.MapTrackingActive && _settings.Current.MapRegion is not null)
             _map.Start();
@@ -489,7 +489,7 @@ public sealed class MainForm : Form
         _overlayInteractionTimer.Stop();
         StopOverlayKeyboard();
         SetOverlayInteractionEnabled(false);
-        _watchdog.Cancel();
+        StopWatchdog();
         SaveWindowBounds();
         _hotkeys.Detach();
         StopTracking();
@@ -503,6 +503,8 @@ public sealed class MainForm : Form
         _merchantOverlay.Close();
         _daevanionOverlay.Close();
     }
+
+    private void StopWatchdog() => Interlocked.Exchange(ref _watchdog, null)?.Dispose();
 
     private void StopTracking()
     {
@@ -524,6 +526,7 @@ public sealed class MainForm : Form
         if (!disposing) { base.Dispose(false); return; }
         if (_cleanupStarted) return;
         _cleanupStarted = true;
+        StopWatchdog();
         _overlaysStarted = false;
         OverlayInteraction.Changed -= ScheduleOverlayInteraction;
         _placement.Changed -= PlacementStateChanged;

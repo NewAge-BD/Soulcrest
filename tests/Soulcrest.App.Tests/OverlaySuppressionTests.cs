@@ -287,14 +287,13 @@ public sealed class OverlaySuppressionTests : IDisposable
         Assert.False(pet.Visible);
     });
 
-    [Theory]
+    [RequiresTheory(TestRequirement.PrivateInstanceCatalog)]
     [InlineData(true, 600001)]
     [InlineData(false, 600001)]
     [InlineData(true, 111005)]
     [InlineData(false, 111005)]
     public Task NetworkInstanceUsesSavedInstanceChoiceWithoutObservedUiFlags(bool mapRunning, int mapDataId) => RunSta(() =>
     {
-        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
         using var host = new MainForm();
         _ = host.Handle;
         var map = host.Services.GetRequiredService<MapTrackingService>();
@@ -335,10 +334,9 @@ public sealed class OverlaySuppressionTests : IDisposable
         Assert.True((bool)Field(route, "_suppressed").GetValue(route)!); // Geometry stays disabled.
     });
 
-    [Fact]
+    [RequiresFact(TestRequirement.PrivateInstanceCatalog)]
     public Task ReentrantWorldChangeFromVisibilityCallbackReappliesEveryHudWithoutTimerPolling() => RunSta(() =>
     {
-        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
         using var host = new MainForm();
         _ = host.Handle;
         var map = host.Services.GetRequiredService<MapTrackingService>();

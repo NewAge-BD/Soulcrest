@@ -11,11 +11,12 @@ namespace Soulcrest.App.Tests;
 /// </summary>
 public sealed class WgcLatencyExploration(ITestOutputHelper output)
 {
-    [Fact]
+    [DiagnosticFact(liveDesktop: true)]
+    [Trait("Category", "Diagnostic")]
+    [Trait("DiagnosticKind", "LiveDesktop")]
     public void AgeOfTheWorldMapPicture()
     {
-        if (Environment.GetEnvironmentVariable("SOULCREST_WGC_LATENCY") != "1")
-            return;
+        TestPrerequisites.RequiredFlag("SOULCREST_WGC_LATENCY");
         var screen = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
         using var wgc = MonitorCapture.TryStart(screen);
         Assert.NotNull(wgc);

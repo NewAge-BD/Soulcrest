@@ -8,15 +8,14 @@ namespace Soulcrest.App.Tests;
 /// <summary>Diagnose: saves the current game window (WGC, without Soulcrest's overlays) as a fixture candidate.</summary>
 public sealed class GameWindowSnapshotExploration(ITestOutputHelper output)
 {
-    [Fact]
+    [DiagnosticFact(liveDesktop: true)]
+    [Trait("Category", "Diagnostic")]
+    [Trait("DiagnosticKind", "LiveDesktop")]
     public void SaveGameWindow()
     {
-        var target = Environment.GetEnvironmentVariable("SOULCREST_SNAPSHOT");
-        if (string.IsNullOrEmpty(target))
-            return;
+        var target = TestPrerequisites.RequiredValue("SOULCREST_SNAPSHOT");
         using var capture = MonitorCapture.TryStartForGame(System.Windows.Forms.Screen.PrimaryScreen!.Bounds);
-        if (capture is null)
-            return;
+        Assert.NotNull(capture);
         Thread.Sleep(300);
         using var image = capture.CaptureMat(capture.Bounds);
         Assert.NotNull(image);

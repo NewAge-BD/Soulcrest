@@ -211,14 +211,16 @@ public sealed class HiddenCubeGroupTests
         Assert.Equal(0, hidden.GetPixel(190, 3).A);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData("altgard", 59, 1371, 1312)]
     [InlineData("verteron", 95, 1440, 1345)]
     public void LocalPackagesGroupEveryCubeByItsOwnNativeSpawnerAndProduceOptionalAltgardPreview(string mapId, int groupCount, int cubeCount, int connectionCount)
     {
-        var directory = System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "imports", "generated", "mapdata"));
+        var directory = TestPrerequisites.MapDataDirectory;
+        Assert.NotNull(directory);
         var path = System.IO.Path.Combine(directory, mapId, "data.js");
-        if (!File.Exists(path) || !File.ReadAllText(path).Contains("hiddenCubeGroups", StringComparison.Ordinal)) return;
+        Assert.True(File.Exists(path), $"Required map package data missing: {mapId}");
+        Assert.Contains("hiddenCubeGroups", File.ReadAllText(path), StringComparison.Ordinal);
         var groups = MapPetMarkers.LoadHiddenCubeGroups(path);
         // Own spawn groups (user decision 2026-10-17); existing cube coordinates remain unchanged.
         Assert.Equal(groupCount, groups.Count);

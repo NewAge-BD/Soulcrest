@@ -13,12 +13,11 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")]
 public sealed class MapLayoutExploration
 {
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public async Task WriteMapPage()
     {
-        var target = Environment.GetEnvironmentVariable("SOULCREST_MAP_LAYOUT");
-        if (string.IsNullOrEmpty(target))
-            return;
+        var target = TestPrerequisites.RequiredValue("SOULCREST_MAP_LAYOUT");
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<SettingsService>();

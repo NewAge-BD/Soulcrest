@@ -16,11 +16,12 @@ namespace Soulcrest.App.Tests;
 /// </summary>
 public sealed class TrackingFrameCostExploration(ITestOutputHelper output)
 {
-    [Fact]
+    [DiagnosticFact(liveDesktop: true)]
+    [Trait("Category", "Diagnostic")]
+    [Trait("DiagnosticKind", "LiveDesktop")]
     public void FrameCosts()
     {
-        if (Environment.GetEnvironmentVariable("SOULCREST_TRACKING_COST") != "1")
-            return;
+        TestPrerequisites.RequiredFlag("SOULCREST_TRACKING_COST");
         var fixtures = Path.Combine(AppContext.BaseDirectory, "fixtures", "map-tracking");
         using var region = Cv2.ImRead(Path.Combine(fixtures, "live-2026-10-03-region.png"));
         output.WriteLine($"Minimap {region.Width}Ã—{region.Height}");
@@ -55,6 +56,7 @@ public sealed class TrackingFrameCostExploration(ITestOutputHelper output)
         Cv2.SetNumThreads(threads);
 
         var mapdata = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "imports", "generated", "mapdata"));
+        Assert.True(File.Exists(Path.Combine(mapdata, "manifest.json")), "Diagnostic requires the local map data package.");
         using var icon = new Bitmap(26, 26);
         var pets = MapPetMarkers.For(mapdata, "altgard").Select(s => new RouteOverlayForm.PetSymbol(s.X, s.Y, icon, "St. 1 Â· 6/25", false)).ToList();
         const double scale = 1.68; // map-tracking.log of the measured session

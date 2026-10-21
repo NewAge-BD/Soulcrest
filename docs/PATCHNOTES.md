@@ -2,6 +2,14 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.11.1 – 2026-10-22
+
+- **Geändert:** Die Option „Bei visueller Erkennung in Instanzen ruhen“ lässt sich jetzt auch bei
+  eingeschaltetem Netzwerk-Tracking einstellen, solange keine Netzwerk-Ortserkennung verfügbar ist.
+- **Behoben:** Beschädigte Kartenzwischenspeicher werden erkannt und automatisch neu aufgebaut.
+- **Behoben:** Pet-Level und Soul-Fortschritt werden immer als zusammengehöriger Stand angezeigt.
+- **Behoben:** Soulcrest beendet sich zuverlässiger, ohne dass die Hängererkennung nachläuft.
+
 ## 0.11.0 – 2026-10-21
 
 - **Neu:** Mehrere Vorwarnzeiten für Bosse, Events, Resets und eigene Alerts: 2, 5, 10 und 15 Minuten

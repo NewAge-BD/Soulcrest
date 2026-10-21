@@ -13,10 +13,9 @@ public sealed class ProgressPetIdentityTests
     private const string Legacy = "kalnif-02";
     private const string Learned = "modifizierter-karnif";
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void LoadingAndReadingAnImportedAliasPreservesAllRawData()
     {
-        if (AppPaths.FindMapData() is null) return;
         using var kept = KeepFiles();
         Seed();
         var profile = File.ReadAllBytes(AppPaths.ProgressFile);
@@ -33,33 +32,14 @@ public sealed class ProgressPetIdentityTests
         Assert.True(progress.IsFocus(Primary));
         Assert.True(progress.IsFocus(Legacy));
         Assert.Equal(Primary, Assert.Single(progress.FocusPets()).Id);
-        var portrait = Assert.Single(progress.RecognitionPortraits(), item => item.PetId == Primary);
-        Assert.Equal(PortraitPath(Primary), portrait.Path);
         Assert.Equal(profile, File.ReadAllBytes(AppPaths.ProgressFile));
         Assert.Equal(legacyPortrait, File.ReadAllBytes(PortraitPath(Legacy)));
         Assert.Equal(primaryPortrait, File.ReadAllBytes(PortraitPath(Primary)));
     }
 
-    [Fact]
-    public void AStoredLegacyPortraitIsACanonicalFallbackWithoutBeingMoved()
-    {
-        if (AppPaths.FindMapData() is null) return;
-        using var kept = KeepFiles();
-        Seed();
-        File.Delete(PortraitPath(Primary));
-
-        var progress = new ProgressService();
-        var portrait = Assert.Single(progress.RecognitionPortraits(), item => item.PetId == Primary);
-
-        Assert.Equal(PortraitPath(Legacy), portrait.Path);
-        Assert.True(File.Exists(PortraitPath(Legacy)));
-        Assert.False(File.Exists(PortraitPath(Primary)));
-    }
-
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void AnUnresolvedLearnedRowUsingAProvenLegacyIdCannotRecreateTheDisplayedDuplicate()
     {
-        if (AppPaths.FindMapData() is null) return;
         using var kept = KeepFiles();
         Seed();
         File.WriteAllText(AppPaths.LearnedPetsFile, """
@@ -72,15 +52,14 @@ public sealed class ProgressPetIdentityTests
         Assert.Equal(Primary, progress.Catalog.Find(Legacy)?.Id);
         Assert.DoesNotContain(progress.Catalog.Pets, pet => pet.Id == Legacy);
         Assert.Single(progress.Catalog.Pets, pet => pet.Id == Primary);
-        Assert.Single(progress.RecognitionPortraits(), portrait => portrait.PetId == Primary);
-        Assert.DoesNotContain(progress.RecognitionPortraits(), portrait => portrait.PetId == Legacy);
+        Assert.True(File.Exists(PortraitPath(Primary)));
+        Assert.True(File.Exists(PortraitPath(Legacy)));
         Assert.Equal(before, File.ReadAllText(AppPaths.LearnedPetsFile));
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void TheGermanLearnedDuplicateRepairsToOnePetWithoutLosingProgressOrFocus()
     {
-        if (AppPaths.FindMapData() is null) return;
         using var kept = KeepFiles();
         Seed(includeLearned: true);
 
@@ -109,10 +88,9 @@ public sealed class ProgressPetIdentityTests
         Assert.DoesNotContain(reloaded.Catalog.Pets, pet => pet.Id == Learned);
     }
 
-    [Fact]
-    public void ExplicitScanAndFocusWritesNormalizeOnlyTheAddressedPet()
+    [RequiresFact(TestRequirement.MapData)]
+    public void ExplicitManualAndFocusWritesNormalizeOnlyTheAddressedPet()
     {
-        if (AppPaths.FindMapData() is null) return;
         using var kept = KeepFiles();
         Seed();
         var progress = new ProgressService();
@@ -122,7 +100,7 @@ public sealed class ProgressPetIdentityTests
         File.WriteAllText(AppPaths.ProgressFile, JsonSerializer.Serialize(profile));
         progress = new ProgressService();
 
-        progress.SetLevels([(Legacy, 1, 5)]);
+        progress.SetLevel(Legacy, 1, 5);
 
         var saved = ReadProfile();
         Assert.False(saved.Pets.ContainsKey(Legacy));
@@ -134,21 +112,21 @@ public sealed class ProgressPetIdentityTests
         Assert.False(progress.IsFocus(Legacy));
     }
 
-    [Fact]
-    public void NetworkAndGermanPanelLearningReuseTheCanonicalIdentity()
+    [RequiresFact(TestRequirement.MapData)]
+    public void NetworkGainAndLegacyGermanNameReuseTheCanonicalIdentity()
     {
-        if (AppPaths.FindMapData() is null) return;
         using var kept = KeepFiles();
         Seed();
         var progress = new ProgressService();
         var source = new PetIdEntry(1098, "Modified Karnif", "Fera", Legacy);
 
         var id = progress.EnsureNetworkPet(source);
-        var learned = progress.LearnPet("Modifizierter Karnif", [4, 5, 6], "de");
-        progress.AddSouls(Legacy, 2, "test", "test loot");
+        var at = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
+        Assert.True(progress.BindPetSession(new(1, 1, at)));
+        Assert.True(progress.ApplyPetGain([new(1098, 2)], new(1, 2, at.AddSeconds(1))));
 
         Assert.Equal(Primary, id);
-        Assert.Equal(Primary, learned.Id);
+        Assert.Equal(Primary, progress.FindByName("Modifizierter Karnif")?.Id);
         Assert.Equal(72, progress.Souls(Primary)); // Merge alias snapshots by max, then add once.
         Assert.Equal(72, progress.Souls(Legacy));
         Assert.Equal(Primary, Assert.Single(progress.Recent()).PetId);
@@ -157,10 +135,9 @@ public sealed class ProgressPetIdentityTests
         Assert.False(ReadProfile().Pets.ContainsKey(Legacy));
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void ReportedLearnedMistakesRepairOnlyProvenIdentitiesAndKeepUnresolvedRawProgress()
     {
-        if (AppPaths.FindMapData() is null) return;
         var names = new[] { "Aultrossts Doppelga...", "Decomposed Lupyllini t.Z5", "Gatekeeper",
             "Modifizierter Karnif", "Pet Info", "Tamed Zajf" };
         var corrected = new Dictionary<string, string>
@@ -195,10 +172,11 @@ public sealed class ProgressPetIdentityTests
             Assert.Equal(id, progress.FindByName(name)?.Id);
             Assert.Equal(90, progress.Souls(id));
             Assert.True(progress.IsFocus(id));
-            Assert.Single(progress.RecognitionPortraits(), portrait => portrait.PetId == id);
+            Assert.True(File.Exists(PortraitPath(id)));
         }
         Assert.DoesNotContain(progress.Catalog.Pets, pet => ids.Contains(pet.Id));
-        Assert.DoesNotContain(progress.RecognitionPortraits(), portrait => ids.Contains(portrait.PetId));
+        foreach (var name in corrected.Keys)
+            Assert.False(File.Exists(PortraitPath(PetCatalog.Slug(name))));
         var saved = ReadProfile();
         foreach (var name in new[] { "Gatekeeper", "Pet Info" })
         {

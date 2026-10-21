@@ -1,4 +1,5 @@
 using Soulcrest.App.Services;
+using Soulcrest.Core.Network;
 using Xunit;
 
 namespace Soulcrest.App.Tests;
@@ -237,15 +238,19 @@ public sealed class CharacterLevelingRoutesTests : IDisposable
         using var service = new MapTargetsService(exploration);
         service.StartRoute("first");
         service.AdvanceRoute("first");
-        Assert.Equal(CharacterChoice.Adopted, exploration.UseCharacter("Alice"));
+        var at = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
+        NetworkProgressContext Context(long character, long sequence, string name) =>
+            new(new(character, 701, (int)character + 1000, name), sequence, sequence, at.AddSeconds(sequence));
+        Assert.Equal(CharacterChoice.Adopted, exploration.BindNetworkContext(Context(101, 1, "Synthetic Alpha")));
         Assert.Equal(initial, exploration.ActiveId);
-        exploration.Rename("Alice Renamed");
+        exploration.Rename("Synthetic Renamed");
         Assert.Equal(new RouteProgress(1, 8), service.GetRouteProgress("first"));
-        Assert.Equal(CharacterChoice.Created, exploration.UseCharacter("Bob"));
+        Assert.Equal(CharacterChoice.Created, exploration.BindNetworkContext(Context(202, 2, "Synthetic Beta")));
         Assert.Null(service.ActiveLevelingRouteId);
         service.StartRoute("second");
         service.AdvanceRoute("second");
-        Assert.Equal(CharacterChoice.Selected, exploration.UseCharacter("Alice Renamed"));
+        // Stable own identity selects the original profile even when its local label changed.
+        Assert.Equal(CharacterChoice.Selected, exploration.BindNetworkContext(Context(101, 3, "Synthetic Alpha")));
         Assert.Equal("first", service.ActiveLevelingRouteId);
         Assert.Equal(new RouteProgress(1, 8), service.GetRouteProgress("first"));
         Assert.Null(service.GetSavedRouteProgress("second"));

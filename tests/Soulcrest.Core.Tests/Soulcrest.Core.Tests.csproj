@@ -13,6 +13,8 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\DiagnosticTestAttributes.cs" Link="DiagnosticTestAttributes.cs" />
+    <Using Include="Soulcrest.Testing" />
     <ProjectReference Include="..\..\src\Soulcrest.Core\Soulcrest.Core.csproj" />
   </ItemGroup>
 </Project>

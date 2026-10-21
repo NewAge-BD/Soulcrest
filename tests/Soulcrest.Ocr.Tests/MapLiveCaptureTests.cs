@@ -14,21 +14,15 @@ namespace Soulcrest.Ocr.Tests;
 /// </summary>
 public sealed class MapLiveCaptureTests(ITestOutputHelper output)
 {
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData(4, 40)]
     [InlineData(5, 150)]
     public void VerteronWithPathLinesIsFoundClearly(int zoom, int minInliers)
     {
-        string? mapdata = null;
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null && mapdata is null; dir = dir.Parent)
-        {
-            var candidate = Path.Combine(dir.FullName, "imports", "generated", "mapdata");
-            if (File.Exists(Path.Combine(candidate, "manifest.json")))
-                mapdata = candidate;
-        }
+        var mapdata = TestPrerequisites.MapDataDirectory;
         var live = Path.Combine(AppContext.BaseDirectory, "fixtures", "map-tracking", "live-2026-10-03-region.png");
-        if (mapdata is null || !File.Exists(live))
-            return;
+        Assert.NotNull(mapdata);
+        Assert.True(File.Exists(live), $"Required regression fixture missing: {live}");
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(mapdata, "manifest.json")));
         var version = manifest.RootElement.GetProperty("version").GetString();
         var cache = Path.Combine(Path.GetTempPath(), "soulcrest-tests-mapref", $"verteron-z{zoom}-{version}-full.bin");

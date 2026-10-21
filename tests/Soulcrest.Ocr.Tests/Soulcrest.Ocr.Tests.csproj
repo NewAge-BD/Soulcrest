@@ -14,6 +14,8 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\DiagnosticTestAttributes.cs" Link="DiagnosticTestAttributes.cs" />
+    <Using Include="Soulcrest.Testing" />
     <ProjectReference Include="..\..\src\Soulcrest.Ocr\Soulcrest.Ocr.csproj" />
     <Content Include="..\fixtures\pet-window\*.png" Link="fixtures\pet-window\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\fixtures\map-tracking\*.png" Link="fixtures\map-tracking\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

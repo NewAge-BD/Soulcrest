@@ -2,6 +2,14 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.11.1 – 2026-10-22
+
+- **Changed:** The option "Rest in instances during visual detection" can now also be set with network
+  tracking on, as long as no network location detection is available.
+- **Fixed:** Damaged map caches are detected and rebuilt automatically.
+- **Fixed:** Pet level and soul progress are always shown as one consistent state.
+- **Fixed:** Soulcrest shuts down more reliably without the freeze detection lingering.
+
 ## 0.11.0 – 2026-10-21
 
 - **New:** Multiple advance warnings for bosses, events, resets and custom alerts: combine 2, 5, 10 and

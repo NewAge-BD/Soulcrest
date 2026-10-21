@@ -134,16 +134,16 @@ public sealed class MapResourceMarkersTests
         finally { File.Delete(path); }
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData("altgard", "lesser-wind-spirit", "Soft Breeze Spirit")]
     [InlineData("altgard", "superior-wind-spirit", "Whirlwind Spirit")]
     [InlineData("altgard", "drana-mutant-brute", "Drana Mutant")]
     public void LootTrackerNamesTheMonsterToHunt(string map, string petId, string monster)
     {
         // User report 2026-10-07: the game names the monster, not the pet ("Soft Breeze Spirit", not "Lesser Wind Spirit").
-        var mapdata = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "imports", "generated", "mapdata"));
-        if (!File.Exists(Path.Combine(mapdata, map, "data.js")))
-            return; // map data package not built here
+        var mapdata = TestPrerequisites.MapDataDirectory;
+        Assert.NotNull(mapdata);
+        Assert.True(File.Exists(Path.Combine(mapdata, map, "data.js")), $"Required map package data missing: {map}");
         Assert.Contains(monster, MapPetMarkers.MonstersOf(mapdata, map, petId).Select(m => m.En));
     }
 }

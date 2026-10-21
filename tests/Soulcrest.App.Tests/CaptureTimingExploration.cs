@@ -12,7 +12,9 @@ namespace Soulcrest.App.Tests;
 /// <summary>Diagnose: cost of each step of the world-map fast loop on this machine (prints only).</summary>
 public sealed class CaptureTimingExploration(ITestOutputHelper output)
 {
-    [Fact]
+    [DiagnosticFact(liveDesktop: true)]
+    [Trait("Category", "Diagnostic")]
+    [Trait("DiagnosticKind", "LiveDesktop")]
     public void MeasureWorldMapLoopSteps()
     {
         var screen = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
@@ -51,7 +53,7 @@ public sealed class CaptureTimingExploration(ITestOutputHelper output)
         using var flow = new MapFlow();
         flow.Step(gray);
         output.WriteLine($"Fluss 1/4: {Time(() => flow.Step(gray)):0.0} ms");
-        var fullOverlay = new Bitmap(screen.Width, screen.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var fullOverlay = new Bitmap(screen.Width, screen.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         output.WriteLine($"Overlay-Bitmap löschen Vollbild: {Time(() => { using var g = Graphics.FromImage(fullOverlay); g.Clear(Color.Transparent); }):0.0} ms");
         output.WriteLine($"GetHbitmap Vollbild: {Time(() => { var h = fullOverlay.GetHbitmap(Color.FromArgb(0)); Soulcrest.App.Tests.Gdi.DeleteObject(h); }, 10):0.0} ms");
     }

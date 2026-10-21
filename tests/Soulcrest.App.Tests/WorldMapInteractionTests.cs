@@ -65,10 +65,9 @@ public sealed class WorldMapInteractionTests : IDisposable
         Assert.Equal(before, File.ReadAllBytes(AppPaths.SettingsFile));
     });
 
-    [Fact]
+    [RequiresFact(TestRequirement.InteractiveDesktop)]
     public Task DrawnWorldMapMarkerRemainsClickThroughWhileOtherPanelsAreInteractive() => RunOnSta(() =>
     {
-        if (InteractiveDesktop.Missing) return; // needs real window hit-testing
         using var host = new MainForm();
         var overlay = RouteOverlay(host);
         var area = (Screen.AllScreens.FirstOrDefault(screen => !screen.Primary) ?? Screen.PrimaryScreen!).WorkingArea;

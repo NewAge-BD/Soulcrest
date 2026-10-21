@@ -174,35 +174,53 @@ public sealed class MapReference : IDisposable
         }
     }
 
-    /// <summary>Null when the file is missing or from another format version.</summary>
+    /// <summary>Null when a cache is missing, incompatible or malformed; the caller rebuilds it from tiles.</summary>
     public static MapReference? Load(string path)
     {
-        if (!File.Exists(path))
-            return null;
         try
         {
             using var stream = File.OpenRead(path);
             using var reader = new BinaryReader(stream, Encoding.UTF8);
-            if (reader.ReadString() != Magic)
-                return null;
-            var mapId = reader.ReadString();
+            if (ReadBoundedString(reader, Magic.Length) != Magic) return null;
+            var mapId = ReadBoundedString(reader, 256);
+            if (string.IsNullOrWhiteSpace(mapId) || mapId.Any(char.IsControl)) return null;
             int width = reader.ReadInt32(), height = reader.ReadInt32();
             var worldPerPixel = reader.ReadDouble();
             var count = reader.ReadInt32();
+            // ComposeTiles supports up to zoom 15. Validate the full payload using wide arithmetic
+            // before allocating points or descriptors, including caches with plausible huge counts.
+            const int maxDimension = 256 << 15;
+            if (width is <= 0 or > maxDimension || height is <= 0 or > maxDimension
+                || (long)width * height > int.MaxValue || !double.IsFinite(worldPerPixel) || worldPerPixel <= 0
+                || count < 32 || count > Array.MaxLength / (DescriptorLength * sizeof(float))) return null;
+            var payloadBytes = (long)count * (2 + DescriptorLength) * sizeof(float);
+            if (stream.Length - stream.Position != payloadBytes) return null;
             var points = new Point2f[count];
             for (var i = 0; i < count; i++)
-                points[i] = new Point2f(reader.ReadSingle(), reader.ReadSingle());
-            var bytes = reader.ReadBytes(count * DescriptorLength * sizeof(float));
-            if (bytes.Length != count * DescriptorLength * sizeof(float))
-                return null;
+            {
+                var x = reader.ReadSingle();
+                var y = reader.ReadSingle();
+                if (!float.IsFinite(x) || !float.IsFinite(y) || x < 0 || x >= width || y < 0 || y >= height) return null;
+                points[i] = new Point2f(x, y);
+            }
             var descriptors = new float[count * DescriptorLength];
-            Buffer.BlockCopy(bytes, 0, descriptors, 0, bytes.Length);
+            // Read directly into the owned float storage, avoiding a second large byte buffer.
+            stream.ReadExactly(System.Runtime.InteropServices.MemoryMarshal.AsBytes(descriptors.AsSpan()));
+            if (descriptors.Any(value => !float.IsFinite(value)) || stream.Position != stream.Length) return null;
             return new MapReference(mapId, width, height, worldPerPixel, points, descriptors);
         }
-        catch (EndOfStreamException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or FormatException or DecoderFallbackException)
         {
             return null;
         }
+    }
+
+    private static string? ReadBoundedString(BinaryReader reader, int maximumBytes)
+    {
+        var length = reader.Read7BitEncodedInt();
+        if (length <= 0 || length > maximumBytes || length > reader.BaseStream.Length - reader.BaseStream.Position) return null;
+        var bytes = reader.ReadBytes(length);
+        return bytes.Length == length ? new UTF8Encoding(false, true).GetString(bytes) : null;
     }
 
     public void Dispose() => Descriptors.Dispose();

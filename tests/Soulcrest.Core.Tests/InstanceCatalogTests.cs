@@ -30,10 +30,9 @@ public sealed class InstanceCatalogTests
         Assert.Empty(catalog.DungeonsForMap(999));
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.PrivateInstanceCatalog)]
     public void EmbeddedRealCatalogIsAvailableAndUsesExplicitSupportedMapBridges()
     {
-        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
         var catalog = InstanceCatalog.Default;
         Assert.True(catalog.HasData);
         Assert.Equal("altgard", catalog.FindMap(1110)?.SoulcrestMapId);

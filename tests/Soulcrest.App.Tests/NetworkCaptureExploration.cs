@@ -12,12 +12,11 @@ namespace Soulcrest.App.Tests;
 /// </summary>
 public sealed class NetworkCaptureExploration(ITestOutputHelper output)
 {
-    [Fact]
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
     public void ReadsTheLootMessagesOfACapture()
     {
-        var path = Environment.GetEnvironmentVariable("SOULCREST_PCAP");
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return;
+        var path = TestPrerequisites.RequiredFile("SOULCREST_PCAP");
         var ports = (Environment.GetEnvironmentVariable("SOULCREST_PCAP_PORTS") ?? "57117").Split(',').Select(int.Parse).ToHashSet();
         var souls = NetworkLootService.ReadCaptureFile(path, ports);
         foreach (var (at, gain) in souls)
