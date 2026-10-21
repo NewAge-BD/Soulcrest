@@ -8,6 +8,7 @@ artifacts/
 
 # Große Rohdaten: Videos bleiben lokal, Ausschnitte liegen in tests/fixtures
 Beispieldaten/*.mp4
+Beispieldaten/*.mov
 Beispieldaten/*.mkv
 Beispieldaten/*.gif
 Beispieldaten/frames/

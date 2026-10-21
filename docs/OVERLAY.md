@@ -452,3 +452,11 @@ Snapshotwechsel während des Zeichnens oder Sichtbarkeitsticks erzeugt keine unn
 Die Fensterfläche bleibt bei veränderten sichtbaren Nodes am ganzen Board ausgerichtet.
 Fehlende oder kurz blockierte WGC-Lesezugriffe behalten nur die ursprüngliche Ein-Sekunden-Frist;
 widersprechende Bilder und Kontextwechsel verwerfen die Darstellung weiterhin.
+
+Die blaue Animation levelbarer Nodes wird als Darstellungsvariante erkannt. Jeder Node kann
+sein Originalmotiv im aktuellen Grauwertbild oder im aktuellen Rotkanal nachweisen; für beide
+gelten dieselben Korrelationsschwellen und jeweils passende Originalreferenzen. Vergrößerte
+Leuchtsäume liefern nur Rasterhypothesen, nicht die Größe der gezeichneten Innenflächen.
+Begrenzte native Rahmengrößen werden erneut gegen Motiv, Startkontur und ganze Boardmaske geprüft.
+Ein Leuchten bestimmt weder den Node-Typ noch einen Fortschrittswert. Verdeckungen, Menüwechsel
+und die ursprüngliche Capture-Frist bleiben weiterhin maßgeblich.

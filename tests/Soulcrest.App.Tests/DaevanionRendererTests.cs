@@ -144,6 +144,41 @@ public sealed class DaevanionRendererTests
     }
 
     [Fact]
+    public void LevelUpAnimationKeepsTheSameConfirmedProductionSurface()
+    {
+        var catalog = DaevanionCatalog.Default;
+        var board = catalog.GetBoard("Cleric", "vaizel")!;
+        var patterns = catalog.Boards.Where(b => b.ClassId == "Cleric").Select(b => new DaevanionBoardPattern(b.FamilyId,
+            b.Nodes.Select(n => new DaevanionPatternCell(n.Row, n.Column, n.Kind == DaevanionNodeKind.Start)).ToArray())).ToArray();
+        var stability = new DaevanionLayoutStability();
+        var context = new OwnCharacterContext(new(101, 501, 300, "SyntheticBoard") { ClassId = "Cleric" }, 1);
+        DaevanionSnapshot? previous = null;
+        using var renderer = new DaevanionOverlayRenderer();
+        foreach (var phase in new[] { "early", "peak", "trough", "selected-minimum", "contour-minimum", "peak", "early" })
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "fixtures", "daevanion", $"vaizel-animation-{phase}.png");
+            using var source = OpenCvSharp.Cv2.ImRead(path);
+            Assert.False(source.Empty());
+            var bounds = new Rectangle(0, 0, source.Width, source.Height);
+            var found = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(source, patterns, stability.Preferred("video", bounds)));
+            Assert.Equal("vaizel", found.Family);
+            Assert.Equal(88, found.Nodes.Count);
+            // Measure the native frame, not the enlarged outer glow, so the painter stays inside it.
+            Assert.InRange(found.NodeSize, 64, 73);
+            var ready = stability.Update("video", bounds, System.Diagnostics.Stopwatch.GetTimestamp(), found);
+            if (!ready) { Assert.Null(previous); continue; }
+            var current = new DaevanionSnapshot(context, board, bounds, stability.ConfirmedFrameAt, stability.Confirmed!, "en");
+            if (previous is not null) Assert.True(DaevanionOverlayForm.HasSameContent(previous, current));
+            previous = current;
+            if (phase != "peak") continue;
+            using var image = new Bitmap(path);
+            using (var graphics = Graphics.FromImage(image)) renderer.Paint(graphics, board, current.Detection.Nodes, "en");
+            Export(image, "daevanion-animation.png");
+        }
+        Assert.NotNull(previous);
+    }
+
+    [Fact]
     public void ExportActualScreenshotWithProductionPainterWhenRequested()
     {
         var input = Environment.GetEnvironmentVariable("SOULCREST_DAEVANION_SCREENSHOT");

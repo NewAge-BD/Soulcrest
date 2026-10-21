@@ -2,6 +2,11 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.10.1 – 2026-10-21
+
+- **Fixed:** The Daevanion overlay disappeared while levelable nodes were glowing blue. It now stays
+  visible during the animation.
+
 ## 0.10.0 – 2026-10-21
 
 - **New:** Daevanion overlay: when a Daevanion board is open in the game, Soulcrest shows on every node

@@ -48,11 +48,8 @@ public sealed class DaevanionOverlayRenderer : IDisposable
                 // opening covers about 65% of the node; the activation ring and corner colors stay native.
                 var canvasWidth = Math.Max(1, (int)Math.Round(outer.Width * .99));
                 var canvasHeight = Math.Max(1, (int)Math.Round(outer.Height * .98));
-                // User request 2026-10-21: lower the circular contents slightly within the native frame.
-                // Scale the correction with the node, keeping background, text and skill masks together.
-                var verticalOffset = (int)Math.Round(outer.Height * .02);
                 var bounds = new Rectangle(outer.X + (int)Math.Round((outer.Width - canvasWidth) / 2d),
-                    outer.Y + (int)Math.Round((outer.Height - canvasHeight) / 2d) + verticalOffset, canvasWidth, canvasHeight);
+                    outer.Y + (int)Math.Round((outer.Height - canvasHeight) / 2d), canvasWidth, canvasHeight);
                 var inside = _mask.ContentBounds(bounds.Size);
                 if (inside.Width < 12 || inside.Height < 12) continue;
                 Bitmap? skillImage = null;

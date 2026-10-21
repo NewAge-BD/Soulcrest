@@ -2,6 +2,11 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.10.1 – 2026-10-21
+
+- **Behoben:** Das Daevanion-Overlay verschwand, solange levelbare Nodes blau leuchteten. Es bleibt
+  jetzt auch während der Animation sichtbar.
+
 ## 0.10.0 – 2026-10-21
 
 - **Neu:** Daevanion-Overlay: Ist ein Daevanion-Board im Spiel geöffnet, zeigt Soulcrest auf jedem Node

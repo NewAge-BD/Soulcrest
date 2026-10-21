@@ -234,6 +234,70 @@ public sealed class DaevanionBoardLocatorTests
         Assert.Equal(preferred.Origin, DaevanionBoardLocator.Find(image, Patterns, invalid)?.Origin);
     }
 
+    [Theory]
+    [InlineData("early")]
+    [InlineData("peak")]
+    [InlineData("trough")]
+    [InlineData("selected-minimum")]
+    [InlineData("contour-minimum")]
+    public void ActualLevelUpPulseIsRecognizedFromColdPixels(string phase)
+    {
+        using var image = ReadAnimation(phase);
+        var result = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns));
+        Assert.Equal("vaizel", result.Family);
+        Assert.InRange(result.NodeSize, 64, 73);
+        Assert.True(result.Nodes.Count == 88, "Missing: " + string.Join(", ", Patterns.Single(p => p.Family == "vaizel").Cells
+            .Where(c => !c.IsStart && !result.Nodes.Any(n => n.Row == c.Row && n.Column == c.Column)).Select(c => $"({c.Row},{c.Column})")));
+        Assert.Contains(result.Nodes, n => n.Row == 11 && n.Column == 12); // Selected node, including gold/blue animation.
+    }
+
+    [Fact]
+    public void ActualPulseKeepsFreshNodesAndTheConfirmedRasterAcrossPhases()
+    {
+        DaevanionBoardDetection? preferred = null;
+        foreach (var phase in new[] { "early", "selected-minimum", "peak", "contour-minimum", "trough", "peak", "early" })
+        {
+            using var image = ReadAnimation(phase);
+            var result = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns, preferred));
+            Assert.Equal("vaizel", result.Family);
+            Assert.True(result.Nodes.Count == 88, phase + " missing: " + string.Join(", ", Patterns.Single(p => p.Family == "vaizel").Cells
+                .Where(c => !c.IsStart && !result.Nodes.Any(n => n.Row == c.Row && n.Column == c.Column)).Select(c => $"({c.Row},{c.Column})")));
+            if (preferred is not null)
+            {
+                Assert.Equal(preferred.Origin, result.Origin);
+                Assert.Equal(preferred.Spacing, result.Spacing);
+                Assert.Equal(preferred.NodeSize, result.NodeSize);
+                Assert.Equal(preferred.Nodes.Select(n => n.Bounds), result.Nodes.Select(n => n.Bounds));
+            }
+            preferred = result;
+        }
+    }
+
+    [Fact]
+    public void ActualPulseDoesNotAllowPaintingOverAnInteriorTooltipOrDifferentMenu()
+    {
+        using var image = ReadAnimation("peak");
+        var preferred = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns));
+        var node = Assert.Single(preferred.Nodes, n => n.Row == 5 && n.Column == 8);
+        var covered = new Rect(node.Bounds.X + node.Bounds.Width / 8, node.Bounds.Y + node.Bounds.Height / 8,
+            node.Bounds.Width * 3 / 4, node.Bounds.Height * 3 / 4);
+        Cv2.Rectangle(image, covered, new Scalar(30, 33, 35), -1);
+        Cv2.PutText(image, "Info", new Point(covered.X + 4, covered.Y + covered.Height / 2), HersheyFonts.HersheySimplex, .5, Scalar.White, 1);
+        var result = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns, preferred));
+        Assert.DoesNotContain(result.Nodes, n => n.Row == node.Row && n.Column == node.Column);
+        using var menu = Cv2.ImRead(Path.Combine(AppContext.BaseDirectory, "fixtures", "esc-menu", "user-2026-10-10.png"));
+        Assert.Null(DaevanionBoardLocator.Find(menu, Patterns, result));
+        var start = Patterns.Single(p => p.Family == preferred.Family).Cells.Single(c => c.IsStart);
+        var center = new Point((int)Math.Round(preferred.Origin.X + (start.Column - 1) * preferred.Spacing),
+            (int)Math.Round(preferred.Origin.Y + (start.Row - 1) * preferred.Spacing));
+        var radius = (int)Math.Ceiling(preferred.NodeSize);
+        Cv2.Rectangle(image, new Rect(center.X - radius, center.Y - radius, radius * 2, radius * 2), new Scalar(30, 33, 35), -1);
+        Assert.Null(DaevanionBoardLocator.Find(image, Patterns, result));
+        Assert.Null(DaevanionBoardLocator.Find(image, Patterns));
+    }
+
+    private static Mat ReadAnimation(string phase) => Cv2.ImRead(Path.Combine(AppContext.BaseDirectory, "fixtures", "daevanion", $"vaizel-animation-{phase}.png"));
+
     private static Mat ReadFixture() => Cv2.ImRead(Path.Combine(AppContext.BaseDirectory, "fixtures", "daevanion", "nezekan-board.png"));
 
     private static Mat RenderReference(string family)

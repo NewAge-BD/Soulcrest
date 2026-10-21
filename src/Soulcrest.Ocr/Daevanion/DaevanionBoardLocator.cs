@@ -23,7 +23,7 @@ public static class DaevanionBoardLocator
     private sealed record Cell(int X, int Y, Candidate Candidate, double Confidence);
     private sealed record Hypothesis(DaevanionBoardPattern Pattern, Point2d Origin, double Score,
         IReadOnlyList<DaevanionNodeAnchor> Nodes);
-    private sealed record FrameReference(double[] Values, double Norm);
+    private sealed record FrameReference(double[] Values, double Norm, double[] RedValues, double RedNorm);
     private static readonly Lazy<(FrameReference[] Frames, Point2d[] Start, Point2d[] Border)> References = new(LoadReferences);
     private const int SamplesPerAxis = 13;
     private const double FirstSample = .16, SampleSpan = .68;
@@ -45,9 +45,11 @@ public static class DaevanionBoardLocator
         using var gray = new Mat();
         if (image.Channels() == 1) image.CopyTo(gray);
         else Cv2.CvtColor(image, gray, image.Channels() == 4 ? ColorConversionCodes.BGRA2GRAY : ColorConversionCodes.BGR2GRAY);
+        using var red = image.Channels() == 1 ? null : new Mat();
+        if (red is not null) Cv2.ExtractChannel(image, red, 2);
         using var edges = new Mat();
         Cv2.Canny(gray, edges, 8, 25);
-        if (preferred is not null && ValidatePreferred(gray, edges, valid, preferred) is { } frozen)
+        if (preferred is not null && ValidatePreferred(gray, red, edges, valid, preferred) is { } frozen)
             return frozen;
         using var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
         using var closed = new Mat();
@@ -62,40 +64,65 @@ public static class DaevanionBoardLocator
         DaevanionBoardDetection? best = null;
         foreach (var size in sizes)
         {
-            var group = candidates.Where(c => Math.Abs(c.Bounds.Width - size) <= Math.Max(3, size * .055)
-                && Math.Abs(c.Bounds.Height - size) <= Math.Max(3, size * .065)).ToArray();
+            // A pulse can move adjacent native and luminous contours into neighboring width bins.
+            // Merge their center hypotheses before fitting; neither kind becomes artwork evidence.
+            var group = candidates.Where(c => Math.Abs(c.Bounds.Width - size) <= Math.Max(3, Math.Ceiling(size * .12))
+                && Math.Abs(c.Bounds.Height - size) <= Math.Max(3, Math.Ceiling(size * .12))).ToArray();
             var spacing = FindSpacing(group, size);
             if (spacing is null) continue;
             var lattice = FindLattice(group, spacing.Value, size);
             if (lattice.Count < 35) continue;
-            var phase = lattice[0].Candidate.Center;
+            spacing = RefineSpacing(lattice, spacing.Value, size);
             // Normalize the fitted phase independently of contour order.
             var phaseX = Median(lattice.Select(c => c.Candidate.Center.X - c.X * spacing.Value));
             var phaseY = Median(lattice.Select(c => c.Candidate.Center.Y - c.Y * spacing.Value));
-            phase = new(phaseX, phaseY);
-            var actualSize = Median(lattice.Select(c => (c.Candidate.Bounds.Width + c.Candidate.Bounds.Height) / 2d));
-            var confirmed = new List<Cell>();
-            foreach (var cell in lattice)
+            var phase = new Point2d(phaseX, phaseY);
+            var contourSize = Median(lattice.Select(c => (c.Candidate.Bounds.Width + c.Candidate.Bounds.Height) / 2d));
+            // The level-up pulse can enclose the original frame in a larger luminous contour.
+            // A contour supplies the grid hypothesis; current original artwork and the whole board
+            // independently select its native frame size, rather than passing the glow box to drawing.
+            DaevanionBoardDetection? nativeContour = null;
+            foreach (var ratio in new[] { 1d, .96, .94, .92, .90, .88, .86 })
             {
-                var center = new Point2d(phase.X + cell.X * spacing.Value, phase.Y + cell.Y * spacing.Value);
-                var confidence = FrameScore(gray, center, actualSize);
-                if (confidence >= .58) confirmed.Add(cell with { Confidence = confidence });
+                var actualSize = contourSize * ratio;
+                var confirmed = new List<Cell>();
+                foreach (var cell in lattice)
+                {
+                    var center = new Point2d(phase.X + cell.X * spacing.Value, phase.Y + cell.Y * spacing.Value);
+                    var confidence = FrameScore(gray, center, actualSize, red);
+                    confidence = Math.Max(confidence, FrameScore(gray, cell.Candidate.Center, actualSize, red));
+                    if (confidence >= .58) confirmed.Add(cell with { Confidence = confidence });
+                }
+                if (confirmed.Count < 35) continue;
+                using var nearEdges = new Mat();
+                var radius = Math.Max(1, (int)Math.Ceiling(actualSize * .018));
+                using var proximity = Cv2.GetStructuringElement(MorphShapes.Ellipse, new Size(radius * 2 + 1, radius * 2 + 1));
+                Cv2.Dilate(edges, nearEdges, proximity);
+                var hypothesis = MatchPatterns(confirmed, phase, spacing.Value, actualSize, gray, red, nearEdges, valid, image.Size());
+                if (hypothesis is null) continue;
+                var result = new DaevanionBoardDetection(hypothesis.Pattern.Family, hypothesis.Origin,
+                    spacing.Value, actualSize, hypothesis.Nodes, hypothesis.Score);
+                if (Better(result, best)) best = result;
+                if (ratio == 1 && result.Confidence == 1 && result.Nodes.All(n => FrameScorePlane(gray,
+                    Center(result.Origin, result.Spacing, n.Row, n.Column), result.NodeSize, false) >= .58)) nativeContour = result;
             }
-            if (confirmed.Count < 35) continue;
-            using var nearEdges = new Mat();
-            var radius = Math.Max(1, (int)Math.Ceiling(actualSize * .018));
-            using var proximity = Cv2.GetStructuringElement(MorphShapes.Ellipse, new Size(radius * 2 + 1, radius * 2 + 1));
-            Cv2.Dilate(edges, nearEdges, proximity);
-            var hypothesis = MatchPatterns(confirmed, phase, spacing.Value, actualSize, gray, nearEdges, valid, image.Size());
-            if (hypothesis is null) continue;
-            var result = new DaevanionBoardDetection(hypothesis.Pattern.Family, hypothesis.Origin,
-                spacing.Value, actualSize, hypothesis.Nodes, hypothesis.Score);
-            if (best is null || result.Confidence > best.Confidence) best = result;
+            // Fine downsampling can move the best texture sample within four percent of an already
+            // fully proved native contour. Keep that frame geometry; an actual pulse requires the
+            // distinctly smaller artwork scale and must not inherit its larger luminous boundary.
+            if (nativeContour is not null && best is not null && best.NodeSize >= nativeContour.NodeSize * .95)
+                return nativeContour;
+            // A complete freshly proved mask already resolves this grid. Select its native size
+            // from all bounded artwork probes, then avoid repeating an equivalent contour cluster.
+            if (best?.Confidence == 1) return best;
         }
         return best;
     }
 
-    private static DaevanionBoardDetection? ValidatePreferred(Mat gray, Mat edges,
+    private static bool Better(DaevanionBoardDetection candidate, DaevanionBoardDetection? current) =>
+        current is null || candidate.Confidence > current.Confidence
+        || candidate.Confidence == current.Confidence && candidate.Nodes.Average(n => n.Confidence) > current.Nodes.Average(n => n.Confidence);
+
+    private static DaevanionBoardDetection? ValidatePreferred(Mat gray, Mat? red, Mat edges,
         IReadOnlyList<DaevanionBoardPattern> patterns, DaevanionBoardDetection preferred)
     {
         var pattern = patterns.FirstOrDefault(p => p.Family == preferred.Family);
@@ -131,8 +158,9 @@ public static class DaevanionBoardLocator
                 && Math.Abs(c.Bounds.Height - size) <= Math.Max(3, size * .065))
                 .OrderBy(c => DistanceSquared(c.Center, center)).FirstOrDefault();
             if (contour is null && OutlineScore(nearEdges, center, size, References.Value.Border) < .75) continue;
-            var confidence = contour is null ? FrameScore(gray, center, size)
-                : FrameScore(gray, contour.Center, (contour.Bounds.Width + contour.Bounds.Height) / 2d);
+            var confidence = FrameScoreNearNativeSize(gray, center, size, red);
+            if (contour is not null)
+                confidence = Math.Max(confidence, FrameScoreNearNativeSize(gray, contour.Center, size, red));
             if (confidence < .58) continue;
             visible[(cell.Row, cell.Column)] = new(cell.Row, cell.Column,
                 new Rect((int)Math.Round(center.X - size / 2), (int)Math.Round(center.Y - size / 2),
@@ -188,6 +216,7 @@ public static class DaevanionBoardLocator
     private static double? FindSpacing(IReadOnlyList<Candidate> candidates, double size)
     {
         var distances = new List<double>();
+        var secondNeighbors = new List<double>();
         for (var i = 0; i < candidates.Count; i++)
         for (var j = i + 1; j < candidates.Count; j++)
         {
@@ -195,7 +224,15 @@ public static class DaevanionBoardLocator
             var dy = Math.Abs(candidates[i].Center.Y - candidates[j].Center.Y);
             if (dy < size * .09 && dx > size * 1.03 && dx < size * 1.65) distances.Add(dx);
             if (dx < size * .09 && dy > size * 1.03 && dy < size * 1.65) distances.Add(dy);
+            if (dy < size * .09 && dx > size * 2.06 && dx < size * 3.30) secondNeighbors.Add(dx / 2);
+            if (dx < size * .09 && dy > size * 2.06 && dy < size * 3.30) secondNeighbors.Add(dy / 2);
         }
+        if (distances.Count >= 20) return Median(distances);
+        // A sparse animated board may have too few adjacent unmerged frames. Independently aligned
+        // two-cell spans can confirm the same pitch, but cannot establish another pitch on their own.
+        if (distances.Count < 10) return null;
+        var pitch = Median(distances);
+        distances.AddRange(secondNeighbors.Where(value => Math.Abs(value - pitch) <= Math.Max(1, size * .025)));
         return distances.Count >= 20 ? Median(distances) : null;
     }
 
@@ -219,8 +256,26 @@ public static class DaevanionBoardLocator
         return best;
     }
 
+    private static double RefineSpacing(IReadOnlyList<Cell> cells, double initial, double size)
+    {
+        // Neighbor contour centers are integer/half-integer pixels. Their median pitch can lose a
+        // fraction of a pixel, accumulating several pixels at the far edge of a large board. Fit
+        // longer current-frame spans after their integer lattice coordinates have been established.
+        var slopes = new List<double>();
+        for (var i = 0; i < cells.Count; i++)
+        for (var j = i + 1; j < cells.Count; j++)
+        {
+            var dx = cells[j].X - cells[i].X; var dy = cells[j].Y - cells[i].Y;
+            if (Math.Abs(dx) >= 3) slopes.Add((cells[j].Candidate.Center.X - cells[i].Candidate.Center.X) / dx);
+            if (Math.Abs(dy) >= 3) slopes.Add((cells[j].Candidate.Center.Y - cells[i].Candidate.Center.Y) / dy);
+        }
+        if (slopes.Count < 20) return initial;
+        var refined = Median(slopes);
+        return Math.Abs(refined - initial) <= Math.Max(1, size * .025) ? refined : initial;
+    }
+
     private static Hypothesis? MatchPatterns(IReadOnlyList<Cell> cells, Point2d phase, double spacing,
-        double size, Mat gray, Mat nearEdges, IReadOnlyList<DaevanionBoardPattern> patterns, Size imageSize)
+        double size, Mat gray, Mat? red, Mat nearEdges, IReadOnlyList<DaevanionBoardPattern> patterns, Size imageSize)
     {
         var hypotheses = new List<Hypothesis>();
         var minimumX = cells.Min(c => c.X); var maximumX = cells.Max(c => c.X);
@@ -251,13 +306,16 @@ public static class DaevanionBoardLocator
                 }
                 // Start ornament edges can join the immediately adjacent frame contours. Recover those
                 // only from this image's native border AND interior artwork, never from the grid alone.
-                if ((matched.Count + 1d) / pattern.Cells.Count < .72) continue;
+                // Bloom can merge many otherwise visible frames into large contours. The same
+                // minimum of 35 independently proven native nodes anchors this hypothesis; all
+                // remaining cells still require their own current border and artwork below.
+                if (matched.Count < 35) continue;
                 var seen = matched.Select(n => (n.Row, n.Column)).ToHashSet();
                 foreach (var node in pattern.Cells.Where(n => !n.IsStart && !seen.Contains((n.Row, n.Column))))
                 {
                     var center = new Point2d(origin.X + (node.Column - 1) * spacing, origin.Y + (node.Row - 1) * spacing);
                     if (OutlineScore(nearEdges, center, size, References.Value.Border) < .75) continue;
-                    var confidence = FrameScore(gray, center, size);
+                    var confidence = FrameScore(gray, center, size, red);
                     if (confidence < .58) continue;
                     matched.Add(new(node.Row, node.Column, new Rect((int)Math.Round(center.X - size / 2),
                         (int)Math.Round(center.Y - size / 2), (int)Math.Round(size), (int)Math.Round(size)), confidence));
@@ -298,7 +356,30 @@ public static class DaevanionBoardLocator
         return hits / (double)points.Length;
     }
 
-    private static double FrameScore(Mat gray, Point2d center, double size)
+    private static double FrameScore(Mat gray, Point2d center, double size, Mat? red = null)
+    {
+        var ordinary = FrameScorePlane(gray, center, size, false);
+        // A cyan pulse selectively changes green/blue luminance. Its red channel still contains
+        // the current native glyph. This is new pixel evidence, never a retained previous node.
+        return red is null ? ordinary : Math.Max(ordinary, FrameScorePlane(red, center, size, true));
+    }
+
+    private static double FrameScoreNearNativeSize(Mat gray, Point2d center, double size, Mat? red)
+    {
+        var confidence = FrameScore(gray, center, size, red);
+        if (confidence >= .58) return confidence;
+        // Selected-node pulses can shift the strongest native motif scale by a few percent. Probe
+        // only the current interior, after its frame was independently proved; rendering retains
+        // the frozen original bounds and never borrows a previous frame's node evidence.
+        foreach (var ratio in new[] { .98, .96, .94 })
+        {
+            confidence = Math.Max(confidence, FrameScore(gray, center, size * ratio, red));
+            if (confidence >= .58) break;
+        }
+        return confidence;
+    }
+
+    private static double FrameScorePlane(Mat gray, Point2d center, double size, bool red)
     {
         var samples = new double[SamplesPerAxis * SamplesPerAxis];
         var best = 0d;
@@ -324,8 +405,9 @@ public static class DaevanionBoardLocator
             foreach (var reference in References.Value.Frames)
             {
                 var dot = 0d;
-                for (var i = 0; i < samples.Length; i++) dot += samples[i] * reference.Values[i];
-                best = Math.Max(best, dot / (norm * reference.Norm));
+                var values = red ? reference.RedValues : reference.Values;
+                for (var i = 0; i < samples.Length; i++) dot += samples[i] * values[i];
+                best = Math.Max(best, dot / (norm * (red ? reference.RedNorm : reference.Norm)));
             }
         }
         return best;
@@ -353,6 +435,7 @@ public static class DaevanionBoardLocator
                 continue;
             }
             using var gray = new Mat(); Cv2.CvtColor(pixels, gray, ColorConversionCodes.BGRA2GRAY);
+            using var red = new Mat(); Cv2.ExtractChannel(pixels, red, 2);
             var bounds = Cv2.BoundingRect(mask);
             if (name.EndsWith("node_common_sprite.png", StringComparison.Ordinal))
             {
@@ -367,16 +450,22 @@ public static class DaevanionBoardLocator
             foreach (var sigma in new[] { 0d, .85 })
             {
                 using var sampled = new Mat();
-                if (sigma == 0) gray.CopyTo(sampled);
-                else Cv2.GaussianBlur(gray, sampled, new Size(5, 5), sigma);
+                using var sampledRed = new Mat();
+                if (sigma == 0) { gray.CopyTo(sampled); red.CopyTo(sampledRed); }
+                else { Cv2.GaussianBlur(gray, sampled, new Size(5, 5), sigma); Cv2.GaussianBlur(red, sampledRed, new Size(5, 5), sigma); }
                 var values = new double[SamplesPerAxis * SamplesPerAxis]; var index = 0;
+                var redValues = new double[values.Length];
                 for (var y = 0; y < SamplesPerAxis; y++)
                 for (var x = 0; x < SamplesPerAxis; x++)
-                    values[index++] = sampled.At<byte>((int)Math.Round(bounds.Y + (FirstSample + y * SampleSpan / (SamplesPerAxis - 1)) * (bounds.Height - 1)),
-                        (int)Math.Round(bounds.X + (FirstSample + x * SampleSpan / (SamplesPerAxis - 1)) * (bounds.Width - 1)));
+                {
+                    var sy = (int)Math.Round(bounds.Y + (FirstSample + y * SampleSpan / (SamplesPerAxis - 1)) * (bounds.Height - 1));
+                    var sx = (int)Math.Round(bounds.X + (FirstSample + x * SampleSpan / (SamplesPerAxis - 1)) * (bounds.Width - 1));
+                    values[index] = sampled.At<byte>(sy, sx); redValues[index++] = sampledRed.At<byte>(sy, sx);
+                }
                 var mean = values.Average();
-                for (var i = 0; i < values.Length; i++) values[i] -= mean;
-                frames.Add(new(values, Math.Sqrt(values.Sum(v => v * v))));
+                var redMean = redValues.Average();
+                for (var i = 0; i < values.Length; i++) { values[i] -= mean; redValues[i] -= redMean; }
+                frames.Add(new(values, Math.Sqrt(values.Sum(v => v * v)), redValues, Math.Sqrt(redValues.Sum(v => v * v))));
             }
         }
         if (frames.Count < 8 || start.Length < 50 || border.Length < 50) throw new InvalidDataException("Daevanion recognition references are incomplete.");
