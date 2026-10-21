@@ -64,7 +64,7 @@
                     {
                         <div class="boss-empty boss-command-empty"><span class="boss-empty-mark" aria-hidden="true">◷</span><h3>@UiText.T("Noch keine Bossliste vorhanden")</h3><p>@UiText.T("Warte auf Boss-Timer. Öffne die Bossliste im Spiel.")</p></div>
                     }
-                    @if (!Loot.Running) { <button class="btn boss-tracker-start" @onclick="Loot.Start">@UiText.T("Loot-Tracker starten")</button> }
+                    @if (!Loot.Running) { <button class="btn boss-tracker-start" @onclick="Loot.Start">@UiText.T("Netzwerk-Tracking starten")</button> }
                 }
                 else
                 {
@@ -72,7 +72,7 @@
                 }
             </section>
 
-            <LiveBossTimers IncludeAllCaptured="true" IncludeCatalogue="true" Compact="true" Searchable="true" />
+            <LiveBossTimers IncludeAllCaptured="true" IncludeCatalogue="true" Compact="true" Searchable="true" ShowTimerStripSelection="true" />
         </div>
 
         <aside class="boss-settings" aria-label="@UiText.T("Einstellungen")">

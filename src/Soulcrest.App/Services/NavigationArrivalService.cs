@@ -8,10 +8,14 @@ public sealed class NavigationArrivalService : IDisposable
     private readonly MapTrackingService _tracking;
     private readonly MapTargetsService _targets;
     private readonly SettingsService _settings;
+    private readonly object _gate = new();
     private DateTimeOffset _lastPosition;
+    private long _contextGeneration = -1;
+    private long? _bindingGeneration;
     // Ordinary targets the player has been seen away from: only these disappear on arrival, so a target set
     // while standing next to it does not vanish at once.
     private readonly HashSet<string> _armed = [];
+    private readonly HashSet<string> _entryBlockedLeveling = [];
     public NavigationArrivalService(MapTrackingService tracking, MapTargetsService targets, SettingsService settings)
     {
         _tracking = tracking; _targets = targets; _settings = settings;
@@ -19,11 +23,46 @@ public sealed class NavigationArrivalService : IDisposable
     }
     private void Check()
     {
+        (PlayerPosition? Position, IReadOnlyList<string> Targets) candidate;
+        lock (_gate) candidate = CheckCurrentPosition();
+        if (candidate.Position is null) return;
+        foreach (var id in candidate.Targets)
+            if (!_tracking.TryArrive(_targets, id, candidate.Position)) return;
+    }
+
+    private (PlayerPosition? Position, IReadOnlyList<string> Targets) CheckCurrentPosition()
+    {
+        var generation = _tracking.ContextGeneration;
+        if (_contextGeneration != generation)
+        {
+            var bindingGeneration = _tracking.WorldContextBindingGeneration;
+            var entered = bindingGeneration is not null && (_contextGeneration == -1 || bindingGeneration != _bindingGeneration);
+            _contextGeneration = generation;
+            _bindingGeneration = bindingGeneration;
+            _armed.Clear();
+            if (entered)
+            {
+                _entryBlockedLeveling.Clear();
+                _entryBlockedLeveling.UnionWith(_targets.Targets.Where(t => t.Leveling).Select(t => t.Id));
+            }
+            _lastPosition = default;
+        }
         var position = _tracking.Position;
-        if (!_tracking.Running || !_tracking.Found || position is null || position.At <= _lastPosition) return;
+        if (!_tracking.CanUsePlayerPosition || position?.ContextGeneration != generation) return (null, []);
+        if (!_tracking.Running || !_tracking.Found || position is null || position.At <= _lastPosition) return (null, []);
         _lastPosition = position.At;
-        foreach (var arrived in ArrivedTargets(_targets.Targets, position, _settings.Current.TargetArrivalRadius, _armed, DateTimeOffset.UtcNow))
-            _targets.Arrive(arrived);
+        var now = DateTimeOffset.UtcNow;
+        var targets = _targets.Targets;
+        if (position.At > now || now - position.At > TimeSpan.FromSeconds(2)
+            || !double.IsFinite(position.X) || !double.IsFinite(position.Y)) return (null, []);
+        var radius = Math.Clamp(_settings.Current.TargetArrivalRadius, 0, 500);
+        // An existing route must not complete at the first location after a world change. Once the
+        // player has been observed outside its radius, normal close-together leveling stops resume.
+        _entryBlockedLeveling.RemoveWhere(id => targets.FirstOrDefault(t => t.Id == id) is not { } target
+            || target.MapId != position.MapId
+            || Math.Pow(position.X - target.X, 2) + Math.Pow(position.Y - target.Y, 2) > radius * radius);
+        return (position, ArrivedTargets(targets.Where(t => !_entryBlockedLeveling.Contains(t.Id)).ToArray(),
+            position, radius, _armed, now));
     }
 
     /// <summary>

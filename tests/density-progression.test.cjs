@@ -62,6 +62,23 @@ test('south area with 50 spawns wins over five nearby north spawns, callback use
     assert.equal(api.target().x, 0);
 });
 
+test('world transitions suspend automatic choices and only fresh epochs can publish guidance', () => {
+    const { api, calls, select } = fixture([symbol('a', 100)]);
+    api.setNavigationContext(4, true);
+    select({ a: 1 });
+    assert.deepEqual([...calls.at(-1)], ['OnProgressionTarget', 'altgard', 'a', 100, 0, 'a', 4]);
+    const count = calls.length;
+    api.setNavigationContext(5, false);
+    assert.equal(api.target(), null);
+    api.move(100);
+    select({ a: 1 });
+    assert.equal(calls.length, count); // Suspension never clears the retained .NET target.
+    api.setNavigationContext(6, true);
+    assert.equal(calls.length, count); // Gate alone is not a fresh coordinate observation.
+    api.move(100);
+    assert.deepEqual([...calls.at(-1)], ['OnProgressionTarget', 'altgard', 'a', 100, 0, 'a', 6]);
+});
+
 test('pet ranking uses total counts rather than the count in its best 200-metre area', () => {
     const { api, select } = fixture([symbol('a', 1000), symbol('b', 1),
         monster('a', 1000), ...Array.from({ length: 4 }, (_, i) => monster('b', 1 + i))]);
@@ -192,4 +209,22 @@ test('the 200-metre neighbourhood is a circle in both coordinates, not a square 
     select({ a: 3 });
     assert.equal(api.target().x, 0);
     assert.equal(api.target().y, 0);
+});
+
+test('late or malformed navigation epochs cannot reopen a newer suspended context', () => {
+    const { api, calls, select } = fixture([symbol('a', 100)]);
+    api.setNavigationContext(4, true);
+    select({ a: 1 });
+    const count = calls.length;
+    api.setNavigationContext(5, false);
+    for (const stale of [4, null, undefined, -1, NaN, Infinity]) {
+        api.setNavigationContext(stale, true);
+        api.move(100);
+        select({ a: 1 });
+        assert.equal(api.target(), null);
+        assert.equal(calls.length, count);
+    }
+    api.setNavigationContext(6, true);
+    api.move(100);
+    assert.equal(calls.at(-1).at(-1), 6);
 });

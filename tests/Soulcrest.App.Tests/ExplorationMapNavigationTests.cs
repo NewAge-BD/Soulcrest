@@ -326,6 +326,7 @@ public sealed class ExplorationMapNavigationTests
             services.AddSingleton<UpdateService>();
             services.AddSingleton<IJSRuntime>(Js);
             Provider = services.BuildServiceProvider();
+            Provider.GetRequiredService<SettingsService>().Current.LootTrackingEnabled = false;
             Renderer = new HtmlRenderer(Provider, Provider.GetRequiredService<ILoggerFactory>());
         }
 

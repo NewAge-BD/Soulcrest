@@ -4,7 +4,10 @@ namespace Soulcrest.App.Services;
 
 /// <summary>Read-only inputs from the existing tracker; never starts a capture or changes tracking.</summary>
 public sealed record ExplorationTrackingSnapshot(bool Running, bool Found, bool Paused, bool WorldMapOpen,
-    bool InInstance, bool EscMenuOpen, PlayerPosition? Position, DetectedMapContext? DetectedMap);
+    bool InInstance, bool EscMenuOpen, PlayerPosition? Position, DetectedMapContext? DetectedMap)
+{
+    public bool LivePositionAllowed { get; init; } = true;
+}
 
 public sealed record ExplorationMapSelection(string MapId, string Source, bool WorldMap = false);
 public sealed record ExplorationCategorySummary(string Kind, int Completed, int Total)
@@ -35,7 +38,7 @@ public static class ExplorationOverview
 
     public static ExplorationTrackingSnapshot Capture(MapTrackingService tracking) => new(
         tracking.Running, tracking.Found, tracking.Paused, tracking.WorldMapOpen, tracking.InInstance,
-        tracking.EscMenuOpen, tracking.Position, tracking.DetectedMap);
+        tracking.EscMenuOpen, tracking.Position, tracking.DetectedMap) { LivePositionAllowed = tracking.CanUsePlayerPosition };
 
     public static ExplorationMapSelection SelectMap(IReadOnlyList<MapInfo> maps, string? previousMap,
         string? fallbackMap, string? pinnedMap,
@@ -59,7 +62,7 @@ public static class ExplorationOverview
     /// <summary>World-map browsing is a map selection, never a new player location.</summary>
     public static PlayerPosition? FreshPosition(ExplorationTrackingSnapshot tracking, DateTimeOffset now)
     {
-        if (CurrentMap(tracking, now) is not { WorldMap: false } detected
+        if (!tracking.LivePositionAllowed || CurrentMap(tracking, now) is not { WorldMap: false } detected
             || tracking.Position is not { } position || position.MapId != detected.MapId
             || !Fresh(position.At, now) || !Finite(position.X, position.Y))
             return null;

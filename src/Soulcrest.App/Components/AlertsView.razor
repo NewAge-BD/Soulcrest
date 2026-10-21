@@ -20,9 +20,9 @@
 
     <div class="alerts-workspace-grid">
         <main class="alerts-overview-column">
-            <EventTimersDashboard WorkspaceMode="true" SelectedEventId="@_selectedEventId" SelectedEventChanged="SelectEvent" Timers="@VisibleEventTimers" Now="@Alerts.Now" Busy="@_busy" EditorOpen="@(_editing is not null)" EditReminder="EditEventReminder" ReminderChanged="SetEventReminder" ReminderSaved="SaveEventReminder" SoundSaved="SaveEventSound" PreviewReminder="PreviewEventReminder" />
+            <EventTimersDashboard WorkspaceMode="true" SelectedEventId="@_selectedEventId" SelectedEventChanged="SelectEvent" Timers="@VisibleEventTimers" Now="@Alerts.Now" Busy="@_busy" EditorOpen="@(_editing is not null)" EditReminder="EditEventReminder" ReminderSaved="SaveEventReminder" SoundSaved="SaveEventSound" PreviewReminder="PreviewEventReminder" />
             @if (_editing is not null) { <p class="alerts-hint alerts-editor-lock" role="status">@UiText.T("Speichere oder schließe den Editor, um Event-Erinnerungen direkt anzupassen.")</p> }
-            <LiveBossTimers Busy="@(_busy || _editing is not null)" IncludeAllCaptured="true" IncludeCatalogue="true" Compact="true" Searchable="true" />
+            <LiveBossTimers Busy="@(_busy || _editing is not null)" IncludeAllCaptured="true" IncludeCatalogue="true" Compact="true" Searchable="true" ShowTimerStripSelection="true" />
         </main>
         <aside class="alerts-detail-column" aria-label="@UiText.T("Deine Einstellungen")">
             <div class="alerts-overlay-shortcuts"><OverlaySettingsLink OverlayId="alerts" /><OverlaySettingsLink OverlayId="notifications" /><OverlaySettingsLink OverlayId="event-timeline" /></div>
@@ -80,7 +80,7 @@
                     </fieldset>
                     <fieldset class="alerts-fieldset" disabled="@_busy">
                         <legend>@UiText.T("Erinnerung und Anzeige")</legend>
-                        <div class="alerts-fields-pair"><label class="alerts-field">@UiText.T("Vorwarnung in Minuten")<input type="number" min="0" max="120" @bind="_leadMinutes" /><small>@UiText.T("0 = keine zusätzliche Vorwarnung")</small></label><label class="alerts-field">@UiText.T("Anzeigedauer (Sekunden)")<input type="number" min="3" max="60" @bind="_duration" /></label></div>
+                        <div class="alerts-fields-pair"><AdvanceWarningPicker Values="@_warningMinutes" Enabled="@_enabled" Disabled="@_busy" Label="@UiText.T("Vorwarnzeiten")" Changed="SetEditorWarnings" /><label class="alerts-field">@UiText.T("Anzeigedauer (Sekunden)")<input type="number" min="3" max="60" @bind="_duration" /></label></div>
                         <label class="check"><input type="checkbox" @bind="_notifyAtStart" />@UiText.T("Auch zum Event-Start erinnern")</label>
                         <div class="alerts-channel"><label class="check"><input id="alert-overlay" type="checkbox" @bind="_showOverlay" />@UiText.T("Overlay-Banner anzeigen")</label>
                         </div>
@@ -101,7 +101,7 @@
 
             else if (SelectedTimer is { } selected)
             {
-                <EventTimerDetails Timer="@selected" Busy="@_busy" EditReminder="EditEventReminder" ReminderChanged="SetEventReminder" ReminderSaved="SaveEventReminder" SoundSaved="SaveEventSound" PreviewReminder="PreviewEventReminder" @key="selected.Definition.Id" />
+                <EventTimerDetails Timer="@selected" Busy="@_busy" EditReminder="EditEventReminder" ReminderSaved="SaveEventReminder" SoundSaved="SaveEventSound" PreviewReminder="PreviewEventReminder" @key="selected.Definition.Id" />
             }
             <details class="alerts-settings-section" id="alerts-custom-settings" open="@CustomItems.Any()"><summary><span>@UiText.T("Meine Alerts")</span><span class="alerts-count">@CustomItems.Count()</span></summary><div class="alerts-settings-body">
     <section class="alerts-library" aria-label="@UiText.T("Meine Alerts")">
@@ -119,7 +119,7 @@
                         <p class="alerts-schedule">@AlertsService.ScheduleDescription(item.Schedule)</p>
                         @if (next is { } at && item.Enabled) { <div class="alerts-card-time"><strong>@EventTime(at, item.Schedule.TimeZoneId)</strong><span>@UiText.F("Lokal: {0}", LocalTime(at))</span></div> }
                         @if (!string.IsNullOrWhiteSpace(item.Message)) { <p class="alerts-message">@item.Message</p> }
-                        <div class="alerts-tags">@if (item.LeadMinutes > 0) { <span>@UiText.F("{0} Min. vorher", item.LeadMinutes)</span> }@if (item.NotifyAtStart) { <span>@UiText.T("Zum Start")</span> }@if (item.ShowOverlay) { <span>@UiText.T("Banner")</span> }@if (item.PlaySound) { <span>♪ @UiText.T("Ton")</span> }</div>
+                        <div class="alerts-tags">@foreach (var lead in item.WarningMinutes) { <span>@UiText.F("{0} Min. vorher", lead)</span> }@if (item.NotifyAtStart) { <span>@UiText.T("Zum Start")</span> }@if (item.ShowOverlay) { <span>@UiText.T("Banner")</span> }@if (item.PlaySound) { <span>♪ @UiText.T("Ton")</span> }</div>
                         <div class="alerts-card-actions"><button type="button" class="btn" disabled="@_busy" @onclick="@(() => Edit(item))">@UiText.T(pending ? "Zeitplan prüfen" : "Bearbeiten")</button><button type="button" class="btn" disabled="@(pending || _busy)" @onclick="@(() => Preview(item))">@UiText.T("Testen")</button><button type="button" class="btn link alerts-delete" disabled="@_busy" aria-label="@UiText.F("{0} löschen", item.Title)" @onclick="@(() => _deleteId = item.Id)">@UiText.T("Löschen")</button></div>
                         @if (_deleteId == item.Id) { <div class="alerts-delete-confirm"><span>@UiText.T("Diesen Alert löschen?")</span><button type="button" class="btn danger" disabled="@_busy" @onclick="@(() => Remove(item))">@UiText.T("Löschen")</button><button type="button" class="btn" disabled="@_busy" @onclick="@(() => _deleteId = null)">@UiText.T("Behalten")</button></div> }
                     </article>
@@ -176,7 +176,8 @@
     private string _title = "", _message = "", _zone = "Europe/Berlin", _times = "", _anchorDate = "", _atLocal = "", _color = "#5eead4", _sound = "standard";
     private AlertScheduleKind _kind;
     private HashSet<DayOfWeek> _weekdays = [];
-    private int _minute, _everyDays = 2, _intervalMinutes = 60, _leadMinutes = 5, _duration = 10;
+    private int[] _warningMinutes = [5];
+    private int _minute, _everyDays = 2, _intervalMinutes = 60, _duration = 10;
     private bool _enabled, _confirmed, _notifyAtStart, _showOverlay, _playSound;
     private string? _feedback, _error, _actionError, _deleteId;
 
@@ -204,7 +205,7 @@
         _anchorDate = item.Schedule.AnchorDate?.ToString("yyyy-MM-dd", Invariant) ?? "";
         _atLocal = item.Schedule.At is { } at ? InZone(at, _zone).ToString("yyyy-MM-ddTHH:mm", Invariant) : "";
         _intervalMinutes = item.Schedule.IntervalMinutes; _enabled = item.Enabled; _confirmed = item.ScheduleConfirmed;
-        _leadMinutes = item.LeadMinutes; _notifyAtStart = item.NotifyAtStart; _duration = item.DurationSeconds;
+        _warningMinutes = item.WarningMinutes; _notifyAtStart = item.NotifyAtStart; _duration = item.DurationSeconds;
         _showOverlay = item.ShowOverlay; _playSound = item.PlaySound; _color = item.Color; _sound = item.Sound; _soundFile = item.SoundFile;
     }
     private void EditEventReminder(string id)
@@ -212,14 +213,6 @@
         if (_busy || _editing is not null) return;
         _selectedEventId = id;
         Edit(Alerts.GetEventReminder(id));
-    }
-    private async Task SetEventReminder(KeyValuePair<string, int> request)
-    {
-        if (_busy || _editing is not null) return;
-        var reminder = Alerts.GetEventReminder(request.Key);
-        if (request.Value < 0) reminder = reminder with { Enabled = false };
-        else reminder = reminder with { Enabled = true, LeadMinutes = request.Value };
-        await SaveEventReminder(reminder);
     }
     private async Task SaveEventReminder(EventAlert reminder)
     {
@@ -237,6 +230,10 @@
         if (_busy || _editing is not null) return;
         await SaveEventReminder(reminder);
         if (_actionError is null) _feedback = UiText.T("Signalton gespeichert.");
+    }
+    private void SetEditorWarnings(AdvanceWarningPicker.Selection selection)
+    {
+        _warningMinutes = selection.Values; _enabled = selection.Enabled;
     }
     private void SetSound(AlertSoundPicker.Selection selection) { if (!_busy) { _sound = selection.Sound; _soundFile = selection.SoundFile; _playSound = selection.Enabled; } }
     private void Cancel() { _editing = null; _error = null; }
@@ -274,7 +271,7 @@
         }
         var schedule = new AlertSchedule { Kind = _kind, TimeZoneId = _zone, Minute = _minute, Times = times.Distinct().Order().ToArray(), Weekdays = Days.Where(_weekdays.Contains).ToArray(), AnchorDate = anchor, EveryDays = _everyDays, At = at, IntervalMinutes = _intervalMinutes };
         if (AlertSchedules.Error(schedule) is { } code) { _error = AlertsService.ValidationMessage(code); return; }
-        var alert = _editing with { Title = _title.Trim(), Message = _message.Trim(), Schedule = schedule, Enabled = _enabled, ScheduleConfirmed = _confirmed, LeadMinutes = _leadMinutes, NotifyAtStart = _notifyAtStart, DurationSeconds = _duration, ShowOverlay = _showOverlay, PlaySound = _playSound, Color = _color, Sound = _sound, SoundFile = _soundFile };
+        var alert = _editing with { Title = _title.Trim(), Message = _message.Trim(), Schedule = schedule, Enabled = _enabled, ScheduleConfirmed = _confirmed, LeadMinutes = _warningMinutes.FirstOrDefault(), LeadMinutesList = _warningMinutes, NotifyAtStart = _notifyAtStart, DurationSeconds = _duration, ShowOverlay = _showOverlay, PlaySound = _playSound, Color = _color, Sound = _sound, SoundFile = _soundFile };
         BeginWrite("Wird gespeichert …");
         try
         {

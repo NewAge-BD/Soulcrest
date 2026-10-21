@@ -41,16 +41,20 @@ function fixture(sourcePath) {
     });
     const old = data('old', [[0, 10, 20, 'First', null, 0], [0, 30, 40, 'Second', null, 0], [0, 100, 200, 'Old shared', null, 0]]);
     const next = data('next', [[0, 100, 200, 'New shared', null, 1]]);
-    const context = { window: { SoulcrestMaps: { old, next } }, L };
+    const scripts = [];
+    const context = { window: { SoulcrestMaps: { old, next } }, L,
+        document: { createElement: () => ({}), head: { appendChild: script => scripts.push(script) } } };
     const source = fs.readFileSync(sourcePath, 'utf8').replace('return { debugState, init, show,', `return {
         setup(m, defs) { map = m; manifest = { maps: defs }; base = '/data/'; dotnet = { invokeMethodAsync() {} }; m.onMove = drawTargets; },
         targetLayers() { return targetLayer.getLayers(); },
+        currentMapId: () => current?.id,
+        playerAt: () => player?.getLatLng(),
         debugState, init, show,`);
     vm.runInNewContext(source, context);
     const api = context.window.soulcrestMap;
     const defs = ['old', 'next'].map(id => ({ id, refZoom: 0, size: 1000, minZoom: 0, maxZoom: 4, maxNativeZoom: 3, tiles: 'tiles' }));
     api.setup(map, defs);
-    return { api, context, next };
+    return { api, context, next, old, scripts };
 }
 
 const sourcePath = process.env.SOULCREST_MAP_SCRIPT || path.join(__dirname, '../src/Soulcrest.App/wwwroot/js/soulcrest-map.js');
@@ -101,4 +105,31 @@ test('a reordered map rebuilds shared-coordinate target symbols and supports swi
     assert.equal(symbols.length, 1);
     assert.match(symbols[0].options.icon.options.html, /gem\.png/);
     assert.deepEqual(JSON.parse(JSON.stringify(symbols[0].at)), { lat: -200, lng: 100 });
+});
+
+test('a superseded asynchronous map load cannot replace the newer displayed map', async () => {
+    const { api, context, old, scripts } = fixture(sourcePath);
+    delete context.window.SoulcrestMaps.old;
+    const stale = api.show('old', 'de');
+    assert.equal(scripts.length, 1);
+    await api.show('next', 'en');
+    context.window.SoulcrestMaps.old = old;
+    scripts[0].onload();
+    assert.equal(JSON.parse(await stale).cancelled, true);
+    assert.equal(api.currentMapId(), 'next');
+});
+
+test('late player messages cannot revive a prior epoch or a blocked fresh marker', async () => {
+    const { api } = fixture(sourcePath);
+    await api.show('old', 'en');
+    api.setNavigationContext(4, true);
+    api.setPlayer('old', 10, 20, false, true, 4);
+    api.setNavigationContext(5, false);
+    api.setPlayer('old', 300, 400, false, true, 4);
+    api.setPlayer('old', 300, 400, false, true, 5);
+    api.setPlayer('old', 300, 400, false, true);
+    assert.deepEqual(JSON.parse(JSON.stringify(api.playerAt())), { lat: -20, lng: 10 });
+    api.setNavigationContext(6, true);
+    api.setPlayer('old', 30, 40, false, true, 6);
+    assert.deepEqual(JSON.parse(JSON.stringify(api.playerAt())), { lat: -40, lng: 30 });
 });

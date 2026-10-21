@@ -9,13 +9,19 @@ using Soulcrest.Ocr.MapTracking;
 namespace Soulcrest.App.Services;
 
 /// <summary>Player position in map coordinates (the marker coordinates of the data package).</summary>
-public sealed record PlayerPosition(string MapId, double X, double Y, DateTimeOffset At);
+public sealed record PlayerPosition(string MapId, double X, double Y, DateTimeOffset At)
+{
+    public long ContextGeneration { get; init; }
+}
 
 /// <summary>
 /// Map identity from a successful image match. WorldMap identifies the open map, not the player's
 /// location. At changes only on a verified match, never when optical flow moves an old placement.
 /// </summary>
-public sealed record DetectedMapContext(string MapId, bool WorldMap, DateTimeOffset At);
+public sealed record DetectedMapContext(string MapId, bool WorldMap, DateTimeOffset At)
+{
+    public long ContextGeneration { get; init; }
+}
 
 /// <summary>
 /// Where the reference map lies on screen right now: map coordinates -> screen pixels. Used by the
@@ -30,6 +36,7 @@ public sealed record MapPlacement(string MapId, MapFix Fix, double WorldPerPixel
 {
     /// <summary>When the screen picture this placement follows arrived (Stopwatch timestamp, 0 = unknown).</summary>
     public long CapturedAt { get; init; }
+    public long ContextGeneration { get; init; }
 
     public PointF WorldToScreen(double x, double y)
     {
@@ -47,11 +54,184 @@ public sealed record MapPlacement(string MapId, MapFix Fix, double WorldPerPixel
 /// docs/MAP_TRACKING.md): the user marks the screen area of the in-game map once; every frame of that
 /// area is matched against the SIFT reference of a map, and the player marker's fixed place in the
 /// area (anchor) gives the position. Passive: screen pixels only.
-/// The map is detected automatically: while the current map is not found, one other map is tried per
-/// frame.
+/// With network tracking enabled, only its supported own-map bridge is searched. The broad visual
+/// search is available solely when the saved network switch is off.
 /// </summary>
-public sealed class MapTrackingService(SettingsService settings, ProgressService progress, GameCaptureService capture) : IDisposable
+public sealed class MapTrackingService : IDisposable
 {
+    private readonly SettingsService settings;
+    private readonly ProgressService progress;
+    private readonly GameCaptureService capture;
+    private readonly WorldContextService? _worldContext;
+    private WorldContextSnapshot? _appliedWorldContext;
+    private volatile bool _appliedNetworkEnabled;
+    private long _appliedNetworkRevision;
+    private long? _lastOwnBindingGeneration;
+
+    public MapTrackingService(SettingsService settings, ProgressService progress, GameCaptureService capture,
+        WorldContextService? worldContext = null)
+    {
+        this.settings = settings;
+        this.progress = progress;
+        this.capture = capture;
+        _worldContext = worldContext;
+        _appliedWorldContext = worldContext?.Snapshot;
+        _appliedNetworkEnabled = settings.Current.LootTrackingEnabled;
+        _appliedNetworkRevision = settings.NetworkTrackingRevision;
+        _lastOwnBindingGeneration = _appliedWorldContext?.BindingGeneration;
+        settings.Changed += SettingsChanged;
+        if (worldContext is not null)
+        {
+            worldContext.Changed += WorldContextChanged;
+            if (!ReferenceEquals(_appliedWorldContext, worldContext.Snapshot)) WorldContextChanged();
+        }
+    }
+
+    public long ContextGeneration => Interlocked.Read(ref _mapContextGeneration);
+    internal long? WorldContextBindingGeneration => settings.Current.LootTrackingEnabled ? _worldContext?.Snapshot.BindingGeneration : null;
+    // Without location facts the network cannot confirm an area; visual tracking applies as with network off.
+    private bool NetworkContextEnabled => settings.Current.LootTrackingEnabled && _worldContext?.HasLocationFacts != false;
+    public MapTrackingMode Mode => EffectiveFeaturePolicy.TrackingMode(NetworkContextEnabled, _worldContext?.Snapshot);
+    public bool UsesVisualFallback => Mode == MapTrackingMode.VisualFallback;
+    public bool NetworkSuspended => Mode == MapTrackingMode.NetworkSuspended;
+    public bool? NetworkInInstance => NetworkContextEnabled ? EffectiveFeaturePolicy.ConfirmedInstance(_worldContext?.Snapshot) : null;
+    public bool CanUsePlayerPosition
+    {
+        get
+        {
+            var now = DateTimeOffset.UtcNow;
+            var generation = ContextGeneration;
+            return Running && Found && !Paused && !WorldMapOpen && !EscMenuOpen && !InInstance
+                && Position is { } position && position.ContextGeneration == generation
+                && position.At <= now && now - position.At <= TimeSpan.FromSeconds(2)
+                && DetectedMap is { WorldMap: false } detected && detected.MapId == position.MapId
+                && detected.ContextGeneration == generation && detected.At <= now
+                && now - detected.At <= TimeSpan.FromSeconds(5)
+                && EffectiveFeaturePolicy.AllowsLiveMap(NetworkContextEnabled, _worldContext?.Snapshot, position.MapId)
+                && IsCurrentVisualContext(generation);
+        }
+    }
+
+    internal bool IsCurrentVisualContext(long generation)
+    {
+        var revision = settings.NetworkTrackingRevision;
+        var networkEnabled = settings.Current.LootTrackingEnabled;
+        var source = _worldContext?.Snapshot;
+        return revision == Interlocked.Read(ref _appliedNetworkRevision) && networkEnabled == _appliedNetworkEnabled
+            && EffectiveFeaturePolicy.TrackingMode(networkEnabled && _worldContext?.HasLocationFacts != false, source)
+                != MapTrackingMode.NetworkSuspended
+            && (!networkEnabled || ReferenceEquals(source, Volatile.Read(ref _appliedWorldContext)))
+            && generation == ContextGeneration && networkEnabled == settings.Current.LootTrackingEnabled
+            && revision == settings.NetworkTrackingRevision
+            && (!networkEnabled || ReferenceEquals(source, _worldContext?.Snapshot));
+    }
+
+    public bool IsCurrentProgressionContext(long? generation) => generation is { } current
+        ? IsCurrentVisualContext(current) : StandaloneVisualFallback;
+
+    private bool StandaloneVisualFallback => _worldContext is null && UsesVisualFallback
+        && IsCurrentVisualContext(ContextGeneration);
+
+    public bool CanSelectProgression(string mapId)
+    {
+        // Legacy standalone map previews have no network context source. The application always
+        // provides one and requires current, matching minimap evidence for automatic guidance.
+        if (StandaloneVisualFallback) return true;
+        return CanUsePlayerPosition && Position?.MapId == mapId;
+    }
+
+    internal bool TryArrive(MapTargetsService targets, string id, PlayerPosition position)
+    {
+        var changed = TryMutateNavigation(position.ContextGeneration, position.MapId, position,
+            () => targets.ArriveWithoutNotification(id));
+        // No source, map or arrival lock may be held while subscribers run (including Stop/Own).
+        if (changed) targets.NotifyChanged();
+        return changed;
+    }
+
+    internal bool TrySetProgression(MapTargetsService targets, MapTarget? target, string mapId, long? generation)
+    {
+        var changed = TryMutateNavigation(generation, mapId, null,
+            () => targets.SetProgressionWithoutNotification(target));
+        if (changed) targets.NotifyChanged();
+        return changed;
+    }
+
+    private bool TryMutateNavigation(long? generation, string mapId, PlayerPosition? expectedPosition, Func<bool> mutation)
+    {
+        bool Apply()
+        {
+            lock (_flowGate)
+            {
+                if (!IsCurrentProgressionContext(generation) || !CanSelectProgression(mapId)
+                    || expectedPosition is not null && (!CanUsePlayerPosition || !ReferenceEquals(Position, expectedPosition)))
+                    return false;
+                return mutation();
+            }
+        }
+        var source = _worldContext?.Snapshot;
+        // Lock order: World -> map -> targets. The mutation has no service callbacks.
+        return source is null ? Apply() : _worldContext!.TryApplyWhileCurrent(source, Apply);
+    }
+
+    private void WorldContextChanged()
+    {
+        lock (_flowGate)
+        {
+            _preparationCancel?.Cancel();
+            var source = _worldContext?.Snapshot;
+            if (source?.Source == "own-world" && source.BindingGeneration != _lastOwnBindingGeneration)
+            {
+                _lastOwnBindingGeneration = source.BindingGeneration;
+                _lastOwnEnteredAt = Stopwatch.GetTimestamp();
+            }
+            InvalidateMapContext();
+            Found = false;
+            Placement = null;
+            _worldMapOpen = false;
+            _escMenuOpen = false;
+            _worldMisses = 0;
+            _flowBroken = true;
+            _lostSince = 0;
+            _inInstance = UsesVisualFallback && _inInstance;
+            Paused = NetworkSuspended || UsesVisualFallback && Paused;
+            // Publication can precede this handler while another map operation holds _flowGate.
+            // Readers reject that pending revision immediately, even before our visual epoch moves.
+            Volatile.Write(ref _appliedWorldContext, source);
+        }
+        _wake.TrySetResult();
+        SafeEvent.Raise(Changed, "Weltkontext");
+        PlacementMoved?.Invoke();
+    }
+
+    private void SettingsChanged()
+    {
+        if (_appliedNetworkEnabled == settings.Current.LootTrackingEnabled
+            && Interlocked.Read(ref _appliedNetworkRevision) == settings.NetworkTrackingRevision) return;
+        lock (_flowGate)
+        {
+            if (_appliedNetworkEnabled == settings.Current.LootTrackingEnabled
+                && Interlocked.Read(ref _appliedNetworkRevision) == settings.NetworkTrackingRevision) return;
+            _preparationCancel?.Cancel();
+            InvalidateMapContext();
+            _appliedNetworkEnabled = settings.Current.LootTrackingEnabled;
+            Interlocked.Exchange(ref _appliedNetworkRevision, settings.NetworkTrackingRevision);
+            Found = false;
+            Placement = null;
+            _worldMapOpen = false;
+            _escMenuOpen = false;
+            _worldMisses = 0;
+            _misses = 0;
+            _flowBroken = true;
+            _lostSince = 0;
+            _inInstance = false;
+            Paused = NetworkSuspended;
+        }
+        _wake.TrySetResult();
+        SafeEvent.Raise(Changed, "Kartenquelle");
+        PlacementMoved?.Invoke();
+    }
+
     private const int IntervalMs = 250;
     // Standing still, the expensive detection (130-270 ms) runs less often: each quiet detection doubles
     // the gap up to 2 s. Any movement of the map picture, a lost flow, the world map or an unsure
@@ -107,6 +287,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     private readonly Dictionary<string, MapLocator> _coarse = [];
     private readonly Dictionary<string, MapLocator> _fine = [];
     private Task? _preparing;
+    private CancellationTokenSource? _preparationCancel;
     private Task? _detecting;
     private CancellationTokenSource? _cancel;
     private Task? _loop;
@@ -116,6 +297,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     private int _recoverySearchTick;
     private string? _confirmationMap;
     private readonly Dictionary<string, Task> _confirmationPreparations = [];
+    private readonly Dictionary<string, Task> _worldPreparations = [];
     private double? _lastZoom;
     private readonly List<string> _recentMaps = [];
 
@@ -136,12 +318,23 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     private volatile bool _escMenuOpen;
     public bool EscMenuOpen => _escMenuOpen;
 
-    internal void UpdateEscMenuContext(bool open)
+    internal void UpdateEscMenuContext(bool open, long? contextGeneration = null)
     {
-        if (_escMenuOpen == open) return;
-        _escMenuOpen = open;
-        if (open) DetectedMap = null;
+        lock (_flowGate)
+        {
+            if (NetworkSuspended || contextGeneration is { } generation && !IsCurrentVisualContext(generation)) return;
+            if (_escMenuOpen == open) return;
+            _escMenuOpen = open;
+            if (open)
+            {
+                InvalidateMapContext();
+                Found = false;
+                Placement = null;
+                _flowBroken = true;
+            }
+        }
         SafeEvent.Raise(Changed, "ESC-Menü");
+        if (open) PlacementMoved?.Invoke();
     }
 
 
@@ -166,7 +359,18 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     /// <summary>"Spielfenster (WGC)", "Monitor (WGC)" or "GDI": which capture the tracking uses.</summary>
     public string CaptureMethod => capture.MethodText;
 
-    private Mat Grab(Rectangle area, double scale) => capture.Grab(area, scale);
+    // Internal seams keep loop/cancellation regressions fully offline; production uses the shared capture.
+    internal Func<Rectangle, double, Mat>? CaptureFrameForTests { get; set; }
+    internal Func<Action, CancellationToken, Task>? ScheduleDetectionForTests { get; set; }
+    internal Action<string, bool>? SearchStartedForTests { get; set; }
+    internal Action? NetworkWaitStartedForTests { get; set; }
+
+    private Mat? GrabCurrent(Rectangle area, double scale, long generation)
+    {
+        if (!IsCurrentVisualContext(generation) || _cancel?.IsCancellationRequested == true) return null;
+        var overrideCapture = CaptureFrameForTests;
+        return CaptureReadback.TryCapture(() => overrideCapture is null ? capture.Grab(area, scale) : overrideCapture(area, scale));
+    }
 
     // User diagnosis 2026-10-12: monitor fallback repeatedly reported Abyss without a valid minimap context.
     // Only isolated game-window frames remain usable while another application has the focus.
@@ -215,8 +419,21 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         }
     }
 
-    private bool IsCurrentMapContext(long generation) => generation == Interlocked.Read(ref _mapContextGeneration);
+    private bool IsCurrentMapContext(long generation) => IsCurrentVisualContext(generation);
     private FrameShift _drift = FrameShift.Identity;
+
+    internal bool TryApplyFlowShift(FrameShift shift, long frameAt, long contextGeneration)
+    {
+        lock (_flowGate)
+        {
+            if (!IsCurrentMapContext(contextGeneration) || EscMenuOpen) return false;
+            _drift = _drift.Then(shift);
+            if (Placement is { } placement && placement.ContextGeneration == contextGeneration)
+                Placement = placement with { Fix = shift.Apply(placement.Fix), CapturedAt = frameAt };
+            _flowFrameAt = frameAt;
+            return true;
+        }
+    }
 
     public bool Running { get; private set; }
     public string Status { get; private set; } = "Kartenbereich markieren, dann Tracking starten.";
@@ -237,19 +454,18 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     public bool Found { get; private set; }
 
     /// <summary>
-    /// Instance without a world map (dungeon inside, story instance): tracking rests to save power and
-    /// only looks every few seconds; a loading screen or a found map brings it back at once (user
-    /// request 2026-10-06).
+    /// Network-suspended tracking waits only for source/settings events. The explicitly selected
+    /// visual fallback retains the previous low-frequency recovery probes.
     /// </summary>
     public bool Paused { get; private set; }
 
     private volatile bool _inInstance;
 
     /// <summary>
-    /// An instance is inferred from the existing prolonged minimap-loss heuristic, independently of
-    /// the power-saving pause setting. A confirmed minimap or world map clears that context.
+    /// The network owns instance classification while enabled. With the saved switch off, prolonged
+    /// minimap loss may supply the existing unconfirmed visual heuristic instead.
     /// </summary>
-    public bool InInstance => _inInstance;
+    public bool InInstance => UsesVisualFallback ? _inInstance : NetworkInInstance == true;
 
     /// <summary>No map this long after a loading screen: an instance. Without a loading screen seen (loot
     /// tracking off, or a long cutscene in the world) the tracking waits longer.</summary>
@@ -262,7 +478,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     internal static int PausedProbeMs(TimeSpan pausedFor) => 2000;
     private long _pausedAt;
     private long _lostSince;        // Stopwatch timestamp of the first second without a map (0: found)
-    private long _loadingScreenAt;  // last loading screen reported by the network (0: none)
+    private long _lastOwnEnteredAt; // accepted Own hint used only by the explicit visual fallback
     private TaskCompletionSource _wake = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>Whether the tracking should rest: no map for a while, the world map closed.</summary>
@@ -278,6 +494,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
 
     internal void UpdateInstanceContext(bool found, bool worldMap, TimeSpan lostFor, TimeSpan? sinceLoadingScreen)
     {
+        if (!UsesVisualFallback) return;
         // Keep the inferred context through a loading-screen wake-up until a map is confirmed.
         // Otherwise the overlays briefly reappear during every paused probe or return load.
         var inInstance = !found && !worldMap &&
@@ -291,15 +508,6 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         Changed?.Invoke();
     }
 
-    /// <summary>A loading screen (network, message of the own character): a map may come back.</summary>
-    public void NoteLoadingScreen()
-    {
-        _loadingScreenAt = Stopwatch.GetTimestamp();
-        if (InvalidateMapContext())
-            SafeEvent.Raise(Changed, "Karte lädt");
-        _wake.TrySetResult();
-    }
-
     private void Pause()
     {
         if (!Paused)
@@ -309,7 +517,9 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         DetectedMap = null;
         Placement = null;
         Fps = 0;
-        SetStatus("Keine Karte erkannt (Instanz) – Tracking ruht und prüft alle paar Sekunden.");
+        SetStatus(NetworkSuspended
+            ? "Netzwerk-Tracking wartet auf ein unterstütztes Gebiet – Kartenprüfung ruht."
+            : "Visueller Rückfall: keine Karte erkannt – prüft alle paar Sekunden.");
     }
 
     private void Resume(string? status)
@@ -401,8 +611,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             settings.Update(s => s.MapTrackingActive = true);
         _cancel = new CancellationTokenSource();
         var token = _cancel.Token;
-        _loop = Task.Run(() => LoopAsync(token), token);
         SetStatus("Tracking läuft – Karte wird gesucht …");
+        _loop = Task.Run(() => LoopAsync(token), token);
     }
 
     public void Stop()
@@ -416,6 +626,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     public void Shutdown()
     {
         _cancel?.Cancel();
+        lock (_flowGate) _preparationCancel?.Cancel();
         InvalidateMapContext();
         Running = false;
         _escMenuOpen = false;
@@ -437,25 +648,41 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     /// </summary>
     private readonly SemaphoreSlim _runGate = new(1, 1);
 
+    private async Task WaitForContextChangeAsync(CancellationToken token, bool suspended)
+    {
+        Task wake;
+        lock (_flowGate)
+        {
+            var pending = _appliedNetworkEnabled != settings.Current.LootTrackingEnabled
+                || Interlocked.Read(ref _appliedNetworkRevision) != settings.NetworkTrackingRevision
+                || settings.Current.LootTrackingEnabled && !ReferenceEquals(_appliedWorldContext, _worldContext?.Snapshot);
+            if (suspended ? !NetworkSuspended : !pending) return;
+            if (_wake.Task.IsCompleted) _wake = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            wake = _wake.Task;
+        }
+        if (suspended) NetworkWaitStartedForTests?.Invoke();
+        await wake.WaitAsync(token);
+    }
+
     private async Task LoopAsync(CancellationToken token)
     {
         await _runGate.WaitAsync(token);
         Task? detecting = null;
         using var flow = new MapFlow();
-        // 1 ms timer resolution while tracking runs; otherwise Windows waits in 15.6 ms steps and the
-        // 60 fps cap becomes ~40 fps.
-        _ = TimeBeginPeriod(1);
+        var highResolutionTimer = false;
+        void SetTimerResolution(bool active)
+        {
+            if (active == highResolutionTimer) return;
+            if (active) _ = TimeBeginPeriod(1); else _ = TimeEndPeriod(1);
+            highResolutionTimer = active;
+        }
         try
         {
             var maps = LoadMaps();
             _lastZoom ??= settings.Current.MiniMapZoom;
             _currentMap ??= maps.Any(m => m.Id == settings.Current.LastMap) ? settings.Current.LastMap : maps.FirstOrDefault()?.Id;
-            if (_preparing is { } previousPreparation)
-            {
-                try { await previousPreparation; } catch (OperationCanceledException) { }
-            }
             token.ThrowIfCancellationRequested();
-            _preparing = Task.Run(() => Prepare(maps, token), token);
+            var preparedGeneration = -1L;
             var lastSubmit = 0L;
             var lastEmblemCheck = 0L;
             var emblemMisses = 0;
@@ -469,13 +696,46 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             while (!token.IsCancellationRequested)
             {
                 var started = Stopwatch.GetTimestamp();
+                if (NetworkSuspended)
+                {
+                    SetTimerResolution(false);
+                    flow.Reset();
+                    frames.Clear();
+                    lastRegion = null;
+                    previousMainCapture = default;
+                    Pause();
+                    await WaitForContextChangeAsync(token, suspended: true);
+                    continue;
+                }
+                var visualGeneration = ContextGeneration;
+                if (!IsCurrentVisualContext(visualGeneration))
+                {
+                    await WaitForContextChangeAsync(token, suspended: false);
+                    continue;
+                }
+                if (preparedGeneration != visualGeneration && (_preparing is null || _preparing.IsCompleted))
+                {
+                    lock (_flowGate)
+                    {
+                        if (!IsCurrentVisualContext(visualGeneration)) continue;
+                        _preparationCancel?.Dispose();
+                        _preparationCancel = CancellationTokenSource.CreateLinkedTokenSource(token);
+                        var preparationToken = _preparationCancel.Token;
+                        var preparingMaps = Mode == MapTrackingMode.NetworkMap
+                            ? maps.Where(m => m.Id == _worldContext?.Snapshot.SoulcrestMapId).ToList() : maps;
+                        _preparing = Task.Run(() => Prepare(preparingMaps, preparationToken, visualGeneration), CancellationToken.None);
+                        preparedGeneration = visualGeneration;
+                    }
+                }
+                if (!UsesVisualFallback && Paused) Resume(null);
                 if (Region is not { } region)
                 {
                     await Task.Delay(IntervalMs, token);
                     continue;
                 }
-                if (Paused)
+                if (UsesVisualFallback && Paused)
                 {
+                    SetTimerResolution(false);
                     // Resting in an instance: no 60 fps capture and flow, one look every few seconds.
                     flow.Reset();
                     frames.Clear();
@@ -489,12 +749,12 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                         if (woke)
                         {
                             _wake = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                            Resume("Ladebildschirm – Tracking läuft wieder, Karte wird gesucht …");
+                            Resume("Kartenkontext geändert – Kartenerkennung wird fortgesetzt.");
                             continue;
                         }
                         var screen = capture.GameBounds ?? Screen.FromRectangle(region).Bounds;
                         var pausedContextGeneration = Interlocked.Read(ref _mapContextGeneration);
-                        using var full = CaptureReadback.TryCapture(() => Grab(screen, 1));
+                        using var full = GrabCurrent(screen, 1, pausedContextGeneration);
                         if (full is not null)
                         {
                             if (!AcceptLastCapture()) continue;
@@ -507,6 +767,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                         Pause(); // the probe wrote its own status
                     continue;
                 }
+                SetTimerResolution(true);
                 if (_wake.Task.IsCompleted)
                     _wake = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 var worldMap = _worldMapOpen;
@@ -532,11 +793,12 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                         Region != region || Paused)
                         continue;
                 }
-                var frame = CaptureReadback.TryCapture(() => Grab(area, worldMap ? WorldMapScale : 1));
+                var frame = GrabCurrent(area, worldMap ? WorldMapScale : 1, contextGeneration);
                 var frameAt = GameCaptureService.GrabbedFrameAt;
                 var captureTiming = GameCaptureService.GrabbedTiming;
                 if (frame is null)
                 {
+                    if (!IsCurrentVisualContext(contextGeneration)) continue;
                     _cost.AddCaptureUnavailable();
                     previousMainCapture = default;
                     token.ThrowIfCancellationRequested();
@@ -546,6 +808,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                     await Task.Delay(IntervalMs, token);
                     continue;
                 }
+                if (!IsCurrentVisualContext(contextGeneration)) { frame.Dispose(); continue; }
                 if (!AcceptLastCapture())
                 {
                     _cost.AddCaptureRejected();
@@ -563,6 +826,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 var flowStarted = Stopwatch.GetTimestamp();
                 using (var gray = new Mat())
                 {
+                    if (!IsCurrentVisualContext(contextGeneration)) { frame.Dispose(); continue; }
                     Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
                     // World map: points only on the map, its standing panels held the overlay still.
                     flow.SeedArea = worldMap ? MapFlow.WorldMapArea(gray.Width, gray.Height) : null;
@@ -580,14 +844,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                             + 100 * (Math.Abs(step.Value.A - 1) + Math.Abs(step.Value.B)); // zoom or turn counts as movement
                     if (step is { } shift)
                     {
-                        lock (_flowGate)
-                        {
-                            _drift = _drift.Then(shift);
-                            if (Placement is { } placement)
-                                Placement = placement with { Fix = shift.Apply(placement.Fix), CapturedAt = frameAt };
-                            _flowFrameAt = frameAt;
-                        }
-                        if (Placement is not null)
+                        if (TryApplyFlowShift(shift, frameAt, contextGeneration) && Placement is not null)
                             PlacementMoved?.Invoke();
                     }
                 }
@@ -599,7 +856,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 {
                     lastEmblemCheck = Stopwatch.GetTimestamp();
                     var screen = _worldScreen;
-                    using var corner = CaptureReadback.TryCapture(() => Grab(MapWindowEmblem.CornerOf(screen), 1));
+                    using var corner = GrabCurrent(MapWindowEmblem.CornerOf(screen), 1, contextGeneration);
                     if (corner is not null)
                     {
                         emblemMisses = MapWindowEmblem.ShowsInCorner(corner, screen.Height) ? 0 : emblemMisses + 1;
@@ -632,21 +889,24 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                         lock (_flowGate)
                             _drift = FrameShift.Identity;
                         var f = frame;
-                        detecting = _detecting = Task.Run(() =>
+                        Action detection = () =>
                         {
                             var detectionStarted = Stopwatch.GetTimestamp();
                             using var timed = new CostScope(() => _cost.AddDetection(Stopwatch.GetElapsedTime(detectionStarted)));
                             using (f)
                             {
+                                token.ThrowIfCancellationRequested();
+                                if (!IsCurrentVisualContext(contextGeneration)) return;
                                 if (worldMap)
                                     StepWorldMap(region, maps, f, token, contextGeneration);
                                 else
                                 {
                                     var screen = capture.GameBounds ?? Screen.FromRectangle(region).Bounds;
-                                    using var full = CaptureReadback.TryCapture(() => Grab(screen, 1));
+                                    using var full = GrabCurrent(screen, 1, contextGeneration);
                                     if (full is null)
                                     {
                                         token.ThrowIfCancellationRequested();
+                                        if (!IsCurrentVisualContext(contextGeneration)) return;
                                         ReportBusyFrame();
                                         return;
                                     }
@@ -656,21 +916,23 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                                     ProcessMiniMapFrame(region, screen, full, token, contextGeneration);
                                 }
                             }
-                        }, token);
+                        };
+                        detecting = _detecting = ScheduleDetectionForTests?.Invoke(detection, token)
+                            ?? Task.Run(detection, CancellationToken.None);
                         frame = null;
                     }
                 }
                 frame?.Dispose();
 
                 var now = Stopwatch.GetTimestamp();
-                if (Found || worldMap)
+                if (UsesVisualFallback && (Found || worldMap))
                     _lostSince = 0;
-                else if (_lostSince == 0 && detecting is { IsCompleted: true })
+                else if (UsesVisualFallback && _lostSince == 0 && detecting is { IsCompleted: true })
                     _lostSince = now; // from a finished search on: building a map reference does not count
-                UpdateInstanceContext(Found, worldMap, _lostSince == 0 ? TimeSpan.Zero : Stopwatch.GetElapsedTime(_lostSince, now),
-                    _loadingScreenAt == 0 ? null : Stopwatch.GetElapsedTime(_loadingScreenAt, now));
-                if (_lostSince != 0 && ShouldPause(settings.Current.PauseTrackingInInstances, Found, worldMap,
-                        Stopwatch.GetElapsedTime(_lostSince, now), _loadingScreenAt == 0 ? null : Stopwatch.GetElapsedTime(_loadingScreenAt, now)))
+                if (UsesVisualFallback) UpdateInstanceContext(Found, worldMap, _lostSince == 0 ? TimeSpan.Zero : Stopwatch.GetElapsedTime(_lostSince, now),
+                    _lastOwnEnteredAt == 0 ? null : Stopwatch.GetElapsedTime(_lastOwnEnteredAt, now));
+                if (UsesVisualFallback && _lostSince != 0 && ShouldPause(settings.Current.PauseTrackingInInstances, Found, worldMap,
+                        Stopwatch.GetElapsedTime(_lostSince, now), _lastOwnEnteredAt == 0 ? null : Stopwatch.GetElapsedTime(_lastOwnEnteredAt, now)))
                 {
                     Pause();
                     continue;
@@ -705,7 +967,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 catch (OperationCanceledException) { }
                 catch (Exception) { /* Detection failures were reported by the loop, or it was stopped. */ }
             }
-            _ = TimeEndPeriod(1);
+            SetTimerResolution(false);
             _runGate.Release();
         }
     }
@@ -745,13 +1007,13 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             return;
         }
         var escMenuOpen = _escMenu.Detect(fullFrame);
-        if (escMenuOpen) { Found = false; DetectedMap = null; Placement = null; }
-        UpdateEscMenuContext(escMenuOpen);
+        UpdateEscMenuContext(escMenuOpen, generation);
         if (escMenuOpen)
         {
             SetStatus("ESC-Menü offen – Overlays ausgeblendet.");
             return; // never publish player positions from a menu's background map
         }
+        if (!IsCurrentMapContext(generation)) return;
         var maps = LoadMaps();
         _lastZoom ??= settings.Current.MiniMapZoom;
         _currentMap ??= maps.Any(m => m.Id == settings.Current.LastMap) ? settings.Current.LastMap : maps.FirstOrDefault()?.Id;
@@ -765,6 +1027,30 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         }
         var header = MapWindowEmblem.Shows(fullFrame);
         var searchStarted = Stopwatch.GetTimestamp();
+        if (Mode == MapTrackingMode.NetworkMap)
+        {
+            var ownMap = _worldContext?.Snapshot.SoulcrestMapId;
+            if (maps.FirstOrDefault(m => m.Id == ownMap) is not { } ownDefinition) return;
+            // The viewed world map has independent authority. A foreign displayed map is never a
+            // minimap candidate and must not change the physical own-map selection.
+            if (header)
+                foreach (var viewed in maps.OrderBy(m => m.Id == ownMap ? 0 : 1))
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (!IsCurrentMapContext(generation)) return;
+                    if (Stopwatch.GetElapsedTime(searchStarted) >= RecoverySearchBudget) return;
+                    if (Ready(_coarse, viewed.Id) is null)
+                    {
+                        PrepareWorldReference(viewed, token, generation);
+                        continue;
+                    }
+                    if (ProbeWorldMap(region, viewed, screen, small, token, generation)) return;
+                }
+            if (!IsCurrentMapContext(generation)) return;
+            _currentMap = ownDefinition.Id;
+            Step(region, maps, crop, screen, small, header, token, generation, ownDefinition.Id, searchStarted);
+            return;
+        }
         if (Paused || InInstance || _misses >= MissesBeforeOtherMaps)
         {
             // user request 2026-10-19: one paused look must not mean one map followed by
@@ -804,6 +1090,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     private void Step(Rectangle region, List<MapDefinition> maps, Mat frame, Rectangle screen, Mat screenFrame, bool windowHeader, CancellationToken token, long contextGeneration,
         string? searchMap = null, long? frameStarted = null)
     {
+        if (!IsCurrentMapContext(contextGeneration)) return;
         var anchor = new Point2d(region.Width * settings.Current.PlayerAnchorX, region.Height * settings.Current.PlayerAnchorY);
 
         // Recently found maps first: after a look at the full-screen map of another zone the player is
@@ -814,7 +1101,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
                 .Select(m => m.Id).ToList()
             : [];
         var tick = _searchTick++;
-        var candidate = searchMap ?? NextCandidate(_currentMap, _misses, others, tick);
+        var candidate = Mode == MapTrackingMode.NetworkMap ? _worldContext?.Snapshot.SoulcrestMapId
+            : searchMap ?? NextCandidate(_currentMap, _misses, others, tick);
         if (candidate is null || maps.FirstOrDefault(m => m.Id == candidate) is not { } definition)
             return;
 
@@ -829,6 +1117,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         // The fine reference follows the player with a 0.6× picture: same position (±0.1 map units) at
         // half the cost (114 → 57 ms, live captures 2026-10-03). Each locator always gets the same size,
         // so its local search stays consistent; the coarse search for a lost position keeps full size.
+        if (!IsCurrentMapContext(contextGeneration)) return;
+        SearchStartedForTests?.Invoke(candidate, false);
         var fix = LocateAt(locator, frame, locator == fineLocator ? FineFrameScaleFor(region.Size) : 1.0);
         if (fix is not null && candidate != _currentMap && fix.Inliers < SwitchMinInliers)
         {
@@ -924,10 +1214,18 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             Interlocked.Exchange(ref _lastFixAt, Stopwatch.GetTimestamp());
             var reference = fix.FrameToReference(anchor);
             var world = locator.Reference.WorldPerPixel;
-            Position = new PlayerPosition(definition.Id, reference.X * world, reference.Y * world, DateTimeOffset.UtcNow);
-            DetectedMap = new DetectedMapContext(definition.Id, false, Position.At);
+            if (!EffectiveFeaturePolicy.AllowsLiveMap(NetworkContextEnabled, _worldContext?.Snapshot, definition.Id))
+            {
+                Found = false;
+                DetectedMap = null;
+                Placement = null;
+                return;
+            }
+            Position = new PlayerPosition(definition.Id, reference.X * world, reference.Y * world, DateTimeOffset.UtcNow)
+                { ContextGeneration = contextGeneration };
+            DetectedMap = new DetectedMapContext(definition.Id, false, Position.At) { ContextGeneration = contextGeneration };
             // The map moved on while this frame was being matched: carry the result by the flow since then.
-            Placement = new MapPlacement(definition.Id, _drift.Apply(fix), world, region, anchor) { CapturedAt = _flowFrameAt };
+            Placement = new MapPlacement(definition.Id, _drift.Apply(fix), world, region, anchor) { CapturedAt = _flowFrameAt, ContextGeneration = contextGeneration };
         }
         if (Paused) Resume(null);
         PlacementMoved?.Invoke();
@@ -970,9 +1268,12 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
 
     private bool ProbeWorldMap(Rectangle region, MapDefinition definition, Rectangle screen, Mat small, CancellationToken token, long contextGeneration)
     {
+        if (!IsCurrentMapContext(contextGeneration)) return false;
         // Same capture as the crop being considered for a player position.
         var locator = WorldLocator(definition, token);
         locator.Reset();
+        if (!IsCurrentMapContext(contextGeneration)) return false;
+        SearchStartedForTests?.Invoke(definition.Id, true);
         var fix = locator.Locate(small);
         token.ThrowIfCancellationRequested();
         if (fix is null || fix.Inliers < SwitchMinInliers || !SpreadsBeyond(fix, region, screen))
@@ -1004,6 +1305,8 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         }
         // The fast loop captured the world map at a quarter of its size already.
         var locator = WorldLocator(definition, token);
+        if (!IsCurrentMapContext(contextGeneration)) return;
+        SearchStartedForTests?.Invoke(definition.Id, true);
         var fix = locator.Locate(frame);
         token.ThrowIfCancellationRequested();
         if (!IsCurrentMapContext(contextGeneration))
@@ -1055,11 +1358,13 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     private void SetWorldPlacement(MapDefinition definition, MapFix fix, Rectangle screen, double worldPerPixel)
     {
         // The player stays where the small map last saw them, if the world map shows that zone.
-        Point2d? player = Position is { } p && p.MapId == definition.Id ? new Point2d(p.X, p.Y) : null;
-        Placement = new MapPlacement(definition.Id, fix, worldPerPixel, screen, default, 1 / WorldMapScale, true, player) { CapturedAt = _flowFrameAt };
+        Point2d? player = Position is { } p && p.MapId == definition.Id && p.ContextGeneration == ContextGeneration
+            && EffectiveFeaturePolicy.AllowsLiveMap(NetworkContextEnabled, _worldContext?.Snapshot, p.MapId)
+            ? new Point2d(p.X, p.Y) : null;
+        Placement = new MapPlacement(definition.Id, fix, worldPerPixel, screen, default, 1 / WorldMapScale, true, player) { CapturedAt = _flowFrameAt, ContextGeneration = ContextGeneration };
         Found = true;
         _inInstance = false;
-        DetectedMap = new DetectedMapContext(definition.Id, true, DateTimeOffset.UtcNow);
+        DetectedMap = new DetectedMapContext(definition.Id, true, DateTimeOffset.UtcNow) { ContextGeneration = ContextGeneration };
         if (Paused) Resume(null);
         PlacementMoved?.Invoke();
         SetStatus($"Weltkarte {definition.Label} offen – Overlay folgt ihr, Position eingefroren · {fix.Inliers} Treffer · Overlay {Fps} fps");
@@ -1124,12 +1429,16 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
     /// ones of all maps (current map first), then the fine one of the current map. Each is built once
     /// (~4 s coarse, ~15 s fine) and then read from the cache.
     /// </summary>
-    private void Prepare(List<MapDefinition> maps, CancellationToken token)
+    private void Prepare(List<MapDefinition> maps, CancellationToken token, long contextGeneration)
     {
         try
         {
             foreach (var map in maps.OrderBy(m => m.Id == _currentMap ? 0 : 1))
+            {
+                if (!IsCurrentMapContext(contextGeneration)) return;
                 Load(map, map.CoarseZoom, _coarse, token);
+            }
+            if (!IsCurrentMapContext(contextGeneration)) return;
             if (maps.FirstOrDefault(m => m.Id == _currentMap) is { } current)
                 Load(current, current.FineZoom, _fine, token);
         }
@@ -1140,6 +1449,9 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
 
     private void PrepareConfirmation(MapDefinition definition, CancellationToken token)
     {
+        var generation = ContextGeneration;
+        if (!IsCurrentVisualContext(generation)) return;
+        lock (_flowGate) token = _preparationCancel?.Token ?? token;
         lock (_gate)
         {
             if (_confirmationPreparations.TryGetValue(definition.Id, out var previous))
@@ -1149,11 +1461,37 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
             }
             _confirmationPreparations[definition.Id] = Task.Run(() =>
             {
+                if (!IsCurrentVisualContext(generation)) return;
                 Load(definition, definition.FineZoom, _fine, token);
                 token.ThrowIfCancellationRequested();
+                if (!IsCurrentVisualContext(generation)) return;
                 Interlocked.Exchange(ref _confirmationMap, definition.Id);
                 _wake.TrySetResult(); // retry on a new capture, even while resting in an instance
             }, token);
+        }
+    }
+
+    private void PrepareWorldReference(MapDefinition definition, CancellationToken token, long generation)
+    {
+        if (!IsCurrentVisualContext(generation)) return;
+        lock (_flowGate) token = _preparationCancel?.Token ?? token;
+        lock (_gate)
+        {
+            // The generic window header also occurs on pet windows: it must not synchronously
+            // build all map references, or launch several SIFT builds in parallel.
+            if (_worldPreparations.Values.Any(task => !task.IsCompleted)) return;
+            if (_worldPreparations.Remove(definition.Id, out var previous)) _ = previous.Exception;
+            _worldPreparations[definition.Id] = Task.Run(() =>
+            {
+                try
+                {
+                    if (!IsCurrentVisualContext(generation)) return;
+                    Load(definition, definition.CoarseZoom, _coarse, token);
+                    token.ThrowIfCancellationRequested();
+                    if (IsCurrentVisualContext(generation)) _wake.TrySetResult();
+                }
+                catch (OperationCanceledException) { }
+            }, CancellationToken.None);
         }
     }
 
@@ -1312,7 +1650,10 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
 
     public void Dispose()
     {
+        settings.Changed -= SettingsChanged;
+        if (_worldContext is not null) _worldContext.Changed -= WorldContextChanged;
         _cancel?.Cancel();
+        lock (_flowGate) _preparationCancel?.Cancel();
         // Wait for the loop and a detection in flight: freeing the references under a running knnMatch
         // crashed the app on close (0xc0000005, live 2026-10-03). If they do not end in time, the native
         // memory is left to the exiting process instead.
@@ -1320,7 +1661,7 @@ public sealed class MapTrackingService(SettingsService settings, ProgressService
         if (!WaitUntilFinished(running)) return;
         // Snapshot after detection stopped: it may have enqueued work during shutdown.
         Task[] preparations;
-        lock (_gate) preparations = _confirmationPreparations.Values.ToArray();
+        lock (_gate) preparations = _confirmationPreparations.Values.Concat(_worldPreparations.Values).ToArray();
         if (!WaitUntilFinished(preparations)) return;
         lock (_gate)
         {

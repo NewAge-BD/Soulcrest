@@ -23,6 +23,7 @@ public sealed class DetectedMapContextTests : IDisposable
     public void StoredMapPreferenceDoesNotBecomeDetectedEvidence()
     {
         var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false;
         settings.Current.LastMap = "verteron";
         using var capture = new GameCaptureService();
         using var tracking = new MapTrackingService(settings, new ProgressService(), capture);
@@ -77,8 +78,9 @@ public sealed class DetectedMapContextTests : IDisposable
     [Fact]
     public void HeldMinimapDoesNotRefreshItsEvidenceAndLoadImmediatelyInvalidatesIt()
     {
+        var context = new WorldContextService();
         using var capture = new GameCaptureService();
-        using var tracking = Tracker(capture);
+        using var tracking = Tracker(capture, context);
         using var normal = Frame("live-2026-10-03-screen.png");
         tracking.ProcessMiniMapFrame(SmallMap, Screen, normal, CancellationToken.None);
         var identity = Assert.IsType<DetectedMapContext>(tracking.DetectedMap);
@@ -88,10 +90,10 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.Same(identity, tracking.DetectedMap);
         var notifications = 0;
         tracking.Changed += () => notifications++;
-        tracking.NoteLoadingScreen();
+        context.Invalidate(WorldContextStatus.Transitioning, 1, "synthetic-entry");
         Assert.Null(tracking.DetectedMap);
         Assert.Equal(1, notifications);
-        tracking.NoteLoadingScreen();
+        context.Invalidate(WorldContextStatus.Transitioning, 1, "synthetic-entry");
         Assert.Equal(1, notifications);
     }
 
@@ -125,10 +127,12 @@ public sealed class DetectedMapContextTests : IDisposable
     public void LoadingOrStopDuringACompletedMatchCannotRepublishItsCapturedPosition(bool stop)
     {
         var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false;
         settings.Current.LastMap = "verteron";
         settings.Current.MiniMapZoom = null;
+        var context = new WorldContextService();
         using var capture = new GameCaptureService();
-        using var tracking = new MapTrackingService(settings, new ProgressService(), capture);
+        using var tracking = new MapTrackingService(settings, new ProgressService(), capture, context);
         var invalidated = false;
         // SIFT has succeeded when the remembered zoom changes, but publication has not happened.
         // This deterministic notification reproduces a concurrent load/stop at that boundary.
@@ -137,7 +141,7 @@ public sealed class DetectedMapContextTests : IDisposable
             if (invalidated || settings.Current.MiniMapZoom is null) return;
             invalidated = true;
             if (stop) tracking.Shutdown();
-            else tracking.NoteLoadingScreen();
+            else context.Invalidate(WorldContextStatus.Transitioning, 1, "synthetic-entry");
         };
         using var normal = Frame("live-2026-10-03-screen.png");
         tracking.ProcessMiniMapFrame(SmallMap, Screen, normal, CancellationToken.None);
@@ -154,14 +158,15 @@ public sealed class DetectedMapContextTests : IDisposable
     [InlineData(true)]
     public void FrameCapturedBeforeLoadingCannotRefreshMinimapOrWorldMapEvidence(bool worldMap)
     {
+        var context = new WorldContextService();
         using var capture = new GameCaptureService();
-        using var tracking = Tracker(capture);
+        using var tracking = Tracker(capture, context);
         using var frame = Frame(worldMap ? "live-2026-10-03-lost-screen.png" : "live-2026-10-03-screen.png");
         tracking.ProcessMiniMapFrame(SmallMap, Screen, frame, CancellationToken.None);
         var identity = Assert.IsType<DetectedMapContext>(tracking.DetectedMap);
         Assert.Equal(worldMap, identity.WorldMap);
         var position = tracking.Position;
-        tracking.NoteLoadingScreen();
+        context.Invalidate(WorldContextStatus.Transitioning, 1, "synthetic-entry");
         // The loop snapshots this generation before capture and passes it into the worker.
         tracking.ProcessMiniMapFrame(SmallMap, Screen, frame, CancellationToken.None, contextGeneration: 0);
         Assert.Null(tracking.DetectedMap);
@@ -255,12 +260,13 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.Equal(0, capture.Diagnostics.Grabs);
     }
 
-    private static MapTrackingService Tracker(GameCaptureService capture)
+    private static MapTrackingService Tracker(GameCaptureService capture, WorldContextService? context = null)
     {
         var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false;
         settings.Current.LastMap = "verteron";
         settings.Current.MiniMapZoom = null;
-        return new(settings, new ProgressService(), capture);
+        return new(settings, new ProgressService(), capture, context);
     }
 
     private static Mat Frame(string name)

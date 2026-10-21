@@ -88,7 +88,9 @@ public sealed class EscMenuOverlayTests
     public void ARealEscFrameStopsMapPlacementAndPublishesMenuStateWithoutCapture()
     {
         using var capture = new GameCaptureService();
-        using var tracking = new MapTrackingService(new SettingsService(), new ProgressService(), capture);
+        var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false; // Observe the synthetic menu through the offline visual path.
+        using var tracking = new MapTrackingService(settings, new ProgressService(), capture);
         using var frame = Cv2.ImRead(Path.Combine(AppContext.BaseDirectory, "fixtures", "esc-menu", "user-2026-10-10.png"));
         tracking.ProcessMiniMapFrame(new Rectangle(0, 0, 100, 100), new Rectangle(0, 0, frame.Width, frame.Height), frame, CancellationToken.None);
         Assert.True(tracking.EscMenuOpen);

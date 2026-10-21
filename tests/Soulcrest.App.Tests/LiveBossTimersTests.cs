@@ -98,7 +98,7 @@ public sealed class LiveBossTimersTests
         if (explicitStrip)
         {
             await fixture.Invoke("ToggleOptions", key);
-            var expanded = await fixture.Invoke("ToggleAdvanced", key);
+            var expanded = await fixture.Invoke("SetEnabled", key, true);
             await fixture.Export(expanded, "boss-reminder-expanded-fixed");
             var whole = await fixture.Invoke("SetDurationMode", new ChangeEventArgs { Value = "until-spawn" });
             await fixture.Export(whole, "boss-reminder-expanded-whole");
@@ -240,7 +240,7 @@ public sealed class LiveBossTimersTests
         Assert.Contains(language == "de" ? "MP3 hinzufügen" : "Add MP3", html);
         Assert.Contains("event-quick-reminders", html);
         Assert.Contains("boss-timer-select", html);
-        Assert.Contains("boss-timer-advanced", html);
+        Assert.Contains("data-advance-warnings", html);
         var expanded = await fixture.Invoke("ToggleOptions", "1110:111001");
         Assert.Single(Regex.Matches(expanded, "<details class=\"boss-timer-options\"[^>]* open(?:[ >])").Cast<Match>());
         await fixture.Invoke("SetReminder", "1110:111001", new BossReminderPreference { Enabled = false, LeadSeconds = 300 });
@@ -809,24 +809,23 @@ public sealed class LiveBossTimersTests
     }
 
     [Fact]
-    public async Task OlderBossLeadAndEnabledCallbacksCannotChangeTheGlobalDuration()
+    public async Task WarningSelectionAndEnabledCallbacksCannotChangeTheGlobalDuration()
     {
         await using var fixture = new Fixture("en");
         const string key = "1110:111001";
         fixture.Settings.Current.BossAlertIds = [key];
         fixture.Settings.Current.BossAlertDurationSeconds = 10;
         fixture.Settings.Current.BossAlertUntilSpawn = false;
-        var earlierRender = fixture.Bosses.GetReminder(key);
         await fixture.Render(includeAll: true, compact: true);
         await fixture.Invoke("SetDuration", new ChangeEventArgs { Value = "17" });
         await fixture.Invoke("SetDurationMode", new ChangeEventArgs { Value = "until-spawn" });
         await fixture.Invoke("SetEnabled", key, false);
-        await fixture.Invoke("SetLead", key, earlierRender, new ChangeEventArgs { Value = "901" });
+        await fixture.Invoke("SetWarningSelection", key, new AdvanceWarningPicker.Selection(false, [901]));
         Assert.False(fixture.Bosses.GetReminder(key).Enabled);
         Assert.Equal(901, fixture.Bosses.GetReminder(key).LeadSeconds);
-        await fixture.Invoke("SetQuickLead", key, 300);
+        await fixture.Invoke("SetWarningSelection", key, new AdvanceWarningPicker.Selection(true, [901, 300]));
         Assert.True(fixture.Bosses.GetReminder(key).Enabled);
-        Assert.Equal(300, fixture.Bosses.GetReminder(key).LeadSeconds);
+        Assert.Equal(new[] { 901, 300 }, fixture.Bosses.GetReminder(key).WarningSeconds);
         Assert.True(fixture.Settings.Current.BossAlertUntilSpawn);
         Assert.Equal(17, fixture.Settings.Current.BossAlertDurationSeconds);
         await fixture.Invoke("SetEnabled", key, false);
@@ -896,6 +895,38 @@ public sealed class LiveBossTimersTests
             Assert.True(rendered.Success, $"Missing countdown for {key}.");
             Assert.Equal(counter, rendered.Groups[1].Value);
         }
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task MultipleWarningSelectionsSynchronizeBetweenBothTabsAndRemainIndependentOfStrip(string language)
+    {
+        await using var fixture = new Fixture(language, isolateTracker: true);
+        const string key = "1110:111001";
+        fixture.Settings.Current.BossAlertIds = [key];
+        fixture.Settings.Current.BossAlertsEnabled = true;
+        fixture.Settings.Current.TimerOverlayTimerIds = [];
+        fixture.Capture(false, 900000);
+        await fixture.Render(includeAll: true, compact: true, catalogue: true, searchable: true, strip: true);
+        await fixture.Invoke("ToggleOptions", key);
+        var selected = await fixture.Invoke("SetWarningSelection", key, new AdvanceWarningPicker.Selection(true, [900, 600, 300, 147]));
+        Assert.Equal(new[] { 900, 600, 300, 147 }, fixture.Bosses.GetReminder(key).WarningSeconds);
+        Assert.Equal(new[] { 900, 600, 300, 147 }, new SettingsService().Current.BossReminderOverrides[key].WarningSeconds);
+        Assert.Empty(fixture.Settings.Current.TimerOverlayTimerIds!);
+        Assert.Contains("data-warning-value=\"900\" class=\"selected\"", selected);
+        await fixture.Invoke("SelectStrip", key, true);
+        var preview = await fixture.Invoke("SetWarningSelection", key, new AdvanceWarningPicker.Selection(true, [900, 600, 300, 147]));
+        await fixture.Export(preview, "multiple-warning-boss-cards");
+        await fixture.RenderBossRush();
+        var rush = await fixture.BossRushMarkup();
+        Assert.Contains("data-boss-strip=\"boss:1110:111001\" checked", rush);
+        Assert.Contains("15", rush);
+        Assert.Contains("147", rush);
+        var snapshot = fixture.Bosses.GetReminder(key);
+        snapshot.LeadSecondsList![0] = 1;
+        Assert.Equal(900, fixture.Bosses.GetReminder(key).WarningSeconds[0]);
+        Assert.False(fixture.Tracker.Running);
     }
 
     private sealed class Fixture : IAsyncDisposable

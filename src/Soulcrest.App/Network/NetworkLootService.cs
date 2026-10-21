@@ -46,9 +46,11 @@ public sealed record NetworkProgressSources(bool IdentityIsLive, string? Charact
 /// soul message (0d90) adds its souls to the progress. Follows connection changes (zone change,
 /// reconnect) by looking at the game's connections every few seconds.
 /// </summary>
-public sealed class NetworkLootService(ProgressService progress, ExplorationService? exploration = null) : INetworkLootSource, INetworkMerchantSource,
+public sealed class NetworkLootService(ProgressService progress, ExplorationService? exploration = null,
+    WorldContextService? worldContext = null) : INetworkLootSource, INetworkMerchantSource,
     IDisposable
 {
+    public WorldContextService WorldContext { get; } = worldContext ?? new();
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
     private readonly object _gate = new();
     private readonly object _connectionGate = new();
@@ -1014,6 +1016,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 _identityStream = null;
                 Character = null;
                 _entryCandidate = null;
+                // Revoke world authority before any pet/merchant callback can reenter.
+                WorldContext.Invalidate(WorldContextStatus.Stale, _progressGeneration + 1, DiagnosticResetReason(reason), capturedAtUtc);
             }
             if (petAffected) ResetPetContext(forgetStreams: stream == "*");
             // A nested new Own has already reset and rebound the character sources.
@@ -1055,7 +1059,10 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 // never let the next character's snapshots mutate the previously bound profile.
                 if (_identity is not null && _identityStream != stream ||
                     _entryCandidate is { } other && other.Stream != stream) return;
+                var captureGeneration = _generation;
+                var candidateGeneration = _progressGeneration + 1;
                 ResetProgressContext("world-entry-candidate", at);
+                if (_generation != captureGeneration || _progressGeneration != candidateGeneration || _identity is not null) return;
                 if (OwnIdentityMessage.TryParseEntryCandidate(message) is { } tentative)
                     _entryCandidate = new(stream, tentative.CharacterId, tentative.EntityKey, at);
                 else
@@ -1071,9 +1078,11 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 if (_identity is not null && _identityStream != stream ||
                     _entryCandidate is { } other && other.Stream != stream) return;
                 var candidate = _entryCandidate;
+                var captureGeneration = _generation;
                 var preparedGeneration = _progressGeneration + 1;
                 ResetProgressContext("world-entry-preparation", at);
-                if (_progressGeneration == preparedGeneration && _identity is null && candidate is { Prepared: false })
+                if (_generation != captureGeneration || _progressGeneration != preparedGeneration || _identity is not null) return;
+                if (candidate is { Prepared: false })
                 {
                     candidate.Prepared = true;
                     _entryCandidate = candidate;
@@ -1082,9 +1091,9 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
                 return;
             }
-            if (OwnIdentityMessage.TryParse(message) is { } identity)
+            if (OwnIdentityMessage.TryParseWorld(message) is { } world)
             {
-                ObserveIdentity(stream, identity, at);
+                ObserveIdentity(stream, world.Identity, at, world.MapDataId);
                 return;
             }
             if (opcode is 0x3633 or 0x3621)
@@ -1092,9 +1101,22 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 if (_identityStream == stream || _entryCandidate?.Stream == stream)
                 {
                     RecordProgressRejection(opcode, at);
+                    var rejectedGeneration = _progressGeneration + 1;
                     ResetProgressContext("unsupported-own-entry", at);
+                    if (_progressGeneration != rejectedGeneration || _identity is not null) return;
                     ProgressStatus = "Netzwerkformat nicht unterstützt. Gespeicherter Fortschritt bleibt erhalten.";
                     SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+                }
+                return;
+            }
+            if (opcode == 0x6100)
+            {
+                // No pre-Own buffering and no exploration/source counters: this only refines location.
+                if (_identity is not null && _identityStream == stream)
+                {
+                    if (DungeonProgressMessage.TryParseState(message) is { } state)
+                        WorldContext.ObserveDungeon(state, _progressGeneration, at);
+                    else WorldContext.RejectDungeonRefinement(_progressGeneration, at);
                 }
                 return;
             }
@@ -1433,7 +1455,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     private bool OwnBindingMatches(string stream, OwnCharacterIdentity identity, NetworkProgressContext context, long captureGeneration) =>
         _generation == captureGeneration && _progressGeneration == context.Generation && _identity == identity && _identityStream == stream;
 
-    internal void ObserveIdentity(string stream, OwnCharacterIdentity identity, DateTimeOffset at)
+    internal void ObserveIdentity(string stream, OwnCharacterIdentity identity, DateTimeOffset at, int? mapDataId = null)
     {
         lock (_gate)
         {
@@ -1455,6 +1477,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             var sourceRevisions = _sourceRevisions.ToArray();
             var context = new NetworkProgressContext(identity, ownGeneration, 0, at);
             exploration?.BindNetworkContext(context);
+            if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
+            WorldContext.ObserveOwn(mapDataId, ownGeneration, at);
             if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
             _identityBindings++;
             SafeEvent.Raise(OwnCharacterChanged, "Eigener Charakter");
@@ -1500,6 +1524,10 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             QuestBaselineAt = TeleportBaselineAt = null;
             ProgressStatus = "Warte auf die eigene Charaktererkennung.";
             var resetGeneration = _progressGeneration;
+            var worldStatus = reason is "world-entry-candidate" or "world-entry-preparation" or "world-entry"
+                ? WorldContextStatus.Transitioning : WorldContextStatus.Stale;
+            WorldContext.Invalidate(worldStatus, resetGeneration, DiagnosticResetReason(reason), at);
+            if (_progressGeneration != resetGeneration) return;
             if (reason is "manual" or "capture-closed" or "capture-stopped")
             {
                 _merchantStreams.Clear();

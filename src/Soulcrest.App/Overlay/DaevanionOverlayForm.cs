@@ -75,7 +75,8 @@ public sealed class DaevanionOverlayForm : Form
                 // A tooltip at an outer node must not resize the live layered window.
                 var area = SurfaceBounds(snapshot);
                 if (area.Width <= 0 || area.Height <= 0) { Hide(); _shown = null; return; }
-                using var image = _renderer.Render(area.Size, snapshot.Board, snapshot.Detection.Nodes, snapshot.Language, area.Location);
+                using var image = _renderer.Render(area.Size, snapshot.Board, snapshot.Detection.Nodes, snapshot.Language, area.Location,
+                    snapshot.Detection.Spacing);
                 // A newer equivalent source can reuse these exact pixels without blanking.
                 var current = CurrentForPresentation();
                 if (current is null) { Hide(); _shown = null; return; }
@@ -136,7 +137,8 @@ public sealed class DaevanionOverlayForm : Form
             || !double.IsFinite(geometry.Spacing) || geometry.Spacing <= 0
             || !double.IsFinite(geometry.NodeSize) || geometry.NodeSize <= 0) return Rectangle.Empty;
         var half = geometry.NodeSize / 2;
-        var padding = Math.Max(2, Math.Ceiling(geometry.NodeSize * .04));
+        // Keep the complete fitting/footer inside one stable window, including outermost nodes.
+        var padding = Math.Max(2, Math.Ceiling(geometry.NodeSize * .20));
         var bounds = Rectangle.FromLTRB(
             (int)Math.Floor(geometry.Origin.X + (cells.Min(n => n.Column) - 1) * geometry.Spacing - half - padding),
             (int)Math.Floor(geometry.Origin.Y + (cells.Min(n => n.Row) - 1) * geometry.Spacing - half - padding),

@@ -162,6 +162,7 @@ public sealed class MapMonsterNavigationTests
             Provider = services.BuildServiceProvider();
             Settings.Update(settings =>
             {
+                settings.LootTrackingEnabled = false; // Synthetic image navigation has no live network source.
                 settings.UiLanguage = settings.NameLanguage = UiText.Language = "de";
                 settings.LastMap = "altgard";
                 settings.FollowPlayer = false;

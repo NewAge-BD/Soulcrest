@@ -96,3 +96,14 @@
 .boss-timer-duration > .boss-field { flex-direction: column; align-items: stretch; gap: 6px; font-size: 10px; }
 .boss-timer-duration input[type=number], .boss-timer-duration select { box-sizing: border-box; width: 100%; min-width: 0; margin: 0; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 11px; }
 @media (max-width: 650px) { .boss-timer-duration { grid-template-columns: minmax(0, 1fr); } }
+
+/* Multiple independent advance warnings, shared by boss, calendar and custom timers. */
+.advance-warning-picker { min-width: 0; }
+.advance-warning-picker .event-quick-reminders { flex-wrap: wrap; }
+.advance-warning-values { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.advance-warning-values button { padding: 5px 9px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 16px; font: inherit; font-size: 11px; }
+.advance-warning-values button span { margin-left: 5px; color: var(--muted); }
+.advance-warning-custom { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.advance-warning-input { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 8px; }
+.advance-warning-input label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; }
+.advance-warning-input input { box-sizing: border-box; width: 110px; padding: 7px 8px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font: inherit; }

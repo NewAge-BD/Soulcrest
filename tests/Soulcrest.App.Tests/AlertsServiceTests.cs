@@ -121,7 +121,7 @@ public sealed class AlertsServiceTests : IDisposable
     }
 
     [Fact]
-    public void NewlySavedOrEnabledRuleDoesNotReplayAnEarlierBoundary()
+    public void NewlySavedRuleCatchesUpItsFutureOccurrenceButNeverReplaysAPastStart()
     {
         using var service = Create();
         var count = 0;
@@ -129,12 +129,12 @@ public sealed class AlertsServiceTests : IDisposable
         _time.Advance(TimeSpan.FromSeconds(2)); // The 18:55 lead was before this rule existed.
         Assert.True(service.Save(Rule()));
         service.Tick();
-        Assert.Equal(0, count);
+        Assert.Equal(1, count); // One catch-up for the next future occurrence.
         service.SetEnabled("fixture", false);
         _time.Advance(TimeSpan.FromMinutes(5)); // The 19:00 start was while disabled.
         service.SetEnabled("fixture", true);
         service.Tick();
-        Assert.Equal(0, count);
+        Assert.Equal(1, count); // The event start happened while paused and remains skipped.
     }
 
     [Fact]
@@ -1050,6 +1050,188 @@ public sealed class AlertsServiceTests : IDisposable
         _time.Set(_time.GetUtcNow().AddSeconds(-1));
         Assert.Empty(service.NotificationRows);
         Assert.Empty(service.Active);
+    }
+
+    [Fact]
+    public void MultipleCalendarStagesCoalesceAndPersistAcrossRestart()
+    {
+        var at = _time.GetUtcNow().AddMinutes(20);
+        using (var service = Create())
+        {
+            List<AlertNotice> notices = [];
+            service.NoticeRaised += notices.Add;
+            Assert.True(service.Save(Rule() with { Schedule = new() { Kind = AlertScheduleKind.Once, At = at },
+                LeadMinutesList = [15, 10, 5, 2, 10], NotifyAtStart = true }));
+            _time.Advance(TimeSpan.FromMinutes(11));
+            service.Tick();
+            Assert.EndsWith(":10", Assert.Single(notices).Key);
+            service.Tick();
+            Assert.Single(notices);
+            Assert.Single(service.Active);
+        }
+        using var restarted = Create();
+        List<AlertNotice> resumed = [];
+        restarted.NoticeRaised += resumed.Add;
+        restarted.Tick();
+        Assert.Empty(resumed);
+        _time.Advance(TimeSpan.FromMinutes(4));
+        restarted.Tick();
+        Assert.EndsWith(":5", Assert.Single(resumed).Key);
+        _time.Advance(TimeSpan.FromMinutes(3));
+        restarted.Tick();
+        Assert.EndsWith(":2", resumed[^1].Key);
+        Assert.Single(restarted.Active);
+        _time.Advance(TimeSpan.FromMinutes(2));
+        restarted.Tick();
+        Assert.EndsWith(":0", resumed[^1].Key);
+        Assert.Equal(3, resumed.Count);
+    }
+
+    [Fact]
+    public void CalendarReenableCatchesUpOnlyNextFutureOccurrenceAndKeepsExplicitEmpty()
+    {
+        using var service = Create();
+        List<AlertNotice> notices = [];
+        service.NoticeRaised += notices.Add;
+        Assert.True(service.Save(Rule() with { Enabled = false, LeadMinutesList = [15, 10, 2] }));
+        _time.Advance(TimeSpan.FromMinutes(1));
+        service.SetEnabled("fixture", true);
+        service.Tick();
+        Assert.EndsWith(":10", Assert.Single(notices).Key);
+        service.SetEnabled("fixture", false);
+        service.SetEnabled("fixture", true);
+        service.Tick();
+        Assert.Single(notices);
+        Assert.True(service.Save(Rule() with { LeadMinutesList = [], NotifyAtStart = false }));
+        _time.Advance(TimeSpan.FromDays(2));
+        service.Tick();
+        Assert.Single(notices);
+        Assert.Empty(service.Items.Single().WarningMinutes);
+    }
+
+    [Fact]
+    public void CalendarListSnapshotsAreIndependentAndInvalidOffsetsAreRejected()
+    {
+        using var service = Create();
+        var values = new[] { 10, 5, 10 };
+        Assert.True(service.Save(Rule() with { LeadMinutesList = values }));
+        values[0] = 1;
+        var snapshot = Assert.Single(service.Items);
+        Assert.Equal(new[] { 10, 5 }, snapshot.WarningMinutes);
+        snapshot.LeadMinutesList![0] = 1;
+        Assert.Equal(new[] { 10, 5 }, Assert.Single(service.Items).WarningMinutes);
+        var before = File.ReadAllBytes(StorePath);
+        Assert.False(service.Save(Rule() with { LeadMinutesList = [10081] }));
+        Assert.Equal(before, File.ReadAllBytes(StorePath));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BossStagesDeliverSeparateSoundsButOnlyOneBannerAndPreserveWindow(bool held)
+    {
+        await using var fixture = new BossFixture(_folder, _time);
+        fixture.Settings.Current.BossAlertUntilSpawn = held;
+        fixture.Settings.Current.BossReminderOverrides = new() { ["1110:111001"] = new() { LeadSecondsList = [900, 600, 300, 120] } };
+        using var service = new AlertsService(StorePath, _time, bosses: fixture.Bosses, settings: fixture.Settings);
+        Assert.True(service.SetBossPresentation("1110:111001", new() { PlaySound = true }));
+        List<AlertNotice> notices = [];
+        service.NoticeRaised += notices.Add;
+        fixture.Upcoming(900);
+        var originalEnd = Assert.Single(service.NotificationRows).Expires;
+        _time.Advance(TimeSpan.FromMinutes(5));
+        fixture.Upcoming(600);
+        Assert.Equal(2, notices.Count);
+        Assert.All(notices, notice => Assert.True(notice.PlaySound));
+        Assert.EndsWith(":600", notices[^1].Key);
+        Assert.Single(service.NotificationRows);
+        if (held) Assert.Equal(originalEnd, Assert.Single(service.NotificationRows).Expires);
+        _time.Advance(TimeSpan.FromMinutes(6));
+        fixture.Upcoming(240);
+        Assert.Equal(3, notices.Count);
+        Assert.EndsWith(":300", notices[^1].Key);
+        Assert.Single(service.NotificationRows);
+        if (held) Assert.Equal(originalEnd, Assert.Single(service.NotificationRows).Expires);
+        _time.Advance(TimeSpan.FromMinutes(4));
+        service.Tick();
+        Assert.Empty(service.NotificationRows);
+        Assert.DoesNotContain(notices, notice => notice.Key.EndsWith(":spawn", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task BossStageReceiptAfterRestartAllowsOnlyFutureStages()
+    {
+        var at = _time.GetUtcNow().AddMinutes(15);
+        await using (var bosses = new BossFixture(_folder, _time))
+        using (var service = new AlertsService(StorePath, _time, bosses: bosses.Bosses, settings: bosses.Settings))
+        {
+            bosses.Settings.Current.BossReminderOverrides = new() { ["1110:111001"] = new() { LeadSecondsList = [900, 600, 300] } };
+            bosses.Upcoming(900);
+            Assert.Single(service.Active);
+        }
+        _time.Advance(TimeSpan.FromMinutes(1));
+        await using var restartedBosses = new BossFixture(_folder, _time);
+        restartedBosses.Settings.Current.BossReminderOverrides = new() { ["1110:111001"] = new() { LeadSecondsList = [900, 600, 300] } };
+        using var restarted = new AlertsService(StorePath, _time, bosses: restartedBosses.Bosses, settings: restartedBosses.Settings);
+        List<AlertNotice> notices = [];
+        restarted.NoticeRaised += notices.Add;
+        restartedBosses.Upcoming((int)(at - _time.GetUtcNow()).TotalSeconds);
+        Assert.Empty(notices);
+        _time.Advance(TimeSpan.FromMinutes(4));
+        restartedBosses.Upcoming(600);
+        Assert.EndsWith(":600", Assert.Single(notices).Key);
+    }
+
+    [Fact]
+    public async Task LegacyBossReceiptSuppressesCatchupButAllowsTheNextSmallerStage()
+    {
+        await using (var first = new BossFixture(_folder, _time))
+        using (var service = new AlertsService(StorePath, _time, bosses: first.Bosses, settings: first.Settings))
+        {
+            first.Settings.Current.BossReminderOverrides = new() { ["1110:111001"] = new() { LeadSeconds = 900 } };
+            first.Upcoming(900);
+            Assert.Single(service.Active);
+        }
+        File.WriteAllText(StorePath, File.ReadAllText(StorePath).Replace(":lead:900", ":lead", StringComparison.Ordinal));
+        _time.Advance(TimeSpan.FromMinutes(6));
+        await using var bosses = new BossFixture(_folder, _time);
+        bosses.Settings.Current.BossReminderOverrides = new() { ["1110:111001"] = new() { LeadSecondsList = [900, 600, 300] } };
+        using var restarted = new AlertsService(StorePath, _time, bosses: bosses.Bosses, settings: bosses.Settings);
+        List<AlertNotice> delivered = [];
+        restarted.NoticeRaised += delivered.Add;
+        bosses.Upcoming(540);
+        Assert.Empty(delivered);
+        _time.Advance(TimeSpan.FromMinutes(4));
+        bosses.Upcoming(300);
+        Assert.EndsWith(":300", Assert.Single(delivered).Key);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MultipleWarningsRespectBerlinAutumnClockChange(bool hourly)
+    {
+        _time.Set(DateTimeOffset.Parse("2026-10-25T00:14:59Z", global::System.Globalization.CultureInfo.InvariantCulture));
+        using var service = Create();
+        List<AlertNotice> delivered = [];
+        service.NoticeRaised += delivered.Add;
+        Assert.True(service.Save(Rule() with { LeadMinutesList = [15, 5], Schedule = new()
+        { Kind = hourly ? AlertScheduleKind.Hourly : AlertScheduleKind.Daily, Minute = 30, Times = [new TimeOnly(2, 30)] } }));
+        _time.Advance(TimeSpan.FromSeconds(1));
+        service.Tick();
+        _time.Advance(TimeSpan.FromMinutes(10));
+        service.Tick();
+        _time.Advance(TimeSpan.FromMinutes(5));
+        service.Tick();
+        Assert.Equal(3, delivered.Count);
+        _time.Advance(TimeSpan.FromMinutes(45));
+        service.Tick();
+        _time.Advance(TimeSpan.FromMinutes(10));
+        service.Tick();
+        _time.Advance(TimeSpan.FromMinutes(5));
+        service.Tick();
+        Assert.Equal(hourly ? 6 : 3, delivered.Count);
+        Assert.Equal(delivered.Count, delivered.Select(notice => notice.Key).Distinct().Count());
     }
 
     private sealed class ManualTime : TimeProvider

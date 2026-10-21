@@ -11,5 +11,6 @@
     <EmbeddedResource Include="..\..\data\pets\merchant-items.json" LogicalName="Soulcrest.MerchantPetItems.json" />
     <EmbeddedResource Include="..\..\data\pets\merchant-farm-regions.json" LogicalName="Soulcrest.PetFarmRegions.json" />
     <EmbeddedResource Include="..\..\data\daevanion\catalog.json" LogicalName="Soulcrest.DaevanionCatalog.json" />
+    <EmbeddedResource Include="..\..\data\instances\catalog.json" LogicalName="Soulcrest.InstanceCatalog.json" Condition="Exists('..\..\data\instances\catalog.json')" />
   </ItemGroup>
 </Project>

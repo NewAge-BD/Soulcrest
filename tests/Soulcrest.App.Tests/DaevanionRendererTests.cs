@@ -52,16 +52,19 @@ public sealed class DaevanionRendererTests
     [Theory]
     [InlineData("ariel")]
     [InlineData("azphel")]
-    public void DoubleValuesPaintTwoSeparateReadableRows(string family)
+    public void DoubleValuesAndTheirLabelsPaintInSeparateColumns(string family)
     {
         var board = DaevanionCatalog.Default.GetBoard("Cleric", family)!;
         var node = board.Nodes.First(n => n.Effects.Count == 2);
         using var renderer = new DaevanionOverlayRenderer();
-        using var image = renderer.Render(new(110, 110), board, [new(node.Row, node.Column, new(10, 10, 90, 90), 1)], "en");
-        bool HasText(int top, int bottom) => Enumerable.Range(top, bottom - top).Any(y => Enumerable.Range(25, 58).Any(x =>
-        { var pixel = image.GetPixel(x, y); return pixel.R > 170 && pixel.G > 150; }));
-        Assert.True(HasText(26, 54));
-        Assert.True(HasText(56, 84));
+        using var image = renderer.Render(new(140, 140), board,
+            [new(node.Row, node.Column, new(20, 20, 90, 90), 1)], "en", spacing: 114);
+        bool HasText(Rectangle area) => Enumerable.Range(area.Top, area.Height).Any(y => Enumerable.Range(area.Left, area.Width).Any(x =>
+        { var pixel = image.GetPixel(x, y); return pixel.R > 200 && pixel.G > 190 && pixel.B > 130; }));
+        Assert.True(HasText(new(40, 60, 23, 25)));
+        Assert.True(HasText(new(67, 60, 24, 25)));
+        Assert.True(HasText(new(25, 111, 38, 12)));
+        Assert.True(HasText(new(67, 111, 39, 12)));
     }
 
     [Fact]
@@ -91,8 +94,10 @@ public sealed class DaevanionRendererTests
                 [new(node.Row, node.Column, new(10, 10, nodeSize, nodeSize), 1)], "en");
             var center = 10 + nodeSize / 2d;
             Assert.True(image.GetPixel((int)center, (int)center).A > 0);
-            for (var y = 0; y < image.Height; y++)
-            for (var x = 0; x < image.Width; x++)
+            // The chosen exterior fitting is allowed outside the native frame. Its
+            // circular activation ring and corners inside that frame remain untouched.
+            for (var y = 10; y < nodeSize + 10; y++)
+            for (var x = 10; x < nodeSize + 10; x++)
             {
                 var distance = Math.Sqrt(Math.Pow(x + .5 - center, 2) + Math.Pow(y + .5 - center, 2));
                 // The original activation ring reaches radius .39-.41; keep a clear margin to it.
@@ -175,7 +180,7 @@ public sealed class DaevanionRendererTests
             previous = current;
             if (phase != "peak") continue;
             using var image = new Bitmap(path);
-            using (var graphics = Graphics.FromImage(image)) renderer.Paint(graphics, board, current.Detection.Nodes, "en");
+            using (var graphics = Graphics.FromImage(image)) renderer.Paint(graphics, board, current.Detection.Nodes, "en", spacing: current.Detection.Spacing);
             Export(image, "daevanion-animation.png");
         }
         Assert.NotNull(previous);
@@ -197,7 +202,7 @@ public sealed class DaevanionRendererTests
         Assert.Equal(88, detection.Nodes.Count);
         using var image = new Bitmap(input);
         using var renderer = new DaevanionOverlayRenderer();
-        using (var graphics = Graphics.FromImage(image)) renderer.Paint(graphics, catalog.GetBoard("Cleric", detection.Family)!, detection.Nodes, "en");
+        using (var graphics = Graphics.FromImage(image)) renderer.Paint(graphics, catalog.GetBoard("Cleric", detection.Family)!, detection.Nodes, "en", spacing: detection.Spacing);
         // Keep the supplied board and its tabs, excluding account balances and unrelated panels.
         var first = detection.Nodes.Min(n => n.Bounds.X);
         var last = detection.Nodes.Max(n => n.Bounds.Right);

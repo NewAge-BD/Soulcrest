@@ -13,6 +13,9 @@ public sealed record EventAlert
     public AlertSchedule Schedule { get; init; } = new();
     public bool Enabled { get; init; } = true;
     public int LeadMinutes { get; init; } = 5;
+    public int[]? LeadMinutesList { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int[] WarningMinutes => AdvanceWarnings.Resolve(LeadMinutesList, LeadMinutes, 10080);
     public bool NotifyAtStart { get; init; } = true;
     public int DurationSeconds { get; init; } = 10;
     public bool ShowOverlay { get; init; } = true;
@@ -497,27 +500,45 @@ public sealed class AlertsService : IDisposable
             foreach (var alert in _items.Where(item => item.Enabled))
             {
                 var alertFrom = _activatedAt.TryGetValue(alert.Id, out var activated) && activated > from ? activated : from;
-                var leads = new HashSet<int>();
-                if (alert.LeadMinutes > 0) leads.Add(alert.LeadMinutes);
-                if (alert.NotifyAtStart) leads.Add(0);
+                var warnings = alert.WarningMinutes;
+                var leads = alert.NotifyAtStart ? warnings.Append(0) : warnings.AsEnumerable();
+                var due = new Dictionary<DateTimeOffset, HashSet<int>>();
+                void AddDue(DateTimeOffset at, int lead)
+                {
+                    if (!due.TryGetValue(at, out var offsets)) due[at] = offsets = [];
+                    offsets.Add(lead);
+                }
                 foreach (var lead in leads)
                 {
                     var occurrence = AlertSchedules.Next(alert.Schedule, SafeAdd(alertFrom, TimeSpan.FromMinutes(lead)));
                     for (var count = 0; occurrence is { } at && at <= SafeAdd(now, TimeSpan.FromMinutes(lead)) && count < NoticeLimit; count++)
                     {
-                        var key = $"event:{alert.Id}:{at.UtcTicks}:{lead}";
-                        if (keys.Add(key))
-                        {
-                            receipts.Add(new(key, now));
-                            generated.Add((new(key, alert.Title, alert.Message, alert.Color, now,
-                                SafeAdd(now, TimeSpan.FromSeconds(alert.DurationSeconds)), at,
-                                alert.PlaySound, alert.Sound, alert.ShowOverlay &&
-                                (alert.Id.StartsWith(EventCatalog.ReminderPrefix, StringComparison.Ordinal) ||
-                                    alert.AlwaysShowOverlay || at - now <= TimeSpan.FromMinutes(alert.OverlayLeadMinutes)),
-                                SoundFile: alert.SoundFile), "event:" + alert.Id, null));
-                        }
+                        if (lead == 0 || at > now) AddDue(at, lead);
                         occurrence = AlertSchedules.Next(alert.Schedule, at);
                     }
+                }
+                // Catch up only the next future occurrence, never a backlog of offline events.
+                if (AlertSchedules.Next(alert.Schedule, now) is { } next)
+                    foreach (var lead in warnings.Where(lead => next - now <= TimeSpan.FromMinutes(lead))) AddDue(next, lead);
+                foreach (var (at, offsets) in due.OrderBy(pair => pair.Key))
+                {
+                    if (at > now)
+                        offsets.UnionWith(warnings.Where(lead => at - now <= TimeSpan.FromMinutes(lead)));
+                    var latest = offsets.Min();
+                    var key = $"event:{alert.Id}:{at.UtcTicks}:{latest}";
+                    var deliver = !keys.Contains(key);
+                    foreach (var lead in offsets)
+                    {
+                        var consumed = $"event:{alert.Id}:{at.UtcTicks}:{lead}";
+                        if (keys.Add(consumed)) receipts.Add(new(consumed, now));
+                    }
+                    if (deliver)
+                        generated.Add((new(key, alert.Title, alert.Message, alert.Color, now,
+                            SafeAdd(now, TimeSpan.FromSeconds(alert.DurationSeconds)), at,
+                            alert.PlaySound, alert.Sound, alert.ShowOverlay &&
+                            (alert.Id.StartsWith(EventCatalog.ReminderPrefix, StringComparison.Ordinal) ||
+                                alert.AlwaysShowOverlay || at - now <= TimeSpan.FromMinutes(alert.OverlayLeadMinutes)),
+                            SoundFile: alert.SoundFile), "event:" + alert.Id, null));
                 }
             }
             if (_bosses is not null && _settings?.Current.BossAlertsEnabled == true)
@@ -543,9 +564,27 @@ public sealed class AlertsService : IDisposable
                     if (source.UntilSpawn && _active.Any(row => row.UntilSpawnSourceId == source.Id)) continue;
                     // Match the existing BossAlertPolicy identity across process restarts. The
                     // local notice id and delivery time change when a fresh list is received.
-                    var key = $"boss:{bossKey}:{cycle}:{(source.Spawned ? "spawn" : "lead")}";
-                    if (!keys.Add(key)) continue;
-                    receipts.Add(new(key, now));
+                    var prefix = $"boss:{bossKey}:{cycle}:";
+                    var key = prefix + (source.Spawned ? "spawn" : $"lead:{source.LeadSeconds}");
+                    var deliver = !keys.Contains(key);
+                    if (!source.Spawned)
+                    {
+                        // Legacy receipts had no stage: consume the currently crossed stages once,
+                        // while allowing later, smaller offsets in the same cycle.
+                        var migrationKey = prefix + "legacy-migrated";
+                        if (keys.Contains(prefix + "lead") && keys.Add(migrationKey))
+                        {
+                            receipts.Add(new(migrationKey, now));
+                            deliver = false;
+                        }
+                        foreach (var lead in _bosses.GetReminder(bossKey).WarningSeconds.Where(lead => lead >= source.LeadSeconds))
+                        {
+                            var consumed = prefix + $"lead:{lead}";
+                            if (keys.Add(consumed)) receipts.Add(new(consumed, now));
+                        }
+                    }
+                    if (keys.Add(key)) receipts.Add(new(key, now));
+                    if (!deliver) continue;
                     // The source already passed the full-list/clock or verified-calendar policy.
                     // Map changes and later gaps do not revoke a notification that was validly created.
                     if (!(_settings.Current.BossAlertIds ?? []).Contains(bossKey, StringComparer.Ordinal)) continue;
@@ -671,6 +710,7 @@ public sealed class AlertsService : IDisposable
         ? _settings.Current.OverlayLanguage : _settings?.Current.NameLanguage ?? "en");
     private static EventAlert Clone(EventAlert alert) => alert with
     {
+        LeadMinutesList = alert.LeadMinutesList is null ? null : alert.WarningMinutes,
         Schedule = (alert.Schedule ?? new AlertSchedule()) with
         { Times = alert.Schedule?.Times?.ToArray() ?? [], Weekdays = alert.Schedule?.Weekdays?.ToArray() ?? [] },
         Title = alert.Title ?? "", Message = alert.Message ?? "", SourceLabel = alert.SourceLabel ?? "", SourceUrl = alert.SourceUrl ?? "",
@@ -712,7 +752,7 @@ public sealed class AlertsService : IDisposable
         if (alert.Message is null || alert.Message.Length > 500) return "message";
         if (AlertSchedules.Error(alert.Schedule) is { } error) return error;
         if (alert.Enabled && alert.NeedsConfirmation && !alert.ScheduleConfirmed) return "confirmation";
-        if (alert.LeadMinutes is < 0 or > 10080 || alert.OverlayLeadMinutes is < 0 or > 10080) return "lead";
+        if (alert.LeadMinutes is < 0 or > 10080 || !AdvanceWarnings.Valid(alert.LeadMinutesList, 10080) || alert.OverlayLeadMinutes is < 0 or > 10080) return "lead";
         if (alert.DurationSeconds is < 3 or > 60) return "duration";
         if (alert.Sound is null || !Sounds.Contains(alert.Sound)) return "sound";
         if (!ValidSoundChoice(alert.Sound, alert.SoundFile)) return "sound-file";

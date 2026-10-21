@@ -190,11 +190,20 @@ public sealed class MapTargetsService : IDisposable
 
     public void SetProgression(MapTarget? target)
     {
-        if (target == Progression)
-            return;
-        Progression = target;
-        Changed?.Invoke();
+        if (SetProgressionWithoutNotification(target)) NotifyChanged();
     }
+
+    internal bool SetProgressionWithoutNotification(MapTarget? target)
+    {
+        lock (_gate)
+        {
+            if (target == Progression) return false;
+            Progression = target;
+            return true;
+        }
+    }
+
+    internal void NotifyChanged() => Changed?.Invoke();
 
     public IReadOnlyList<MapTarget> Targets
     {
@@ -331,14 +340,19 @@ public sealed class MapTargetsService : IDisposable
     /// </summary>
     public void Arrive(string id)
     {
+        if (ArriveWithoutNotification(id)) NotifyChanged();
+    }
+
+    internal bool ArriveWithoutNotification(string id)
+    {
         lock (_gate)
         {
             if (_targets.FirstOrDefault(t => t.Id == id && !t.Completed) is not { } target)
-                return;
+                return false;
             if (target.Leveling)
             {
                 // Later visits may share a coordinate; only the current stop advances this route.
-                if (_targets.FirstOrDefault(t => t.RouteId == target.RouteId && !t.Completed)?.Id != id) return;
+                if (_targets.FirstOrDefault(t => t.RouteId == target.RouteId && !t.Completed)?.Id != id) return false;
                 CompleteLevelingStop(target);
             }
             else RemoveFromChain(target);
@@ -351,7 +365,7 @@ public sealed class MapTargetsService : IDisposable
             }
             SaveTargets();
         }
-        Changed?.Invoke();
+        return true;
     }
 
     /// <summary>

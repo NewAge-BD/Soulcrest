@@ -10,6 +10,23 @@ namespace Soulcrest.App.Tests;
 public sealed class BossReminderTests
 {
     [Fact]
+    public async Task GlobalListsAndBossOverridesPersistAndSnapshotsNeverShareArrays()
+    {
+        await using var fixture = new Fixture();
+        fixture.Settings.Update(settings => settings.BossAlertLeadSecondsList = [900, 300, 900]);
+        Assert.Equal(new[] { 900, 300 }, fixture.Bosses.GetReminder("1110:111001").WarningSeconds);
+        Assert.True(fixture.Bosses.SetReminder("1110:111001", new() { LeadSecondsList = [147, 300, 147] }));
+        Assert.Equal(new[] { 300, 147 }, new SettingsService().Current.BossReminderOverrides["1110:111001"].WarningSeconds);
+        var snapshot = fixture.Bosses.GetReminder("1110:111001");
+        snapshot.LeadSecondsList![0] = 1;
+        Assert.Equal(new[] { 300, 147 }, fixture.Bosses.GetReminder("1110:111001").WarningSeconds);
+        Assert.Equal(new[] { 900, 300 }, fixture.Bosses.GetReminder("1110:111002").WarningSeconds);
+        Assert.True(fixture.Bosses.SetReminder("1110:111001", new() { LeadSecondsList = [] }));
+        Assert.Empty(new SettingsService().Current.BossReminderOverrides["1110:111001"].WarningSeconds);
+        Assert.False(fixture.Bosses.SetReminder("1110:111001", new() { LeadSecondsList = [3601] }));
+    }
+
+    [Fact]
     public async Task PerBossChoicePersistsWithoutChangingMasterSelectionOrGlobalLead()
     {
         await using var fixture = new Fixture();

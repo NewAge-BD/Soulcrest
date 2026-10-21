@@ -39,7 +39,11 @@ window.soulcrestMap = (() => {
     let player = null;
     let followPausedUntil = 0;
     let mapMotionActive = false;
-    let markerPopupTimeout = null, focusRevision = 0;
+    let markerPopupTimeout = null, focusRevision = 0, showRevision = 0;
+    const viewportCache = new Map(), viewportRequests = new Map(), viewportSent = new Map();
+    let viewportBinding = null, viewportRestoring = false, pendingViewport = null;
+    let viewportDebounceTimer = null, viewportBatchTimer = null;
+    const VIEWPORT_DEBOUNCE_MS = 800, VIEWPORT_BATCH_MS = 5000;
     let petLabels = {};          // petId -> "St. 1 · 6/25"
     let targets = [];            // marked targets [{id, map, x, y, name, color}]
     let targetLayer = null;
@@ -57,6 +61,7 @@ window.soulcrestMap = (() => {
     let progressionCandidates = null;
     // Geometry only: immutable map payload -> densest pet-symbol indexes, shared across soul/settings updates.
     const progressionDensityAreas = new WeakMap();
+    let navigationContext = { generation: null, allowed: true };
     let progressionTarget = null;   // {petId, x, y, name}
 
     // Icons grow when zooming in (user request 2026-10-03): ×1.3 per zoom level above the overview,
@@ -102,6 +107,62 @@ window.soulcrestMap = (() => {
         return GROUP_COLORS[cat.group] || '#e5e7eb';
     }
 
+    const validViewportRevision = revision => Number.isSafeInteger(revision) && revision >= 0;
+    const validViewport = view => view && Number.isFinite(view.x) && Number.isFinite(view.y) && Number.isFinite(view.zoom);
+    const validKeepAt = point => point && Number.isFinite(point.x) && Number.isFinite(point.y);
+    const copyViewport = view => ({ x: view.x, y: view.y, zoom: view.zoom });
+
+    function readViewport() {
+        if (!current || !map || typeof map.getCenter !== 'function' || typeof map.getZoom !== 'function') return null;
+        try {
+            const center = map.getCenter(), zoom = map.getZoom();
+            if (!center || !Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return null;
+            const [x, y] = fromLatLng(center);
+            const view = { x, y, zoom };
+            return validViewport(view) ? view : null;
+        } catch { return null; } // Leaflet has no center before its first setView.
+    }
+
+    function clearViewportTimers() {
+        if (viewportDebounceTimer !== null) clearTimeout(viewportDebounceTimer);
+        if (viewportBatchTimer !== null) clearTimeout(viewportBatchTimer);
+        viewportDebounceTimer = viewportBatchTimer = null;
+    }
+
+    function sendViewport(item) {
+        if (!item || !validViewport(item) || !validViewportRevision(item.revision)
+            || viewportRequests.get(item.mapId) !== item.revision || typeof dotnet?.invokeMethodAsync !== 'function') return;
+        const signature = JSON.stringify([item.revision, item.x, item.y, item.zoom]);
+        if (viewportSent.get(item.mapId) === signature) return;
+        viewportSent.set(item.mapId, signature);
+        const failed = () => { if (viewportSent.get(item.mapId) === signature) viewportSent.delete(item.mapId); };
+        try {
+            Promise.resolve(dotnet.invokeMethodAsync('MapViewChanged', item.mapId, item.x, item.y, item.zoom, item.revision)).catch(failed);
+        } catch { failed(); } // Disposed callbacks or a failed save must never break map navigation.
+    }
+
+    function flushViewport() {
+        clearViewportTimers();
+        const item = pendingViewport;
+        pendingViewport = null;
+        if (item && viewportBinding === item.binding && current?.id === item.mapId && !viewportRestoring) sendViewport(item);
+    }
+
+    function rememberViewport(immediate = false) {
+        if (viewportRestoring || !viewportBinding || current?.id !== viewportBinding.mapId) return;
+        const view = readViewport();
+        if (!view) return;
+        viewportCache.set(current.id, copyViewport(view));
+        if (!validViewportRevision(viewportBinding.revision)) return;
+        pendingViewport = { ...view, mapId: current.id, revision: viewportBinding.revision, binding: viewportBinding };
+        if (immediate) { flushViewport(); return; }
+        if (viewportDebounceTimer !== null) clearTimeout(viewportDebounceTimer);
+        viewportDebounceTimer = setTimeout(flushViewport, VIEWPORT_DEBOUNCE_MS);
+        // Following can emit moveend repeatedly: batch its latest view rather than saving at 10 Hz
+        // or postponing the final position forever while the player keeps moving.
+        if (viewportBatchTimer === null) viewportBatchTimer = setTimeout(flushViewport, VIEWPORT_BATCH_MS);
+    }
+
     function init(elementId, manifestJson, baseUrl, dotnetRef) {
         manifest = JSON.parse(manifestJson);
         base = baseUrl;
@@ -116,6 +177,7 @@ window.soulcrestMap = (() => {
         map.on('moveend', () => { mapMotionActive = false; });
         map.on('zoomend moveend', drawTargets);
         map.on('moveend', () => { if (!player) updateProgression(); });
+        map.on('zoomend moveend', () => rememberViewport());
         map.on('contextmenu', () => { }); // a listener keeps the browser menu away
         // Target rings above the (enlarged) symbols; they never take clicks.
         map.createPane('targets');
@@ -125,13 +187,42 @@ window.soulcrestMap = (() => {
 
     // keepAt {x, y}: the tracking found the player on another map. The view keeps its scale in game
     // metres and centres on the player instead of showing the whole map (user request 2026-10-06).
-    async function show(mapId, language, keepAt = null) {
+    async function show(mapId, language, keepAt = null, viewOptions = null) {
+        const requestedRevision = validViewportRevision(viewOptions?.revision) ? viewOptions.revision : null;
+        if (requestedRevision !== null && (viewportRequests.get(mapId) ?? -1) > requestedRevision)
+            return JSON.stringify({ groups: [], regions: 0, markers: 0, cancelled: true });
+        if (requestedRevision !== null) viewportRequests.set(mapId, requestedRevision);
+        const revision = ++showRevision, sourceGeneration = navigationContext.generation;
+        rememberViewport(true);
         cancelMarkerPopup();
-        lang = language;
         const before = current && map ? { zoom: map.getZoom(), def: current.def } : null;
         const def = manifest.maps.find(m => m.id === mapId);
         if (!def) throw new Error(ui('Unbekannte Karte ', 'Unknown map ') + mapId);
         if (!window.SoulcrestMaps || !window.SoulcrestMaps[mapId]) await loadScript(`${base}${mapId}/data.js?v=${manifest.version || ''}`);
+        if (revision !== showRevision) return JSON.stringify({ groups: [], regions: 0, markers: 0, cancelled: true });
+        if (sourceGeneration !== navigationContext.generation || !navigationContext.allowed) keepAt = null;
+        viewportRestoring = revision;
+        if (typeof map.stop === 'function') map.stop();
+        if (revision !== showRevision) {
+            if (viewportRestoring === revision) viewportRestoring = false;
+            return JSON.stringify({ groups: [], regions: 0, markers: 0, cancelled: true });
+        }
+        // stop() may finish an old pan synchronously. Its final center still belongs to the old map.
+        const outgoingView = readViewport();
+        if (outgoingView && current) {
+            viewportCache.set(current.id, copyViewport(outgoingView));
+            if (viewportBinding?.mapId === current.id)
+                sendViewport({ ...outgoingView, mapId: current.id, revision: viewportBinding.revision });
+        }
+        if (revision !== showRevision) {
+            if (viewportRestoring === revision) viewportRestoring = false;
+            return JSON.stringify({ groups: [], regions: 0, markers: 0, cancelled: true });
+        }
+        const destinationView = viewportCache.get(mapId) ?? (validViewport(viewOptions?.savedView) ? copyViewport(viewOptions.savedView) : null);
+        clearViewportTimers();
+        pendingViewport = null;
+        viewportBinding = null;
+        lang = language;
         clearBossTimers();
         explorationPlaces = [];
         progressionCandidates = null;
@@ -164,11 +255,20 @@ window.soulcrestMap = (() => {
         const content = xs.length
             ? L.latLngBounds(toLatLng(Math.min(...xs), Math.max(...ys)), toLatLng(Math.max(...xs), Math.min(...ys)))
             : bounds;
-        map.fitBounds(content.pad(0.05));
-        fitZoom = map.getZoom();
-        if (keepAt && before) {
-            const zoom = Math.min(def.maxZoom, Math.max(def.minZoom, keptZoom(before.zoom, before.def, def)));
-            map.setView(toLatLng(keepAt.x, keepAt.y), zoom, { animate: false });
+        const overview = content.pad(0.05);
+        const overviewZoom = typeof map.getBoundsZoom === 'function' ? map.getBoundsZoom(overview) : null;
+        if ((validKeepAt(keepAt) || destinationView) && Number.isFinite(overviewZoom))
+            fitZoom = Math.min(def.maxZoom, Math.max(def.minZoom, overviewZoom));
+        else {
+            map.fitBounds(overview, { animate: false });
+            fitZoom = map.getZoom();
+        }
+        if (validKeepAt(keepAt) || destinationView) {
+            const desiredZoom = destinationView ? destinationView.zoom
+                : before ? keptZoom(before.zoom, before.def, def) : fitZoom;
+            const zoom = Math.min(def.maxZoom, Math.max(def.minZoom, desiredZoom));
+            const center = validKeepAt(keepAt) ? keepAt : destinationView;
+            map.setView(toLatLng(center.x, center.y), zoom, { animate: false });
         }
         player = null;
 
@@ -184,6 +284,9 @@ window.soulcrestMap = (() => {
         progressionTarget = null;
         updateProgression();
         drawTargets();
+        viewportBinding = { mapId, revision: requestedRevision };
+        viewportRestoring = false;
+        rememberViewport(); // Only the fully restored view is eligible for persistence.
 
         return JSON.stringify({
             groups: current.groups.map(g => ({
@@ -716,7 +819,19 @@ window.soulcrestMap = (() => {
 
     // Density first (when selected), then completion and distance to the best area. Places still compete
     // by distance to that actual target. Without a player, use the view centre. Report the chosen point to .NET.
+    function setNavigationContext(generation, allowed) {
+        if (generation !== null && (!Number.isSafeInteger(generation) || generation < 0)) return;
+        if (navigationContext.generation !== null && (generation === null || generation < navigationContext.generation)) return;
+        const changed = generation !== navigationContext.generation || !!allowed !== navigationContext.allowed;
+        navigationContext = { generation, allowed: !!allowed };
+        if (!changed) return;
+        progressionTarget = null;
+        if (player) player.getElement?.()?.classList.toggle('lost', true);
+        drawTargets();
+    }
+
     function updateProgression() {
+        if (!navigationContext.allowed) return;
         let next = null;
         if (progression.enabled && current) {
             const [ox, oy] = player ? fromLatLng(player.getLatLng()) : fromLatLng(map.getCenter());
@@ -739,7 +854,9 @@ window.soulcrestMap = (() => {
         progressionTarget = next;
         if (changed) {
             drawTargets();
-            dotnet.invokeMethodAsync('OnProgressionTarget', current ? current.id : '', next ? next.petId : null, next ? next.x : 0, next ? next.y : 0, next ? next.name : null);
+            const args = [current ? current.id : '', next ? next.petId : null, next ? next.x : 0, next ? next.y : 0, next ? next.name : null];
+            if (navigationContext.generation !== null) args.push(navigationContext.generation);
+            dotnet.invokeMethodAsync('OnProgressionTarget', ...args);
         }
     }
 
@@ -960,8 +1077,9 @@ window.soulcrestMap = (() => {
 
 
     // Player position from the in-game map (MapTrackingService). follow: keep the player in view.
-    function setPlayer(mapId, x, y, follow, found) {
-        if (!current) return;
+    function setPlayer(mapId, x, y, follow, found, contextGeneration = null) {
+        if (!current || navigationContext.generation !== contextGeneration) return;
+        if (found && !navigationContext.allowed) return;
         if (mapId !== current.id) { if (player) { map.removeLayer(player); player = null; drawTargets(); } return; }
         const ll = toLatLng(x, y);
         if (!player) {
@@ -1006,5 +1124,5 @@ window.soulcrestMap = (() => {
 
     const debugState = () => ({ center: map.getCenter(), zoom: map.getZoom(), focus: focusLayer ? focusLayer.getLayers().length : 0, map });
 
-    return { debugState, init, show, setBossTimers, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, focusMonster, flyToMarker, focusPet, toggleKibelisk, clearFocus, invalidate, keptZoom };
+    return { debugState, init, show, setNavigationContext, setBossTimers, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, focusMonster, flyToMarker, focusPet, toggleKibelisk, clearFocus, invalidate, keptZoom };
 })();

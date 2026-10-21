@@ -38,22 +38,30 @@ public static class OwnIdentityMessage
     }
 
     /// <summary>Invalidate live identity before any zone-entry snapshots, including same-map entries.</summary>
-    public static bool IsWorldEntryPreparation(ReadOnlySpan<byte> message)
+    public static bool IsWorldEntryPreparation(ReadOnlySpan<byte> message) => TryParsePreparation(message) is not null;
+
+    /// <summary>Map metadata is provisional until a complete Own; it never binds a character or location.</summary>
+    public static WorldEntryPreparation? TryParsePreparation(ReadOnlySpan<byte> message)
     {
-        if (!PetProgressMessage.HasOpcode(message, 0x3621)) return false;
+        if (!PetProgressMessage.HasOpcode(message, 0x3621)) return null;
         try
         {
             var r = new ProgressPacketReader(message[2..]);
-            r.Skip(4 + 4 + 8 + 12 + 4 + 1 + 1 + 8);
+            r.Skip(4); // Opaque preparation field.
+            var mapDataId = r.I32();
+            r.Skip(8 + 12 + 4 + 1 + 1 + 8);
             r.Skip(r.Count(13) * 13);
             r.Vi32(); r.SkipString(); r.U8();
             r.Exact();
-            return true;
+            return new(mapDataId > 0 ? mapDataId : null);
         }
-        catch (InvalidDataException) { return false; }
+        catch (InvalidDataException) { return null; }
     }
 
-    public static OwnCharacterIdentity? TryParse(ReadOnlySpan<byte> message)
+    public static OwnCharacterIdentity? TryParse(ReadOnlySpan<byte> message) => TryParseWorld(message)?.Identity;
+
+    /// <summary>Same complete Own contract, plus its own map definition. RawMapKey is never retained.</summary>
+    public static OwnWorldObservation? TryParseWorld(ReadOnlySpan<byte> message)
     {
         if (!PetProgressMessage.HasOpcode(message, 0x3633)) return null;
         try
@@ -71,7 +79,8 @@ public static class OwnIdentityMessage
             var equips = r.Count(21);
             for (var i = 0; i < equips; i++) Equip(ref r);
             SkipIf(ref r, flags, 2, 1); // appear reason
-            r.Skip(12); // Map context is not part of the own-character identity.
+            r.Skip(8); // Opaque map key: no unique instance/run meaning established.
+            var mapDataId = r.I32();
             SkipIf(ref r, flags, 4, 4);
             SkipIf(ref r, flags, 8, 4);
             SkipIf(ref r, flags, 16, 12);
@@ -118,7 +127,8 @@ public static class OwnIdentityMessage
             if ((flags & 536870912) != 0) r.Skip(r.Count(8) * 8);
             r.Exact();
             return entity > 0 && server > 0 && characterId > 0 && name.Length is >= 2 and <= 32
-                && name.All(char.IsLetterOrDigit) ? new(characterId, server, entity, name) { ClassId = classId } : null;
+                && name.All(char.IsLetterOrDigit)
+                ? new(new(characterId, server, entity, name) { ClassId = classId }, mapDataId > 0 ? mapDataId : null) : null;
         }
         catch (InvalidDataException) { return null; }
         catch (DecoderFallbackException) { return null; }

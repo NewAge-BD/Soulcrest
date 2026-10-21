@@ -265,6 +265,139 @@ public sealed class OverlaySuppressionTests : IDisposable
     });
 
     [Fact]
+    public Task InteractionTickDoesNotPollContextButMapEventsApplyVisibility() => RunSta(() =>
+    {
+        using var host = new MainForm();
+        _ = host.Handle; // Dispatch events without showing the host or starting capture.
+        var map = host.Services.GetRequiredService<MapTrackingService>();
+        var pet = Panel<PetOverlayForm>(host, "_overlay");
+        SeedSoulNotification(host, pet);
+        pet.Show();
+        Field(map, "<Running>k__BackingField").SetValue(map, true);
+        Field(map, "<Found>k__BackingField").SetValue(map, true);
+        host.UpdateOverlayState();
+        Assert.True(pet.Visible);
+
+        // A timer tick only handles input/foreground. A map notification applies context rules.
+        Field(map, "<Found>k__BackingField").SetValue(map, false);
+        host.UpdateOverlayInteractionState();
+        Assert.True(pet.Visible);
+        map.UpdateEscMenuContext(true);
+        Application.DoEvents();
+        Assert.False(pet.Visible);
+    });
+
+    [Theory]
+    [InlineData(true, 600001)]
+    [InlineData(false, 600001)]
+    [InlineData(true, 111005)]
+    [InlineData(false, 111005)]
+    public Task NetworkInstanceUsesSavedInstanceChoiceWithoutObservedUiFlags(bool mapRunning, int mapDataId) => RunSta(() =>
+    {
+        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
+        using var host = new MainForm();
+        _ = host.Handle;
+        var map = host.Services.GetRequiredService<MapTrackingService>();
+        var world = host.Services.GetRequiredService<WorldContextService>();
+        var settings = host.Services.GetRequiredService<SettingsService>();
+        var pet = Panel<PetOverlayForm>(host, "_overlay");
+        var boss = Panel<BossOverlayForm>(host, "_bossOverlay");
+        var route = Panel<RouteOverlayForm>(host, "_routeOverlay");
+        SeedSoulNotification(host, pet);
+        settings.Current.LootTrackingEnabled = true; // No tracker start in this host test.
+        settings.Current.OverlayVisibility["loot"] = new(false, false, true, false);
+        settings.Current.OverlayVisibility["boss"] = new(false, false, false, false);
+        Field(map, "<Running>k__BackingField").SetValue(map, mapRunning);
+        Field(map, "<Found>k__BackingField").SetValue(map, false);
+        Field(map, "_worldMapOpen").SetValue(map, true);
+        Field(map, "_escMenuOpen").SetValue(map, true);
+        pet.Show(); boss.Show();
+
+        // World notification is authoritative immediately, before delayed map/UI work can finish.
+        world.ObserveOwn(mapDataId, 1, DateTimeOffset.UtcNow);
+        Application.DoEvents();
+        Assert.True(pet.Visible);
+        Assert.False(boss.Visible);
+        Assert.True((bool)Field(route, "_suppressed").GetValue(route)!);
+        Assert.True(map.NetworkSuspended);
+        settings.Update(s => s.OverlayVisibility["loot"] = s.OverlayVisibility["loot"] with { Instances = false });
+        Application.DoEvents();
+        Assert.False(pet.Visible); // Settings events apply without an interaction timer tick.
+        settings.Update(s => s.OverlayVisibility["loot"] = s.OverlayVisibility["loot"] with { Instances = true });
+        Application.DoEvents();
+        Assert.True(pet.Visible);
+
+        world.Invalidate(WorldContextStatus.Stale, 2, "synthetic-gap");
+        Application.DoEvents();
+        Assert.Null(map.NetworkInInstance);
+        Assert.True(pet.Visible);
+        Assert.True(boss.Visible); // Unknown is neither an observed missing minimap nor an instance.
+        Assert.True((bool)Field(route, "_suppressed").GetValue(route)!); // Geometry stays disabled.
+    });
+
+    [Fact]
+    public Task ReentrantWorldChangeFromVisibilityCallbackReappliesEveryHudWithoutTimerPolling() => RunSta(() =>
+    {
+        if (PrivateInstanceCatalog.Missing) return; // needs the private instance catalog
+        using var host = new MainForm();
+        _ = host.Handle;
+        var map = host.Services.GetRequiredService<MapTrackingService>();
+        var world = host.Services.GetRequiredService<WorldContextService>();
+        var settings = host.Services.GetRequiredService<SettingsService>();
+        var targets = host.Services.GetRequiredService<MapTargetsService>();
+        var pet = Panel<PetOverlayForm>(host, "_overlay");
+        var leveling = Panel<LevelingOverlayForm>(host, "_levelingOverlay");
+        var route = Panel<RouteOverlayForm>(host, "_routeOverlay");
+        SeedSoulNotification(host, pet);
+        targets.StartRoute("first");
+        settings.Current.LootTrackingEnabled = true;
+        settings.Current.OverlayVisibility["loot"] = new(false, false, true, false);
+        settings.Current.OverlayVisibility["leveling"] = new(false, false, true, false);
+        world.ObserveOwn(1110, 1, DateTimeOffset.UtcNow);
+        Application.DoEvents();
+        Field(map, "<Running>k__BackingField").SetValue(map, true);
+        Field(map, "<Found>k__BackingField").SetValue(map, true);
+        pet.Show();
+        _ = leveling.Handle;
+        Refresh(leveling, "RefreshPanel");
+        host.UpdateOverlayState();
+        Assert.True(pet.Visible);
+        Assert.True(leveling.Visible);
+
+        var switched = false;
+        pet.VisibleChanged += (_, _) =>
+        {
+            if (pet.Visible || switched) return;
+            switched = true;
+            world.ObserveOwn(600001, 2, DateTimeOffset.UtcNow);
+        };
+        Field(map, "_worldMapOpen").SetValue(map, true);
+        // Hiding the first HUD publishes a new context midway through this old world-map apply.
+        host.UpdateOverlayState();
+        Application.DoEvents();
+        Assert.True(switched);
+        Assert.Equal(600001, world.Snapshot.MapDataId);
+        Assert.True(pet.Visible);
+        Assert.True(leveling.Visible);
+        Assert.True((bool)Field(route, "_suppressed").GetValue(route)!);
+        Assert.Equal(new RouteProgress(0, 2), targets.GetRouteProgress("first"));
+    });
+
+    [Fact]
+    public Task HostReleasesAllContextSubscriptionsOnDispose() => RunSta(() =>
+    {
+        var host = new MainForm();
+        var settings = host.Services.GetRequiredService<SettingsService>();
+        var map = host.Services.GetRequiredService<MapTrackingService>();
+        var world = host.Services.GetRequiredService<WorldContextService>();
+        foreach (var publisher in new object[] { settings, map, world })
+            Assert.True(HostSubscriberCount(publisher, host) > 0);
+        host.Dispose();
+        foreach (var publisher in new object[] { settings, map, world })
+            Assert.Equal(0, HostSubscriberCount(publisher, host));
+    });
+
+    [Fact]
     public Task EscMenuHidesRestrictedHudAndMapWhileBossSpawnsRemainAllowed() => RunSta(() =>
     {
         using var host = new MainForm();
@@ -279,10 +412,21 @@ public sealed class OverlaySuppressionTests : IDisposable
         _ = leveling.Handle; Refresh(leveling, "RefreshPanel");
         Field(map, "<Running>k__BackingField").SetValue(map, true);
         Field(map, "<Found>k__BackingField").SetValue(map, true);
+        var oldGeneration = map.ContextGeneration;
+        var oldPosition = new PlayerPosition("altgard", 100, 200, DateTimeOffset.UtcNow) { ContextGeneration = oldGeneration };
+        Field(map, "<Position>k__BackingField").SetValue(map, oldPosition);
+        Field(map, "<DetectedMap>k__BackingField").SetValue(map,
+            new DetectedMapContext("altgard", false, oldPosition.At) { ContextGeneration = oldGeneration });
+        Assert.True(map.CanUsePlayerPosition);
         var saved = _originalFiles.Keys.ToDictionary(p => p, p => File.Exists(p) ? File.ReadAllBytes(p) : null);
         map.UpdateEscMenuContext(true);
         host.UpdateOverlayState();
-        Assert.True(map.Found); // reproduces user's ESC menu with a map recognized behind it
+        Assert.False(map.Found); // Opening ESC revokes even a previously recognized minimap.
+        Assert.True(map.ContextGeneration > oldGeneration);
+        Assert.Null(map.Placement);
+        Assert.Null(map.DetectedMap);
+        Assert.Same(oldPosition, map.Position); // Last-known grey marker only.
+        Assert.False(map.CanUsePlayerPosition);
         foreach (var panel in new Form[] { pet, leveling, routes })
         {
             Assert.False(panel.Visible);
@@ -295,6 +439,17 @@ public sealed class OverlaySuppressionTests : IDisposable
             Assert.False(((Form)Field(panel, "_lockButton").GetValue(panel)!).Visible);
         Assert.Null(typeof(RouteOverlayForm).GetMethod("Compose", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(routes, null));
         map.UpdateEscMenuContext(false);
+        host.UpdateOverlayState();
+        Assert.False(map.Found);
+        Assert.False(map.CanUsePlayerPosition);
+        Assert.False(pet.Visible); Assert.False(leveling.Visible); Assert.True(boss.Visible);
+        // Closing ESC alone cannot revive the old map. Simulate a new successful image match.
+        var freshPosition = new PlayerPosition("altgard", 100, 200, DateTimeOffset.UtcNow) { ContextGeneration = map.ContextGeneration };
+        Field(map, "<Position>k__BackingField").SetValue(map, freshPosition);
+        Field(map, "<DetectedMap>k__BackingField").SetValue(map,
+            new DetectedMapContext("altgard", false, freshPosition.At) { ContextGeneration = map.ContextGeneration });
+        Field(map, "<Found>k__BackingField").SetValue(map, true);
+        Assert.True(map.CanUsePlayerPosition);
         host.UpdateOverlayState();
         Assert.True(pet.Visible); Assert.True(leveling.Visible); Assert.True(boss.Visible);
         Assert.Equal(new RouteProgress(0, 2), targets.GetRouteProgress("first"));
@@ -438,6 +593,9 @@ public sealed class OverlaySuppressionTests : IDisposable
         (T)typeof(MainForm).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(host)!;
     private static FieldInfo Field(object panel, string name) => panel.GetType()
         .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
+    private static int HostSubscriberCount(object publisher, MainForm host) =>
+        ((MulticastDelegate?)Field(publisher, "Changed").GetValue(publisher))?.GetInvocationList()
+            .Count(callback => ReferenceEquals(callback.Target, host)) ?? 0;
     private static void Refresh(Form panel, string name) => panel.GetType()
         .GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, null);
 

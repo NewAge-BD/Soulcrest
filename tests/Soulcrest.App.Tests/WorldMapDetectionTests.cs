@@ -71,6 +71,7 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         Assert.NotNull(cropFix); // reproduces the misleading successful match in the minimap rectangle
 
         var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false; // This fixture exercises the offline visual fallback.
         settings.Current.LastMap = "verteron";
         settings.Current.MiniMapZoom = cropFix.Scale / reference.WorldPerPixel;
         var savedZoom = settings.Current.MiniMapZoom;
@@ -94,6 +95,7 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         var progress = new ProgressService();
         Assert.NotNull(progress.MapDataDirectory);
         var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false; // This fixture exercises the offline visual fallback.
         settings.Current.LastMap = "verteron";
         settings.Current.MiniMapZoom = null;
         using var capture = new GameCaptureService();

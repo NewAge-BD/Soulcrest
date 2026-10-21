@@ -101,7 +101,7 @@ public sealed class GlobalPetStatusViewTests
         f.Network.Stop();
         var html = await f.Render("pet");
         Assert.Contains("data-pet-counting=\"false\"", html);
-        Assert.Contains(UiText.T("Pet-Netzwerkquelle aus. Aktiviere das Loot-Tracking, um neue Souls zu erfassen."), html);
+        Assert.Contains(UiText.T("Pet-Netzwerkquelle aus. Aktiviere das Netzwerk-Tracking, um neue Souls zu erfassen."), html);
     }
 
     private static byte[] Gain() => [0x0D, 0x90, 1, .. BitConverter.GetBytes(1004), .. BitConverter.GetBytes(2)];

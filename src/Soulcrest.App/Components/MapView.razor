@@ -144,8 +144,8 @@
             <div class="tile-part">
             <div class="tile-head">
                 <span class="tile-title">Player-Tracker</span>
-                <span class="tile-state @(Tracking.Running ? (Tracking.Found ? "on" : Tracking.Paused ? "rest" : "warn") : "")" title="@UiText.T(Tracking.Status)">
-                    @(Tracking.Running ? (Tracking.Found ? $"● {MapLabelOf(Tracking.Position?.MapId ?? _mapId)} · {Tracking.Fps} fps" : Tracking.Paused ? UiText.T("◐ ruht (Instanz)") : UiText.T("● sucht …")) : UiText.T("○ aus"))
+                <span class="tile-state @(Tracking.Running ? (Tracking.NetworkSuspended || Tracking.Paused ? "rest" : Tracking.Found ? "on" : "warn") : "")" title="@UiText.T(Tracking.Status)">
+                    @(Tracking.Running ? (Tracking.NetworkSuspended || Tracking.Paused ? UiText.T("◐ ruht") : Tracking.Found ? $"● {MapLabelOf(Tracking.Position?.MapId ?? _mapId)} · {Tracking.Fps} fps" : UiText.T("● sucht …")) : UiText.T("○ aus"))
                 </span>
                 @if (Tracking.Running)
                 {
@@ -162,7 +162,7 @@
             }
             <div class="row">
                 <label class="check"><input type="checkbox" checked="@Settings.Current.FollowPlayer" @onchange="ToggleFollow" /> @UiText.T("Spieler verfolgen")</label>
-                <label class="check" title="@UiText.T("Ohne Weltkarte (Instanz) ruht das Tracking und prüft nur alle paar Sekunden; nach dem Ladebildschirm läuft es sofort wieder.")"><input type="checkbox" checked="@Settings.Current.PauseTrackingInInstances" @onchange="@(e => Settings.Update(s => s.PauseTrackingInInstances = (bool)e.Value!))" /> @UiText.T("In Instanzen ruhen")</label>
+                <label class="check" title="@UiText.T("Bei ausgeschaltetem Netzwerk-Tracking werden Instanzen anhand der fehlenden Karte vermutet. Mit Netzwerk-Tracking ruht die Kartenerkennung in bestätigten Instanzen automatisch.")"><input type="checkbox" checked="@Settings.Current.PauseTrackingInInstances" disabled="@Settings.Current.LootTrackingEnabled" @onchange="@(e => Settings.Update(s => s.PauseTrackingInInstances = (bool)e.Value!))" /> @UiText.T("Ohne Netzwerk in Instanzen ruhen")</label>
                 @if (Tracking.Position is not null)
                 {
                     <button type="button" class="btn link push" @onclick="CenterOnPlayer">@UiText.T("⌖ Zum Spieler")</button>
@@ -173,19 +173,23 @@
                 <div class="status error">@UiText.T(Tracking.Status)</div>
             }
             </div>
-            <div class="tile-part">
+            <div class="tile-part map-network-tracking">
             <div class="tile-head">
-                <span class="tile-title">Loot-Tracker</span>
+                <span class="tile-title">@UiText.T("Netzwerk-Tracking")</span>
                 <span class="tile-state @(Loot.Running ? "on" : "")" title="@UiText.T(Loot.Status)">@(Loot.Running ? UiText.T("● Netzwerk") : UiText.T("○ aus"))</span>
                 @if (Loot.Running)
                 {
-                    <button type="button" class="mapbtn stop" title="@UiText.T("Loot-Tracker stoppen")" @onclick="Loot.Stop">■</button>
+                    <button type="button" class="mapbtn stop" title="@UiText.T("Netzwerk-Tracking stoppen")" @onclick="Loot.Stop">■</button>
                 }
                 else
                 {
-                    <button type="button" class="mapbtn play" title="@UiText.T("Loot-Tracker starten")" @onclick="@(() => Loot.Start())">▶</button>
+                    <button type="button" class="mapbtn play" title="@UiText.T("Netzwerk-Tracking starten")" @onclick="@(() => Loot.Start())">▶</button>
                 }
             </div>
+            @if (_locationSource is { WorldContext.HasLocationFacts: true })
+            {
+                <WorldLocationStatus Snapshot="_locationSource.WorldContext.Snapshot" Enabled="Settings.Current.LootTrackingEnabled" />
+            }
             @{ var recent = Progress.Recent().Take(3).ToList(); }
             @if (recent.Count > 0)
             {
@@ -509,7 +513,7 @@
     private readonly HashSet<string> _hiddenKinds = [];
     private static string KindKey(Group group, Category cat, string kind) => MapPetMarkers.KindKey(MapPetMarkers.CategoryKey(group.Name, cat.Name), kind);
     private sealed record Group(string Name, List<Category> Categories);
-    private sealed record ShowResult(List<Group> Groups, int Regions, int Markers);
+    private sealed record ShowResult(List<Group> Groups, int Regions, int Markers, bool Cancelled = false);
     private sealed record SearchHit(int I, string Name, string Cat, bool Monster = false, string? Key = null, string? Group = null, string? PetId = null);
     private sealed record PetFocusCount(int Pets, int Monsters);
 
@@ -544,6 +548,8 @@
         _mapId = _maps.Any(m => m.Id == Settings.Current.LastMap) ? Settings.Current.LastMap : _maps.First().Id;
         _bossRush = Services.GetService(typeof(BossRushService)) as BossRushService;
         if (_bossRush is not null) _bossRush.Changed += OnBossTimersChanged;
+        _locationSource = Services.GetService(typeof(Soulcrest.App.Network.NetworkLootService)) as Soulcrest.App.Network.NetworkLootService;
+        if (_locationSource is not null) _locationSource.WorldContext.Changed += OnWorldLocationChanged;
         Progress.Changed += OnProgressChanged;
         Exploration.Changed += OnExplorationChanged;
         Tracking.Changed += OnTrackingChanged;
@@ -551,10 +557,63 @@
         Loot.Changed += OnLootChanged;
         _language = Settings.Current.UiLanguage;
         _nameLanguage = Settings.Current.NameLanguage;
+        _networkFollowEnabled = Settings.Current.FollowPlayer;
+        _networkProgressionEnabled = Settings.Current.ProgressionEnabled;
+        _networkSourceEnabled = Settings.Current.LootTrackingEnabled;
+        if (ObserveNetworkMap() is { } initialMap)
+        {
+            _mapId = initialMap;
+            if (Settings.Current.LastMap != initialMap) Settings.Update(s => s.LastMap = initialMap);
+        }
         Settings.Changed += OnSettingsChanged;
     }
 
     private BossRushService? _bossRush;
+    private Soulcrest.App.Network.NetworkLootService? _locationSource;
+    private bool _disposed;
+    private int _worldLocationQueued;
+    private int? _observedNetworkMapDataId;
+    private bool _networkFollowEnabled, _networkProgressionEnabled, _networkSourceEnabled;
+    private void OnWorldLocationChanged()
+    {
+        if (_disposed || Interlocked.Exchange(ref _worldLocationQueued, 1) != 0) return;
+        _ = InvokeAsync(async () =>
+        {
+            Volatile.Write(ref _worldLocationQueued, 0);
+            if (_disposed) return;
+            await FollowNetworkMap();
+            if (!_disposed) StateHasChanged();
+        });
+    }
+
+    // Network Own identifies the map before a visual position exists. A repeated Own or dungeon
+    // refinement must not undo manual browsing; retain unsupported native IDs to notice a return.
+    private string? ObserveNetworkMap(bool force = false)
+    {
+        if (!Settings.Current.LootTrackingEnabled || _locationSource?.WorldContext.Snapshot is not
+            { Status: WorldContextStatus.Confirmed, MapDataId: > 0 } source) return null;
+        var changed = _observedNetworkMapDataId != source.MapDataId;
+        _observedNetworkMapDataId = source.MapDataId;
+        if (EffectiveFeaturePolicy.TrackingMode(true, source) != MapTrackingMode.NetworkMap
+            || source.SoulcrestMapId is not { } mapId || !_maps.Any(m => m.Id == mapId)) return null;
+        if (changed || force) _trackedMap = mapId;
+        return changed || force ? mapId : null;
+    }
+
+    private async Task FollowNetworkMap(bool force = false)
+    {
+        if (_disposed || ObserveNetworkMap(force) is not { } mapId || mapId == _mapId) return;
+        if (Settings.Current.ProgressionEnabled) Targets.SetProgression(null);
+        if (!_ready)
+        {
+            _mapId = mapId;
+            Settings.Update(s => s.LastMap = mapId);
+            return; // First render loads the latest selection after the JS map exists.
+        }
+        var player = ExplorationOverview.FreshPosition(ExplorationOverview.Capture(Tracking), DateTimeOffset.UtcNow);
+        var centerOnPlayer = Settings.Current.FollowPlayer || Settings.Current.ProgressionEnabled;
+        await SwitchMap(mapId, keepAt: centerOnPlayer && player?.MapId == mapId ? player : null);
+    }
     private void OnBossTimersChanged() => _ = InvokeAsync(async () => { if (_ready) await PushBossTimers(); });
     private async Task PushBossTimers()
     {
@@ -571,8 +630,18 @@
         var languageChanged = _language != Settings.Current.UiLanguage || _nameLanguage != Settings.Current.NameLanguage;
         _language = Settings.Current.UiLanguage;
         _nameLanguage = Settings.Current.NameLanguage;
+        var following = Settings.Current.FollowPlayer;
+        var progressing = Settings.Current.ProgressionEnabled;
+        var networkEnabled = Settings.Current.LootTrackingEnabled;
+        var synchronizeMap = following && !_networkFollowEnabled || progressing && !_networkProgressionEnabled
+            || networkEnabled && !_networkSourceEnabled;
+        _networkFollowEnabled = following;
+        _networkProgressionEnabled = progressing;
+        _networkSourceEnabled = networkEnabled;
         _ = InvokeAsync(async () =>
         {
+            if (_disposed) return;
+            if (synchronizeMap) await FollowNetworkMap(force: true);
             if (languageChanged && _ready)
             {
                 await PushDone();
@@ -655,19 +724,23 @@
 
     private async Task PushProgression()
     {
-        if (Targets.Progression is { } previous && previous.MapId != _mapId)
+        var shownMap = _mapId;
+        var revision = _mapPresentationRevision;
+        bool Current() => !_disposed && shownMap == _mapId && revision == _mapPresentationRevision;
+        if (Targets.Progression is { } previous && previous.MapId != shownMap)
         {
             Targets.SetProgression(null);
         }
+        if (!Current()) return;
         var souls = Progress.Catalog.Pets.ToDictionary(p => p.Id, p => Progress.Souls(p.Id));
         // Souls still missing to finish each pet's current level (0 = max), for "closest to completion".
         var missing = souls.ToDictionary(p => p.Key, p => Math.Max(0, Progress.NeededForNextLevel(p.Key) - Progress.SoulsInLevel(p.Key)));
         // Source-monster placements on this exact map, not clustered pet-symbol counts or an Abyss region sum.
-        var spawnCounts = Progress.Catalog.Pets.ToDictionary(p => p.Id, p => Math.Max(0, p.Monsters.GetValueOrDefault(_mapId)));
+        var spawnCounts = Progress.Catalog.Pets.ToDictionary(p => p.Id, p => Math.Max(0, p.Monsters.GetValueOrDefault(shownMap)));
         var profile = Exploration.Snapshot();
         var done = profile.Completed;
         // locked/needs: sealed dungeons that open only after others (progression skips them, the popup names them).
-        var places = Exploration.Places.Where(p => p.Map == _mapId).Select(p =>
+        var places = Exploration.Places.Where(p => p.Map == shownMap).Select(p =>
         {
             var needs = Exploration.MissingFor(p, done);
             return new { index = p.Marker, id = p.Id, kind = p.Kind, done = done.Contains(p.Id),
@@ -675,36 +748,41 @@
                 needs = needs.Select(n => n.Name(Settings.Current.NameLanguage)).ToArray() };
         });
         await JS.InvokeVoidAsync("soulcrestMap.setExploration", JsonSerializer.Serialize(places));
+        if (!Current()) return;
+        await PushNavigationContext();
+        if (!Current()) return;
         await JS.InvokeVoidAsync("soulcrestMap.setProgression", Settings.Current.ProgressionEnabled, Settings.Current.ProgressionGoal, JsonSerializer.Serialize(souls), JsonSerializer.Serialize(Settings.Current.ProgressionKinds), Settings.Current.ProgressionPetsClosest, profile.CharacterId, JsonSerializer.Serialize(missing), Settings.Current.ProgressionPetsHighestDensity, JsonSerializer.Serialize(spawnCounts));
-        if (!Settings.Current.ProgressionEnabled)
+        if (Current() && !Settings.Current.ProgressionEnabled)
             Targets.SetProgression(null);
     }
 
     private async Task FlyToProgression() => await JS.InvokeVoidAsync("soulcrestMap.flyToProgression");
 
     [JSInvokable]
-    public void OnProgressionTarget(string mapId, string? petId, double x, double y, string? name)
+    public void OnProgressionTarget(string mapId, string? petId, double x, double y, string? name, long? contextGeneration = null)
     {
         // A callback can still be queued by the old map after ShowMap has replaced its payload.
         // Ignore it, including an old null target, rather than overwriting the new map's guidance.
+        if (!Tracking.IsCurrentProgressionContext(contextGeneration)) return;
+        if (!Tracking.CanSelectProgression(mapId)) return;
         if (mapId != _mapId || !_maps.Any(m => m.Id == mapId)) return;
         var player = ExplorationOverview.FreshPosition(ExplorationOverview.Capture(Tracking), DateTimeOffset.UtcNow);
         if (player is not null && player.MapId != mapId) return;
         if (petId is not null && (!double.IsFinite(x) || !double.IsFinite(y))) return;
         if (petId is null || !Settings.Current.ProgressionEnabled)
         {
-            Targets.SetProgression(null);
+            Tracking.TrySetProgression(Targets, null, mapId, contextGeneration);
             return;
         }
         var place = Exploration.Places.FirstOrDefault(p => p.Id == petId && p.Map == mapId);
         if (place is not null)
         {
-            Targets.SetProgression(new MapTarget("progression", mapId, x, y, place.Name(Settings.Current.NameLanguage), place.Kind == "dungeon" ? "Sealed Dungeon" : "Stronghold", null));
+            Tracking.TrySetProgression(Targets, new MapTarget("progression", mapId, x, y, place.Name(Settings.Current.NameLanguage), place.Kind == "dungeon" ? "Sealed Dungeon" : "Stronghold", null), mapId, contextGeneration);
             return;
         }
         var pet = Progress.Catalog.Find(petId);
         var label = pet is null ? petId : $"{pet.DisplayName(Settings.Current.NameLanguage)} ({PetLabel(petId)})";
-        Targets.SetProgression(new MapTarget("progression", mapId, x, y, name ?? label, label, null, PetId: petId));
+        Tracking.TrySetProgression(Targets, new MapTarget("progression", mapId, x, y, name ?? label, label, null, PetId: petId), mapId, contextGeneration);
     }
 
     private string MapLabelOf(string id) => UiText.T(_maps.FirstOrDefault(m => m.Id == id)?.Label ?? id);
@@ -973,14 +1051,18 @@
 
     private string? _trackedMap;
 
+    private Task PushNavigationContext() => JS.InvokeVoidAsync("soulcrestMap.setNavigationContext",
+        Tracking.ContextGeneration, Tracking.CanSelectProgression(_mapId)).AsTask();
+
     private async Task PushPlayer(bool force)
     {
+        await PushNavigationContext();
         var snapshot = ExplorationOverview.Capture(Tracking);
         if (snapshot.Position is not { } position)
             return;
         var fresh = ExplorationOverview.FreshPosition(snapshot, DateTimeOffset.UtcNow);
-        // Only a verified minimap identifies a player map change. Opening another world map keeps
-        // Position frozen and must not redirect progression (user request 2026-10-11).
+        // Network Own already selects supported maps before visual acquisition. This also retains
+        // the visual-only path with Network tracking off. A viewed foreign world map is never a move.
         var changedMap = fresh is not null && _trackedMap != fresh.MapId;
         if (!force && !changedMap && position == _shownPosition && (fresh is not null) == _shownFound)
             return;
@@ -1008,7 +1090,9 @@
             }
         }
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
-        await JS.InvokeVoidAsync("soulcrestMap.setPlayer", position.MapId, position.X, position.Y, Settings.Current.FollowPlayer && Active && fresh is not null, fresh is not null);
+        if (position.ContextGeneration != Tracking.ContextGeneration) fresh = null;
+        await JS.InvokeVoidAsync("soulcrestMap.setPlayer", position.MapId, position.X, position.Y,
+            Settings.Current.FollowPlayer && Active && fresh is not null, fresh is not null, position.ContextGeneration);
         var took = System.Diagnostics.Stopwatch.GetElapsedTime(started);
         if (took > TimeSpan.FromMilliseconds(500))
             UiResponsiveness.Record("Kartenseite", took, $"Spielerposition, Karte {_mapId}, Tab {(Active ? "Karte" : "anderer")}, Vordergrund: {UiResponsiveness.ForegroundProcess()}");
@@ -1025,8 +1109,13 @@
         {
             _self = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("soulcrestMap.init", "map", ReadManifest(), BaseUrl, _self);
-            await ShowMap();
-            _ready = true;
+            string requestedMap;
+            do
+            {
+                requestedMap = _mapId;
+                await ShowMap();
+            } while (!_disposed && requestedMap != _mapId);
+            _ready = !_disposed;
         }
         if (_relayout && _ready)
         {
@@ -1065,21 +1154,45 @@
         await FlyTo(place.Marker);
     }
 
+    private long _mapPresentationRevision;
+    private readonly Dictionary<string, long> _mapViewRevisions = new(StringComparer.Ordinal);
+
+    [JSInvokable]
+    public void MapViewChanged(string mapId, double x, double y, double zoom, long revision)
+    {
+        if (_disposed || string.IsNullOrWhiteSpace(mapId) || !_mapViewRevisions.TryGetValue(mapId, out var expected) || revision != expected
+            || !_maps.Any(m => m.Id == mapId)) return;
+        var viewport = new MapViewport(x, y, zoom);
+        if (!viewport.IsValid() || Settings.Current.MapViewports.GetValueOrDefault(mapId) == viewport) return;
+        // A late callback may save its own outgoing map, but may never overwrite a newer visit.
+        Settings.Update(s => s.MapViewports = new Dictionary<string, MapViewport>(s.MapViewports, StringComparer.Ordinal)
+            { [mapId] = viewport });
+    }
+
     private async Task ShowMap(PlayerPosition? keepAt = null)
     {
+        var revision = ++_mapPresentationRevision;
+        var shownMap = _mapId;
+        _mapViewRevisions[shownMap] = revision;
+        bool Current() => !_disposed && revision == _mapPresentationRevision && shownMap == _mapId;
         try
         {
             _error = null;
             await PushDone();
-            var json = await JS.InvokeAsync<string>("soulcrestMap.show", _mapId, Settings.Current.NameLanguage,
-                keepAt is null ? null : new { x = keepAt.X, y = keepAt.Y });
+            if (!Current()) return;
+            var json = await JS.InvokeAsync<string>("soulcrestMap.show", shownMap, Settings.Current.NameLanguage,
+                keepAt is null ? null : new { x = keepAt.X, y = keepAt.Y },
+                new { savedView = Settings.Current.MapViewports.GetValueOrDefault(shownMap), revision });
+            if (!Current()) return;
             var result = JsonSerializer.Deserialize<ShowResult>(json, Json)!;
+            if (result.Cancelled) return;
             _groups = result.Groups;
             _markerCount = result.Markers;
             _visible.Clear();
             foreach (var cat in _groups.SelectMany(g => g.Categories).Where(c => !c.Hidden))
                 _visible.Add(cat.Index);
             await RestoreCategories();
+            if (!Current()) return;
             _focus = null;
             _monsterFocus = null;
             _focusNote = null;
@@ -1089,22 +1202,26 @@
             SmokeTest.MapShown = _markerCount > 0;
             _shownPosition = null;
             await PushTargets();
+            if (!Current()) return;
             await PushBossTimers();
+            if (!Current()) return;
             await PushProgression();
+            if (!Current()) return;
             await PushPlayer(force: true);
         }
         catch (JSException exception)
         {
+            if (!Current()) return;
             _error = exception.Message;
             SmokeTest.Error = exception.Message;
         }
-        StateHasChanged();
+        if (Current()) StateHasChanged();
     }
 
     /// <param name="keepAt">Player position when the tracking changed maps: the zoom is kept.</param>
     private async Task SwitchMap(string id, PlayerPosition? keepAt = null)
     {
-        if (id == _mapId)
+        if (id == _mapId || !_maps.Any(m => m.Id == id))
             return;
         _results = [];
         _monsterResults.Clear();
@@ -1242,28 +1359,38 @@
 
     private async Task RestoreCategories()
     {
+        var shownMap = _mapId;
+        var revision = _mapPresentationRevision;
+        var groups = _groups;
+        bool Current() => !_disposed && shownMap == _mapId && revision == _mapPresentationRevision;
         _hiddenKinds.Clear();
-        if (Settings.Current.MapHiddenKinds.TryGetValue(_mapId, out var hiddenKinds))
+        if (Settings.Current.MapHiddenKinds.TryGetValue(shownMap, out var hiddenKinds))
         {
-            foreach (var group in _groups)
+            foreach (var group in groups)
                 foreach (var cat in group.Categories)
                     foreach (var kind in cat.Kinds ?? [])
                     {
+                        if (!Current()) return;
                         var key = KindKey(group, cat, kind.Name);
                         if (!hiddenKinds.Contains(key)) continue;
                         _hiddenKinds.Add(key);
                         await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, kind.Name, false);
+                        if (!Current()) return;
                     }
         }
-        if (!Settings.Current.MapCategories.TryGetValue(_mapId, out var saved))
+        if (!Current() || !Settings.Current.MapCategories.TryGetValue(shownMap, out var saved))
             return; // never changed on this map: the data package's defaults
         var shown = saved.ToHashSet();
-        foreach (var group in _groups)
+        foreach (var group in groups)
             foreach (var cat in group.Categories)
             {
+                if (!Current()) return;
                 var visible = shown.Contains(MapPetMarkers.CategoryKey(group.Name, cat.Name));
                 if (visible != _visible.Contains(cat.Index))
+                {
                     await ShowCategory(cat.Index, visible);
+                    if (!Current()) return;
+                }
             }
     }
 
@@ -1500,6 +1627,8 @@
 
     public ValueTask DisposeAsync()
     {
+        _disposed = true;
+        if (_locationSource is not null) _locationSource.WorldContext.Changed -= OnWorldLocationChanged;
         Progress.Changed -= OnProgressChanged;
         Exploration.Changed -= OnExplorationChanged;
         Tracking.Changed -= OnTrackingChanged;

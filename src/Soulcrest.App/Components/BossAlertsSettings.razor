@@ -10,13 +10,13 @@
     <fieldset class="alerts-boss-options" disabled="@(Busy || _presentationBusy)">
     <label class="opt-toggle"><input type="checkbox" id="boss-alerts-toggle" role="switch" checked="@Settings.Current.BossAlertsEnabled" @onchange="ToggleAlerts" /> @UiText.T("Alerts für ausgewählte Bosse")</label>
     <div class="boss-setting-grid">
-        <label class="boss-field">@UiText.T(CompactSelectionOnly ? "Standard-Vorwarnzeit (Sekunden)" : "Vorwarnzeit (Sekunden)") <input type="number" min="0" max="3600" value="@Settings.Current.BossAlertLeadSeconds" @onchange="SetLead" /></label>
+        <div class="boss-field"><span>@UiText.T("Standard-Vorwarnzeiten")</span><AdvanceWarningPicker Values="@Soulcrest.Core.Alerts.AdvanceWarnings.Resolve(Settings.Current.BossAlertLeadSecondsList, Settings.Current.BossAlertLeadSeconds, 3600)" Seconds="true" AllowPause="false" Disabled="@(Busy || _presentationBusy)" Label="@UiText.T("Standard-Vorwarnzeiten")" Changed="SetDefaultWarnings" /></div>
         <label class="boss-field">@UiText.T("Anzeigedauer (Sekunden)") <input type="number" min="3" max="60" value="@Settings.Current.BossAlertDurationSeconds" @onchange="SetDuration" /></label>
     </div>
     <div class="boss-alert-actions"><label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.BossAlertSound" @onchange="@(e => Settings.Update(s => s.BossAlertSound = (bool)e.Value!))" /> @UiText.T("Signalton für Bosse ohne eigene Einstellung")</label><button class="btn small" id="boss-alert-test" disabled="@(!Settings.Current.BossAlertsEnabled)" @onclick="BossRush.PreviewAlert">@UiText.T("Alert testen")</button></div>
     <div class="boss-alert-help"><InfoTip>
-        <p>@UiText.T("Je Spawn eine Vorwarnung und ein Alert bei bestätigtem Spawn. 0 Sekunden bedeutet nur Spawn-Alert. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p>
-        <p>@UiText.T(CompactSelectionOnly ? "Individuelle Erinnerungen stellst du direkt an den Boss-Kacheln ein. Die Standard-Vorwarnzeit gilt für Bosse ohne eigene Einstellung." : "Anzeige und Ton lassen sich pro ausgewähltem Boss anpassen.")</p>
+        <p>@UiText.T("Jede gewählte Vorwarnzeit und jeder bestätigte Spawn lösen einen Alert aus. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p>
+        <p>@UiText.T(CompactSelectionOnly ? "Individuelle Erinnerungen stellst du direkt an den Boss-Kacheln ein. Die Standard-Vorwarnzeiten gelten für Bosse ohne eigene Einstellung." : "Anzeige und Ton lassen sich pro ausgewähltem Boss anpassen.")</p>
     </InfoTip></div>
     @if (_presentationBusy) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Wird gespeichert …")</p> }
     else if (_presentationError is not null) { <p class="alerts-error" role="alert">@_presentationError</p> }
@@ -107,7 +107,28 @@
         if (enabled && !Loot.Running) Loot.Start();
     }
     private string? Icon(BossPlace boss) => boss.Icon is { } icon ? $"https://{MainForm.MapDataHost}/{icon}" : null;
-    private void SetLead(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossAlertLeadSeconds = Math.Clamp(n, 0, 3600)); }
+    private async Task SetDefaultWarnings(AdvanceWarningPicker.Selection selection)
+    {
+        if (Busy || _presentationBusy) return;
+        Interlocked.Increment(ref _presentationRevision);
+        _presentationBusy = true; _presentationSaved = false; _presentationError = null;
+        var previousList = Settings.Current.BossAlertLeadSecondsList;
+        var previousLead = Settings.Current.BossAlertLeadSeconds;
+        var values = selection.Values.ToArray();
+        try
+        {
+            await Task.Run(() => Settings.Update(settings =>
+            { settings.BossAlertLeadSecondsList = values; settings.BossAlertLeadSeconds = values.FirstOrDefault(); }));
+            _presentationSaved = true;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            if (ReferenceEquals(Settings.Current.BossAlertLeadSecondsList, values))
+            { Settings.Current.BossAlertLeadSecondsList = previousList; Settings.Current.BossAlertLeadSeconds = previousLead; }
+            _presentationError = UiText.T("Boss-Erinnerung konnte nicht gespeichert werden.");
+        }
+        finally { Interlocked.Increment(ref _presentationRevision); _presentationBusy = false; }
+    }
     private void SetDuration(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out var n)) Settings.Update(s => s.BossAlertDurationSeconds = Math.Clamp(n, 3, 60)); }
     private void SelectBoss(string key, bool selected) => Settings.Update(s => s.BossAlertIds = selected ? s.BossAlertIds.Append(key).Distinct().ToArray() : s.BossAlertIds.Where(k => k != key).ToArray());
     private async Task SavePresentation(string key, BossAlertPresentation presentation)

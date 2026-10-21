@@ -1,0 +1,18 @@
+@{
+    var display = WorldLocationPresentation.Build(Snapshot, Enabled);
+}
+<div class="world-location-status" data-world-status="@display.State" data-world-kind="@Snapshot.Kind.ToString().ToLowerInvariant()" role="status" aria-label="@UiText.T("Aufenthalt")" title="@display.Detail">
+    <div class="world-location-heading">
+        <strong class="world-location-name" title="@display.Name">@display.Name</strong>
+        <span class="pill @(display.State == "confirmed" ? "live" : "warn")">@display.Status</span>
+    </div>
+    @if (display.State == "confirmed" && display.Detail.Length > 0)
+    {
+        <span class="note world-location-detail" title="@display.Detail">@display.Detail</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public WorldContextSnapshot Snapshot { get; set; } = null!;
+    [Parameter] public bool Enabled { get; set; } = true;
+}

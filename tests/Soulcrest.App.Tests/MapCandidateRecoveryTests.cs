@@ -34,6 +34,7 @@ public sealed class MapCandidateRecoveryTests : IDisposable
         Assert.True(reference.Points.Length >= 40);
 
         var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false;
         settings.Current.LastMap = "abyss-reshanta-a";
         settings.Current.MiniMapZoom = null;
         settings.Current.PlayerAnchorX = 0.5;
@@ -99,6 +100,7 @@ public sealed class MapCandidateRecoveryTests : IDisposable
         Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
         using var reference = MapReference.Build("altgard", gray, 1);
         var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false;
         settings.Current.MiniMapZoom = null;
         using var capture = new GameCaptureService();
         using var tracking = new MapTrackingService(settings, new ProgressService(), capture);

@@ -163,7 +163,8 @@ public sealed partial class RouteOverlayForm : Form
 
     private Frame? Compose()
     {
-        if (_suppressed || !_settings.Current.MapOverlayEnabled || _tracking.Placement is not { } placement)
+        if (_suppressed || !_settings.Current.MapOverlayEnabled || _tracking.EscMenuOpen
+            || _tracking.Placement is not { } placement || !_tracking.IsCurrentVisualContext(placement.ContextGeneration))
             return null;
         var prepared = PreparationFor(placement);
         var onMap = TargetsWithDistance(prepared);
@@ -214,7 +215,8 @@ public sealed partial class RouteOverlayForm : Form
             NativeMethods.SetCaptureVisibility(Handle, _inRecordings);
         }
         if (_suppressed || PresentationHidden || frame is null || !_settings.Current.MapOverlayEnabled
-            || !MatchesCurrentPlacement(frame, _tracking.Placement) || !MatchesCurrentTheme(frame, _settings.Current.OverlayTheme))
+            || !_tracking.IsCurrentVisualContext(frame.Placement?.ContextGeneration ?? -1)
+            || !MatchesCurrentPlacement(frame, _tracking.Placement, _tracking.ContextGeneration) || !MatchesCurrentTheme(frame, _settings.Current.OverlayTheme))
         {
             _tracking.ResetOverlayPresentation();
             if (Visible) Hide();
@@ -233,9 +235,11 @@ public sealed partial class RouteOverlayForm : Form
 
     // Do not reject ordinary flow movement. Only a changed map/surface/region makes a composed
     // picture unusable if that context changed after the dispatcher claimed its UI slot.
-    internal static bool MatchesCurrentPlacement(Frame frame, MapPlacement? current) =>
-        frame.Placement is not { } composed || current is not null
-            && composed.MapId == current.MapId && composed.WorldMap == current.WorldMap && composed.Region == current.Region;
+    internal static bool MatchesCurrentPlacement(Frame frame, MapPlacement? current, long? contextGeneration = null) =>
+        frame.Placement is not { } composed ? contextGeneration is null : current is not null
+            && composed.MapId == current.MapId && composed.WorldMap == current.WorldMap && composed.Region == current.Region
+            && composed.ContextGeneration == current.ContextGeneration
+            && (contextGeneration is null || composed.ContextGeneration == contextGeneration);
 
     internal static bool MatchesCurrentTheme(Frame frame, string? themeId) =>
         frame.ThemeId == OverlayThemeDefinition.Resolve(themeId).Id;

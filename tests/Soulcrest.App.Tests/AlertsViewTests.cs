@@ -39,7 +39,7 @@ public sealed class AlertsViewTests
             Assert.Contains($"data-overlay-link=\"{id}\"", html);
         Assert.DoesNotContain("id=\"timer-overlay-settings\"", html);
         Assert.DoesNotContain("id=\"event-timeline-visible\"", html);
-        Assert.DoesNotContain("data-boss-strip=", html);
+        Assert.Contains("data-boss-strip=", html);
         Assert.DoesNotContain("Zeitraum auch direkt im Overlay", html);
         Assert.Empty(fixture.Alerts.Items);
         Assert.False(fixture.Tracker.Running);
@@ -105,7 +105,7 @@ public sealed class AlertsViewTests
         var html = await fixture.Render();
         var bossCard = System.Text.RegularExpressions.Regex.Match(html, "<article[^>]+data-boss=\"1110:111001\"[\\s\\S]*?</article>").Value;
         Assert.NotEmpty(bossCard);
-        Assert.Contains("alerts-boss-presentation", bossCard);
+        Assert.Contains("data-advance-warnings", bossCard);
         Assert.Contains(countdown, bossCard);
         Assert.Contains(sound, bossCard);
         Assert.Contains("Synthetic boss", bossCard);
@@ -201,7 +201,7 @@ public sealed class AlertsViewTests
         Assert.Equal(fixture.SoundFile, saved.SoundFile);
         Assert.Contains(language == "de" ? "Signalton gespeichert." : "Sound saved.", html);
         Assert.Contains("aria-pressed=\"true\" data-sound=\"custom\"", Card(html, id));
-        await fixture.Invoke("SetEventReminder", new KeyValuePair<string, int>(id, 5));
+        await fixture.Invoke("SaveEventReminder", fixture.Alerts.GetEventReminder(id) with { Enabled = true, LeadMinutesList = [5] });
         saved = Assert.Single(fixture.Alerts.Items);
         Assert.True(saved.Enabled);
         Assert.True(saved.PlaySound);
@@ -271,7 +271,7 @@ public sealed class AlertsViewTests
     {
         await using var fixture = new Fixture(language);
         await fixture.Render();
-        var enabled = await fixture.Invoke("SetEventReminder", new KeyValuePair<string, int>("shugo", 10));
+        var enabled = await fixture.Invoke("SaveEventReminder", fixture.Alerts.GetEventReminder("shugo") with { Enabled = true, LeadMinutes = 10, LeadMinutesList = [10] });
         var reminder = Assert.Single(fixture.Alerts.Items);
         Assert.Equal("catalog:shugo", reminder.Id);
         Assert.True(reminder.Enabled);
@@ -283,7 +283,7 @@ public sealed class AlertsViewTests
         Assert.Contains("event:catalog:shugo", fixture.Settings.Current.TimerOverlayTimerIds!);
         Assert.False(fixture.Alerts.EventTimers.Single(timer => timer.Definition.Id == "shugo").Presentation.ShowOverlay);
         Assert.True(Assert.Single(fixture.Alerts.Items).Enabled);
-        await fixture.Invoke("SetEventReminder", new KeyValuePair<string, int>("shugo", -1));
+        await fixture.Invoke("SaveEventReminder", fixture.Alerts.GetEventReminder("shugo") with { Enabled = false });
         Assert.False(Assert.Single(fixture.Alerts.Items).Enabled);
         Assert.False(fixture.Alerts.EventTimers.Single(timer => timer.Definition.Id == "shugo").Presentation.ShowOverlay);
         Assert.Equal(4, fixture.Alerts.TimerOverlayRows.Count);
@@ -314,17 +314,17 @@ public sealed class AlertsViewTests
         Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(editor, "data-event-details=").Count);
         await fixture.Invoke("SelectEvent", "shugo");
         Assert.Equal("abyss", fixture.Field("_selectedEventId"));
-        await fixture.Invoke("SetEventReminder", new KeyValuePair<string, int>("abyss", 5));
+        await fixture.Invoke("SaveEventReminder", fixture.Alerts.GetEventReminder("abyss") with { Enabled = true, LeadMinutesList = [5] });
         Assert.Empty(fixture.Alerts.Items); // Queued actions from the previous render cannot replace the open editor.
         Assert.False(fixture.Alerts.EventTimers.Single(timer => timer.Definition.Id == "abyss").Presentation.ShowOverlay);
         fixture.Set("_enabled", true);
-        fixture.Set("_leadMinutes", 9);
+        fixture.Set("_warningMinutes", new[] { 9 });
         await fixture.Invoke("Save");
         var reminder = Assert.Single(fixture.Alerts.Items);
         Assert.Equal("catalog:abyss", reminder.Id);
         Assert.Equal(AlertScheduleKind.Weekly, reminder.Schedule.Kind);
         Assert.Equal(new[] { DayOfWeek.Monday, DayOfWeek.Thursday, DayOfWeek.Saturday }, reminder.Schedule.Weekdays);
-        Assert.Equal(9, reminder.LeadMinutes);
+        Assert.Equal(new[] { 9 }, reminder.WarningMinutes);
         await fixture.Export(editor, "event-editor");
         var custom = await fixture.Invoke("Create");
         Assert.Contains("id=\"alert-kind\"", custom);
@@ -645,7 +645,7 @@ public sealed class AlertsViewTests
         Assert.Contains(label, html);
         Assert.Contains(language == "de" ? "Alle bekannten Bosse" : "All known bosses", html);
         Assert.Contains("data-overlay-link=\"alerts\"", html);
-        Assert.DoesNotContain("data-boss-strip=", html);
+        Assert.Contains("data-boss-strip=", html);
         Assert.Empty(fixture.Settings.Current.BossAlertIds);
         Assert.Empty(fixture.Settings.Current.TimerOverlayTimerIds!);
         Assert.Empty(fixture.Alerts.Items);
@@ -713,6 +713,28 @@ public sealed class AlertsViewTests
         Assert.Single(notices);
         Assert.Equal(0, fixture.SoundPlaybacks);
         Assert.False(fixture.Tracker.Running);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task CalendarAndCustomWarningListsRenderAndPersistWithoutEnablingTimerStrip(string language)
+    {
+        await using var fixture = new Fixture(language);
+        await fixture.Render();
+        await fixture.Invoke("SaveEventReminder", fixture.Alerts.GetEventReminder("shugo") with
+            { Enabled = true, LeadMinutesList = [15, 10, 5, 7], PlaySound = true });
+        await fixture.Invoke("SelectEvent", "shugo");
+        var custom = AlertsService.NewAlert() with { Title = language == "de" ? "Gruppenstart" : "Group start",
+            LeadMinutesList = [15, 5, 3], Schedule = new() { Kind = AlertScheduleKind.Hourly }, NotifyAtStart = true };
+        Assert.True(fixture.Alerts.Save(custom));
+        var html = await fixture.Render();
+        Assert.Equal(new[] { 15, 10, 7, 5 }, fixture.Alerts.GetEventReminder("shugo").WarningMinutes);
+        Assert.Contains("data-warning-value=\"900\"", html); // boss seconds retain their own units
+        Assert.Contains("data-warning-value=\"15\" class=\"selected\"", html);
+        Assert.Contains(language == "de" ? "7 Min. vorher" : "7 min before", html);
+        Assert.False(fixture.Tracker.Running);
+        await fixture.Export(html, "multiple-warnings");
     }
 
     private sealed class Fixture : IAsyncDisposable

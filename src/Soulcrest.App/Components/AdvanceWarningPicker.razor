@@ -1,0 +1,60 @@
+@using Soulcrest.Core.Alerts
+
+<div class="advance-warning-picker" data-advance-warnings>
+    <div class="event-quick-reminders" role="group" aria-label="@Label">
+        @if (AllowPause) { <button type="button" class="@(!Enabled ? "selected" : "")" aria-pressed="@(!Enabled)" disabled="@Disabled" @onclick="Pause">@UiText.T("Aus")</button> }
+        @foreach (var minutes in new[] { 2, 5, 10, 15 })
+        {
+            var value = minutes * (Seconds ? 60 : 1);
+            <button type="button" data-warning-value="@value" class="@(Enabled && Values.Contains(value) ? "selected" : "")" aria-pressed="@(Enabled && Values.Contains(value))" disabled="@Disabled" @onclick="@(() => Toggle(value))">@UiText.F("{0} Min.", minutes)</button>
+        }
+        <button type="button" class="event-reminder-custom" disabled="@Disabled" aria-expanded="@_custom" aria-label="@UiText.T("Individuell einstellen")" title="@UiText.T("Individuell einstellen")" @onclick="@(() => _custom = !_custom)">⋯</button>
+    </div>
+    @if (Values.Length == 0) { <p class="alerts-hint">@UiText.T("Keine zusätzliche Vorwarnung. Die Startmeldung bleibt separat eingestellt.")</p> }
+    @if (Values.Any(value => !IsPreset(value)))
+    {
+        <div class="advance-warning-values" aria-label="@UiText.T("Individuelle Vorwarnzeiten")">
+            @foreach (var value in Values.Where(value => !IsPreset(value)))
+            {
+                <button type="button" disabled="@Disabled" aria-label="@UiText.F("Vorwarnzeit {0} entfernen", ValueLabel(value))" @onclick="@(() => Remove(value))">@ValueLabel(value) <span aria-hidden="true">×</span></button>
+            }
+        </div>
+    }
+    @if (_custom)
+    {
+        <div class="advance-warning-custom">
+            @if (AllowPause) { <label class="check"><input type="checkbox" checked="@Enabled" disabled="@Disabled" @onchange="@(e => Change(Values, e.Value is true))" />@UiText.T("Erinnerung aktivieren")</label> }
+            <div class="advance-warning-input"><label>@UiText.T(Seconds ? "Vorwarnzeit (Sekunden)" : "Vorwarnung in Minuten")<input type="number" min="1" max="@Maximum" value="@_value" disabled="@Disabled" @oninput="@(e => _value = e.Value?.ToString() ?? string.Empty)" /></label><button type="button" class="btn small" disabled="@Disabled" @onclick="Add">@UiText.T("Hinzufügen")</button></div>
+            <p class="alerts-hint">@UiText.T("Mehrere Zeiten lassen sich kombinieren. Aus pausiert die Erinnerung und behält deine Auswahl.")</p>
+            @if (_error) { <p class="alerts-error" role="alert">@UiText.F("Bitte eine ganze Zahl zwischen 1 und {0} eingeben.", Maximum)</p> }
+        </div>
+    }
+</div>
+
+@code {
+    public sealed record Selection(bool Enabled, int[] Values);
+    [Parameter] public int[] Values { get; set; } = [];
+    [Parameter] public bool Enabled { get; set; } = true;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Seconds { get; set; }
+    [Parameter] public bool AllowPause { get; set; } = true;
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public EventCallback<Selection> Changed { get; set; }
+    private int Maximum => Seconds ? 3600 : 10080;
+    private bool _custom, _error;
+    private string _value = "";
+    private bool IsPreset(int value) => new[] { 2, 5, 10, 15 }.Any(minutes => value == minutes * (Seconds ? 60 : 1));
+    private string ValueLabel(int value) => Seconds && value % 60 != 0 ? UiText.F("{0} Sek. vorher", value) : UiText.F("{0} Min. vorher", value / (Seconds ? 60 : 1));
+    private Task Pause() => Change(Values, false);
+    private Task Toggle(int value) => Change(AdvanceWarnings.Toggle(Values, value, Enabled), true);
+    private Task Remove(int value) => Change(Values.Where(item => item != value).ToArray(), Enabled);
+    private async Task Add()
+    {
+        if (Disabled) return;
+        _error = !int.TryParse(_value, out var value) || value < 1 || value > Maximum;
+        if (_error) return;
+        await Change(Values.Append(value).ToArray(), true);
+        _value = "";
+    }
+    private Task Change(int[] values, bool enabled) => Disabled ? Task.CompletedTask : Changed.InvokeAsync(new Selection(enabled, AdvanceWarnings.Resolve(values, 0, Maximum)));
+}

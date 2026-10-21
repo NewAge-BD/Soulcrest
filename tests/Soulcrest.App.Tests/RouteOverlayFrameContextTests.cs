@@ -28,8 +28,18 @@ public sealed class RouteOverlayFrameContextTests
         var frame = new RouteOverlayForm.Frame(0, placement.Region.Location, placement.Region.Size, Placement: placement);
         Assert.False(RouteOverlayForm.MatchesCurrentPlacement(frame, null));
         Assert.False(RouteOverlayForm.MatchesCurrentPlacement(frame, placement with { MapId = "other" }));
+        Assert.False(RouteOverlayForm.MatchesCurrentPlacement(frame, placement with { ContextGeneration = placement.ContextGeneration + 1 }));
         Assert.False(RouteOverlayForm.MatchesCurrentPlacement(frame, placement with { WorldMap = true }));
         Assert.False(RouteOverlayForm.MatchesCurrentPlacement(frame, placement with { Region = new Rectangle(60, 60, 300, 200) }));
         Assert.False(RouteOverlayForm.MatchesCurrentPlacement(frame, placement with { Region = new Rectangle(50, 60, 400, 200) }));
+    }
+    [Fact]
+    public void AlreadyClaimedFrameIsRejectedWhenItsOldPlacementSurvivesAnEpochChange()
+    {
+        var placement = Placement() with { ContextGeneration = 7 };
+        var frame = new RouteOverlayForm.Frame(0, placement.Region.Location, placement.Region.Size, Placement: placement);
+        Assert.True(RouteOverlayForm.MatchesCurrentPlacement(frame, placement, 7));
+        Assert.False(RouteOverlayForm.MatchesCurrentPlacement(frame, placement, 8));
+        Assert.False(RouteOverlayForm.MatchesCurrentPlacement(frame with { Placement = null }, placement, 8));
     }
 }

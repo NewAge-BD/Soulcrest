@@ -41,6 +41,12 @@ auswerten darf. Dafür gilt:
 - **keine Entschlüsselung**, kein Auslesen von Schlüsseln aus Client, Speicher oder Dateien, kein
   Senden oder Verändern von Paketen. Ist der Verkehr verschlüsselt, ist dieser Weg zu Ende;
 - Mitschnitte liegen nur lokal unter `%LOCALAPPDATA%\Soulcrest\captures`.
+- **Aufenthaltskontext (Nutzerauftrag 2026-10-21):** Dieselbe gemeinsame Quelle liest aus dem
+  vollständig geprüften eigenen Welteintritt ausschließlich die zusätzliche Kartenkennung.
+  Eigene passende Dungeon-Zustände können den Inhalt und den Modus verfeinern. Keine
+  Netzwerk-Spielerkoordinaten und keine fremden Spieler auswerten. Der Kontext bleibt flüchtig;
+  Verbindungslücken und Welteintrittsgrenzen entwerten ihn. Der gemeinsame Schalter heißt
+  „Netzwerk-Tracking“; Ausschalten beendet weiterhin die gesamte gemeinsame Erfassung.
 - **Charakter- und Fortschrittserkennung (Nutzerauftrag 2026-10-12):** Derselbe Serverstrom
   liefert die eigene Charakter-ID, Server-ID, den eigenen Namen und den Entity-Key beim Welteintritt.
   Nur dieser bestätigte Verbindungs-/Charakterkontext darf Quest-/Teleportfortschritt zuordnen.

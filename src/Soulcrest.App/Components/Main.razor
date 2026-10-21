@@ -26,7 +26,7 @@
                 <span class="dot" aria-hidden="true"></span><span class="pill-label">@UiText.T("Spieler")</span>
                 <span class="pill-value">@(Tracking.Running ? (Tracking.Found ? $"{Tracking.Fps} fps" : Tracking.Paused ? UiText.T("ruht") : UiText.T("sucht …")) : UiText.T("aus"))</span>
             </button>
-            <button type="button" class="pill @(Tracker.Running ? "live" : "") @(Tracker.StatusIsError ? "error" : "")" title="Loot-Tracker: @UiText.T(Tracker.Status)" @onclick="@(() => Ui.Navigate("options"))">
+            <button type="button" class="pill @(Tracker.Running ? "live" : "") @(Tracker.StatusIsError ? "error" : "")" title="@UiText.T("Netzwerk-Tracking"): @UiText.T(Tracker.Status)" @onclick="@(() => Ui.Navigate("options"))">
                 <span class="dot" aria-hidden="true"></span><span class="pill-label">Loot</span>
                 <span class="pill-value">@(Tracker.Running ? UiText.T("Netzwerk") : UiText.T("aus"))</span>
             </button>

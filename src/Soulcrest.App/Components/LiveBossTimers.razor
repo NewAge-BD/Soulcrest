@@ -23,7 +23,7 @@
 <section class="@(Compact ? "event-boss-live boss-timers-compact" : "event-boss-live")" data-boss-list data-boss-searchable="@Searchable.ToString().ToLowerInvariant()" aria-label="@heading">
     <div class="alerts-section-heading"><div><span class="alerts-eyebrow">@UiText.T("Live aus dem Spiel")</span><h3>@heading</h3></div><div class="alerts-header-actions">
         <label class="opt-toggle" for="@_masterId"><input id="@_masterId" type="checkbox" role="switch" data-boss-alerts-master checked="@Settings.Current.BossAlertsEnabled" disabled="@Disabled" @onchange="ToggleAlerts" />@UiText.T("Alerts für ausgewählte Bosse")</label>
-        <span class="boss-alert-help"><InfoTip><p>@UiText.T("Je Spawn eine Vorwarnung und ein Alert bei bestätigtem Spawn. 0 Sekunden bedeutet nur Spawn-Alert. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p></InfoTip></span>
+        <span class="boss-alert-help"><InfoTip><p>@UiText.T("Jede gewählte Vorwarnzeit und jeder bestätigte Spawn lösen einen Alert aus. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p></InfoTip></span>
         <span class="event-schedule-badge">@UiText.T(IncludeCatalogue ? "Alle bekannten Bosse" : IncludeAllCaptured ? "Alle erfassten Bosse" : "Eigene Boss-Auswahl")</span></div></div>
     @if ((_savingKey == MasterKey || _savingKey == DurationKey)) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Wird gespeichert …")</p> }
     else if ((_feedbackKey == MasterKey || _feedbackKey == DurationKey) && _feedback is not null) { <p class="@(_error ? "alerts-error" : "alerts-feedback")" role="@(_error ? "alert" : "status")">@_feedback</p> }
@@ -124,7 +124,6 @@
     private bool _disposed, _saving, _error;
     private string? _savingKey, _feedbackKey, _feedback;
     private long _revision;
-    private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _optionsExpanded = new(StringComparer.Ordinal);
     private const string MasterKey = "boss-alerts-master", DurationKey = "boss-alert-duration";
     private readonly string _searchId = "live-boss-search-" + Guid.NewGuid().ToString("N");
@@ -177,29 +176,13 @@
     private RenderFragment ReminderControls(BossChoice choice, bool isSelected, BossReminderPreference reminder, BossAlertPresentation presentation) => @<div class="event-reminder">
         @{
             var controlsDisabled = Disabled || !isSelected;
-            var active = isSelected && reminder.Enabled;
-            var advanced = _expanded.Contains(choice.Key);
-            var customLead = active && reminder.LeadSeconds is not (120 or 300 or 600 or 900);
         }
         @if (IncludeAllCaptured) { <label class="boss-timer-select"><input type="checkbox" checked="@isSelected" disabled="@Disabled" @onchange="@(e => SelectChoice(choice.Key, (bool)e.Value!))" />@UiText.T("Für Erinnerungen auswählen")</label> }
-        <div class="event-reminder-heading"><span>@UiText.T("Vorwarnzeit")</span><span>@(isSelected ? ReminderStatus(reminder) : UiText.T("Nicht ausgewählt"))</span></div>
-        <div class="event-quick-reminders" role="group" aria-label="@UiText.F("Vorwarnzeit für {0}", choice.Boss.Name(Settings.Current.NameLanguage))">
-            <button type="button" class="@(!active ? "selected" : "")" aria-pressed="@(!active)" disabled="@controlsDisabled" @onclick="@(() => SetEnabled(choice.Key, false))">@UiText.T("Aus")</button>
-            @foreach (var minutes in new[] { 2, 5, 10, 15 }) { <button type="button" class="@(active && reminder.LeadSeconds == minutes * 60 ? "selected" : "")" aria-pressed="@(active && reminder.LeadSeconds == minutes * 60)" disabled="@controlsDisabled" @onclick="@(() => SetQuickLead(choice.Key, minutes * 60))">@UiText.F("{0} Min.", minutes)</button> }
-            <button type="button" class="event-reminder-custom @(advanced || customLead ? "selected" : "")" disabled="@controlsDisabled" aria-expanded="@advanced" title="@UiText.T("Individuell einstellen")" aria-label="@UiText.F("Erinnerung für {0}", choice.Boss.Name(Settings.Current.NameLanguage))" @onclick="@(() => ToggleAdvanced(choice.Key))">⋯</button>
-        </div>
+        <div class="event-reminder-heading"><span>@UiText.T("Vorwarnzeiten")</span><span>@(isSelected ? ReminderStatus(reminder) : UiText.T("Nicht ausgewählt"))</span></div>
+        <AdvanceWarningPicker Values="@reminder.WarningSeconds" Enabled="@reminder.Enabled" Seconds="true" Disabled="@controlsDisabled" Label="@UiText.F("Vorwarnzeiten für {0}", choice.Boss.Name(Settings.Current.NameLanguage))" Changed="@(selection => SetWarningSelection(choice.Key, selection))" />
         <div class="event-reminder-channels"><button type="button" disabled="@(controlsDisabled || !Settings.Current.BossAlertsEnabled)" @onclick="@(() => Preview(choice.Key))">@UiText.T("Testen")</button></div>
         <AlertSoundPicker Sound="@presentation.Sound" SoundFile="@presentation.SoundFile" Enabled="@presentation.PlaySound" Disabled="@controlsDisabled" Changed="@(selection => SetSound(choice.Key, selection))" />
-        <details class="boss-timer-advanced" open="@advanced">
-            <summary @onclick="@(() => ToggleAdvanced(choice.Key))" @onclick:preventDefault>@UiText.T("Individuell einstellen")</summary>
-            <div class="alerts-boss-presentation">
-                <label class="check"><input type="checkbox" checked="@reminder.Enabled" disabled="@controlsDisabled" @onchange="@(e => SetEnabled(choice.Key, e.Value is true))" />@UiText.T("Erinnerung aktivieren")</label>
-                <div class="alerts-boss-fields"><label class="boss-field">@UiText.T("Vorwarnzeit (Sekunden)")<input type="number" min="0" max="3600" value="@reminder.LeadSeconds" disabled="@controlsDisabled" @onchange="@(e => SetLead(choice.Key, reminder, e))" /></label></div>
-                <p class="alerts-hint">@UiText.T("0 Sekunden Vorwarnzeit bedeutet nur bestätigter Spawn.")</p>
-                <OverlaySettingsLink OverlayId="alerts" Text="Timer-Leiste einstellen" />
-
-            </div>
-        </details>
+        <OverlaySettingsLink OverlayId="alerts" Text="Timer-Leiste einstellen" />
     </div>;
 
     private void ToggleOptions(string key) { if (!_optionsExpanded.Add(key)) _optionsExpanded.Remove(key); }
@@ -258,10 +241,9 @@
         : UiText.F("Letzter Stand vor {0} Sek.", Math.Max(0, (int)row.Age.TotalSeconds));
     private string ReminderStatus(BossReminderPreference preference) => !preference.Enabled ? UiText.T("Aus")
         : !Settings.Current.BossAlertsEnabled ? UiText.T("Global pausiert")
-        : preference.LeadSeconds == 0 ? UiText.T("Nur bei bestätigtem Spawn")
-        : preference.LeadSeconds % 60 == 0 ? UiText.F("{0} Min. vorher", preference.LeadSeconds / 60)
-        : UiText.F("{0} Sek. vorher", preference.LeadSeconds);
-    private void ToggleAdvanced(string key) { if (Disabled) return; if (!_expanded.Add(key)) _expanded.Remove(key); }
+        : preference.WarningSeconds.Length == 0 ? UiText.T("Nur bei bestätigtem Spawn")
+        : string.Join(" · ", preference.WarningSeconds.Select(seconds => seconds % 60 == 0
+            ? UiText.F("{0} Min. vorher", seconds / 60) : UiText.F("{0} Sek. vorher", seconds)));
     private void Preview(string key)
     {
         if (Disabled || _disposed || !Settings.Current.BossAlertsEnabled || !Settings.Current.BossAlertIds.Contains(key)) return;
@@ -363,9 +345,7 @@
         if (!_disposed) _ = RefreshAsync();
     }
     private Task SetEnabled(string key, bool enabled) => SetReminder(key, BossRush.GetReminder(key) with { Enabled = enabled });
-    private Task SetQuickLead(string key, int seconds) => SetReminder(key, BossRush.GetReminder(key) with
-        { Enabled = true, LeadSeconds = Math.Clamp(seconds, 0, 3600) });
-    private Task SetLead(string key, BossReminderPreference _, ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var seconds)
-        ? SetReminder(key, BossRush.GetReminder(key) with { LeadSeconds = Math.Clamp(seconds, 0, 3600) }) : Task.CompletedTask;
+    private Task SetWarningSelection(string key, AdvanceWarningPicker.Selection selection) => SetReminder(key, BossRush.GetReminder(key) with
+        { Enabled = selection.Enabled, LeadSecondsList = selection.Values, LeadSeconds = selection.Values.FirstOrDefault() });
     public void Dispose() { _disposed = true; Interlocked.Increment(ref _revision); BossRush.Changed -= Refresh; Settings.Changed -= Refresh; Alerts.Changed -= Refresh; }
 }

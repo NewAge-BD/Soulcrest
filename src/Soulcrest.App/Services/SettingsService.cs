@@ -38,6 +38,8 @@ public sealed class AppSettings
     public int OverlayX { get; set; } = 40;
     public int OverlayY { get; set; } = 200;
     public string LastMap { get; set; } = "altgard";
+    /// <summary>Last interactive center in native map pixels and Leaflet zoom, independently per map.</summary>
+    public Dictionary<string, MapViewport> MapViewports { get; set; } = new(StringComparer.Ordinal);
 
     /// <summary>User request 2026-10-11: null follows the detected game map; a map id pins the exploration overview.</summary>
     public string? ExplorationPinnedMap { get; set; }
@@ -188,6 +190,7 @@ public sealed class AppSettings
     public bool BossAlertsEnabled { get; set; }
     public string[] BossAlertIds { get; set; } = [];
     public int BossAlertLeadSeconds { get; set; } = 60;
+    public int[]? BossAlertLeadSecondsList { get; set; }
     /// <summary>Missing entries inherit the global lead time; disabling a reminder keeps its timer selected.</summary>
     public Dictionary<string, BossReminderPreference> BossReminderOverrides { get; set; } = new(StringComparer.Ordinal);
     public int BossAlertDurationSeconds { get; set; } = 15;
@@ -292,6 +295,9 @@ public sealed class AppSettings
 public sealed class SettingsService
 {
     private readonly object _gate = new();
+    private long _networkTrackingRevision;
+    /// <summary>In-memory switch revision; rapid round trips must still revoke old visual work.</summary>
+    public long NetworkTrackingRevision => Interlocked.Read(ref _networkTrackingRevision);
     public SettingsService()
     {
         var existed = File.Exists(AppPaths.SettingsFile);
@@ -328,12 +334,15 @@ public sealed class SettingsService
             .Distinct(StringComparer.Ordinal).ToArray();
         Current.MapMinimapLayers = MapLayerVisibility.Normalize(Current.MapMinimapLayers);
         Current.MapWorldmapLayers = MapLayerVisibility.Normalize(Current.MapWorldmapLayers);
+        Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
         OverlayHotkeys.Normalize(Current);
         Current.OverlayScale = double.IsFinite(Current.OverlayScale) ? Math.Clamp(Current.OverlayScale, .6, 2.5) : 1;
         Current.BossOverlayCount = Math.Clamp(Current.BossOverlayCount, 1, 12);
         Current.BossOverlayScale = double.IsFinite(Current.BossOverlayScale) ? Math.Clamp(Current.BossOverlayScale, .6, 2) : 1;
         Current.LevelingOverlayScale = double.IsFinite(Current.LevelingOverlayScale) ? Math.Clamp(Current.LevelingOverlayScale, .7, 1.6) : 1;
         Current.BossAlertLeadSeconds = Math.Clamp(Current.BossAlertLeadSeconds, 0, 3600);
+        if (Current.BossAlertLeadSecondsList is not null)
+            Current.BossAlertLeadSecondsList = Soulcrest.Core.Alerts.AdvanceWarnings.Resolve(Current.BossAlertLeadSecondsList, 0, 3600);
         Current.BossAlertDurationSeconds = Math.Clamp(Current.BossAlertDurationSeconds, 3, 60);
         Current.BossAlertIds ??= [];
         Current.AlertsOverlayScale = double.IsFinite(Current.AlertsOverlayScale) ? Math.Clamp(Current.AlertsOverlayScale, .6, 2) : 1;
@@ -361,7 +370,8 @@ public sealed class SettingsService
         if (Current.EventTimelineHours is not (12 or 24 or 48)) Current.EventTimelineHours = 12;
         Current.BossReminderOverrides = (Current.BossReminderOverrides ?? [])
             .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && pair.Value is not null)
-            .ToDictionary(pair => pair.Key, pair => pair.Value with { LeadSeconds = Math.Clamp(pair.Value.LeadSeconds, 0, 3600) }, StringComparer.Ordinal);
+            .ToDictionary(pair => pair.Key, pair => pair.Value with { LeadSeconds = Math.Clamp(pair.Value.LeadSeconds, 0, 3600),
+                LeadSecondsList = pair.Value.LeadSecondsList is null ? null : pair.Value.WarningSeconds }, StringComparer.Ordinal);
         OverlayVisibilityPolicy.Normalize(Current);
         if (Current.SettingsRevision < 5) Current.SettingsRevision = 5;
         UiText.Language = Current.UiLanguage;
@@ -389,6 +399,7 @@ public sealed class SettingsService
         {
             if (Current.DetectedGameLanguage == language) return;
             Current.DetectedGameLanguage = language;
+            Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
             JsonFile.Save(AppPaths.SettingsFile, Current);
         }
         Changed?.Invoke();
@@ -398,8 +409,11 @@ public sealed class SettingsService
     {
         lock (_gate)
         {
+            var networkEnabled = Current.LootTrackingEnabled;
             change(Current);
+            if (networkEnabled != Current.LootTrackingEnabled) Interlocked.Increment(ref _networkTrackingRevision);
             Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
+            Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
             UiText.Language = Current.UiLanguage;
             JsonFile.Save(AppPaths.SettingsFile, Current);
         }

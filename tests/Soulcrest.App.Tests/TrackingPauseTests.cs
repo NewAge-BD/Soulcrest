@@ -46,6 +46,7 @@ public sealed class TrackingPauseTests
     public void InstanceVisibilityIsIndependentOfPowerSavingPause(bool pauseTracking)
     {
         var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false;
         settings.Current.PauseTrackingInInstances = pauseTracking;
         using var capture = new GameCaptureService();
         using var tracking = new MapTrackingService(settings, new ProgressService(), capture);
@@ -63,11 +64,12 @@ public sealed class TrackingPauseTests
     [Fact]
     public void LoadingWakeKeepsInstanceHiddenUntilAMapIsConfirmed()
     {
+        var context = new WorldContextService();
         using var capture = new GameCaptureService();
-        using var tracking = new MapTrackingService(new SettingsService(), new ProgressService(), capture);
+        using var tracking = new MapTrackingService(OfflineSettings(), new ProgressService(), capture, context);
         tracking.UpdateInstanceContext(false, false, S(30), null);
 
-        tracking.NoteLoadingScreen();
+        context.ObserveOwn(1010, 1, DateTimeOffset.UtcNow);
         tracking.UpdateInstanceContext(false, false, S(0), S(0));
         Assert.True(tracking.InInstance);
 
@@ -81,7 +83,7 @@ public sealed class TrackingPauseTests
     public void ShutdownClearsInstanceContextAndNotifiesOverlays()
     {
         using var capture = new GameCaptureService();
-        using var tracking = new MapTrackingService(new SettingsService(), new ProgressService(), capture);
+        using var tracking = new MapTrackingService(OfflineSettings(), new ProgressService(), capture);
         var contexts = new List<bool>();
         tracking.Changed += () => contexts.Add(tracking.InInstance);
 
@@ -93,4 +95,9 @@ public sealed class TrackingPauseTests
         Assert.False(tracking.InInstance);
         Assert.Equal(new[] { true, false }, contexts);
     }
+    private static SettingsService OfflineSettings()
+    {
+        var settings = new SettingsService(); settings.Current.LootTrackingEnabled = false; return settings;
+    }
+
 }

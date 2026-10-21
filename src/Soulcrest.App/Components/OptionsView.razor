@@ -34,7 +34,7 @@
 
     <section class="card sv-card">
         <div class="sv-card-head">
-            <h3>Loot-Tracker</h3>
+            <h3>@UiText.T("Netzwerk-Tracking")</h3>
             @if (Loot.Running)
             {
                 <span class="sv-badge on"><span class="sv-dot"></span>@UiText.T("Erfassung läuft")</span>
@@ -44,8 +44,8 @@
                 <span class="sv-badge">@UiText.T("aus")</span>
             }
         </div>
-        <p class="sv-lead">@UiText.T("Liest Soul-Meldungen über Npcap automatisch beim Programmstart. Ausschalten bleibt gespeichert.")</p>
-        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.LootTrackingEnabled" @onchange="ToggleLoot" /><span>@UiText.T("Netzwerk-Loot-Tracking aktiviert")</span></label>
+        <p class="sv-lead">@UiText.T("Erkennt deinen Aufenthaltsort, Souls und Fortschritt passiv über den eigenen Spielverkehr. Ausschalten beendet die gemeinsame Netzwerkerfassung und bleibt gespeichert.")</p>
+        <label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.LootTrackingEnabled" @onchange="ToggleLoot" /><span>@UiText.T("Netzwerk-Tracking aktiviert")</span></label>
             <div class="kv sv-kv">
                 <span>Npcap</span>
                 <span>

@@ -2,6 +2,16 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.11.0 – 2026-10-21
+
+- **Neu:** Mehrere Vorwarnzeiten für Bosse, Events, Resets und eigene Alerts: 2, 5, 10 und 15 Minuten
+  frei kombinieren und um eigene Zeiten ergänzen. „Aus“ pausiert die Erinnerung und behält die Auswahl;
+  bisherige Einstellungen werden übernommen.
+- **Neu:** Die Karte merkt sich Zoom und Ausschnitt für jede Karte einzeln, auch über Neustarts.
+- **Geändert:** Daevanion-Overlay: Stat-Nodes haben jetzt eine Fassung in der Farbe des Nodes (grün,
+  blau, orange) mit größeren Zahlen; das Kürzel steht unter dem Rahmen, Doppelboni in zwei Spalten.
+- **Geändert:** Der Netzwerkschalter heißt jetzt „Netzwerk-Tracking“.
+
 ## 0.10.2 – 2026-10-21
 
 - **Neu:** Das Daevanion-Overlay unterstützt jetzt auch das Board **Ariel** in allen acht Klassen,

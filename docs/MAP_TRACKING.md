@@ -1,5 +1,34 @@
 # Spielerposition aus der Ingame-Karte
 
+## Aktuelle Arbeitsweisen (Nutzerpräzisierung 2026-10-21)
+
+Öffentliche Builds enthalten keinen Instanzkatalog (Nutzerentscheidung 2026-10-21). Ohne Ortsfakten
+kann der Netzwerkstrom kein Gebiet bestätigen; der Kartentracker und die HUD-Kontexte arbeiten dann wie
+bei ausgeschaltetem Netzwerk-Tracking, und die Ortsanzeige im Map-Tab entfällt.
+
+Bei eingeschaltetem Netzwerk-Tracking bestimmt ausschließlich der bestätigte Weltkontext die
+Aufenthaltskarte und Instanzart. Ein unterstütztes offenes Gebiet wird nur gegen seine eigene
+Minimapreferenz geprüft. Bildverlust startet dort weder eine Suche nach anderen Aufenthaltskarten
+noch eine Instanzvermutung. Bildschirmgeometrie, Position und Zoom bleiben visuelle Fakten.
+
+In bestätigten Dungeons und Eventinstanzen ruht der Kartentracker vollständig ohne Bildanforderungen:
+keine Zwei-Sekunden-Recovery, ESC-/Weltkartenbeobachtung, SIFT-Suche oder Optical Flow. Das gilt auch
+für Shugo Festival und Dimensional Invasion. Netzwerkänderungen und Stop wecken die wartende
+Schleife; bereits eingeplante Ergebnisse unterliegen weiterhin der aktuellen Quell-/Kartengeneration.
+Unterstützte offene Abyss-Karten behalten ihre vorhandene Ausnahme und Positionsfunktionen.
+
+Auch bei Start ohne Own, Übergang, gestörtem Netzwerk oder unbekanntem Gebiet wird kein visueller
+Instanz-Fallback aktiviert, solange der Netzwerkschalter eingeschaltet ist. Erst ausdrücklich
+ausgeschaltetes Netzwerk-Tracking erlaubt die bisherigen unbestätigten Verfahren einschließlich
+Mehrkartensuche und Instanzvermutung nach Kartenverlust. Die gespeicherte Ruheoption gilt für diesen
+Fallback; sie wird nicht durch die effektive Netzwerkentscheidung verändert.
+
+Die aktuelle Location erscheint kompakt in der Netzwerk-Tracking-Kachel des Map-Tabs mit
+Bestätigungsstatus sowie belegter Kategorie/Modus. Direkte Weltkontext-Ereignisse aktualisieren sie
+auch bei gestopptem Player-Tracker. Sie ist keine visuelle Kartenbeobachtung.
+
+Die folgenden datierten Abschnitte dokumentieren die Entwicklung des visuellen Verfahrens.
+
 Stand: 2026-10-03. Wunsch des Nutzers: Die Funktion des Map Overlays übernehmen. Man markiert die
 Karte im Spiel, Soulcrest verfolgt darüber den Spieler und zeigt ihn auf der interaktiven Karte.
 
@@ -270,3 +299,28 @@ Zoomplausibilität und Generation des Aufnahmekontexts bleiben erhalten. Ein sch
 Ladebildschirm oder bloßes Wecken beendet den Instanzmodus nicht. Der gesamte Suchlauf berücksichtigt
 eine Altersgrenze für seine Ergebnisse; veraltete Ergebnisse werden nicht als neue Position gemeldet.
 Die Positionsquelle bleibt die bisherige Aufnahme und Bildauswertung, ohne Speicherzugriff.
+
+## Interaktive Kartenansichten und Netzwerkauswahl (2026-10-21)
+
+Der Map-Tab speichert Mitte (native Kartenpixel) und Leaflet-Zoom getrennt je Karte in den
+AppSettings.MapViewports. Die bestehende LastMap-Auswahl bleibt separat. Beim Wiederbesuch wird
+der gespeicherte eigene Ausschnitt geladen. Explizites Zentrieren auf einen frisch erkannten
+Spieler übernimmt dessen Mitte und erhält bevorzugt den gespeicherten Zoom der Zielkarte.
+Karten ohne gespeicherte Ansicht nutzen die bisherige Übersicht beziehungsweise die belegte
+Maßstabsanpassung beim Spielerwechsel. Die optische Icon-Basisskalierung bleibt an der Übersicht.
+
+Bestätigtes eigenes Netzwerk-Own wählt eine unterstützte Kartenbrücke auch ohne visuelle Position
+und bei gestopptem Player-Tracker. Die Kartenauswahl erfolgt auch bei FollowPlayer=false und
+ProgressionEnabled=false. Diese Schalter steuern weiterhin Spielerzentrierung und Wegführung;
+bei beiden ausgeschalteten Schaltern bleibt der gespeicherte Zielkartenausschnitt maßgeblich.
+Wiederholte eigene Meldungen und Dungeon-Verfeinerungen derselben Karte
+setzen manuelles Browsen nicht zurück. Auch native IDs nicht unterstützter Instanzen werden als
+Beobachtung gemerkt, damit die Rückkehr auf eine bekannte Karte als Wechsel erkannt wird.
+Übergänge, Lücken, ausgeschaltetes Netzwerk und fehlende Kartenbrücken erfinden keine neue Auswahl.
+Die Kartenansicht liefert weiterhin keinen Beleg für eine Spielerposition oder Zielankunft.
+
+Viewport-Rückmeldungen tragen die konkrete Präsentationsrevision je Karte. Die letzte ausgehende
+Ansicht darf noch auf ihre eigene Karte gespeichert werden; verspätete Meldungen eines früheren
+Besuchs dürfen keinen neueren Stand überschreiben. Zwischenzustände aus Fit/Restore und verworfene
+asynchrone Ladevorgänge werden nicht gespeichert. Bewegungen werden gebündelt statt pro Frame
+in Einstellungen geschrieben.

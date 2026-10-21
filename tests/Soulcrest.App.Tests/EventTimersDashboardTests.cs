@@ -116,7 +116,7 @@ public sealed class EventTimersDashboardTests
         Assert.Empty(fixture.Previews);
         Assert.Empty(fixture.Edits);
         await fixture.ClickDetails("event-quick-reminders", 2);
-        Assert.Equal(new KeyValuePair<string, int>("shugo", 5), Assert.Single(fixture.ReminderChanges));
+        Assert.Empty(Assert.Single(fixture.ReminderChanges).WarningMinutes); // toggles the saved 5-minute warning off
         await fixture.ClickDetails("event-detail-test");
         Assert.Equal("shugo", Assert.Single(fixture.Previews));
         await fixture.ClickDetails("event-detail-edit");
@@ -150,7 +150,7 @@ public sealed class EventTimersDashboardTests
         public List<string> Selections { get; } = [];
         public List<string> Previews { get; } = [];
         public List<string> Edits { get; } = [];
-        public List<KeyValuePair<string, int>> ReminderChanges { get; } = [];
+        public List<EventAlert> ReminderChanges { get; } = [];
         public int SoundPlaybacks { get; private set; }
 
         public Fixture(string language)
@@ -224,7 +224,7 @@ public sealed class EventTimersDashboardTests
                 [nameof(EventTimerDetails.Timer)] = Alerts.EventTimers.Single(timer => timer.Definition.Id == id),
                 [nameof(EventTimerDetails.Embedded)] = true,
                 [nameof(EventTimerDetails.Id)] = "synthetic-details-" + id,
-                [nameof(EventTimerDetails.ReminderChanged)] = EventCallback.Factory.Create<KeyValuePair<string, int>>(this, ReminderChanges.Add),
+                [nameof(EventTimerDetails.ReminderSaved)] = EventCallback.Factory.Create<EventAlert>(this, ReminderChanges.Add),
                 [nameof(EventTimerDetails.PreviewReminder)] = EventCallback.Factory.Create<string>(this, Previews.Add),
                 [nameof(EventTimerDetails.EditReminder)] = EventCallback.Factory.Create<string>(this, Edits.Add)
             })));
@@ -233,7 +233,23 @@ public sealed class EventTimersDashboardTests
 #pragma warning disable BL0006
         public Task ClickDetails(string className, int index = 0) => _renderer.Dispatcher.InvokeAsync(async () =>
         {
-            using var tree = Tree(_details!);
+            using var detailTree = Tree(_details!);
+            ComponentBase target = _details!;
+            if (className == "event-quick-reminders")
+            {
+                var detailFrames = detailTree.GetFrames();
+                var child = Enumerable.Range(0, detailFrames.Count).Single(i => detailFrames.Array[i].FrameType == RenderTreeFrameType.Component
+                    && detailFrames.Array[i].ComponentType == typeof(AdvanceWarningPicker));
+                var parameters = new Dictionary<string, object?>();
+                for (var i = child + 1; i < child + detailFrames.Array[child].ComponentSubtreeLength; i++)
+                    if (detailFrames.Array[i].FrameType == RenderTreeFrameType.Attribute)
+                        parameters[detailFrames.Array[i].AttributeName] = detailFrames.Array[i].AttributeValue;
+                CaptureAdvanceWarningPicker? renderedPicker = null;
+                parameters[nameof(CaptureAdvanceWarningPicker.Captured)] = (Action<CaptureAdvanceWarningPicker>)(component => renderedPicker = component);
+                await _renderer.RenderComponentAsync<CaptureAdvanceWarningPicker>(ParameterView.FromDictionary(parameters));
+                target = renderedPicker!;
+            }
+            using var tree = Tree(target);
             var frames = tree.GetFrames();
             var attribute = Enumerable.Range(0, frames.Count).First(i => frames.Array[i].FrameType == RenderTreeFrameType.Attribute
                 && frames.Array[i].AttributeName == "class" && (frames.Array[i].AttributeValue?.ToString()?.Split(' ').Contains(className) ?? false));
@@ -247,7 +263,7 @@ public sealed class EventTimersDashboardTests
         private static RenderTreeBuilder Tree(ComponentBase component)
         {
             var tree = new RenderTreeBuilder();
-            var type = component is EventTimersDashboard ? typeof(EventTimersDashboard) : typeof(EventTimerDetails);
+            var type = component is EventTimersDashboard ? typeof(EventTimersDashboard) : component is AdvanceWarningPicker ? typeof(AdvanceWarningPicker) : typeof(EventTimerDetails);
             type.GetMethod("BuildRenderTree", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(component, [tree]);
             return tree;
         }

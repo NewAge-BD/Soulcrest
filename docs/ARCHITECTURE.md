@@ -125,13 +125,15 @@ Windows MediaPlayer, mit Dateiauswahl, Abbruch bei neuer Wiedergabe/Dispose und 
 Boss-Timer verwenden in Alerts und Boss Rush dieselbe durchsuchbare `LiveBossTimers`-Komponente
 mit vollständigem Katalog. Die reine UI-Sortierung trennt bestätigte Spawns, positive Countdowns
 und wartende/unbestätigte Einträge; Navigation und Quellenauswahl bleiben unverändert. Individuelle
-`BossReminderPreference`-Overrides in AppSettings steuern ausschließlich Enabled/LeadSeconds
-und erben ohne Eintrag die globale Vorwarnzeit. `BossAlertDurationSeconds` und
+`BossReminderPreference`-Overrides in AppSettings steuern Enabled und die optionale LeadSecondsList;
+EventAlert besitzt analog LeadMinutesList. Fehlende Listen nutzen die bisherigen Einzelwerte,
+ausdrücklich leere Listen erzeugen keine zusätzliche Vorwarnung. Snapshots kopieren die Arrays.
+Bosse ohne Override erben die globale Vorwarnzeitenliste beziehungsweise den alten Einzelwert. `BossAlertDurationSeconds` und
 `BossAlertUntilSpawn` gelten global für alle Boss-Erinnerungen, bedienbar über der Suche.
 Jeder ausgewählte aktive Reminder erzeugt eine sichtbare Notification ohne zusätzliche
 Banner-/Minutenfenster-Gates. Legacy-ShowOverlay/AlwaysShowOverlay/OverlayLeadMinutes bleiben
 für Store- und Timer-Leisten-Kompatibilität erhalten, beeinflussen jedoch echte Bossnotices und
-Tests nicht. Die UI bietet daher nur Vorwarnzeit und optionalen Ton. Bereits zulässig erzeugte
+Tests nicht. Die UI bietet daher mehrere Vorwarnzeiten und optionalen Ton. Bereits zulässig erzeugte
 feste Notices überstehen Map-/Streamwechsel bis Expires; Metadatenänderungen löschen sie nicht.
 Neue Cache-Warnungen bleiben durch die unveränderte Triggerpolicy ausgeschlossen.
 Der Vorwarnfenstermodus verwendet eine endliche Frist und einen monotonen Restzeitanker.
@@ -146,6 +148,16 @@ bestätigte Spawnmeldungen behalten ihre Sekundendauer. Stille Korrekturen erzeu
 Ton. Die native Begrenzung auf sechs Zeilen mit Überlaufhinweis bleibt; Fensterquellen blockieren
 nicht die feste Queue. Alte per-Boss-Dauerfelder werden beim JSON-Lesen ignoriert, ohne daraus
 einen globalen Modus zu erraten.
+`AdvanceWarningPicker` wird von Bosskarten, Eventdetails, Resets, eigenen Alerts und den
+Boss-Standardeinstellungen verwendet. Die Bosskarten beider Tabs aktivieren außerdem die vorhandene
+unabhängige Timer-Leisten-Auswahl. `AdvanceWarnings` normalisiert positive, eindeutige Offsets.
+`BossAlertPolicy.EvaluateMany` trägt die Vorwarnstufe über BossAlertTrigger und BossNotice bis in
+die persistenten Auslieferungsbelege. Bei mehreren überschrittenen Stufen wird nur die zuletzt
+fällige ausgeliefert; ältere Stufen werden konsumiert. Alte Boss-lead-Belege ohne Stufe verhindern
+eine erneute Sofortwarnung, erlauben aber spätere neue Stufen. AlertsService behandelt Kalender-
+Vorwarnungen ebenso und holt nur den nächsten zukünftigen Termin nach. Die bisherige 30-Sekunden-
+Toleranz für Startmeldungen bleibt. Weitere Stufen ersetzen die Banner-Identität desselben Bosses,
+behalten jedoch den monotonen Fensteranker und dessen Ablauf. Die Tonausgabe erfolgt je Stufe.
 `BossAlertPolicy` löst weiterhin allein aus; ein per-key Resolver kann einen Boss pausieren,
 ohne die Timerauswahl zu verändern. Queue- und AlertsService-Prüfungen verwerfen deaktivierte
 echte Hinweise. Bestehende Zyklusidentität und Cache-/Freshness-Grenzen bleiben maßgeblich.
@@ -206,4 +218,39 @@ aktuellen Daevanion-Kontext, ohne die Gültigkeit einer Own-Identität an Klasse
 `DaevanionService` nutzt die gemeinsame WGC-Spielaufnahme, bestätigt zwei unterschiedliche Frames
 und verbindet Klasse, Board, Geometrie, Sprache und Frische in einem Snapshot. Unmittelbar vor
 Darstellung prüft `DaevanionOverlayForm` den Kontext erneut. Der gemeinsame Produktionsrenderer
-zeichnet nur Node-Innenflächen; Menüvorschau und Offline-Bildprüfung verwenden denselben Painter.
+zeichnet rund maskierte Inhalte und eine qualitätsfarbene Stat-Fassung außerhalb nativer Rahmen.
+Die Fassung passt ihre Erweiterung an den erkannten Rasterabstand an; Menüvorschau und
+Offline-Bildprüfung verwenden denselben Painter.
+
+## Ereignisgesteuerte Kartenruhe (2026-10-21)
+
+Der Kartentracker leitet seine Arbeitsweise direkt aus Netzwerkschalter und Weltkontext ab.
+Mit aktivierter Netzwerkquelle erlaubt nur eine bestätigte unterstützte offene Karte visuelle
+Minimaparbeit gegen genau diese Kartenreferenz. Dungeons/Eventinstanzen, Übergänge und noch
+unbestätigte Zustände warten ohne Map-Capture, UI-Probes oder Recovery auf eine Änderung.
+Der visuelle Instanz-Fallback ist ausschließlich bei ausgeschaltetem Netzwerkschalter aktiv.
+Die vorhandenen Quellen-/Kartengenerationen schützen weiterhin Positionen und Zielmutationen.
+Öffentliche Builds enthalten keinen Instanzkatalog (Nutzerentscheidung 2026-10-21). Ohne Ortsfakten
+kann der Netzwerkstrom kein Gebiet bestätigen; der Kartentracker und die HUD-Kontexte arbeiten dann wie
+bei ausgeschaltetem Netzwerk-Tracking, und die Ortsanzeige im Map-Tab entfällt.
+Eine flüchtige Revision des Netzwerkschalters entwertet alte Bildarbeit auch nach einem schnellen
+Aus-/Ein-Rundlauf mit demselben Endwert; sie wird nicht als neue Profileinstellung gespeichert.
+
+HUD-Kontextfreigaben werden bei Karten-, Weltkontext- und Einstellungsänderungen angewendet.
+Der Interaktionstimer behält Tastatur-/Vordergrundaufgaben. Bei ausgesetzter visueller Beobachtung
+wirkt die bestätigte Instanzfreigabe ohne zusätzliche Menü-/Minimapannahme. Die gemeinsame
+Bildaufnahme wird nicht global beendet; Händler- und Daevanionverbraucher bleiben unabhängig.
+
+## Gespeicherte Kartenansichten (2026-10-21)
+
+AppSettings.MapViewports hält native X/Y-Mitte und Leaflet-Zoom je Karte; alte Einstellungen
+starten mit leerem Bestand ohne Migration. MapViewport validiert finite Werte. Die interaktive
+Karte puffert Bewegungen und meldet ausschließlich endgültige Ansichten mit einer kartenbezogenen
+Präsentationsrevision zurück. MapView akzeptiert nur bekannte, von ihm angeforderte Karten und
+die jeweils neueste Revision. Der Zustand bleibt von Netzwerk- und Positionsepochen getrennt:
+Eine Ansicht ist kein Aufenthalts- oder Spielerbeleg.
+
+MapView wählt anhand des bestätigten Netzwerkorts die unterstützte Karte vor dem ersten visuellen
+Spielerfund, unabhängig von Follow-/Progressionsschaltern. Diese steuern weiterhin Zentrierung
+und Wegführung. Manuelles Browsen bleibt bis zum nächsten tatsächlichen Netzwerk-Kartenwechsel erhalten.
+Erneutes Own derselben nativen Karte sowie reine Inhaltsverfeinerungen erzwingen keinen Wechsel.

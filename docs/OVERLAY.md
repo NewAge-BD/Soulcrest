@@ -424,8 +424,8 @@ Der Wechsel selbst speichert weder Positionen noch Skalierungen oder Breiten neu
 - Automatisch am geöffneten Spielbrett ausgerichtete, vollständig klickdurchlässige Ergänzung
   für Nezekan, Zikel, Vaizel, Triniel, Ariel und Azphel in allen acht unterstützten Klassen.
 - Skill-Nodes zeigen ihr originales Skillbild und +1 für den Skillstufenbonus. Stat-Nodes
-  zeigen ein lokalisiertes Kürzel und den exakten Bonus; Ariel-/Azphel-Doppelboni bleiben zwei getrennte
-  Zeilen. Ariels PvE- und Boss-Boni behalten ihre unterscheidbaren Kürzel.
+  zeigen ein lokalisiertes Kürzel und den exakten Bonus; Ariel-/Azphel-Doppelboni stehen in zwei
+  zugeordneten Spalten. Ariels PvE- und Boss-Boni behalten ihren sichtbaren Kontext.
 - Native Rahmen, Auswahlmarkierung und Start-Node bleiben erhalten. Abgedunkelte Nodes bleiben
   lesbar; daraus wird kein erworbener Bonus abgeleitet. Die ergänzte Innenfläche verwendet immer
   einen festen Spielstil, unabhängig vom globalen Theme.
@@ -441,10 +441,23 @@ Der Wechsel selbst speichert weder Positionen noch Skalierungen oder Breiten neu
 - Sprache, Vordergrundmodus, Aufnahmesichtbarkeit und Place-Mode-Unterdrückung gelten gemeinsam
   mit den anderen Overlays. Die Erkennung benötigt kein laufendes Karten-Tracking.
 
-Die neue runde Nutzermaske begrenzt alle Ergänzungen auf etwa 65% des Node-Durchmessers.
+Die runde Nutzermaske begrenzt Zahlen und Skillbilder auf etwa 65% des Node-Durchmessers.
 Originaler Aktivierungsring, quadratischer Außenrahmen und farbige Ecken bleiben frei. Statwerte
 liegen auf dem gelieferten Stein-Hintergrund, mit Palatino Linotype Bold und dunkler Kontur;
-Skillbilder verwenden dieselbe runde Alphaform. Bei Ariel und Azphel bleiben zwei Boni getrennte Zeilen.
+Skillbilder verwenden dieselbe runde Alphaform.
+
+Nutzerentscheidung vom 2026-10-21: Stat-Nodes verwenden die umlaufende Fassung (Entwurf 4).
+Das Kürzel sitzt unter dem nativen Rahmen; der runde Innenraum bietet größere Zahlen und bei
+Doppelboni zwei passende Spalten. Common/None-Fassungen sind schieferfarben, Rare grün,
+Legend blau und Unique orange. Die Kategorie bestimmt nur das Material, niemals Bonus oder
+Node-Typ. Die Beschriftung nennt auch grüne, blaue und orange Boni ausdrücklich.
+
+Die Außenfassung wird aus dem nativen Rahmen und dem tatsächlich erkannten Rasterabstand
+berechnet. Engere Zwischenräume verkürzen nur die zusätzlichen Außenflächen; native Rahmen
+werden nicht verschoben oder übermalt. Unter fünf Pixeln nutzbarer Beschriftungshöhe bleibt
+die kompakte Innenbeschriftung erhalten. Nicht bestätigte Nodes erhalten keine Ergänzung;
+Nachbarrahmen einschließlich Start bleiben auch von Außenflächen ausgenommen. Die stabile
+Fensterfläche umfasst die Fassungen des vollständigen Boards, unabhängig von Verdeckungen.
 
 Wie beim Shop wird ein bestätigtes Raster anschließend als bevorzugte Suchhypothese verwendet.
 Jedes neue Bild prüft Rahmen, Startkontur und belegte/leere Felder erneut; alte Geometrie ist
@@ -461,3 +474,16 @@ Leuchtsäume liefern nur Rasterhypothesen, nicht die Größe der gezeichneten In
 Begrenzte native Rahmengrößen werden erneut gegen Motiv, Startkontur und ganze Boardmaske geprüft.
 Ein Leuchten bestimmt weder den Node-Typ noch einen Fortschrittswert. Verdeckungen, Menüwechsel
 und die ursprüngliche Capture-Frist bleiben weiterhin maßgeblich.
+
+### Bestätigte Instanz ohne Kartenbeobachtung (2026-10-21)
+
+In netzwerkbestätigten Dungeons und Eventinstanzen fordert der Kartentracker keine Bilder an,
+auch nicht zur ESC-/Weltkartenprüfung. Für die frei platzierbaren HUDs gilt deshalb ausschließlich
+die gespeicherte Instanzfreigabe als Kontextfilter. Unbeobachtete Menü-, Weltkarten- und Minimap-
+Flags werden nicht als zusätzlicher negativer Nachweis verwendet. Vordergrund, manuelle
+Sichtbarkeit und Funktionsschalter bleiben unabhängig. Fortschritt und Timer laufen weiter.
+
+Bei aktiver visueller Kartenbeobachtung gelten die bisherigen überlappenden Kontextfilter
+weiter. Auch Übergänge und ein noch unbestätigter aktiver Netzwerkkontext setzen die visuelle
+Beobachtung aus. Die unterstützten offenen Abyss-Karten behalten ihre Karten-/HUD-Ausnahme. Eigenständige
+Händler-/Daevanionaufnahme und ihre Darstellung werden durch die Kartenruhe nicht gestoppt.

@@ -2,6 +2,16 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.11.0 – 2026-10-21
+
+- **New:** Multiple advance warnings for bosses, events, resets and custom alerts: combine 2, 5, 10 and
+  15 minutes freely and add your own times. "Off" pauses the reminder and keeps your selection;
+  existing settings carry over.
+- **New:** The map remembers zoom and view for each map separately, also across restarts.
+- **Changed:** Daevanion overlay: stat nodes now have a frame in the node's colour (green, blue, orange)
+  with larger numbers; the abbreviation sits below the frame, double bonuses in two columns.
+- **Changed:** The network switch is now called "Network tracking".
+
 ## 0.10.2 – 2026-10-21
 
 - **New:** The Daevanion overlay now also supports the **Ariel** board in all eight classes, including

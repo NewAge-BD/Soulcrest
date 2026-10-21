@@ -7,6 +7,12 @@ public sealed record OwnCharacterIdentity(long CharacterId, int ServerId, int En
     public string? ClassId { get; init; }
 }
 
+/// <summary>Own map metadata returned only after complete MyCharAppear validation; no raw map key or coordinates.</summary>
+public sealed record OwnWorldObservation(OwnCharacterIdentity Identity, int? MapDataId);
+
+/// <summary>Complete preparation shape, provisional map metadata only.</summary>
+public sealed record WorldEntryPreparation(int? MapDataId);
+
 /// <summary>Current own identity and its transient network generation; never a persisted character choice.</summary>
 public sealed record OwnCharacterContext(OwnCharacterIdentity Identity, long Generation);
 

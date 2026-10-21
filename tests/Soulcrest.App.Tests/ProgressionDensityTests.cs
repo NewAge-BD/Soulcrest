@@ -156,7 +156,7 @@ public sealed class ProgressionDensityTests
             services.AddSingleton(_ => new AlertsService(Path.Combine(_folder, "alerts.json"), runTimer: false));
             services.AddSingleton<IJSRuntime>(Js);
             Provider = services.BuildServiceProvider();
-            Settings.Update(s => { s.UiLanguage = s.NameLanguage = language; s.LastMap = "altgard"; s.FollowPlayer = false;
+            Settings.Update(s => { s.LootTrackingEnabled = false; s.UiLanguage = s.NameLanguage = language; s.LastMap = "altgard"; s.FollowPlayer = false;
                 s.ProgressionEnabled = true; s.ProgressionKinds = ["pets"]; s.ShowRoutesInGame = true; });
             _renderer = new HtmlRenderer(Provider, Provider.GetRequiredService<ILoggerFactory>());
         }

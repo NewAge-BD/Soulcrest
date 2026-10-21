@@ -4,7 +4,11 @@ public sealed record OverlayVisibilityRules(bool WorldMap = true, bool Menu = tr
     bool Instances = true, bool MissingMinimap = true);
 
 public readonly record struct OverlayContext(bool TrackingRunning, bool MinimapFound,
-    bool WorldMapOpen, bool EscMenuOpen, bool InInstance);
+    bool WorldMapOpen, bool EscMenuOpen, bool InInstance, bool? NetworkInInstance = null)
+{
+    // No observation is different from an observed missing minimap or open menu.
+    public bool VisualObservationSuspended { get; init; }
+}
 
 /// <summary>Independent, overlapping context permissions for each freely placed HUD.</summary>
 public static class OverlayVisibilityPolicy
@@ -37,12 +41,14 @@ public static class OverlayVisibilityPolicy
 
     public static bool IsSuppressed(OverlayVisibilityRules rules, OverlayContext context)
     {
-        if (!context.TrackingRunning) return false;
+        if (!context.TrackingRunning || context.VisualObservationSuspended)
+            return context.NetworkInInstance == true && !rules.Instances;
+        var inInstance = context.NetworkInInstance ?? context.InInstance;
         var missing = !context.MinimapFound && !context.WorldMapOpen;
-        var menu = context.EscMenuOpen || missing && !context.InInstance;
+        var menu = context.EscMenuOpen || missing && !inInstance;
         return context.WorldMapOpen && !rules.WorldMap
             || menu && !rules.Menu
-            || context.InInstance && !rules.Instances
+            || inInstance && !rules.Instances
             || missing && !rules.MissingMinimap;
     }
 }

@@ -158,7 +158,7 @@ public sealed partial class RouteOverlayForm
             && MapLayerVisibility.CategoryVisible(settings, map, surface, "Collectibles", "Cube Groups");
 
     private List<(MapTarget Target, int Index)> TargetsWithDistance(PreparedOverlay prepared) =>
-        _distances.Get(prepared, _tracking.Position, UiText.Language);
+        _distances.Get(prepared, _tracking.CanUsePlayerPosition ? _tracking.Position : null, UiText.Language);
 
     /// <summary>
     /// Optical flow updates the projection much more often than a verified player position. Reuse

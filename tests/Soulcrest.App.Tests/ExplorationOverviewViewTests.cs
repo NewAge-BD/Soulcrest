@@ -245,6 +245,7 @@ public sealed class ExplorationOverviewViewTests
             services.AddSingleton<UiState>();
             _provider = services.BuildServiceProvider();
             Settings = _provider.GetRequiredService<SettingsService>();
+            Settings.Current.LootTrackingEnabled = false; // Test positions are visual fallback evidence.
             _previous = (Settings.Current.UiLanguage, Settings.Current.NameLanguage, Settings.Current.LastMap, Settings.Current.ExplorationPinnedMap);
             Settings.Current.UiLanguage = Settings.Current.NameLanguage = UiText.Language = language;
             Settings.Current.LastMap = "altgard";

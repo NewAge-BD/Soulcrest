@@ -30,6 +30,7 @@ public sealed class MainForm : Form
     private bool _placementPresented;
     private readonly TrackerService _tracker;
     private readonly MapTrackingService _map;
+    private readonly WorldContextService _worldContext;
     private readonly Capture.GameCaptureService _gameCapture;
     private readonly CancellationTokenSource _watchdog = new();
     private readonly System.Windows.Forms.Timer _overlayInteractionTimer = new() { Interval = 25 };
@@ -39,6 +40,8 @@ public sealed class MainForm : Form
     private bool _overlayKeyboardStarted;
     private bool _overlaysStarted;
     private bool? _lastAlt, _lastShift;
+    private bool _lootContextSuppressed;
+    private int _contextUpdatePending;
     private long _foregroundCheckedAt;
     private bool _gameInForeground;
 
@@ -65,6 +68,7 @@ public sealed class MainForm : Form
         services.AddSingleton<OverlayPreviewRenderer>();
         services.AddSingleton<Capture.GameCaptureService>();
         services.AddSingleton<ProgressService>();
+        services.AddSingleton<WorldContextService>();
         services.AddSingleton<Network.NetworkLootService>();
         services.AddSingleton<Network.INetworkLootSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkMerchantSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
@@ -90,6 +94,8 @@ public sealed class MainForm : Form
         UpdateLanguage();
         _settings.Changed += UpdateLanguage;
         _tracker = _services.GetRequiredService<TrackerService>();
+        _worldContext = _services.GetRequiredService<WorldContextService>();
+        _worldContext.Changed += ScheduleOverlayContext;
         _map = _services.GetRequiredService<MapTrackingService>();
         _gameCapture = _services.GetRequiredService<Capture.GameCaptureService>();
         var progress = _services.GetRequiredService<ProgressService>();
@@ -146,19 +152,20 @@ public sealed class MainForm : Form
         _levelingOverlay = new LevelingOverlayForm(_services.GetRequiredService<MapTargetsService>(),
             _services.GetRequiredService<ExplorationService>(), _settings);
         _ = _services.GetRequiredService<CharacterDetectionService>(); // profile follows the character after loading screens
-        // Loading screens end the tracking's rest in an instance at once (and start the short wait in a new one).
-        _services.GetRequiredService<Network.NetworkLootService>().CharacterEntered += _ => _map.NoteLoadingScreen();
         _ = _services.GetRequiredService<DiagnosticsService>(); // runs along, writes logs\diagnose.txt
         _routeOverlay = new RouteOverlayForm(
             _services.GetRequiredService<MapTrackingService>(),
             _services.GetRequiredService<MapTargetsService>(),
             _settings,
             _services.GetRequiredService<ProgressService>());
-        _overlayInteractionTimer.Tick += (_, _) => UpdateOverlayState();
-        OverlayInteraction.Changed += ScheduleOverlayState;
+        _overlayInteractionTimer.Tick += (_, _) => UpdateOverlayInteractionState();
+        OverlayInteraction.Changed += ScheduleOverlayInteraction;
         _placement = _services.GetRequiredService<OverlayPlacementService>();
         _placement.RefreshMonitors(Bounds);
         _placement.Changed += PlacementStateChanged;
+        _map.Changed += ScheduleOverlayContext;
+        _settings.Changed += ScheduleOverlayContext;
+        ApplyOverlayContext();
     }
 
     private void UpdateLanguage()
@@ -173,12 +180,16 @@ public sealed class MainForm : Form
         base.OnHandleCreated(e);
         DarkTitleBar.Apply(Handle);
         if (_overlaysStarted && !_closing && !_cleanupStarted)
+        {
             StartOverlayKeyboard();
+            ApplyOverlayContext();
+        }
     }
 
     protected override void OnHandleDestroyed(EventArgs e)
     {
         StopOverlayKeyboard();
+        Interlocked.Exchange(ref _contextUpdatePending, 0);
         base.OnHandleDestroyed(e);
     }
 
@@ -220,7 +231,7 @@ public sealed class MainForm : Form
     protected override void WndProc(ref Message m)
     {
         if (!_closing && !_cleanupStarted && OverlayInteraction.ProcessMessage(m.Msg, m.LParam))
-            UpdateOverlayState();
+            UpdateOverlayInteractionState();
         if (m.Msg == NativeMethods.WM_HOTKEY && !_closing && !_cleanupStarted)
         {
             _hotkeys.ProcessHotkey((int)m.WParam);
@@ -241,6 +252,33 @@ public sealed class MainForm : Form
 
     internal void UpdateOverlayState()
     {
+        ApplyOverlayContext();
+        UpdateOverlayInteractionState();
+    }
+
+    private void ApplyOverlayContext()
+    {
+        if (_closing || _cleanupStarted || _placement.Active) return;
+        var networkEnabled = _settings.Current.LootTrackingEnabled && _worldContext.HasLocationFacts;
+        var source = _worldContext.Snapshot;
+        var networkInInstance = networkEnabled ? EffectiveFeaturePolicy.ConfirmedInstance(source) : null;
+        var mode = EffectiveFeaturePolicy.TrackingMode(networkEnabled, source);
+        var context = new OverlayContext(_map.Running, _map.Found, _map.WorldMapOpen, _map.EscMenuOpen,
+            networkInInstance ?? (!networkEnabled && _map.InInstance), networkInInstance)
+            { VisualObservationSuspended = mode == MapTrackingMode.NetworkSuspended };
+        bool Suppressed(string id) => OverlayVisibilityPolicy.IsSuppressed(_settings.Current, id, context);
+        _lootContextSuppressed = Suppressed("loot");
+        _overlay.SetSuppressed(_lootContextSuppressed);
+        _levelingOverlay.SetSuppressed(Suppressed("leveling"));
+        _bossOverlay.SetSuppressed(Suppressed("boss"));
+        _alertsOverlay.SetSuppressed(Suppressed("alerts"));
+        _alertNotifications.SetSuppressed(Suppressed("notifications"));
+        _eventTimelineOverlay.SetSuppressed(Suppressed("event-timeline"));
+        _routeOverlay.SetSuppressed(context.VisualObservationSuspended || _map.Running && _map.EscMenuOpen);
+    }
+
+    internal void UpdateOverlayInteractionState()
+    {
         if (_closing || _cleanupStarted) return;
         if (_placement.Active) { SetOverlayInteractionEnabled(false); return; }
         if (_overlaysStarted)
@@ -253,16 +291,6 @@ public sealed class MainForm : Form
             }
             UpdateForegroundVisibility(_gameInForeground);
         }
-        var context = new OverlayContext(_map.Running, _map.Found, _map.WorldMapOpen, _map.EscMenuOpen, _map.InInstance);
-        bool Suppressed(string id) => OverlayVisibilityPolicy.IsSuppressed(_settings.Current, id, context);
-        _overlay.SetSuppressed(Suppressed("loot"));
-        _levelingOverlay.SetSuppressed(Suppressed("leveling"));
-        _bossOverlay.SetSuppressed(Suppressed("boss"));
-        _alertsOverlay.SetSuppressed(Suppressed("alerts"));
-        _alertNotifications.SetSuppressed(Suppressed("notifications"));
-        _eventTimelineOverlay.SetSuppressed(Suppressed("event-timeline"));
-        _routeOverlay.SetSuppressed(_map.Running && _map.EscMenuOpen);
-        var suppressed = Suppressed("loot");
         var alt = OverlayInteraction.IsAltHeld;
         var shift = OverlayInteraction.IsShiftHeld;
         SetOverlayInteractionEnabled(alt);
@@ -270,7 +298,7 @@ public sealed class MainForm : Form
         {
             _lastAlt = alt;
             _lastShift = shift;
-            LogFile.Append("overlay-input.log", $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} overlay modifiers: alt={alt}, shift={shift}, suppressed={suppressed}; {OverlayInteraction.State}{Environment.NewLine}");
+            LogFile.Append("overlay-input.log", $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} overlay modifiers: alt={alt}, shift={shift}, suppressed={_lootContextSuppressed}; {OverlayInteraction.State}{Environment.NewLine}");
         }
     }
 
@@ -288,10 +316,30 @@ public sealed class MainForm : Form
         _daevanionOverlay.SetForegroundSuppressed(suppressed);
     }
 
-    private void ScheduleOverlayState()
+    private void ScheduleOverlayContext()
     {
         if (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) return;
-        try { BeginInvoke(UpdateOverlayState); }
+        // Queue UI-thread events too: visibility callbacks may publish a newer world/settings state
+        // while the current context is still being applied to the remaining HUDs.
+        if (Interlocked.Exchange(ref _contextUpdatePending, 1) != 0) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                Interlocked.Exchange(ref _contextUpdatePending, 0);
+                ApplyOverlayContext();
+            });
+        }
+        catch (InvalidOperationException) when (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated)
+        {
+            Interlocked.Exchange(ref _contextUpdatePending, 0);
+        }
+    }
+
+    private void ScheduleOverlayInteraction()
+    {
+        if (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) return;
+        try { BeginInvoke(UpdateOverlayInteractionState); }
         catch (InvalidOperationException) when (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) { }
     }
 
@@ -477,14 +525,17 @@ public sealed class MainForm : Form
         if (_cleanupStarted) return;
         _cleanupStarted = true;
         _overlaysStarted = false;
-        OverlayInteraction.Changed -= ScheduleOverlayState;
+        OverlayInteraction.Changed -= ScheduleOverlayInteraction;
         _placement.Changed -= PlacementStateChanged;
         _placementWindow?.Dispose();
         _placement.Stop();
         _overlayInteractionTimer.Dispose();
         StopOverlayKeyboard();
         _settings.Changed -= UpdateLanguage;
+        _settings.Changed -= ScheduleOverlayContext;
+        _map.Changed -= ScheduleOverlayContext;
         _alerts.NoticeRaised -= DeliverAlertSound;
+        _worldContext.Changed -= ScheduleOverlayContext;
         _hotkeys.Invoked -= ExecuteOverlayHotkey;
         _hotkeys.Detach();
         _closing = true;

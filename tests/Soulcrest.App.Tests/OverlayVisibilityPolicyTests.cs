@@ -92,6 +92,31 @@ public sealed class OverlayVisibilityPolicyTests : IDisposable
         Assert.False(OverlayVisibilityPolicy.IsSuppressed(new(true, true, true, true), context with { EscMenuOpen = true }));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void SuspendedVisualObservationUsesOnlyTheConfirmedInstancePermission(bool trackingRunning)
+    {
+        var allowInstanceOnly = new OverlayVisibilityRules(false, false, true, false);
+        for (var flags = 0; flags < 8; flags++)
+        {
+            var context = new OverlayContext(trackingRunning, (flags & 1) != 0, (flags & 2) != 0,
+                (flags & 4) != 0, true, true) { VisualObservationSuspended = true };
+            Assert.False(OverlayVisibilityPolicy.IsSuppressed(allowInstanceOnly, context));
+            Assert.True(OverlayVisibilityPolicy.IsSuppressed(allowInstanceOnly with { Instances = false }, context));
+        }
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(false)]
+    public void UnobservedVisualFlagsCannotInventAnInstanceOrMenu(bool? networkInstance)
+    {
+        var context = new OverlayContext(true, false, true, true, true, networkInstance)
+            { VisualObservationSuspended = true };
+        Assert.False(OverlayVisibilityPolicy.IsSuppressed(new(false, false, false, false), context));
+    }
+
     [Fact]
     public void WorldMapAndMenuAndInstanceRequireEachOfTheirPermissions()
     {
