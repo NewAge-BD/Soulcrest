@@ -29,6 +29,7 @@ public sealed class DaevanionService : IDisposable
     private Task? _worker;
     private DaevanionSnapshot? _snapshot;
     private string _status = "Warte auf Klassenerkennung.";
+    private string? _highlightPlacementStatus;
     private long _revision;
     private int _disposed;
 
@@ -51,9 +52,18 @@ public sealed class DaevanionService : IDisposable
 
     public DaevanionSnapshot? Snapshot => Volatile.Read(ref _snapshot);
     public string Status => Volatile.Read(ref _status);
+    public string? HighlightPlacementStatus => Volatile.Read(ref _highlightPlacementStatus);
     public string? ClassId => _network.OwnCharacter?.Identity.ClassId;
     internal long ObservationRevision => Interlocked.Read(ref _revision);
     public event Action? Changed;
+
+    // Presentation-only feedback: never changes source evidence or the observation revision.
+    internal void SetHighlightPlacementStatus(string? status)
+    {
+        if (Volatile.Read(ref _disposed) != 0) return;
+        if (Interlocked.Exchange(ref _highlightPlacementStatus, status) != status)
+            SafeEvent.Raise(Changed, "Daevanion-Overlay");
+    }
 
     public void Start()
     {
@@ -192,6 +202,7 @@ public sealed class DaevanionService : IDisposable
     {
         Interlocked.Increment(ref _revision);
         Interlocked.Exchange(ref _snapshot, null);
+        Interlocked.Exchange(ref _highlightPlacementStatus, null);
         Interlocked.Exchange(ref _status, status);
     }
 
@@ -202,6 +213,7 @@ public sealed class DaevanionService : IDisposable
         {
             if (Volatile.Read(ref _disposed) != 0 || revision != _revision) return false;
             var previous = Interlocked.Exchange(ref _snapshot, snapshot);
+            if (snapshot is null) Interlocked.Exchange(ref _highlightPlacementStatus, null);
             var oldStatus = Interlocked.Exchange(ref _status, status);
             changed = !ReferenceEquals(previous, snapshot) || oldStatus != status;
         }

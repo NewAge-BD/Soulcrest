@@ -310,6 +310,8 @@ public sealed class MapTrackingService : IDisposable
     private Rectangle _worldScreen;
     private string? _worldMapId;
     private int _worldMisses;
+    private bool _worldEmblemSeen;
+    private int _worldEmblemMisses;
 
     /// <summary>The in-game world map is open: the overlay follows it, the player position stays as it was.</summary>
     public bool WorldMapOpen => _worldMapOpen;
@@ -685,7 +687,6 @@ public sealed class MapTrackingService : IDisposable
             var preparedGeneration = -1L;
             var lastSubmit = 0L;
             var lastEmblemCheck = 0L;
-            var emblemMisses = 0;
             double motion = 0;      // flow movement since the last detection (frame pixels)
             var flowLost = true;    // the flow could not follow since the last detection
             var stillRuns = 0;      // detections in a row without movement
@@ -857,18 +858,9 @@ public sealed class MapTrackingService : IDisposable
                     lastEmblemCheck = Stopwatch.GetTimestamp();
                     var screen = _worldScreen;
                     using var corner = GrabCurrent(MapWindowEmblem.CornerOf(screen), 1, contextGeneration);
-                    if (corner is not null)
-                    {
-                        emblemMisses = MapWindowEmblem.ShowsInCorner(corner, screen.Height) ? 0 : emblemMisses + 1;
-                        if (emblemMisses >= 2)
-                        {
-                            emblemMisses = 0;
-                            CloseWorldMap("Symbol weg");
-                        }
-                    }
+                    if (corner is not null && AcceptLastCapture())
+                        ObserveWorldMapEmblem(MapWindowEmblem.ShowsInCorner(corner, screen.Height), contextGeneration);
                 }
-                else if (!worldMap)
-                    emblemMisses = 0;
 
                 // Flow moves only the visual overlay. It cannot establish that the minimap is still
                 // visible: opening/panning the world map can also yield a perfectly good flow fit.
@@ -1286,6 +1278,8 @@ public sealed class MapTrackingService : IDisposable
             _worldScreen = screen;
             _worldMapId = definition.Id;
             _worldMisses = 0;
+            _worldEmblemSeen = false;
+            _worldEmblemMisses = 0;
             SetWorldPlacement(definition, fix, screen, locator.Reference.WorldPerPixel);
         }
         Trace(definition.Id + " (Weltkarte)", true, fix, locator);
@@ -1333,6 +1327,24 @@ public sealed class MapTrackingService : IDisposable
     }
 
     private const int EmblemCheckMs = 100;
+
+    /// <summary>A missing header can close a map only after this opening positively showed it.</summary>
+    internal void ObserveWorldMapEmblem(bool visible, long contextGeneration)
+    {
+        lock (_flowGate)
+        {
+            if (!_worldMapOpen || !IsCurrentMapContext(contextGeneration)) return;
+            if (visible)
+            {
+                _worldEmblemSeen = true;
+                _worldEmblemMisses = 0;
+            }
+            // Diagnosis 2026-10-22: hundreds of map inliers, then "Symbol weg" on every opening.
+            // An unrecognized header is not proof of closure. Full-map matching remains the fallback.
+            else if (_worldEmblemSeen && ++_worldEmblemMisses >= 2)
+                CloseWorldMap("Symbol weg");
+        }
+    }
 
     /// <summary>Leaves the world-map mode; the small map is searched again from the next frame on.</summary>
     private void CloseWorldMap(string? reason)

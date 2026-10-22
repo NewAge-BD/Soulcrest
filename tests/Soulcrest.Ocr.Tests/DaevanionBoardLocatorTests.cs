@@ -30,6 +30,8 @@ public sealed class DaevanionBoardLocatorTests
         var top = Assert.Single(result.Nodes, n => n.Row == 3 && n.Column == 3);
         Assert.InRange(top.Bounds.X + top.Bounds.Width / 2d, 77, 81);
         Assert.InRange(top.Bounds.Y + top.Bounds.Height / 2d, 77, 81);
+        Assert.Equal(DaevanionNodeAppearance.Active, top.Appearance);
+        Assert.Equal(DaevanionNodeAppearance.Inactive, Assert.Single(result.Nodes, n => n.Row == 5 && n.Column == 4).Appearance);
     }
 
     [Theory]
@@ -51,6 +53,7 @@ public sealed class DaevanionBoardLocatorTests
             .Where(c => !c.IsStart && !result.Nodes.Any(n => n.Row == c.Row && n.Column == c.Column)).Select(c => $"({c.Row},{c.Column})")));
         var node = Assert.Single(result.Nodes, n => n.Row == 3 && n.Column == 3);
         Assert.InRange(node.Bounds.X + node.Bounds.Width / 2d, left + 77 * scale, left + 82 * scale);
+        Assert.Equal(DaevanionNodeAppearance.Active, node.Appearance);
     }
 
     [Theory]
@@ -326,6 +329,36 @@ public sealed class DaevanionBoardLocatorTests
     }
 
     [Fact]
+    public void BlueLevelAndGoldSelectionAnimationDoNotActivateDormantNodes()
+    {
+        DaevanionBoardDetection? preferred = null;
+        foreach (var phase in new[] { "early", "peak", "trough", "selected-minimum", "contour-minimum" })
+        {
+            using var image = ReadAnimation(phase);
+            var result = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns, preferred));
+            Assert.Equal(DaevanionNodeAppearance.Active, Assert.Single(result.Nodes, n => n.Row == 3 && n.Column == 3).Appearance);
+            Assert.Equal(DaevanionNodeAppearance.Active, Assert.Single(result.Nodes, n => n.Row == 3 && n.Column == 4).Appearance);
+            Assert.Equal(DaevanionNodeAppearance.Active, Assert.Single(result.Nodes, n => n.Row == 3 && n.Column == 5).Appearance);
+            Assert.Equal(DaevanionNodeAppearance.Inactive, Assert.Single(result.Nodes, n => n.Row == 3 && n.Column == 9).Appearance);
+            Assert.Equal(DaevanionNodeAppearance.Inactive, Assert.Single(result.Nodes, n => n.Row == 11 && n.Column == 12).Appearance);
+            preferred = result;
+        }
+    }
+
+    [Fact]
+    public void PreferredRasterRereadsChangedNativeActivationArtwork()
+    {
+        using var original = RenderReference("nezekan");
+        var preferred = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(original, Patterns));
+        using var current = RenderReference("nezekan", inactive: true);
+        var result = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(current, Patterns, preferred));
+        Assert.Equal(preferred.Origin, result.Origin);
+        Assert.Equal(preferred.Nodes.Count, result.Nodes.Count);
+        Assert.All(result.Nodes, node => Assert.Equal(DaevanionNodeAppearance.Inactive, node.Appearance));
+        Assert.Contains(preferred.Nodes, node => node.Appearance == DaevanionNodeAppearance.Active);
+    }
+
+    [Fact]
     public void ActualPulseDoesNotAllowPaintingOverAnInteriorTooltipOrDifferentMenu()
     {
         using var image = ReadAnimation("peak");
@@ -352,7 +385,7 @@ public sealed class DaevanionBoardLocatorTests
 
     private static Mat ReadFixture() => Cv2.ImRead(Path.Combine(AppContext.BaseDirectory, "fixtures", "daevanion", "nezekan-board.png"));
 
-    private static Mat RenderReference(string family)
+    private static Mat RenderReference(string family, bool inactive = false)
     {
         var board = DaevanionCatalog.Default.GetBoard("Cleric", family)!;
         var image = new Mat(1200, 1300, MatType.CV_8UC3, new Scalar(29, 33, 34));
@@ -360,7 +393,7 @@ public sealed class DaevanionBoardLocatorTests
         foreach (var node in board.Nodes)
         {
             var suffix = node.Kind == DaevanionNodeKind.Start ? "ut_fwindow_daevanion_node_startbg_sprite.png"
-                : "ut_fwindow_daevanion_node_" + node.Quality.ToString().ToLowerInvariant() + "_sprite.png";
+                : "ut_fwindow_daevanion_node_" + node.Quality.ToString().ToLowerInvariant() + (inactive ? "_disabled_sprite.png" : "_sprite.png");
             var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith(suffix, StringComparison.Ordinal));
             using var stream = assembly.GetManifestResourceStream(name)!;
             using var memory = new MemoryStream(); stream.CopyTo(memory);

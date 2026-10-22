@@ -7,7 +7,12 @@ namespace Soulcrest.Ocr.Daevanion;
 /// <summary>Occupied native cells; row/column remain one-based, including the start cell.</summary>
 public sealed record DaevanionPatternCell(int Row, int Column, bool IsStart = false);
 public sealed record DaevanionBoardPattern(string Family, IReadOnlyList<DaevanionPatternCell> Cells);
-public sealed record DaevanionNodeAnchor(int Row, int Column, Rect Bounds, double Confidence);
+/// <summary>Fresh native artwork, not a stored unlock state or the color of an animation.</summary>
+public enum DaevanionNodeAppearance { Unknown, Inactive, Active }
+public sealed record DaevanionNodeAnchor(int Row, int Column, Rect Bounds, double Confidence)
+{
+    public DaevanionNodeAppearance Appearance { get; init; }
+}
 /// <summary>Origin is the center of native cell (1,1), in the supplied image's pixels.</summary>
 public sealed record DaevanionBoardDetection(string Family, Point2d Origin, double Spacing, double NodeSize,
     IReadOnlyList<DaevanionNodeAnchor> Nodes, double Confidence);
@@ -23,7 +28,7 @@ public static class DaevanionBoardLocator
     private sealed record Cell(int X, int Y, Candidate Candidate, double Confidence);
     private sealed record Hypothesis(DaevanionBoardPattern Pattern, Point2d Origin, double Score,
         IReadOnlyList<DaevanionNodeAnchor> Nodes);
-    private sealed record FrameReference(double[] Values, double Norm, double[] RedValues, double RedNorm);
+    private sealed record FrameReference(double[] Values, double Norm, double[] RedValues, double RedNorm, DaevanionNodeAppearance Appearance);
     private static readonly Lazy<(FrameReference[] Frames, Point2d[] Start, Point2d[] Border)> References = new(LoadReferences);
     private const int SamplesPerAxis = 13;
     private const double FirstSample = .16, SampleSpan = .68;
@@ -50,7 +55,7 @@ public static class DaevanionBoardLocator
         using var edges = new Mat();
         Cv2.Canny(gray, edges, 8, 25);
         if (preferred is not null && ValidatePreferred(gray, red, edges, valid, preferred) is { } frozen)
-            return frozen;
+            return ReadAppearances(frozen, gray, red);
         using var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
         using var closed = new Mat();
         Cv2.MorphologyEx(edges, closed, MorphTypes.Close, kernel);
@@ -110,12 +115,50 @@ public static class DaevanionBoardLocator
             // fully proved native contour. Keep that frame geometry; an actual pulse requires the
             // distinctly smaller artwork scale and must not inherit its larger luminous boundary.
             if (nativeContour is not null && best is not null && best.NodeSize >= nativeContour.NodeSize * .95)
-                return nativeContour;
+                return ReadAppearances(nativeContour, gray, red);
             // A complete freshly proved mask already resolves this grid. Select its native size
             // from all bounded artwork probes, then avoid repeating an equivalent contour cluster.
-            if (best?.Confidence == 1) return best;
+            if (best?.Confidence == 1) return ReadAppearances(best, gray, red);
         }
-        return best;
+        return best is null ? null : ReadAppearances(best, gray, red);
+    }
+
+    private static DaevanionBoardDetection ReadAppearances(DaevanionBoardDetection detection, Mat gray, Mat? red) =>
+        detection with { Nodes = detection.Nodes.Select(node => node with
+        {
+            Appearance = ClassifyAppearance(gray, red, Center(detection.Origin, detection.Spacing, node.Row, node.Column), detection.NodeSize)
+        }).ToArray() };
+
+    /// <summary>Compare active and disabled native textures independently of brightness and cyan bloom.</summary>
+    internal static DaevanionNodeAppearance ClassifyAppearance(Mat gray, Mat? red, Point2d center, double size)
+    {
+        static DaevanionNodeAppearance Decide((double Active, double Inactive) scores) =>
+            scores.Active >= .68 && scores.Active - scores.Inactive >= .10 ? DaevanionNodeAppearance.Active :
+            scores.Inactive >= .58 && scores.Inactive - scores.Active >= .10 ? DaevanionNodeAppearance.Inactive :
+            DaevanionNodeAppearance.Unknown;
+
+        (double Active, double Inactive) Best(Mat plane, bool isRed)
+        {
+            var best = (Active: 0d, Inactive: 0d);
+            foreach (var ratio in new[] { 1d, .98, .96, .94 })
+            {
+                var scores = FrameScoresPlane(plane, center, size * ratio, isRed);
+                best = (Math.Max(best.Active, scores.Active), Math.Max(best.Inactive, scores.Inactive));
+                if (Math.Max(scores.Active, scores.Inactive) >= .78 && Math.Abs(scores.Active - scores.Inactive) >= .18)
+                    return scores;
+            }
+            return best;
+        }
+
+        // The blue level-up and hover pulse changes luminance without changing the dormant
+        // native engraving. Prefer its independently matched red artwork. Saturated orange
+        // nodes may lose all red-channel texture; only then use the ordinary texture proof.
+        if (red is not null)
+        {
+            var redAppearance = Decide(Best(red, true));
+            if (redAppearance != DaevanionNodeAppearance.Unknown) return redAppearance;
+        }
+        return Decide(Best(gray, false));
     }
 
     private static bool Better(DaevanionBoardDetection candidate, DaevanionBoardDetection? current) =>
@@ -381,8 +424,14 @@ public static class DaevanionBoardLocator
 
     private static double FrameScorePlane(Mat gray, Point2d center, double size, bool red)
     {
+        var scores = FrameScoresPlane(gray, center, size, red);
+        return Math.Max(scores.Active, scores.Inactive);
+    }
+
+    private static (double Active, double Inactive) FrameScoresPlane(Mat gray, Point2d center, double size, bool red)
+    {
         var samples = new double[SamplesPerAxis * SamplesPerAxis];
-        var best = 0d;
+        var best = (Active: 0d, Inactive: 0d);
         var delta = Math.Max(1, (int)Math.Round(size * .012));
         Point[] offsets = [new(0, 0), new(delta, 0), new(-delta, 0), new(0, delta), new(0, -delta),
             new(delta, delta), new(-delta, -delta), new(delta, -delta), new(-delta, delta),
@@ -395,7 +444,7 @@ public static class DaevanionBoardLocator
             {
                 var sx = (int)Math.Round(center.X + offset.X + (FirstSample + x * SampleSpan / (SamplesPerAxis - 1) - .5) * size);
                 var sy = (int)Math.Round(center.Y + offset.Y + (FirstSample + y * SampleSpan / (SamplesPerAxis - 1) - .5) * size);
-                if (sx < 0 || sy < 0 || sx >= gray.Width || sy >= gray.Height) return 0;
+                if (sx < 0 || sy < 0 || sx >= gray.Width || sy >= gray.Height) return (0, 0);
                 samples[index] = gray.At<byte>(sy, sx); sum += samples[index++];
             }
             var mean = sum / samples.Length; var squared = 0d;
@@ -407,7 +456,9 @@ public static class DaevanionBoardLocator
                 var dot = 0d;
                 var values = red ? reference.RedValues : reference.Values;
                 for (var i = 0; i < samples.Length; i++) dot += samples[i] * values[i];
-                best = Math.Max(best, dot / (norm * (red ? reference.RedNorm : reference.Norm)));
+                var score = dot / (norm * (red ? reference.RedNorm : reference.Norm));
+                if (reference.Appearance == DaevanionNodeAppearance.Active) best.Active = Math.Max(best.Active, score);
+                else best.Inactive = Math.Max(best.Inactive, score);
             }
         }
         return best;
@@ -465,7 +516,8 @@ public static class DaevanionBoardLocator
                 var mean = values.Average();
                 var redMean = redValues.Average();
                 for (var i = 0; i < values.Length; i++) { values[i] -= mean; redValues[i] -= redMean; }
-                frames.Add(new(values, Math.Sqrt(values.Sum(v => v * v)), redValues, Math.Sqrt(redValues.Sum(v => v * v))));
+                frames.Add(new(values, Math.Sqrt(values.Sum(v => v * v)), redValues, Math.Sqrt(redValues.Sum(v => v * v)),
+                    name.Contains("_disabled_", StringComparison.Ordinal) ? DaevanionNodeAppearance.Inactive : DaevanionNodeAppearance.Active));
             }
         }
         if (frames.Count < 8 || start.Length < 50 || border.Length < 50) throw new InvalidDataException("Daevanion recognition references are incomplete.");

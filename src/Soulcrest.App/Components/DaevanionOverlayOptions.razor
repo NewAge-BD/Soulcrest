@@ -8,12 +8,42 @@
 <section class="overlay-settings-card" data-daevanion-status>
     <h4>@UiText.T("Erkennung")</h4>
     <p role="status">@UiText.T(_service?.Status ?? "Warte auf Klassenerkennung.")</p>
+    <p data-daevanion-node-content="@(Settings.Current.DaevanionNodeContentVisible ? "on" : "off")">@UiText.T(Settings.Current.DaevanionNodeContentVisible ? "Node-Anzeige: an" : "Node-Anzeige: aus")</p>
+    <p>@UiText.T("Der Schalter am Board blendet nur die Node-Ergänzungen aus. Deine Auswahl wird gespeichert.")</p>
     @if (_service?.ClassId is { } classId)
     {
         <p>@ClassName(classId)@(_service.Snapshot is { } snapshot ? " · " + snapshot.Board.Name.For(Settings.Current.LootNameLanguage) : "")</p>
     }
     <p>@UiText.T("Klasse und Charakter werden über das Netzwerk erkannt. Das Board richtet sich automatisch am Spiel aus.")</p>
     <p>@UiText.T("Der feste Spielstil bleibt unabhängig vom Theme. Alle Nodes sind lesbar; die Rahmen und Spielbedienung bleiben erhalten.")</p>
+</section>
+<section class="overlay-settings-card" data-daevanion-highlights>
+    <h4>@UiText.T("Stat-Hervorhebung")</h4>
+    @if (_service?.HighlightPlacementStatus is { } placementStatus)
+    {
+        <p role="status" data-daevanion-highlight-placement>@UiText.T(placementStatus)</p>
+    }
+    @if (_service?.Snapshot is { } boardSnapshot && _service.CanPresent(boardSnapshot))
+    {
+        <p>@UiText.T("Ausgewählte Stats auf diesem Board")</p>
+        @if (SelectedBoardStats(boardSnapshot.Board).Any())
+        {
+            <p>@foreach (var stat in SelectedBoardStats(boardSnapshot.Board)) { <span data-daevanion-highlight-stat="@stat.Id" title="@stat.Name.For(Settings.Current.LootNameLanguage)">@stat.ShortLabel.For(Settings.Current.LootNameLanguage) </span> }</p>
+        }
+        else
+        {
+            <p>@UiText.T("Keine Stats auf diesem Board ausgewählt.")</p>
+        }
+    }
+    else
+    {
+        <p>@UiText.T("Warte auf ein bestätigtes Board.")</p>
+    }
+    <button type="button" data-daevanion-highlights-clear disabled="@(Settings.Current.DaevanionHighlightedStatIds.Count == 0)" @onclick="ClearHighlights">@UiText.T("Alle Highlights aus")</button>
+    @if (_highlightFeedback is { } feedback)
+    {
+        <p role="@(_highlightError ? "alert" : "status")" data-daevanion-highlight-feedback>@UiText.T(feedback)</p>
+    }
 </section>
 <section class="overlay-settings-card">
     <h4>@UiText.T("Vorschau")</h4>
@@ -34,12 +64,35 @@
     private readonly DaevanionOverlayRenderer _renderer = new();
     private DaevanionService? _service;
     private string _classId = "Cleric", _family = "nezekan", _key = "", _preview = "", _lastStatus = "";
-    private bool _disposed;
+    private bool _disposed, _highlightError;
+    private string? _highlightFeedback;
     private string ClassName(string id) => Catalog.Classes.First(c => c.Id == id).Name.For(Settings.Current.LootNameLanguage);
     private IEnumerable<(string Short, string Title)> Legend => Catalog.Boards.SelectMany(b => b.Nodes)
         .Where(n => n.Kind == DaevanionNodeKind.Stat && n.Effects.Count == 1)
         .Select(n => (Effect: n.Effects[0], n.Title)).GroupBy(n => n.Effect.StatId)
         .Select(g => (g.First().Effect.ShortLabel.For(Settings.Current.LootNameLanguage), g.First().Title.For(Settings.Current.LootNameLanguage)));
+    private IEnumerable<DaevanionStat> SelectedBoardStats(DaevanionBoard board)
+    {
+        var selected = Settings.Current.DaevanionHighlightedStatIds.ToHashSet(StringComparer.Ordinal);
+        var present = board.Nodes.Where(node => node.Kind == DaevanionNodeKind.Stat).SelectMany(node => node.Effects)
+            .Select(effect => effect.StatId).ToHashSet(StringComparer.Ordinal);
+        return Catalog.Stats.Where(stat => present.Contains(stat.Id) && selected.Contains(stat.Id));
+    }
+    private void ClearHighlights()
+    {
+        var previous = Settings.Current.DaevanionHighlightedStatIds;
+        try
+        {
+            Settings.Update(settings => settings.DaevanionHighlightedStatIds = []);
+            _highlightFeedback = "Alle Hervorhebungen ausgeschaltet."; _highlightError = false;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            Settings.Current.DaevanionHighlightedStatIds = previous;
+            _highlightFeedback = "Hervorhebungen konnten nicht gespeichert werden."; _highlightError = true;
+            System.Diagnostics.Trace.TraceWarning("Daevanion highlight preference: {0}", error.GetType().Name);
+        }
+    }
     private string PreviewSource
     {
         get
@@ -54,13 +107,27 @@
             return _preview;
         }
     }
-    protected override void OnInitialized() { _service = Provider.GetService<DaevanionService>(); if (_service is not null) _service.Changed += RefreshStatus; }
+    protected override void OnInitialized()
+    {
+        _service = Provider.GetService<DaevanionService>();
+        if (_service is not null) _service.Changed += RefreshStatus;
+        Settings.Changed += RefreshStatus;
+    }
     private void RefreshStatus()
     {
         if (_disposed) return;
-        var status = _service?.Status + ":" + _service?.ClassId + ":" + _service?.Snapshot?.Board.Id;
+        var status = _service?.Status + ":" + _service?.ClassId + ":" + _service?.Snapshot?.Board.Id
+            + ":" + Settings.Current.DaevanionNodeContentVisible + ":" + string.Join(",", Settings.Current.DaevanionHighlightedStatIds)
+            + ":" + _service?.HighlightPlacementStatus + ":" + UiText.Language + ":" + Settings.Current.LootNameLanguage;
         if (status == _lastStatus) return;
-        _lastStatus = status; _ = InvokeAsync(StateHasChanged);
+        _lastStatus = status; _highlightFeedback = null; _highlightError = false;
+        _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
     }
-    public void Dispose() { _disposed = true; if (_service is not null) _service.Changed -= RefreshStatus; _renderer.Dispose(); }
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_service is not null) _service.Changed -= RefreshStatus;
+        Settings.Changed -= RefreshStatus;
+        _renderer.Dispose();
+    }
 }

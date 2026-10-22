@@ -2,6 +2,19 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.12.0 – 2026-10-22
+
+- **Neu:** Daevanion-Overlay: Stat-Hervorhebung. Rechts neben dem Board wählst du einzelne Stats aus;
+  passende Nodes bekommen einen umlaufenden Lichtzug, auch bei ausgeblendeten Ergänzungen. Die Auswahl
+  bleibt gespeichert, „Alle Highlights aus“ setzt sie zurück.
+- **Neu:** Ein Schalter „Overlay an/aus“ oben rechts am Board blendet die Node-Ergänzungen direkt aus
+  und wieder ein, ohne Alt oder Entsperren. Die Auswahl bleibt gespeichert.
+- **Neu:** Aktivierte Stat-Nodes erscheinen heller und leicht in ihrer Node-Farbe getönt.
+- **Behoben:** Tooltips über dem Board lassen das Daevanion-Overlay nicht mehr flackern; nur die
+  verdeckten Nodes werden ausgespart.
+- **Behoben:** Die Icons auf der Ingame-Weltkarte flackern nicht mehr, wenn das Fenstersymbol der
+  Weltkarte nicht erkannt wird.
+
 ## 0.11.1 – 2026-10-22
 
 - **Geändert:** Die Option „Bei visueller Erkennung in Instanzen ruhen“ lässt sich jetzt auch bei

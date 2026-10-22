@@ -270,7 +270,7 @@ public sealed class DaevanionStateTests
 
     [Theory]
     [InlineData("theme")] [InlineData("foreign-position")] [InlineData("recordings")]
-    [InlineData("inactive-language")] [InlineData("unchanged")]
+    [InlineData("inactive-language")] [InlineData("unchanged")] [InlineData("node-content")]
     public void UnrelatedSettingsPreserveThePublishedGeometryRevisionAndFrameEvidence(string change)
     {
         using var f = new Fixture(); var frame = f.Frame(); var revision = f.Service.ObservationRevision;
@@ -285,6 +285,7 @@ public sealed class DaevanionStateTests
                 case "recordings": s.OverlaysInRecordings = !s.OverlaysInRecordings; break;
                 case "inactive-language": s.NameLanguage = "de"; break; // explicit overlay English still wins
                 case "unchanged": s.DaevanionOverlayEnabled = true; break;
+                case "node-content": s.DaevanionNodeContentVisible = false; break;
             }
         });
         Assert.Same(frame, f.Service.Snapshot);
@@ -292,6 +293,30 @@ public sealed class DaevanionStateTests
         Assert.Equal(frame.FrameAt, f.Service.Snapshot!.FrameAt);
         Assert.True(f.Service.CanPresent(frame));
         Assert.Equal(1, notifications);
+    }
+
+    [Fact]
+    public void HiddenNodePreferenceSurvivesMasterSwitchAndAConfirmedBoardChange()
+    {
+        using var f = new Fixture(); var first = f.Frame();
+        Assert.True(f.Service.TryPublishObservation(first, f.Service.ObservationRevision));
+        f.Settings.Update(s => s.DaevanionNodeContentVisible = false);
+        Assert.Same(first, f.Service.Snapshot);
+        f.Settings.Update(s => OverlayHotkeys.ToggleVisibility(s, "daevanion.toggle"));
+        Assert.False(f.Settings.Current.DaevanionOverlayEnabled);
+        Assert.Null(f.Service.Snapshot);
+        Assert.False(f.Settings.Current.DaevanionNodeContentVisible);
+        f.Settings.Update(s => OverlayHotkeys.ToggleVisibility(s, "daevanion.toggle"));
+        var next = f.Frame() with
+        {
+            Board = DaevanionCatalog.Default.GetBoard("Cleric", "ariel")!,
+            Detection = first.Detection with { Family = "ariel" }
+        };
+        Assert.True(f.Service.TryPublishObservation(next, f.Service.ObservationRevision));
+        Assert.True(f.Service.CanPresent(next));
+        Assert.False(f.Settings.Current.DaevanionNodeContentVisible);
+        Assert.False(new SettingsService().Current.DaevanionNodeContentVisible);
+        Assert.Equal(0, f.Capture.Diagnostics.Grabs);
     }
 
     [Fact]

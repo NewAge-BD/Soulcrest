@@ -324,3 +324,13 @@ Ansicht darf noch auf ihre eigene Karte gespeichert werden; verspätete Meldunge
 Besuchs dürfen keinen neueren Stand überschreiben. Zwischenzustände aus Fit/Restore und verworfene
 asynchrone Ladevorgänge werden nicht gespeichert. Bewegungen werden gebündelt statt pro Frame
 in Einstellungen geschrieben.
+
+## Weltkarten-Icons bei unerkanntem Fenstersymbol (2026-10-22)
+
+Die schnelle Symbolprüfung darf die Weltkarte erst nach zwei aufeinanderfolgenden Fehlbildern
+schließen, wenn das Symbol seit dem aktuellen Öffnen mindestens einmal positiv erkannt wurde.
+Eine per Kartenabgleich bestätigte Weltkarte ohne erkanntes Symbol bleibt damit sichtbar;
+der bestehende Rückfall über zwei fehlgeschlagene Weltkartenabgleiche erkennt das Schließen.
+Jedes erneute Öffnen beginnt mit unbestätigtem Symbol. Beobachtungen alter Kartenkontexte und
+nicht akzeptierte Aufnahmen dürfen die Prüfung weder aktivieren noch die Weltkarte schließen.
+Erkennungstakt, Optical Flow, Projektion und Renderer bleiben unverändert.

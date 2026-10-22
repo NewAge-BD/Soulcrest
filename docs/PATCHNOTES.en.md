@@ -2,6 +2,19 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.12.0 – 2026-10-22
+
+- **New:** Daevanion overlay: stat highlighting. Pick individual stats to the right of the board;
+  matching nodes get a light trail running around them, even with the additions hidden. Your
+  selection is saved, and "Clear all highlights" resets it.
+- **New:** An "Overlay on/off" switch at the top right of the board hides and shows the node additions
+  directly, without Alt or unlocking. Your choice is saved.
+- **New:** Activated stat nodes appear brighter with a subtle tint of their node colour.
+- **Fixed:** Tooltips over the board no longer make the Daevanion overlay flicker; only the covered
+  nodes are left out.
+- **Fixed:** Icons on the in-game world map no longer flicker when the world map's window symbol is
+  not recognised.
+
 ## 0.11.1 – 2026-10-22
 
 - **Changed:** The option "Rest in instances during visual detection" can now also be set with network

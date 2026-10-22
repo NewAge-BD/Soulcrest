@@ -1,5 +1,6 @@
 using System.Drawing;
 using Soulcrest.App.Overlay;
+using Soulcrest.Core.Daevanion;
 
 namespace Soulcrest.App.Services;
 
@@ -35,6 +36,10 @@ public sealed class AppSettings
     public bool OverlayEnabled { get; set; } = true;
     public bool MerchantOverlayEnabled { get; set; } = true;
     public bool DaevanionOverlayEnabled { get; set; } = true;
+    /// <summary>User request 2026-10-22: remember node visibility independently of the master switch.</summary>
+    public bool DaevanionNodeContentVisible { get; set; } = true;
+    /// <summary>User request 2026-10-22: persistent independent stat highlights, replaced as a whole.</summary>
+    public List<string> DaevanionHighlightedStatIds { get; set; } = [];
     public int OverlayX { get; set; } = 40;
     public int OverlayY { get; set; } = 200;
     public string LastMap { get; set; } = "altgard";
@@ -306,6 +311,7 @@ public sealed class SettingsService
         if (Current.OverlayLanguage is not ("auto" or "de" or "en")) Current.OverlayLanguage = "auto";
         if (Current.OverlayShowMode is not ("foreground" or "always")) Current.OverlayShowMode = "foreground";
         Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
+        NormalizeDaevanionHighlights(Current);
         if (Current.DetectedGameLanguage is not ("de" or "en")) Current.DetectedGameLanguage = null;
         if (Current.OcrLanguage is not ("de-DE" or "en-US"))
         {
@@ -405,6 +411,13 @@ public sealed class SettingsService
         Changed?.Invoke();
     }
 
+    private static void NormalizeDaevanionHighlights(AppSettings settings)
+    {
+        var selected = new HashSet<string>(settings.DaevanionHighlightedStatIds ?? [], StringComparer.Ordinal);
+        settings.DaevanionHighlightedStatIds = DaevanionCatalog.Default.Stats.Where(stat => selected.Contains(stat.Id))
+            .Select(stat => stat.Id).ToList();
+    }
+
     public void Update(Action<AppSettings> change)
     {
         lock (_gate)
@@ -413,6 +426,7 @@ public sealed class SettingsService
             change(Current);
             if (networkEnabled != Current.LootTrackingEnabled) Interlocked.Increment(ref _networkTrackingRevision);
             Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
+            NormalizeDaevanionHighlights(Current);
             Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
             UiText.Language = Current.UiLanguage;
             JsonFile.Save(AppPaths.SettingsFile, Current);

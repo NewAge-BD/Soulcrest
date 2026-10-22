@@ -421,13 +421,14 @@ Der Wechsel selbst speichert weder Positionen noch Skalierungen oder Breiten neu
 
 ## Daevanion-Board (2026-10-20)
 
-- Automatisch am geöffneten Spielbrett ausgerichtete, vollständig klickdurchlässige Ergänzung
+- Automatisch am geöffneten Spielbrett ausgerichtete Ergänzung mit klickdurchlässigen Node-Flächen
   für Nezekan, Zikel, Vaizel, Triniel, Ariel und Azphel in allen acht unterstützten Klassen.
 - Skill-Nodes zeigen ihr originales Skillbild und +1 für den Skillstufenbonus. Stat-Nodes
   zeigen ein lokalisiertes Kürzel und den exakten Bonus; Ariel-/Azphel-Doppelboni stehen in zwei
   zugeordneten Spalten. Ariels PvE- und Boss-Boni behalten ihren sichtbaren Kontext.
 - Native Rahmen, Auswahlmarkierung und Start-Node bleiben erhalten. Abgedunkelte Nodes bleiben
-  lesbar; daraus wird kein erworbener Bonus abgeleitet. Die ergänzte Innenfläche verwendet immer
+  lesbar; der sichtbare Aktivierungszustand steuert nur die Darstellung und speichert keinen Fortschritt.
+  Die ergänzte Innenfläche verwendet immer
   einen festen Spielstil, unabhängig vom globalen Theme.
 - Die Klasse stammt ausschließlich aus der vollständig bestätigten eigenen Netzwerkidentität.
   Ohne bestätigte Klasse wartet die Anzeige. Charakter-/Verbindungswechsel entwerten den Kontext;
@@ -440,6 +441,56 @@ Der Wechsel selbst speichert weder Positionen noch Skalierungen oder Breiten neu
   Entsperren; der optionale Ein-/Ausblend-Hotkey ist zunächst unbelegt.
 - Sprache, Vordergrundmodus, Aufnahmesichtbarkeit und Place-Mode-Unterdrückung gelten gemeinsam
   mit den anderen Overlays. Die Erkennung benötigt kein laufendes Karten-Tracking.
+
+Nutzerentscheidung vom 2026-10-22: Oberhalb rechts am vollständigen Board sitzt ein eigener,
+direkt anklickbarer Schalter „Overlay an/aus“ (DE/EN). Er blendet nur die Node-Ergänzungen aus:
+Skillbilder, Zahlen, Hintergründe und Fassungen. Seine eigene Klickfläche bleibt sichtbar;
+außerhalb des Schalters bleibt das Spiel bedienbar. Alt oder Entsperren sind nicht erforderlich.
+Die Auswahl `DaevanionNodeContentVisible` wird gespeichert und überlebt Boardwechsel und Neustarts;
+bei alten Einstellungen ist sie eingeschaltet. Der Overlay-Tab zeigt ihren Zustand an.
+
+Die Erkennung läuft bei ausgeblendeten Node-Inhalten weiter. Schalterposition und Frische werden
+auch dann geprüft; ein geschlossenes oder unklar erkanntes Board, fehlende eigene Klasse, Ablauf
+der Quellenfrist, Vordergrund- oder Platzierungsunterdrückung entfernen auch den Schalter.
+Der bestehende Hauptschalter und Hotkey deaktivieren weiterhin alles einschließlich Erkennung
+und Schalter, ohne die gespeicherte Auswahl für die Node-Inhalte zu ändern.
+
+Der Schalter verwendet ein eigenes nicht aktivierendes Fenster ohne Bindung an die Sichtbarkeit
+des Node-Fensters. Er folgt dem vollständigen Raster statt der aktuell sichtbaren Node-Teilmenge.
+Falls oberhalb nicht genug Platz ist, weicht er rechts neben den oberen Boardrand aus. Beide
+Plätze werden auf den Spielclient begrenzt; fehlt auch rechts sicherer Platz, entsteht keine
+Klickfläche über Nodes. Die Größe folgt dem Zielmonitor-DPI, die Rasterkoordinaten bleiben physisch.
+Eine vor Board-/Kontextwechsel, Verschieben, Ausblenden oder Verlust der Maus-Erfassung begonnene Klickgeste
+kann keine verspätete Umschaltung auslösen. Bei einem Speicherfehler bleibt die vorherige Auswahl
+erhalten und der Schalter zeigt einen kurzen Fehlerhinweis.
+
+Die Stat-Highlighter (Nutzerauftrag 2026-10-22) stehen unabhängig davon rechts neben dem
+vollständigen Board: pro Familie 8, 14 (Ariel) oder 12 (Azphel) getrennte Stat-Schalter.
+Qualifizierte Kürzel und vollständige Tooltips unterscheiden PvE/PvP/Boss. Mehrfachauswahl
+bildet die Vereinigung passender Stat-Nodes; Doppelboni erhalten genau eine Markierung.
+`DaevanionHighlightedStatIds` speichert bekannte, eindeutige IDs in Katalogreihenfolge.
+Standard leer; „Alle Highlights aus“ setzt auch auf anderen Boards gespeicherte Stats zurück.
+Der zentrale Overlay-Tab zeigt die Auswahl des frischen Boards und bietet denselben Reset.
+
+Auf spätere Nutzerpräzisierung läuft ein ruhiger elfenbeinfarbener Lichtzug im Uhrzeigersinn
+um die ausgewählte Fassung (2,4 Sekunden pro Umlauf, bis etwa 30 Bilder/s, bei Last reduziert), statt statischer
+Hervorhebung. Die getrennte klickdurchlässige Zeichenfläche bleibt auch bei „Overlay aus“
+aktiv. Jedes Animationsbild liest die aktuelle Auswahl und prüft aktuelle Quelle, Kontext
+und Verdeckung erneut. Animationszeit ersetzt niemals Aufnahmezeit oder Quellenfrist.
+Native eigene und benachbarte Rahmen, Aktivierungsringe und Start bleiben ausgeschlossen.
+Bei großen Boards reduziert ein Zeichenbudget den Takt auf 50–66 ms; die Umlaufgeschwindigkeit
+bleibt an der monotonen Uhr gebunden, ohne Nachholschleifen oder verlängerte Quellenfrist.
+
+Die Schalterleiste verwendet ein eigenes NoActivate-Fenster; nur die abgeschrägten einzelnen
+Schaltflächen nehmen Klicks entgegen, Zwischenräume bleiben frei. Breite 176 DIP, Zeilen
+28 DIP mit 4 DIP Abstand; zwölf DIP Abstand rechts neben der vollständigen Fassung.
+Die bestehende rechte Ausweichposition des An/Aus-Schalters bleibt ausgespart. Bei wenig
+Höhe erlauben feste Blätterpfeile alle Stats; bei fehlender Breite entsteht kein Panel über
+Nodes und der Overlay-Tab meldet Platzmangel. DPI und Spielclientgrenzen gelten gemeinsam.
+Board-/Kontextwechsel, Bewegung und Ausblenden verwerfen begonnene Klickgesten. Aufnahme-
+ausblendung und Sichtbarkeitsregeln gelten auch für Leiste und Animation. Beide ändern
+weder Snapshot, Erkennungsrevision noch Node-Grafikcache; Speicherfehler nehmen die Auswahl
+zurück und zeigen eine Rückmeldung. Hauptschalter/Hotkey verbergen sämtliche Fenster.
 
 Die runde Nutzermaske begrenzt Zahlen und Skillbilder auf etwa 65% des Node-Durchmessers.
 Originaler Aktivierungsring, quadratischer Außenrahmen und farbige Ecken bleiben frei. Statwerte
@@ -466,6 +517,17 @@ Snapshotwechsel während des Zeichnens oder Sichtbarkeitsticks erzeugt keine unn
 Die Fensterfläche bleibt bei veränderten sichtbaren Nodes am ganzen Board ausgerichtet.
 Fehlende oder kurz blockierte WGC-Lesezugriffe behalten nur die ursprüngliche Ein-Sekunden-Frist;
 widersprechende Bilder und Kontextwechsel verwerfen die Darstellung weiterhin.
+
+Nutzerkorrektur vom 2026-10-22: Ändert ein Tooltip die sichtbare Node-Teilmenge während des
+Zeichnens mehrfach, wird die fertige Fläche mit den jeweils frisch bestätigten Nodes abgeglichen.
+Verdeckte oder inhaltlich geänderte Nodes werden daraus entfernt, zurückgekehrte Nodes ergänzt;
+die gemeinsame sichtbare Teilmenge bleibt ohne Ausblenden des gesamten Fensters erhalten.
+Ein begrenzter Grafikcache verwendet dieselben Node-Grafiken auch bei wechselnden Tooltipmasken.
+
+Aktivierte Stat-Nodes zeigen einen helleren Stein mit dezenter Tönung ihrer Node-Farbe.
+Die Erscheinung wird pro sichtbarem Node aus den aktiven und abgedunkelten Originalmotiven des
+aktuellen Bildes verglichen. Unbekannt bleibt dunkel; blaues Level-Leuchten allein bedeutet keine
+Aktivierung. Masken, Schrift, Außenfassung und Original-Skillbilder bleiben dabei unverändert.
 
 Die blaue Animation levelbarer Nodes wird als Darstellungsvariante erkannt. Jeder Node kann
 sein Originalmotiv im aktuellen Grauwertbild oder im aktuellen Rotkanal nachweisen; für beide

@@ -222,6 +222,32 @@ zeichnet rund maskierte Inhalte und eine qualitätsfarbene Stat-Fassung außerha
 Die Fassung passt ihre Erweiterung an den erkannten Rasterabstand an; Menüvorschau und
 Offline-Bildprüfung verwenden denselben Painter.
 
+Frische Node-Anker tragen zusätzlich ihre beobachtete aktive, inaktive oder unbekannte
+Erscheinung. Sie beeinflusst den runden Stat-Hintergrund, keine gespeicherten Fortschrittsdaten.
+Node-Grafiken werden begrenzt nach Inhalt, Größe, Sprache, Erscheinung und Rasterabstand
+zwischengespeichert. Während des Zeichnens eintreffende Tooltipmasken entfernen nur nicht mehr
+belegte Grafiken und ergänzen neue; die verbleibende bestätigte Teilfläche wird atomar präsentiert.
+
+`DaevanionNodeContentVisible` ist eine dauerhafte reine Anzeigepräferenz, getrennt von
+`DaevanionOverlayEnabled`. Ein unabhängiges, nicht aktivierendes Toggle-Fenster bleibt bei
+verborgener Node-Fläche erreichbar. Seine Freigabe ist an aktuelle Board-/Charakterevidenz gebunden;
+der 100-ms-Sichtbarkeitstick prüft sie auch ohne gezeichnete Nodes. Umschalten invalidiert weder
+Raster noch Snapshot und leert keinen Grafikcache. Hauptschalter und Hotkey behalten ihre vollständige
+Abschaltfunktion. Der gemeinsame Toggle-Painter und die vollständige Rastergeometrie erzeugen auch
+die Offline-Vorschauen beider Zustände.
+
+`DaevanionHighlightedStatIds` ergänzt eine globale, persistente Stat-Auswahl in Katalogreihenfolge.
+Das unabhängige Stat-Rail-Fenster bindet NoActivate-Klicks an den aktuellen Boardkontext und nutzt
+vollständige Geometrie für Position/Paging. Platzmangel ist reines Präsentationsfeedback im
+`DaevanionService`, ohne Quellen- oder Revisionsänderung. Der Highlight-Produktionsrenderer zeichnet
+auf einer separaten klickdurchlässigen Fläche einen umlaufenden Lichtzug. Ein Timer mit 33–66 ms Abstand läuft nur
+bei sichtbaren Treffern; jeder Tick prüft aktuelle Auswahl und bestätigte Quelle. Reconcile entfernt
+auch bei kleinen Nodes das vollständige Highlight-Envelope. Node-Grafikcache und optionale
+Node-Fläche bleiben davon unabhängig; Preview und Live teilen Layout und beide Renderer.
+Die animierte Kontur wird je Größe/Abstand/Phase einmal pro Renderaufruf gerastert und auf alle
+Treffer kopiert, weiterhin unter individuellen Welt-/Nachbarclips. Temporäre Stamps werden entsorgt.
+
+
 ## Ereignisgesteuerte Kartenruhe (2026-10-21)
 
 Der Kartentracker leitet seine Arbeitsweise direkt aus Netzwerkschalter und Weltkontext ab.

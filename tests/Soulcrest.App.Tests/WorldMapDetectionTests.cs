@@ -138,6 +138,104 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         Assert.InRange(Math.Abs(tracking.Position.Y - player.Y), 0, 3);
     }
 
+    [Fact]
+    public void UnrecognizedHeaderCannotRepeatedlyHideAMatchedWorldMap()
+    {
+        using var capture = new GameCaptureService();
+        using var tracking = CreateOfflineTracking(capture);
+        using var world = LoadFrame("live-2026-10-03-lost-screen.png");
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, world, CancellationToken.None);
+        var placement = tracking.Placement;
+        Assert.NotNull(placement);
+        Assert.True(placement.WorldMap);
+
+        for (var i = 0; i < 30; i++)
+            tracking.ObserveWorldMapEmblem(false, tracking.ContextGeneration);
+
+        Assert.True(tracking.WorldMapOpen);
+        Assert.True(tracking.Found);
+        Assert.Same(placement, tracking.Placement);
+        Assert.Null(tracking.Position);
+        // The existing full-map fallback still detects genuine closure without a recognizable header.
+        using var normal = LoadFrame("live-2026-10-03-screen.png");
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, normal, CancellationToken.None);
+        Assert.True(tracking.WorldMapOpen);
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, normal, CancellationToken.None);
+        Assert.False(tracking.WorldMapOpen);
+        Assert.Null(tracking.Placement);
+    }
+
+    [Fact]
+    public void RecognizedHeaderStillClosesQuicklyAfterTwoConsecutiveMisses()
+    {
+        using var capture = new GameCaptureService();
+        using var tracking = CreateOfflineTracking(capture);
+        using var world = LoadFrame("live-2026-10-03-lost-screen.png");
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, world, CancellationToken.None);
+        var generation = tracking.ContextGeneration;
+        tracking.ObserveWorldMapEmblem(true, generation);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        Assert.True(tracking.WorldMapOpen);
+        tracking.ObserveWorldMapEmblem(true, generation);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        Assert.True(tracking.WorldMapOpen);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        Assert.False(tracking.WorldMapOpen);
+        Assert.False(tracking.Found);
+        Assert.Null(tracking.Placement);
+        Assert.Null(tracking.DetectedMap);
+    }
+
+    [Fact]
+    public void ReopenedWorldMapRequiresItsOwnPositiveHeaderObservation()
+    {
+        using var capture = new GameCaptureService();
+        using var tracking = CreateOfflineTracking(capture);
+        using var world = LoadFrame("live-2026-10-03-lost-screen.png");
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, world, CancellationToken.None);
+        var generation = tracking.ContextGeneration;
+        tracking.ObserveWorldMapEmblem(true, generation);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        Assert.False(tracking.WorldMapOpen);
+        tracking.ObserveWorldMapEmblem(true, generation); // Closed maps cannot arm the next opening.
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, world, CancellationToken.None);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        Assert.True(tracking.WorldMapOpen);
+        Assert.NotNull(tracking.Placement);
+    }
+
+    [Fact]
+    public void OldContextCannotArmOrCloseTheCurrentWorldMapHeaderCheck()
+    {
+        using var capture = new GameCaptureService();
+        using var tracking = CreateOfflineTracking(capture);
+        using var world = LoadFrame("live-2026-10-03-lost-screen.png");
+        tracking.ProcessMiniMapFrame(SmallMap, Screen, world, CancellationToken.None);
+        var generation = tracking.ContextGeneration;
+        tracking.ObserveWorldMapEmblem(true, generation - 1);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        Assert.True(tracking.WorldMapOpen);
+        tracking.ObserveWorldMapEmblem(true, generation);
+        tracking.ObserveWorldMapEmblem(false, generation - 1);
+        tracking.ObserveWorldMapEmblem(false, generation - 1);
+        Assert.True(tracking.WorldMapOpen);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        Assert.True(tracking.WorldMapOpen);
+        tracking.ObserveWorldMapEmblem(false, generation);
+        Assert.False(tracking.WorldMapOpen);
+    }
+
+    private static MapTrackingService CreateOfflineTracking(GameCaptureService capture)
+    {
+        var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false;
+        settings.Current.LastMap = "verteron";
+        return new MapTrackingService(settings, new ProgressService(), capture);
+    }
+
     private static bool WaitBriefly()
     {
         Thread.Sleep(100);
