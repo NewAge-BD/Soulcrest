@@ -318,8 +318,14 @@ MAX erhält weiterhin eine eigene grüne Erfolgskarte mit Porträt und „Pet ve
 Pets mit Maximalstufe erscheinen unabhängig von diesem Hinweis nicht mehr in Recent Loot.
 Der Filter greift vor der Fünfergrenze, andere Pets rücken nach. Fokuszeilen bleiben davon
 unabhängig. Zeilen werden über kanonische Pet-IDs zugeordnet, nie über sichtbare Namen.
-Lichtlauf und Ringimpuls markieren den Beginn, anschließend bleibt die Hervorhebung ruhig
-bis zum Ausblenden. Beschriftungen sind DE/EN, die vorhandene Overlay-Skalierung bleibt gültig.
+Lichtlauf und Porträtpuls wiederholen sich während der gesamten Meldung bis zum Ausblenden
+(Nutzerpräzisierung 2026-10-24). Die bestehende 30-Sekunden-Frist und das abschließende
+Ausblenden bleiben erhalten. Beschriftungen sind DE/EN, die vorhandene Overlay-Skalierung bleibt gültig.
+
+Alle fünf neuen Themes zeigen ebenfalls Lichtlauf, pulsierende Kontur und Porträthervorhebung
+innerhalb ihrer vorhandenen rechteckigen Zeilen beziehungsweise MAX-Karte. Die Effekte folgen
+der jeweiligen Gold-/Mintpalette und derselben Animationszeit; ein Themewechsel startet den
+Hinweis nicht erneut. Soulcrest legacy verwendet weiterhin seinen ursprünglichen Zeichenpfad.
 
 ProgressService veröffentlicht ein rein flüchtiges Ereignis ausschließlich für akzeptierte
 explizite Erwerbs-/Upgrade-Meldungen. Souls allein, Verbrauch, Login-Snapshots und manuelle

@@ -88,8 +88,9 @@ public sealed partial class PetOverlayForm
         var progress = double.IsFinite(value) ? Math.Clamp(value, 0, 1) : 1;
         var elapsed = progress * PetLevelUpAnimation.DurationSeconds;
         var opacity = Math.Clamp(Math.Min(elapsed / .25, (PetLevelUpAnimation.DurationSeconds - elapsed) / 1.2), 0, 1);
-        var pulse = elapsed < 3 ? Math.Pow(Math.Sin(elapsed / 3 * Math.PI * 2), 2) : 0;
-        return (opacity, pulse, elapsed / 2.2);
+        // User request 2026-10-24: loop both effects until the original hint deadline, including its fade.
+        var pulse = Math.Pow(Math.Sin(elapsed / 3 * Math.PI * 2), 2);
+        return (opacity, pulse, elapsed / 2.2 % 1);
     }
 
     private static void DrawInlineLevelUp(Graphics g, LevelUpRow row, int y, GraphicsPath shape)
@@ -130,7 +131,7 @@ public sealed partial class PetOverlayForm
         using (var plate = new LinearGradientBrush(bounds, A(row.IsMax ? Color.FromArgb(31, 66, 54) : Color.FromArgb(65, 53, 33)),
             A(CardColor), LinearGradientMode.Horizontal)) g.FillPath(plate, shape);
 
-        // One restrained sweep during the introduction, clipped inside the card and behind its text.
+        // A repeating sweep, clipped inside the card and behind its text.
         if (sweepPhase < 1)
         {
             var state = g.Save();

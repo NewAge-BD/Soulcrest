@@ -239,6 +239,13 @@ public sealed class AppSettings
     /// </summary>
     public string[] ProgressionKinds { get; set; } = ["pets"];
 
+    /// <summary>User request 2026-10-24: only these genera are eligible for automatic pet progression targets.</summary>
+    public string[] ProgressionPetGenera { get; set; } = ["cogni", "natura", "varian", "fera"];
+
+    /// <summary>Catalog labels use title case; special and unknown genera are never automatic progression targets.</summary>
+    public bool ProgressionIncludesGenus(string genus) => genus?.ToLowerInvariant() is "cogni" or "natura" or "varian" or "fera"
+        && (ProgressionPetGenera is null || ProgressionPetGenera.Contains(genus, StringComparer.OrdinalIgnoreCase));
+
     /// <summary>Pets: true = the pet missing the fewest souls to finish its level, false = up to <see cref="ProgressionGoal"/>.</summary>
     public bool ProgressionPetsClosest { get; set; }
 
@@ -338,6 +345,7 @@ public sealed class SettingsService
         }
         Current.ProgressionKinds = (Current.ProgressionKinds ?? []).Where(k => k is "pets" or "dungeon" or "stronghold")
             .Distinct(StringComparer.Ordinal).ToArray();
+        NormalizeProgressionPetGenera(Current);
         Current.MapMinimapLayers = MapLayerVisibility.Normalize(Current.MapMinimapLayers);
         Current.MapWorldmapLayers = MapLayerVisibility.Normalize(Current.MapWorldmapLayers);
         Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
@@ -418,6 +426,18 @@ public sealed class SettingsService
             .Select(stat => stat.Id).ToList();
     }
 
+    private static void NormalizeProgressionPetGenera(AppSettings settings)
+    {
+        string[] canonical = ["cogni", "natura", "varian", "fera"];
+        if (settings.ProgressionPetGenera is null)
+        {
+            settings.ProgressionPetGenera = canonical;
+            return;
+        }
+        var selected = new HashSet<string>(settings.ProgressionPetGenera, StringComparer.OrdinalIgnoreCase);
+        settings.ProgressionPetGenera = canonical.Where(selected.Contains).ToArray();
+    }
+
     public void Update(Action<AppSettings> change)
     {
         lock (_gate)
@@ -427,6 +447,7 @@ public sealed class SettingsService
             if (networkEnabled != Current.LootTrackingEnabled) Interlocked.Increment(ref _networkTrackingRevision);
             Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
             NormalizeDaevanionHighlights(Current);
+            NormalizeProgressionPetGenera(Current);
             Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
             UiText.Language = Current.UiLanguage;
             JsonFile.Save(AppPaths.SettingsFile, Current);

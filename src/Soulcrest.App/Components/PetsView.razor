@@ -445,14 +445,7 @@
     private static string IconUrl(string icon) => $"https://{MainForm.MapDataHost}/{icon}";
 
     /// <summary>Genus symbols from the current gaming.tools map data package.</summary>
-    private static string? GenusIcon(string genus) => genus switch
-    {
-        "cogni" => IconUrl("icons/gamingtools/ui/resource/sprite/fwindow_vehicle/ut_fwindow_vehicle_creatureslot_intellect_sprite.png"),
-        "fera" => IconUrl("icons/gamingtools/ui/resource/sprite/fwindow_vehicle/ut_fwindow_vehicle_creatureslot_feral_sprite.png"),
-        "natura" => IconUrl("icons/gamingtools/ui/resource/sprite/fwindow_vehicle/ut_fwindow_vehicle_creatureslot_nature_sprite.png"),
-        "varian" => IconUrl("icons/gamingtools/ui/resource/sprite/fwindow_vehicle/ut_fwindow_vehicle_creatureslot_trans_sprite.png"),
-        _ => null,
-    };
+    private static string? GenusIcon(string genus) => PetGenusIcons.IconUrl(genus);
 
     private static string Initial(string name) => name.Length > 0 ? name[..1].ToUpperInvariant() : "?";
 

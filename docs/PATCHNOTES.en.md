@@ -2,6 +2,16 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.13.0 – 2026-10-24
+
+- **New:** Progression mode: Cogni, Natura, Varian and Fera can be chosen individually for automatic
+  pet targets, with their icons. Your choice is saved; with no genus selected only pet targets pause,
+  sealed dungeons and strongholds continue.
+- **New:** When the map filter "Map-exclusive pets only" is active, a notice appears and the checkbox
+  is highlighted, so missing pets don't look like a data error.
+- **Fixed:** The level-up animation in the loot overlay was missing in the new themes. It is back and
+  now repeats until the notification fades.
+
 ## 0.12.0 – 2026-10-22
 
 - **New:** Daevanion overlay: stat highlighting. Pick individual stats to the right of the board;

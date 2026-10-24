@@ -2,6 +2,16 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.13.0 – 2026-10-24
+
+- **Neu:** Progressionsmodus: Cogni, Natura, Varian und Fera lassen sich einzeln für die automatischen
+  Pet-Ziele auswählen, mit ihren Icons. Die Auswahl bleibt gespeichert; ohne Gattung pausieren nur die
+  Pet-Ziele, Sealed Dungeons und Strongholds laufen weiter.
+- **Neu:** Ist auf der Karte der Filter „Nur kartenexklusive Pets“ aktiv, erscheint ein Hinweis und
+  die Checkbox ist hervorgehoben, damit fehlende Pets nicht wie ein Datenfehler wirken.
+- **Behoben:** Die Aufstiegsanimation im Loot-Overlay fehlte in den neuen Themes. Sie ist zurück und
+  wiederholt sich jetzt, bis die Meldung ausblendet.
+
 ## 0.12.0 – 2026-10-22
 
 - **Neu:** Daevanion-Overlay: Stat-Hervorhebung. Rechts neben dem Board wählst du einzelne Stats aus;

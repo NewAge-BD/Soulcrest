@@ -6,6 +6,23 @@ public sealed class UiState
     public string Tab { get; private set; } = "map";
     public string? OverlaySection { get; private set; }
 
+    private bool _exclusivePetFilterEnabled, _exclusivePetFilterNoticeDismissed;
+    public bool ExclusivePetFilterNoticeVisible => _exclusivePetFilterEnabled && !_exclusivePetFilterNoticeDismissed;
+
+    /// <summary>User request 2026-10-24: dismissal lasts across map/tab changes, until reactivation or restart.</summary>
+    public bool ObserveExclusivePetFilter(bool enabled)
+    {
+        var wasVisible = ExclusivePetFilterNoticeVisible;
+        if (_exclusivePetFilterEnabled != enabled)
+        {
+            _exclusivePetFilterEnabled = enabled;
+            _exclusivePetFilterNoticeDismissed = false;
+        }
+        return wasVisible != ExclusivePetFilterNoticeVisible;
+    }
+
+    public void DismissExclusivePetFilterNotice() => _exclusivePetFilterNoticeDismissed = true;
+
     /// <summary>Opens the central overlay settings without changing their enabled state.</summary>
     public void ShowOverlay(string? id = null)
     {

@@ -90,7 +90,7 @@
                                 <label class="chip pet-level-option" title="@UiText.T("Stufe 3 (MAX) anzeigen")"><input type="checkbox" aria-label="@UiText.T("Stufe 3 (MAX) anzeigen")" checked="@(!Settings.Current.HideLevel3)" @onchange="@(e => SetPetLevelVisible(3, (bool)e.Value!))" /> @UiText.T("MAX")</label>
                             </div>
                             <div class="pet-level-included"><span>@UiText.T("Nicht freigeschaltet")</span><span>@UiText.T("immer enthalten")</span></div>
-                            <label class="check pet-exclusive-option" title="@UiText.F("Nur Pets, deren Spawns und Quellmonster ausschließlich auf {0} vorkommen", MapLabel)"><input type="checkbox" checked="@Settings.Current.ExclusivePetsOnly" @onchange="@(e => SetExclusiveOnly((bool)e.Value!))" /> @UiText.T("Nur kartenexklusive Pets")</label>
+                            <label class="check pet-exclusive-option @(Settings.Current.ExclusivePetsOnly ? "is-active" : "")" title="@UiText.F("Nur Pets, deren Spawns und Quellmonster ausschließlich auf {0} vorkommen", MapLabel)"><input id="map-exclusive-only" type="checkbox" checked="@Settings.Current.ExclusivePetsOnly" @onchange="@(e => SetExclusiveOnly((bool)e.Value!))" /><span>@UiText.T("Nur kartenexklusive Pets")</span>@if (Settings.Current.ExclusivePetsOnly) { <span class="pet-exclusive-active">@UiText.T("Aktiv")</span> }</label>
                         </div>
                     }
                     @if (_open.Contains(group.Name))
@@ -100,7 +100,8 @@
                             {
                                 <div class="cat legend-row" title="@CategoryLabel(cat)">
                                     <div class="legend-name">
-                                        @if (cat.Icon is not null) { <img src="@cat.Icon" alt="" /> }
+                                        @if (group.Name == "Pets" && PetGenusIcons.IconUrl(cat.Name) is { } legendGenusIcon) { <img class="pet-genus-icon" src="@legendGenusIcon" alt="" /> }
+                                        else if (cat.Icon is not null) { <img src="@cat.Icon" alt="" /> }
                                         else { <span class="dot" style="background:@cat.Color"></span> }
                                         <span class="label">@CategoryLabel(cat)</span>
                                         @if (group.Name == "Collectibles" && cat.Name == "Cube Groups")
@@ -133,9 +134,18 @@
         </div>
     </aside>
     <div class="mapwrap">
+        @if (Ui.ExclusivePetFilterNoticeVisible)
+        {
+            <div id="map-exclusive-notice" class="map-exclusive-notice" role="status">
+                <span>@UiText.T("Exklusivfilter aktiv: Pets mit Fundorten auf mehreren Karten sind ausgeblendet.")</span>
+                <button id="dismiss-map-exclusive-notice" type="button" title="@UiText.T("Filterhinweis schließen")" aria-label="@UiText.T("Filterhinweis schließen")" @onclick="DismissExclusivePetFilterNotice">×</button>
+            </div>
+        }
+        <div class="mapcanvas">
         <div id="map"></div>
         <button type="button" class="side-toggle" title="@(_sideCollapsed ? UiText.T("Ebenen einblenden") : UiText.T("Ebenen ausblenden"))" aria-expanded="@(_sideCollapsed ? "false" : "true")" @onclick="ToggleSidebar">@(_sideCollapsed ? "›" : "‹")</button>
         <button type="button" class="side-toggle right" title="@(_rightCollapsed ? UiText.T("Tracking, Wegführung und Ziele einblenden") : UiText.T("Tracking, Wegführung und Ziele ausblenden"))" aria-expanded="@(_rightCollapsed ? "false" : "true")" @onclick="ToggleRightSidebar">@(_rightCollapsed ? "‹" : "›")</button>
+        </div>
     </div>
     <aside class="sidebar mapside mapside-right">
         <h3>Tracking</h3>
@@ -251,6 +261,19 @@
                 <div class="note">@UiText.T("Mindestens ein Ziel wählen.")</div>
             }
             @if (PetMode) {
+            <div class="progression-genus-field">
+                <span class="field-label">@UiText.T("Pet-Gattungen")</span>
+                <div class="progression-genera" role="group" aria-label="@UiText.T("Pet-Gattungen für die Progression")">
+                    @foreach (var (genus, label) in ProgressionGenusLabels)
+                    {
+                        <label class="chip-check"><input id="@("progression-genus-" + genus)" type="checkbox" checked="@Settings.Current.ProgressionIncludesGenus(genus)" @onchange="@(e => SetProgressionPetGenus(genus, (bool)e.Value!))" />@if (PetGenusIcons.IconUrl(genus) is { } progressionGenusIcon) { <img class="pet-genus-icon" src="@progressionGenusIcon" alt="" /> }<span>@label</span></label>
+                    }
+                </div>
+            </div>
+            @if (Settings.Current.ProgressionPetGenera.Length == 0)
+            {
+                <div class="note progression-genera-empty" role="status">@UiText.T("Keine Pet-Gattung ausgewählt – Pet-Ziele pausieren.")</div>
+            }
             <div class="tile-field">
                 <span class="field-label">@UiText.T("Ziel je Pet")</span>
                 <select value="@(Settings.Current.ProgressionPetsClosest ? "closest" : Settings.Current.ProgressionGoal.ToString())" @onchange="SetProgressionGoal">
@@ -277,12 +300,10 @@
                         </div>
                     </div>
                 }
-                else
+                else if (!PetMode || Settings.Current.ProgressionPetGenera.Length > 0 || ExplorationMode)
                 {
                     <div class="note">@(PetMode && !ExplorationMode
-                        ? Settings.Current.ProgressionPetsClosest
-                            ? UiText.F("Auf {0} sind alle Pets mit Spawns auf max.", MapLabel)
-                            : UiText.F("Auf {0} hat jedes Pet mit Spawns schon {1} Souls.", MapLabel, Settings.Current.ProgressionGoal)
+                        ? UiText.F("Keine offenen Pet-Ziele für die gewählten Gattungen auf {0}.", MapLabel)
                         : UiText.T("Keine offenen Ziele auf dieser Karte."))</div>
                 }
             }
@@ -542,6 +563,7 @@
 
     protected override void OnInitialized()
     {
+        Ui.ObserveExclusivePetFilter(Settings.Current.ExclusivePetsOnly);
         _maps.AddRange(Progress.Maps.Select(m => new MapDef(m.Id, m.Label, m.Group)));
         if (Progress.MapDataDirectory is { } directory)
             _monsterSearch = new MapMonsterSearch(directory, Progress.Maps, Progress.Catalog);
@@ -641,6 +663,7 @@
         _ = InvokeAsync(async () =>
         {
             if (_disposed) return;
+            _relayout |= Ui.ObserveExclusivePetFilter(Settings.Current.ExclusivePetsOnly);
             if (synchronizeMap) await FollowNetworkMap(force: true);
             if (languageChanged && _ready)
             {
@@ -703,6 +726,23 @@
         await PushProgression();
     }
 
+    private static readonly (string Genus, string Label)[] ProgressionGenusLabels =
+        [("cogni", "Cogni"), ("natura", "Natura"), ("varian", "Varian"), ("fera", "Fera")];
+
+    private bool ProgressionPetAllowed(string petId) => Progress.Catalog.Find(petId) is { } pet
+        && Settings.Current.ProgressionIncludesGenus(pet.Genus);
+
+    private async Task SetProgressionPetGenus(string genus, bool enabled)
+    {
+        Settings.Update(s => s.ProgressionPetGenera = enabled
+            ? [.. s.ProgressionPetGenera.Append(genus)]
+            : [.. s.ProgressionPetGenera.Where(value => value != genus)]);
+        // Revoke the old target before awaiting JS, including while location-based navigation is suspended.
+        if (Targets.Progression is { PetId: { } petId } && !ProgressionPetAllowed(petId))
+            Targets.SetProgression(null);
+        await PushProgression();
+    }
+
     private static readonly (string Kind, string Label)[] ProgressionKindLabels =
         [("pets", "Pets"), ("dungeon", "Sealed Dungeons"), ("stronghold", "Strongholds")];
 
@@ -751,7 +791,10 @@
         if (!Current()) return;
         await PushNavigationContext();
         if (!Current()) return;
-        await JS.InvokeVoidAsync("soulcrestMap.setProgression", Settings.Current.ProgressionEnabled, Settings.Current.ProgressionGoal, JsonSerializer.Serialize(souls), JsonSerializer.Serialize(Settings.Current.ProgressionKinds), Settings.Current.ProgressionPetsClosest, profile.CharacterId, JsonSerializer.Serialize(missing), Settings.Current.ProgressionPetsHighestDensity, JsonSerializer.Serialize(spawnCounts));
+        var allowedPets = Progress.Catalog.Pets.Where(p => Settings.Current.ProgressionIncludesGenus(p.Genus))
+            .Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+        var allowedPetIds = allowedPets.Concat(Progress.Catalog.Aliases.Where(pair => allowedPets.Contains(pair.Value)).Select(pair => pair.Key));
+        await JS.InvokeVoidAsync("soulcrestMap.setProgression", Settings.Current.ProgressionEnabled, Settings.Current.ProgressionGoal, JsonSerializer.Serialize(souls), JsonSerializer.Serialize(Settings.Current.ProgressionKinds), Settings.Current.ProgressionPetsClosest, profile.CharacterId, JsonSerializer.Serialize(missing), Settings.Current.ProgressionPetsHighestDensity, JsonSerializer.Serialize(spawnCounts), JsonSerializer.Serialize(allowedPetIds));
         if (Current() && !Settings.Current.ProgressionEnabled)
             Targets.SetProgression(null);
     }
@@ -781,7 +824,9 @@
             return;
         }
         var pet = Progress.Catalog.Find(petId);
-        var label = pet is null ? petId : $"{pet.DisplayName(Settings.Current.NameLanguage)} ({PetLabel(petId)})";
+        // A queued response from an older selection cannot restore an excluded pet.
+        if (pet is null || !Settings.Current.ProgressionIncludesGenus(pet.Genus)) return;
+        var label = $"{pet.DisplayName(Settings.Current.NameLanguage)} ({PetLabel(petId)})";
         Tracking.TrySetProgression(Targets, new MapTarget("progression", mapId, x, y, name ?? label, label, null, PetId: petId), mapId, contextGeneration);
     }
 
@@ -1518,6 +1563,12 @@
     {
         Settings.Update(s => s.ExclusivePetsOnly = only);
         await PushDone(includeLabels: false);
+    }
+
+    private void DismissExclusivePetFilterNotice()
+    {
+        Ui.DismissExclusivePetFilterNotice();
+        _relayout = true;
     }
 
     /// <summary>Positive UI selection; preserve the existing persisted hide flags and map behavior.</summary>

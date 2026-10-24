@@ -97,6 +97,25 @@ Datenvertrag: `data.js` mit `groups`, `categories`, `icons`, `regions`, `markers
 Marker `[category,x,y,en,de,iconIndex,petId,extra]`. `pets.json` behält seine bisherigen Felder.
 Neue Prüfmetadaten sind additive Felder.
 
+### Sichtbarer Exklusivfilter und Progressionsgattungen (2026-10-24)
+
+Bei aktivem „Nur kartenexklusive Pets“ erklärt eine hervorgehobene Zeile über der
+Karte, dass Pets mit Fundorten auf mehreren Karten ausgeblendet sind. Die Checkbox
+bleibt als aktiv gekennzeichnet. Das X schließt nur den Hinweis für die laufende
+App-Sitzung, auch über Karten-/Tabwechsel; Neustart oder Aus-/Einschalten zeigt ihn
+wieder. Minimap/Weltkarte erhalten keinen zusätzlichen Hinweis. Ein-/Ausblenden
+berechnet die Kartenfläche neu, ohne Zoom oder Ausschnitt zurückzusetzen.
+
+Die Pet-Progression hat eigene Checkboxen für Cogni, Natura, Varian und Fera, anfangs
+alle ausgewählt. Die gespeicherte Auswahl begrenzt ausschließlich automatische
+Pet-Ziele vor Soul-, Abschlussnähe- und Dichtebewertung. Leere Auswahl pausiert diese
+Ziele; gewählte Dungeons und Strongholds bleiben aktiv. Ein abgewähltes aktuelles
+Pet-Ziel wird sofort verworfen, alte Rückmeldungen werden gegen die aktuelle Auswahl
+geprüft. Katalog-Aliasse übernehmen die Gattung ihres primären Pets. Kartenfilter,
+manuelle Ziele, Routen und Pet-/Loot-Fortschritt bleiben unabhängig.
+Kartenlegende und Progressionsauswahl verwenden für die vier Gattungen dieselben
+lokalen Symbole und dieselbe gemeinsame Bildzuordnung wie der Pets-Tab.
+
 Boss Rush: Der Builder verknüpft `maps/{id}.namedSpawns` über die exakte NPC-ID mit den
 Boss-Punkten aus `interactive-map/{id}`. Je Karte entsteht `bosses.json` mit `mapId` (numerische
 Quellkarte) und `bosses[{spawnId,npcId,en,de,x,y}]`; die Koordinaten durchlaufen dieselbe

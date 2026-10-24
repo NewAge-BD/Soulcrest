@@ -1703,5 +1703,11 @@
   "Rechts neben dem Board ist zu wenig Platz für die Stat-Schalter.": "There is not enough room to the right of the board for the stat switches.",
   "Alle gespeicherten Stat-Hervorhebungen ausschalten": "Clear all saved stat highlights",
   "Vorherige Stats": "Previous stats",
-  "Weitere Stats": "More stats"
+  "Weitere Stats": "More stats",
+  "Exklusivfilter aktiv: Pets mit Fundorten auf mehreren Karten sind ausgeblendet.": "Exclusive filter active: Pets found on multiple maps are hidden.",
+  "Filterhinweis schließen": "Dismiss filter notice",
+  "Pet-Gattungen": "Pet genera",
+  "Pet-Gattungen für die Progression": "Pet genera for progression",
+  "Keine Pet-Gattung ausgewählt – Pet-Ziele pausieren.": "No pet genus selected – pet targets are paused.",
+  "Keine offenen Pet-Ziele für die gewählten Gattungen auf {0}.": "No unfinished pet targets for the selected genera on {0}."
 }

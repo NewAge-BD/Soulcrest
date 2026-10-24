@@ -139,6 +139,9 @@ public sealed partial class PetOverlayForm
 
     private static void PaintAionPetRow(Graphics graphics, LootRow row, int top, OverlayThemeDefinition theme, int rowHeight)
     {
+        var icon = new Rectangle(12, top + 8, 32, 32);
+        if (row.LevelUp is { IsMax: false } celebration)
+            DrawThemedLevelUpEffects(graphics, celebration, new(6, top + 1, BaseWidth - 12, rowHeight - 2), icon, theme);
         Color A(Color color) => Color.FromArgb(row.Alpha * color.A / 255, color);
         using var name = theme.Body(12.5f, FontStyle.Bold);
         using var body = theme.Body(10.5f);
@@ -149,7 +152,6 @@ public sealed partial class PetOverlayForm
         using var gold = new SolidBrush(A(theme.Gold));
         using var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
         using var right = new StringFormat { Alignment = StringAlignment.Far, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
-        var icon = new Rectangle(12, top + 8, 32, 32);
         PaintAionPortrait(graphics, row.Icon, icon, row.Alpha, theme, GenusColor(row.Genus));
         var nameWidth = BaseWidth - 68 - (row.Quantity > 0 ? 49 : 0);
         graphics.DrawString(row.Name, name, primary, new RectangleF(54, top + 3, nameWidth, 19), format);
@@ -167,9 +169,9 @@ public sealed partial class PetOverlayForm
         graphics.FillRectangle(trough, 54, top + rowHeight - 4, BaseWidth - 67, 2);
         var fraction = row.IsMax || row.Needed == 0 ? 1 : Math.Clamp(row.Current / (double)row.Needed, 0, 1);
         graphics.FillRectangle(mint, 54, top + rowHeight - 4, (float)((BaseWidth - 67) * fraction), 2);
-        if (row.LevelUp is { IsMax: false } celebration)
+        if (row.LevelUp is { IsMax: false } upEffect)
         {
-            var effects = LevelUpEffects(celebration.Progress);
+            var effects = LevelUpEffects(upEffect.Progress);
             theme.Diamond(graphics, new(48, top + 47), 2.5f, Color.FromArgb((int)(255 * effects.Opacity), theme.Gold));
         }
     }
@@ -178,7 +180,9 @@ public sealed partial class PetOverlayForm
     {
         var effects = LevelUpEffects(row.Progress);
         var alpha = (int)Math.Round(effects.Opacity * 255);
-        PaintAionPortrait(graphics, row.Icon, new(12, top + 12, 40, 40), alpha, theme, theme.Mint);
+        var icon = new Rectangle(12, top + 12, 40, 40);
+        DrawThemedLevelUpEffects(graphics, row, new(6, top + 2, BaseWidth - 12, AionCelebrationHeight - 4), icon, theme);
+        PaintAionPortrait(graphics, row.Icon, icon, alpha, theme, theme.Mint);
         using var heading = theme.Heading(14);
         using var body = theme.Body(11);
         using var mint = new SolidBrush(Color.FromArgb(alpha, theme.Mint));

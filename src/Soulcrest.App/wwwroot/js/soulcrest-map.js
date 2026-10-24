@@ -806,12 +806,14 @@ window.soulcrestMap = (() => {
     const includes = kind => (progression.kinds || []).includes(kind);
     const isPlace = target => !!target && target.group === 'Locations';
 
-    function setProgression(enabled, goal, soulsJson, kindsJson = '["pets"]', petsClosest = false, character = '', missingJson = '{}', petsHighestDensity = false, spawnCountsJson = '{}') {
+    // Genus selection is resolved against the .NET pet catalog. Null preserves older direct callers;
+    // an empty set deliberately disables pet guidance without affecting exploration or visible markers.
+    function setProgression(enabled, goal, soulsJson, kindsJson = '["pets"]', petsClosest = false, character = '', missingJson = '{}', petsHighestDensity = false, spawnCountsJson = '{}', allowedPetIdsJson = null) {
         if (progression.character !== character) {
             progressionTarget = null;
             map?.closePopup();
         }
-        progression = { enabled, goal, souls: JSON.parse(soulsJson || '{}'), kinds: JSON.parse(kindsJson || '[]'), petsClosest, character, missing: JSON.parse(missingJson || '{}'), petsHighestDensity, spawnCounts: JSON.parse(spawnCountsJson || '{}'), spawnMap: current?.id };
+        progression = { enabled, goal, souls: JSON.parse(soulsJson || '{}'), kinds: JSON.parse(kindsJson || '[]'), petsClosest, character, missing: JSON.parse(missingJson || '{}'), petsHighestDensity, spawnCounts: JSON.parse(spawnCountsJson || '{}'), spawnMap: current?.id, allowedPetIds: allowedPetIdsJson === null ? null : new Set(JSON.parse(allowedPetIdsJson)) };
         progressionCandidates = null;
         drawTargets();
         updateProgression();
@@ -876,7 +878,7 @@ window.soulcrestMap = (() => {
         const withSymbol = new Set(current.markers.filter(m => m[6] && current.categories[m[0]].group === 'Pets').map(m => m[6]));
         for (const [index, m] of current.markers.entries()) {
             const petId = m[6];
-            if (!petId) continue;
+            if (!petId || progression.allowedPetIds && !progression.allowedPetIds.has(petId)) continue;
             const closest = !!progression.petsClosest;
             // Closest to completion: every pet below max (missing > 0); otherwise below the chosen goal.
             if (closest ? !(progression.missing[petId] > 0) : (progression.souls[petId] || 0) >= progression.goal) continue;

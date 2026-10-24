@@ -172,8 +172,13 @@ public sealed class PetLevelUpOverlayTests
         Assert.Empty(fixture.Progress.Recent());
     });
 
-    [Fact]
-    public Task ThemeSwitchWaitsForNativeGestureAndKeepsTheOriginalLevelUpDeadlineAndStoredProgress() => RunSta(() =>
+    [Theory]
+    [InlineData("aion2-stylized")]
+    [InlineData("aion2-neutral")]
+    [InlineData("obsidian")]
+    [InlineData("aurora")]
+    [InlineData("runic")]
+    public Task ThemeSwitchWaitsForNativeGestureAndKeepsTheOriginalLevelUpDeadlineAndStoredProgress(string themeId) => RunSta(() =>
     {
         using var fixture = new Fixture();
         fixture.Upgrade(1135, 2);
@@ -186,13 +191,14 @@ public sealed class PetLevelUpOverlayTests
         var progressBefore = File.ReadAllBytes(Path.Combine(fixture.Folder, "progress.json"));
         var legacyHeight = fixture.Form.Height;
         dragField.SetValue(fixture.Form, new Point(20, 20));
-        fixture.Settings.Current.OverlayTheme = OverlayThemeDefinition.Aion2.Id;
+        var requestedTheme = OverlayThemeDefinition.Resolve(themeId);
+        fixture.Settings.Current.OverlayTheme = requestedTheme.Id;
         Refresh(fixture.Form);
         Assert.Same(OverlayThemeDefinition.Legacy, themeField.GetValue(fixture.Form));
         Assert.Equal(legacyHeight, fixture.Form.Height);
         dragField.SetValue(fixture.Form, null); // Release an unmodified synthetic gesture; no layout write.
         Refresh(fixture.Form);
-        Assert.Same(OverlayThemeDefinition.Aion2, themeField.GetValue(fixture.Form));
+        Assert.Same(requestedTheme, themeField.GetValue(fixture.Form));
         Assert.NotEqual(legacyHeight, fixture.Form.Height);
         Assert.Equal(started, clockField.GetValue(Animation(fixture.Form)));
         Assert.Equal(2, Assert.IsType<PetOverlayForm.LevelUpRow>(Current(fixture.Form)).Level);
