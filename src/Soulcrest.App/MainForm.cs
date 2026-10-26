@@ -14,6 +14,9 @@ public sealed class MainForm : Form
 
     private readonly ServiceProvider _services;
     private readonly PetOverlayForm _overlay;
+    private readonly LootOverlayForm _lootOverlay;
+    private readonly FarmLootTrackerService _farmLoot;
+    private readonly RareDropAlertService _dropAlerts;
     private readonly BossOverlayForm _bossOverlay;
     private readonly AlertsOverlayForm _alertsOverlay;
     private readonly EventTimelineOverlayForm _eventTimelineOverlay;
@@ -72,12 +75,26 @@ public sealed class MainForm : Form
         services.AddSingleton<Network.NetworkLootService>();
         services.AddSingleton<Network.INetworkLootSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkMerchantSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkGatheringSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkKinaSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkFarmSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<MerchantService>();
         services.AddSingleton<DaevanionService>();
         services.AddSingleton<TrackerService>();
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
+        services.AddSingleton<LootTrackerRouteSaveService>();
+        services.AddSingleton<LifeskillTrackerService>();
+        services.AddSingleton<FarmLootTrackerService>();
+        services.AddSingleton<ILootOverlaySource>(sp => sp.GetRequiredService<FarmLootTrackerService>());
+        services.AddSingleton(sp => new RareDropAlertService(sp.GetRequiredService<FarmLootTrackerService>(), () =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>().Current;
+            return new(settings.LootDropAlertsEnabled, settings.LootDropSoundEnabled,
+                settings.LootDropAnimationsEnabled, settings.LootDropSoundVolume)
+                { RarityAlerts = settings.LootDropRarityAlerts };
+        }, sp.GetRequiredService<LifeskillTrackerService>()));
         services.AddSingleton<BossRushService>();
         services.AddSingleton<AlertsService>();
         services.AddSingleton<AlertSoundPlayer>();
@@ -140,6 +157,14 @@ public sealed class MainForm : Form
             _services.GetRequiredService<TrackerService>(),
             _settings,
             _services.GetRequiredService<MapTargetsService>());
+        // Resolve the session subscriber before TrackerService starts the one shared passive source.
+        _dropAlerts = _services.GetRequiredService<RareDropAlertService>();
+        _settings.Changed += _dropAlerts.ApplySettings;
+        _lootOverlay = new LootOverlayForm(_services.GetRequiredService<ILootOverlaySource>(), ReadLootOverlayOptions,
+            point => _settings.Update(settings => { settings.LootOverlayX = point.X; settings.LootOverlayY = point.Y; }),
+            _dropAlerts);
+        _farmLoot = _services.GetRequiredService<FarmLootTrackerService>();
+        _farmLoot.SessionStarted += ShowLootOverlayForSessionStart;
         _ = _services.GetRequiredService<NavigationArrivalService>();
         _ = _services.GetRequiredService<FarmedTargetCleaner>(); // removes marks of pets farmed out of view
         _alerts = _services.GetRequiredService<AlertsService>();
@@ -152,12 +177,14 @@ public sealed class MainForm : Form
         _levelingOverlay = new LevelingOverlayForm(_services.GetRequiredService<MapTargetsService>(),
             _services.GetRequiredService<ExplorationService>(), _settings);
         _ = _services.GetRequiredService<CharacterDetectionService>(); // profile follows the character after loading screens
+        _ = _services.GetRequiredService<LifeskillTrackerService>(); // subscribes before the shared network source starts
         _ = _services.GetRequiredService<DiagnosticsService>(); // runs along, writes logs\diagnose.txt
         _routeOverlay = new RouteOverlayForm(
             _services.GetRequiredService<MapTrackingService>(),
             _services.GetRequiredService<MapTargetsService>(),
             _settings,
-            _services.GetRequiredService<ProgressService>());
+            _services.GetRequiredService<ProgressService>(),
+            _services.GetRequiredService<BossRushService>());
         _overlayInteractionTimer.Tick += (_, _) => UpdateOverlayInteractionState();
         OverlayInteraction.Changed += ScheduleOverlayInteraction;
         _placement = _services.GetRequiredService<OverlayPlacementService>();
@@ -173,6 +200,24 @@ public sealed class MainForm : Form
         if (_closing || _cleanupStarted || IsDisposed) return;
         if (InvokeRequired) { BeginInvoke(UpdateLanguage); return; }
         Text = UiText.F("Soulcrest – Aion 2 Pet-Begleiter (Tester {0})", AppPaths.Version);
+    }
+
+    private LootOverlayOptions ReadLootOverlayOptions() => new(_settings.Current.LootOverlayEnabled,
+        _settings.Current.LootOverlayX, _settings.Current.LootOverlayY, _settings.Current.LootOverlayScale,
+        _settings.Current.OverlayTheme, _settings.Current.OverlaysInRecordings,
+        AnimationsEnabled: _settings.Current.LootDropAnimationsEnabled)
+        { BackgroundOpacity = _settings.Current.LootOverlayBackgroundOpacity,
+            ShowOnSessionStart = _settings.Current.LootOverlayShowOnSessionStart };
+
+    private void ShowLootOverlayForSessionStart(string sessionId)
+    {
+        if (SmokeTest.Enabled || _closing || _cleanupStarted || IsDisposed) return;
+        try
+        {
+            if (_settings.TryShowLootOverlayForSessionStart()) _lootOverlay.PrepareAlertsForSessionStart();
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { LogFile.Error("Loot-Overlay beim Sessionstart einblenden", error); }
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -204,6 +249,7 @@ public sealed class MainForm : Form
         UpdateOverlayState();
         if (_settings.Current.OverlayEnabled)
             _overlay.Show();
+        _ = _lootOverlay.Handle;
         _ = _bossOverlay.Handle;
         _ = _alertsOverlay.Handle;
         _ = _eventTimelineOverlay.Handle;
@@ -243,6 +289,7 @@ public sealed class MainForm : Form
     {
         if (_cleanupStarted) return;
         _overlay.SetInteractionEnabled(enabled);
+        _lootOverlay.SetInteractionEnabled(enabled);
         _bossOverlay.SetInteractionEnabled(enabled);
         _alertsOverlay.SetInteractionEnabled(enabled);
         _eventTimelineOverlay.SetInteractionEnabled(enabled);
@@ -269,6 +316,8 @@ public sealed class MainForm : Form
         bool Suppressed(string id) => OverlayVisibilityPolicy.IsSuppressed(_settings.Current, id, context);
         _lootContextSuppressed = Suppressed("loot");
         _overlay.SetSuppressed(_lootContextSuppressed);
+        _lootOverlay.SetSuppressed(Suppressed("farm-loot"));
+        _lootOverlay.ApplySettings();
         _levelingOverlay.SetSuppressed(Suppressed("leveling"));
         _bossOverlay.SetSuppressed(Suppressed("boss"));
         _alertsOverlay.SetSuppressed(Suppressed("alerts"));
@@ -306,6 +355,7 @@ public sealed class MainForm : Form
     {
         var suppressed = OverlayVisibilityPolicy.IsForegroundSuppressed(_settings.Current, gameInForeground);
         _overlay.SetForegroundSuppressed(suppressed);
+        _lootOverlay.SetForegroundSuppressed(suppressed);
         _bossOverlay.SetForegroundSuppressed(suppressed);
         _levelingOverlay.SetForegroundSuppressed(suppressed);
         _alertsOverlay.SetForegroundSuppressed(suppressed);
@@ -383,6 +433,7 @@ public sealed class MainForm : Form
     private void SetOverlayPlacementHidden(bool hidden)
     {
         _overlay.SetPlacementHidden(hidden);
+        _lootOverlay.SetPlacementHidden(hidden);
         _bossOverlay.SetPlacementHidden(hidden);
         _levelingOverlay.SetPlacementHidden(hidden);
         _alertsOverlay.SetPlacementHidden(hidden);
@@ -402,6 +453,11 @@ public sealed class MainForm : Form
         {
             case "loot.toggle": ToggleOverlay(); return;
             case "loot.unlock": if (_overlay.Visible) _overlay.ToggleManualInteractionFromHotkey(); return;
+            case "farm-loot.toggle":
+                _settings.SetLootOverlayEnabled(!_settings.Current.LootOverlayEnabled);
+                UpdateOverlayState();
+                return;
+            case "farm-loot.unlock": if (_lootOverlay.Visible) _lootOverlay.ToggleManualInteractionFromHotkey(); return;
             case "alerts.unlock": if (_alertsOverlay.Visible) _alertsOverlay.ToggleManualInteractionFromHotkey(); return;
             case "notifications.unlock": if (_alertNotifications.Visible) _alertNotifications.ToggleManualInteractionFromHotkey(); return;
             case "event-timeline.unlock": if (_eventTimelineOverlay.Visible) _eventTimelineOverlay.ToggleManualInteractionFromHotkey(); return;
@@ -494,6 +550,7 @@ public sealed class MainForm : Form
         _hotkeys.Detach();
         StopTracking();
         _overlay.Close();
+        _lootOverlay.Close();
         _bossOverlay.Close();
         _alertsOverlay.Close();
         _eventTimelineOverlay.Close();
@@ -536,8 +593,10 @@ public sealed class MainForm : Form
         StopOverlayKeyboard();
         _settings.Changed -= UpdateLanguage;
         _settings.Changed -= ScheduleOverlayContext;
+        _settings.Changed -= _dropAlerts.ApplySettings;
         _map.Changed -= ScheduleOverlayContext;
         _alerts.NoticeRaised -= DeliverAlertSound;
+        _farmLoot.SessionStarted -= ShowLootOverlayForSessionStart;
         _worldContext.Changed -= ScheduleOverlayContext;
         _hotkeys.Invoked -= ExecuteOverlayHotkey;
         _hotkeys.Detach();
@@ -546,6 +605,7 @@ public sealed class MainForm : Form
         {
             StopTracking();
             _overlay?.Dispose();
+            _lootOverlay?.Dispose();
             _bossOverlay?.Dispose();
             _alertsOverlay?.Dispose();
             _eventTimelineOverlay?.Dispose();

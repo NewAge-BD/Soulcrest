@@ -63,7 +63,9 @@ public sealed class NetworkBossOverlayDispatchTests
         Assert.Equal(TimeSpan.FromHours(1),
             Assert.Single(fixture.Bosses.OverlaySpawns, row => row.Place.Boss.SpawnId == 111001).Remaining);
         Assert.False(fixture.Bosses.View.Cached);
-        Assert.Equal("Synthetic boss 3", fixture.Targets.BossRush!.Name);
+        var spawned = Assert.Single(fixture.Targets.BossNavigationTargets, target => target.BossRole == "spawned");
+        Assert.Equal("Synthetic boss 3", spawned.Name);
+        Assert.Equal("#4ade80", spawned.Color);
     }
 
     [Theory]
@@ -106,8 +108,8 @@ public sealed class NetworkBossOverlayDispatchTests
             Assert.False(row.Spawned);
             Assert.False(row.Cached);
         });
-        Assert.Null(fixture.Targets.BossRush);
-        Assert.Equal("Synthetic boss 1", fixture.Targets.BossPreview!.Name);
+        Assert.DoesNotContain(fixture.Targets.BossNavigationTargets, target => target.BossRole == "spawned");
+        Assert.Equal("Synthetic boss 1", Assert.Single(fixture.Targets.BossNavigationTargets, target => target.BossRole == "next").Name);
     }
 
     private static byte[] Clock(long now) => [0, 0x36, .. BitConverter.GetBytes(now)];

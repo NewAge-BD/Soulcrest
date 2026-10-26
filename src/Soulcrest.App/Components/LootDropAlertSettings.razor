@@ -1,0 +1,105 @@
+@implements IDisposable
+@inject SettingsService Settings
+@inject IServiceProvider Services
+
+<section class="loot-rarity-settings" aria-label="@UiText.T("Seltenheits-Alerts")">
+    <div class="loot-rarity-intro">
+        <strong>@UiText.T("Seltenheits-Alerts")</strong>
+        <span>@UiText.T("Fundhinweis und Signalton für jede Seltenheitsstufe separat einstellen.")</span>
+    </div>
+    @if (!Settings.Current.LootDropAlertsEnabled || !Settings.Current.LootDropSoundEnabled)
+    {
+        <p class="loot-rarity-master-note" role="note">@UiText.T("Die gemeinsamen Schalter für Fundhinweise und Drop-Ton bleiben maßgeblich.")</p>
+    }
+    <div class="loot-rarity-grid">
+        @foreach (var rarity in Rarities)
+        {
+            var option = Settings.GetLootDropRarityAlert(rarity);
+            var key = rarity.ToString().ToLowerInvariant();
+            <article class="loot-rarity-card rarity-@key @(!option.Enabled ? "inactive" : "")" data-rarity-alert="@key" @key="rarity">
+                <header>
+                    <strong><span aria-hidden="true">◆</span>@rarity</strong>
+                    <label for="@($"loot-rarity-{key}-enabled")"><input id="@($"loot-rarity-{key}-enabled")" type="checkbox" checked="@option.Enabled" disabled="@(Disabled || _saving)" @onchange="@(e => ChangeEnabled(rarity, e))" />@UiText.T("Fundhinweis")</label>
+                </header>
+                @if (_soundPickerAvailable)
+                {
+                    <AlertSoundPicker Sound="@option.Sound" SoundFile="@option.SoundFile" Enabled="@option.SoundEnabled"
+                        Disabled="@(Disabled || _saving || !option.Enabled)" Changed="@(selection => ChangeSound(rarity, selection))"
+                        PreviewSound="@(() => Preview(rarity))" PreviewStatus="@(() => _dropAlerts?.Status)"
+                        PreviewDisabled="@(_dropAlerts is null || !Settings.Current.LootDropAlertsEnabled || !Settings.Current.LootDropSoundEnabled)" />
+                }
+                else
+                {
+                    <p class="loot-rarity-audio-unavailable">@UiText.T("Die lokale MP3-Auswahl und Tonvorschau sind in dieser Ansicht nicht verfügbar.")</p>
+                }
+            </article>
+        }
+    </div>
+    @if (_feedback is not null)
+    {
+        <p class="loot-rarity-feedback @(_saveFailed ? "error" : "")" role="@(_saveFailed ? "alert" : "status")" aria-busy="@_saving">@UiText.T(_feedback)</p>
+    }
+    @if (_dropAlerts?.Status is { } audioStatus)
+    {
+        <p class="loot-rarity-feedback" role="status">@UiText.T(audioStatus)</p>
+    }
+</section>
+
+@code {
+    [Parameter] public bool Disabled { get; set; }
+    private static readonly LootItemRarity[] Rarities = [LootItemRarity.Unique, LootItemRarity.Epic, LootItemRarity.Mythic, LootItemRarity.Special];
+    private RareDropAlertService? _dropAlerts;
+    private bool _soundPickerAvailable, _saving, _saveFailed, _disposed;
+    private string? _feedback;
+
+    protected override void OnInitialized()
+    {
+        _dropAlerts = Services.GetService(typeof(RareDropAlertService)) as RareDropAlertService;
+        _soundPickerAvailable = Services.GetService(typeof(AlertSoundPlayer)) is AlertSoundPlayer
+            && Services.GetService(typeof(AlertsService)) is AlertsService;
+        Settings.Changed += Refresh;
+        if (_dropAlerts is not null) _dropAlerts.Changed += Refresh;
+    }
+
+    private Task ChangeEnabled(LootItemRarity rarity, ChangeEventArgs e) => e.Value is bool enabled
+        ? Save(rarity, Settings.GetLootDropRarityAlert(rarity) with { Enabled = enabled }) : Task.CompletedTask;
+
+    private Task ChangeSound(LootItemRarity rarity, AlertSoundPicker.Selection selection) => Save(rarity,
+        Settings.GetLootDropRarityAlert(rarity) with
+        {
+            SoundEnabled = selection.Enabled,
+            Sound = selection.Sound,
+            SoundFile = selection.SoundFile,
+        });
+
+    private async Task Save(LootItemRarity rarity, DropRarityAlertSettings option)
+    {
+        if (Disabled || _saving || _disposed || !Rarities.Contains(rarity)) return;
+        _saving = true; _saveFailed = false; _feedback = "Speichert …";
+        try
+        {
+            await Task.Run(() => Settings.SetLootDropRarityAlert(rarity, option));
+            if (!_disposed) _feedback = "Seltenheits-Alert gespeichert.";
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            if (!_disposed) { _saveFailed = true; _feedback = "Seltenheits-Alert konnte nicht gespeichert werden."; }
+        }
+        finally { _saving = false; }
+    }
+
+    private Task<bool> Preview(LootItemRarity rarity) => Disabled || _saving || _disposed || _dropAlerts is null
+        ? Task.FromResult(false) : _dropAlerts.PreviewAsync(rarity);
+
+    private void Refresh()
+    {
+        if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Settings.Changed -= Refresh;
+        if (_dropAlerts is not null) _dropAlerts.Changed -= Refresh;
+    }
+}

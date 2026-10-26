@@ -4,6 +4,7 @@ Fetch separately with fetch_gamingtools_dataset.py. This builder never uses the 
 """
 import argparse
 import collections
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -120,6 +121,45 @@ def to_pixel(config, x, y):
         raise ValueError('Invalid map bounds')
     scale = min(width / dx, height / dy)
     return (width - dx*scale)/2 + (x-bounds['minX'])*scale, (height-dy*scale)/2 + (y-bounds['minY'])*scale
+
+
+def build_resource_nodes(en, de, config, map_id, logical_size):
+    """Additive node identities from exact cached placements; no item or proximity inference."""
+    translated = {str(g['entity']['id']): g['entity'] for g in de.get('groups', [])
+                  if g.get('entity', {}).get('mainCategoryId') == 'gatherables'}
+    nodes = {}
+    for group in en.get('groups', []):
+        entity = group.get('entity', {})
+        if entity.get('mainCategoryId') != 'gatherables':
+            continue
+        gatherable_id = int(entity['id'])
+        types = [t for t in group.get('types', []) if t.startswith('resource-')]
+        positions = group.get('positions', [])
+        if gatherable_id <= 0 or len(types) != 1 or len(positions) % 2:
+            raise ValueError('Unqualified resource placement group')
+        for offset in range(0, len(positions), 2):
+            raw_x, raw_y = positions[offset:offset+2]
+            if (isinstance(raw_x, bool) or isinstance(raw_y, bool)
+                    or not isinstance(raw_x, (int, float)) or not isinstance(raw_y, (int, float))
+                    or not math.isfinite(raw_x) or not math.isfinite(raw_y)):
+                raise ValueError('Invalid native resource coordinates')
+            # float.hex makes integer and equivalent float placements identical, independent of
+            # list order, translated names, marker/category indices, or logical image resolution.
+            identity = '\0'.join((map_id, str(gatherable_id), float(raw_x).hex(), float(raw_y).hex()))
+            node_id = 'resource:' + hashlib.sha256(identity.encode('utf-8')).hexdigest()
+            x, y = to_pixel(config, raw_x, raw_y)
+            scale = logical_size / (512*2**config['maximumZoom'])
+            x, y = round(x*scale, 3), round(y*scale, 3)
+            if not math.isfinite(x) or not math.isfinite(y) or min(x, y) < 0:
+                raise ValueError('Invalid logical resource coordinates')
+            node = {'id': node_id, 'mapId': map_id, 'gatherableId': gatherable_id,
+                    'typeId': types[0], 'nameEn': entity['name'],
+                    'nameDe': translated.get(str(gatherable_id), {}).get('name'),
+                    'x': x, 'y': y, 'nativeX': raw_x, 'nativeY': raw_y}
+            if node_id in nodes and nodes[node_id] != node:
+                raise ValueError('Conflicting resource placement identity')
+            nodes[node_id] = node
+    return sorted(nodes.values(), key=lambda node: node['id'])
 
 
 # Visible, clickable credit asked for by gaming.tools when allowing the data use (Discord 2026-10-06).
@@ -417,11 +457,14 @@ def main():
     summaries, pets, numeric = build_catalog(icons)
     sources, conflicts = build_soul_sources(summaries)
     manifest = {'version': time.strftime('%Y%m%d%H%M%S'), 'maps': [], 'source': 'https://aion2.gaming.tools/map'}
+    resource_nodes = []
     german_maps = {m['id']:m for m in data('interactive-map', locale='de')['maps']}
     for definition in data('interactive-map')['maps']:
         mid=definition['id']
         if mid not in MAPS: continue
         payload=build_map(mid,definition,icons,pets,numeric,sources)
+        resource_nodes.extend(build_resource_nodes(data('interactive-map', mid), data('interactive-map', mid, 'de'),
+                              definition['map'], MAPS[mid], payload['size']))
         directory=args.out/MAPS[mid]; directory.mkdir(parents=True,exist_ok=True)
         if args.skip_tiles and not (directory/'tiles512/1_0_0.webp').exists():
             raise ValueError('Rebuild tiles once before using --skip-tiles: ' + str(directory))
@@ -447,6 +490,8 @@ def main():
             primary = pets[numeric[pet['numericId']]]
             pet['spawns'], pet['monsters'] = dict(primary['spawns']), dict(primary['monsters'])
     for name,obj in [('manifest.json',manifest),('pets.json',sorted(pets.values(),key=lambda p:(p['genus'],p['en'],p['id']))),
+                     ('resource-nodes.json', {'schemaVersion': 1, 'source': manifest['source'],
+                                              'nodes': sorted(resource_nodes, key=lambda node: node['id'])}),
                      ('source-audit.json',{'sources':list(sources.values()),'conflicts':conflicts})]:
         (args.out/name).write_text(json.dumps(obj,ensure_ascii=False,indent=1),encoding='utf-8')
     stations = ROOT/'imports/generated/leveling-stations.json'

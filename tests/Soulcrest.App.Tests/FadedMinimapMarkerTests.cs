@@ -21,8 +21,9 @@ public sealed class FadedMinimapMarkerTests
     {
         using var icon = Icon();
         var theme = OverlayThemeDefinition.Resolve(id);
-        var target = new MapTarget(completed ? "history" : "boss-next", "map", 100, 90, "Station 1 · 80 m",
-            "NPCs", null, Color: "#facc15", Completed: completed);
+        var target = new MapTarget(completed ? "history" : "boss:1:1", "map", 100, 90, "Station 1 · 80 m",
+            "NPCs", null, Color: "#facc15", Completed: completed,
+            BossSpawnId: completed ? null : 1, BossRole: completed ? null : "preview");
         var icons = new Dictionary<string, Bitmap?> { [target.Id] = icon };
         using var world = RouteOverlayForm.DrawThemed(theme, Placement(true), [(target, 0)], targetIcons: icons);
         using var mini = RouteOverlayForm.DrawThemed(theme, Placement(false), [(target, 0)], targetIcons: icons);
@@ -89,7 +90,7 @@ public sealed class FadedMinimapMarkerTests
         (MapTarget Target, int Index)[] targets =
         [
             (new("history", "map", 110, 90, "Station 1", "Waypoint", null, Color: "#facc15", Completed: true), 0),
-            (new("boss-next", "map", 330, 110, "Boss · 250 m", "Waypoint", null, Color: "#ef4444"), 1),
+            (new("boss:1:1", "map", 330, 110, "Boss · 250 m", "Waypoint", null, Color: "#ef4444", BossSpawnId: 1, BossRole: "preview"), 1),
             (new("active", "map", 320, 250, "Station 2 · 180 m", "Waypoint", null, Color: "#facc15"), 2)
         ];
         using var layer = RouteOverlayForm.DrawThemed(OverlayThemeDefinition.Resolve(id), placement, targets,

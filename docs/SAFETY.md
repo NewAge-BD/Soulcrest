@@ -66,6 +66,23 @@ auswerten darf. Dafür gilt:
   zusätzlichen Anfragen an das Spiel, keine zweite Erfassung, keine Entschlüsselung.
   Auf Nutzerwunsch bleibt die letzte Bossliste lokal in `cache/boss-timers.json` erhalten;
   keine IPs/Verbindungsdaten. Nach Loads/Neustart ist sie bis zur frischen Liste vorläufig.
+- **Lifeskill-Sammelbeute (Nutzerauftrag 2026-10-25):** Dieselbe Quelle zählt nur
+  vollständige Primärbeute mit passendem eigenen Actor-/Targetbeleg in derselben
+  frischen Charakter-/Transportgeneration. Fremde Actorbelege werden verworfen,
+  keine fremden Aktionen gespeichert. Instanz-/Spawnkeys bleiben flüchtige
+  RAM-Belege; Sessionjournale enthalten nur lokale Profilzuordnung, Items und
+  bestätigte Minimap-Positionen. Kein Inventarecho wird zusätzlich gezählt,
+  kein Netzwerk-Spielerpositionsparser. Nutzerpräzisierung 2026-10-25: bestätigte
+  erfolgreiche und fehlgeschlagene Versuche erzeugen mit frischer Minimap-Position
+  eine Sammelstelle. Die nächste passende Katalog-Node derselben Karte innerhalb
+  15 Spielmetern ersetzt diese Position; exakte Abstandsgleichstände behalten
+  die Sammelposition. Diese ausdrücklich gewünschte Nähezuordnung ist kein
+  zusätzlicher Netzwerk-Identitätsbeleg. Original- und Zielposition sowie lokale
+  Katalogkennung werden zusammen eingefroren, native Objektkeys bleiben flüchtig.
+  Vollständige eigene Abschlüsse mit validierter Nullbeute dürfen separat als
+  beendete Versuche ohne Beute zählen; keine Deutung opaker Ergebnisbytes oder
+  geratene Abbruchursache. Der bestätigte eigene Instanzkontext wird am Abschluss
+  eingefroren; solche Versuche bleiben aus der Lifeskill-Erfassung ausgeschlossen.
 
 ### Verworfenes Feature: DPS-Meter (2026-10-19)
 
@@ -84,3 +101,5 @@ Aufnahme: `scripts/Record-GameTraffic.ps1`.
 
 Die Nutzung erfolgt auf eigenes Risiko. Ob Overlays und Bildschirmauswertung erlaubt sind,
 entscheiden die Nutzungsbedingungen von NCSOFT.
+
+

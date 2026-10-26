@@ -271,11 +271,18 @@ die gewünschte Spalte geändert. Damit verändert ein interaktiver Klick keine 
 native Ansicht. Neue Auswahlen haben Vorrang vor den alten globalen Schaltern.
 
 Die interaktive Karte verbindet erfasste Boss-Timer ausschließlich über die eindeutige
-Named-Spawn-ID und den exakten Locations/Field-Boss-Katalogpunkt. Der Tooltip gehört zur
-Boss-Ebene und verschwindet zusammen mit ihr. Ein einmaliger Markerindex vermeidet wiederholte
-Scans des gesamten Kartenpakets. Lokale monotone Countdowns aktualisieren nur den Tooltiptext;
-gespeicherte oder mehr als 15 Sekunden alte Daten bleiben sichtbar als unbestätigt. Null bedeutet
-„Warte auf Bestätigung“, bis eine Servernachricht einen Spawn bestätigt.
+Named-Spawn-ID. Ohne Navigationsziel muss zusätzlich der exakte Locations/Field-Boss-Katalogpunkt
+eindeutig sein. Seit dem Boss-Rush-Rework vom 2026-10-25 übernimmt ein sichtbarer Boss-Rush-Pin
+den kombinierten Namen-/Timertooltip; der normale Kategoriemarker zeigt dann keinen zweiten
+Timer. Ohne Pin gehört der Timer weiterhin zur Boss-Ebene. Ein Pin behält seinen Countdown
+auch bei ausgeblendeter Kategorie. Ein einmaliger Markerindex vermeidet wiederholte Scans des
+Kartenpakets; lokale monotone Countdowns aktualisieren ausschließlich bestehende Tooltiptexte.
+
+Nur gespeicherte oder ausdrücklich entwertete Listen sind unbestätigt; das Informationsalter
+allein entwertet keine bestätigte Liste. Unbestätigte Navigationsmarker und Wege erscheinen
+verblasst grün mit Hinweis. Null bedeutet „Warte auf Bestätigung“, bis eine Servernachricht einen
+Spawn bestätigt. Boss-Spielerlinien benötigen einen frischen passenden Positionsfix der aktuellen
+freigegebenen Kontextgeneration; beim Entzug bleiben nur bekannte Boss-zu-Boss-Kanten bestehen.
 
 
 ## Schnellere Wiedererkennung nach Instanzen und Kartenwechseln (2026-10-19)
@@ -334,3 +341,26 @@ der bestehende Rückfall über zwei fehlgeschlagene Weltkartenabgleiche erkennt 
 Jedes erneute Öffnen beginnt mit unbestätigtem Symbol. Beobachtungen alter Kartenkontexte und
 nicht akzeptierte Aufnahmen dürfen die Prüfung weder aktivieren noch die Weltkarte schließen.
 Erkennungstakt, Optical Flow, Projektion und Renderer bleiben unverändert.
+
+## PvE-Laufspur und temporäre Sessionroute (2026-10-26)
+
+Eine aktive bestätigte Open-World-PvE-Session bezieht dieselbe Recorder-Lease wie
+Lifeskill. Die gespeicherte manuelle Karten-/Trackingwahl wird nicht verändert.
+Frische gültige Minimap-Positionen werden maximal einmal je Sekunde und bei Loot
+übernommen. Map-, World-/Own-Bindungsgeneration und Erkennungslücken trennen die
+Strecke. Nachlauf nach dem letzten Loot ist nur vorläufig; Abschluss und Recovery
+schneiden ihn ab. Das Journal speichert nur neue Routenpunkte/Segmente, die kleine
+Zusammenfassung enthält keine wachsende Laufspur.
+
+„Auf Karte anzeigen“ kopiert die gewählte aufgezeichnete Karte in eine temporäre
+Leaflet-Ebene mit separaten Linien je Abschnitt. Fit-Bounds richtet die Ansicht
+aus; Follow-Zentrierung ist während der Vorschau nur vorübergehend ausgesetzt.
+Navigation und Routenbibliothek bleiben erhalten. Kartenwechsel oder Aufheben
+räumen die Vorschau auf. Die kleine Loot-Tab-Vorschau verwendet dieselben Pixel
+und die bestehenden passenden Offlinekacheln.
+
+Die Ortsbenennung verwendet auf ausdrückliche Nutzerentscheidung den nächsten
+benannten Regions-Mittelpunkt aus dem aktiven Kartenpaket. Sie bleibt ausdrücklich
+angenähert: Labelzentren sind keine Gebietsgrenzen. Der Resolver lädt die lokalen
+validierten JSON-Kartenpayloads einmal, führt kein JavaScript aus und verwirft
+Abstandsgleichstände unterschiedlicher Ortslabels.

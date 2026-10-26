@@ -93,6 +93,7 @@ public sealed class OverlayPlacementServiceTests : IDisposable
 
     [Theory]
     [InlineData("loot", .6, 2.5)]
+    [InlineData("farm-loot", .6, 2)]
     [InlineData("boss", .6, 2)]
     [InlineData("leveling", .7, 1.6)]
     [InlineData("alerts", .6, 2)]
@@ -112,8 +113,8 @@ public sealed class OverlayPlacementServiceTests : IDisposable
         Assert.Throws<ArgumentException>(() => OverlayRegistry.NormalizeLayout("merchant", new(0, 0, 1)));
         Assert.Equal(240, OverlayRegistry.NormalizeLayout("notifications", new(0, 0, 1, 10)).Width);
         Assert.Equal(1600, OverlayRegistry.NormalizeLayout("event-timeline", new(0, 0, 1, 9999)).Width);
-        Assert.Equal(9, OverlayRegistry.All.Count);
-        Assert.Equal(6, OverlayRegistry.All.Count(item => item.CanPlace));
+        Assert.Equal(10, OverlayRegistry.All.Count);
+        Assert.Equal(7, OverlayRegistry.All.Count(item => item.CanPlace));
     }
 
     private static SettingsService Fresh()

@@ -70,7 +70,7 @@ public static class OwnIdentityMessage
             var entity = r.Vi32();
             var flags = r.U32();
             if ((flags & 0xC0000000) != 0) return null;
-            var (name, server, classId) = Detail(ref r);
+            var (name, server, classId, gearScore) = Detail(ref r);
             State(ref r);
             if ((flags & 1) != 0) Guild(ref r);
             Stats(ref r);
@@ -120,7 +120,8 @@ public static class OwnIdentityMessage
             SkipIf(ref r, flags, 33554432, 8);
             SkipIf(ref r, flags, 67108864, 4);
             SkipIf(ref r, flags, 134217728, 16);
-            r.Skip(16); // combat power and highest combat power
+            var combatScore = r.I64();
+            r.Skip(8); // highest combat power is not the current score
             Points(ref r);
             Points(ref r);
             if ((flags & 268435456) != 0) r.Skip(r.Count(8) * 8);
@@ -128,13 +129,14 @@ public static class OwnIdentityMessage
             r.Exact();
             return entity > 0 && server > 0 && characterId > 0 && name.Length is >= 2 and <= 32
                 && name.All(char.IsLetterOrDigit)
-                ? new(new(characterId, server, entity, name) { ClassId = classId }, mapDataId > 0 ? mapDataId : null) : null;
+                ? new(new(characterId, server, entity, name) { ClassId = classId }, mapDataId > 0 ? mapDataId : null)
+                    { CombatScore = combatScore >= 0 ? combatScore : null, GearScore = gearScore } : null;
         }
         catch (InvalidDataException) { return null; }
         catch (DecoderFallbackException) { return null; }
     }
 
-    private static (string Name, int Server, string? ClassId) Detail(ref ProgressPacketReader r)
+    private static (string Name, int Server, string? ClassId, int? GearScore) Detail(ref ProgressPacketReader r)
     {
         var flags = r.U8();
         if ((flags & 0xC0) != 0) throw new InvalidDataException("Unknown own detail flags.");
@@ -142,7 +144,9 @@ public static class OwnIdentityMessage
         var server = r.U16();
         var classId = ClassIdForPcId(r.I32());
         SkipIf(ref r, flags, 2, 1);
-        r.Skip(4 * 4 + 8 + 4 + 8); // levels and experience
+        r.Skip(4); // character level
+        var gearScore = r.I32(); // current equip item level, not the following highest total item level
+        r.Skip(4 + 4 + 8 + 4 + 8); // highest gear, maximum level and experience
         SkipIf(ref r, flags, 4, 1);
         r.Skip(r.Count(14) * 14); // gathering stats
         r.Skip(r.Count(13) * 13); // crafting stats
@@ -151,7 +155,7 @@ public static class OwnIdentityMessage
         SkipIf(ref r, flags, 8, 1);
         if ((flags & 16) != 0) Points(ref r);
         if ((flags & 32) != 0) Points(ref r);
-        return (name, server, classId);
+        return (name, server, classId, gearScore >= 0 ? gearScore : null);
     }
 
     // User request 2026-10-20: class comes only from full MyCharAppear.detail.pcId (i32 LE).

@@ -104,7 +104,7 @@ public sealed partial class PetOverlayForm
         using var line = new Pen(theme.Border);
         using var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
         theme.Diamond(graphics, new(13, 17), 4, running ? theme.Gold : theme.Secondary);
-        graphics.DrawString(UiText.T("Loot & Pet-Fortschritt"), heading, gold, new RectangleF(25, 7, layout.LockBounds.Left - 34, 24), format);
+        graphics.DrawString(UiText.T("Pet-Fortschritt"), heading, gold, new RectangleF(25, 7, layout.LockBounds.Left - 34, 24), format);
         if (height == layout.ContentTop) return;
         graphics.DrawLine(line, 12, layout.ContentTop - 1, BaseWidth - 12, layout.ContentTop - 1);
         var y = layout.ContentTop;

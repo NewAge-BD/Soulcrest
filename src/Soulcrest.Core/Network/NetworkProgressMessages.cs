@@ -8,13 +8,23 @@ public sealed record OwnCharacterIdentity(long CharacterId, int ServerId, int En
 }
 
 /// <summary>Own map metadata returned only after complete MyCharAppear validation; no raw map key or coordinates.</summary>
-public sealed record OwnWorldObservation(OwnCharacterIdentity Identity, int? MapDataId);
+public sealed record OwnWorldObservation(OwnCharacterIdentity Identity, int? MapDataId)
+{
+    public long? CombatScore { get; init; }
+    public int? GearScore { get; init; }
+}
 
 /// <summary>Complete preparation shape, provisional map metadata only.</summary>
 public sealed record WorldEntryPreparation(int? MapDataId);
 
 /// <summary>Current own identity and its transient network generation; never a persisted character choice.</summary>
-public sealed record OwnCharacterContext(OwnCharacterIdentity Identity, long Generation);
+public sealed record OwnCharacterContext(OwnCharacterIdentity Identity, long Generation)
+{
+    /// <summary>Own-entry scores, refreshed by any complete load-screen entry; never part of identity equality.</summary>
+    public long? CombatScore { get; init; }
+    public int? GearScore { get; init; }
+    public DateTimeOffset? ObservedAt { get; init; }
+}
 
 /// <summary>Untrusted login-batch candidate. Only a later full own message can confirm both fields and supply the server.</summary>
 public sealed record OwnEntryCandidate(long CharacterId, int EntityKey);

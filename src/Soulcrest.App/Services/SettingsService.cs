@@ -26,6 +26,27 @@ public sealed class AppSettings
 
     public bool LootTrackingEnabled { get; set; } = true;
 
+    /// <summary>User request 2026-10-25: finish grind sessions after this many minutes without loot.</summary>
+    public int LootTrackerIdleTimeoutMinutes { get; set; } = LootTrackerPresentation.DefaultIdleTimeoutMinutes;
+
+    /// <summary>User request 2026-10-25: explicitly opt into gathering sessions and their position recorder.</summary>
+    public bool LifeskillTrackingEnabled { get; set; }
+
+    /// <summary>User request 2026-10-26: record own open-world gains automatically.</summary>
+    public bool MonsterLootTrackingEnabled { get; set; } = true;
+    public int MonsterLootAutoSessionRevision { get; set; }
+    public bool LootDropAlertsEnabled { get; set; } = true;
+    public bool LootDropSoundEnabled { get; set; } = true;
+    public bool LootDropAnimationsEnabled { get; set; } = true;
+    public double LootDropSoundVolume { get; set; } = .6;
+    public Dictionary<LootItemRarity, DropRarityAlertSettings> LootDropRarityAlerts { get; set; } = [];
+    public bool LootOverlayEnabled { get; set; }
+    public int LootOverlayX { get; set; } = 48;
+    public int LootOverlayY { get; set; } = 300;
+    public double LootOverlayScale { get; set; } = 1;
+    public double LootOverlayBackgroundOpacity { get; set; } = 1;
+    public bool LootOverlayShowOnSessionStart { get; set; }
+
     /// <summary>Look for a new version on GitHub after every start (UpdateService).</summary>
     public bool CheckUpdatesOnStart { get; set; } = true;
 
@@ -149,6 +170,10 @@ public sealed class AppSettings
     /// <summary>Progression mode: always lead to the nearest pet below <see cref="ProgressionGoal"/> souls.</summary>
     public bool ProgressionEnabled { get; set; }
     public bool BossRushEnabled { get; set; }
+    /// <summary>Include older spawned map targets beyond their first minute (user request 2026-10-26).</summary>
+    public bool BossRushShowOlderSpawns { get; set; }
+    /// <summary>Additional faded map spawns after the next boss, independent of the spawn panel (user request 2026-10-25).</summary>
+    public int BossNavigationPreviewCount { get; set; } = 1;
     public bool BossOverlayEnabled { get; set; } = true;
     public int BossOverlayCount { get; set; } = 5;
     public int BossOverlayX { get; set; } = 420;
@@ -318,6 +343,16 @@ public sealed class SettingsService
         if (Current.OverlayLanguage is not ("auto" or "de" or "en")) Current.OverlayLanguage = "auto";
         if (Current.OverlayShowMode is not ("foreground" or "always")) Current.OverlayShowMode = "foreground";
         Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
+        Current.LootTrackerIdleTimeoutMinutes = LootTrackerPresentation.NormalizeIdleTimeoutMinutes(Current.LootTrackerIdleTimeoutMinutes);
+        if (Current.MonsterLootAutoSessionRevision < 1)
+        {
+            // The former false default was serialized in existing files. Subsequent opt-outs
+            // save this revision with the preference, so a later launch never enables them again.
+            Current.MonsterLootTrackingEnabled = true;
+            Current.MonsterLootAutoSessionRevision = 1;
+        }
+        Current.LootDropSoundVolume = NormalizeLootDropSoundVolume(Current.LootDropSoundVolume);
+        Current.LootDropRarityAlerts = DropRarityAlertSettings.Normalize(Current.LootDropRarityAlerts);
         NormalizeDaevanionHighlights(Current);
         if (Current.DetectedGameLanguage is not ("de" or "en")) Current.DetectedGameLanguage = null;
         if (Current.OcrLanguage is not ("de-DE" or "en-US"))
@@ -351,6 +386,9 @@ public sealed class SettingsService
         Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
         OverlayHotkeys.Normalize(Current);
         Current.OverlayScale = double.IsFinite(Current.OverlayScale) ? Math.Clamp(Current.OverlayScale, .6, 2.5) : 1;
+        Current.LootOverlayScale = LootOverlayRenderer.NormalizedScale(Current.LootOverlayScale);
+        Current.LootOverlayBackgroundOpacity = NormalizeLootBackgroundOpacity(Current.LootOverlayBackgroundOpacity);
+        Current.BossNavigationPreviewCount = Math.Clamp(Current.BossNavigationPreviewCount, 0, 23);
         Current.BossOverlayCount = Math.Clamp(Current.BossOverlayCount, 1, 12);
         Current.BossOverlayScale = double.IsFinite(Current.BossOverlayScale) ? Math.Clamp(Current.BossOverlayScale, .6, 2) : 1;
         Current.LevelingOverlayScale = double.IsFinite(Current.LevelingOverlayScale) ? Math.Clamp(Current.LevelingOverlayScale, .7, 1.6) : 1;
@@ -438,6 +476,126 @@ public sealed class SettingsService
         settings.ProgressionPetGenera = canonical.Where(selected.Contains).ToArray();
     }
 
+    /// <summary>Only this preference changes, with rollback before releasing the settings lock on write failure.</summary>
+    public void SetLootTrackerIdleTimeoutMinutes(int minutes)
+    {
+        lock (_gate)
+        {
+            var previous = Current.LootTrackerIdleTimeoutMinutes;
+            var normalized = LootTrackerPresentation.NormalizeIdleTimeoutMinutes(minutes);
+            if (previous == normalized) return;
+            Current.LootTrackerIdleTimeoutMinutes = normalized;
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.LootTrackerIdleTimeoutMinutes = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
+    public void SetLifeskillTrackingEnabled(bool enabled)
+    {
+        lock (_gate)
+        {
+            var previous = Current.LifeskillTrackingEnabled;
+            if (previous == enabled) return;
+            Current.LifeskillTrackingEnabled = enabled;
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.LifeskillTrackingEnabled = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
+    public void SetMonsterLootTrackingEnabled(bool enabled)
+    {
+        lock (_gate)
+        {
+            var previous = Current.MonsterLootTrackingEnabled;
+            if (previous == enabled) return;
+            Current.MonsterLootTrackingEnabled = enabled;
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.MonsterLootTrackingEnabled = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
+    public void SetLootOverlayEnabled(bool enabled)
+    {
+        lock (_gate)
+        {
+            var previous = Current.LootOverlayEnabled;
+            if (previous == enabled) return;
+            Current.LootOverlayEnabled = enabled;
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.LootOverlayEnabled = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
+    public void SetLootDropAlertsEnabled(bool enabled) => SetDropOption(
+        () => Current.LootDropAlertsEnabled, value => Current.LootDropAlertsEnabled = value, enabled);
+    public void SetLootDropSoundEnabled(bool enabled) => SetDropOption(
+        () => Current.LootDropSoundEnabled, value => Current.LootDropSoundEnabled = value, enabled);
+    public void SetLootDropAnimationsEnabled(bool enabled) => SetDropOption(
+        () => Current.LootDropAnimationsEnabled, value => Current.LootDropAnimationsEnabled = value, enabled);
+    public void SetLootDropSoundVolume(double volume) => SetDropOption(
+        () => Current.LootDropSoundVolume, value => Current.LootDropSoundVolume = value, NormalizeLootDropSoundVolume(volume));
+
+    public DropRarityAlertSettings GetLootDropRarityAlert(LootItemRarity rarity)
+    {
+        if (!DropRarityAlertSettings.Supports(rarity)) throw new ArgumentOutOfRangeException(nameof(rarity));
+        lock (_gate) return DropRarityAlertSettings.Normalize(Current.LootDropRarityAlerts.GetValueOrDefault(rarity));
+    }
+
+    public void SetLootDropRarityAlert(LootItemRarity rarity, DropRarityAlertSettings settings)
+    {
+        if (!DropRarityAlertSettings.Supports(rarity)) throw new ArgumentOutOfRangeException(nameof(rarity));
+        ArgumentNullException.ThrowIfNull(settings);
+        var normalized = DropRarityAlertSettings.Normalize(settings);
+        lock (_gate)
+        {
+            var previous = Current.LootDropRarityAlerts;
+            if (previous.TryGetValue(rarity, out var existing) && existing == normalized) return;
+            Current.LootDropRarityAlerts = new(previous) { [rarity] = normalized };
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.LootDropRarityAlerts = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
+    public void SetLootOverlayBackgroundOpacity(double opacity) => SetDropOption(
+        () => Current.LootOverlayBackgroundOpacity, value => Current.LootOverlayBackgroundOpacity = value, NormalizeLootBackgroundOpacity(opacity));
+    public void SetLootOverlayShowOnSessionStart(bool enabled) => SetDropOption(
+        () => Current.LootOverlayShowOnSessionStart, value => Current.LootOverlayShowOnSessionStart = value, enabled);
+
+    // Called only for a newly persisted PvE session; opening a view or recovering history never calls this.
+    public bool TryShowLootOverlayForSessionStart()
+    {
+        lock (_gate)
+        {
+            if (!Current.LootOverlayShowOnSessionStart || Current.LootOverlayEnabled) return false;
+            Current.LootOverlayEnabled = true;
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.LootOverlayEnabled = false; throw; }
+        }
+        Changed?.Invoke();
+        return true;
+    }
+
+    private static double NormalizeLootBackgroundOpacity(double opacity) => double.IsFinite(opacity) ? Math.Clamp(opacity, 0, 1) : 1;
+
+    private static double NormalizeLootDropSoundVolume(double volume) => double.IsFinite(volume) ? Math.Clamp(volume, 0, 1) : .6;
+    private void SetDropOption<T>(Func<T> read, Action<T> write, T value)
+    {
+        lock (_gate)
+        {
+            var previous = read();
+            if (EqualityComparer<T>.Default.Equals(previous, value)) return;
+            write(value);
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { write(previous); throw; }
+        }
+        Changed?.Invoke();
+    }
+
     public void Update(Action<AppSettings> change)
     {
         lock (_gate)
@@ -446,9 +604,15 @@ public sealed class SettingsService
             change(Current);
             if (networkEnabled != Current.LootTrackingEnabled) Interlocked.Increment(ref _networkTrackingRevision);
             Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
+            Current.LootTrackerIdleTimeoutMinutes = LootTrackerPresentation.NormalizeIdleTimeoutMinutes(Current.LootTrackerIdleTimeoutMinutes);
+            Current.LootDropSoundVolume = NormalizeLootDropSoundVolume(Current.LootDropSoundVolume);
+            Current.LootDropRarityAlerts = DropRarityAlertSettings.Normalize(Current.LootDropRarityAlerts);
+            Current.LootOverlayScale = LootOverlayRenderer.NormalizedScale(Current.LootOverlayScale);
+            Current.LootOverlayBackgroundOpacity = NormalizeLootBackgroundOpacity(Current.LootOverlayBackgroundOpacity);
             NormalizeDaevanionHighlights(Current);
             NormalizeProgressionPetGenera(Current);
             Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
+            Current.BossNavigationPreviewCount = Math.Clamp(Current.BossNavigationPreviewCount, 0, 23);
             UiText.Language = Current.UiLanguage;
             JsonFile.Save(AppPaths.SettingsFile, Current);
         }

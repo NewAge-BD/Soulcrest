@@ -29,9 +29,11 @@ public sealed class OverlayViewTests
         var html = await fixture.Render();
         foreach (var overlay in OverlayRegistry.All)
             Assert.Contains($"data-overlay-select=\"{overlay.Id}\"", html);
-        Assert.Equal(9, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
+        Assert.Equal(10, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
         Assert.Contains(shared, html);
         Assert.Contains(place, html);
+        Assert.Contains(language == "de" ? "Pet-Fortschritt" : "Pet progress", html);
+        Assert.DoesNotContain("Loot &amp; Pet", html);
         Assert.Contains("data:image/png;base64,", html);
         Assert.Contains("id=\"overlay-language\"", html);
         Assert.Contains("id=\"overlays-in-recordings\"", html);
@@ -74,10 +76,12 @@ public sealed class OverlayViewTests
         await fixture.Export(html, id);
     }
 
-    [Fact]
-    public async Task EachFreeOverlayOffersItsOwnContextRulesAndAppropriateControls()
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task EachFreeOverlayOffersItsOwnContextRulesAndAppropriateControls(string language)
     {
-        await using var fixture = new Fixture("en");
+        await using var fixture = new Fixture(language);
         await fixture.Render();
         foreach (var overlay in OverlayRegistry.All.Where(item => item.CanPlace))
         {
@@ -89,6 +93,14 @@ public sealed class OverlayViewTests
             Assert.Contains("id=\"overlay-y\"", html);
             Assert.Equal(overlay.Id != "notifications", html.Contains("id=\"overlay-enabled\"", StringComparison.Ordinal));
             Assert.Equal(overlay.Id is "notifications" or "event-timeline", html.Contains("id=\"overlay-width\"", StringComparison.Ordinal));
+            if (overlay.Id == "farm-loot")
+            {
+                Assert.Contains("id=\"loot-background-transparency\"", html);
+                Assert.Contains("id=\"loot-overlay-auto-show\"", html);
+                foreach (var rarity in new[] { "unique", "epic", "mythic", "special" })
+                    Assert.Contains($"data-rarity-alert=\"{rarity}\"", html);
+                await fixture.Export(html, "farm-loot");
+            }
         }
         var boss = await fixture.Invoke("SelectOverlay", "boss");
         Assert.Contains("id=\"boss-overlay-enabled\"", boss);
@@ -269,6 +281,8 @@ public sealed class OverlayViewTests
             var services = new ServiceCollection();
             services.AddLogging();
             services.AddSingleton<SettingsService>();
+            services.AddSingleton<AlertSoundPlayer>();
+            services.AddSingleton(new RareDropAlertService(() => new(), () => throw new InvalidOperationException("Rendering cannot play audio."), TimeProvider.System));
             services.AddSingleton<UiState>();
             services.AddSingleton<OverlayHotkeyService>();
             services.AddSingleton(new OverlayPreviewRenderer(new PetCatalog([])));
@@ -305,7 +319,7 @@ public sealed class OverlayViewTests
         {
             if (Environment.GetEnvironmentVariable("SOULCREST_OVERLAY_UI_PREVIEW") is not { Length: > 0 } output) return Task.CompletedTask;
             Directory.CreateDirectory(output);
-            return File.WriteAllTextAsync(Path.Combine(output, $"overlay-{id}-{_language}.html"), "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/css/alerts.css\"><link rel=\"stylesheet\" href=\"/css/overlay.css\"></head><body>" + markup + "</body></html>");
+            return File.WriteAllTextAsync(Path.Combine(output, $"overlay-{id}-{_language}.html"), "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><link rel=\"stylesheet\" href=\"/css/app.css\"><link rel=\"stylesheet\" href=\"/css/alerts.css\"><link rel=\"stylesheet\" href=\"/css/overlay.css\"><link rel=\"stylesheet\" href=\"/css/loot-tracker.css\"></head><body>" + markup + "</body></html>");
         }
         public async ValueTask DisposeAsync()
         {

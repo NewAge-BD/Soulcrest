@@ -2,6 +2,27 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.14.0 – 2026-10-26
+
+- **New:** **Loot Tracker** tab: sessions with Kina (bound/unbound), Kina/h, items, souls and the
+  route you walked, per character with Combat Score and Gear Score, grouped by farm days
+  (07:00–07:00 UTC). Each session can be opened and deleted individually.
+- **New:** Open-world PvE is recorded automatically: your own loot starts a session, which ends after
+  two minutes without loot (adjustable). After 1,000,000 daily Kina a "Limited Kina Session"
+  follows. Dungeon runs get their own entries.
+- **New:** Lifeskill sessions: successful and failed gathering builds a farm route between gathering
+  spots, which you can show on the map and keep as a route.
+- **New:** Loot overlay with daily Kina, session Kina, Kina/h and a loot list with item icons and
+  quality colours; white gear is grouped as "Common Gear". Adjustable background transparency,
+  optionally shown automatically when a session starts.
+- **New:** Special drops (Unique, Epic, Mythic, Special) glow with an animation and announce
+  themselves briefly with their own sound; configurable per rarity, including your own MP3.
+- **New:** Boss Rush guidance on the in-game world map, minimap and Soulcrest map: spawned bosses in
+  green with time since spawn, the next spawn in red with a countdown, more follow-up targets
+  adjustable, unconfirmed markers faded. Spawned bosses disappear after one minute; a switch shows
+  older ones too.
+- **Changed:** "Loot & pet progress" is now called "Pet progress".
+
 ## 0.13.0 – 2026-10-24
 
 - **New:** Progression mode: Cogni, Natura, Varian and Fera can be chosen individually for automatic

@@ -19,6 +19,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
     private readonly string? _mapDataDirectory;
     private readonly TimerIconCache _timerIcons;
     private readonly DaevanionOverlayRenderer _daevanion = new();
+    private readonly LootOverlayIconCache _lootIcons = new();
     private readonly Dictionary<string, Bitmap> _images = new(StringComparer.OrdinalIgnoreCase);
     private readonly IReadOnlyList<BossPlace> _bosses;
     private readonly DateTimeOffset _now = DateTimeOffset.UtcNow;
@@ -45,6 +46,8 @@ public sealed class OverlayPreviewRenderer : IDisposable
         return id switch
         {
             "loot" => Loot(settings, theme),
+            "farm-loot" => LootOverlayRenderer.RenderPreview(FarmLootExample(settings.LootNameLanguage), theme.Id,
+                animationSeconds: 1.4, icons: _lootIcons, backgroundOpacity: settings.LootOverlayBackgroundOpacity),
             "boss" => Boss(settings, theme),
             "leveling" => Leveling(settings, theme),
             "alerts" => Timers(settings, theme, maximumWidth),
@@ -80,6 +83,20 @@ public sealed class OverlayPreviewRenderer : IDisposable
     }
 
     private const int PetOverlayFormWidth = 360;
+
+    internal static LootOverlaySnapshot FarmLootExample(string language) => new("synthetic-session", true, 184_720, 684_720,
+    [
+        new("synthetic-crystal", MonsterLootItemCatalog.Default.Name(531900004, language), 24, LootOverlayDropKind.SoulCrystal)
+            { IconPath = MonsterLootIconCatalog.Default.ItemAsset(531900004) },
+        new("synthetic-helm", MonsterLootItemCatalog.Default.Name(210350009, language), 1)
+            { IconPath = MonsterLootIconCatalog.Default.ItemAsset(210350009) },
+        new("synthetic-life-crystal", MonsterLootItemCatalog.Default.Name(510116011, language), 12)
+            { IconPath = MonsterLootIconCatalog.Default.ItemAsset(510116011) },
+        new("synthetic-seed", MonsterLootItemCatalog.Default.Name(511490001, language), 3)
+            { IconPath = MonsterLootIconCatalog.Default.ItemAsset(511490001) }
+    ], CompletionScopeKey: "synthetic-character:synthetic-day")
+        { KinaIconPath = MonsterLootIconCatalog.Default.ItemAsset(930100031),
+            SessionElapsed = TimeSpan.FromMinutes(28), SessionKinaPerHour = 184_720 / TimeSpan.FromMinutes(28).TotalHours };
 
     private Bitmap Boss(AppSettings settings, OverlayThemeDefinition theme)
     {
@@ -267,6 +284,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
         _disposed = true;
         _timerIcons.Dispose();
         _daevanion.Dispose();
+        _lootIcons.Dispose();
         foreach (var image in _images.Values) image.Dispose();
         _images.Clear();
     }

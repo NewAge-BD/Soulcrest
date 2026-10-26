@@ -27,16 +27,21 @@ window.soulcrestMap = (() => {
     let kindLayers = [];
     let cubeGroups = null; // optional offline group presentation, isolated in soulcrest-cube-groups.js
     let petRefs = [];
-    let bossTimerRefs = new Map(), bossMarkerBySpawn = new Map(), bossTimerInterval = null;
+    let bossTimerRows = new Map(), bossTimerRefs = new Map(), bossMarkerBySpawn = new Map(), bossTimerInterval = null;
+    let bossNavigationMarkers = new Map(); // named-spawn ID -> the independent navigation pin
+    let bossShowOlderSpawns = false;
     let markerRefs = [];         // per marker index -> leaflet layer
     let markerByPos = new Map(); // "x,y" -> marker index (marked targets find their symbol)
     let regionLayer = null, focusLayer = null;
+    // Session inspection is a separate ephemeral layer, never part of marked navigation targets.
+    let lootRouteLayer = null, lootRouteVisible = false;
     let doneSet = new Set();
     let hiddenSet = new Set();
     let lang = 'en';
     const ui = (de, en) => lang === 'de' ? de : en;
     let fitZoom = 0;             // zoom after fitting the playable area: icons have their base size there
     let player = null;
+    let playerNavigationValid = false; // fresh fix from the current allowed navigation generation
     let followPausedUntil = 0;
     let mapMotionActive = false;
     let markerPopupTimeout = null, focusRevision = 0, showRevision = 0;
@@ -224,11 +229,14 @@ window.soulcrestMap = (() => {
         viewportBinding = null;
         lang = language;
         clearBossTimers();
+        bossNavigationMarkers.clear();
         explorationPlaces = [];
         progressionCandidates = null;
         // fitBounds/setView emit move/zoom events synchronously. Their drawing callbacks must
         // never combine the new payload with the previous map's marker indexes or layers.
         targetLayer = null;
+        lootRouteLayer = null;
+        lootRouteVisible = false;
         targetScene = null;
         spawnLayer = null;
         progressionTarget = null;
@@ -238,6 +246,7 @@ window.soulcrestMap = (() => {
         markedPets = new Set();
         spawnKey = '';
         player = null;
+        playerNavigationValid = false;
         current = window.SoulcrestMaps[mapId];
         current.def = def;
 
@@ -328,45 +337,115 @@ window.soulcrestMap = (() => {
         bossTimerInterval = null;
         for (const item of bossTimerRefs.values()) item.layer.unbindTooltip();
         bossTimerRefs.clear();
+        bossTimerRows.clear();
+        bossShowOlderSpawns = false;
     }
 
     // Timers are joined by the server's named-spawn ID and the catalogue's exact map point.
     // No nearby marker, NPC-name guess or countdown reaching zero confirms a spawn.
-    function setBossTimers(mapId, json) {
+    function setBossTimers(mapId, json, showOlderSpawns = false) {
         if (!current || current.id !== mapId) return;
-        const rows = JSON.parse(json);
-        const retained = new Set();
+        bossShowOlderSpawns = showOlderSpawns === true;
+        const rows = new Map();
         const now = performance.now();
-        for (const row of rows) {
-            if (!Number.isFinite(row.remaining) || !Number.isFinite(row.age)) continue;
-            const layer = bossMarkerBySpawn.get(row.spawnId);
-            if (!layer || !layer.bindTooltip || retained.has(row.spawnId)) continue;
-            retained.add(row.spawnId);
-            if (!bossTimerRefs.has(row.spawnId))
-                layer.bindTooltip('', { permanent: true, direction: 'right', offset: [18, 0], className: 'boss-map-timer', opacity: 1 });
-            bossTimerRefs.set(row.spawnId, { layer, row, received: now });
+        for (const row of JSON.parse(json)) {
+            if (!Number.isSafeInteger(row.spawnId) || !Number.isFinite(row.remaining) || !Number.isFinite(row.age) || rows.has(row.spawnId)) continue;
+            rows.set(row.spawnId, { row, received: now });
         }
-        for (const [id, item] of bossTimerRefs) if (!retained.has(id)) { item.layer.unbindTooltip(); bossTimerRefs.delete(id); }
-        if (!bossTimerRefs.size) { clearBossTimers(); return; }
-        updateBossTimers();
-        if (bossTimerRefs.size && bossTimerInterval === null) bossTimerInterval = setInterval(updateBossTimers, 1000);
+        bossTimerRows = rows;
+        syncBossTimerLayers();
+    }
+
+    // This is time since the server's spawn timestamp, never the list's observation age.
+    function bossSpawnElapsed(timer, now) {
+        const seconds = timer?.row.spawnElapsed;
+        return timer?.row.spawned && !timer.row.calendar && Number.isFinite(seconds) && seconds >= 0
+            ? seconds + Math.max(0, (now - timer.received) / 1000) : null;
+    }
+
+    function bossSpawnHidden(target, now) {
+        if (!isBossNavigation(target) || target.bossRole !== 'spawned') return false;
+        const elapsed = bossSpawnElapsed(bossTimerRows.get(target.bossSpawnId), now);
+        return elapsed === null || !bossShowOlderSpawns && elapsed > 60;
+    }
+
+    // Only an eligibility boundary changes geometry. Ordinary timer ticks update text in place;
+    // normal category symbols and their server-confirmed spawn state remain available afterwards.
+    function bossNavigationVisibilityChanged(now) {
+        if (!current || !targetScene || targetScene.layer !== targetLayer) return false;
+        const wanted = new Set(targets.filter(t => t.map === current.id && isBossNavigation(t)
+            && t.bossRole === 'spawned' && !bossSpawnHidden(t, now)).map(t => t.id));
+        const drawn = targetScene.entries.filter(entry => isBossNavigation(entry.t) && entry.t.bossRole === 'spawned');
+        return wanted.size !== drawn.length || drawn.some(entry => !wanted.has(entry.t.id));
+    }
+
+    // A boss has exactly one timer label. Navigation pins own it while Boss Rush is active;
+    // otherwise it returns to the normal category marker, including after disabling the mode.
+    function syncBossTimerLayers() {
+        const retained = new Set();
+        for (const spawnId of new Set([...bossTimerRows.keys(), ...bossNavigationMarkers.keys()])) {
+            const navigation = bossNavigationMarkers.get(spawnId);
+            const layer = navigation?.layer || bossMarkerBySpawn.get(spawnId);
+            if (!layer?.bindTooltip) continue;
+            retained.add(spawnId);
+            let item = bossTimerRefs.get(spawnId);
+            if (item?.layer !== layer) {
+                item?.layer.unbindTooltip();
+                const faded = navigation && bossFaded(navigation.target);
+                layer.bindTooltip('', { permanent: true, direction: navigation ? 'top' : 'right',
+                    offset: navigation ? [0, -35] : [18, 0], pane: navigation ? 'targets' : 'tooltipPane',
+                    className: 'boss-map-timer' + (navigation ? ' boss-rush-label boss-role-' + navigation.target.bossRole
+                        + (navigation.target.bossProvisional ? ' boss-provisional' : '') + (faded ? ' boss-preview' : '') : ''),
+                    opacity: faded ? 0.45 : 1 });
+                item = { layer, navigation };
+                bossTimerRefs.set(spawnId, item);
+            }
+            item.navigation = navigation;
+        }
+        for (const [id, item] of bossTimerRefs) {
+            if (retained.has(id)) continue;
+            item.layer.unbindTooltip();
+            bossTimerRefs.delete(id);
+        }
+        if (bossTimerRefs.size || bossTimerRows.size) updateBossTimers();
+        if (bossTimerRows.size && bossTimerInterval === null) bossTimerInterval = setInterval(updateBossTimers, 1000);
+        else if (!bossTimerRows.size && bossTimerInterval !== null) {
+            clearInterval(bossTimerInterval);
+            bossTimerInterval = null;
+        }
     }
 
     function updateBossTimers() {
         const now = performance.now();
-        for (const { layer, row, received } of bossTimerRefs.values()) {
-            const elapsed = Math.max(0, (now - received) / 1000);
-            const age = Math.max(0, row.age + elapsed);
-            const provisional = !row.calendar && row.cached;
-            const spawned = !row.calendar && row.spawned;
-            const remaining = Math.max(0, Math.ceil(row.remaining - elapsed));
-            const text = spawned ? (provisional ? ui('Unbestätigt', 'Unconfirmed') : ui('Gespawnt', 'Spawned'))
-                : remaining > 0 ? `${Math.floor(remaining / 3600) ? Math.floor(remaining / 3600) + ':' : ''}${String(Math.floor(remaining / 60) % 60).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
-                : ui('Warte auf Bestätigung', 'Awaiting confirmation');
+        if (bossNavigationVisibilityChanged(now)) {
+            drawTargets();
+            return;
+        }
+        for (const [spawnId, { layer, navigation }] of bossTimerRefs) {
+            const timer = bossTimerRows.get(spawnId);
+            const row = timer?.row;
+            const elapsed = timer ? Math.max(0, (now - timer.received) / 1000) : 0;
+            const age = row ? Math.max(0, row.age + elapsed) : 0;
+            const provisional = navigation?.target.bossProvisional || !!row && !row.calendar && row.cached;
+            const spawned = row ? !row.calendar && row.spawned : navigation?.target.bossRole === 'spawned';
+            const remaining = row ? Math.max(0, Math.ceil(row.remaining - elapsed)) : 0;
+            const countdown = `${Math.floor(remaining / 3600) ? Math.floor(remaining / 3600) + ':' : ''}${String(Math.floor(remaining / 60) % 60).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+            const waiting = ui('Warte auf Bestätigung', 'Awaiting confirmation');
+            const unconfirmed = ui('Unbestätigt', 'Unconfirmed');
+            const spawnElapsed = bossSpawnElapsed(timer, now);
+            const lifetime = spawnElapsed === null ? '' : ' · ' + `${String(Math.floor(spawnElapsed / 60)).padStart(2, '0')}:${String(Math.floor(spawnElapsed) % 60).padStart(2, '0')}`;
+            const text = navigation && provisional ? unconfirmed + (spawned ? lifetime : row ? ' · ' + (remaining > 0 ? countdown : waiting) : '')
+                : spawned ? (provisional ? unconfirmed : ui('Gespawnt', 'Spawned')) + lifetime
+                : !row ? ui('Warte auf Boss-Timer', 'Waiting for boss timer')
+                : remaining > 0 ? countdown : waiting;
             const status = provisional ? ui('Gespeichert · unbestätigt', 'Saved · unconfirmed') : ui('Erfasst im Spiel', 'Captured in game');
-            const title = row.calendar ? ui('Spielkalender · Europe/Berlin', 'Game calendar · Europe/Berlin')
+            const title = row?.calendar ? ui('Spielkalender · Europe/Berlin', 'Game calendar · Europe/Berlin')
+                : !row ? ui('Warte auf Boss-Timer', 'Waiting for boss timer')
                 : `${status} · ${ui('Letzter Stand vor', 'Last update')} ${Math.floor(age)} s`;
-            layer.setTooltipContent(`<span class="${provisional ? 'provisional' : spawned ? 'spawned' : remaining === 0 ? 'waiting' : ''}" title="${esc(title)}">${provisional ? '◷ ' : ''}${esc(text)}</span>`);
+            const state = provisional ? 'provisional' : spawned ? 'spawned' : remaining === 0 ? 'waiting' : '';
+            const counter = `<span class="${state}" title="${esc(title)}">${provisional ? '◷ ' : ''}${esc(text)}</span>`;
+            layer.setTooltipContent(navigation
+                ? `<span class="boss-navigation-name">${esc(navigation.target.name)}</span>${counter}` : counter);
         }
     }
 
@@ -585,6 +664,8 @@ window.soulcrestMap = (() => {
     }
 
     const spawnRingRadius = () => Math.round(15 * iconScale()) + 7;
+    const isBossNavigation = t => Number.isSafeInteger(t.bossSpawnId) && ['spawned', 'next', 'preview'].includes(t.bossRole);
+    const bossFaded = t => !!t.bossProvisional || t.bossRole === 'preview';
 
     // Shared with right-click pet marking: quest hints use the very same spawn symbol.
     function monsterSpawn(layer, x, y) {
@@ -626,18 +707,20 @@ window.soulcrestMap = (() => {
     function drawTargets() {
         if (!targetLayer || !current) return;
         updateMarkedPets();
-        const here = targets.filter(t => t.map === current.id);
+        const now = bossTimerRows.size ? performance.now() : 0;
+        const here = targets.filter(t => t.map === current.id && !bossSpawnHidden(t, now));
         if (progressionTarget)
             here.push({ id: 'progression', map: current.id, x: progressionTarget.x, y: progressionTarget.y, name: progressionTarget.name, color: '#ffffff', dashed: true, group: progressionTarget.group, petId: progressionTarget.petId });
         // Target data, order and copied-symbol presentation define the static scene. Neither a
         // position fix nor a viewport change recreates its markers, labels or SVG paths.
-        const key = JSON.stringify([lang, !!player, here, here.map(targetSymbolState)]);
+        const key = JSON.stringify([lang, !!player, here.some(isBossNavigation) && playerNavigationValid, here, here.map(targetSymbolState)]);
         const view = map.getBounds().pad(0.3);
         if (targetScene && targetScene.layer === targetLayer && targetScene.key === key) {
             for (const entry of targetScene.entries) updateTargetGeometry(entry, view);
             return;
         }
         targetLayer.clearLayers();
+        bossNavigationMarkers.clear();
         targetScene = { layer: targetLayer, key, entries: [] };
         for (const t of here) {
             const ll = L.latLng(toLatLng(t.x, t.y));
@@ -646,19 +729,23 @@ window.soulcrestMap = (() => {
                 continue; // Spawn hints never enter the navigation chain.
             }
             // A chained target starts at its predecessor, all others at the player.
+            const boss = isBossNavigation(t);
             const before = t.after ? here.find(o => o.id === t.after) : null;
+            // A missing boss position breaks its chronology. Never replace that leg with a player route.
+            const blocked = boss && !!t.after && !before;
             const fixedFrom = Number.isFinite(t.branchX) && Number.isFinite(t.branchY) ? L.latLng(toLatLng(t.branchX, t.branchY)) : before ? L.latLng(toLatLng(before.x, before.y)) : null;
             // Ring just outside the symbol: pet portraits grow with the zoom, monster dots do not.
             const pet = (t.group || t.kind || '').startsWith('Pets');
             const radius = pet ? Math.round(15 * iconScale()) + 10 : 11;
-            const preview = t.id === 'boss-next';
+            const preview = boss && bossFaded(t);
             const dashed = preview || t.monsterBranch;
             const opacity = t.completed ? 0.28 : 1;
-            if (t.id === 'boss-rush' || preview) {
-                L.marker(ll, { pane: 'targets', zIndexOffset: 2500, interactive: false, keyboard: false,
-                    icon: L.divIcon({ className: 'boss-rush-marker' + (preview ? ' boss-preview' : ''), html: '<span></span>', iconSize: [26, 32], iconAnchor: [13, 32] }) }).addTo(targetLayer);
-                L.tooltip({ permanent: true, direction: 'top', offset: [0, -35], className: 'boss-rush-label' + (preview ? ' boss-preview' : ''), opacity: preview ? 0.45 : 0.9, pane: 'targets' })
-                    .setLatLng(ll).setContent(esc(t.name)).addTo(targetLayer);
+            if (boss) {
+                const layer = L.marker(ll, { pane: 'targets', zIndexOffset: 2500, interactive: false, keyboard: false,
+                    opacity: preview ? 0.45 : 1,
+                    icon: L.divIcon({ className: 'boss-rush-marker boss-role-' + t.bossRole + (preview ? ' boss-preview' : ''),
+                        html: `<span style="--boss-color:${esc(t.color)}"></span>`, iconSize: [26, 32], iconAnchor: [13, 32] }) }).addTo(targetLayer);
+                bossNavigationMarkers.set(t.bossSpawnId, { layer, target: t });
             }
             if (t.group === 'Monsters') {
                 // Soul monster of the progression target: its layer is usually hidden, so draw the dot
@@ -670,21 +757,22 @@ window.soulcrestMap = (() => {
             if (t.monsterBranch) {
                 L.tooltip({ permanent: true, direction: 'top', offset: [0, -15], className: 'progression-label', pane: 'targets' })
                     .setLatLng(ll).setContent(esc(t.name)).addTo(targetLayer);
-            } else if (!preview) targetSymbol(t);
+            } else if (!boss) targetSymbol(t);
             const rings = [
                 L.circleMarker(ll, { pane: 'targets', radius, color: '#000', weight: 6, opacity: (preview ? 0.12 : 0.5) * opacity, fill: false, dashArray: dashed ? '6 6' : null, interactive: false }),
                 L.circleMarker(ll, { pane: 'targets', radius, color: t.color, weight: 3.5, opacity: (preview ? 0.45 : 1) * opacity, dashArray: dashed ? '6 6' : null, fill: false, interactive: false }),
             ];
             rings.forEach(ring => ring.addTo(targetLayer));
-            const entry = { t, ll, fixedFrom, pet, radius, preview, dashed, opacity, rings, lines: null, from: null, arrows: [] };
+            const entry = { t, ll, fixedFrom, blocked, pet, radius, preview, dashed, opacity, rings, lines: null, from: null, arrows: [] };
             targetScene.entries.push(entry);
             // Preserve the original target/path insertion order when building a changed scene.
             updateTargetGeometry(entry, view);
         }
+        syncBossTimerLayers();
     }
 
     function targetSymbolState(t) {
-        if (t.leveling) return null;
+        if (t.leveling || isBossNavigation(t)) return null;
         const i = markerByPos.get(t.x + ',' + t.y), layer = markerRefs[i], m = current.markers[i];
         if (!layer || !m) return null;
         return [i, layer.iconIndex, map.hasLayer(layer), layer.petHidden, doneSet.has(m[6]), hiddenSet.has(m[6]), petLabels[m[6]], m.explorationDone, m.explorationKind];
@@ -693,13 +781,13 @@ window.soulcrestMap = (() => {
     const sameLatLng = (a, b) => a && b && a.lat === b.lat && a.lng === b.lng;
 
     function updateTargetGeometry(entry, view) {
-        const { t, ll, fixedFrom, pet, preview, dashed, opacity } = entry;
+        const { t, ll, fixedFrom, blocked, pet, preview, dashed, opacity } = entry;
         const radius = pet ? Math.round(15 * iconScale()) + 10 : 11;
         if (entry.radius !== radius) {
             entry.rings.forEach(ring => ring.setRadius(radius));
             entry.radius = radius;
         }
-        const from = fixedFrom || (t.completed ? null : player ? player.getLatLng() : null);
+        const from = blocked ? null : fixedFrom || (t.completed || isBossNavigation(t) && !playerNavigationValid ? null : player ? player.getLatLng() : null);
         if (!from) return;
         if (!entry.lines) {
             entry.lines = [
@@ -827,6 +915,7 @@ window.soulcrestMap = (() => {
         const changed = generation !== navigationContext.generation || !!allowed !== navigationContext.allowed;
         navigationContext = { generation, allowed: !!allowed };
         if (!changed) return;
+        playerNavigationValid = false;
         progressionTarget = null;
         if (player) player.getElement?.()?.classList.toggle('lost', true);
         drawTargets();
@@ -1077,12 +1166,62 @@ window.soulcrestMap = (() => {
 
     function clearFocus() { cancelMarkerPopup(); if (focusLayer) focusLayer.clearLayers(); if (map) map.closePopup(); }
 
+    function clearLootRoute() {
+        if (lootRouteLayer) lootRouteLayer.clearLayers();
+        lootRouteVisible = false;
+    }
+
+    // Each array is an already recorded continuous segment. Never draw an edge across segments,
+    // invalid positions, map boundaries or unobserved gaps. Coordinates stay in native map pixels.
+    function setLootRoute(mapId, segmentsJson, label, fit = true) {
+        if (!current || !map || current.id !== mapId) return 0;
+        let segments;
+        try { segments = JSON.parse(segmentsJson); } catch { return 0; }
+        if (!Array.isArray(segments)) return 0;
+        if (!lootRouteLayer) lootRouteLayer = L.layerGroup().addTo(map);
+        clearLootRoute();
+        const all = [];
+        const valid = point => point && Number.isFinite(point.x) && Number.isFinite(point.y)
+            && point.x >= 0 && point.y >= 0
+            && (!Number.isFinite(current.def?.size) || point.x <= current.def.size && point.y <= current.def.size);
+        for (const segment of segments) {
+            if (!Array.isArray(segment)) continue;
+            let points = [];
+            const draw = () => {
+                if (!points.length) return;
+                const latlngs = points.map(point => toLatLng(point.x, point.y));
+                for (const point of latlngs) all.push(point);
+                if (latlngs.length > 1) {
+                    L.polyline(latlngs, { color: '#07151f', weight: 7, opacity: 0.9, interactive: false }).addTo(lootRouteLayer);
+                    L.polyline(latlngs, { color: '#67e8f9', weight: 3, opacity: 0.95, interactive: false }).addTo(lootRouteLayer);
+                }
+                for (const index of latlngs.length > 1 ? [0, latlngs.length - 1] : [0])
+                    L.circleMarker(latlngs[index], { radius: 5, color: '#07151f', weight: 2,
+                        fillColor: '#67e8f9', fillOpacity: 1 })
+                        .bindTooltip(esc(label || ui('Routenvorschau', 'Route preview')), { direction: 'top' }).addTo(lootRouteLayer);
+                points = [];
+            };
+            for (const point of segment) {
+                if (valid(point)) points.push(point);
+                else draw();
+            }
+            draw();
+        }
+        lootRouteVisible = all.length > 0;
+        if (fit && lootRouteVisible) {
+            followPausedUntil = Date.now() + 6000;
+            map.fitBounds(L.latLngBounds(all).pad(0.15), { padding: [28, 28], maxZoom: current.def?.maxNativeZoom, animate: false });
+        }
+        return all.length;
+    }
+
 
     // Player position from the in-game map (MapTrackingService). follow: keep the player in view.
     function setPlayer(mapId, x, y, follow, found, contextGeneration = null) {
         if (!current || navigationContext.generation !== contextGeneration) return;
         if (found && !navigationContext.allowed) return;
-        if (mapId !== current.id) { if (player) { map.removeLayer(player); player = null; drawTargets(); } return; }
+        if (mapId !== current.id) { playerNavigationValid = false; if (player) { map.removeLayer(player); player = null; drawTargets(); } return; }
+        playerNavigationValid = !!found && navigationContext.allowed;
         const ll = toLatLng(x, y);
         if (!player) {
             player = L.marker(ll, {
@@ -1099,7 +1238,7 @@ window.soulcrestMap = (() => {
         updateProgression();
         // Follow: the player stays in the centre and the map moves along, like the in-game map; the
         // zoom is kept. Paused for a moment after the user dragged the map.
-        if (follow && found && Date.now() > followPausedUntil) {
+        if (follow && found && !lootRouteVisible && Date.now() > followPausedUntil) {
             const animate = document.visibilityState === 'visible';
             // Leaflet 1.9.4 truncates this projected offset before panBy. A zero offset only emits
             // moveend; avoid that redraw, while retaining panTo's stop semantics during animation.
@@ -1126,5 +1265,5 @@ window.soulcrestMap = (() => {
 
     const debugState = () => ({ center: map.getCenter(), zoom: map.getZoom(), focus: focusLayer ? focusLayer.getLayers().length : 0, map });
 
-    return { debugState, init, show, setNavigationContext, setBossTimers, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, focusMonster, flyToMarker, focusPet, toggleKibelisk, clearFocus, invalidate, keptZoom };
+    return { debugState, init, show, setNavigationContext, setBossTimers, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, focusMonster, flyToMarker, focusPet, toggleKibelisk, clearFocus, setLootRoute, clearLootRoute, invalidate, keptZoom };
 })();

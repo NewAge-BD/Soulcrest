@@ -57,7 +57,7 @@ public sealed record MapPlacement(string MapId, MapFix Fix, double WorldPerPixel
 /// With network tracking enabled, only its supported own-map bridge is searched. The broad visual
 /// search is available solely when the saved network switch is off.
 /// </summary>
-public sealed class MapTrackingService : IDisposable
+public sealed partial class MapTrackingService : IDisposable
 {
     private readonly SettingsService settings;
     private readonly ProgressService progress;
@@ -79,6 +79,7 @@ public sealed class MapTrackingService : IDisposable
         _appliedNetworkEnabled = settings.Current.LootTrackingEnabled;
         _appliedNetworkRevision = settings.NetworkTrackingRevision;
         _lastOwnBindingGeneration = _appliedWorldContext?.BindingGeneration;
+        _manualTrackingRequested = settings.Current.MapTrackingActive;
         settings.Changed += SettingsChanged;
         if (worldContext is not null)
         {
@@ -206,6 +207,7 @@ public sealed class MapTrackingService : IDisposable
 
     private void SettingsChanged()
     {
+        if (Volatile.Read(ref _recorderTrackingRequests) > 0 && !Running) EnsureTrackingStarted();
         if (_appliedNetworkEnabled == settings.Current.LootTrackingEnabled
             && Interlocked.Read(ref _appliedNetworkRevision) == settings.NetworkTrackingRevision) return;
         lock (_flowGate)
@@ -590,42 +592,50 @@ public sealed class MapTrackingService : IDisposable
 
     public void Start()
     {
-        if (Running)
-            return;
-        if (Region is null)
+        if (TrackingPrerequisitesForTests?.Invoke() != true && Region is null)
         {
             SetStatus("Zuerst den Kartenbereich markieren.", error: true);
             return;
         }
-        if (progress.MapDataDirectory is null)
+        if (TrackingPrerequisitesForTests?.Invoke() != true && progress.MapDataDirectory is null)
         {
             SetStatus("Kein Kartendatenpaket gefunden.", error: true);
             return;
         }
-        InvalidateMapContext();
-        Running = true;
-        // OpenCV spread the 60 fps flow over all 16 threads: 2–3 ms instead of 3.5 ms per frame, but three to
-        // four times the CPU for their coordination (measured 2026-10-07, TrackingFrameCostExploration). Two
-        // threads halve the flow's CPU; a detection takes ~190 instead of ~160 ms. Holds for the process.
-        if (OpenCvThreads > 0)
-            Cv2.SetNumThreads(OpenCvThreads);
         if (!settings.Current.MapTrackingActive)
             settings.Update(s => s.MapTrackingActive = true);
-        _cancel = new CancellationTokenSource();
-        var token = _cancel.Token;
-        SetStatus("Tracking läuft – Karte wird gesucht …");
-        _loop = Task.Run(() => LoopAsync(token), token);
+        lock (_trackingDemandGate) _manualTrackingRequested = true;
+        EnsureTrackingStarted();
     }
 
     public void Stop()
     {
-        Shutdown();
+        bool stopped;
+        lock (_trackingDemandGate)
+        {
+            _manualTrackingRequested = false;
+            stopped = _recorderTrackingRequests == 0;
+            if (stopped) StopTrackingLoop();
+        }
         if (settings.Current.MapTrackingActive)
             settings.Update(s => s.MapTrackingActive = false);
+        if (stopped) SetStatus("Tracking gestoppt.");
     }
 
     /// <summary>Stops without forgetting that tracking was on (app closing): it resumes on the next start.</summary>
     public void Shutdown()
+    {
+        lock (_trackingDemandGate)
+        {
+            _manualTrackingRequested = false;
+            _recorderTrackingRequests = 0;
+            _recorderLeaseGeneration++;
+            StopTrackingLoop();
+        }
+        SetStatus("Tracking gestoppt.");
+    }
+
+    private void StopTrackingLoop()
     {
         _cancel?.Cancel();
         lock (_flowGate) _preparationCancel?.Cancel();
@@ -639,7 +649,6 @@ public sealed class MapTrackingService : IDisposable
         DetectedMap = null;
         _worldMapOpen = false;
         Placement = null;
-        SetStatus("Tracking gestoppt.");
     }
 
     /// <summary>
@@ -1669,14 +1678,18 @@ public sealed class MapTrackingService : IDisposable
 
     public void Dispose()
     {
+        lock (_trackingDemandGate) _trackingDisposed = true;
         settings.Changed -= SettingsChanged;
         if (_worldContext is not null) _worldContext.Changed -= WorldContextChanged;
+        Shutdown();
         _cancel?.Cancel();
         lock (_flowGate) _preparationCancel?.Cancel();
         // Wait for the loop and a detection in flight: freeing the references under a running knnMatch
         // crashed the app on close (0xc0000005, live 2026-10-03). If they do not end in time, the native
         // memory is left to the exiting process instead.
-        var running = new[] { _loop, _detecting, _preparing }.OfType<Task>().ToArray();
+        Task[] trackingLoops;
+        lock (_trackingDemandGate) trackingLoops = _trackingLoops.ToArray();
+        var running = trackingLoops.Concat(new[] { _loop, _detecting, _preparing }.OfType<Task>()).Distinct().ToArray();
         if (!WaitUntilFinished(running)) return;
         // Snapshot after detection stopped: it may have enqueued work during shutdown.
         Task[] preparations;

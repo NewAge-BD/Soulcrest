@@ -52,6 +52,25 @@ public sealed class UiState
         return place;
     }
 
+    private LootTrackerMapFocus? _pendingLootRoute;
+
+    /// <summary>Opens an ephemeral session route without replacing targets or saving a map route.</summary>
+    public bool ShowLootRouteOnMap(LootTrackerSession session, string? mapId = null)
+    {
+        var focus = LootTrackerMapFocus.Create(session, mapId);
+        if (focus is null) return false;
+        _pendingLootRoute = focus;
+        Navigate("map");
+        return true;
+    }
+
+    public LootTrackerMapFocus? TakePendingLootRouteFocus()
+    {
+        var route = _pendingLootRoute;
+        _pendingLootRoute = null;
+        return route;
+    }
+
 
 
     public event Action? Changed;

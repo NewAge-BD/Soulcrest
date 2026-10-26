@@ -57,6 +57,16 @@
         {
             <div class="status error">@UiText.T(_error)</div>
         }
+        @if (_lootRouteFocus is { } routeFocus)
+        {
+            <div class="focusbox" data-loot-route-session="@routeFocus.SessionId">
+                <div class="box-head">
+                    <span class="box-title" title="@routeFocus.Name">@(string.IsNullOrWhiteSpace(routeFocus.Name) ? UiText.T("Routenvorschau") : routeFocus.Name)</span>
+                    <button type="button" class="btn small" title="@UiText.T("Routenvorschau aufheben")" @onclick="ClearLootRouteFocus">@UiText.T("Aufheben")</button>
+                </div>
+                <div class="note">@UiText.F("Aufgezeichnete Sessionroute · {0} Abschnitte", routeFocus.Segments.Length)</div>
+            </div>
+        }
 
         <h3 class="layers-head"><span>@UiText.T("Ebenen")</span> <small>@_markerCount Marker</small>
             <InfoTip>@UiText.T("Monster-Ebenen sind anfangs ausgeblendet. Ein Pet aus der Pet-Liste („Karte“) hebt seine Spawns und Quellmonster hervor.")</InfoTip></h3>
@@ -233,6 +243,7 @@
                 </label>
                 <InfoTip>@UiText.T("Boss Rush schaltet Wegführung und Spawn-Overlay gemeinsam. Aktivierte Boss-Alerts bleiben unabhängig davon eingeschaltet.")</InfoTip>
             </div>
+            <label class="check" for="boss-rush-show-older-spawns"><input id="boss-rush-show-older-spawns" type="checkbox" checked="@Settings.Current.BossRushShowOlderSpawns" @onchange="ToggleOlderBossSpawns" /> @UiText.T("Gespawnte Bosse älter als 1 Min. anzeigen")</label>
             <button type="button" class="btn small" @onclick="@(() => Ui.Navigate("bossrush"))">@UiText.T("Boss-Rush-Tab öffnen")</button>
         </div>
         <div class="tile">
@@ -558,6 +569,7 @@
     private bool _ready, _wasActive;
     private bool _sideCollapsed, _rightCollapsed, _relayout; // view-only: sidebars hidden for small windows
     private string? _error;
+    private LootTrackerMapFocus? _lootRouteFocus;
 
     private string MapLabel => UiText.T(_maps.FirstOrDefault(m => m.Id == _mapId)?.Label ?? _mapId);
 
@@ -641,9 +653,9 @@
     {
         var rows = _bossRush?.Schedule.Where(row => row.Place.Map == _mapId).Select(row => new {
             spawnId = row.Place.Boss.SpawnId, spawned = row.Spawned, remaining = row.Remaining.TotalSeconds,
-            age = row.Age.TotalSeconds, cached = row.Cached, calendar = row.Calendar
+            age = row.Age.TotalSeconds, cached = row.Cached, calendar = row.Calendar, spawnElapsed = row.SpawnElapsed?.TotalSeconds
         }).ToArray();
-        await JS.InvokeVoidAsync("soulcrestMap.setBossTimers", _mapId, JsonSerializer.Serialize(rows ?? []));
+        await JS.InvokeVoidAsync("soulcrestMap.setBossTimers", _mapId, JsonSerializer.Serialize(rows ?? []), Settings.Current.BossRushShowOlderSpawns);
     }
 
     private string? _language, _nameLanguage;
@@ -692,6 +704,9 @@
         Settings.Update(s => s.BossRushEnabled = enabled);
         if (enabled && !Loot.Running) Loot.Start();
     }
+
+    private void ToggleOlderBossSpawns(ChangeEventArgs e) =>
+        Settings.Update(s => s.BossRushShowOlderSpawns = e.Value is true);
 
     private async Task ToggleProgression(ChangeEventArgs e)
     {
@@ -1022,11 +1037,10 @@
     private async Task PushTargets()
     {
         // petId: the map shows all spawns and soul monsters of a marked pet (user request 2026-10-06).
-        IEnumerable<MapTarget> shownTargets = Targets.VisibleTargets;
-        if (Targets.BossRush is { } boss) shownTargets = shownTargets.Append(boss);
-        if (Targets.BossPreview is { } preview) shownTargets = shownTargets.Append(preview);
+        var shownTargets = Targets.VisibleTargets.Concat(Targets.BossNavigationTargets);
         var payload = shownTargets.Select((t, i) => new { id = t.Id, map = t.MapId, x = t.X, y = t.Y, name = t.Name, kind = t.Kind, color = MapTargetsService.ColorOf(t, i), after = t.After,
             icon = t.Icon, leveling = t.Leveling, completed = t.Completed, branchX = t.BranchX, branchY = t.BranchY,
+            bossSpawnId = t.BossSpawnId, bossRole = t.BossRole, bossProvisional = t.BossProvisional,
             petId = t.PetId ?? (t.Kind.StartsWith("Pets", StringComparison.Ordinal) ? Progress.FindByName(t.Name)?.Id : null) });
         await JS.InvokeVoidAsync("soulcrestMap.setTargets", JsonSerializer.Serialize(payload));
     }
@@ -1182,7 +1196,41 @@
         }
         if (Active && _ready && Ui.TakePendingExplorationFocus() is { } place)
             await FocusExploration(place);
+        if (Active && _ready && Ui.TakePendingLootRouteFocus() is { } route)
+            await FocusLootRoute(route);
         _wasActive = Active;
+    }
+
+    internal async Task FocusLootRoute(LootTrackerMapFocus requested)
+    {
+        if (!_maps.Any(map => map.Id == requested.MapId))
+        {
+            _error = "Keine passende Offlinekarte für diese Route verfügbar.";
+            StateHasChanged();
+            return;
+        }
+        // A missing historical map must not block a later valid route on the current map.
+        if (_error == "Keine passende Offlinekarte für diese Route verfügbar.") _error = null;
+        // As with explicit catalogue focus, a known player location must not immediately undo
+        // the user's selected historical map. Actual subsequent map changes retain their policy.
+        _trackedMap = Tracking.Position?.MapId ?? _trackedMap;
+        if (_mapId != requested.MapId) await SwitchMap(requested.MapId);
+        if (_mapId != requested.MapId || _error is not null) return;
+        _lootRouteFocus = requested;
+        await PushLootRouteFocus(fit: true);
+        StateHasChanged();
+    }
+
+    private Task PushLootRouteFocus(bool fit = false) => _lootRouteFocus is { } route && route.MapId == _mapId
+        ? JS.InvokeVoidAsync("soulcrestMap.setLootRoute", route.MapId,
+            JsonSerializer.Serialize(route.Segments.Select(segment => segment.Points.Select(point => new { x = point.X, y = point.Y }))),
+            route.Name, fit).AsTask()
+        : Task.CompletedTask;
+
+    private async Task ClearLootRouteFocus()
+    {
+        _lootRouteFocus = null;
+        await JS.InvokeVoidAsync("soulcrestMap.clearLootRoute");
     }
 
     /// <summary>Uses the catalogue marker on its own map; no boss preview, target or completion is changed.</summary>
@@ -1253,6 +1301,8 @@
             await PushProgression();
             if (!Current()) return;
             await PushPlayer(force: true);
+            if (!Current()) return;
+            await PushLootRouteFocus();
         }
         catch (JSException exception)
         {
@@ -1272,6 +1322,7 @@
         _monsterResults.Clear();
         ++_searchRevision;
         _mapId = id;
+        _lootRouteFocus = null;
         Settings.Update(s => s.LastMap = id);
         await ShowMap(keepAt);
     }

@@ -13,6 +13,7 @@
             <button type="button" class="@Active("pets")" aria-current="@Current("pets")" @onclick="@(() => Ui.Navigate("pets"))">Pets</button>
             <button type="button" class="@Active("exploration")" aria-current="@Current("exploration")" title="@UiText.T("Fortschritt für Dungeons, Garnisonen und Kibelisken verwalten")" @onclick="@(() => Ui.Navigate("exploration"))">@UiText.T("Erkundungsfortschritt")</button>
             <button type="button" class="@Active("bossrush")" aria-current="@Current("bossrush")" @onclick="@(() => Ui.Navigate("bossrush"))">Boss Rush</button>
+            <button type="button" class="@Active("loot")" aria-current="@Current("loot")" @onclick="@(() => Ui.Navigate("loot"))">Loot Tracker</button>
             <button type="button" class="@Active("alerts")" aria-current="@Current("alerts")" @onclick="@(() => Ui.Navigate("alerts"))">Alerts</button>
             <button type="button" class="@Active("overlay")" aria-current="@Current("overlay")" @onclick="@(() => Ui.Navigate("overlay"))">Overlay</button>
             <span class="tabs-sep" aria-hidden="true"></span>
@@ -56,6 +57,10 @@
         else if (Ui.Tab == "bossrush")
         {
             <BossRushView />
+        }
+        else if (Ui.Tab == "loot")
+        {
+            <LootTrackerLiveView />
         }
         else if (Ui.Tab == "alerts")
         {

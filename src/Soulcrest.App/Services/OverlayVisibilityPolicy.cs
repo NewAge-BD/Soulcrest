@@ -20,7 +20,7 @@ public static class OverlayVisibilityPolicy
     {
         "loot" or "leveling" => new(false, false, false, false),
         // User request 2026-10-20: boss spawns remain visible in all four contexts.
-        "boss" or "notifications" => new(),
+        "boss" or "notifications" or "farm-loot" => new(),
         "event-timeline" => new(true, !settings.EventTimelineFollowMinimap, true, !settings.EventTimelineFollowMinimap),
         "alerts" => new(settings.TimerOverlayShowWorldMap, settings.TimerOverlayShowMenu, settings.TimerOverlayShowInstances, true),
         _ => throw new ArgumentException("This overlay has no configurable HUD context policy.", nameof(id))

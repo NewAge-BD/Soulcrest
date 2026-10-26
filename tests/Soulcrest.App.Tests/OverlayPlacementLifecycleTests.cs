@@ -145,7 +145,7 @@ public sealed class OverlayPlacementLifecycleTests : IDisposable
     private static void SeedGesture(OverlayPlacementForm form, OverlayLayout layout)
     {
         var previews = (List<OverlayPlacementPreview>)Field("_previews").GetValue(form)!;
-        previews.Add(new("loot", "Loot & Pet-Fortschritt", new Bitmap(360, 300), layout));
+        previews.Add(new("loot", "Pet-Fortschritt", new Bitmap(360, 300), layout));
         Field("_monitorBounds").SetValue(form, Monitor.Bounds);
         Field("_layoutBounds").SetValue(form, Monitor.WorkingArea);
         Field("_gestureId").SetValue(form, "loot");

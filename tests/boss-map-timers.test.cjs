@@ -122,3 +122,33 @@ test('calendar times keep their source in both languages and never confirm a spa
     assert.match(f.refs[0].content, /Erfasst im Spiel/);
     assert.doesNotMatch(f.refs[0].content, /Spielkalender/);
 });
+
+
+test('normal catalogue symbols retain server spawn status with lifetime counters beyond a minute', () => {
+    const f = fixture();
+    f.send([{ spawnId: 101, spawnElapsed: 61.25, remaining: 0, age: 0, spawned: true, cached: false }]);
+    assert.match(f.refs[0].content, />Spawned · 01:01</);
+    f.advance(0.74);
+    assert.match(f.refs[0].content, />Spawned · 01:01</);
+    f.advance(0.01);
+    assert.match(f.refs[0].content, />Spawned · 01:02</);
+    assert.equal(f.refs[0].bound, 1);
+    f.api.language('de');
+    assert.match(f.refs[0].content, />Gespawnt · 01:02</);
+    f.send([{ spawnId: 101, spawnElapsed: 62, remaining: 0, age: 10, spawned: true, cached: true }]);
+    assert.match(f.refs[0].content, /Unbestätigt · 01:02/);
+});
+
+test('spawn lifetime is never synthesized from list age or a future countdown', () => {
+    for (const spawnElapsed of [undefined, null, -1, '25', NaN, Infinity]) {
+        const f = fixture();
+        f.send([{ spawnId: 101, spawnElapsed, remaining: 0, age: 25, spawned: true, cached: false }]);
+        assert.match(f.refs[0].content, />Spawned</);
+        f.advance(1);
+        assert.match(f.refs[0].content, />Spawned</);
+    }
+    const f = fixture();
+    f.send([{ spawnId: 101, spawnElapsed: 25, remaining: 100, age: 25, spawned: false, cached: false }]);
+    assert.match(f.refs[0].content, />01:40</);
+    assert.doesNotMatch(f.refs[0].content, /Spawned · 00:25/);
+});

@@ -46,9 +46,9 @@ public sealed record NetworkProgressSources(bool IdentityIsLive, string? Charact
 /// soul message (0d90) adds its souls to the progress. Follows connection changes (zone change,
 /// reconnect) by looking at the game's connections every few seconds.
 /// </summary>
-public sealed class NetworkLootService(ProgressService progress, ExplorationService? exploration = null,
+public sealed partial class NetworkLootService(ProgressService progress, ExplorationService? exploration = null,
     WorldContextService? worldContext = null) : INetworkLootSource, INetworkMerchantSource,
-    IDisposable
+    INetworkGatheringSource, INetworkKinaSource, INetworkFarmSource, IDisposable
 {
     public WorldContextService WorldContext { get; } = worldContext ?? new();
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
@@ -111,6 +111,15 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
         public List<(byte[] Message, DateTimeOffset At)> Baselines { get; } = [];
         public HashSet<ushort> Sources { get; } = [];
         public HashSet<ushort> RejectedSources { get; } = [];
+        public CurrencyInventoryList? KinaList { get; set; }
+        public DateTimeOffset? KinaAt { get; set; }
+        public bool KinaSeen { get; set; }
+        public bool FarmInventoryRejected { get; set; }
+        public bool KinaRejected { get; set; }
+        public DailyMonsterKinaObservation? DailyKina { get; set; }
+        public DateTimeOffset? DailyKinaAt { get; set; }
+        public bool DailyKinaSeen { get; set; }
+        public bool DailyKinaRejected { get; set; }
         public int Bytes { get; set; }
     }
     private EntryCandidate? _entryCandidate;
@@ -993,6 +1002,10 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             {
                 _ownCharacter = null;
                 _identity = null;
+                ResetGatheringContext();
+                ResetKinaContext();
+                ResetDailyKinaContext();
+                ResetFarmDropContext();
                 _identityStream = null;
                 Character = null;
                 _entryCandidate = null;
@@ -1019,6 +1032,30 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             ExpireEntryCandidate(at);
             if (message.Length < 2) return;
             var opcode = (ushort)(message[0] | message[1] << 8);
+            if (_identityStream == stream && (_gatheringCompletions.Count + _gatheringWitnesses.Count + _ambiguousGatherings.Count > 0))
+            {
+                var ownBeforeExpiry = _ownCharacter;
+                ExpireGatheringPairs(at);
+                // A status subscriber can synchronously bind another character. This old message
+                // may still carry global pet data, but cannot gain authority over the new profile.
+                if (!ReferenceEquals(ownBeforeExpiry, _ownCharacter)
+                    && opcode is not (0x9000 or 0x900D or 0x900E or 0x9014)) return;
+            }
+            if (opcode is 0xFFA5 or 0xFFA6)
+            {
+                ProcessDailyKinaMessage(stream, opcode, message, at);
+                return;
+            }
+            if (opcode == 0x9011)
+            {
+                ProcessFarmCrystalMessage(stream, message, at);
+                return;
+            }
+            if (opcode is 0x5611 or 0x561B)
+            {
+                ProcessKinaMessage(stream, opcode, message, at);
+                return;
+            }
             if (opcode is 0x5691 or 0x5693)
             {
                 _merchantStreams.Add(stream);
@@ -1031,6 +1068,11 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             if (opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014)
             {
                 ProcessPetMessage(stream, opcode, message, at);
+                return;
+            }
+            if (opcode is 0x3634 or 0x3635 or 0x8D33 or 0x8D34)
+            {
+                ProcessGatheringMessage(stream, opcode, message, at);
                 return;
             }
             if (opcode == 0x3620)
@@ -1060,10 +1102,22 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                 var candidate = _entryCandidate;
                 var captureGeneration = _generation;
                 var preparedGeneration = _progressGeneration + 1;
+                var kinaRevision = _kinaMessageRevision;
+                var dailyKinaRevision = _dailyKinaMessageRevision;
                 ResetProgressContext("world-entry-preparation", at);
                 if (_generation != captureGeneration || _progressGeneration != preparedGeneration || _identity is not null) return;
                 if (candidate is { Prepared: false })
                 {
+                    if (_kinaMessageRevision != kinaRevision)
+                    {
+                        candidate.KinaRejected = true;
+                        candidate.KinaList = null;
+                    }
+                    if (_dailyKinaMessageRevision != dailyKinaRevision)
+                    {
+                        candidate.DailyKinaRejected = true;
+                        candidate.DailyKina = null;
+                    }
                     candidate.Prepared = true;
                     _entryCandidate = candidate;
                 }
@@ -1073,7 +1127,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             }
             if (OwnIdentityMessage.TryParseWorld(message) is { } world)
             {
-                ObserveIdentity(stream, world.Identity, at, world.MapDataId);
+                ObserveIdentity(stream, world.Identity, at, world.MapDataId, world.CombatScore, world.GearScore);
                 return;
             }
             if (opcode is 0x3633 or 0x3621)
@@ -1232,6 +1286,7 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     private void DispatchPetMessage(string stream, ushort opcode, byte[] message, DateTimeOffset at)
     {
         if (IgnoreAcquisition(stream, opcode, message)) return;
+        var farmOwn = _identityStream == stream ? _ownCharacter : null;
         var revision = ++_sourceRevisions[0];
         var generation = _petGeneration;
         _petStreams.Add(stream); // Bind/apply notify synchronously; a reentrant gap must already see its scope.
@@ -1273,6 +1328,9 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
                     _acceptedSoulPoints += gains.Sum(gain => (long)gain.Souls);
                     _lastSoulAt = at;
                     foreach (var gain in gains) RecordProgressEvent(new(at, NetworkProgressEventKind.Gained, opcode, gain.PetNumber, Souls: gain.Souls));
+                    foreach (var gain in gains)
+                        if (farmOwn is not null && ReferenceEquals(farmOwn, _ownCharacter))
+                            ProcessFarmPetSoulGain(stream, gain.PetNumber, gain.Souls, at);
                     Count(gains, at);
                 }
                 break;
@@ -1435,7 +1493,8 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
     private bool OwnBindingMatches(string stream, OwnCharacterIdentity identity, NetworkProgressContext context, long captureGeneration) =>
         _generation == captureGeneration && _progressGeneration == context.Generation && _identity == identity && _identityStream == stream;
 
-    internal void ObserveIdentity(string stream, OwnCharacterIdentity identity, DateTimeOffset at, int? mapDataId = null)
+    internal void ObserveIdentity(string stream, OwnCharacterIdentity identity, DateTimeOffset at, int? mapDataId = null,
+        long? combatScore = null, int? gearScore = null)
     {
         lock (_gate)
         {
@@ -1446,11 +1505,31 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             var pending = transaction?.Baselines.ToArray() ?? [];
             var rejectedSources = transaction?.RejectedSources.ToArray() ?? [];
             var ownGeneration = _progressGeneration + 1;
+            var kinaRevision = _kinaMessageRevision;
+            var dailyKinaRevision = _dailyKinaMessageRevision;
             ResetProgressContext("world-entry", at);
             if (_generation != captureGeneration || _progressGeneration != ownGeneration || _identity is not null) return;
             _identity = identity;
-            _ownCharacter = new(identity, ownGeneration);
+            _ownCharacter = new(identity, ownGeneration)
+            {
+                CombatScore = combatScore is >= 0 ? combatScore : null,
+                GearScore = gearScore is >= 0 ? gearScore : null,
+                ObservedAt = at,
+            };
             _identityStream = stream;
+            if (transaction is not null && _kinaMessageRevision != kinaRevision)
+            {
+                transaction.KinaRejected = true;
+                transaction.KinaList = null;
+            }
+            BindKinaBaseline(transaction);
+            BindFarmDropBaseline(transaction is { KinaRejected: false, FarmInventoryRejected: false } ? transaction.KinaList : null);
+            if (transaction is not null && _dailyKinaMessageRevision != dailyKinaRevision)
+            {
+                transaction.DailyKinaRejected = true;
+                transaction.DailyKina = null;
+            }
+            BindDailyKinaBaseline(transaction);
             Character = identity.Name;
             _questFormatRejected = rejectedSources.Contains((ushort)0x8D09);
             _teleportFormatRejected = rejectedSources.Contains((ushort)0x9232);
@@ -1495,6 +1574,10 @@ public sealed class NetworkLootService(ProgressService progress, ExplorationServ
             _progressGeneration++;
             _progressSequence = 0;
             _identity = null;
+            ResetGatheringContext();
+            ResetKinaContext();
+            ResetDailyKinaContext();
+            ResetFarmDropContext();
             var ownCharacterChanged = _ownCharacter is not null;
             _ownCharacter = null;
             _identityStream = null;

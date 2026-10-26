@@ -52,14 +52,17 @@ public sealed record BossChoice(int MapId, string Map, BossPlace Boss)
 {
     public string Key => $"{MapId}:{Boss.SpawnId}";
 }
-public sealed record BossRushEntry(BossChoice Place, bool Spawned, TimeSpan Remaining, TimeSpan Age, bool Cached = false, bool Calendar = false);
+/// <param name="SpawnElapsed">Elapsed server time since the actual spawn; unrelated to list observation Age.</param>
+public sealed record BossRushEntry(BossChoice Place, bool Spawned, TimeSpan Remaining, TimeSpan Age, bool Cached = false, bool Calendar = false, TimeSpan? SpawnElapsed = null);
 public sealed record BossNotice(long Id, BossPlace Boss, bool Spawned, TimeSpan Remaining, DateTimeOffset Expires, DateTimeOffset CreatedAt, string? Key = null, bool Preview = false, long? SpawnUnixMs = null, bool Calendar = false, bool UntilSpawn = false, DateTimeOffset? PlannedAt = null, long? HoldTimestamp = null, int LeadSeconds = 0);
 
 public sealed record BossRushView(string? MapId, BossPlace? Boss, bool Spawned, TimeSpan Remaining, TimeSpan Age, int SpawnedCount, bool Cached = false);
 
-/// <summary>One red target, oldest currently spawned boss first; otherwise earliest upcoming spawn.</summary>
+/// <summary>Confirmed spawned bosses and chronological upcoming navigation from the current native list.</summary>
 public sealed class BossRushService : IDisposable
 {
+    // User request 2026-10-26: spawned navigation markers are visible through the first minute only.
+    internal static readonly TimeSpan SpawnMarkerLifetime = TimeSpan.FromMinutes(1);
     private readonly object _gate = new();
     private readonly BossRushState _state;
     private readonly BossTimerCache _cache;
@@ -154,7 +157,9 @@ public sealed class BossRushService : IDisposable
         return snapshot.Bosses.Where(boss => boss.SpawnUnixMs.HasValue)
             .OrderByDescending(boss => boss.Spawned).ThenBy(boss => boss.SpawnUnixMs).ThenBy(boss => boss.SpawnId)
             .Select(boss => new BossRushEntry(new(snapshot.MapId, map.Map, map.Places[boss.SpawnId]), boss.Spawned,
-                TimeSpan.FromMilliseconds(Math.Max(0, boss.SpawnUnixMs!.Value - snapshot.ServerUnixMs)), snapshot.Age, snapshot.Cached)).ToArray();
+                TimeSpan.FromMilliseconds(Math.Max(0, boss.SpawnUnixMs!.Value - snapshot.ServerUnixMs)), snapshot.Age, snapshot.Cached,
+                SpawnElapsed: boss.Spawned && snapshot.ServerUnixMs >= boss.SpawnUnixMs.Value
+                    ? TimeSpan.FromMilliseconds(snapshot.ServerUnixMs - boss.SpawnUnixMs.Value) : null)).ToArray();
     }
 
     private void RetainSchedule(BossRushSnapshot snapshot)
@@ -313,11 +318,8 @@ public sealed class BossRushService : IDisposable
             if (_disposed) return;
             var settings = _settings.Current;
             var rows = CurrentSchedule;
-            var active = settings.BossRushEnabled ? rows.FirstOrDefault(b => b.Spawned) : null;
-            var upcoming = settings.BossRushEnabled ? rows.FirstOrDefault(b => !b.Spawned) : null;
-            _targets.SetBossRush(Target(active, "boss-rush"));
-            _targets.SetBossPreview(Target(upcoming, "boss-next") is { } preview
-                ? preview with { After = active is not null ? "boss-rush" : null } : null);
+            _targets.SetBossNavigationTargets(settings.BossRushEnabled
+                ? NavigationTargets(rows, settings.BossNavigationPreviewCount, settings.NameLanguage, settings.BossRushShowOlderSpawns) : []);
             RefreshUntilSpawnAlerts(_time.GetUtcNow());
             _alerts.RemoveAll(a => !a.UntilSpawn && a.Expires <= _time.GetUtcNow() ||
                 !a.Preview && (a.Key is not { } key || !IsReminderSelected(key)));
@@ -352,10 +354,32 @@ public sealed class BossRushService : IDisposable
         SafeEvent.Raise(Changed, "Boss Rush");
     }
 
-    private MapTarget? Target(BossRushEntry? row, string id) => row?.Place.Boss is { X: { } x, Y: { } y } boss
-        && double.IsFinite(x) && double.IsFinite(y)
-        ? new MapTarget(id, row.Place.Map, x, y,
-            boss.Name(_settings.Current.NameLanguage), "Boss Rush Mode", null, Color: "#ef4444") : null;
+    // User request 2026-10-25: all spawned bosses branch from the player; upcoming bosses form their own chain.
+    internal static IReadOnlyList<MapTarget> NavigationTargets(IReadOnlyList<BossRushEntry> rows, int previewCount, string language, bool showOlderSpawns = false)
+    {
+        List<MapTarget> targets = [];
+        foreach (var row in rows.Where(row => row.Spawned && row.SpawnElapsed is { } elapsed
+            && elapsed >= TimeSpan.Zero && (showOlderSpawns || elapsed <= SpawnMarkerLifetime)))
+            if (NavigationTarget(row, "spawned", null, language) is { } target) targets.Add(target);
+        string? previous = null;
+        var upcoming = rows.Where(row => !row.Spawned).Take(1 + Math.Clamp(previewCount, 0, 23));
+        foreach (var row in upcoming)
+        {
+            if (NavigationTarget(row, previous is null ? "next" : "preview", previous, language) is { } target)
+                targets.Add(target);
+            // Keep the missing predecessor's ID: renderers must break that edge rather than invent a player branch.
+            previous = NavigationId(row);
+        }
+        return targets;
+    }
+
+    private static string NavigationId(BossRushEntry row) => "boss:" + row.Place.Key;
+
+    private static MapTarget? NavigationTarget(BossRushEntry row, string role, string? after, string language) =>
+        row.Place.Boss is { X: { } x, Y: { } y } boss && double.IsFinite(x) && double.IsFinite(y)
+        ? new MapTarget(NavigationId(row), row.Place.Map, x, y, boss.Name(language), "Boss Rush Mode", null,
+            After: after, Color: row.Cached || row.Spawned ? "#4ade80" : "#ef4444",
+            BossSpawnId: boss.SpawnId, BossRole: role, BossProvisional: row.Cached) : null;
 
     private void AddAlert(BossPlace boss, bool spawned, TimeSpan remaining, string? key = null, bool preview = false, long? spawnUnixMs = null, bool calendar = false, int leadSeconds = 0)
     {
@@ -466,7 +490,6 @@ public sealed class BossRushService : IDisposable
         _network.BossSessionReset -= Reset;
         _network.BossStreamGap -= InvalidateStream;
         _settings.Changed -= Refresh;
-        _targets.SetBossRush(null);
-        _targets.SetBossPreview(null);
+        _targets.SetBossNavigationTargets([]);
     }
 }

@@ -600,8 +600,7 @@ public sealed class LiveBossTimersTests
         Assert.NotNull(cache);
         Assert.Equal(7, cache.Bosses.Count(row => row.SpawnUnixMs is null));
         Assert.Empty(fixture.Bosses.Alerts);
-        Assert.Null(fixture.Targets.BossRush);
-        Assert.Null(fixture.Targets.BossPreview);
+        Assert.Empty(fixture.Targets.BossNavigationTargets);
         Assert.False(fixture.Tracker.Running);
     }
 
@@ -627,8 +626,7 @@ public sealed class LiveBossTimersTests
         fixture.Network.Stop(); // A network reset cannot erase an independent calendar warning.
         Assert.Equal(warning.Id, Assert.Single(fixture.Bosses.Alerts).Id);
         Assert.False(File.Exists(fixture.CachePath));
-        Assert.Null(fixture.Targets.BossRush);
-        Assert.Null(fixture.Targets.BossPreview);
+        Assert.Empty(fixture.Targets.BossNavigationTargets);
         fixture.Clock.UtcNow = DateTimeOffset.Parse("2026-10-18T14:00:00Z");
         fixture.Settings.Update(_ => { });
         Assert.All(fixture.Bosses.Schedule, row => Assert.False(row.Spawned));
@@ -678,8 +676,7 @@ public sealed class LiveBossTimersTests
         Assert.Equal(settingsBefore, System.Text.Json.JsonSerializer.Serialize(fixture.Settings.Current));
         Assert.Empty(fixture.Bosses.Alerts);
         Assert.Empty(fixture.Alerts.NotificationRows);
-        Assert.Null(fixture.Targets.BossRush);
-        Assert.Null(fixture.Targets.BossPreview);
+        Assert.Empty(fixture.Targets.BossNavigationTargets);
         Assert.False(fixture.Tracker.Running);
     }
 

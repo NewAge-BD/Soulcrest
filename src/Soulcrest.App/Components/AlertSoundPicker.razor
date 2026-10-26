@@ -13,7 +13,7 @@
         }
         <button type="button" class="event-reminder-custom" disabled="@(Disabled || _working)" title="@UiText.T("MP3 hinzufügen")" aria-label="@UiText.T("MP3 hinzufügen")" @onclick="Choose">+</button>
     </div>
-    <div class="alert-sound-test"><button type="button" class="btn small" disabled="@(Disabled || _working || !Enabled || Sound == "custom" && string.IsNullOrWhiteSpace(SoundFile))" @onclick="Test">♪ @UiText.T("Ton testen")</button></div>
+    <div class="alert-sound-test"><button type="button" class="btn small" disabled="@(Disabled || _working || PreviewDisabled || !Enabled || Sound == "custom" && string.IsNullOrWhiteSpace(SoundFile))" @onclick="Test">♪ @UiText.T("Ton testen")</button></div>
     @if (_working) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Bitte warten …")</p> }
     else if (_error is not null) { <p class="alerts-error" role="alert">@_error</p> }
     else if (_feedback is not null) { <p class="alerts-feedback" role="status">@_feedback</p> }
@@ -26,18 +26,32 @@
     [Parameter] public bool Enabled { get; set; } = true;
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public EventCallback<Selection> Changed { get; set; }
-    private bool _working, _disposed, _observingSound;
+    // Custom preview keeps notification channels independent; file selection still shares the local MP3 library.
+    [Parameter] public Func<Task<bool>>? PreviewSound { get; set; }
+    [Parameter] public Func<string?>? PreviewStatus { get; set; }
+    [Parameter] public bool PreviewDisabled { get; set; }
+    private bool _working, _disposed, _observingSound, _listeningToDefaultSound;
     private string? _error, _feedback;
     private IEnumerable<string> Files => Alerts.SoundFiles.Concat(AlertsService.ValidSoundFile(SoundFile) ? new[] { SoundFile! } : Array.Empty<string>()).Distinct(StringComparer.OrdinalIgnoreCase);
     private static bool SameFile(string first, string? second) => string.Equals(first, second, StringComparison.OrdinalIgnoreCase);
-    protected override void OnInitialized() { Sounds.Changed += SoundChanged; Alerts.Changed += LibraryChanged; }
+    protected override void OnInitialized() { Alerts.Changed += LibraryChanged; }
+    protected override void OnParametersSet()
+    {
+        var defaultChannel = PreviewSound is null;
+        if (defaultChannel != _listeningToDefaultSound)
+        {
+            if (defaultChannel) Sounds.Changed += SoundChanged;
+            else Sounds.Changed -= SoundChanged;
+            _listeningToDefaultSound = defaultChannel;
+        }
+    }
     private void LibraryChanged() { if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); }); }
     private void SoundChanged()
     {
-        if (_disposed || !_observingSound) return;
+        if (_disposed || !_observingSound || PreviewSound is not null) return;
         _ = InvokeAsync(() =>
         {
-            if (_disposed || !_observingSound || Sounds.Status is not { } error) return;
+            if (_disposed || !_observingSound || PreviewSound is not null || Sounds.Status is not { } error) return;
             _feedback = null; _error = error; StateHasChanged();
         });
     }
@@ -67,16 +81,16 @@
     }
     private async Task Test()
     {
-        if (Disabled || _working || _disposed || !Enabled) return;
+        if (Disabled || _working || PreviewDisabled || _disposed || !Enabled) return;
         _working = true; _error = null; _feedback = null; _observingSound = true;
         try
         {
-            var started = await Sounds.Play(Sound == "custom" ? "custom" : "standard", SoundFile);
+            var started = await (PreviewSound?.Invoke() ?? Sounds.Play(Sound == "custom" ? "custom" : "standard", SoundFile));
             if (_disposed) return;
-            if (started) _feedback = UiText.T("Testton gestartet.");
-            else { _observingSound = false; _error = Sounds.Status ?? UiText.T("Ton konnte nicht abgespielt werden."); }
+            if (started) _feedback = UiText.T((PreviewSound is null ? null : PreviewStatus?.Invoke()) ?? "Testton gestartet.");
+            else { _observingSound = false; _error = UiText.T((PreviewSound is null ? Sounds.Status : PreviewStatus?.Invoke()) ?? "Ton konnte nicht abgespielt werden."); }
         }
         finally { _working = false; }
     }
-    public void Dispose() { _disposed = true; _observingSound = false; Sounds.Changed -= SoundChanged; Alerts.Changed -= LibraryChanged; }
+    public void Dispose() { _disposed = true; _observingSound = false; if (_listeningToDefaultSound) Sounds.Changed -= SoundChanged; Alerts.Changed -= LibraryChanged; }
 }

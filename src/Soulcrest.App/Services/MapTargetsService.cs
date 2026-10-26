@@ -28,7 +28,14 @@ public sealed record MapTarget(
     [property: JsonPropertyName("questMonster")] bool QuestMonster = false,
     [property: JsonPropertyName("monsterBranch")] bool MonsterBranch = false,
     [property: JsonPropertyName("branchX")] double? BranchX = null,
-    [property: JsonPropertyName("branchY")] double? BranchY = null);
+    [property: JsonPropertyName("branchY")] double? BranchY = null,
+    [property: JsonPropertyName("bossSpawnId")] int? BossSpawnId = null,
+    [property: JsonPropertyName("bossRole")] string? BossRole = null,
+    [property: JsonPropertyName("bossProvisional")] bool BossProvisional = false)
+{
+    [JsonIgnore] public bool IsBossNavigation => BossSpawnId.HasValue && BossRole is "spawned" or "next" or "preview";
+    [JsonIgnore] public bool BossFaded => IsBossNavigation && (BossProvisional || BossRole == "preview");
+}
 
 /// <summary>Position in a running leveling route, retained after its last stop for backward navigation.</summary>
 public sealed record RouteProgress(int Completed, int Total)
@@ -170,21 +177,21 @@ public sealed class MapTargetsService : IDisposable
     /// <summary>Progression mode: the spawn the player is led to right now (not saved; white line).</summary>
     public MapTarget? Progression { get; private set; }
 
-    /// <summary>Transient red boss target. Never saved, chained, or completed on arrival.</summary>
-    public MapTarget? BossRush { get; private set; }
-    public MapTarget? BossPreview { get; private set; }
+    private IReadOnlyList<MapTarget> _bossNavigationTargets = Array.Empty<MapTarget>();
 
-    public void SetBossPreview(MapTarget? target)
+    /// <summary>Transient boss navigation snapshot, independent of saved marks and arrival handling.</summary>
+    public IReadOnlyList<MapTarget> BossNavigationTargets
     {
-        if (target == BossPreview) return;
-        BossPreview = target;
-        Changed?.Invoke();
+        get { lock (_gate) return _bossNavigationTargets; }
     }
 
-    public void SetBossRush(MapTarget? target)
+    public void SetBossNavigationTargets(IReadOnlyList<MapTarget> targets)
     {
-        if (target == BossRush) return;
-        BossRush = target;
+        lock (_gate)
+        {
+            if (_bossNavigationTargets.SequenceEqual(targets)) return;
+            _bossNavigationTargets = Array.AsReadOnly(targets.ToArray());
+        }
         Changed?.Invoke();
     }
 
@@ -412,6 +419,38 @@ public sealed class MapTargetsService : IDisposable
         }
         Changed?.Invoke();
         return route;
+    }
+
+    /// <summary>
+    /// Adds recorded routes to the library without marking targets or starting navigation. Persist
+    /// the validated candidate library before changing memory, so a failed write adds no partial batch.
+    /// </summary>
+    public IReadOnlyList<SavedRoute> AddSavedRoutes(IReadOnlyList<SavedRoute> routes)
+    {
+        ArgumentNullException.ThrowIfNull(routes);
+        if (routes.Count == 0) return [];
+        SavedRoute[] added;
+        lock (_gate)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(MapTargetsService));
+            var usedColors = _routes.Select(route => route.Color).ToHashSet();
+            var candidate = _routes.ToList();
+            added = routes.Select(route =>
+            {
+                if (route is null || route.Stops is null || route.IsLeveling)
+                    throw new InvalidDataException("Eine aufgezeichnete Route oder ihre Stationen sind ungültig.");
+                var color = route.Color is { } supplied && Colors.Contains(supplied) ? supplied
+                    : Colors.FirstOrDefault(value => !usedColors.Contains(value)) ?? ColorOf(candidate.Count);
+                usedColors.Add(color);
+                var copy = route with { Stops = Array.AsReadOnly(route.Stops.ToArray()), Color = color };
+                candidate.Add(copy);
+                return copy;
+            }).ToArray();
+            RouteFile.Save(AppPaths.RoutesFile, candidate);
+            _routes.AddRange(added);
+        }
+        Changed?.Invoke();
+        return Array.AsReadOnly(added);
     }
 
     /// <summary>Starts a route, resuming the selected character's saved leveling position.</summary>

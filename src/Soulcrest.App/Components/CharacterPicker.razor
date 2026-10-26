@@ -15,7 +15,7 @@
             <input autocomplete="off" spellcheck="false" aria-label="@UiText.T("Charaktername / Server")" placeholder="@UiText.T("Charaktername / Server")" @bind="_name" maxlength="80" />
             <button class="btn" disabled="@(string.IsNullOrWhiteSpace(_name))" @onclick="Add">@UiText.T("Profil anlegen")</button>
             <button class="btn" disabled="@(string.IsNullOrWhiteSpace(_name))" @onclick="@(() => Rename(renderedCharacter))">@UiText.T("Umbenennen")</button>
-            <p class="note">@(Detection.Status ?? UiText.T("Das Profil wechselt nach jedem Ladebildschirm von selbst zum eingeloggten Charakter, solange das Netzwerk-Tracking läuft."))</p>
+            <p class="note">@(Detection.Status ?? UiText.T("Bei laufendem Netzwerk-Tracking wechselt das Profil nach einem vollständig erfassten eigenen Welteintritt zum eingeloggten Charakter. Teleports innerhalb derselben Karte reichen nicht immer; falls die Erkennung wartet, wechsle das Gebiet oder betrete eine Instanz."))</p>
         </div></details>
     }
     else
@@ -27,7 +27,7 @@
 </div>
 @if (!Compact)
 {
-    <div class="note">@(Detection.Status ?? UiText.T("Das Profil wechselt nach jedem Ladebildschirm von selbst zum eingeloggten Charakter, solange das Netzwerk-Tracking läuft."))</div>
+    <div class="note">@(Detection.Status ?? UiText.T("Bei laufendem Netzwerk-Tracking wechselt das Profil nach einem vollständig erfassten eigenen Welteintritt zum eingeloggten Charakter. Teleports innerhalb derselben Karte reichen nicht immer; falls die Erkennung wartet, wechsle das Gebiet oder betrete eine Instanz."))</div>
 }
 @code {
     [Parameter] public bool Compact { get; set; }

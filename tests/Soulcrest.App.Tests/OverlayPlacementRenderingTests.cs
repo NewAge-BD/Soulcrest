@@ -84,7 +84,7 @@ public sealed class OverlayPlacementRenderingTests
     {
         using var sample = new Bitmap(60, 50, PixelFormat.Format32bppPArgb);
         using (var graphics = Graphics.FromImage(sample)) graphics.Clear(Color.FromArgb(255, 248, 228, 193));
-        OverlayPlacementPreview[] items = [new("loot", "Loot & Pet-Fortschritt", sample, new(-1880, 160, 1))];
+        OverlayPlacementPreview[] items = [new("loot", "Pet-Fortschritt", sample, new(-1880, 160, 1))];
         using var frame = OverlayPlacementForm.RenderFrame(new(320, 240), items, new(-1920, 100), "loot", false);
         var background = frame.GetPixel(3, 3);
         var example = frame.GetPixel(65, 85);
@@ -105,7 +105,7 @@ public sealed class OverlayPlacementRenderingTests
         var settings = new AppSettings();
         var layouts = new Dictionary<string, OverlayLayout>
         {
-            ["loot"] = new(40, 150, 1), ["boss"] = new(440, 150, 1),
+            ["loot"] = new(40, 150, 1), ["farm-loot"] = new(1280, 450, 1), ["boss"] = new(440, 150, 1),
             ["leveling"] = new(880, 150, 1), ["alerts"] = new(104, 40, 1),
             ["notifications"] = new(440, 640, 1, 340), ["event-timeline"] = new(40, 840, 1, 720)
         };
@@ -114,7 +114,7 @@ public sealed class OverlayPlacementRenderingTests
         try
         {
             using var frame = OverlayPlacementForm.RenderFrame(new(1920, 1080), previews, Point.Empty, "event-timeline", true);
-            Assert.Equal(6, previews.Length);
+            Assert.Equal(7, previews.Length);
             Assert.True(frame.GetPixel(100, 200).A > OverlayPlacementForm.DimAlpha);
             SavePreview(frame, "place-mode-scene.png");
         }
@@ -222,7 +222,7 @@ public sealed class OverlayPlacementRenderingTests
         Assert.Equal(840, layout.Y);
         Assert.Equal(1040, layout.Y + image.Height);
         using var frame = OverlayPlacementForm.RenderFrame(monitor.Bounds.Size,
-            [new("loot", "Loot & Pet-Fortschritt", image, layout)], monitor.Bounds.Location, "loot", false);
+            [new("loot", "Pet-Fortschritt", image, layout)], monitor.Bounds.Location, "loot", false);
         Assert.Equal(1080, frame.Height);
         Assert.Equal(255, frame.GetPixel(150, 1000).A);
         Assert.Equal(OverlayPlacementForm.DimAlpha, frame.GetPixel(150, 1070).A);

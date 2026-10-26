@@ -16,6 +16,74 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")]
 public sealed class ExplorationMapNavigationTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SessionRouteInspectionSwitchesToItsMapWithoutReplacingTargetsOrStartingTracking(bool followPlayer)
+    {
+        await using var scenario = new Scenario();
+        var settings = scenario.Provider.GetRequiredService<SettingsService>();
+        var tracking = scenario.Provider.GetRequiredService<MapTrackingService>();
+        var targets = scenario.Provider.GetRequiredService<MapTargetsService>();
+        settings.Current.LastMap = "altgard";
+        settings.Current.FollowPlayer = followPlayer;
+        settings.Current.ProgressionEnabled = false;
+        settings.Current.BossRushEnabled = true;
+        var boss = new MapTarget("boss", "altgard", 10, 20, "Synthetic boss", "Boss", null, BossSpawnId: 111001, BossRole: "next");
+        targets.SetBossNavigationTargets([boss]);
+        var savedRoutes = targets.Routes.ToArray();
+        var session = new LootTrackerSession
+        {
+            Id = "sample-session", Location = "Verteron",
+            RouteSegments =
+            [
+                new("verteron", "Verteron", [new(100, 200), new(300, 400)]),
+                new("verteron", "Verteron", [new(700, 800), new(900, 1000)]),
+            ],
+        };
+        var view = await scenario.Render();
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => view.FocusLootRoute(LootTrackerMapFocus.Create(session)!));
+        var shown = scenario.Js.Calls.FindIndex(call => call.Name == "soulcrestMap.show");
+        var drawn = scenario.Js.Calls.FindIndex(call => call.Name == "soulcrestMap.setLootRoute");
+        Assert.True(shown >= 0 && drawn > shown);
+        var call = scenario.Js.Calls[drawn];
+        Assert.Equal("verteron", call.Arguments[0]);
+        Assert.Equal("[[{\"x\":100,\"y\":200},{\"x\":300,\"y\":400}],[{\"x\":700,\"y\":800},{\"x\":900,\"y\":1000}]]", call.Arguments[1]);
+        Assert.Equal(true, call.Arguments[3]);
+        Assert.Equal("verteron", settings.Current.LastMap);
+        Assert.Equal(followPlayer, settings.Current.FollowPlayer);
+        Assert.True(settings.Current.BossRushEnabled);
+        Assert.False(tracking.Running);
+        Assert.Equal(new[] { boss }, targets.BossNavigationTargets);
+        Assert.Equal(savedRoutes, targets.Routes);
+        Assert.Equal(0, scenario.Provider.GetRequiredService<GameCaptureService>().Diagnostics.Grabs);
+
+        scenario.Js.Calls.Clear();
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => (Task)typeof(MapView).GetMethod("SwitchMap", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(view, ["altgard", null])!);
+        Assert.Null(typeof(MapView).GetField("_lootRouteFocus", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view));
+        Assert.DoesNotContain(scenario.Js.Calls, item => item.Name == "soulcrestMap.setLootRoute");
+    }
+
+    [Fact]
+    public async Task UnsupportedSessionMapHasVisibleErrorAndCannotDrawOnTheWrongMap()
+    {
+        await using var scenario = new Scenario();
+        scenario.Provider.GetRequiredService<SettingsService>().Current.LastMap = "altgard";
+        var view = await scenario.Render();
+        var session = new LootTrackerSession { RouteSegments = [new("unavailable", "Unavailable", [new(100, 200)])] };
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => view.FocusLootRoute(LootTrackerMapFocus.Create(session)!));
+        Assert.Equal("Keine passende Offlinekarte für diese Route verfügbar.",
+            typeof(MapView).GetField("_error", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view));
+        Assert.DoesNotContain(scenario.Js.Calls, item => item.Name is "soulcrestMap.show" or "soulcrestMap.setLootRoute");
+
+        var valid = session with { RouteSegments = [new("altgard", "Altgard", [new(100, 200), new(200, 300)])] };
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => view.FocusLootRoute(LootTrackerMapFocus.Create(valid)!));
+        Assert.Null(typeof(MapView).GetField("_error", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view));
+        Assert.Contains(scenario.Js.Calls, item => item.Name == "soulcrestMap.setLootRoute");
+        Assert.DoesNotContain(scenario.Js.Calls, item => item.Name == "soulcrestMap.show");
+    }
+
     [Fact]
     public void ExplorationFocusIsOneShotAndIndependentOfBossAndPetRequests()
     {
@@ -48,9 +116,8 @@ public sealed class ExplorationMapNavigationTests
         settings.Current.LastMap = "altgard";
         settings.Current.FollowPlayer = followPlayer;
         settings.Current.BossRushEnabled = true;
-        var boss = new MapTarget("boss-preview", "altgard", 10, 20, "Boss", "Boss", null);
-        targets.SetBossPreview(boss);
-        targets.SetBossRush(boss);
+        var boss = new MapTarget("boss:1110:111001", "altgard", 10, 20, "Boss", "Boss", null, BossSpawnId: 111001, BossRole: "next");
+        targets.SetBossNavigationTargets([boss]);
         var done = exploration.Completed;
         if (followPlayer)
         {
@@ -69,8 +136,7 @@ public sealed class ExplorationMapNavigationTests
         Assert.Equal("verteron", settings.Current.LastMap);
         Assert.Equal(followPlayer, settings.Current.FollowPlayer);
         Assert.True(settings.Current.BossRushEnabled);
-        Assert.Same(boss, targets.BossPreview);
-        Assert.Same(boss, targets.BossRush);
+        Assert.Same(boss, Assert.Single(targets.BossNavigationTargets));
         Assert.False(tracking.Running);
         Assert.Equal(done.Order(), exploration.Completed.Order());
         Assert.DoesNotContain(scenario.Js.Calls, call => call.Name == "soulcrestMap.flyToTarget");

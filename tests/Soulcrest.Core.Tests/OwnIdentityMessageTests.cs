@@ -119,13 +119,13 @@ public sealed class OwnIdentityMessageTests
         return w.Bytes;
     }
 
-    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0, int pcId = 0)
+    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0, int pcId = 0, int gearScore = 0, int highestGearScore = 0, long combatScore = 0, long highestCombatScore = 0)
     {
         using var w = new Packet(0x3633);
         w.V(300); w.I(optional ? 0x3fffffff : 0);
         w.B(optional ? (byte)63 : (byte)1); w.S(name); w.U(server); w.I(pcId);
         if (optional) w.B(1);
-        w.Z(36);
+        w.I(0); w.I(gearScore); w.I(highestGearScore); w.Z(24);
         if (optional) w.B(1);
         w.V(optional ? 1u : 0u); if (optional) w.Z(14);
         w.V(optional ? 1u : 0u); if (optional) w.Z(13);
@@ -170,7 +170,7 @@ public sealed class OwnIdentityMessageTests
         }
         w.Z(16);
         if (optional) { w.Bool(true); w.Z(8 + 4 + 16); }
-        w.Z(16); Points(w); Points(w);
+        w.L(combatScore); w.L(highestCombatScore); Points(w); Points(w);
         if (optional) { w.V(1); w.Z(8); w.V(1); w.Z(8); }
         return w.Bytes;
     }

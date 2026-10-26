@@ -31,7 +31,8 @@ public sealed class NetworkOwnCharacterContextTests
             Network = new(Progress, Exploration);
             typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Running))!.SetValue(Network, true);
         }
-        internal void Send(byte[] message, string stream = Game) => Network.ProcessProgressMessage(stream, message, At);
+        internal void Send(byte[] message, string stream = Game, DateTimeOffset? at = null) =>
+            Network.ProcessProgressMessage(stream, message, at ?? At);
         public void Dispose() { Network.Dispose(); Directory.Delete(_root, recursive: true); }
     }
 
@@ -52,6 +53,79 @@ public sealed class NetworkOwnCharacterContextTests
         Assert.True(second.Generation > first.Generation);
         Assert.Equal("Cleric", first.Identity.ClassId);
         Assert.Collection(observed, item => Assert.Same(first, item), item => Assert.Null(item), item => Assert.Same(second, item));
+    }
+
+    [Fact]
+    public void FullOwnPublishesCurrentScoresTogetherWithIdentityAndObservationTime()
+    {
+        using var f = new Fixture();
+        OwnCharacterContext? published = null;
+        f.Network.OwnCharacterChanged += () => published = f.Network.OwnCharacter;
+        var at = At.AddSeconds(12);
+
+        f.Send(Own(Alpha, 31, combatScore: 1840, gearScore: 1260,
+            highestCombat: 9000, highestGear: 5000), at: at);
+
+        var current = Assert.IsType<OwnCharacterContext>(f.Network.OwnCharacter);
+        Assert.Same(current, published);
+        Assert.Equal(Alpha with { ClassId = "Cleric" }, current.Identity);
+        Assert.Equal(1840L, current.CombatScore);
+        Assert.Equal(1260, current.GearScore);
+        Assert.Equal(at, current.ObservedAt);
+    }
+
+    [Fact]
+    public void SameCharacterLoadscreenRefreshesScoresWithoutCharacterSelectionAndKeepsOldSnapshotFrozen()
+    {
+        using var f = new Fixture();
+        f.Send(Own(Alpha, 31, combatScore: 1840, gearScore: 1260));
+        var before = Assert.IsType<OwnCharacterContext>(f.Network.OwnCharacter);
+
+        // Ordinary world preparation, as used by a teleport/map load: no character-selection packet.
+        f.Send(Packet(0x3621, w => w.Write(new byte[46])), at: At.AddSeconds(10));
+        Assert.Null(f.Network.OwnCharacter);
+        var enteredAt = At.AddSeconds(20);
+        f.Send(Own(Alpha, 31, combatScore: 1900, gearScore: 1280), at: enteredAt);
+
+        var after = Assert.IsType<OwnCharacterContext>(f.Network.OwnCharacter);
+        Assert.Equal(before.Identity, after.Identity);
+        Assert.True(after.Generation > before.Generation);
+        Assert.Equal(1900L, after.CombatScore);
+        Assert.Equal(1280, after.GearScore);
+        Assert.Equal(enteredAt, after.ObservedAt);
+        Assert.Equal(1840L, before.CombatScore);
+        Assert.Equal(1260, before.GearScore);
+        Assert.Equal(At, before.ObservedAt);
+    }
+
+    [Theory]
+    [InlineData(0L, 0, 0L, 0)]
+    [InlineData(-1L, 1260, null, 1260)]
+    [InlineData(1840L, -1, 1840L, null)]
+    [InlineData(-1L, -1, null, null)]
+    public void InvalidScoresStayUnknownWithoutInvalidatingOwnIdentity(long combat, int gear,
+        long? expectedCombat, int? expectedGear)
+    {
+        using var f = new Fixture();
+        f.Send(Own(Alpha, 31, combatScore: combat, gearScore: gear,
+            highestCombat: 9000, highestGear: 5000));
+        var current = Assert.IsType<OwnCharacterContext>(f.Network.OwnCharacter);
+        Assert.Equal(Alpha with { ClassId = "Cleric" }, current.Identity);
+        Assert.Equal(expectedCombat, current.CombatScore);
+        Assert.Equal(expectedGear, current.GearScore);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InvalidOwnCannotPublishEvenACompleteScorePrefix(bool trailingByte)
+    {
+        using var f = new Fixture();
+        f.Send(Own(Alpha, 31, combatScore: 1840, gearScore: 1260));
+        var next = Own(Beta, 28, combatScore: 2500, gearScore: 1500);
+        f.Send(trailingByte ? [.. next, 0] : next[..^1]);
+        Assert.Null(f.Network.OwnCharacter);
+        Assert.Null(f.Network.Character);
     }
 
     [Theory]
@@ -80,12 +154,14 @@ public sealed class NetworkOwnCharacterContextTests
     [Fact]
     public void ForeignPreparationAndGapCannotClearTheBoundOwnClass()
     {
-        using var f = new Fixture(); f.Send(Own(Alpha, 31));
+        using var f = new Fixture(); f.Send(Own(Alpha, 31, combatScore: 1840, gearScore: 1260));
         var first = f.Network.OwnCharacter;
         var changes = 0; f.Network.OwnCharacterChanged += () => changes++;
         f.Send(Packet(0x3621, w => w.Write(new byte[46])), "synthetic-foreign");
         f.Network.ProcessProgressGap("synthetic-foreign");
         Assert.Same(first, f.Network.OwnCharacter);
+        Assert.Equal(1840L, f.Network.OwnCharacter?.CombatScore);
+        Assert.Equal(1260, f.Network.OwnCharacter?.GearScore);
         Assert.Equal(0, changes);
     }
 
@@ -143,16 +219,18 @@ public sealed class NetworkOwnCharacterContextTests
         w.Write((ushort)0); V(w, (uint)identity.EntityKey); w.Write(new byte[4]); w.Write(identity.CharacterId);
     });
 
-    private static byte[] Own(OwnCharacterIdentity identity, int pcId) => Packet(0x3633, w =>
+    private static byte[] Own(OwnCharacterIdentity identity, int pcId, long combatScore = 0,
+        int gearScore = 0, long highestCombat = 0, int highestGear = 0) => Packet(0x3633, w =>
     {
         V(w, (uint)identity.EntityKey); w.Write(0);
         w.Write((byte)1); var name = Encoding.UTF8.GetBytes(identity.Name); V(w, (uint)name.Length); w.Write(name);
-        w.Write((ushort)identity.ServerId); w.Write(pcId); w.Write(new byte[36]);
+        w.Write((ushort)identity.ServerId); w.Write(pcId);
+        w.Write(0); w.Write(gearScore); w.Write(highestGear); w.Write(new byte[24]);
         V(w, 0); V(w, 0); w.Write(new byte[16]); w.Write((byte)0);
         w.Write((ushort)0); w.Write(new byte[18]); w.Write((byte)1); V(w, 0); V(w, 0); w.Write(new byte[52]);
         V(w, 0); V(w, 0); V(w, 0);
         w.Write(new byte[12]); w.Write(identity.CharacterId); V(w, 0); w.Write((byte)1);
-        w.Write(new byte[32]); V(w, 0); V(w, 0);
+        w.Write(new byte[16]); w.Write(combatScore); w.Write(highestCombat); V(w, 0); V(w, 0);
     });
 
     private static byte[] Packet(ushort opcode, Action<BinaryWriter> write)

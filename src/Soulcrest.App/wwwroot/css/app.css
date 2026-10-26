@@ -126,8 +126,15 @@ input[type=checkbox] { accent-color: var(--accent); }
 .boss-rush-tile .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; margin-left: auto; }
 .boss-spawned { color: #f87171; }
 .boss-rush-stale { color: #fbbf24; }
-.boss-rush-marker span { display: block; width: 24px; height: 24px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #ef4444; border: 2px solid #fff; box-shadow: 0 2px 8px #000b; }
-.boss-rush-label.leaflet-tooltip { color: #fff; background: #7f1d1d; border-color: #ef4444; font-weight: 600; }
+.boss-rush-marker span { display: block; width: 24px; height: 24px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--boss-color, #ef4444); border: 2px solid #fff; box-shadow: 0 2px 8px #000b; }
+.boss-rush-label.boss-map-timer.leaflet-tooltip { color: #fff; background: #3b1920; border-color: #ef4444; font-weight: 600; text-align: center; }
+.boss-rush-label.boss-role-spawned.leaflet-tooltip, .boss-rush-label.boss-provisional.leaflet-tooltip { background: #143323; border-color: #4ade80; }
+.boss-rush-label > .boss-navigation-name { display: block; margin-bottom: 3px; }
+.boss-rush-label.boss-map-timer > .spawned, .boss-rush-label.boss-provisional > .provisional { color: #4ade80; }
+.boss-rush-label.boss-role-next > span:last-child, .boss-rush-label.boss-role-preview > span:last-child { color: #fca5a5; }
+.boss-rush-label.boss-provisional > span:last-child { color: #4ade80; }
+.boss-dashboard .boss-setting-card .overlay-number-field { margin-top: 0; gap: 12px; font-size: 11px; }
+.boss-dashboard .boss-setting-card .overlay-number-field input { flex: none; width: 64px; }
 .mapside h3 { margin-top: .45rem; padding-left: .1rem; }
 .mapside h3.layers-head { display: flex; align-items: baseline; gap: .5rem; }
 .mapside h3.layers-head small { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: .78rem; font-variant-numeric: tabular-nums; }
@@ -759,8 +766,8 @@ code { background: var(--panel-2); padding: .05rem .35rem; border-radius: 4px; }
 .boss-choices label:hover { background: var(--panel-2); }
 .boss-choices img { width: 28px; height: 28px; border-radius: 6px; }
 .boss-choices label > span { min-width: 0; overflow-wrap: anywhere; }
-.boss-preview.boss-rush-marker span { background: #ef444420; border: 2px dashed #f87171; box-shadow: none; opacity: .5; }
-.boss-preview.boss-rush-label { opacity: .5; border-style: dashed; }
+.boss-preview.boss-rush-marker span { border: 2px dashed var(--boss-color, #ef4444); background: color-mix(in srgb, var(--boss-color, #ef4444) 20%, transparent); box-shadow: none; }
+.boss-preview.boss-rush-label { border-style: dashed; }
 
 @media (max-width: 1120px) {
     .boss-layout { grid-template-columns: minmax(0, 1fr); }

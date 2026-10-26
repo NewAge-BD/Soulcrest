@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": 510116011,
+      "nameDe": "Lebenskristall",
+      "nameEn": "Life Crystal"
+    },
+    {
+      "id": 511490001,
+      "nameDe": "Samen der Wahrnehmung",
+      "nameEn": "Seed of Detection"
+    },
+    {
+      "id": 533700110,
+      "nameDe": "Pokolums Skin-Paket (Gebunden)",
+      "nameEn": "Poko's Skin Bundle (Bound)"
+    },
+    {
+      "id": 610610013,
+      "nameDe": "Od",
+      "nameEn": "Odyle"
+    },
+    {
+      "id": 610610014,
+      "nameDe": "Feines Od",
+      "nameEn": "Fine Odyle"
+    },
+    {
+      "id": 610610015,
+      "nameDe": "Reines Od",
+      "nameEn": "Pure Odyle"
+    },
+    {
+      "id": 610610016,
+      "nameDe": "Strahlendes Od",
+      "nameEn": "Radiant Odyle"
+    },
+    {
+      "id": 610620013,
+      "nameDe": "Oreichalkos-Erz",
+      "nameEn": "Orichalcum Ore"
+    },
+    {
+      "id": 610620014,
+      "nameDe": "Feines Oreichalkos-Erz",
+      "nameEn": "Fine Orichalcum Ore"
+    },
+    {
+      "id": 610620015,
+      "nameDe": "Reines Oreichalkos-Erz",
+      "nameEn": "Pure Orichalcum Ore"
+    },
+    {
+      "id": 610620016,
+      "nameDe": "Strahlendes Oreichalkos-Erz",
+      "nameEn": "Radiant Orichalcum Ore"
+    },
+    {
+      "id": 610650011,
+      "nameDe": "Yggdrasil-Holz",
+      "nameEn": "Yggdrasil Log"
+    },
+    {
+      "id": 610650012,
+      "nameDe": "Asvata-Holz",
+      "nameEn": "Asvata Log"
+    },
+    {
+      "id": 610650013,
+      "nameDe": "Feines Yggdrasil-Holz",
+      "nameEn": "Fine Yggdrasil Log"
+    },
+    {
+      "id": 610650014,
+      "nameDe": "Feines Asvata-Holz",
+      "nameEn": "Fine Asvata Log"
+    },
+    {
+      "id": 610650015,
+      "nameDe": "Reines Yggdrasil-Holz",
+      "nameEn": "Pure Yggdrasil Log"
+    },
+    {
+      "id": 610650016,
+      "nameDe": "Reines Asvata-Holz",
+      "nameEn": "Pure Asvata Log"
+    },
+    {
+      "id": 610650017,
+      "nameDe": "Strahlendes Yggdrasil-Holz",
+      "nameEn": "Radiant Yggdrasil Log"
+    },
+    {
+      "id": 610650018,
+      "nameDe": "Strahlendes Asvata-Holz",
+      "nameEn": "Radiant Asvata Log"
+    },
+    {
+      "id": 610660025,
+      "nameDe": "Saphir-Edelstein",
+      "nameEn": "Sapphire Gemstone"
+    },
+    {
+      "id": 610660026,
+      "nameDe": "Diamant-Edelstein",
+      "nameEn": "Diamond Gemstone"
+    },
+    {
+      "id": 610660027,
+      "nameDe": "Rubin-Edelstein",
+      "nameEn": "Ruby Gemstone"
+    },
+    {
+      "id": 610660028,
+      "nameDe": "Feiner Saphir-Edelstein",
+      "nameEn": "Fine Sapphire Gemstone"
+    },
+    {
+      "id": 610660029,
+      "nameDe": "Feiner Diamant-Edelstein",
+      "nameEn": "Fine Diamond Gemstone"
+    },
+    {
+      "id": 610660030,
+      "nameDe": "Feiner Rubin-Edelstein",
+      "nameEn": "Fine Ruby Gemstone"
+    },
+    {
+      "id": 610660031,
+      "nameDe": "Reiner Saphir-Edelstein",
+      "nameEn": "Pure Sapphire Gemstone"
+    },
+    {
+      "id": 610660032,
+      "nameDe": "Reiner Diamant-Edelstein",
+      "nameEn": "Pure Diamond Gemstone"
+    },
+    {
+      "id": 610660033,
+      "nameDe": "Reiner Rubin-Edelstein",
+      "nameEn": "Pure Ruby Gemstone"
+    },
+    {
+      "id": 610660034,
+      "nameDe": "Strahlender Saphir-Edelstein",
+      "nameEn": "Radiant Sapphire Gemstone"
+    },
+    {
+      "id": 610660035,
+      "nameDe": "Strahlender Diamant-Edelstein",
+      "nameEn": "Radiant Diamond Gemstone"
+    },
+    {
+      "id": 610660036,
+      "nameDe": "Strahlender Rubin-Edelstein",
+      "nameEn": "Radiant Ruby Gemstone"
+    },
+    {
+      "id": 610670041,
+      "nameDe": "Aria",
+      "nameEn": "Aria"
+    },
+    {
+      "id": 610670042,
+      "nameDe": "Targena",
+      "nameEn": "Targena"
+    },
+    {
+      "id": 610670043,
+      "nameDe": "Azpha",
+      "nameEn": "Azpha"
+    },
+    {
+      "id": 610670044,
+      "nameDe": "Calendula",
+      "nameEn": "Calendula"
+    },
+    {
+      "id": 610670045,
+      "nameDe": "Frische Aria",
+      "nameEn": "Fresh Aria"
+    },
+    {
+      "id": 610670046,
+      "nameDe": "Frische Targena",
+      "nameEn": "Fresh Targena"
+    },
+    {
+      "id": 610670047,
+      "nameDe": "Frische Azpha",
+      "nameEn": "Fresh Azpha"
+    },
+    {
+      "id": 610670048,
+      "nameDe": "Frische Calendula",
+      "nameEn": "Fresh Calendula"
+    },
+    {
+      "id": 610680043,
+      "nameDe": "Coriolus",
+      "nameEn": "Coriolus"
+    },
+    {
+      "id": 610680044,
+      "nameDe": "Kukuru",
+      "nameEn": "Kukuru"
+    },
+    {
+      "id": 610680045,
+      "nameDe": "Mela",
+      "nameEn": "Mela"
+    },
+    {
+      "id": 610680047,
+      "nameDe": "Inina",
+      "nameEn": "Inina"
+    },
+    {
+      "id": 610680048,
+      "nameDe": "Cypri",
+      "nameEn": "Cypri"
+    },
+    {
+      "id": 610680049,
+      "nameDe": "Morfa",
+      "nameEn": "Morfa"
+    },
+    {
+      "id": 610680050,
+      "nameDe": "Okra",
+      "nameEn": "Ohkra"
+    },
+    {
+      "id": 610680051,
+      "nameDe": "Raydam",
+      "nameEn": "Raydam"
+    },
+    {
+      "id": 610680053,
+      "nameDe": "Conide",
+      "nameEn": "Conide"
+    },
+    {
+      "id": 610680054,
+      "nameDe": "Pujery",
+      "nameEn": "Pujery"
+    }
+  ]
+}

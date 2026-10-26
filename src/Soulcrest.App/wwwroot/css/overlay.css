@@ -38,6 +38,7 @@
 .overlay-settings-card h4 { margin: 0 0 13px; color: #c7d6e0; font-size: .82rem; }
 .overlay-settings-card fieldset { padding: 0; margin: 0; border: 0; }
 .overlay-layout-controls > label, .overlay-settings-card > label:has(input[type=range]) { display: grid; grid-template-columns: 88px minmax(80px,1fr) 68px; align-items: center; gap: 13px; margin: 13px 0; color: #9fb3c4; font-size: .75rem; }
+.overlay-settings-card > label[for="loot-background-transparency"]:has(input[type=range]) { grid-template-columns: minmax(150px,170px) minmax(80px,1fr) 68px; }
 .overlay-layout-controls output, .overlay-settings-card output { color: #cbd7df; font-size: .73rem; text-align: right; font-variant-numeric: tabular-nums; }
 .overlay-position-fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 17px; }
 .overlay-position-fields label { display: flex; flex-direction: column; gap: 6px; width: 90px; font-size: .65rem; color: #839aa9; }

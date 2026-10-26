@@ -122,7 +122,17 @@ public sealed class DiagnosticsService : IDisposable
             $"Netzwerkfortschritt: {_network?.ProgressStatus ?? "nicht gestartet"}\n" +
             $"Pet-Baseline: {_network?.PetBaselineAt:O}\nQuest-Baseline: {_network?.QuestBaselineAt:O}\nTeleport-Baseline: {_network?.TeleportBaselineAt:O}\n" +
             $"Erweiterte Pruefung aktiv: {Volatile.Read(ref _checking) != 0}\n" +
-            FormatNetworkProgressDiagnostics(networkDiagnostics) + Soulcrest.App.Overlay.MerchantOverlayForm.Health.Report();
+            FormatNetworkProgressDiagnostics(networkDiagnostics) + FormatKinaDiagnostics(_network?.KinaSnapshot,
+                _network?.DailyMonsterKinaSnapshot) + Soulcrest.App.Overlay.MerchantOverlayForm.Health.Report();
+    }
+
+    internal static string FormatKinaDiagnostics(NetworkKinaSnapshot? wallet, NetworkDailyMonsterKinaSnapshot? daily)
+    {
+        static string Value(long? amount) => amount?.ToString(CultureInfo.InvariantCulture) ?? "unknown";
+        // Only totals and freshness; no native identity, stack key, character name or endpoint.
+        return $"[Monsterloot-Netzwerkdiagnose]\nWalletReady: {wallet?.IsReady == true}; WalletRejected: {wallet?.FormatRejected == true}\n" +
+            $"WalletUnbound: {Value(wallet?.UnboundBalance)}; WalletBound: {Value(wallet?.BoundBalance)}\n" +
+            $"DailyReady: {daily?.IsReady == true}; DailyMonsterKina: {Value(daily?.Total)}; DailyObservedAtUtc: {daily?.At?.ToUniversalTime():O}\n";
     }
 
     /// <summary>Formats one atomic counter snapshot; arbitrary strings cannot enter this diagnostic block.</summary>

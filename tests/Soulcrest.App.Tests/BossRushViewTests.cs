@@ -21,7 +21,7 @@ public sealed class BossRushViewTests
     [Theory]
     [InlineData("de", "Bereits gespawnt", "Geschmolzener Danar")]
     [InlineData("en", "Already spawned", "Melted Danar")]
-    public async Task DedicatedTabTargetsOldestSpawnAndRetainsTimersOnDisconnect(string language, string spawned, string name)
+    public async Task DedicatedTabTargetsEverySpawnAndRetainsTimersOnDisconnect(string language, string spawned, string name)
     {
         var folder = Path.Combine(Path.GetTempPath(), "soulcrest-boss-map-" + Guid.NewGuid());
         Directory.CreateDirectory(Path.Combine(folder, "altgard"));
@@ -67,6 +67,8 @@ public sealed class BossRushViewTests
             settings.Current.UiLanguage = settings.Current.NameLanguage = UiText.Language = language;
             settings.Current.LastMap = "altgard";
             settings.Current.BossRushEnabled = true;
+            settings.Current.BossRushShowOlderSpawns = false;
+            settings.Current.BossNavigationPreviewCount = 1;
             settings.Current.BossAlertsEnabled = false;
             settings.Current.BossAlertIds = [];
             settings.Current.BossOverlayEnabled = true;
@@ -85,14 +87,22 @@ public sealed class BossRushViewTests
                 1, 0x99, 0xe3, 6, .. new byte[12], .. BitConverter.GetBytes(now - 2000),
                 0, 0x9b, 0xe3, 6, .. BitConverter.GetBytes(now + 61000), 0, 0, 0]);
             Assert.Equal(111001, rush.View.Boss!.SpawnId);
-            Assert.Equal(name, targets.BossRush!.Name);
-            Assert.Equal("#ef4444", targets.BossRush.Color);
-            Assert.DoesNotContain(targets.Targets, t => t.Id == "boss-rush"); // not a saved/arrival target
+            var firstSpawn = Assert.Single(targets.BossNavigationTargets, target => target.BossSpawnId == 111001);
+            Assert.Equal(name, firstSpawn.Name);
+            Assert.Equal("#4ade80", firstSpawn.Color);
+            Assert.Equal(2, targets.BossNavigationTargets.Count(target => target.BossRole == "spawned"));
+            Assert.All(targets.BossNavigationTargets, target => Assert.Null(target.After));
+            Assert.DoesNotContain(targets.Targets, target => target.IsBossNavigation); // not a saved/arrival target
             var bossRoot = await renderer.Dispatcher.InvokeAsync(async () =>
                 await renderer.RenderComponentAsync<Soulcrest.App.Components.BossRushView>());
             var markup = await renderer.Dispatcher.InvokeAsync(bossRoot.ToHtmlString);
             var html = System.Net.WebUtility.HtmlDecode(markup);
             Assert.Contains("Boss Rush Mode", html);
+            Assert.Contains(language == "de" ? "Weitere Spawns auf der Karte" : "Additional spawns on the map", html);
+            var navigationCount = Element(html, "input", "boss-navigation-preview-count");
+            Assert.Contains("min=\"0\"", navigationCount);
+            Assert.Contains("max=\"23\"", navigationCount);
+            Assert.Contains("value=\"1\"", navigationCount);
             Assert.Contains("boss-dashboard-columns", html);
             Assert.Contains("<dl class=\"boss-dashboard-summary\">", html);
             Assert.Matches("boss-dashboard-stat spawned[\\s\\S]*?<dd>2</dd>", html);
@@ -139,9 +149,14 @@ public sealed class BossRushViewTests
             var mapMarkup = await renderer.Dispatcher.InvokeAsync(mapRoot.ToHtmlString);
             Assert.Contains("boss-rush-tile", mapMarkup);
             Assert.Contains("checked", Element(mapMarkup, "input", "boss-rush-toggle"));
+            Assert.DoesNotContain("checked", Element(mapMarkup, "input", "boss-rush-show-older-spawns"));
             var mapHtml = System.Net.WebUtility.HtmlDecode(mapMarkup);
+            Assert.Contains(language == "de" ? "Gespawnte Bosse älter als 1 Min. anzeigen" : "Show Bosses Spawned older than 1 min", mapHtml);
             Assert.Contains(language == "de" ? "Boss-Rush-Tab öffnen" : "Open Boss Rush tab", mapHtml);
             Assert.Contains(language == "de" ? "Aktivierte Boss-Alerts bleiben unabhängig davon eingeschaltet." : "Enabled boss alerts remain independent.", mapHtml);
+            await renderer.Dispatcher.InvokeAsync(() => settings.Update(s => s.BossRushShowOlderSpawns = true));
+            Assert.Contains("checked", Element(await renderer.Dispatcher.InvokeAsync(mapRoot.ToHtmlString), "input", "boss-rush-show-older-spawns"));
+            await renderer.Dispatcher.InvokeAsync(() => settings.Update(s => s.BossRushShowOlderSpawns = false));
             // A settings change from either tab immediately updates both switches without a language change.
             // Turning guidance off keeps the overlay preference and independently enabled alerts intact.
             await renderer.Dispatcher.InvokeAsync(() => settings.Update(s =>
@@ -172,20 +187,21 @@ public sealed class BossRushViewTests
             Assert.Contains("checked", Element(await renderer.Dispatcher.InvokeAsync(mapRoot.ToHtmlString), "input", "boss-rush-toggle"));
             Assert.Contains("checked", Element(await renderer.Dispatcher.InvokeAsync(bossRoot.ToHtmlString), "input", "boss-rush-mode"));
             Assert.Empty(rush.Alerts);
-            // A waiting boss is a faded preview chained to the current live boss, never an arrival target.
+            // The first waiting boss starts independently at the player, even with a live boss.
             settings.Current.BossAlertsEnabled = true;
             settings.Current.BossAlertIds = ["1110:111002"];
             rush.OnMessage("fixture", [1, 0x91, 0, 0, 0x56, 4, 0, 0, 2,
                 0, 0x9a, 0xe3, 6, 2, .. BitConverter.GetBytes(now + 10000),
                 1, 0x99, 0xe3, 6, .. new byte[12], .. BitConverter.GetBytes(now - 2000), 0, 0, 0]);
-            Assert.Equal("boss-rush", targets.BossPreview!.After);
+            Assert.Null(Assert.Single(targets.BossNavigationTargets, target => target.BossRole == "next").After);
             Assert.Equal(111002, Assert.Single(rush.Schedule, r => !r.Spawned).Place.Boss.SpawnId);
             Assert.Single(rush.Alerts);
             rush.OnMessage("fixture", [1, 0x91, 0, 0, 0x56, 4, 0, 0, 2,
                 0, 0x9a, 0xe3, 6, 0, .. BitConverter.GetBytes(now + 10000),
                 0, 0x99, 0xe3, 6, .. BitConverter.GetBytes(now + 20000), 0, 0, 0]);
-            Assert.Null(targets.BossRush);
-            Assert.Null(targets.BossPreview!.After);
+            Assert.DoesNotContain(targets.BossNavigationTargets, target => target.BossRole == "spawned");
+            Assert.Null(Assert.Single(targets.BossNavigationTargets, target => target.BossRole == "next").After);
+            Assert.Equal("boss:1110:111002", Assert.Single(targets.BossNavigationTargets, target => target.BossRole == "preview").After);
             Assert.Single(rush.Alerts); // unchanged timer does not repeat a warning
             settings.Current.BossOverlayCount = 1;
             Assert.Single(rush.OverlaySpawns);
@@ -215,8 +231,8 @@ public sealed class BossRushViewTests
             provider.GetRequiredService<NetworkLootService>().Stop(); // no capture was started
             Assert.NotNull(rush.View.Boss);
             Assert.True(rush.View.Cached);
-            Assert.Null(targets.BossRush);
-            Assert.NotNull(targets.BossPreview);
+            Assert.NotEmpty(targets.BossNavigationTargets);
+            Assert.All(targets.BossNavigationTargets, target => { Assert.True(target.BossProvisional); Assert.True(target.BossFaded); Assert.Equal("#4ade80", target.Color); });
             Assert.Empty(rush.Alerts);
             var cachedMarkup = System.Net.WebUtility.HtmlDecode(await renderer.Dispatcher.InvokeAsync(async () =>
                 (await renderer.RenderComponentAsync<Soulcrest.App.Components.BossRushView>()).ToHtmlString()));

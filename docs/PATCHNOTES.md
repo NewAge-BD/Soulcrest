@@ -2,6 +2,27 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.14.0 – 2026-10-26
+
+- **Neu:** Tab **Loot-Tracker**: Sessions mit Kina (gebunden/ungebunden), Kina/h, Items, Souls und
+  gelaufener Route, je Charakter mit Combat Score und Gear Score, gruppiert nach Farmtagen
+  (07:00–07:00 UTC). Jede Session lässt sich einzeln öffnen und löschen.
+- **Neu:** Open-World-PvE wird automatisch aufgezeichnet: Eigene Beute startet eine Session, nach
+  zwei Minuten ohne Beute (einstellbar) endet sie. Nach 1.000.000 Tages-Kina folgt eine
+  „Limited Kina Session“. Dungeon-Runs erhalten eigene Einträge.
+- **Neu:** Lifeskill-Sessions: Sammelerfolge und Fehlversuche bilden eine Farmroute zwischen den
+  Sammelstellen, die sich auf der Karte anzeigen und als Route übernehmen lässt.
+- **Neu:** Loot-Overlay mit Tages-Kina, Session-Kina, Kina/h und Beuteliste mit Item-Icons und
+  Qualitätsfarben; weiße Ausrüstung erscheint gesammelt als „Common Gear“. Hintergrundtransparenz
+  einstellbar, optional automatisch bei Sessionstart.
+- **Neu:** Besondere Drops (Unique, Epic, Mythic, Special) leuchten animiert und melden sich kurz
+  mit eigenem Klang; je Seltenheit einstellbar, auch mit eigener MP3.
+- **Neu:** Boss-Rush-Wegführung auf Ingame-Weltkarte, Minimap und Soulcrest-Karte: gespawnte Bosse
+  grün mit Spawn-Dauer, der nächste Spawn rot mit Countdown, weitere Folgeziele einstellbar,
+  unbestätigte Marker verblasst. Gespawnte Bosse verschwinden nach einer Minute; ein Schalter
+  zeigt auch ältere.
+- **Geändert:** „Loot & Pet-Fortschritt“ heißt jetzt „Pet-Fortschritt“.
+
 ## 0.13.0 – 2026-10-24
 
 - **Neu:** Progressionsmodus: Cogni, Natura, Varian und Fera lassen sich einzeln für die automatischen

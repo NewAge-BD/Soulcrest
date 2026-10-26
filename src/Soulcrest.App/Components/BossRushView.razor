@@ -54,9 +54,9 @@
                         </div>
                         <div class="boss-command-footer">
                             <div class="boss-data-state @(view.Cached ? "cached" : "captured")"><span class="boss-status-dot @(view.Cached ? "preview" : "")" aria-hidden="true"></span><div><strong>@UiText.T(view.Cached ? "Gespeicherter Stand" : "Bossliste erfasst")</strong><span>@UiText.T("Countdowns laufen weiter")</span></div></div>
-                            @if ((Targets.BossRush ?? Targets.BossPreview) is { } target)
+                            @if (Targets.BossNavigationTargets.FirstOrDefault(candidate => candidate.MapId == view.MapId && candidate.BossSpawnId == boss.SpawnId) is { } target)
                             {
-                                <button class="btn" @onclick="@(() => Ui.ShowBossOnMap(target))">@UiText.T(view.Cached && view.Spawned ? "Nächsten Spawn auf Karte zeigen" : "Auf Karte zeigen") <span aria-hidden="true">↗</span></button>
+                                <button class="btn" @onclick="@(() => Ui.ShowBossOnMap(target))">@UiText.T("Auf Karte zeigen") <span aria-hidden="true">↗</span></button>
                             }
                         </div>
                     }
@@ -76,6 +76,11 @@
         </div>
 
         <aside class="boss-settings" aria-label="@UiText.T("Einstellungen")">
+            <section class="card sv-card boss-setting-card">
+                <h3>@UiText.T("Wegführung")</h3>
+                <label class="overlay-number-field" for="boss-navigation-preview-count">@UiText.T("Weitere Spawns auf der Karte")<input id="boss-navigation-preview-count" type="number" min="0" max="23" value="@Settings.Current.BossNavigationPreviewCount" @onchange="SetPreviewCount" /></label>
+                <InfoTip><p>@UiText.T("Zusätzliche blasse Ziele nach dem nächsten Spawn. 0 blendet die Vorschau aus.")</p></InfoTip>
+            </section>
             <section class="card sv-card boss-setting-card">
                 <h3>@UiText.T("Spawn-Overlay")</h3>
                 <OverlaySettingsLink OverlayId="boss" />
@@ -99,6 +104,11 @@
         var enabled = (bool)e.Value!;
         Settings.Update(s => s.BossRushEnabled = enabled);
         if (enabled && !Loot.Running) Loot.Start();
+    }
+    private void SetPreviewCount(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var count))
+            Settings.Update(s => s.BossNavigationPreviewCount = count);
     }
     private string? Icon(BossPlace boss) => boss.Icon is { } icon ? $"https://{MainForm.MapDataHost}/{icon}" : null;
     private static string Status(bool spawned, TimeSpan remaining) => spawned ? UiText.T("Bereits gespawnt")

@@ -53,7 +53,7 @@ public sealed class OverlayVisibilityPolicyTests : IDisposable
         });
         var current = new SettingsService().Current;
         Assert.Equal(new(false, false, false, false), current.OverlayVisibility["boss"]);
-        Assert.Equal(6, current.OverlayVisibility.Count);
+        Assert.Equal(7, current.OverlayVisibility.Count);
         Assert.Equal(new(), current.OverlayVisibility["notifications"]);
     }
 

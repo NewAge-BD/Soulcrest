@@ -84,6 +84,7 @@ public sealed class PetsViewFreshnessTests
         private readonly string _folder = Path.Combine(Path.GetTempPath(), "soulcrest-pet-freshness-" + Guid.NewGuid().ToString("N"));
         private readonly string _previousLanguage = UiText.Language;
         private readonly byte[]? _previousSettings = File.Exists(AppPaths.SettingsFile) ? File.ReadAllBytes(AppPaths.SettingsFile) : null;
+        private readonly Dictionary<string, byte[]?> _learnedBackups = [];
         private readonly ServiceProvider _provider;
         public ProgressService Progress { get; }
         private string ProfilePath => Path.Combine(_folder, "progress.json");
@@ -91,6 +92,12 @@ public sealed class PetsViewFreshnessTests
         public Fixture(string language)
         {
             Assert.StartsWith(Path.GetTempPath(), AppPaths.DataDirectory, StringComparison.OrdinalIgnoreCase);
+            // This fixture asserts the complete rendered pet list. Other network tests may have
+            // learned additional pets; retain those files while qualifying this one-pet catalogue.
+            foreach (var path in new[] { AppPaths.LearnedPetsFile, AppPaths.LearnedNamesFile })
+                _learnedBackups[path] = File.Exists(path) ? File.ReadAllBytes(path) : null;
+            JsonFile.Save(AppPaths.LearnedPetsFile, Array.Empty<PetDefinition>());
+            JsonFile.Save(AppPaths.LearnedNamesFile, new Dictionary<string, string>());
             Directory.CreateDirectory(_folder);
             JsonFile.Save(ProfilePath, new ProgressProfile { SchemaVersion = 2,
                 Pets = new() { [PetId] = new() { Souls = 8, Freshness = ProgressFreshness.Unknown } } });
@@ -123,6 +130,8 @@ public sealed class PetsViewFreshnessTests
             UiText.Language = _previousLanguage;
             if (_previousSettings is null) File.Delete(AppPaths.SettingsFile);
             else File.WriteAllBytes(AppPaths.SettingsFile, _previousSettings);
+            foreach (var (path, bytes) in _learnedBackups)
+                if (bytes is null) File.Delete(path); else File.WriteAllBytes(path, bytes);
             Assert.StartsWith(Path.GetTempPath(), Path.GetFullPath(_folder), StringComparison.OrdinalIgnoreCase);
             Directory.Delete(_folder, recursive: true);
         }

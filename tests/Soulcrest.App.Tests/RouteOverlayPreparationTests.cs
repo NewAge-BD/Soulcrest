@@ -123,8 +123,8 @@ public sealed class RouteOverlayPreparationTests
         var expectedTargets = fixture.InitialTargets.Skip(1).Select((t, i) => (Target: t, Index: i + 1)).ToList();
         expectedTargets[0] = (expectedTargets[0].Target with { Name = "Source monster 6/25 · 60 m" }, 1);
         expectedTargets.Add((fixture.Targets.Progression! with { Name = "Dungeon · 80 m" }, -1));
-        expectedTargets.Add((fixture.Targets.BossRush! with { Name = "Boss · 100 m" }, -2));
-        expectedTargets.Add((fixture.Targets.BossPreview! with { Name = "Preview · 120 m" }, -3));
+        expectedTargets.Add((fixture.Targets.BossNavigationTargets[0] with { Name = "Boss · 100 m" }, -2));
+        expectedTargets.Add((fixture.Targets.BossNavigationTargets[1] with { Name = "Preview · 120 m" }, -3));
         using var expected = RouteOverlayForm.Draw(placement, expectedTargets,
             [new(30, 20, null, fixture.Progress.PetMapLabel("p"), false), new(60, 20, null, fixture.Progress.PetMapLabel("q"), false)],
             [new(80, 20, null), new(70, 20, null, "#ffffff", .28f), new(90, 20, null)], [new(35, 20)],
@@ -292,8 +292,10 @@ public sealed class RouteOverlayPreparationTests
             if (extraTargets)
             {
                 Targets.SetProgression(new("next", "map", 40, 20, "Dungeon", "Sealed Dungeon", null));
-                Targets.SetBossRush(new("boss", "map", 50, 20, "Boss", "Monsters", null));
-                Targets.SetBossPreview(new("boss-next", "map", 60, 20, "Preview", "Monsters", null));
+                Targets.SetBossNavigationTargets([
+                    new("boss:1:1", "map", 50, 20, "Boss", "Boss Rush Mode", null, BossSpawnId: 1, BossRole: "spawned"),
+                    new("boss:1:2", "map", 60, 20, "Preview", "Boss Rush Mode", null, BossSpawnId: 2, BossRole: "next")
+                ]);
             }
         }
 

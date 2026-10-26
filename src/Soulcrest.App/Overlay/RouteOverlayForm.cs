@@ -17,6 +17,7 @@ public sealed partial class RouteOverlayForm : Form
     private readonly MapTrackingService _tracking;
     private readonly MapTargetsService _targets;
     private readonly SettingsService _settings;
+    private readonly BossRushService _bosses;
     private readonly LatestFrameDispatcher<Frame> _frames;
     private bool _inRecordings;
     private volatile bool _suppressed;
@@ -28,13 +29,15 @@ public sealed partial class RouteOverlayForm : Form
     private readonly ProgressService _progress;
     private readonly Dictionary<string, Bitmap?> _icons = [];
 
-    public RouteOverlayForm(MapTrackingService tracking, MapTargetsService targets, SettingsService settings, ProgressService progress)
+    public RouteOverlayForm(MapTrackingService tracking, MapTargetsService targets, SettingsService settings, ProgressService progress,
+        BossRushService bosses)
     {
         _progress = progress;
         _progress.Changed += PreparationChanged;
         _tracking = tracking;
         _targets = targets;
         _settings = settings;
+        _bosses = bosses;
         _frames = new LatestFrameDispatcher<Frame>(ComposeLatest, action => { BeginInvoke(action); }, ShowFrame,
             error => System.Diagnostics.Trace.TraceWarning("Route overlay picture failed: {0}", error.Message));
         FormBorderStyle = FormBorderStyle.None;
@@ -45,6 +48,7 @@ public sealed partial class RouteOverlayForm : Form
         _tracking.PlacementMoved += Schedule;
         _targets.Changed += PreparationChanged;
         _settings.Changed += PreparationChanged;
+        _bosses.Changed += BossTimersChanged;
     }
 
     public void SetSuppressed(bool suppressed)
@@ -132,6 +136,12 @@ public sealed partial class RouteOverlayForm : Form
         ScheduleInvalidated();
     }
 
+    // Countdown ticks repaint the labels without invalidating the map candidates or distance strings.
+    private void BossTimersChanged()
+    {
+        if (_settings.Current.BossRushEnabled && _targets.BossNavigationTargets.Count > 0) Schedule();
+    }
+
     private Frame? ComposeLatest()
     {
         lock (_composeGate)
@@ -175,12 +185,15 @@ public sealed partial class RouteOverlayForm : Form
         var guards = VisibleGuardZones(placement, prepared);
         if (onMap.Count == 0 && pets.Count == 0 && resources.Count == 0 && souls.Count == 0 && guards is null && prepared.HiddenCubeGroups.Count == 0)
             return null;
-        return RenderFrame(placement, onMap, pets, resources, souls, guards, prepared.TargetIcons, prepared.HiddenCubeGroups, OverlayThemeDefinition.Resolve(prepared.ThemeId));
+        var bossCounters = BossCounters(placement.MapId, _bosses.Schedule);
+        return RenderFrame(placement, onMap, pets, resources, souls, guards, prepared.TargetIcons, prepared.HiddenCubeGroups,
+            OverlayThemeDefinition.Resolve(prepared.ThemeId), bossCounters);
     }
 
     internal static Frame RenderFrame(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> onMap,
         IReadOnlyList<PetSymbol> pets, IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null,
-        GuardZones? guards = null, IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null, OverlayThemeDefinition? theme = null)
+        GuardZones? guards = null, IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null,
+        OverlayThemeDefinition? theme = null, IReadOnlyDictionary<int, string>? bossCounters = null)
     {
         theme ??= OverlayThemeDefinition.Legacy;
         // Drawn straight into a GDI DIB section that UpdateLayeredWindow takes as it is: converting a
@@ -194,7 +207,7 @@ public sealed partial class RouteOverlayForm : Form
         {
             using var surface = new Bitmap(size.Width, size.Height, size.Width * 4, PixelFormat.Format32bppPArgb, bits);
             using var graphics = Graphics.FromImage(surface);
-            DrawInto(graphics, placement, onMap, pets, resources, souls, guards, targetIcons, hiddenCubeGroups, theme); // a new DIB is all zeros: transparent
+            DrawInto(graphics, placement, onMap, pets, resources, souls, guards, targetIcons, hiddenCubeGroups, theme, bossCounters); // a new DIB is all zeros: transparent
         }
         catch
         {
@@ -247,25 +260,28 @@ public sealed partial class RouteOverlayForm : Form
     /// <summary>The overlay picture for the marked map area: lines, arrows, rings and names (transparent elsewhere).</summary>
     public static Bitmap Draw(MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets, IReadOnlyList<PetSymbol>? pets = null,
         IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null,
-        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null)
-        => DrawThemed(OverlayThemeDefinition.Legacy, placement, targets, pets, resources, souls, guards, targetIcons, hiddenCubeGroups);
+        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null,
+        IReadOnlyDictionary<int, string>? bossCounters = null)
+        => DrawThemed(OverlayThemeDefinition.Legacy, placement, targets, pets, resources, souls, guards, targetIcons, hiddenCubeGroups, bossCounters);
 
     internal static Bitmap DrawThemed(OverlayThemeDefinition theme, MapPlacement placement,
         IReadOnlyList<(MapTarget Target, int Index)> targets, IReadOnlyList<PetSymbol>? pets = null,
         IReadOnlyList<ResourceSymbol>? resources = null, IReadOnlyList<SoulMonster>? souls = null, GuardZones? guards = null,
-        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null)
+        IReadOnlyDictionary<string, Bitmap?>? targetIcons = null, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups = null,
+        IReadOnlyDictionary<int, string>? bossCounters = null)
     {
         var bitmap = new Bitmap(placement.Region.Width, placement.Region.Height, PixelFormat.Format32bppPArgb);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.Clear(Color.Transparent);
-        DrawInto(graphics, placement, targets, pets, resources, souls, guards, targetIcons, hiddenCubeGroups, theme);
+        DrawInto(graphics, placement, targets, pets, resources, souls, guards, targetIcons, hiddenCubeGroups, theme, bossCounters);
         return bitmap;
     }
 
     /// <summary>Draws the overlay into a transparent, premultiplied 32-bit surface of the region's size.</summary>
     private static void DrawInto(Graphics graphics, MapPlacement placement, IReadOnlyList<(MapTarget Target, int Index)> targets,
         IReadOnlyList<PetSymbol>? pets, IReadOnlyList<ResourceSymbol>? resources, IReadOnlyList<SoulMonster>? souls, GuardZones? guards,
-        IReadOnlyDictionary<string, Bitmap?>? targetIcons, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups, OverlayThemeDefinition theme)
+        IReadOnlyDictionary<string, Bitmap?>? targetIcons, IReadOnlyList<HiddenCubeGroup>? hiddenCubeGroups, OverlayThemeDefinition theme,
+        IReadOnlyDictionary<int, string>? bossCounters)
     {
         var region = placement.Region;
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -305,9 +321,8 @@ public sealed partial class RouteOverlayForm : Form
         {
             var color = target.Color is { } explicitColor ? ColorTranslator.FromHtml(explicitColor)
                 : index < 0 ? theme.IsLegacy ? Color.White : theme.Primary : ColorTranslator.FromHtml(MapTargetsService.ColorOf(target, index));
-            var preview = target.Id == "boss-next";
-            var dashed = preview || target.MonsterBranch;
-            if (preview) color = Color.FromArgb(105, color);
+            var dashed = target.BossFaded || target.MonsterBranch;
+            if (target.BossFaded) color = Color.FromArgb(105, color);
             if (target.Completed) color = Color.FromArgb(71, color);
             // User request 2026-10-20: faded minimap markers need no filled backing.
             var drawBackground = placement.WorldMap || color.A == 255;
@@ -315,12 +330,13 @@ public sealed partial class RouteOverlayForm : Form
             // A chained target (Shift + right click) starts at its predecessor, all others at the player.
             var before = target.After is { } after ? targets.FirstOrDefault(t => t.Target.Id == after).Target : null;
             PointF? start = target.BranchX is { } bx && target.BranchY is { } by ? Offset(placement.WorldToScreen(bx, by), origin)
-                : before is not null ? Offset(placement.WorldToScreen(before.X, before.Y), origin) : target.Completed ? null : player;
+                : before is not null ? Offset(placement.WorldToScreen(before.X, before.Y), origin)
+                : target.Completed || target.IsBossNavigation && target.After is not null ? null : player;
             // Resources, hidden cubes, sealed dungeons, Kibelisks and quests: their icon beside the ring instead of
             // the name, so the label does not cover the symbols around it (user requests 2026-10-10/11); the
             // distance stays.
             var icon = ShowsIconOnly(target) && targetIcons?.GetValueOrDefault(target.Id) is { } bitmap ? bitmap : null;
-            var label = icon is null ? target.Name : DistanceOf(target.Name);
+            var label = icon is null ? BossLabel(target, bossCounters) : DistanceOf(target.Name);
             // Lines leave a predecessor's ring (or the player marker) at its rim, never from its centre.
             var startGap = target.BranchX is not null ? 0f : before is not null ? RingRadius + 2 : PlayerGap;
             if (start is { } from)
@@ -329,6 +345,27 @@ public sealed partial class RouteOverlayForm : Form
                 DrawTargetRing(graphics, at, area, label, color, dashed, icon, theme, drawBackground); // world map of another zone: no player, rings only
         }
     }
+
+    internal static IReadOnlyDictionary<int, string> BossCounters(string map, IReadOnlyList<BossRushEntry> rows) =>
+        rows.Where(row => row.Place.Map == map).GroupBy(row => row.Place.Boss.SpawnId)
+            .ToDictionary(group => group.Key, group => BossCounter(group.First()));
+
+    internal static string BossCounter(BossRushEntry row)
+    {
+        if (row.Spawned)
+        {
+            var status = UiText.T(row.Cached ? "Unbestätigt" : "Gespawnt");
+            if (row.SpawnElapsed is not { } elapsed || elapsed < TimeSpan.Zero) return status;
+            var seconds = (long)Math.Floor(elapsed.TotalSeconds);
+            return $"{status} · {seconds / 60:00}:{seconds % 60:00}";
+        }
+        var counter = row.Remaining > TimeSpan.Zero ? BossRushService.Countdown(row.Remaining) : UiText.T("Warte auf Bestätigung");
+        return row.Cached ? $"{UiText.T("Unbestätigt")} · {counter}" : counter;
+    }
+
+    internal static string BossLabel(MapTarget target, IReadOnlyDictionary<int, string>? bossCounters) =>
+        target.IsBossNavigation && target.BossSpawnId is { } spawnId && bossCounters?.GetValueOrDefault(spawnId) is { } counter
+            ? $"{target.Name}\n{counter}" : target.Name;
 
     private static PointF Offset(PointF p, PointF origin) => new(p.X - origin.X, p.Y - origin.Y);
 
@@ -818,6 +855,7 @@ public sealed partial class RouteOverlayForm : Form
             _targets.Changed -= PreparationChanged;
             _settings.Changed -= PreparationChanged;
             _progress.Changed -= PreparationChanged;
+            _bosses.Changed -= BossTimersChanged;
             lock (_composeGate)
             {
                 foreach (var icon in _icons.Values)

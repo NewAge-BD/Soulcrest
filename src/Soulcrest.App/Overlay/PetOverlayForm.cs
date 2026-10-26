@@ -490,7 +490,7 @@ public sealed partial class PetOverlayForm : Form
         using var accent = new SolidBrush(AccentColor);
         using var line = new Pen(LineColor);
         g.DrawString("Soulcrest", title, white, 14, 10);
-        g.DrawString(UiText.T("Loot & Pet-Fortschritt"), small, dim, 14, 30);
+        g.DrawString(UiText.T("Pet-Fortschritt"), small, dim, 14, 30);
         var state = UiText.T(running ? "Netzwerk" : "Erfassung aus");
         var stateWidth = g.MeasureString(state, small).Width + 28;
         var stateRect = new RectangleF(BaseWidth - 52 - stateWidth, 13, stateWidth, 24);

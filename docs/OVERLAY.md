@@ -5,7 +5,7 @@ muss im **randlosen Fenstermodus** laufen; über exklusivem Vollbild kann nicht 
 
 ## 1. Pet-Fortschritt (kompakt)
 
-- **Nur bei aktueller Meldung** (Nutzerauftrag 2026-10-18): „Loot & Pet Progress“ bleibt
+- **Nur bei aktueller Meldung** (Nutzerauftrag 2026-10-18): „Pet Progress“ bleibt
   ohne neue Pet-Souls ausgeblendet. Ein echter angezeigter Soul-Gewinn öffnet das Panel für
   die bestehende Minute; weitere Gewinne verlängern ihre jeweilige Einblendung. Ein ausgewähltes
   Fokus-Pet oder der laufende Tracker allein hält das Fenster nicht offen. Bestätigte
@@ -118,9 +118,23 @@ zusätzlich Graustufen + CLAHE, damit HDR/SDR dieselben Features liefern.
 
 ## Boss Rush (2026-10-09)
 
-Eigener Tab statt Karten-Kachel. Das rote Ziel führt zum ältesten bestätigten Boss, der nächste
-Spawn hängt als blasse, gestrichelte Kette daran. Ohne aktiven Boss beginnt die Vorschau beim
-Spieler. Beide Ziele sind flüchtig und werden nicht durch Ankunft oder manuelle Routen beendet.
+Eigener Tab statt Karten-Kachel. Nutzerentscheidung 2026-10-25 ersetzt die bisherige Zweiziel-
+Wegführung: Alle bestätigten gespawnten Bosse erhalten grüne Verbindungen direkt vom Spieler.
+Der erste kommende Boss erhält eine kräftige rote Verbindung direkt vom Spieler; weitere
+kommende Bosse bilden ab dort eine blasse gestrichelte rote Kette. Die zusätzliche Anzahl ist
+in der Wegführung separat gespeichert (0–23, Standard 1), unabhängig von der Spawnlistenlänge.
+
+Alle Boss-Rush-Marker zeigen Name und Countdown beziehungsweise „Gespawnt“. Countdown null
+wartet auf Bestätigung und beweist keinen Spawn. Gespeicherte/unbestätigte Ziele und Wege sind
+vollständig verblasst grün, mit ausdrücklichem „Unbestätigt“ und weiterlaufenden bekannten Timern.
+Die flüchtigen Ziele werden weder durch Ankunft noch durch manuelle Routen beendet. Fehlende
+Koordinaten unterbrechen Kanten ohne Ersatzanker. Ohne passende Spielerposition entfallen nur
+Spielerlinien. Dieselbe Projektion gilt für beide Ingame-Karten und die interaktive Appkarte.
+
+Timerupdates verändern weder die stabile Zielliste noch die Kartenaufbereitung. Leaflet
+aktualisiert bestehende Tooltips über den bisherigen separaten Timerfeed; das native Overlay
+zeichnet aktuelle Counter erst am fertigen Label. Bei sichtbarem Navigationsmarker entfällt der
+doppelte Timer am normalen Boss-Kategoriemarker. Verblasste Minimap-Marker bleiben ohne Fläche.
 
 Ein eigenes natives Boss-Panel zeigt 1–12 nächste Spawns mit Porträts/Countdowns. Größe und Position
 sind im Overlay-Tab konfigurierbar; Schloss und Alt steuern die Klicksperre. Namen übernehmen die Overlay-/Spielsprache;
@@ -555,3 +569,99 @@ Bei aktiver visueller Kartenbeobachtung gelten die bisherigen überlappenden Kon
 weiter. Auch Übergänge und ein noch unbestätigter aktiver Netzwerkkontext setzen die visuelle
 Beobachtung aus. Die unterstützten offenen Abyss-Karten behalten ihre Karten-/HUD-Ausnahme. Eigenständige
 Händler-/Daevanionaufnahme und ihre Darstellung werden durch die Kartenruhe nicht gestoppt.
+
+## Eigenes Loot-Overlay (2026-10-26)
+
+„Loot-Overlay“ ist unabhängig vom bestehenden Pet-HUD schaltbar, platzierbar und
+skalierbar. Es verwendet den gemeinsamen Overlaystil, Vordergrundfilter und die
+Alt-Interaktion. Monsterloot-Aufzeichnung und Overlayanzeige haben getrennte,
+gespeicherte Schalter im Loot-Tracker. Der gemeinsame Netzwerk-Schalter bleibt
+maßgeblich; die Anzeige startet keine eigene Erfassung.
+
+Oben zeigt ein blauer Balken die absoluten täglichen ungebundenen Monster-Kina
+des sicher gebundenen Charakters bis 1.000.000. Jeder Charakter behält seinen
+eigenen gespeicherten Tagesstand. Ohne frischen Beleg trägt er den Hinweis
+„Gespeicherter Tagesstand“; ohne bekannten Stand bleibt er unbekannt. Ein lokaler
+Datumswechsel setzt ihn nicht zurück. Neue Netzwerkstände ersetzen gespeicherte
+Werte einschließlich niedrigerer Stände nach einem serverseitigen Reset.
+
+Im Tagesbalken wächst der Beitrag der laufenden Session proportional als grüner
+Abschnitt mit einer von links nach rechts pulsierenden Animation. Der ältere
+Tagesanteil bleibt blau. Darunter stehen die grünen Session-Kina und alle anderen
+erfassten Drops mit Mengen; es gibt keinen separaten grünen Fortschrittsbalken.
+Ein frisch bestätigter Übergang zum Limit desselben Charakters löst eine
+kurze Erfolgsanimation aus; der Tagesbalken bleibt anschließend gold. Ein bereits
+voller Cache oder Charakterwechsel erzeugt keine nachträgliche Erfolgsanimation.
+Ausgeblendete Fenster stoppen ihren Animationstimer. Vorschau und PNG-Abnahme
+verwenden denselben Produktionsrenderer wie das tatsächliche Overlay.
+
+Kina und Droplisten verwenden die über Item-ID bzw. Petnummer exakt zugeordneten
+lokalen Grafiken. Das gilt für das native HUD und die Sessionbeute im Loot-Tracker.
+Kristalle verwenden die ausdrückliche native Typzuordnung. Die eingebauten
+Thumbnails werden begrenzt zwischengespeichert; Zeichnen und Freigabe teilen einen
+Cachebesitzer. Fehlende oder beschädigte Grafiken beeinflussen keine Zähler.
+
+## Boss Rush: Spawn-Dauer und Sichtfenster (2026-10-26)
+
+Boss-Rush-Marker gespawnter Bosse zeigen zusätzlich die aufwärtszählende Dauer seit dem
+serverseitigen Spawnzeitpunkt (MM:SS). Standardmäßig sind sie nur bei bekanntem Alter von
+0 bis einschließlich 60 Sekunden sichtbar. „Gespawnte Bosse älter als 1 Min. anzeigen“
+im Map-Tab hebt nur die obere Altersgrenze auf; die Wahl bleibt gespeichert und gilt
+für Worldmap, Minimap und Appkarte. Unbekannte oder zukünftige Spawnzeiten erzeugen
+keinen aktiven Boss-Rush-Marker. Gespeicherte Stände bleiben verblasst grün/unbestätigt.
+
+Sekundenticks ändern innerhalb des Fensters nur den Counter. Erst Grenzübertritt oder
+Schalterwechsel ändern die Navigationsszene. Leaflet kann die Altersgrenze auch ohne
+neuen Zielcallback anhand der monoton fortgeschriebenen Serverdauer anwenden. Normale
+Katalogsymbole, Quellstatus und Alerts werden durch diese Darstellungsregel nicht gelöscht.
+
+## Besondere Lootdrops (2026-10-26)
+
+Unique, Epic, Mythic und Special erhalten in der nativen Beuteliste und dem
+Loot-Tab fließende farbige Lichtbänder und dezente Partikel; Unique verwendet
+die goldene Itemkarten-Anmutung. Text, Originalicon und Menge bleiben darüber
+lesbar. Die gespeicherte Animationsoption und reduzierte Browserbewegung stoppen
+die Effekte. Unsichtbare native Fenster unterhalten keine Animationsschleife.
+
+Neu persistierte eigene Drops erzeugen vier Sekunden lange Fundhinweise. Bis zu
+drei gleichzeitige Hinweise sind begrenzt sichtbar; Verbergen verwirft sie, ohne
+späteren Rückstau. Die Laufzeit ist monoton. Der deterministisch erzeugte lokale
+Dropklang besitzt einen eigenen Windows-Audiokanal und ersetzt keine Boss-/
+Eventtöne. Fundhinweise, Ton, Lautstärke und Animation sind getrennt einstellbar.
+
+
+Nutzerergänzung 26.10.: Alle bekannten Itemqualitäten färben auch den Namen in
+der Dropliste, unabhängig von einem besonderen Hintergrund. Common weiß, Rare
+grün, Legend blau und Unique gelb sind durch die vier Veredelungssteinbeispiele
+bestätigt. Razor und nativer Renderer teilen dieselbe Namenpalette; unbekannte
+Itemqualität bleibt neutral. Raritätsalarme und Zählung werden dadurch nicht erweitert.
+
+Loot-Overlay-Ergänzung 26.10.: Hintergrundtransparenz skaliert ausschließlich die
+vorhandene Theme-Fläche (0 % ursprüngliche Stärke, 100 % ohne Flächenfüllung).
+Text, Icons, Rahmen und Fortschritt behalten ihre Deckkraft. Keine zweite Bitmap
+pro Animationsframe. Die gespeicherte Option „Bei Sessionstart einblenden“ ist
+zunächst aus; Aktivierung alleine blendet nichts ein. Erst ein neuer dauerhaft
+verbuchter PvE-Sessionstart setzt den eigenen Overlay-Schalter. Ein rein flüchtiger
+Alert-Vorbereitungsaufruf hält den ersten Rare-Drop bis zum UI-Callback sichtbar,
+respektiert aber zuletzt bestätigte Unterdrückung und beendet sich bei Dispose.
+
+Rechts neben Session-Kina steht deren Live-Stundenrate. Common Gear ist eine reine
+Overlay-Projektion anhand exakter nativer Equip-Klassifikation und Common-Grade,
+keine Gruppierung weißer Materialien. Unbekannte Itemtypen bleiben einzelne Zeilen;
+Sessionjournal und Loot-Tab behalten ihre ursprünglichen Items.
+
+Das bisherige „Loot & Pet-Fortschritt“ heißt in Overlayauswahl und nativem HUD
+„Pet-Fortschritt“ / „Pet progress“; das separate Loot-Overlay bleibt eigenständig.
+
+Unique, Epic, Mythic und Special besitzen unabhängig gespeicherte Alertprofile:
+Fundhinweis aktivieren und Signalton ausschalten, Standardklang oder lokale MP3
+wählen. Der gemeinsame Fundhinweis-/Tonschalter und die Lautstärke bleiben die
+übergeordneten Einstellungen. Die MP3-Bibliothek und Dateiauswahl werden mit den
+bestehenden Alerts geteilt; Hörprobe und echte Dropwiedergabe verwenden ausschließlich
+den Drop-Audiokanal. Fehlende oder unlesbare MP3-Dateien melden den Rückfall auf den
+Standardklang. Vorschau erzeugt keine Beute, Session oder gespeicherte Fundmeldung.
+
+Der Standard-Dropklang ist die vom Nutzer gewählte eigene Resonant-Komposition:
+4,1 Sekunden, 48 kHz Stereo, gekürzter weicher Ausklang und reduzierte
+Rauschschichten. Die PCM16-WAV ist eine eingebettete Appressource; sie benötigt
+keine externe Audiodatei. Hörprobe und neue Drops nutzen dieselbe Ressource.

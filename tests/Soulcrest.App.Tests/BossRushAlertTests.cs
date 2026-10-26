@@ -48,14 +48,13 @@ public sealed class BossRushAlertTests
                 0, 0x99, 0xe3, 6, 0, .. BitConverter.GetBytes(now + 10000), 0, 0, 0]);
             var warning = Assert.Single(rush.Alerts);
             Assert.False(warning.Spawned);
-            Assert.Null(targets.BossRush);
-            Assert.Null(targets.BossPreview);
+            Assert.Empty(targets.BossNavigationTargets);
 
             settings.Update(s => s.BossRushEnabled = true);
-            Assert.NotNull(targets.BossPreview);
+            Assert.Single(targets.BossNavigationTargets);
             Assert.Equal(warning.Id, Assert.Single(rush.Alerts).Id);
             settings.Update(s => s.BossRushEnabled = false);
-            Assert.Null(targets.BossPreview);
+            Assert.Empty(targets.BossNavigationTargets);
             Assert.Equal(warning.Id, Assert.Single(rush.Alerts).Id);
 
             clock.Advance(10000);
@@ -63,8 +62,7 @@ public sealed class BossRushAlertTests
             rush.OnMessage("fixture", [1, 0x91, 0, 0, 0x56, 4, 0, 0, 1,
                 1, 0x99, 0xe3, 6, .. new byte[12], 1, .. BitConverter.GetBytes(now + 10000), 0, 0, 0]);
             Assert.True(Assert.Single(rush.Alerts).Spawned);
-            Assert.Null(targets.BossRush);
-            Assert.Null(targets.BossPreview);
+            Assert.Empty(targets.BossNavigationTargets);
             settings.Update(s => s.BossAlertsEnabled = false);
             Assert.Empty(rush.Alerts);
             rush.PreviewAlert();

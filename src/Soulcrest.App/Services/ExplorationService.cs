@@ -205,6 +205,21 @@ public sealed partial class ExplorationService
         current.CharacterId == context.CharacterId && context.Sequence >= current.Sequence && context.Sequence > lastSequence
             ? _state.Characters.SingleOrDefault(c => c.Id == _networkCharacter) : null;
 
+    /// <summary>Copies the bound own profile, independently of the manually selected exploration profile.</summary>
+    public LootTrackerCharacterSnapshot? TryGetBoundCharacter(OwnCharacterContext expected)
+    {
+        lock (_gate)
+        {
+            if (_networkContext is not { } current || current.Generation != expected.Generation
+                || expected.Generation <= _invalidatedGeneration
+                || current.Identity != expected.Identity
+                || _state.Characters.SingleOrDefault(c => c.Id == _networkCharacter) is not { } character
+                || character.NetworkCharacterId != current.CharacterId || character.ServerId != current.ServerId)
+                return null;
+            return LootTrackerPresentation.CaptureCharacter(character, expected.CombatScore, expected.GearScore);
+        }
+    }
+
     /// <summary>Only a fresh own-bound, exactly mapped positive quest record confirms completion; other shapes and absence clear no state.</summary>
     public bool ApplyNetworkQuests(QuestProgressSnapshot snapshot, NetworkProgressContext context)
     {

@@ -1,0 +1,450 @@
+@implements IDisposable
+@inject SettingsService Settings
+@inject IServiceProvider Services
+
+@{
+    var sessions = VisibleSessions;
+    var session = sessions.FirstOrDefault(row => row.Id == _selectedId) ?? sessions.FirstOrDefault();
+}
+
+<div class="loot-page @(!Settings.Current.LootDropAnimationsEnabled ? "lt-motion-disabled" : "")">
+    <div class="lt-shell">
+        <header class="lt-page-head">
+            <div class="lt-title">
+                <span class="lt-emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m4 8 8-5 8 5v9l-8 5-8-5Z M4 8l8 5 8-5 M12 13v9 M8 5.5l8 5" /></svg></span>
+                <div><span class="lt-kicker">@UiText.T("Farmstatistik")</span><h2>Loot Tracker</h2><p>@UiText.T("Beute, Einnahmen und deine gelaufenen Routen.")</p></div>
+            </div>
+            <div class="lt-automation">
+                <label class="lt-lifeskill-toggle lt-monster-toggle"><input id="loot-monster-enabled" type="checkbox" checked="@Settings.Current.MonsterLootTrackingEnabled" disabled="@(IsExample || _savingMonster)" aria-busy="@_savingMonster" @onchange="ChangeMonsterEnabled" />@UiText.T("Open-World-PvE aufnehmen")</label>
+                <label class="lt-lifeskill-toggle"><input id="loot-lifeskill-enabled" type="checkbox" checked="@Settings.Current.LifeskillTrackingEnabled" disabled="@(IsExample || _savingLifeskill)" aria-busy="@_savingLifeskill" @onchange="ChangeLifeskillEnabled" />@UiText.T("Lifeskill aufnehmen")</label>
+                <label class="lt-lifeskill-toggle lt-overlay-toggle"><input id="loot-overlay-enabled" type="checkbox" checked="@Settings.Current.LootOverlayEnabled" disabled="@(IsExample || _savingOverlay)" aria-busy="@_savingOverlay" @onchange="ChangeLootOverlayEnabled" />@UiText.T("Loot-Overlay anzeigen")</label>
+                <label class="lt-idle-label" for="loot-idle-timeout">@UiText.T("Session beenden nach") <input id="loot-idle-timeout" type="number" min="1" max="60" step="1" disabled="@_saving" aria-busy="@_saving" value="@Settings.Current.LootTrackerIdleTimeoutMinutes" @onchange="ChangeIdleTimeout" /> @UiText.T("Min. ohne Loot")</label>
+                <InfoTip><p>@UiText.T("Bestätigte Open-World-Beute startet eine PvE-Session. Jeder Drop verlängert ihren Timer. Das Ausblenden des Overlays pausiert die Aufnahme nicht.")</p><p>@UiText.T("Der erste bestätigte Sammelversuch startet eine neue Lifeskill-Session. Nur Sammelbeute verlängert ihren Timer. Sessionzeit und Route enden beim letzten bestätigten Versuch.")</p></InfoTip>
+            </div>
+        </header>
+
+        <details class="lt-drop-options">
+            <summary>@UiText.T("Overlay und Drop-Alerts")</summary>
+            <div>
+                <label><input id="loot-overlay-auto-show" type="checkbox" checked="@Settings.Current.LootOverlayShowOnSessionStart" disabled="@(IsExample || _savingDropOptions)" @onchange="@(e => ChangeDropOption(e, Settings.SetLootOverlayShowOnSessionStart))" />@UiText.T("Bei Sessionstart einblenden")</label>
+                <label for="loot-background-transparency">@UiText.T("Hintergrundtransparenz")<input id="loot-background-transparency" type="range" min="0" max="100" step="1" value="@Math.Round((1 - Settings.Current.LootOverlayBackgroundOpacity) * 100)" disabled="@(IsExample || _savingDropOptions)" @onchange="ChangeLootTransparency" /><span>@Math.Round((1 - Settings.Current.LootOverlayBackgroundOpacity) * 100)%</span></label>
+                <label><input id="loot-drop-alerts-enabled" type="checkbox" checked="@Settings.Current.LootDropAlertsEnabled" disabled="@(IsExample || _savingDropOptions)" @onchange="ChangeDropAlerts" />@UiText.T("Fundhinweise ab Unique")</label>
+                <label><input id="loot-drop-sound-enabled" type="checkbox" checked="@Settings.Current.LootDropSoundEnabled" disabled="@(IsExample || _savingDropOptions)" @onchange="ChangeDropSound" />@UiText.T("Drop-Ton")</label>
+                <label><input id="loot-drop-animations-enabled" type="checkbox" checked="@Settings.Current.LootDropAnimationsEnabled" disabled="@(IsExample || _savingDropOptions)" @onchange="ChangeDropAnimations" />@UiText.T("Item-Animationen")</label>
+                <label for="loot-drop-volume">@UiText.T("Lautstärke")<input id="loot-drop-volume" type="range" min="0" max="100" step="1" value="@Math.Round(Settings.Current.LootDropSoundVolume * 100)" disabled="@(IsExample || _savingDropOptions || !Settings.Current.LootDropSoundEnabled)" @onchange="ChangeDropVolume" /><span>@Math.Round(Settings.Current.LootDropSoundVolume * 100)%</span></label>
+            </div>
+            <LootDropAlertSettings Disabled="@(IsExample || _savingDropOptions)" />
+        </details>
+
+        @if (IsExample)
+        {
+            <div class="lt-example" role="note"><strong>@UiText.T("Beispieldaten")</strong><span>@UiText.T("Oberflächenvorschau mit erfundenen Werten. Keine aufgezeichnete Spielsession.")</span></div>
+        }
+        else if (!SourceAvailable || !string.IsNullOrWhiteSpace(SourceStatus))
+        {
+            <div class="lt-unavailable @(SourceAvailable ? "ready" : "") @(SourceStatusIsError ? "error" : "")" role="status"><span class="lt-dot" aria-hidden="true"></span>@UiText.T(SourceStatus ?? "Die neue Sessionerfassung ist noch nicht angebunden. Hier erscheinen bisher keine Kina-, Item- oder Routendaten. Das bestehende Pet-Tracking ist davon unabhängig.")</div>
+        }
+        @if (_saveFeedback is not null)
+        {
+            <div class="lt-save-feedback @(_saveFailed ? "error" : "")" role="status">@UiText.T(_saveFeedback)</div>
+        }
+        @if (_deleteFeedback is not null)
+        {
+            <div class="lt-save-feedback" role="status">@UiText.T(_deleteFeedback)</div>
+        }
+
+        <div class="lt-workspace">
+            <aside class="lt-sessions" aria-label="@UiText.T("Loot-Sessions")">
+                <div class="lt-section-head"><h3>@UiText.T("Sessions")</h3><span class="lt-count">@sessions.Length / @AllSessions.Length</span></div>
+                <div class="lt-filter" role="group" aria-label="@UiText.T("Sessiontyp")">
+                    <button type="button" data-kind="all" class="@FilterClass("all")" aria-pressed="@(_kind == "all")" @onclick="@(() => SetKindFilter("all"))">@UiText.T("Alle")</button>
+                    <button type="button" data-kind="grind" class="@FilterClass("grind")" aria-pressed="@(_kind == "grind")" @onclick="@(() => SetKindFilter("grind"))">@UiText.T("Open-World-PvE")</button>
+                    <button type="button" data-kind="lifeskill" class="@FilterClass("lifeskill")" aria-pressed="@(_kind == "lifeskill")" @onclick="@(() => SetKindFilter("lifeskill"))">Lifeskill</button>
+                    <button type="button" data-kind="dungeon" class="@FilterClass("dungeon")" aria-pressed="@(_kind == "dungeon")" @onclick="@(() => SetKindFilter("dungeon"))">@UiText.T("Dungeons")</button>
+                </div>
+                <label class="lt-search"><input id="loot-session-search" type="text" aria-label="@UiText.T("Sessions durchsuchen")" placeholder="@UiText.T("Charakter, Ort, Dungeon oder Monster …")" value="@_search" @oninput="SetSearch" /></label>
+                <label class="lt-character-filter" for="loot-character-filter">@UiText.T("Charakter")<select id="loot-character-filter" value="@_characterId" @onchange="ChangeCharacterFilter"><option value="all">@UiText.T("Alle Charaktere")</option>@foreach (var character in Characters) { <option value="@character.Id">@character.Name</option> }@if (AllSessions.Any(row => LootTrackerPresentation.CharacterProfileId(row) is null)) { <option value="unassigned">@UiText.T("Ohne Charakterzuordnung")</option> }</select></label>
+                <div class="lt-session-list">
+                    @foreach (var day in LootTrackerDayPresentation.Group(sessions))
+                    {
+                        var dayKey = DayKey(day.Day);
+                        var expanded = !_collapsedDays.Contains(day.Day);
+                        <section class="lt-day-group" data-farm-day="@dayKey" @key="day.Day">
+                        <button type="button" class="lt-day-heading" data-toggle-farm-day="@dayKey" aria-expanded="@(expanded ? "true" : "false")" aria-controls="@("loot-day-" + dayKey)" @onclick="@(() => ToggleDay(day.Day))">
+                            <span class="lt-day-title"><span class="lt-day-chevron" aria-hidden="true">›</span><strong>@day.Day.ToString("d", Culture)</strong><span>@day.Sessions.Length</span></span>
+                            <span class="lt-day-kina">@UiText.T("Ungebundene Kina") <b data-day-unbound="@dayKey">@DayAmount(day.KinaUnbound)</b></span>
+                            <span class="lt-day-kina">@UiText.T("Gebundene Kina") <b data-day-bound="@dayKey">@DayAmount(day.KinaBound)</b></span>
+                            <span class="lt-day-loot">@UiText.F("{0} Items · {1} Souls", DayAmount(day.Items), DayAmount(day.Souls))</span>
+                        </button>
+                        <div id="@("loot-day-" + dayKey)" class="lt-day-sessions" hidden="@(!expanded)">
+                    @foreach (var row in day.Sessions)
+                    {
+                        <div class="lt-session-entry">
+                        <button type="button" class="lt-session @(row.Id == session?.Id ? "selected" : "")" data-session-id="@row.Id" aria-pressed="@(row.Id == session?.Id)" @onclick="@(() => SelectSession(row.Id))">
+                            <span class="lt-session-kind">@KindLabel(row) @if (row.Status == LootTrackerSessionStatus.Live) { <span class="lt-dot" aria-label="@UiText.T("Laufend")"></span> }</span>
+                            @if (row.Mode == LootTrackerSessionMode.LimitedKina) { <span class="lt-limited-label">Limited Kina Session</span> }
+                            <span class="lt-session-name">@Name(row)</span>
+                            @if (row.LocationApproximate) { <span class="lt-location-approx" title="@UiText.T("Nächstgelegenes Gebietslabel; keine bestätigte Gebietsgrenze.")">≈ @UiText.T("Ortszuordnung angenähert")</span> }
+                            <span class="lt-session-character">@CharacterName(row)</span>
+                            <span class="lt-session-meta"><span>@LocalDate(row.StartedAt) · @Duration(row.Elapsed)</span><strong title="@(HasUnboundOnlyKina(row) ? UiText.T("Nur bestätigte ungebundene Kina") : null)">@(row.Kind == LootTrackerSessionKind.Lifeskill ? UiText.F("{0} Items", Number(row.ItemCount)) : Number(DisplayedKina(row)))</strong></span>
+                        </button>
+                        <button type="button" class="lt-session-delete" data-delete-session-id="@row.Id" title="@UiText.T("Session löschen")" aria-label="@UiText.F("Session {0} löschen", Name(row))" disabled="@(IsExample || !DeleteSession.HasDelegate || _deletingId is not null || _deleteAwaitingRemovalId == row.Id)" aria-busy="@(_deletingId == row.Id)" @onclick="@(() => RequestDelete(row.Id))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 10v7 M14 10v7" /></svg></button>
+                        @if (_deleteConfirmId == row.Id)
+                        {
+                            <div class="lt-delete-confirm" role="group" aria-label="@UiText.T("Session endgültig löschen?")">
+                                <p>@UiText.T(row.Status == LootTrackerSessionStatus.Live ? "Laufende Session beenden und endgültig löschen?" : "Session endgültig löschen?")</p>
+                                <div><button type="button" class="lt-delete-accept" data-confirm-delete-id="@row.Id" disabled="@(_deletingId is not null)" @onclick="@(() => ConfirmDelete(row.Id))">@UiText.T(_deletingId == row.Id ? "Löscht …" : "Löschen")</button><button type="button" data-cancel-delete-id="@row.Id" disabled="@(_deletingId is not null)" @onclick="CancelDelete">@UiText.T("Abbrechen")</button></div>
+                                @if (_deleteErrorId == row.Id) { <p class="lt-delete-error" role="alert">@UiText.T("Die Session konnte nicht gelöscht werden.")</p> }
+                            </div>
+                        }
+                        </div>
+                    }
+                        </div>
+                        </section>
+                    }
+                    @if (sessions.Length == 0)
+                    {
+                        <div class="lt-sidebar-empty">@UiText.T(AllSessions.Length == 0 ? "Noch keine Sessions aufgezeichnet." : "Keine passende Session gefunden.")</div>
+                    }
+                </div>
+                <div class="lt-sidebar-foot">@UiText.T("Farmtage: 07:00 UTC bis 07:00 UTC. PvE, Lifeskill und Dungeon-Runs bleiben einzeln auswählbar.")</div>
+            </aside>
+
+            <div class="lt-detail">
+                @if (session is not null)
+                {
+                    var income = HasUnboundOnlyKina(session) ? LootTrackerCharts.UnboundIncome(session) : LootTrackerCharts.Income(session);
+                    var displayedSegments = LootTrackerPresentation.DisplayedRouteSegments(session);
+                    var maps = displayedSegments.IsDefaultOrEmpty ? [] : displayedSegments.DistinctBy(segment => segment.MapId).ToArray();
+                    var routeMap = maps.FirstOrDefault(map => map.MapId == _routeMapId) ?? maps.FirstOrDefault();
+                    var resourceVisits = LootTrackerPresentation.GetValidatedResourceVisits(session);
+                    var farmRoute = LootTrackerPresentation.UsesFarmRoute(session);
+                    var farmPoints = session.FarmRoutePoints.IsDefaultOrEmpty ? [] : session.FarmRoutePoints;
+                    <header class="lt-session-heading">
+                        <div>
+                            <div class="lt-heading-tags"><span class="lt-tag @KindClass(session)">@KindLabel(session)</span>@if (session.Mode == LootTrackerSessionMode.LimitedKina) { <span class="lt-tag limited" data-testid="limited-kina-mode">Limited Kina Session</span> }<span class="lt-status @(session.Status == LootTrackerSessionStatus.Live ? "live" : "")"><span class="lt-dot" aria-hidden="true"></span>@StatusLabel(session.Status)</span></div>
+                            <h3>@Name(session)</h3>
+                            @if (session.LocationApproximate) { <span class="lt-location-approx" title="@UiText.T("Nächstgelegenes Gebietslabel; keine bestätigte Gebietsgrenze.")">≈ @UiText.T("Ortszuordnung angenähert")</span> }
+                            <div class="lt-meta"><span class="lt-character-tag" data-testid="character-name">@CharacterName(session)</span><span>@session.StartedAt.ToLocalTime().ToString("g", Culture)</span><span>@UiText.T("Sessionzeit") <strong>@Duration(session.Elapsed)</strong></span></div>
+                        </div>
+                        <div class="lt-scores" title="@UiText.T("Charakter und Scores zum Sessionstart")"><div class="lt-score"><span>Combat Score</span><strong data-testid="combat-score">@Number(LootTrackerPresentation.CombatScore(session))</strong></div><div class="lt-score"><span>Gear Score</span><strong data-testid="gear-score">@Number(LootTrackerPresentation.GearScore(session))</strong></div><span class="lt-score-caption">@UiText.T("Stand zum Sessionstart")</span></div>
+                    </header>
+                    @if (session.CoverageLimited) { <div class="lt-coverage" role="note">@UiText.T("Aufzeichnung mit Lücken. Die angezeigten Werte können unvollständig sein.")</div> }
+
+                    <dl class="lt-metrics @(session.Kind == LootTrackerSessionKind.Lifeskill ? "lifeskill" : "")">
+                        @if (session.Kind == LootTrackerSessionKind.Lifeskill)
+                        {
+                            <div class="lt-metric gold"><dt>@UiText.T("Sammelerfolge")</dt><dd data-testid="harvest-count">@Number(session.HarvestCount)</dd><small>@UiText.T("Nur bestätigte Sammelerfolge")</small></div>
+                            <div class="lt-metric failed"><dt>@UiText.T("Fehlversuche")</dt><dd data-testid="failed-harvest-count">@Number(session.FailedHarvestCount)</dd><small>@UiText.T("Bestätigte Versuche ohne Beute")</small></div>
+                            <div class="lt-metric"><dt>@UiText.T("Erhaltene Items")</dt><dd data-testid="item-count">@Number(session.ItemCount)</dd><small>@UiText.T("Bestätigte Itemmengen")</small></div>
+                            <div class="lt-metric rate"><dt>@UiText.T("Items pro Stunde")</dt><dd data-testid="item-rate">@ItemRate(session)</dd><small>@UiText.T("Ohne Inaktivitätsnachlauf")</small></div>
+                            <div class="lt-metric"><dt>@UiText.T(farmRoute ? "Sammelstellen" : "Ressourcen-Nodes")</dt><dd data-testid="resource-count">@Number(farmRoute ? farmPoints.Length : resourceVisits.Count > 0 ? resourceVisits.Count : null)</dd><small>@UiText.T(farmRoute ? "Erfolge und Fehlversuche" : "Nur eindeutig zugeordnete Besuche")</small></div>
+                        }
+                        else
+                        {
+                        <div class="lt-metric gold"><dt>@UiText.T(HasUnboundOnlyKina(session) ? "Ungebundene Kina" : "Kina gesamt")</dt><dd class="lt-kina-value">@KinaIcon<span data-testid="kina-total">@Number(DisplayedKina(session))</span></dd><div class="lt-breakdown"><span>@UiText.T("Gebunden") <b data-testid="kina-bound">@Number(session.KinaBound)</b></span><span>@UiText.T("Ungebunden") <b data-testid="kina-unbound">@Number(session.KinaUnbound)</b></span></div></div>
+                        <div class="lt-metric rate"><dt>@UiText.T("Kina pro Stunde")</dt><dd class="lt-kina-value">@KinaIcon<span data-testid="kina-rate">@Rate(session)</span></dd><small>@UiText.T("Nur erfasste Einnahmen")</small></div>
+                        @if (session.Kind == LootTrackerSessionKind.Lifeskill) { <div class="lt-metric"><dt>@UiText.T("Ressourcen-Nodes")</dt><dd data-testid="resource-count">@Number(resourceVisits.Count > 0 ? resourceVisits.Count : null)</dd><small>@UiText.T("In Besuchsreihenfolge aufgenommen")</small></div> }
+                        else { <div class="lt-metric"><dt>@UiText.T("Monster")</dt><dd data-testid="monster-count">@Number(session.MonsterCount)</dd><small>@UiText.T("Bestätigte eigene Kills")</small></div> }
+                        <div class="lt-metric"><dt>@UiText.T("Souls")</dt><dd data-testid="soul-count">@Number(session.SoulCount)</dd><small>@UiText.F("{0} Items erhalten", Number(session.ItemCount))</small></div>
+                        }
+                    </dl>
+
+
+                    <div class="lt-visuals">
+                        @if (session.Kind == LootTrackerSessionKind.Lifeskill)
+                        {
+                            <section class="lt-panel" aria-label="@UiText.T("Sammelbeute")">
+                                <div class="lt-section-head"><h3>@UiText.T("Sammelbeute")</h3><span class="lt-count">@UiText.T("Mengenverteilung")</span></div>
+                                <p class="lt-panel-subtitle">@UiText.T("Nur tatsächlich erhaltene Items.")</p>
+                                @if (!session.Loot.IsDefaultOrEmpty && session.Loot.Any(row => row.Kind == LootTrackerLootKind.Item && row.Quantity > 0))
+                                {
+                                    <div class="lt-resource-bars">@foreach (var loot in session.Loot.Where(row => row.Kind == LootTrackerLootKind.Item && row.Quantity > 0)) { <div><span class="lt-resource-name">@LootIcon(loot.Id)<span>@loot.Name</span></span><strong>@Number(loot.Quantity)</strong><div class="lt-mob-bar" aria-hidden="true"><span style="width: @LootPercent(session, loot)%"></span></div></div> }</div>
+                                }
+                                else { <div class="lt-visual-empty" data-testid="gathering-loot-empty">@UiText.T(session.ItemCount == 0 ? "Keine Sammelbeute erhalten." : "Noch keine bestätigte Sammelbeute vorhanden.")</div> }
+                                @if (session.LastLootAt is { } lastLoot) { <p class="lt-panel-subtitle">@UiText.T("Zuletzt gesammelt") · @lastLoot.ToLocalTime().ToString("T", Culture)</p> }
+                            </section>
+                        }
+                        else
+                        {
+                        <section class="lt-panel" aria-label="@UiText.T("Einnahmenverlauf")">
+                            <div class="lt-section-head"><h3>@UiText.T("Einnahmenverlauf")</h3><span class="lt-count">@UiText.T("Kina / Minute")</span></div>
+                            <p class="lt-panel-subtitle">@UiText.T(HasUnboundOnlyKina(session) ? "Nur bestätigte ungebundene Kina" : "Gebundene und ungebundene Kina zusammen")</p>
+                            @if (income.Count > 0)
+                            {
+                                <svg class="lt-chart" viewBox="0 0 440 145" role="img" aria-label="@UiText.T("Erfasste Kina pro Minute")" preserveAspectRatio="none">
+                                    <path class="lt-grid" d="M12 25H428 M12 65H428 M12 105H428 M12 135H428" />
+                                    @foreach (var line in income) { <polygon class="lt-income-fill" points="@line.Area" /><polyline class="lt-income-line" points="@line.Points" /><circle class="lt-income-dot" fill="var(--loot-teal)" cx="@line.LastX" cy="@line.LastY" r="2.8" /> }
+                                </svg>
+                                <div class="lt-chart-labels"><span>00:00</span><span>@Duration(TimeSpan.FromMinutes(session.MinuteIncome.Max(bin => Math.Max(0, bin.Minute))))</span></div>
+                            }
+                            else { <div class="lt-visual-empty">@UiText.T("Noch kein Einnahmenverlauf vorhanden.")</div> }
+                        </section>
+                        }
+                        <section class="lt-panel" aria-label="@UiText.T(RouteLabel(session))">
+                            <div class="lt-section-head"><h3>@UiText.T(RouteLabel(session))</h3>@if (maps.Length > 1) { <select aria-label="@UiText.T("Routenkarte")" value="@routeMap?.MapId" @onchange="ChangeRouteMap">@foreach (var map in maps) { <option value="@map.MapId">@map.MapName</option> }</select> } else { <span class="lt-count">@routeMap?.MapName</span> }</div>
+                            @if (session.Kind == LootTrackerSessionKind.Lifeskill && !farmRoute) { <p class="lt-panel-subtitle" data-testid="legacy-route-note">@UiText.T("Altaufzeichnung: Laufweg ohne gespeicherte Sammelpositionen.")</p> }
+                            @if (session.Kind == LootTrackerSessionKind.Grind && session.Status == LootTrackerSessionStatus.Live && maps.Length == 0) { <p class="lt-panel-subtitle">@UiText.T("Die Routenaufnahme wartet auf frische Minimap-Positionen.")</p> }
+                            <LootTrackerRouteMap Session="session" MapId="@routeMap?.MapId" />
+                            <button id="loot-show-route-on-map" type="button" class="btn" disabled="@(IsExample || _ui is null || routeMap is null || routeMap.Points.IsDefaultOrEmpty)" @onclick="@(() => ShowRouteOnMap(session, routeMap?.MapId))">@UiText.T("Auf Karte anzeigen") ↗</button>
+                        </section>
+                    </div>
+
+                    <section class="lt-route-save" aria-label="@UiText.T("Sessionroute speichern")">
+                        <div class="lt-route-save-controls"><label for="loot-route-name">@UiText.T("Routenname")<input id="loot-route-name" type="text" maxlength="160" value="@RouteName(session)" disabled="@_savingRoute" @oninput="@(e => SetRouteName(session.Id, e))" /></label><button id="loot-save-route" type="button" class="btn" title="@UiText.T(SaveUnavailableReason(session))" disabled="@(SaveUnavailableReason(session) is not null)" @onclick="@(() => SaveRoute(session))">@UiText.T(_savingRoute ? "Speichert …" : "Als Kartenroute speichern")</button></div>
+                        <p>@UiText.T("Erfasste Routen werden unter Eigene Routen im Karten-Tab gespeichert. Getrennte Abschnitte bleiben eigene Routen.")</p>
+                        @if (_savedRoutes.TryGetValue(session.Id, out var savedCount)) { <div class="lt-save-feedback" role="status">@UiText.F("{0} Routen im Karten-Tab gespeichert.", savedCount)</div> }
+                        else if (_routeSaveSessionId == session.Id && _routeSaveError) { <div class="lt-save-feedback error" role="alert">@UiText.T("Die Route konnte nicht gespeichert werden.")</div> }
+                    </section>
+
+                    <div class="lt-loot-grid">
+                        <section class="lt-panel" aria-label="@UiText.T("Sessionbeute")">
+                            <div class="lt-section-head"><h3>@UiText.T("Sessionbeute")</h3><span class="lt-count">@UiText.T("Tatsächlich erhalten")</span></div>
+                            @if (!session.Loot.IsDefaultOrEmpty)
+                            {
+                                <div class="lt-table-wrap"><table class="lt-table lt-loot-table"><thead><tr><th>@UiText.T("Item / Soul")</th><th>@UiText.T("Menge")</th>
+</tr></thead><tbody>@foreach (var loot in session.Loot) { var rarity = LootRarity(loot.Id); <tr class="lt-loot-row @RarityClass(rarity)" data-loot-id="@loot.Id"><td><div class="lt-loot-name">@LootIcon(loot.Id)<span style="@LootNameStyle(rarity)">@loot.Name<span class="lt-loot-kind">@(MonsterLootItemCatalog.IsExceptional(rarity) ? rarity.ToString() : UiText.T(loot.Kind == LootTrackerLootKind.Soul ? "Soul" : "Item"))</span></span></div></td><td>@Number(loot.Quantity)</td>
+</tr> }</tbody></table></div>
+                            }
+                            else { <div class="lt-visual-empty">@UiText.T("Keine einzelnen Loot-Einträge vorhanden.")</div> }
+                        </section>
+                        @if (session.Kind == LootTrackerSessionKind.Lifeskill)
+                        {
+                            @if (farmRoute)
+                            {
+                            <section class="lt-panel" aria-label="@UiText.T("Sammelstellen")"><div class="lt-section-head"><h3>@UiText.T("Sammelstellen")</h3><span class="lt-count">@UiText.T("Routenreihenfolge")</span><InfoTip><p>@UiText.T("Erfolge und Fehlversuche erweitern die Farmroute. Passende Kartennodes innerhalb von 15 Spielmetern ersetzen die Sammelposition.")</p></InfoTip></div>
+                                @if (farmPoints.Length > 0) { <div class="lt-table-wrap"><table class="lt-table lt-farm-stops"><thead><tr><th>#</th><th>@UiText.T("Ressource")</th><th>@UiText.T("Besuche")</th><th>@UiText.T("Erfolge")</th><th>@UiText.T("Fehlversuche")</th></tr></thead><tbody>@for (var index = 0; index < farmPoints.Length; index++) { var point = farmPoints[index]; <tr data-farm-stop-id="@point.Id"><td>@(index + 1)</td><td>@UiText.T(point.Name)<span class="lt-loot-kind">@point.MapName</span></td><td>@Number(point.VisitCount)</td><td>@Number(point.SuccessCount)</td><td>@Number(point.FailureCount)</td></tr> }</tbody></table></div> }
+                                else { <div class="lt-visual-empty">@UiText.T("Noch keine Sammelstellen mit gültiger Position vorhanden.")</div> }
+                            </section>
+                            }
+                            else
+                            {
+                            <section class="lt-panel" aria-label="@UiText.T("Aufgenommene Ressourcennodes")"><div class="lt-section-head"><h3>@UiText.T("Aufgenommene Ressourcennodes")</h3><span class="lt-count">@UiText.T("Besuchsreihenfolge")</span></div>
+                                @if (resourceVisits.Count > 0) { <div class="lt-table-wrap"><table class="lt-table"><thead><tr><th>#</th><th>@UiText.T("Ressource")</th><th>@UiText.T("Karte")</th></tr></thead><tbody>@for (var index = 0; index < resourceVisits.Count; index++) { var visit = resourceVisits[index]; <tr><td>@(index + 1)</td><td>@visit.Name</td><td>@visit.MapName</td></tr> }</tbody></table></div> }
+                                else { <div class="lt-visual-empty">@UiText.T("Noch keine eindeutig zugeordneten Ressourcennodes vorhanden.")</div> }
+                            </section>
+                            }
+                        }
+                        else
+                        {
+                        <section class="lt-panel" aria-label="@UiText.T("Gefarmte Monster")">
+                            <div class="lt-section-head"><h3>@UiText.T("Gefarmte Monster")</h3><span class="lt-count">@UiText.T("Eigene Kills")</span></div>
+                            @if (!session.Mobs.IsDefaultOrEmpty)
+                            {
+                                <div class="lt-table-wrap"><table class="lt-table"><thead><tr><th>@UiText.T("Monster")</th><th>@UiText.T("Anzahl")</th></tr></thead><tbody>@foreach (var mob in session.Mobs) { <tr><td>@mob.Name<div class="lt-mob-bar" aria-hidden="true"><span style="width: @MobPercent(session, mob)%"></span></div></td><td>@Number(mob.Count)</td></tr> }</tbody></table></div>
+                            }
+                            else { <div class="lt-visual-empty">@UiText.T("Noch keine bestätigte Monsterzuordnung vorhanden.")</div> }
+                        </section>
+                        }
+                    </div>
+                    <p class="lt-footnote">@UiText.T(session.Kind == LootTrackerSessionKind.Lifeskill ? "Alle bestätigten Versuche zählen zur Statistik. Ohne gültige Position entsteht kein Routenpunkt; die Beute bleibt erhalten." : "Loot ohne eindeutige Monsterquelle bleibt Teil der Sessionbeute. Fehlende Werte werden als — angezeigt.")</p>
+                }
+                else
+                {
+                    <section class="lt-empty-detail">
+                        <div class="lt-empty-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 17 8 9l5 5 7-10 M15 4h5v5 M3 21h18" /></svg></div>
+                        <h3>@UiText.T(AllSessions.Length == 0 ? "Deine nächste Session beginnt hier" : "Keine Session in dieser Auswahl")</h3>
+                        <p>@UiText.T(AllSessions.Length == 0 ? "Bestätigte Open-World-Beute startet automatisch eine PvE-Session. Lifeskill und Dungeon-Runs erhalten eigene Einträge." : "Ändere den Sessiontyp oder deinen Suchbegriff, um eine andere Session anzuzeigen.")</p>
+                        <div class="lt-empty-features"><span>@UiText.T("Kina & Kina/h")</span><span>@UiText.T("Items & Souls")</span><span>@UiText.T("Open-World-PvE")</span><span>@UiText.T("Lifeskill-Routen")</span><span>@UiText.T("Dungeon-Runs")</span></div>
+                    </section>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public LootTrackerSnapshot Snapshot { get; set; } = LootTrackerSnapshot.Empty;
+    [Parameter] public bool SourceAvailable { get; set; }
+    [Parameter] public string? SourceStatus { get; set; }
+    [Parameter] public bool SourceStatusIsError { get; set; }
+    [Parameter] public bool IsExample { get; set; }
+    [Parameter] public EventCallback<string> DeleteSession { get; set; }
+
+    private string _kind = "all", _search = "", _characterId = "all";
+    private string? _selectedId, _routeMapId, _saveFeedback;
+    private bool _saveFailed, _saving, _disposed;
+    private bool _savingLifeskill;
+    private bool _savingMonster, _savingOverlay, _savingDropOptions;
+    private UiState? _ui;
+    private bool _savingRoute, _routeSaveError;
+    private string? _routeSaveSessionId;
+    private string? _deleteConfirmId, _deletingId, _deleteErrorId, _deleteFeedback, _deleteAwaitingRemovalId;
+    private string[] _deleteSelectionCandidates = [];
+    private LootTrackerRouteSaveService? _routeSaver;
+    private readonly Dictionary<string, string> _routeNames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _savedRoutes = new(StringComparer.Ordinal);
+    private readonly HashSet<DateOnly> _collapsedDays = [];
+    private System.Globalization.CultureInfo Culture => System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");
+    private LootTrackerSession[] AllSessions => Snapshot.Sessions.IsDefaultOrEmpty ? [] : Snapshot.Sessions.OrderByDescending(row => row.StartedAt).ToArray();
+    private (string Id, string Name)[] Characters => AllSessions.Where(row => LootTrackerPresentation.CharacterProfileId(row) is not null)
+        .GroupBy(row => LootTrackerPresentation.CharacterProfileId(row)!, StringComparer.Ordinal)
+        .Select(group => (Id: group.Key, Name: CharacterName(group.First()))).ToArray();
+    private LootTrackerSession[] VisibleSessions => AllSessions.Where(row => (_kind == "all" || KindClass(row) == _kind) && MatchesCharacter(row) && MatchesSearch(row)).ToArray();
+    private bool MatchesCharacter(LootTrackerSession row) => _characterId == "all" || (_characterId == "unassigned" ? LootTrackerPresentation.CharacterProfileId(row) is null : LootTrackerPresentation.CharacterProfileId(row) == _characterId);
+    private bool MatchesSearch(LootTrackerSession row) => Name(row).Contains(_search, StringComparison.OrdinalIgnoreCase)
+        || CharacterName(row).Contains(_search, StringComparison.OrdinalIgnoreCase)
+        || row.Location.Contains(_search, StringComparison.OrdinalIgnoreCase)
+        || (row.DungeonName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (!row.Mobs.IsDefaultOrEmpty && row.Mobs.Any(mob => mob.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)));
+    private string Name(LootTrackerSession session) => LootTrackerPresentation.SessionName(session) ?? UiText.T("Unbenannte Session");
+    private static string CharacterName(LootTrackerSession session) => LootTrackerPresentation.CharacterName(session) ?? UiText.T("Charakter unbekannt");
+    private string RouteName(LootTrackerSession session) => _routeNames.GetValueOrDefault(session.Id) ?? Name(session);
+    private string Number(long? value) => value is >= 0 ? value.Value.ToString("N0", Culture) : "—";
+    private string DayAmount(LootTrackerDayAmount amount) => amount.Value is null ? "—" : amount.Complete ? Number(amount.Value) : UiText.F("{0} · teilweise", Number(amount.Value));
+    private static string DayKey(DateOnly day) => day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+    private void ToggleDay(DateOnly day) { if (!_collapsedDays.Remove(day)) _collapsedDays.Add(day); }
+    private static LootItemRarity LootRarity(string key) => MonsterLootItemCatalog.Default.DropRarity(key);
+    private static string? LootNameStyle(LootItemRarity rarity) => Soulcrest.App.Overlay.LootRarityVisuals.NameCssColor(rarity) is { } color
+        ? "color:" + color : null;
+    private static string RarityClass(LootItemRarity rarity) => MonsterLootItemCatalog.IsExceptional(rarity) ? "rarity-" + rarity.ToString().ToLowerInvariant() : "";
+    private static RenderFragment LootIcon(string key) => @<span class="lt-loot-icon" aria-hidden="true">@if (MonsterLootIconCatalog.Default.DropAsset(key) is { } path) { <img src="@path" width="24" height="24" alt="" /> }</span>;
+    private static RenderFragment KinaIcon => @<span class="lt-kina-icon" aria-hidden="true">@if (MonsterLootIconCatalog.Default.ItemAsset(930100031) is { } path) { <img src="@path" width="24" height="24" alt="" /> }</span>;
+    private static bool HasUnboundOnlyKina(LootTrackerSession session) => session.Kind == LootTrackerSessionKind.Grind
+        && session.KinaBound is null && session.KinaUnbound is >= 0;
+    private static long? DisplayedKina(LootTrackerSession session) => HasUnboundOnlyKina(session)
+        ? session.KinaUnbound : LootTrackerPresentation.TotalKina(session);
+    private string Rate(LootTrackerSession session) => LootTrackerPresentation.PerHour(DisplayedKina(session), session.Elapsed) is { } rate ? rate.ToString("N0", Culture) : "—";
+    private string ItemRate(LootTrackerSession session) => LootTrackerPresentation.PerHour(session.ItemCount, session.Elapsed) is { } rate ? rate.ToString("N0", Culture) : "—";
+    private static string LootPercent(LootTrackerSession session, LootTrackerLoot loot) => Math.Clamp(loot.Quantity / (double)Math.Max(1, session.Loot.Max(row => row.Quantity)) * 100, 0, 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+    private static string Duration(TimeSpan elapsed) => elapsed < TimeSpan.Zero ? "—" : elapsed.TotalHours >= 1 ? $"{(int)elapsed.TotalHours}:{elapsed.Minutes:00}:{elapsed.Seconds:00}" : $"{elapsed.Minutes:00}:{elapsed.Seconds:00}";
+    private string LocalDate(DateTimeOffset at) => at.ToLocalTime().ToString("d", Culture);
+    private static string KindLabel(LootTrackerSession session) => UiText.T(session.Kind switch { LootTrackerSessionKind.Dungeon => "Dungeon-Run", LootTrackerSessionKind.Lifeskill => "Lifeskill-Route", _ => "Open-World-PvE" });
+    private static string KindClass(LootTrackerSession session) => session.Kind switch { LootTrackerSessionKind.Dungeon => "dungeon", LootTrackerSessionKind.Lifeskill => "lifeskill", _ => "grind" };
+    private static string StatusLabel(LootTrackerSessionStatus status) => UiText.T(status switch { LootTrackerSessionStatus.Live => "Laufend", LootTrackerSessionStatus.Completed => "Abgeschlossen", _ => "Unterbrochen" });
+    private static string RouteLabel(LootTrackerSession session) => session.Kind == LootTrackerSessionKind.Dungeon ? "Dungeon-Run"
+        : session.Kind == LootTrackerSessionKind.Lifeskill ? LootTrackerPresentation.UsesFarmRoute(session) ? "Farmroute" : "Alter Laufweg" : "Gelaufene Route";
+    private string FilterClass(string kind) => _kind == kind ? "active" : "";
+    private static string MobPercent(LootTrackerSession session, LootTrackerMob mob) => Math.Clamp(mob.Count / (double)Math.Max(1, session.Mobs.Max(row => row.Count)) * 100, 0, 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+
+    protected void SetKindFilter(string kind) { if (kind is not ("all" or "grind" or "dungeon" or "lifeskill")) return; _kind = kind; _selectedId = null; _routeMapId = null; }
+    protected void SelectSession(string id) { var row = VisibleSessions.FirstOrDefault(row => row.Id == id); if (row is null) return; _selectedId = id; _routeMapId = null; _collapsedDays.Remove(LootTrackerDayPresentation.Day(row)); }
+    protected void SetSearch(ChangeEventArgs e) { _search = e.Value?.ToString()?.Trim() ?? ""; }
+    protected void ChangeCharacterFilter(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString();
+        if (id is not ("all" or "unassigned") && !Characters.Any(character => character.Id == id)) return;
+        _characterId = id!; _selectedId = null; _routeMapId = null;
+    }
+    private void ChangeRouteMap(ChangeEventArgs e) => _routeMapId = e.Value?.ToString();
+    private void ShowRouteOnMap(LootTrackerSession session, string? mapId)
+    {
+        if (IsExample || _ui is null) return;
+        if (!_ui.ShowLootRouteOnMap(session, mapId))
+        { _saveFailed = true; _saveFeedback = "Keine darstellbare Route vorhanden."; }
+    }
+    private void SetRouteName(string sessionId, ChangeEventArgs e) { _routeNames[sessionId] = e.Value?.ToString() ?? ""; _savedRoutes.Remove(sessionId); }
+    private void RequestDelete(string sessionId)
+    {
+        if (IsExample || !DeleteSession.HasDelegate || _deletingId is not null || !VisibleSessions.Any(row => row.Id == sessionId)) return;
+        _deleteConfirmId = sessionId; _deleteErrorId = null; _deleteFeedback = null;
+    }
+    private void CancelDelete() { if (_deletingId is null) { _deleteConfirmId = null; _deleteErrorId = null; } }
+    private async Task ConfirmDelete(string sessionId)
+    {
+        if (IsExample || !DeleteSession.HasDelegate || _deletingId is not null || _deleteConfirmId != sessionId) return;
+        var visible = VisibleSessions;
+        var index = Array.FindIndex(visible, row => row.Id == sessionId);
+        if (index < 0) return;
+        _deleteSelectionCandidates = visible.Skip(index + 1).Concat(visible.Take(index).Reverse()).Select(row => row.Id).ToArray();
+        var selected = visible.FirstOrDefault(row => row.Id == _selectedId) ?? visible.FirstOrDefault();
+        _deleteAwaitingRemovalId = selected?.Id == sessionId ? sessionId : null;
+        _deletingId = sessionId; _deleteErrorId = null;
+        try
+        {
+            await DeleteSession.InvokeAsync(sessionId);
+            _deleteConfirmId = null; _deleteFeedback = "Session gelöscht.";
+            ReconcileDeletedSelection();
+        }
+        catch (Exception) { _deleteErrorId = sessionId; _deleteAwaitingRemovalId = null; }
+        finally { _deletingId = null; }
+    }
+    private void ReconcileDeletedSelection()
+    {
+        if (_deleteAwaitingRemovalId is not { } removedId || AllSessions.Any(row => row.Id == removedId)) return;
+        var visible = VisibleSessions;
+        if (_selectedId is null || _selectedId == removedId || !visible.Any(row => row.Id == _selectedId))
+        {
+            _selectedId = _deleteSelectionCandidates.FirstOrDefault(id => visible.Any(row => row.Id == id)) ?? visible.FirstOrDefault()?.Id;
+            if (visible.FirstOrDefault(row => row.Id == _selectedId) is { } selected)
+                _collapsedDays.Remove(LootTrackerDayPresentation.Day(selected));
+            _routeMapId = null;
+        }
+        _deleteAwaitingRemovalId = null; _deleteSelectionCandidates = [];
+    }
+    protected override void OnParametersSet() => ReconcileDeletedSelection();
+    private async Task SaveRoute(LootTrackerSession session)
+    {
+        if (SaveUnavailableReason(session) is not null || _routeSaver is null) return;
+        _savingRoute = true; _routeSaveError = false; _routeSaveSessionId = session.Id;
+        var name = RouteName(session);
+        try { var routes = await Task.Run(() => _routeSaver.Save(session, name)); _savedRoutes[session.Id] = routes.Count; }
+        catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException or ObjectDisposedException) { _routeSaveError = true; }
+        finally { _savingRoute = false; }
+    }
+    private string? SaveUnavailableReason(LootTrackerSession session) => IsExample ? "Beispielrouten werden nicht gespeichert."
+        : session.Kind == LootTrackerSessionKind.Lifeskill && !LootTrackerPresentation.UsesFarmRoute(session) ? "Altaufzeichnungen enthalten keine exportierbaren Sammelpositionen."
+        : _routeSaver is null ? "Routenspeicherung ist nicht verfügbar."
+        : _savingRoute ? "Speichert …"
+        : session.Status == LootTrackerSessionStatus.Live ? "Beende zuerst die Session."
+        : LootTrackerRouteSaveService.Preview(session).Count == 0 ? "Kein durchgängiger Routenabschnitt vorhanden."
+        : string.IsNullOrWhiteSpace(RouteName(session)) ? "Bitte einen Routennamen eingeben."
+        : _savedRoutes.ContainsKey(session.Id) ? "Diese Sessionroute wurde bereits gespeichert." : null;
+    protected async Task ChangeIdleTimeout(ChangeEventArgs e)
+    {
+        if (_saving) return;
+        _saveFailed = false;
+        if (!int.TryParse(e.Value?.ToString(), out var minutes) || minutes is < 1 or > 60) { _saveFailed = true; _saveFeedback = "Bitte eine Dauer von 1 bis 60 Minuten eingeben."; return; }
+        _saving = true;
+        _saveFeedback = "Speichert …";
+        try { await Task.Run(() => Settings.SetLootTrackerIdleTimeoutMinutes(minutes)); _saveFeedback = "Inaktivitätsdauer gespeichert."; }
+        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException) { _saveFailed = true; _saveFeedback = "Inaktivitätsdauer konnte nicht gespeichert werden."; }
+        finally { _saving = false; }
+    }
+    protected async Task ChangeLifeskillEnabled(ChangeEventArgs e)
+    {
+        if (IsExample || _savingLifeskill || e.Value is not bool enabled) return;
+        _savingLifeskill = true;
+        _saveFailed = false;
+        _saveFeedback = "Speichert …";
+        try { await Task.Run(() => Settings.SetLifeskillTrackingEnabled(enabled)); _saveFeedback = enabled ? "Lifeskill-Aufnahme eingeschaltet." : "Lifeskill-Aufnahme ausgeschaltet."; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _saveFailed = true; _saveFeedback = "Lifeskill-Einstellung konnte nicht gespeichert werden."; }
+        finally { _savingLifeskill = false; }
+    }
+    protected async Task ChangeMonsterEnabled(ChangeEventArgs e)
+    {
+        if (IsExample || _savingMonster || e.Value is not bool enabled) return;
+        _savingMonster = true; _saveFailed = false; _saveFeedback = "Speichert …";
+        try { await Task.Run(() => Settings.SetMonsterLootTrackingEnabled(enabled)); _saveFeedback = enabled ? "Open-World-PvE-Aufnahme eingeschaltet." : "Open-World-PvE-Aufnahme pausiert."; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _saveFailed = true; _saveFeedback = "PvE-Einstellung konnte nicht gespeichert werden."; }
+        finally { _savingMonster = false; }
+    }
+    protected async Task ChangeLootOverlayEnabled(ChangeEventArgs e)
+    {
+        if (IsExample || _savingOverlay || e.Value is not bool enabled) return;
+        _savingOverlay = true; _saveFailed = false; _saveFeedback = "Speichert …";
+        try { await Task.Run(() => Settings.SetLootOverlayEnabled(enabled)); _saveFeedback = enabled ? "Loot-Overlay eingeschaltet." : "Loot-Overlay ausgeschaltet."; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _saveFailed = true; _saveFeedback = "Loot-Overlay-Einstellung konnte nicht gespeichert werden."; }
+        finally { _savingOverlay = false; }
+    }
+    private Task ChangeDropAlerts(ChangeEventArgs e) => ChangeDropOption(e, Settings.SetLootDropAlertsEnabled);
+    private Task ChangeDropSound(ChangeEventArgs e) => ChangeDropOption(e, Settings.SetLootDropSoundEnabled);
+    private Task ChangeDropAnimations(ChangeEventArgs e) => ChangeDropOption(e, Settings.SetLootDropAnimationsEnabled);
+    private Task ChangeDropOption(ChangeEventArgs e, Action<bool> save) => e.Value is bool enabled
+        ? SaveDropOptions(() => save(enabled)) : Task.CompletedTask;
+    private Task ChangeDropVolume(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var volume) && volume is >= 0 and <= 100
+        ? SaveDropOptions(() => Settings.SetLootDropSoundVolume(volume / 100d)) : Task.CompletedTask;
+    private Task ChangeLootTransparency(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var percent) && percent is >= 0 and <= 100
+        ? SaveDropOptions(() => Settings.SetLootOverlayBackgroundOpacity(1 - percent / 100d)) : Task.CompletedTask;
+    private async Task SaveDropOptions(Action save)
+    {
+        if (IsExample || _savingDropOptions) return;
+        _savingDropOptions = true; _saveFailed = false; _saveFeedback = "Speichert …";
+        try { await Task.Run(save); _saveFeedback = "Overlay- und Drop-Einstellungen gespeichert."; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _saveFailed = true; _saveFeedback = "Overlay- und Drop-Einstellungen konnten nicht gespeichert werden."; }
+        finally { _savingDropOptions = false; }
+    }
+    protected override void OnInitialized() { _routeSaver = Services.GetService(typeof(LootTrackerRouteSaveService)) as LootTrackerRouteSaveService; _ui = Services.GetService(typeof(UiState)) as UiState; Settings.Changed += Refresh; }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); }); }
+    public void Dispose() { _disposed = true; Settings.Changed -= Refresh; }
+}

@@ -74,8 +74,8 @@ public sealed partial class RouteOverlayForm
     {
         var onMap = targets.VisibleTargets.Select((t, i) => (Target: t, Index: i)).Where(t => t.Target.MapId == map).ToList();
         if (targets.Progression is { } next && next.MapId == map) onMap.Add((next, -1));
-        if (targets.BossRush is { } boss && boss.MapId == map) onMap.Add((boss, -2));
-        if (targets.BossPreview is { } preview && preview.MapId == map) onMap.Add((preview, -3));
+        onMap.AddRange(targets.BossNavigationTargets.Where(target => target.MapId == map)
+            .Select((target, index) => (target, -2 - index)));
         if (!settings.ShowRoutesInGame) onMap.Clear();
 
         string? Pet(MapTarget target) => target.PetId ?? (target.Kind.StartsWith("Pets", StringComparison.Ordinal)
@@ -191,7 +191,7 @@ public sealed partial class RouteOverlayForm
         {
             var target = result[i].Target;
             if (target.Completed || target.Leveling && string.IsNullOrWhiteSpace(target.Name)
-                || target.After is { } after && prepared.TargetIds.Contains(after)) continue;
+                || target.After is { } after && (target.IsBossNavigation || prepared.TargetIds.Contains(after))) continue;
             var pixels = Math.Sqrt((target.X - player.X) * (target.X - player.X) + (target.Y - player.Y) * (target.Y - player.Y));
             result[i] = (target with { Name = $"{target.Name} · {DistanceText(pixels * metersPerPixel)}" }, result[i].Index);
         }
