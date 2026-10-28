@@ -12,5 +12,7 @@
     <EmbeddedResource Include="..\..\data\pets\merchant-farm-regions.json" LogicalName="Soulcrest.PetFarmRegions.json" />
     <EmbeddedResource Include="..\..\data\daevanion\catalog.json" LogicalName="Soulcrest.DaevanionCatalog.json" />
     <EmbeddedResource Include="..\..\data\instances\catalog.json" LogicalName="Soulcrest.InstanceCatalog.json" Condition="Exists('..\..\data\instances\catalog.json')" />
+    <!-- Public builds (user decision 2026-10-28): numeric world kinds only, without names or evidence. -->
+    <EmbeddedResource Include="..\..\data\instances\map-kinds.json" LogicalName="Soulcrest.InstanceCatalog.json" Condition="!Exists('..\..\data\instances\catalog.json') And Exists('..\..\data\instances\map-kinds.json')" />
   </ItemGroup>
 </Project>

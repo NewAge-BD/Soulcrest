@@ -56,7 +56,8 @@ public sealed class LootTrackerRouteMapViewTests
                 return root.ToHtmlString();
             });
             Assert.Contains("data-map-background=\"offline\"", html);
-            Assert.Contains("href=\"https://mapdata.soulcrest/sample-map/tiles/5_4_4.webp\" x=\"1024\" y=\"1024\" width=\"256\" height=\"256\"", html);
+            // Tiles keep their map coordinates and overlap their neighbours by one screen pixel against seams.
+            Assert.Matches("href=\"https://mapdata.soulcrest/sample-map/tiles/5_4_4.webp\" x=\"1024\" y=\"1024\" width=\"256\\.\\d+\" height=\"256\\.\\d+\"", html);
             Assert.Contains("points=\"1024,1024 1280,1152\"", html);
             Assert.Contains("data-node-order=\"1\"", html);
             Assert.Contains("cx=\"1200\" cy=\"1100\"", html);

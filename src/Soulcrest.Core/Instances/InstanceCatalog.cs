@@ -22,6 +22,8 @@ public sealed class InstanceCatalog
     public IReadOnlyDictionary<int, InstanceMap> Maps => _maps;
     public IReadOnlyDictionary<int, InstanceDungeon> Dungeons => _dungeons;
     public bool HasData => _maps.Count != 0;
+    /// <summary>False for the public map-kind table (user decision 2026-10-28): it classifies worlds by numeric ID only.</summary>
+    public bool HasLocationNames => _maps.Values.Any(map => map.Names.De is not null || map.Names.En is not null);
 
     private InstanceCatalog(IEnumerable<InstanceMap> maps, IEnumerable<InstanceDungeon> dungeons)
     {

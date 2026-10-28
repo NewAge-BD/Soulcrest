@@ -15,6 +15,49 @@ public sealed class LootTrackerRouteMapPreviewTests
         RouteSegments = [new("sample-map", "Sample map", [.. points])],
     };
 
+    private static LootTrackerSessionReplay Replay()
+    {
+        var at = new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero);
+        var session = new LootTrackerSession
+        {
+            Id = "zoom", Status = LootTrackerSessionStatus.Completed, StartedAt = at, EndedAt = at.AddMinutes(1), Elapsed = TimeSpan.FromMinutes(1),
+            RouteSegments = [new("sample-map", "Sample map", [new(2000, 2000, at, TimeSpan.Zero), new(2100, 2050, at.AddMinutes(1), TimeSpan.FromMinutes(1))])],
+        };
+        return LootTrackerSessionReplay.Build(session, session.Elapsed, LootTrackerPreparedReplay.Prepare(session));
+    }
+
+    [Fact]
+    public void ReplayZoomScalesOnlyTheCameraFromTheWholeMapToEightTimesCloser()
+    {
+        var replay = Replay();
+        Build(1, out var normal); Build(2, out var closer); Build(LootTrackerRouteMapPreview.MinZoom, out var whole);
+        Build(1000, out var clamped); Build(double.NaN, out var invalid);
+        Assert.Equal(4096 / 16d, normal.View.Width, 6);
+        Assert.Equal(normal.View.Width / 2, closer.View.Width, 6);
+        Assert.Equal(4096, whole.View.Width, 6);
+        Assert.Equal(4096 / 16d / LootTrackerRouteMapPreview.MaxZoom, clamped.View.Width, 6);
+        Assert.Equal(normal.View, invalid.View);
+        Assert.Equal(normal.Lines.Select(line => line.Points), closer.Lines.Select(line => line.Points));
+        Assert.True(closer.UnitsPerPixel < normal.UnitsPerPixel);
+
+        void Build(double zoom, out LootTrackerRouteMapPreview.Preview preview) =>
+            preview = LootTrackerRouteMapPreview.Build(replay.Session, "sample-map", Map(), _ => true, replay, zoom);
+    }
+
+    [Fact]
+    public void MovingReplayCameraPreloadsOneTileRingInsideTheMap()
+    {
+        var replay = Replay();
+        var preview = LootTrackerRouteMapPreview.Build(replay.Session, "sample-map", Map(), _ => true, replay);
+        var view = preview.View; var side = preview.Tiles[0].Side;
+        Assert.Contains(preview.Tiles, tile => tile.X + tile.Side <= view.X);
+        Assert.Contains(preview.Tiles, tile => tile.X >= view.X + view.Width);
+        Assert.All(preview.Tiles, tile => Assert.True(tile.X >= 0 && tile.Y >= 0 && tile.X < 4096 && tile.Y < 4096));
+        var still = LootTrackerRouteMapPreview.Build(replay.Session, "sample-map", Map(), _ => true);
+        Assert.DoesNotContain(still.Tiles, tile => tile.X + tile.Side <= still.View.X || tile.X >= still.View.X + still.View.Width);
+        Assert.True(side > 0);
+    }
+
     [Fact]
     public void NativeMapCoordinatesAlignWithOriginal512PixelTiles()
     {

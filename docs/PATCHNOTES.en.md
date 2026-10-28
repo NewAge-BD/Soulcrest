@@ -2,6 +2,18 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.15.1 – 2026-10-28
+
+- **Fixed:** In the public download the Loot Tracker recorded no sessions, and the Abyss Rank
+  Tracker and kill feed stayed empty. Open world and Abyss are now detected.
+- **Fixed:** The Daevanion overlay no longer flickers while you hover nodes. A tooltip over the board
+  centre no longer hides it, it comes back right after a large tooltip, and it reacts faster.
+- **New:** The Loot Tracker hides very small sessions by default (at most 3 activities, adjustable
+  1–10). Daily totals stay complete. "Delete small" removes them after confirmation.
+- **New:** The replay map can be zoomed (plus/minus, Shift+mouse wheel, up to 8x). Sessions without
+  a rendered replay show a route thumbnail.
+- **Fixed:** Fast replay playback no longer shows tile seams on the map.
+
 ## 0.15.0 – 2026-10-28
 
 - **New:** Abyss sessions in the Loot Tracker: a confirmed entry starts the session and leaving

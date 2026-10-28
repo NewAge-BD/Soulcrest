@@ -34,8 +34,9 @@ public sealed class WorldContextService
     public WorldContextService(InstanceCatalog catalog) => _catalog = catalog;
     public WorldContextSnapshot Snapshot => Volatile.Read(ref _snapshot);
     /// <summary>
-    /// False without the private instance catalog (public builds, user decision 2026-10-21): no area can be
-    /// identified, so map tracking and HUDs behave as with network tracking off.
+    /// False only without any world classification. Public builds embed the nameless map-kind table
+    /// (user decision 2026-10-28) instead of the private catalogue; it classifies open world, instances
+    /// and Abyss for map tracking, HUDs, loot and rank context. Area names then come from the map package.
     /// </summary>
     public bool HasLocationFacts => _catalog.HasData;
     public event Action? Changed;

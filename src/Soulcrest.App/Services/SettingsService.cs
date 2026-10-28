@@ -37,6 +37,9 @@ public sealed class AppSettings
     public LootTrackerReplayKillIconMode LootReplayKillIconMode { get; set; } = LootTrackerReplayKillIconMode.Rank;
     public LootTrackerViewMode LootTrackerViewMode { get; set; } = LootTrackerViewMode.Mixed;
     public Dictionary<LootTrackerViewMode, string[]> LootTimelineLayersByView { get; set; } = [];
+    /// <summary>User request 2026-10-28: hide finished sessions with at most this many activities from the list.</summary>
+    public bool LootTrackerHideSmallSessions { get; set; } = true;
+    public int LootTrackerSmallSessionMaxActivities { get; set; } = LootTrackerSessionSize.DefaultMaxActivities;
 
     /// <summary>User request 2026-10-25: explicitly opt into gathering sessions and their position recorder.</summary>
     public bool LifeskillTrackingEnabled { get; set; }
@@ -600,6 +603,12 @@ public sealed class SettingsService
         Changed?.Invoke();
     }
 
+    public void SetLootTrackerHideSmallSessions(bool enabled) => SetDropOption(
+        () => Current.LootTrackerHideSmallSessions, value => Current.LootTrackerHideSmallSessions = value, enabled);
+    public void SetLootTrackerSmallSessionMaxActivities(int activities) => SetDropOption(
+        () => Current.LootTrackerSmallSessionMaxActivities, value => Current.LootTrackerSmallSessionMaxActivities = value,
+        LootTrackerSessionSize.NormalizeMaxActivities(activities));
+
     public void SetLootTimelineValueMode(LootTimelineValueMode mode) => SetDropOption(
         () => Current.LootTimelineValueMode, value => Current.LootTimelineValueMode = value,
         DefinedOr(mode, LootTimelineValueMode.Cumulative));
@@ -690,6 +699,7 @@ public sealed class SettingsService
         settings.LootTimelineValueMode = DefinedOr(settings.LootTimelineValueMode, LootTimelineValueMode.Cumulative);
         settings.LootReplayKillIconMode = DefinedOr(settings.LootReplayKillIconMode, LootTrackerReplayKillIconMode.Rank);
         settings.LootTrackerViewMode = DefinedOr(settings.LootTrackerViewMode, LootTrackerViewMode.Mixed);
+        settings.LootTrackerSmallSessionMaxActivities = LootTrackerSessionSize.NormalizeMaxActivities(settings.LootTrackerSmallSessionMaxActivities);
         settings.LootTimelineLayersByView = (settings.LootTimelineLayersByView ?? [])
             .Where(pair => Enum.IsDefined(pair.Key)).ToDictionary(pair => pair.Key,
                 pair => LootTrackerTimelineLayers.Normalize(pair.Value));

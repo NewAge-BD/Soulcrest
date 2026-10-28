@@ -5,7 +5,8 @@ public sealed record WorldLocationDisplay(string Name, string Detail, string Sta
 
 public static class WorldLocationPresentation
 {
-    public static WorldLocationDisplay Build(WorldContextSnapshot snapshot, bool enabled)
+    /// <param name="mapLabel">Map-package label for a nameless public world classification; never a guessed area.</param>
+    public static WorldLocationDisplay Build(WorldContextSnapshot snapshot, bool enabled, Func<string, string?>? mapLabel = null)
     {
         if (!enabled)
             return new(UiText.T("Netzwerk-Tracking ausgeschaltet"), "", UiText.T("Aus"), "off");
@@ -16,7 +17,8 @@ public static class WorldLocationPresentation
             return new(UiText.T("Aufenthalt noch nicht bestätigt"), UiText.T("Neue Gebietsdaten stehen noch aus."),
                 UiText.T("Nicht bestätigt"), snapshot.Status == WorldContextStatus.Stale ? "stale" : "unknown");
 
-        var name = UiText.Language == "de" ? snapshot.NameDe ?? snapshot.NameEn : snapshot.NameEn ?? snapshot.NameDe;
+        var name = (UiText.Language == "de" ? snapshot.NameDe ?? snapshot.NameEn : snapshot.NameEn ?? snapshot.NameDe)
+            ?? (snapshot.SoulcrestMapId is { Length: > 0 } mapId ? mapLabel?.Invoke(mapId) : null);
         var categoryName = UiText.Language == "de" ? snapshot.CategoryNameDe ?? snapshot.CategoryNameEn
             : snapshot.CategoryNameEn ?? snapshot.CategoryNameDe;
         var category = categoryName ?? (snapshot.Kind switch

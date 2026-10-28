@@ -2,6 +2,20 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.15.1 – 2026-10-28
+
+- **Behoben:** Im öffentlichen Download zeichnete der Loot-Tracker keine Sessions auf, Abyss Rank
+  Tracker und Killfeed blieben leer. Open World und Abyss werden jetzt erkannt.
+- **Behoben:** Das Daevanion-Overlay flackert beim Hovern über Nodes nicht mehr. Ein Tooltip in der
+  Boardmitte blendet es nicht mehr aus. Nach einem großen Tooltip ist es sofort wieder da, und es
+  reagiert schneller.
+- **Neu:** Der Loot-Tracker blendet sehr kleine Sessions standardmäßig aus (höchstens 3 Aktivitäten,
+  einstellbar 1–10). Die Tagessummen bleiben vollständig. „Kleine löschen“ entfernt sie nach
+  Bestätigung.
+- **Neu:** Die Replay-Karte lässt sich zoomen (Plus/Minus, Umschalt+Mausrad, bis 8x). Sessions ohne
+  gerendertes Replay zeigen ein Routen-Vorschaubild.
+- **Behoben:** Bei schneller Replay-Wiedergabe sind keine Kachelgrenzen mehr auf der Karte zu sehen.
+
 ## 0.15.0 – 2026-10-28
 
 - **Neu:** Abyss-Sessions im Loot-Tracker: Ein bestätigter Eintritt startet die Session, das

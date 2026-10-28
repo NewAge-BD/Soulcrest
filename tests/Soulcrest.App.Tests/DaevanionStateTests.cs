@@ -85,6 +85,39 @@ public sealed class DaevanionLayoutStabilityTests
     }
 
     [Fact]
+    public void NegativeFrameHidesTheBoardButKeepsTheConfirmedRasterAsShortLivedHypothesis()
+    {
+        var state = new DaevanionLayoutStability();
+        Assert.False(state.Update("own", Bounds, At(80), Detection()));
+        Assert.True(state.Update("own", Bounds, At(60), Detection()));
+        // A large tooltip: nothing is confirmed or presentable for this frame.
+        Assert.False(state.Update("own", Bounds, At(40), null));
+        Assert.Null(state.Confirmed); Assert.Equal(0, state.ConfirmedFrameAt);
+        Assert.Equal(Detection().Origin, Assert.IsType<DaevanionBoardDetection>(state.Preferred("own", Bounds)).Origin);
+        Assert.Null(state.Preferred("other-generation", Bounds));
+        Assert.False(state.Update("own", Bounds, At(30), null));
+        // The next distinct frame that independently matches the raster confirms it again at once.
+        var returned = At(20);
+        Assert.True(state.Update("own", Bounds, returned, Detection(1)));
+        Assert.Equal(returned, state.ConfirmedFrameAt);
+        Assert.Equal(Detection().Origin, state.Confirmed!.Origin);
+    }
+
+    [Fact]
+    public void RetainedHypothesisNeverSurvivesAContextChangeOrAnUnconfirmedRaster()
+    {
+        var state = new DaevanionLayoutStability();
+        Assert.False(state.Update("own", Bounds, At(60), Detection()));
+        Assert.False(state.Update("own", Bounds, At(40), null));
+        Assert.Null(state.Preferred("own", Bounds));
+        Assert.False(state.Update("own", Bounds, At(30), Detection()));
+        Assert.True(state.Update("own", Bounds, At(20), Detection()));
+        Assert.False(state.Update("new-own", Bounds, At(10), null));
+        Assert.Null(state.Preferred("own", Bounds));
+        Assert.Null(state.Preferred("new-own", Bounds));
+    }
+
+    [Fact]
     public void PixelNoiseUsesFrozenCopiedGeometryAndDoesNotAccumulateDrift()
     {
         var state = new DaevanionLayoutStability();

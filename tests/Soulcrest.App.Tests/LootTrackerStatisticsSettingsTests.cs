@@ -75,6 +75,29 @@ public sealed class LootTrackerStatisticsSettingsTests
         });
     }
 
+    [Fact]
+    public void SmallSessionFilterDefaultsOnPersistsAndClampsItsThreshold()
+    {
+        WithSettings(() =>
+        {
+            File.Delete(AppPaths.SettingsFile);
+            var settings = new SettingsService();
+            Assert.True(settings.Current.LootTrackerHideSmallSessions);
+            Assert.Equal(3, settings.Current.LootTrackerSmallSessionMaxActivities);
+            settings.SetLootTrackerHideSmallSessions(false); settings.SetLootTrackerSmallSessionMaxActivities(7);
+            var saved = new SettingsService().Current;
+            Assert.False(saved.LootTrackerHideSmallSessions); Assert.Equal(7, saved.LootTrackerSmallSessionMaxActivities);
+            settings.SetLootTrackerSmallSessionMaxActivities(99);
+            Assert.Equal(10, new SettingsService().Current.LootTrackerSmallSessionMaxActivities);
+            File.WriteAllText(AppPaths.SettingsFile, """{"LootTrackerSmallSessionMaxActivities":0}""");
+            settings = new SettingsService();
+            Assert.Equal(1, settings.Current.LootTrackerSmallSessionMaxActivities);
+            Assert.True(settings.Current.LootTrackerHideSmallSessions);
+            settings.Update(value => value.LootTrackerSmallSessionMaxActivities = -5);
+            Assert.Equal(1, settings.Current.LootTrackerSmallSessionMaxActivities);
+        });
+    }
+
     private static void AssertDefaults(AppSettings value)
     {
         Assert.Equal(AbyssCombatGrouping.Class, value.AbyssCombatGrouping); Assert.Equal(AbyssCombatSort.KillsDescending, value.AbyssCombatSort);

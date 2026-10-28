@@ -177,8 +177,11 @@ public static class DaevanionBoardLocator
         var radius = Math.Max(1, (int)Math.Ceiling(size * .018));
         using var proximity = Cv2.GetStructuringElement(MorphShapes.Ellipse, new Size(radius * 2 + 1, radius * 2 + 1));
         Cv2.Dilate(edges, nearEdges, proximity);
+        // Hovering central nodes places the game's tooltip over the start ornament. Against this
+        // already confirmed raster, a covered start is not counter-evidence; it simply adds none, and
+        // the remaining cells then need at least the global search's minimum of native frames.
         var start = pattern.Cells.Single(c => c.IsStart);
-        if (StartScore(nearEdges, Center(origin, spacing, start.Row, start.Column), size) < .72) return null;
+        var startVisible = StartScore(nearEdges, Center(origin, spacing, start.Row, start.Column), size) >= .72;
         using var closed = new Mat();
         using var repair = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
         Cv2.MorphologyEx(edges, closed, MorphTypes.Close, repair);
@@ -214,12 +217,16 @@ public static class DaevanionBoardLocator
         {
             if (!Fits(candidate, origin, spacing, size, gray.Size())) continue;
             var candidateStart = candidate.Cells.Single(c => c.IsStart);
-            if (StartScore(nearEdges, Center(origin, spacing, candidateStart.Row, candidateStart.Column), size) < .72) continue;
+            var sharesStart = (candidateStart.Row, candidateStart.Column) == (start.Row, start.Column);
+            var candidateStartVisible = sharesStart ? startVisible
+                : StartScore(nearEdges, Center(origin, spacing, candidateStart.Row, candidateStart.Column), size) >= .72;
+            // Only the confirmed raster's own start position may be covered; any other start must be seen.
+            if (!sharesStart && !candidateStartVisible) continue;
             var expected = candidate.Cells.Select(c => (c.Row, c.Column)).ToHashSet();
             var matched = visible.Where(entry => expected.Contains(entry.Key)).Select(entry => entry.Value).ToArray();
             var unexpected = visible.Count - matched.Length;
-            var score = (matched.Length + 1d) / (candidate.Cells.Count + unexpected);
-            if (score < .80 || unexpected > candidate.Cells.Count * .08) continue;
+            var score = (matched.Length + (candidateStartVisible ? 1d : 0)) / (candidate.Cells.Count + unexpected);
+            if (score < .80 || unexpected > candidate.Cells.Count * .08 || !candidateStartVisible && matched.Length < 35) continue;
             hypotheses.Add(new(candidate, origin, score, matched.OrderBy(n => n.Row).ThenBy(n => n.Column).ToArray()));
         }
         var ordered = hypotheses.OrderByDescending(h => h.Score).ToArray();

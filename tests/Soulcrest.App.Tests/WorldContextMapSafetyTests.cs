@@ -31,7 +31,7 @@ public sealed class WorldContextMapSafetyTests : IDisposable
     [Fact]
     public void WithoutLocationFactsNetworkTrackingKeepsTheVisualMapTracker()
     {
-        // Public builds ship without the private instance catalog (user decision 2026-10-21).
+        // Without any world classification (neither the private catalogue nor the public map-kind table).
         var context = new WorldContextService(InstanceCatalog.Empty);
         using var capture = new GameCaptureService();
         using var tracking = new MapTrackingService(NetworkSettings(), new ProgressService(), capture, context);

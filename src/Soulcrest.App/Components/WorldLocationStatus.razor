@@ -1,5 +1,5 @@
 @{
-    var display = WorldLocationPresentation.Build(Snapshot, Enabled);
+    var display = WorldLocationPresentation.Build(Snapshot, Enabled, MapLabel);
 }
 <div class="world-location-status" data-world-status="@display.State" data-world-kind="@Snapshot.Kind.ToString().ToLowerInvariant()" role="status" aria-label="@UiText.T("Aufenthalt")" title="@display.Detail">
     <div class="world-location-heading">
@@ -15,4 +15,5 @@
 @code {
     [Parameter, EditorRequired] public WorldContextSnapshot Snapshot { get; set; } = null!;
     [Parameter] public bool Enabled { get; set; } = true;
+    [Parameter] public Func<string, string?>? MapLabel { get; set; }
 }

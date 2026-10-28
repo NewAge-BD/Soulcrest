@@ -116,7 +116,9 @@ public sealed class DaevanionService : IDisposable
                 _stability.Reset(); Publish(null, "Daevanion-Aufnahme nicht verfügbar.", revision);
                 Trace.TraceWarning("Daevanion capture: {0}", error.GetType().Name);
             }
-            try { await Task.Delay(200, _stop.Token).ConfigureAwait(false); }
+            // An open board follows tooltips and returning nodes closely; idle searches stay cheap.
+            var delay = Snapshot is not null || _stability.HasHypothesis ? 80 : 200;
+            try { await Task.Delay(delay, _stop.Token).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
         }
     }

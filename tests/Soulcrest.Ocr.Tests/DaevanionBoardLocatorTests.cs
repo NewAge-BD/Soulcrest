@@ -207,7 +207,16 @@ public sealed class DaevanionBoardLocatorTests
         var current = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns, preferred));
         Assert.DoesNotContain(current.Nodes, n => n.Row == 3 && n.Column == 3);
         Assert.Equal(preferred.Origin, current.Origin);
-        Cv2.Rectangle(image, new Rect(570, 570, 180, 180), new Scalar(30, 33, 35), -1);
+        // A tooltip over the start keeps the confirmed raster, but adds no node behind it.
+        var cover = new Rect(570, 570, 180, 180);
+        Cv2.Rectangle(image, cover, new Scalar(30, 33, 35), -1);
+        var tooltip = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns, preferred));
+        Assert.Equal(preferred.Origin, tooltip.Origin);
+        Assert.DoesNotContain(tooltip.Nodes, n => cover.Contains(new Point(n.Bounds.X + n.Bounds.Width / 2, n.Bounds.Y + n.Bounds.Height / 2)));
+        Assert.True(tooltip.Nodes.Count < preferred.Nodes.Count);
+        Assert.Null(DaevanionBoardLocator.Find(image, Patterns));
+        // Without enough independently visible native frames the hypothesis is rejected.
+        Cv2.Rectangle(image, new Rect(300, 300, 700, 700), new Scalar(30, 33, 35), -1);
         Assert.Null(DaevanionBoardLocator.Find(image, Patterns, preferred));
     }
 
@@ -377,7 +386,10 @@ public sealed class DaevanionBoardLocatorTests
             (int)Math.Round(preferred.Origin.Y + (start.Row - 1) * preferred.Spacing));
         var radius = (int)Math.Ceiling(preferred.NodeSize);
         Cv2.Rectangle(image, new Rect(center.X - radius, center.Y - radius, radius * 2, radius * 2), new Scalar(30, 33, 35), -1);
-        Assert.Null(DaevanionBoardLocator.Find(image, Patterns, result));
+        // A covered start only keeps the confirmed raster; the covered node is still not painted.
+        var covering = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns, result));
+        Assert.DoesNotContain(covering.Nodes, n => n.Row == node.Row && n.Column == node.Column);
+        Assert.Null(DaevanionBoardLocator.Find(menu, Patterns, covering));
         Assert.Null(DaevanionBoardLocator.Find(image, Patterns));
     }
 

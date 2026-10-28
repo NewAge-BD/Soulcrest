@@ -6,6 +6,13 @@
     <div class="lt-section-head lt-replay-heading"><div><h3>@UiText.T("Session-Replay")</h3><p>@UiText.T("Gelaufene Route") · @UiText.T("Session-Timeline")</p></div>
         @if (Ready) { <button type="button" class="btn" id="loot-replay-rebuild" disabled="@(IsExample || Busy)" @onclick="@(() => RenderReplay(true))">@UiText.T("Neu rendern")</button> }
     </div>
+    @if (!Ready && ThumbnailMapId is { } thumbnailMap)
+    {
+        @* User request 2026-10-28: the route overview needs no rendered replay, also while recording. *@
+        <div class="lt-replay-thumbnail" data-testid="session-route-thumbnail">
+            <LootTrackerRouteMap Session="DisplaySession" MapId="@thumbnailMap" IsExample="IsExample" Thumbnail="true" />
+        </div>
+    }
     @if (Session.Status == LootTrackerSessionStatus.Live)
     {
         <div class="lt-replay-state recording" data-testid="replay-recording" role="status"><span class="lt-dot"></span><strong>@UiText.T("Session wird aufgezeichnet")</strong><p>@UiText.T("Das Replay kann nach Sessionende gerendert werden.")</p></div>
@@ -63,6 +70,20 @@
     private CancellationTokenSource? _playbackCancellation;
     private bool _disposed, _ownsPreparation;
     private LootTrackerSessionReplay? _replay;
+    // The map holding most of the recorded walk; sessions without a walk fall back to their last placed fact.
+    private string? ThumbnailMapId
+    {
+        get
+        {
+            var session = DisplaySession;
+            var walked = (session.RouteSegments.IsDefault ? [] : session.RouteSegments)
+                .Where(row => !row.Points.IsDefaultOrEmpty).GroupBy(row => row.MapId)
+                .OrderByDescending(group => group.Sum(row => row.Points.Length)).FirstOrDefault()?.Key;
+            return walked ?? (session.FarmRoutePoints.IsDefault ? null : session.FarmRoutePoints.LastOrDefault()?.MapId)
+                ?? (session.TimelineEvents.IsDefault ? null : session.TimelineEvents.LastOrDefault(row => row.Position is not null)?.Position!.MapId)
+                ?? (session.CombatEvents.IsDefault ? null : session.CombatEvents.LastOrDefault(row => row.Position is not null)?.Position!.MapId);
+        }
+    }
     private bool Ready => Session.Status != LootTrackerSessionStatus.Live && _prepared is not null;
     private bool Busy => _state?.IsBusy == true;
     protected override void OnInitialized()

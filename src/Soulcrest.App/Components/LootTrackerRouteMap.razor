@@ -14,7 +14,7 @@
     <p class="lt-panel-subtitle" data-testid="replay-position-estimated">@UiText.T("Geschätzte Position zwischen aufgezeichneten Abschnitten.")</p>
 }
 
-@if (DisplaySession.Kind == LootTrackerSessionKind.Abyss || DisplaySession.UnifiedVersion > 0)
+@if (!Thumbnail && (DisplaySession.Kind == LootTrackerSessionKind.Abyss || DisplaySession.UnifiedVersion > 0))
 {
     <div class="lt-marker-filters" role="group" aria-label="@UiText.T("Sessionmarker")">
         <label><input type="checkbox" @bind="_showKills" /> <span class="lt-marker-key kill">⚔</span>@UiText.T("Spielerkills")</label>
@@ -37,16 +37,21 @@
 }
 else
 {
+    @if (!Thumbnail)
+    {
     <p class="lt-panel-subtitle">@UiText.T(_preview.Status == LootTrackerRouteMapPreview.Availability.Ready
         ? Replay?.IsPrepared == true ? "Kartenansicht · Geschätzte Verbindungen sind gestrichelt" : "Kartenansicht · Unterbrechungen bleiben getrennt" : "Offlinekarte nicht verfügbar · schematische Route")</p>
-    <div class="lt-map-preview" data-map-id="@DisplayMapId" data-map-background="@(_preview.Status == LootTrackerRouteMapPreview.Availability.Ready ? "offline" : "schematic")">
+    }
+    <div class="lt-map-preview @(Thumbnail ? "thumbnail" : "")" data-map-id="@DisplayMapId" data-map-background="@(_preview.Status == LootTrackerRouteMapPreview.Availability.Ready ? "offline" : "schematic")"
+         data-replay-zoom="@(Zoomable ? F(ZoomFactor) : null)" @onwheel="Wheel" title="@(Zoomable ? UiText.T("Umschalt + Mausrad zoomt die Karte.") : null)">
         <svg viewBox="@_viewBox" role="img" aria-label="@UiText.T(IsFarmPreview ? "Farmroute zwischen Sammelstellen" : "Aufgezeichnete Routensegmente")" preserveAspectRatio="xMidYMid meet">
             @if (_preview.Status == LootTrackerRouteMapPreview.Availability.Ready)
             {
                 <defs><clipPath id="@_clipId"><rect x="0" y="0" width="@_mapSize" height="@_mapSize" /></clipPath></defs>
+                @* Keyed tiles keep their decoded image while the replay camera moves; the one-pixel overlap hides subpixel seams. *@
                 <g clip-path="@($"url(#{_clipId})")">@foreach (var tile in _preview.Tiles)
                 {
-                    <image href="@TileUrl(tile.RelativePath)" x="@F(tile.X)" y="@F(tile.Y)" width="@F(tile.Side)" height="@F(tile.Side)" preserveAspectRatio="none" />
+                    <image @key="tile.RelativePath" href="@TileUrl(tile.RelativePath)" x="@F(tile.X)" y="@F(tile.Y)" width="@F(tile.Side + _units)" height="@F(tile.Side + _units)" preserveAspectRatio="none" />
                 }</g>
             }
             @foreach (var line in _lines)
@@ -114,15 +119,26 @@ else
                 </g>
             }
         </svg>
+        @if (Zoomable)
+        {
+            <div class="lt-map-zoom" role="group" aria-label="@UiText.T("Kartenzoom")">
+                <button type="button" data-replay-zoom-in title="@UiText.T("Hineinzoomen")" aria-label="@UiText.T("Hineinzoomen")" disabled="@(_zoomStep >= MaxZoomStep)" @onclick="@(() => SetZoom(_zoomStep + 1))">+</button>
+                <button type="button" data-replay-zoom-reset title="@UiText.T("Standardzoom")" aria-label="@UiText.T("Standardzoom")" disabled="@(_zoomStep == 0)" @onclick="@(() => SetZoom(0))">@ZoomLabel</button>
+                <button type="button" data-replay-zoom-out title="@UiText.T("Herauszoomen")" aria-label="@UiText.T("Herauszoomen")" disabled="@(_zoomStep <= MinZoomStep)" @onclick="@(() => SetZoom(_zoomStep - 1))">−</button>
+            </div>
+        }
         @if (_preview.Status == LootTrackerRouteMapPreview.Availability.Ready)
         {
             <a class="lt-map-preview-credit" href="https://aion2.gaming.tools/" target="_blank" rel="noopener noreferrer">aion2.gaming.tools</a>
         }
     </div>
+    @if (!Thumbnail)
+    {
     <div class="lt-route-legend"><span><i></i>@UiText.T("Start")</span><span><i class="end"></i>@UiText.T("Ende")</span><span>@UiText.F(IsFarmPreview ? "{0} Sammelstellen" : "{0} Segmente", IsFarmPreview ? _nodes.Count : RouteCount)</span></div>
+    }
 }
 
-@if (!DisplaySession.CombatEvents.IsDefaultOrEmpty)
+@if (!Thumbnail && !DisplaySession.CombatEvents.IsDefaultOrEmpty)
 {
     <details class="lt-combat-timeline">
         <summary>@UiText.T("Kampfereignisse") · @DisplaySession.CombatEvents.Length</summary>
@@ -142,6 +158,8 @@ else
     [Parameter] public string? MapId { get; set; }
     [Parameter] public LootTrackerSessionReplay? Replay { get; set; }
     [Parameter] public bool IsExample { get; set; }
+    /// <summary>Static route overview before a replay exists: no filters, legend, zoom or combat list.</summary>
+    [Parameter] public bool Thumbnail { get; set; }
     private LootTrackerSession DisplaySession => Replay?.Session ?? Session;
     private string? DisplayMapId => Replay?.MapId ?? MapId;
     private bool IsFarmPreview => Replay is null && LootTrackerPresentation.UsesFarmRoute(Session);
@@ -227,8 +245,25 @@ else
         return exists;
     }
 
+    // Replay camera zoom stays local to the open module; another session starts at the default scale.
+    private const int MinZoomStep = -4, MaxZoomStep = 3;
+    private int _zoomStep;
+    private string? _zoomSessionId;
+    private bool Zoomable => Replay is not null && !Thumbnail;
+    private double ZoomFactor => Math.Pow(2, _zoomStep);
+    private string ZoomLabel => _zoomStep >= 0 ? $"{1 << _zoomStep}×" : $"1/{1 << -_zoomStep}";
+    private void SetZoom(int step) => _zoomStep = Math.Clamp(step, MinZoomStep, MaxZoomStep);
+    // Like the session timeline, Shift + wheel zooms; a plain wheel keeps scrolling the page.
+    private void Wheel(WheelEventArgs args)
+    {
+        var delta = args.DeltaY != 0 ? args.DeltaY : args.DeltaX;
+        if (!Zoomable || !args.ShiftKey || delta == 0) return;
+        SetZoom(_zoomStep + (delta < 0 ? 1 : -1));
+    }
+
     protected override void OnParametersSet()
     {
+        if (_zoomSessionId != Session.Id) { _zoomSessionId = Session.Id; _zoomStep = 0; }
         var directory = MapDataDirectory ?? (Services.GetService(typeof(ProgressService)) as ProgressService)?.MapDataDirectory;
         if (!_loaded || directory != _loadedDirectory)
         {
@@ -244,7 +279,7 @@ else
             { if (part.IsRouteStart) _routeStarts.Add(part.Line); if (part.IsRouteEnd) _routeEnds.Add(part.Line); }
         var map = mapId is not null && _maps.TryGetValue(mapId, out var definition) ? definition : null;
         _preview = LootTrackerRouteMapPreview.Build(DisplaySession, mapId, map,
-            path => directory is not null && TileExists(directory, path), Replay);
+            path => directory is not null && TileExists(directory, path), Replay, Zoomable ? ZoomFactor : 1);
         _mapSize = map?.Size ?? 0;
         _player = Replay?.PlayerPosition is { } player && player.MapId == mapId
             && (map is null || LootTrackerCharts.InMap(player.X, player.Y, map.Size)) ? player : null;

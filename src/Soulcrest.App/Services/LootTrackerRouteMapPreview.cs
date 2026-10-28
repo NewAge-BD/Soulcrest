@@ -71,8 +71,9 @@ public static class LootTrackerRouteMapPreview
     }
 
     public static Preview Build(LootTrackerSession session, string? mapId, MapDefinition? map,
-        Func<string, bool> tileExists, LootTrackerSessionReplay? replay = null)
+        Func<string, bool> tileExists, LootTrackerSessionReplay? replay = null, double zoom = 1)
     {
+        zoom = double.IsFinite(zoom) ? Math.Clamp(zoom, MinZoom, MaxZoom) : 1;
         session = replay?.Session ?? session;
         var routeSession = replay is null ? session : session with { FarmRouteVersion = 0 };
         if (mapId is null || map is null || map.Id != mapId || !Valid(map))
@@ -87,7 +88,7 @@ public static class LootTrackerRouteMapPreview
             var last = routeSession.RouteSegments.LastOrDefault(row => row.MapId == mapId && !row.Points.IsDefaultOrEmpty)?.Points.LastOrDefault();
             var size = session.GatherVisits.FirstOrDefault(row => row.MapId == mapId)?.MapSize ?? 8192;
             return new(Availability.MissingMap, FollowView(center?.X ?? last?.X ?? size / 2d,
-                center?.Y ?? last?.Y ?? size / 2d, size, false), [], schematicLines, schematicNodes) { Markers = schematicMarkers };
+                center?.Y ?? last?.Y ?? size / 2d, size, zoom, false), [], schematicLines, schematicNodes) { Markers = schematicMarkers };
         }
         var lines = replay?.IsPrepared == true ? replay.PreparedParts.Where(part => part.MapId == mapId).Select(part => part.Line).ToArray()
             : LootTrackerCharts.MapRoute(routeSession, mapId, map.Size);
@@ -111,12 +112,13 @@ public static class LootTrackerRouteMapPreview
         var follow = replay?.LastPosition;
         var view = replay is null ? View(points, map.Size) : FollowView(
             follow?.MapId == mapId ? follow.X : points[^1].X,
-            follow?.MapId == mapId ? follow.Y : points[^1].Y, map.Size);
+            follow?.MapId == mapId ? follow.Y : points[^1].Y, map.Size, zoom);
         // Match Leaflet's tile geometry: logical side = tileSize * 2^(refZoom - nativeZoom).
         var preferred = Math.Clamp((int)Math.Ceiling(map.RefZoom + Math.Log2(640 / view.Width)), map.MinNativeZoom, map.MaxNativeZoom);
-        for (var zoom = preferred; zoom >= map.MinNativeZoom; zoom--)
+        for (var native = preferred; native >= map.MinNativeZoom; native--)
         {
-            var tiles = VisibleTiles(map, view, zoom);
+            // Replay keeps one extra ring loaded so a moving camera never reveals tiles that are still decoding.
+            var tiles = VisibleTiles(map, view, native, replay is null ? 0 : 1);
             if (tiles.Count > 0 && tiles.All(tile => tileExists(tile.RelativePath)))
                 return new(Availability.Ready, view, tiles, lines, nodes) { Markers = markers };
         }
@@ -137,10 +139,13 @@ public static class LootTrackerRouteMapPreview
         { return false; }
     }
 
-    /// <summary>Replay follows the last confirmed position at a fixed, map-relative scale.</summary>
-    private static Viewport FollowView(double x, double y, int mapSize, bool clamp = true)
+    /// <summary>Replay camera zoom relative to the default 1/16 map width: whole map up to eight times closer.</summary>
+    public const double MinZoom = 1d / 16, MaxZoom = 8;
+
+    /// <summary>Replay follows the last confirmed position at a user-selected, map-relative scale.</summary>
+    private static Viewport FollowView(double x, double y, int mapSize, double zoom, bool clamp = true)
     {
-        var width = mapSize / 16d; var height = width / Aspect;
+        var width = Math.Min(mapSize, mapSize / 16d / zoom); var height = width / Aspect;
         return new(clamp ? Math.Clamp(x - width / 2, 0, mapSize - width) : x - width / 2,
             clamp ? Math.Clamp(y - height / 2, 0, mapSize - height) : y - height / 2, width, height);
     }
@@ -157,13 +162,14 @@ public static class LootTrackerRouteMapPreview
             : Math.Clamp(center - extent / 2, 0, mapSize - extent);
     }
 
-    private static IReadOnlyList<Tile> VisibleTiles(MapDefinition map, Viewport view, int zoom)
+    private static IReadOnlyList<Tile> VisibleTiles(MapDefinition map, Viewport view, int zoom, int margin)
     {
         var side = map.TileSize * Math.Pow(2, map.RefZoom - zoom);
-        var firstX = (int)Math.Floor(Math.Max(0, view.X) / side);
-        var firstY = (int)Math.Floor(Math.Max(0, view.Y) / side);
-        var lastX = (int)Math.Ceiling(Math.Min(map.Size, view.X + view.Width) / side) - 1;
-        var lastY = (int)Math.Ceiling(Math.Min(map.Size, view.Y + view.Height) / side) - 1;
+        var count = (int)Math.Ceiling(map.Size / side);
+        var firstX = Math.Max(0, (int)Math.Floor(Math.Max(0, view.X) / side) - margin);
+        var firstY = Math.Max(0, (int)Math.Floor(Math.Max(0, view.Y) / side) - margin);
+        var lastX = Math.Min(count - 1, (int)Math.Ceiling(Math.Min(map.Size, view.X + view.Width) / side) - 1 + margin);
+        var lastY = Math.Min(count - 1, (int)Math.Ceiling(Math.Min(map.Size, view.Y + view.Height) / side) - 1 + margin);
         if ((long)(lastX - firstX + 1) * (lastY - firstY + 1) > 256) return [];
         var tiles = new List<Tile>();
         for (var y = firstY; y <= lastY; y++)

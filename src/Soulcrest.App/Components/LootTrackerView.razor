@@ -68,20 +68,39 @@
                 </div>
                 <label class="lt-search"><input id="loot-session-search" type="text" aria-label="@UiText.T("Sessions durchsuchen")" placeholder="@UiText.T("Charakter, Ort, Dungeon oder Monster …")" value="@_search" @oninput="SetSearch" /></label>
                 <label class="lt-character-filter" for="loot-character-filter">@UiText.T("Charakter")<select id="loot-character-filter" value="@_characterId" @onchange="ChangeCharacterFilter"><option value="all">@UiText.T("Alle Charaktere")</option>@foreach (var character in Characters) { <option value="@character.Id">@character.Name</option> }@if (AllSessions.Any(row => LootTrackerPresentation.CharacterProfileId(row) is null)) { <option value="unassigned">@UiText.T("Ohne Charakterzuordnung")</option> }</select></label>
+                @{ var smallSessions = SmallSessions; }
+                <div class="lt-small-filter" role="group" aria-label="@UiText.T("Kleine Sessions")">
+                    <label class="lt-small-toggle"><input id="loot-hide-small-sessions" type="checkbox" checked="@HideSmall" disabled="@_savingSmallFilter" @onchange="ChangeHideSmall" /><span>@UiText.T("Kleine Sessions ausblenden")</span></label>
+                    <label class="lt-small-threshold" for="loot-small-session-max">≤<select id="loot-small-session-max" value="@SmallMax" disabled="@_savingSmallFilter" aria-label="@UiText.T("Höchstens so viele Aktivitäten gelten als klein")" @onchange="ChangeSmallMax">@for (var count = LootTrackerSessionSize.MinMaxActivities; count <= LootTrackerSessionSize.MaxMaxActivities; count++) { <option value="@count">@count</option> }</select>@UiText.T("Aktivitäten")</label>
+                    <span class="lt-small-count" data-testid="small-session-count">@(HideSmall ? UiText.F("{0} ausgeblendet", smallSessions.Length) : UiText.F("{0} klein", smallSessions.Length))</span>
+                    <button type="button" id="loot-delete-small-sessions" class="lt-small-delete" disabled="@(IsExample || !DeleteSession.HasDelegate || smallSessions.Length == 0 || _deletingId is not null || _bulkDeleting)" @onclick="RequestBulkDelete">@UiText.F("Kleine löschen ({0})", smallSessions.Length)</button>
+                    @if (_smallFilterError) { <p class="lt-delete-error" role="alert">@UiText.T("Sessionfilter konnte nicht gespeichert werden.")</p> }
+                    @if (_bulkDeleteDone is { } done) { <p class="lt-small-feedback" role="status">@UiText.F("{0} kleine Sessions gelöscht.", done)</p> }
+                    @if (_bulkDeleteIds is { } pendingIds)
+                    {
+                        <div class="lt-delete-confirm lt-small-confirm" role="group" aria-label="@UiText.T("Kleine Sessions endgültig löschen?")" aria-busy="@(_bulkDeleting ? "true" : "false")">
+                            <p>@UiText.F("{0} kleine Sessions endgültig löschen?", pendingIds.Length)</p>
+                            <div><button type="button" id="loot-confirm-small-delete" class="lt-delete-accept" disabled="@_bulkDeleting" @onclick="ConfirmBulkDelete">@(_bulkDeleting ? UiText.F("Löscht {0}/{1} …", _bulkDeleted, pendingIds.Length) : UiText.T("Löschen"))</button><button type="button" id="loot-cancel-small-delete" disabled="@_bulkDeleting" @onclick="CancelBulkDelete">@UiText.T("Abbrechen")</button></div>
+                            @if (_bulkDeleteFailed) { <p class="lt-delete-error" role="alert">@UiText.F("Löschen nach {0} von {1} Sessions abgebrochen.", _bulkDeleted, pendingIds.Length)</p> }
+                        </div>
+                    }
+                </div>
                 <div class="lt-session-list">
-                    @foreach (var day in LootTrackerDayPresentation.Group(sessions))
+                    @foreach (var day in LootTrackerDayPresentation.Group(FilteredSessions))
                     {
                         var dayKey = DayKey(day.Day);
                         var expanded = !_collapsedDays.Contains(day.Day);
+                        var daySessions = HideSmall ? day.Sessions.Where(row => !IsSmall(row)).ToArray() : day.Sessions.ToArray();
+                        var dayHidden = day.Sessions.Length - daySessions.Length;
                         <section class="lt-day-group" data-farm-day="@dayKey" @key="day.Day">
                         <button type="button" class="lt-day-heading" data-toggle-farm-day="@dayKey" aria-expanded="@(expanded ? "true" : "false")" aria-controls="@("loot-day-" + dayKey)" @onclick="@(() => ToggleDay(day.Day))">
-                            <span class="lt-day-title"><span class="lt-day-chevron" aria-hidden="true">›</span><strong>@day.Day.ToString("d", Culture)</strong><span>@day.Sessions.Length</span></span>
+                            <span class="lt-day-title"><span class="lt-day-chevron" aria-hidden="true">›</span><strong>@day.Day.ToString("d", Culture)</strong><span class="lt-day-count">@daySessions.Length</span>@if (dayHidden > 0) { <span class="lt-day-small" data-day-small="@dayKey" title="@UiText.T("Ausgeblendete kleine Sessions; die Tagessummen enthalten sie weiterhin.")">@UiText.F("+{0} klein", dayHidden)</span> }</span>
                             <span class="lt-day-kina">@UiText.T("Ungebundene Kina") <b data-day-unbound="@dayKey">@DayAmount(day.KinaUnbound)</b></span>
                             <span class="lt-day-kina">@UiText.T("Gebundene Kina") <b data-day-bound="@dayKey">@DayAmount(day.KinaBound)</b></span>
                             <span class="lt-day-loot">@UiText.F("{0} Items · {1} Souls", DayAmount(day.Items), DayAmount(day.Souls))</span>
                         </button>
                         <div id="@("loot-day-" + dayKey)" class="lt-day-sessions" hidden="@(!expanded)">
-                    @foreach (var row in day.Sessions)
+                    @foreach (var row in daySessions)
                     {
                         <div class="lt-session-entry">
                         <button type="button" class="lt-session @(row.Id == session?.Id ? "selected" : "")" data-session-id="@row.Id" aria-pressed="@(row.Id == session?.Id)" @onclick="@(() => SelectSession(row.Id))">
@@ -92,7 +111,7 @@
                             <span class="lt-session-character">@CharacterName(row)</span>
                             <span class="lt-session-meta"><span>@LocalDate(row.StartedAt) · @Duration(row.Elapsed)</span><strong title="@(HasUnboundOnlyKina(row) ? UiText.T("Nur bestätigte ungebundene Kina") : null)">@(row.Kind == LootTrackerSessionKind.Abyss ? Number(row.AbyssPoints) + " AP" : row.Kind == LootTrackerSessionKind.Lifeskill ? UiText.F("{0} Items", Number(row.ItemCount)) : Number(DisplayedKina(row)))</strong></span>
                         </button>
-                        <button type="button" class="lt-session-delete" data-delete-session-id="@row.Id" title="@UiText.T("Session löschen")" aria-label="@UiText.F("Session {0} löschen", Name(row))" disabled="@(IsExample || !DeleteSession.HasDelegate || _deletingId is not null || _deleteAwaitingRemovalId == row.Id)" aria-busy="@(_deletingId == row.Id)" @onclick="@(() => RequestDelete(row.Id))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 10v7 M14 10v7" /></svg></button>
+                        <button type="button" class="lt-session-delete" data-delete-session-id="@row.Id" title="@UiText.T("Session löschen")" aria-label="@UiText.F("Session {0} löschen", Name(row))" disabled="@(IsExample || !DeleteSession.HasDelegate || _deletingId is not null || _bulkDeleting || _deleteAwaitingRemovalId == row.Id)" aria-busy="@(_deletingId == row.Id)" @onclick="@(() => RequestDelete(row.Id))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 10v7 M14 10v7" /></svg></button>
                         @if (_deleteConfirmId == row.Id)
                         {
                             <div class="lt-delete-confirm" role="group" aria-label="@UiText.T("Session endgültig löschen?")">
@@ -108,7 +127,7 @@
                     }
                     @if (sessions.Length == 0)
                     {
-                        <div class="lt-sidebar-empty">@UiText.T(AllSessions.Length == 0 ? "Noch keine Sessions aufgezeichnet." : "Keine passende Session gefunden.")</div>
+                        <div class="lt-sidebar-empty">@(AllSessions.Length == 0 ? UiText.T("Noch keine Sessions aufgezeichnet.") : HideSmall && smallSessions.Length > 0 ? UiText.F("Nur kleine Sessions vorhanden ({0} ausgeblendet).", smallSessions.Length) : UiText.T("Keine passende Session gefunden."))</div>
                     }
                 </div>
                 <div class="lt-sidebar-foot">@UiText.T("Farmtage: 07:00 UTC bis 07:00 UTC. Abyss-Aufenthalte bleiben über Resets hinweg zusammen.")</div>
@@ -291,7 +310,20 @@
     private (string Id, string Name)[] Characters => AllSessions.Where(row => LootTrackerPresentation.CharacterProfileId(row) is not null)
         .GroupBy(row => LootTrackerPresentation.CharacterProfileId(row)!, StringComparer.Ordinal)
         .Select(group => (Id: group.Key, Name: CharacterName(group.First()))).ToArray();
-    private LootTrackerSession[] VisibleSessions => AllSessions.Where(row => (_kind == "all" || KindClass(row) == _kind) && MatchesCharacter(row) && MatchesSearch(row)).ToArray();
+    private LootTrackerSession[] FilteredSessions => AllSessions.Where(row => (_kind == "all" || KindClass(row) == _kind) && MatchesCharacter(row) && MatchesSearch(row)).ToArray();
+    private LootTrackerSession[] VisibleSessions => HideSmall ? FilteredSessions.Where(row => !IsSmall(row)).ToArray() : FilteredSessions;
+    // Small sessions after the type, character and search filters; the live session is never small.
+    private LootTrackerSession[] SmallSessions => FilteredSessions.Where(IsSmall).ToArray();
+    private bool IsSmall(LootTrackerSession session) => LootTrackerSessionSize.IsSmall(session, SmallMax);
+    // Example views change the filter only locally; real views show the persisted value once it is saved.
+    private bool? _hideSmallOverride;
+    private int? _smallMaxOverride;
+    private bool HideSmall => _hideSmallOverride ?? Settings.Current.LootTrackerHideSmallSessions;
+    private int SmallMax => _smallMaxOverride ?? Settings.Current.LootTrackerSmallSessionMaxActivities;
+    private bool _savingSmallFilter, _smallFilterError, _bulkDeleting, _bulkDeleteFailed;
+    private string[]? _bulkDeleteIds;
+    private int _bulkDeleted;
+    private int? _bulkDeleteDone;
     private bool MatchesCharacter(LootTrackerSession row) => _characterId == "all" || (_characterId == "unassigned" ? LootTrackerPresentation.CharacterProfileId(row) is null : LootTrackerPresentation.CharacterProfileId(row) == _characterId);
     private bool MatchesSearch(LootTrackerSession row) => Name(row).Contains(_search, StringComparison.OrdinalIgnoreCase)
         || CharacterName(row).Contains(_search, StringComparison.OrdinalIgnoreCase)
@@ -358,7 +390,8 @@
     private void SetRouteName(string sessionId, ChangeEventArgs e) { _routeNames[sessionId] = e.Value?.ToString() ?? ""; _savedRoutes.Remove(sessionId); }
     private void RequestDelete(string sessionId)
     {
-        if (IsExample || !DeleteSession.HasDelegate || _deletingId is not null || !VisibleSessions.Any(row => row.Id == sessionId)) return;
+        if (IsExample || !DeleteSession.HasDelegate || _deletingId is not null || _bulkDeleting || !VisibleSessions.Any(row => row.Id == sessionId)) return;
+        _bulkDeleteIds = null; _bulkDeleteFailed = false; _bulkDeleteDone = null;
         _deleteConfirmId = sessionId; _deleteErrorId = null; _deleteFeedback = null;
     }
     private void CancelDelete() { if (_deletingId is null) { _deleteConfirmId = null; _deleteErrorId = null; } }
@@ -395,6 +428,56 @@
         _deleteAwaitingRemovalId = null; _deleteSelectionCandidates = [];
     }
     protected override void OnParametersSet() => ReconcileDeletedSelection();
+    private Task ChangeHideSmall(ChangeEventArgs e) => e.Value is bool hide ? SaveSmallFilter(hide, null) : Task.CompletedTask;
+    private Task ChangeSmallMax(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var max)
+        && max is >= LootTrackerSessionSize.MinMaxActivities and <= LootTrackerSessionSize.MaxMaxActivities ? SaveSmallFilter(null, max) : Task.CompletedTask;
+    private async Task SaveSmallFilter(bool? hide, int? max)
+    {
+        if (_savingSmallFilter || _bulkDeleting) return;
+        _hideSmallOverride = hide ?? _hideSmallOverride; _smallMaxOverride = max ?? _smallMaxOverride;
+        // The candidate set changes with the filter; a pending bulk confirmation must not delete a stale selection.
+        _bulkDeleteIds = null; _bulkDeleteFailed = false; _bulkDeleteDone = null; _smallFilterError = false;
+        if (IsExample) return;
+        _savingSmallFilter = true;
+        try
+        {
+            await Task.Run(() =>
+            {
+                if (hide is { } enabled) Settings.SetLootTrackerHideSmallSessions(enabled);
+                if (max is { } activities) Settings.SetLootTrackerSmallSessionMaxActivities(activities);
+            });
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _smallFilterError = true; }
+        finally { _hideSmallOverride = null; _smallMaxOverride = null; _savingSmallFilter = false; }
+    }
+    private void RequestBulkDelete()
+    {
+        if (IsExample || !DeleteSession.HasDelegate || _deletingId is not null || _bulkDeleting) return;
+        var ids = SmallSessions.Select(row => row.Id).ToArray();
+        if (ids.Length == 0) return;
+        _bulkDeleteIds = ids; _bulkDeleted = 0; _bulkDeleteFailed = false; _bulkDeleteDone = null;
+        _deleteConfirmId = null; _deleteErrorId = null; _deleteFeedback = null;
+    }
+    private void CancelBulkDelete() { if (!_bulkDeleting) { _bulkDeleteIds = null; _bulkDeleteFailed = false; } }
+    private async Task ConfirmBulkDelete()
+    {
+        if (_bulkDeleteIds is not { } ids || _bulkDeleting || IsExample || !DeleteSession.HasDelegate || _deletingId is not null) return;
+        _bulkDeleting = true; _bulkDeleteFailed = false;
+        try
+        {
+            // Sequential through the regular store path; a retry continues after the last confirmed deletion.
+            while (_bulkDeleted < ids.Length)
+            {
+                await DeleteSession.InvokeAsync(ids[_bulkDeleted]);
+                if (_selectedId == ids[_bulkDeleted]) _selectedId = null;
+                _bulkDeleted++;
+                StateHasChanged();
+            }
+            _bulkDeleteIds = null; _bulkDeleteDone = ids.Length;
+        }
+        catch (Exception) { _bulkDeleteFailed = true; }
+        finally { _bulkDeleting = false; }
+    }
     private async Task SaveRoute(LootTrackerSession session)
     {
         if (SaveUnavailableReason(session) is not null || _routeSaver is null) return;

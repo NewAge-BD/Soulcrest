@@ -11,17 +11,24 @@ internal sealed class DaevanionLayoutStability
     private Rectangle _bounds;
     private DaevanionBoardDetection? _reference;
     private long _frameAt;
-    private bool _ready;
+    private bool _ready, _retained;
+    private static readonly TimeSpan RetainedHypothesisLifetime = TimeSpan.FromSeconds(5);
 
     internal DaevanionBoardDetection? Confirmed { get; private set; }
+    internal bool HasHypothesis => _reference is not null;
     internal long ConfirmedFrameAt => _ready ? _frameAt : 0;
     internal static bool Fresh(long at) => Fresh(at, Stopwatch.GetTimestamp());
     internal static bool Fresh(long at, long now) => at > 0 && at <= now
         && Stopwatch.GetElapsedTime(at, now) <= TimeSpan.FromSeconds(1);
 
-    /// <summary>Frozen geometry is a hypothesis only; the locator must verify today's pixels independently.</summary>
+    /// <summary>
+    /// Frozen geometry is a hypothesis only; the locator must verify today's pixels independently.
+    /// After a negative frame (e.g. a large tooltip) a once confirmed raster stays a short-lived
+    /// hypothesis, so the next frame is validated cheaply instead of needing two global searches.
+    /// </summary>
     internal DaevanionBoardDetection? Preferred(string identity, Rectangle bounds) =>
-        _ready && _identity == identity && _bounds == bounds && Fresh(_frameAt) ? _reference : null;
+        _identity == identity && _bounds == bounds && (_ready ? Fresh(_frameAt) : _retained && _frameAt > 0
+            && Stopwatch.GetElapsedTime(_frameAt) <= RetainedHypothesisLifetime) ? _reference : null;
 
     /// <summary>A busy/missing read cannot prove closure or renew the last confirmed source frame.</summary>
     internal bool RetainAfterMissingCapture(string identity, Rectangle bounds, bool frameIsFresh)
@@ -34,6 +41,13 @@ internal sealed class DaevanionLayoutStability
     internal bool Update(string identity, Rectangle bounds, long at, DaevanionBoardDetection? found)
     {
         Confirmed = null;
+        if (found is null && (_ready || _retained) && identity == _identity && bounds == _bounds && Fresh(at)
+            && at >= _frameAt && Stopwatch.GetElapsedTime(_frameAt, at) <= RetainedHypothesisLifetime)
+        {
+            // No board in this frame: nothing is shown, but the confirmed raster remains a hypothesis.
+            _ready = false; _retained = true;
+            return false;
+        }
         if (string.IsNullOrWhiteSpace(identity) || bounds.Width <= 0 || bounds.Height <= 0
             || found is null || string.IsNullOrWhiteSpace(found.Family) || !Fresh(at) || !double.IsFinite(found.Spacing) || found.Spacing <= 0
             || !double.IsFinite(found.NodeSize) || found.NodeSize <= 0 || found.Nodes.Count == 0
@@ -53,7 +67,7 @@ internal sealed class DaevanionLayoutStability
             || Math.Abs(_reference.Spacing - found.Spacing) * 14 > tolerance
             || Math.Abs(_reference.NodeSize - found.NodeSize) > tolerance)
         {
-            _reference = found with { Nodes = Array.AsReadOnly(found.Nodes.Select(n => n with { }).ToArray()) }; _identity = identity; _bounds = bounds; _frameAt = at; _ready = false;
+            _reference = found with { Nodes = Array.AsReadOnly(found.Nodes.Select(n => n with { }).ToArray()) }; _identity = identity; _bounds = bounds; _frameAt = at; _ready = false; _retained = false;
             return false;
         }
         if (at > _frameAt) { _frameAt = at; _ready = true; }
@@ -74,5 +88,5 @@ internal sealed class DaevanionLayoutStability
         return true;
     }
 
-    internal void Reset() { _identity = null; _reference = null; _frameAt = 0; _ready = false; Confirmed = null; }
+    internal void Reset() { _identity = null; _reference = null; _frameAt = 0; _ready = false; _retained = false; Confirmed = null; }
 }
