@@ -1,0 +1,43 @@
+@inject SettingsService Settings
+
+<div class="lt-abyss-summary" data-testid="abyss-session-summary">
+    <dl class="lt-metrics">
+        <div class="lt-metric gold"><dt>Abyss Points</dt><dd data-testid="abyss-points">@Number(Session.AbyssPoints)</dd><small>@UiText.T("Nur erfasste Einnahmen")</small></div>
+        <div class="lt-metric rate"><dt>@UiText.T(PerMinute ? "Abyss Points pro Minute" : "Abyss Points pro Stunde")</dt><dd data-testid="abyss-point-rate">@Rate</dd><small>@UiText.T("Bezogen auf die gesamte Sessionzeit")</small></div>
+        <div class="lt-metric"><dt>@UiText.T("Rangpunkte gewonnen")</dt><dd data-testid="rank-points-gained">@Number(Session.RankPointsGained)</dd></div>
+        <div class="lt-metric failed"><dt>@UiText.T("Rangpunkte verloren")</dt><dd data-testid="rank-points-lost">@Number(Session.RankPointsLost)</dd></div>
+        <div class="lt-metric"><dt>@UiText.T("Rangpunkte netto")</dt><dd data-testid="rank-points-net">@Number(LootTrackerPresentation.NetRankPoints(Session))</dd></div>
+    </dl>
+    <div class="lt-abyss-cap">
+        <div><strong>@UiText.T("AP-Cap")</strong><span data-testid="abyss-farm-total">@Number(CurrentProgress?.FarmedAbyssPoints) / @Number(Cap)</span></div>
+        <progress data-testid="abyss-cap-bar" max="@Math.Max(1, Cap ?? 1)" value="@Math.Clamp(CurrentProgress?.FarmedAbyssPoints ?? 0, 0, Math.Max(1, Cap ?? 1))"></progress>
+        <div><span>@UiText.T(CurrentProgress?.FarmedAbyssPoints is null ? "AP-Farmstand unbekannt" : CurrentProgress.Remaining == 0 ? "AP-Cap erreicht" : "AP-Budget verbleibend")</span>@if (CurrentProgress?.Remaining is { } remaining) { <strong>@Number(remaining)</strong> }</div>
+        @if (CurrentProgress is { FarmedAbyssPoints: not null, FarmedAbyssPointsConfirmed: false }) { <small>@UiText.T("Gespeicherter AP-Farmstand")</small> }
+        <label>@UiText.T("Abyss Points") <select aria-label="@UiText.T("AP-Rate")" disabled="@(IsExample || _saving)" value="@Settings.Current.AbyssPointRatePeriod" @onchange="ChangePeriod"><option value="Hour">AP/h</option><option value="Minute">AP/min</option></select></label>
+        @if (_feedback is not null) { <span role="status">@UiText.T(_feedback)</span> }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public LootTrackerSession Session { get; set; } = new();
+    [Parameter] public AbyssProgressSnapshot? Progress { get; set; }
+    [Parameter] public bool IsExample { get; set; }
+    private bool _saving;
+    private string? _feedback;
+    private bool PerMinute => Settings.Current.AbyssPointRatePeriod == AbyssPointRatePeriod.Minute;
+    private System.Globalization.CultureInfo Culture => System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");
+    private AbyssProgressSnapshot? CurrentProgress => Progress is { } progress
+        && progress.ProfileId is not null && progress.ProfileId == LootTrackerPresentation.CharacterProfileId(Session) ? progress : null;
+    private long? Cap => CurrentProgress?.Cap ?? AbyssCapSchedule.CapAt(Session.EndedAt ?? Session.StartedAt);
+    private string Number(long? value) => value?.ToString("N0", Culture) ?? "—";
+    private string Rate => (PerMinute ? LootTrackerPresentation.PerMinute(Session.AbyssPoints, Session.Elapsed)
+        : LootTrackerPresentation.PerHour(Session.AbyssPoints, Session.Elapsed))?.ToString("N0", Culture) ?? "—";
+    private async Task ChangePeriod(ChangeEventArgs e)
+    {
+        if (IsExample || _saving || !Enum.TryParse<AbyssPointRatePeriod>(e.Value?.ToString(), out var period) || !Enum.IsDefined(period)) return;
+        _saving = true;
+        try { await Task.Run(() => Settings.SetAbyssPointRatePeriod(period)); _feedback = "Overlay- und Drop-Einstellungen gespeichert."; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _feedback = "Overlay- und Drop-Einstellungen konnten nicht gespeichert werden."; }
+        finally { _saving = false; }
+    }
+}

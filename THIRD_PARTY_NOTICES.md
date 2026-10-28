@@ -17,6 +17,8 @@ Das Symbol `Assets/exploration-complete.png` und die Erkundungslisten-Fixtures s
 vom Nutzer bereitgestellten Spielaufnahmen (Oktober 2026). Sie dienen ausschließlich dem lokalen
 Bildvergleich und den Erkennungstests. Spielgrafik © NCSOFT; keine freie Grafiklizenz behauptet.
 
+Die Klassen- und Abyss-Rangicons im PvP-Killfeed sind originale Spielgrafiken © NCSOFT. Sie werden lokal gebündelt; eine freie Grafiklizenz wird nicht behauptet.
+
 ## aion2.gaming.tools: Kartendaten und Pet-Katalog
 
 - Quelle: <https://aion2.gaming.tools/>, die `.d.json`-Datendateien und die zugehörigen statischen
@@ -69,8 +71,8 @@ Lizenztexte werden mit der jeweiligen Komponente unter `licenses/` abgelegt (Mus
 
 ## Spielgrafiken und Spieltexte
 
-Für Event-Timer und Daevanion-Boards bündelt Soulcrest einzelne Spielsymbole, Skillbilder und
-Spieltexte von Aion 2 lokal. Sie sind Eigentum von NCSOFT; eine freie Lizenz wird nicht behauptet.
+Für Event-Timer, Daevanion-Boards, Jagdgebiete auf der Karte und die Rangentwicklung des Abyss
+Rank Trackers bündelt Soulcrest einzelne Spielsymbole, Skillbilder und Spieltexte von Aion 2 lokal. Sie sind Eigentum von NCSOFT; eine freie Lizenz wird nicht behauptet.
 Es gibt keine Laufzeitabfragen.
 
 ## Noto Sans Bold – Schrift der Timer-Leiste
@@ -81,3 +83,10 @@ Lizenz und Quellenangaben: `src/Soulcrest.App/wwwroot/fonts/timer/`. Keine Font-
 Die zusätzlichen Reset-/Timer-/Boss-Ersatzsymbole sind eigene Soulcrest-Grafiken.
 
 
+
+## Dropklang (2026-10-28)
+
+`Assets/loot-drop-standard.wav` ist eine eigene Soulcrest-Synthese
+(`scripts/sound/generate_loot_drop.py`): ein kurzer, nach oben gleitender Sinuston mit
+leisem Oberton und gefiltertem Anschlag. Es werden keine fremden Aufnahmen oder Samples
+verwendet.

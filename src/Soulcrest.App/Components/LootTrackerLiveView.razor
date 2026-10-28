@@ -1,45 +1,39 @@
 @implements IDisposable
-@using System.Collections.Immutable
-@inject LifeskillTrackerService Lifeskill
-@inject FarmLootTrackerService Farm
+@inject UnifiedLootTrackerService Unified
+@inject LootTrackerReplayService Replays
+@inject SettingsService Settings
+@inject AbyssProgressService Abyss
 
-<LootTrackerView Snapshot="_snapshot" SourceAvailable="@(Lifeskill.SourceAvailable || Farm.SourceAvailable)"
-                 SourceStatus="@SourceStatus" SourceStatusIsError="@(Lifeskill.StatusIsError || Farm.StatusIsError)" DeleteSession="DeleteSession" />
+<LootTrackerView Snapshot="_snapshot" SourceAvailable="Unified.SourceAvailable"
+                 SourceStatus="@Unified.Status" SourceStatusIsError="Unified.StatusIsError" DeleteSession="DeleteSession" AbyssProgress="Abyss.ProgressSnapshot"
+                 ViewMode="Settings.Current.LootTrackerViewMode" ViewModeChanged="ChangeViewMode" />
 
 @code {
     private bool _disposed;
     private LootTrackerSnapshot _snapshot = LootTrackerSnapshot.Empty;
-    private string SourceStatus => UiText.F("Open-World-PvE: {0} · Lifeskill: {1}", UiText.T(Farm.Status), UiText.T(Lifeskill.Status));
     protected override void OnInitialized()
     {
-        Lifeskill.Changed += Refresh;
-        Farm.Changed += Refresh;
-        _snapshot = MergeSnapshots(Lifeskill.Snapshot, Farm.SessionSnapshot);
-    }
-    internal static LootTrackerSnapshot MergeSnapshots(LootTrackerSnapshot lifeskill, LootTrackerSnapshot farm)
-    {
-        var first = lifeskill.Sessions.IsDefault ? ImmutableArray<LootTrackerSession>.Empty : lifeskill.Sessions;
-        var second = farm.Sessions.IsDefault ? ImmutableArray<LootTrackerSession>.Empty : farm.Sessions;
-        var at = lifeskill.At is { } a && farm.At is { } b ? (a > b ? a : b) : lifeskill.At ?? farm.At;
-        return new(first.Concat(second).OrderByDescending(row => row.StartedAt).ToImmutableArray(), at);
+        Unified.Changed += Refresh;
+        Settings.Changed += Refresh;
+        Abyss.Changed += Refresh;
+        _snapshot = Unified.Snapshot;
     }
     private async Task DeleteSession(string id)
     {
-        if (!Lifeskill.Snapshot.Sessions.IsDefaultOrEmpty && Lifeskill.Snapshot.Sessions.Any(row => row.Id == id))
-            await Lifeskill.DeleteSessionAsync(id);
-        else if (!Farm.SessionSnapshot.Sessions.IsDefaultOrEmpty && Farm.SessionSnapshot.Sessions.Any(row => row.Id == id))
-            await Farm.DeleteSessionAsync(id);
-        else throw new InvalidOperationException("Session is no longer available.");
+        var session = Unified.Snapshot.Sessions.FirstOrDefault(row => row.Id == id);
+        await Unified.DeleteSessionAsync(id);
+        if (session is not null) await Replays.RemoveAsync(id, session.Kind);
     }
+    private Task ChangeViewMode(LootTrackerViewMode mode) => Task.Run(() => Settings.SetLootTrackerViewMode(mode));
     private void Refresh()
     {
         if (_disposed) return;
         _ = InvokeAsync(() =>
         {
             if (_disposed) return;
-            _snapshot = MergeSnapshots(Lifeskill.Snapshot, Farm.SessionSnapshot);
+            _snapshot = Unified.Snapshot;
             StateHasChanged();
         });
     }
-    public void Dispose() { _disposed = true; Lifeskill.Changed -= Refresh; Farm.Changed -= Refresh; }
+    public void Dispose() { _disposed = true; Unified.Changed -= Refresh; Settings.Changed -= Refresh; Abyss.Changed -= Refresh; }
 }

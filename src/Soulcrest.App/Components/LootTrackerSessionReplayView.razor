@@ -1,0 +1,194 @@
+@implements IDisposable
+@using System.Collections.Immutable
+@inject IServiceProvider Services
+
+<section class="lt-panel lt-session-replay" aria-label="@UiText.T("Session-Replay")" data-testid="session-replay">
+    <div class="lt-section-head lt-replay-heading"><div><h3>@UiText.T("Session-Replay")</h3><p>@UiText.T("Gelaufene Route") · @UiText.T("Session-Timeline")</p></div>
+        @if (Ready) { <button type="button" class="btn" id="loot-replay-rebuild" disabled="@(IsExample || Busy)" @onclick="@(() => RenderReplay(true))">@UiText.T("Neu rendern")</button> }
+    </div>
+    @if (Session.Status == LootTrackerSessionStatus.Live)
+    {
+        <div class="lt-replay-state recording" data-testid="replay-recording" role="status"><span class="lt-dot"></span><strong>@UiText.T("Session wird aufgezeichnet")</strong><p>@UiText.T("Das Replay kann nach Sessionende gerendert werden.")</p></div>
+    }
+    else
+    {
+        @if (Session.Status == LootTrackerSessionStatus.Interrupted) { <p class="lt-panel-subtitle" data-testid="replay-interrupted">@UiText.T("Unterbrochene Session · Replay des gespeicherten Zeitraums")</p> }
+        @if (Busy)
+        {
+            <div class="lt-replay-state" data-testid="replay-preparing" role="status" aria-live="polite"><strong>@UiText.T(_state?.Status == LootTrackerReplayStatus.Loading ? "Replay wird geladen …" : "Replay wird aufbereitet …")</strong><progress max="100" value="@(_state?.Progress ?? 0)"></progress><button type="button" class="btn" id="loot-replay-cancel" @onclick="CancelPreparation">@UiText.T("Abbrechen")</button></div>
+        }
+        @if (_state?.Status is LootTrackerReplayStatus.Failed or LootTrackerReplayStatus.Stale or LootTrackerReplayStatus.Canceled)
+        {
+            <p class="lt-replay-feedback @(_state.Status == LootTrackerReplayStatus.Failed ? "error" : "")" role="status" data-testid="replay-feedback">@UiText.T(_state.Status switch { LootTrackerReplayStatus.Stale => "Das Replay muss erneut gerendert werden.", LootTrackerReplayStatus.Canceled => "Replay-Aufbereitung abgebrochen.", _ => "Das Replay konnte nicht aufbereitet oder gespeichert werden. Bitte erneut versuchen." })</p>
+        }
+        @if (_preparationFeedback is not null && _state?.Status != LootTrackerReplayStatus.Canceled) { <p class="lt-replay-feedback" role="status">@UiText.T(_preparationFeedback)</p> }
+        @if (_state?.Status == LootTrackerReplayStatus.Ready && _state.Reason != LootTrackerReplayFailure.None) { <p class="lt-replay-feedback error" role="status">@UiText.T("Neu rendern fehlgeschlagen. Das vorhandene Replay bleibt verfügbar.")</p> }
+        @if (Ready)
+        {
+            var replay = CurrentReplay;
+            <div class="lt-replay-map" data-testid="session-replay-map">
+                @if (Session.Kind == LootTrackerSessionKind.Lifeskill && !LootTrackerPresentation.UsesFarmRoute(Session)) { <p class="lt-panel-subtitle" data-testid="legacy-route-note">@UiText.T("Altaufzeichnung: Laufweg ohne gespeicherte Sammelpositionen.")</p> }
+                else if (Session.Kind == LootTrackerSessionKind.Lifeskill && Session.RouteSegments.IsDefaultOrEmpty) { <p class="lt-panel-subtitle" data-testid="legacy-route-note">@UiText.T("Altaufzeichnung: Sammelstellen ohne aufgezeichneten Laufweg.")</p> }
+                <LootTrackerRouteMap Session="DisplaySession" MapId="replay.MapId" Replay="replay" IsExample="IsExample" />
+                <button id="loot-show-route-on-map" type="button" class="btn" disabled="@(IsExample || !CanShowOnMap || replay.MapId is null || LootTrackerMapFocus.Create(DisplaySession, replay.MapId) is null)" @onclick="@(() => ShowOnMap.InvokeAsync(replay.MapId))">@UiText.T("Auf Karte anzeigen") ↗</button>
+            </div>
+            <LootTrackerSessionTimeline Embedded="true" Session="DisplaySession" Elapsed="replay.Elapsed" FollowEnd="_playback.FollowingEnd" IsExample="IsExample" Seek="Seek" JumpToEnd="FollowEnd" IsPlaying="_playback.IsPlaying" TogglePlayback="TogglePlay" />
+            <LootTrackerReplayTransport Playback="_playback" TogglePlay="TogglePlay" PlayDirection="Play" Skip="Skip" ChangeSpeed="SetSpeed" Start="JumpStart" End="FollowEnd" />
+        }
+        else if (!Busy)
+        {
+            <div class="lt-replay-state" data-testid="replay-not-prepared"><p>@UiText.T("Route und Timeline werden für diese Session gemeinsam aufbereitet.")</p><button type="button" class="btn lt-replay-play" id="loot-replay-render" @onclick="@(() => RenderReplay(false))">@UiText.T("Replay rendern")</button></div>
+        }
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public LootTrackerSession Session { get; set; } = new();
+    [Parameter] public LootTrackerSession? ViewSession { get; set; }
+    // Synthetic examples can carry an already prepared in-memory replay; production uses the cache service.
+    [Parameter] public LootTrackerPreparedReplay? PreparedReplay { get; set; }
+    [Parameter] public bool IsExample { get; set; }
+    [Parameter] public bool CanShowOnMap { get; set; }
+    [Parameter] public EventCallback<string?> ShowOnMap { get; set; }
+    private LootTrackerSession DisplaySession => ViewSession ?? Session;
+    private readonly LootTrackerReplayPlayback _playback = new();
+    private readonly TimeProvider _time = TimeProvider.System;
+    private LootTrackerReplayService _preparation = null!;
+    private LootTrackerReplayState? _state;
+    private string? _preparationFeedback;
+    private LootTrackerPreparedReplay? _prepared;
+    private LootTrackerSession? _loadedSource, _viewSource, _replaySource;
+    private HashSet<string> _combatIds = [], _gatherIds = [], _factIds = [];
+    private HashSet<(string, string, DateTimeOffset?)> _resourceKeys = [];
+    private CancellationTokenSource? _playbackCancellation;
+    private bool _disposed, _ownsPreparation;
+    private LootTrackerSessionReplay? _replay;
+    private bool Ready => Session.Status != LootTrackerSessionStatus.Live && _prepared is not null;
+    private bool Busy => _state?.IsBusy == true;
+    protected override void OnInitialized()
+    {
+        _preparation = Services.GetService(typeof(LootTrackerReplayService)) as LootTrackerReplayService ?? new();
+        _ownsPreparation = Services.GetService(typeof(LootTrackerReplayService)) is null;
+        _preparation.Changed += PreparationChanged;
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_playback.SessionId != Session.Id) { StopClock(); _prepared = null; _replay = null; _preparationFeedback = null; }
+        _playback.UpdateSession(Session.Id, Session.Elapsed, Session.Status == LootTrackerSessionStatus.Live);
+        if (!_playback.IsPlaying) StopClock();
+        if (!ReferenceEquals(_viewSource, DisplaySession))
+        {
+            _viewSource = DisplaySession; _replay = null;
+            _combatIds = (DisplaySession.CombatEvents.IsDefault ? [] : DisplaySession.CombatEvents).Select(row => row.Id).ToHashSet(StringComparer.Ordinal);
+            _gatherIds = (DisplaySession.GatherVisits.IsDefault ? [] : DisplaySession.GatherVisits).Select(row => row.Id).ToHashSet(StringComparer.Ordinal);
+            _factIds = (DisplaySession.TimelineEvents.IsDefault ? [] : DisplaySession.TimelineEvents).Select(row => row.Id).ToHashSet(StringComparer.Ordinal);
+            _resourceKeys = (DisplaySession.ResourceNodes.IsDefault ? [] : DisplaySession.ResourceNodes).Select(row => (row.NodeId, row.MapId, row.At)).ToHashSet();
+        }
+        if (Session.Status == LootTrackerSessionStatus.Live) { _prepared = null; _state = null; _loadedSource = null; return; }
+        if (PreparedReplay is not null) { _prepared = PreparedReplay; return; }
+        if (IsExample)
+        {
+            if (!ReferenceEquals(_loadedSource, Session)) { _loadedSource = Session; _prepared = LootTrackerPreparedReplay.Prepare(Session); }
+            return;
+        }
+        if (ReferenceEquals(_loadedSource, Session)) return;
+        _loadedSource = Session;
+        _state = _preparation.GetState(Session);
+        var source = Session;
+        var state = await _preparation.LoadAsync(source);
+        if (_disposed || !ReferenceEquals(source, Session)) return;
+        ApplyState(state);
+    }
+    private LootTrackerSessionReplay CurrentReplay
+    {
+        get
+        {
+            if (_replay is not null && ReferenceEquals(_replaySource, DisplaySession) && _replay.Elapsed == _playback.Elapsed) return _replay;
+            _replaySource = DisplaySession;
+            var replay = LootTrackerSessionReplay.Build(Session, _playback.Elapsed, _prepared!);
+            var visible = replay.Session;
+            if (!ReferenceEquals(DisplaySession, Session))
+            {
+                var visits = visible.GatherVisits.Where(row => _gatherIds.Contains(row.Id)).ToImmutableArray();
+                visible = visible with
+                {
+                    CombatEvents = visible.CombatEvents.Where(row => _combatIds.Contains(row.Id)).ToImmutableArray(),
+                    GatherVisits = visits,
+                    FarmRoutePoints = LootTrackerPresentation.UsesFarmRoute(Session) ? LifeskillFarmRouteBuilder.Build(visits) : visible.FarmRoutePoints,
+                    TimelineEvents = visible.TimelineEvents.Where(row => _factIds.Contains(row.Id)).ToImmutableArray(),
+                    ResourceNodes = visible.ResourceNodes.Where(row => _resourceKeys.Contains((row.NodeId, row.MapId, row.At))).ToImmutableArray()
+                };
+            }
+            return _replay = replay with { Session = visible };
+        }
+    }
+    public async Task RenderReplay(bool force = false)
+    {
+        if (_disposed || Session.Status == LootTrackerSessionStatus.Live || Busy) return;
+        StopClock(); _playback.Pause(); _preparationFeedback = null;
+        var source = Session;
+        var task = _preparation.PrepareAsync(source, force);
+        _state = _preparation.GetState(source); StateHasChanged();
+        var state = await task;
+        if (_disposed || !ReferenceEquals(source, Session)) return;
+        ApplyState(state); StateHasChanged();
+    }
+    private void CancelPreparation() { _preparation.Cancel(Session.Id, Session.Kind); _preparationFeedback = "Replay-Aufbereitung abgebrochen."; }
+    private void ApplyState(LootTrackerReplayState state)
+    {
+        _state = state;
+        if (!ReferenceEquals(_prepared, state.Replay)) { _prepared = state.Replay; _replay = null; }
+        if (!Ready) { StopClock(); _playback.Pause(); }
+    }
+    private void PreparationChanged()
+    {
+        if (_disposed || IsExample || Session.Status == LootTrackerSessionStatus.Live) return;
+        _ = InvokeAsync(() => { if (!_disposed) { ApplyState(_preparation.GetState(Session)); StateHasChanged(); } });
+    }
+    public void Seek(TimeSpan elapsed) { if (!Ready) return; StopClock(); _playback.Seek(elapsed); StateHasChanged(); }
+    public void FollowEnd() { if (!Ready) return; StopClock(); _playback.JumpToEnd(); StateHasChanged(); }
+    public void Advance(TimeSpan elapsed) { if (!Ready) return; _playback.Advance(elapsed); StateHasChanged(); }
+    public void Play(int direction) { if (!Ready) return; _playback.Play(direction); StartClock(); }
+    private void JumpStart() => Seek(TimeSpan.Zero);
+    private void Skip(TimeSpan delta) { if (!Ready) return; StopClock(); _playback.Step(delta); }
+    private void TogglePlay()
+    {
+        if (!Ready) return;
+        _playback.TogglePlayPause();
+        if (_playback.IsPlaying) StartClock(); else StopClock();
+    }
+    private void SetSpeed(double speed) { if (!Ready) return; _playback.SetSpeed(speed); if (_playback.IsPlaying) StartClock(); }
+    private void StartClock()
+    {
+        StopClock();
+        if (!_playback.IsPlaying || _disposed || !Ready) return;
+        _playbackCancellation = new(); _ = RunClock(_playbackCancellation.Token);
+    }
+    private void StopClock() { _playbackCancellation?.Cancel(); _playbackCancellation?.Dispose(); _playbackCancellation = null; }
+    private async Task RunClock(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(1000d / 60));
+        var previous = _time.GetTimestamp();
+        try
+        {
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                var now = _time.GetTimestamp(); var elapsed = _time.GetElapsedTime(previous, now); previous = now;
+                var keepPlaying = false;
+                await InvokeAsync(() =>
+                {
+                    if (_disposed || token.IsCancellationRequested || !_playback.IsPlaying || !Ready) return;
+                    _playback.Advance(elapsed); keepPlaying = _playback.IsPlaying; StateHasChanged();
+                });
+                if (!keepPlaying) break;
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (ObjectDisposedException) { }
+    }
+    public void Dispose()
+    {
+        _disposed = true; StopClock(); _preparation.Changed -= PreparationChanged;
+        if (_ownsPreparation) _preparation.Dispose();
+    }
+}

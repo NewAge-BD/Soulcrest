@@ -1,0 +1,40 @@
+@using System.Globalization
+
+<div class="lt-replay-transport" role="group" aria-label="@UiText.T("Wiedergabesteuerung")" data-testid="replay-transport">
+    <div class="lt-replay-transport-buttons">
+        <button type="button" class="btn" id="loot-replay-start" title="@UiText.T("Zum Anfang")" aria-label="@UiText.T("Zum Anfang")" disabled="@Disabled" @onclick="Start">⏮</button>
+        <button type="button" class="btn" id="loot-replay-reverse" title="@UiText.T("Rückwärts abspielen")" aria-label="@UiText.T("Rückwärts abspielen")" aria-pressed="@(Playback.IsPlaying && Playback.Direction < 0 ? "true" : "false")" disabled="@Disabled" @onclick="@(() => PlayDirection.InvokeAsync(-1))">◀</button>
+        <button type="button" class="btn" id="loot-replay-back" title="@UiText.T("10 Sekunden zurück")" aria-label="@UiText.T("10 Sekunden zurück")" disabled="@Disabled" @onclick="@(() => Skip.InvokeAsync(TimeSpan.FromSeconds(-10)))">−10s</button>
+        <button type="button" class="btn lt-replay-play" id="loot-replay-play" title="@PlayLabel" aria-label="@PlayLabel" aria-pressed="@(Playback.IsPlaying ? "true" : "false")" disabled="@Disabled" @onclick="TogglePlay"><span aria-hidden="true">@(Playback.IsPlaying ? "⏸" : "▶")</span><span>@PlayLabel</span></button>
+        <button type="button" class="btn" id="loot-replay-forward" title="@UiText.T("10 Sekunden vor")" aria-label="@UiText.T("10 Sekunden vor")" disabled="@Disabled" @onclick="@(() => Skip.InvokeAsync(TimeSpan.FromSeconds(10)))">+10s</button>
+        <button type="button" class="btn" id="loot-replay-direction-forward" title="@UiText.T("Vorwärts abspielen")" aria-label="@UiText.T("Vorwärts abspielen")" aria-pressed="@(Playback.IsPlaying && Playback.Direction > 0 ? "true" : "false")" disabled="@Disabled" @onclick="@(() => PlayDirection.InvokeAsync(1))">▶▶</button>
+        <button type="button" class="btn" id="loot-replay-end" title="@UiText.T("Zum Sessionende")" aria-label="@UiText.T("Zum Sessionende")" @onclick="End">⏭</button>
+    </div>
+    <label class="lt-replay-speed">@UiText.T("Wiedergabegeschwindigkeit")
+        <select id="loot-replay-speed" aria-label="@UiText.T("Wiedergabegeschwindigkeit")" value="@InvariantSpeed(Playback.Speed)" disabled="@Disabled" @onchange="SpeedChanged">
+            @foreach (var speed in Speeds)
+            {
+                <option value="@InvariantSpeed(speed)">@SpeedLabel(speed)</option>
+            }
+        </select>
+    </label>
+    <span class="lt-replay-transport-status" role="status" aria-live="polite">@UiText.T(Playback.Direction < 0 ? "Rückwärts" : "Vorwärts") · @SpeedLabel(Playback.Speed)</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public LootTrackerReplayPlayback Playback { get; set; } = null!;
+    [Parameter] public EventCallback TogglePlay { get; set; }
+    [Parameter] public EventCallback<int> PlayDirection { get; set; }
+    [Parameter] public EventCallback<TimeSpan> Skip { get; set; }
+    [Parameter] public EventCallback<double> ChangeSpeed { get; set; }
+    [Parameter] public EventCallback Start { get; set; }
+    [Parameter] public EventCallback End { get; set; }
+    private static readonly double[] Speeds = [.25, .5, 1, 2, 4, 8];
+    private bool Disabled => Playback.Duration <= TimeSpan.Zero;
+    private string PlayLabel => UiText.T(Playback.IsPlaying ? "Pause" : "Abspielen");
+    private static string InvariantSpeed(double speed) => speed.ToString("0.##", CultureInfo.InvariantCulture);
+    private static string SpeedLabel(double speed) => speed.ToString("0.##", CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US")) + "×";
+    private Task SpeedChanged(ChangeEventArgs args) => !Disabled
+        && double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var speed)
+        && Speeds.Contains(speed) ? ChangeSpeed.InvokeAsync(speed) : Task.CompletedTask;
+}

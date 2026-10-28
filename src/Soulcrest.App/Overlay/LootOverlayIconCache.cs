@@ -24,7 +24,7 @@ internal sealed class LootOverlayIconCache : IDisposable
 
     internal int Count { get { lock (_gate) return _entries.Count; } }
 
-    internal bool Draw(Graphics graphics, string? asset, RectangleF bounds)
+    internal bool Draw(Graphics graphics, string? asset, RectangleF bounds, Color? background = null)
     {
         lock (_gate)
         {
@@ -51,6 +51,13 @@ internal sealed class LootOverlayIconCache : IDisposable
             if (node.Value.Image is not { } image) return false;
             try
             {
+                // An unavailable asset never leaves a replacement box. Keep the optional backing
+                // under the same image/dispose lock, after successful loading and before one draw.
+                if (background is { } color)
+                {
+                    using var backing = new SolidBrush(color);
+                    graphics.FillRectangle(backing, bounds);
+                }
                 graphics.DrawImage(image, bounds, new RectangleF(0, 0, IconSize, IconSize), GraphicsUnit.Pixel);
                 return true;
             }
@@ -71,9 +78,11 @@ internal sealed class LootOverlayIconCache : IDisposable
             else
             {
                 var parts = asset.Replace('\\', '/').Split('/');
-                if (parts.Length != 2 || !parts[0].Equals("loot-icons", StringComparison.OrdinalIgnoreCase)
+                if (parts.Length != 2 || !(parts[0].Equals("loot-icons", StringComparison.OrdinalIgnoreCase)
+                    || parts[0].Equals("abyss-rank-icons", StringComparison.OrdinalIgnoreCase)
+                    || parts[0].Equals("class-icons", StringComparison.OrdinalIgnoreCase))
                     || !ValidFileName(parts[1])) return null;
-                path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "wwwroot", "loot-icons", parts[1]));
+                path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "wwwroot", parts[0], parts[1]));
             }
             var root = Path.GetPathRoot(path);
             if (string.IsNullOrEmpty(root) || root.StartsWith('\\') || path[root.Length..].Contains(':')

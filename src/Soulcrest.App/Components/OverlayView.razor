@@ -83,6 +83,8 @@
                     <section class="overlay-settings-card">
                         <h4>@UiText.T("Loot-Overlay")</h4>
                         <label class="check"><input id="loot-overlay-auto-show" type="checkbox" checked="@Settings.Current.LootOverlayShowOnSessionStart" disabled="@_saving" @onchange="@(e => SavePreference(() => Settings.SetLootOverlayShowOnSessionStart(e.Value is true)))" />@UiText.T("Bei Sessionstart einblenden")</label>
+                        <label class="check"><input id="loot-overlay-session-only" type="checkbox" checked="@Settings.Current.LootOverlayOnlyDuringSession" disabled="@_saving" aria-describedby="loot-overlay-session-only-hint" @onchange="SetLootSessionOnly" />@UiText.T("Nur bei laufender Session anzeigen")</label>
+                        <p id="loot-overlay-session-only-hint">@UiText.T("Ohne laufende Session bleibt das Overlay ausgeblendet. Die Aufnahme läuft unabhängig davon weiter.")</p>
                         <label for="loot-background-transparency">@UiText.T("Hintergrundtransparenz")<input id="loot-background-transparency" type="range" min="0" max="100" step="1" value="@Math.Round((1 - Settings.Current.LootOverlayBackgroundOpacity) * 100)" disabled="@_saving" @onchange="SetLootTransparency" /><output for="loot-background-transparency">@Math.Round((1 - Settings.Current.LootOverlayBackgroundOpacity) * 100) %</output></label>
                         <p>@UiText.T("Nur der Hintergrund wird transparent. Text, Icons und Kina-Anzeige bleiben sichtbar.")</p>
                     </section>
@@ -91,6 +93,20 @@
                     break;
                 case "boss":
                     <section class="overlay-settings-card"><h4>@UiText.T("Spawnliste")</h4><label class="check"><input id="boss-overlay-enabled" type="checkbox" checked="@Settings.Current.BossOverlayEnabled" @onchange="@(e => Save(s => s.BossOverlayEnabled = e.Value is true))" />@UiText.T("Spawnliste anzeigen")</label><label class="overlay-number-field" for="boss-overlay-count">@UiText.T("Anzahl der Spawns")<input id="boss-overlay-count" type="number" min="1" max="12" value="@Settings.Current.BossOverlayCount" @onchange="SetBossCount" /></label><p>@UiText.T("Boss Rush steuert die Wegführung. Vorwarnzeiten und Töne stellst du weiterhin bei den Boss-Erinnerungen ein.")</p></section>
+                    break;
+                case "abyss-rank":
+                    <p class="overlay-data-note">@UiText.T("Zeigt Rangpunktestand, nächste Punkte-Stufe und Rangpunkte netto für die laufende Abyss-Session sowie pro Stunde. Netto bedeutet Gewinne minus Verluste. Die Punkte-Stufe ist kein bestätigter Klassenrang.")</p>
+                    <section class="overlay-settings-card"><AbyssRankMotionSettings Disabled="@_saving" /></section>
+                    <section class="overlay-settings-card">
+                        <label class="check"><input id="abyss-killfeed-enabled" type="checkbox" checked="@Settings.Current.AbyssKillFeedEnabled" disabled="@_saving" @onchange="@(e => SavePreference(() => Settings.SetAbyssKillFeedEnabled(e.Value is true)))" />@UiText.T("Killfeed anzeigen")</label>
+                        <fieldset class="overlay-visibility-options" disabled="@_saving">
+                            <label><input id="abyss-killfeed-kills" type="checkbox" checked="@Settings.Current.AbyssKillFeedShowKills" @onchange="@(e => SavePreference(() => Settings.SetAbyssKillFeedShowKills(e.Value is true)))" />@UiText.T("Spielerkills")</label>
+                            <label><input id="abyss-killfeed-assists" type="checkbox" checked="@Settings.Current.AbyssKillFeedShowAssists" @onchange="@(e => SavePreference(() => Settings.SetAbyssKillFeedShowAssists(e.Value is true)))" />@UiText.T("Assists")</label>
+                            <label><input id="abyss-killfeed-deaths" type="checkbox" checked="@Settings.Current.AbyssKillFeedShowDeaths" @onchange="@(e => SavePreference(() => Settings.SetAbyssKillFeedShowDeaths(e.Value is true)))" />@UiText.T("Eigene Tode")</label>
+                        </fieldset>
+                        <p>@UiText.T("Zeigt die letzten zehn ausgewählten eigenen Kampfergebnisse ohne Zeitablauf. Klassenicon und Rangicon stehen auch bei eigenen Toden vor dem Gegnernamen. AP und Rangpunkte je Ergebnis benötigen eine eindeutige Zuordnung; — bedeutet unbekannt. Assists benötigen einen eindeutigen Beleg eigener Beteiligung. Abschalten oder ein Kontextwechsel leert den Feed; Gegnerdaten werden nicht gespeichert.")</p>
+                    </section>
+                    <button type="button" class="btn" @onclick="@(() => Ui.Navigate("loot"))">@UiText.T("Loot Tracker öffnen") ↗</button>
                     break;
                 case "leveling":
                     <p class="overlay-data-note">@UiText.T("Zeigt die aktive Leveling-Route. Route, Charakter und Fortschritt bleiben im Karten-Tab.")</p>
@@ -164,6 +180,7 @@
     private Task SetGuardRadius(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) ? Save(s => s.GuardRadiusMeters = Math.Clamp(n, 5, 60)) : Task.CompletedTask;
     private Task SetLootTransparency(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var percent) && percent is >= 0 and <= 100
         ? SavePreference(() => Settings.SetLootOverlayBackgroundOpacity(1 - percent / 100d)) : Task.CompletedTask;
+    private Task SetLootSessionOnly(ChangeEventArgs e) => SavePreference(() => Settings.SetLootOverlayOnlyDuringSession(e.Value is true));
     private Task SetGuardMap(string id, bool enabled) => Save(s => s.GuardZoneMaps = enabled ? s.GuardZoneMaps.Append(id).Distinct().ToArray() : s.GuardZoneMaps.Where(item => item != id).ToArray());
     private Task SetRule(string context, bool enabled) => Save(s =>
     {
@@ -198,6 +215,6 @@
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _feedback = UiText.T("Overlay-Einstellungen konnten nicht gespeichert werden."); }
         finally { _saving = false; }
     }
-    private static string Symbol(string id) => id switch { "loot" => "✦", "farm-loot" => "◇", "boss" => "◆", "leveling" => "➜", "alerts" => "◷", "notifications" => "◇", "event-timeline" => "↔", "map" => "⌖", _ => "▱" };
+    private static string Symbol(string id) => id switch { "loot" => "✦", "farm-loot" => "◇", "abyss-rank" => "△", "boss" => "◆", "leveling" => "➜", "alerts" => "◷", "notifications" => "◇", "event-timeline" => "↔", "map" => "⌖", _ => "▱" };
     public void Dispose() { _disposed = true; Settings.Changed -= Refresh; Placement.Changed -= Refresh; Ui.Changed -= NavigateToSection; Placement.Stop(); }
 }

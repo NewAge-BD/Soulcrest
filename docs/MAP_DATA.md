@@ -218,3 +218,22 @@ Die gemeinsame Zeichenfläche hat einen Puffer und wird beim Verschieben innerha
 weiterverwendet. Bei Überschreiten, Zoom, Kartenwechsel oder Ansichtsreset wird neu gezeichnet.
 Icon-Rastergrößen werden je Quelle begrenzt zwischengespeichert. Pet-DOM und native Overlays
 behalten ihre bisherigen Bildformate. Gemessenes vollständiges lokales Paket: 139,19 statt 374,67 MiB.
+
+## Jagdgebietsüberschriften (2026-10-27)
+
+Marker der exakten Kategorie `Regions/Hunting Ground` zeigen das mitgelieferte
+Hunting-Ground-Icon über einem großen, dauerhaft sichtbaren EN-/DE-Namen.
+Vorhandene Quellpositionen und Namen bleiben unverändert; fehlende deutsche
+Namen verwenden Englisch. Icon und Text bilden einen einzigen Marker mit
+bestehendem Popup, Rechtsklick und gemeinsamem Legendenfilter. Bei bisher
+unbearbeiteten Karten sind Jagdgebiete anfangs sichtbar; gespeicherte
+Kategoriesichtbarkeit wird weiter respektiert. Dörfer behalten ihre Darstellung.
+
+Eine eigene Leaflet-Ebene über Pet-Porträts hält die Schrift lesbar, während der
+Text keine Kartenklicks abfängt. Beim Zoomen skaliert das bestehende Element
+begrenzt mit, ohne neue Marker zu erzeugen. Sprachwechsel aktualisiert nur die
+betroffenen Namen. Grenzen werden nicht aus den Mittelpunkten erfunden.
+
+Das lokale Originalicon einschließlich blau-goldener Raute ist © NCSOFT;
+die App benötigt dafür keine Spieldateien. Vorhandene Marker werden verwendet,
+sodass kein neues Kartenpaket für die Beschriftungen erforderlich ist.

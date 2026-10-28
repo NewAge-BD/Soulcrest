@@ -15,7 +15,9 @@ public sealed class MainForm : Form
     private readonly ServiceProvider _services;
     private readonly PetOverlayForm _overlay;
     private readonly LootOverlayForm _lootOverlay;
-    private readonly FarmLootTrackerService _farmLoot;
+    private readonly UnifiedLootTrackerService _unifiedLoot;
+    private readonly AbyssRankOverlayForm _abyssRankOverlay;
+    private readonly AbyssRankSoundPlayer _abyssRankSounds;
     private readonly RareDropAlertService _dropAlerts;
     private readonly BossOverlayForm _bossOverlay;
     private readonly AlertsOverlayForm _alertsOverlay;
@@ -78,6 +80,8 @@ public sealed class MainForm : Form
         services.AddSingleton<Network.INetworkGatheringSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkKinaSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkFarmSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkAbyssSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkAbyssCombatSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<MerchantService>();
         services.AddSingleton<DaevanionService>();
         services.AddSingleton<TrackerService>();
@@ -85,16 +89,38 @@ public sealed class MainForm : Form
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();
         services.AddSingleton<LootTrackerRouteSaveService>();
-        services.AddSingleton<LifeskillTrackerService>();
-        services.AddSingleton<FarmLootTrackerService>();
-        services.AddSingleton<ILootOverlaySource>(sp => sp.GetRequiredService<FarmLootTrackerService>());
-        services.AddSingleton(sp => new RareDropAlertService(sp.GetRequiredService<FarmLootTrackerService>(), () =>
+        services.AddSingleton<LootTrackerReplayService>();
+        services.AddSingleton(_ => new UnifiedLootLegacyHistory(Path.Combine(AppPaths.DataDirectory, "loot-tracker")));
+        services.AddSingleton(sp => new UnifiedLootTrackerService(sp.GetRequiredService<SettingsService>(),
+            sp.GetRequiredService<Network.INetworkFarmSource>(), sp.GetRequiredService<Network.INetworkKinaSource>(),
+            sp.GetRequiredService<Network.INetworkGatheringSource>(), sp.GetRequiredService<Network.INetworkAbyssSource>(),
+            sp.GetRequiredService<ExplorationService>(), sp.GetRequiredService<WorldContextService>(),
+            sp.GetRequiredService<MapTrackingService>(), sp.GetRequiredService<ProgressService>(),
+            combat: sp.GetRequiredService<Network.INetworkAbyssCombatSource>(),
+            deleteLegacy: sp.GetRequiredService<UnifiedLootLegacyHistory>().Delete,
+            readLegacyHistory: sp.GetRequiredService<UnifiedLootLegacyHistory>().ReadSessions));
+        services.AddSingleton(sp => new AbyssProgressService(sp.GetRequiredService<SettingsService>(),
+            sp.GetRequiredService<Network.INetworkAbyssSource>(), sp.GetRequiredService<ExplorationService>(),
+            sp.GetRequiredService<WorldContextService>()));
+        services.AddSingleton<AbyssKillFeedService>();
+        services.AddSingleton(sp => new AbyssRankOverlaySource(sp.GetRequiredService<UnifiedLootTrackerService>(),
+            sp.GetRequiredService<AbyssProgressService>(), sp.GetRequiredService<SettingsService>(),
+            sp.GetRequiredService<WorldContextService>(), sp.GetRequiredService<AbyssKillFeedService>()));
+        services.AddSingleton<UnifiedLootOverlaySource>();
+        services.AddSingleton(sp => new AbyssRankSoundPlayer(() =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>().Current;
+            return new(settings.AbyssRankSoundEnabled, settings.AbyssRankSoundVolume);
+        }));
+        services.AddSingleton<ILootOverlaySource>(sp => sp.GetRequiredService<UnifiedLootOverlaySource>());
+        services.AddSingleton<IAbyssRankOverlaySource>(sp => sp.GetRequiredService<AbyssRankOverlaySource>());
+        services.AddSingleton(sp => new RareDropAlertService(sp.GetRequiredService<UnifiedLootTrackerService>(), () =>
         {
             var settings = sp.GetRequiredService<SettingsService>().Current;
             return new(settings.LootDropAlertsEnabled, settings.LootDropSoundEnabled,
                 settings.LootDropAnimationsEnabled, settings.LootDropSoundVolume)
                 { RarityAlerts = settings.LootDropRarityAlerts };
-        }, sp.GetRequiredService<LifeskillTrackerService>()));
+        }));
         services.AddSingleton<BossRushService>();
         services.AddSingleton<AlertsService>();
         services.AddSingleton<AlertSoundPlayer>();
@@ -163,8 +189,13 @@ public sealed class MainForm : Form
         _lootOverlay = new LootOverlayForm(_services.GetRequiredService<ILootOverlaySource>(), ReadLootOverlayOptions,
             point => _settings.Update(settings => { settings.LootOverlayX = point.X; settings.LootOverlayY = point.Y; }),
             _dropAlerts);
-        _farmLoot = _services.GetRequiredService<FarmLootTrackerService>();
-        _farmLoot.SessionStarted += ShowLootOverlayForSessionStart;
+        _unifiedLoot = _services.GetRequiredService<UnifiedLootTrackerService>();
+        _unifiedLoot.SessionStarted += ShowLootOverlayForSessionStart;
+        _abyssRankSounds = _services.GetRequiredService<AbyssRankSoundPlayer>();
+        _settings.Changed += _abyssRankSounds.ApplySettings;
+        _abyssRankOverlay = new AbyssRankOverlayForm(_services.GetRequiredService<IAbyssRankOverlaySource>(), ReadAbyssRankOverlayOptions,
+            point => _settings.Update(settings => { settings.AbyssRankOverlayX = point.X; settings.AbyssRankOverlayY = point.Y; }),
+            rankUpStarted: _abyssRankSounds.Start, motionCanceled: _abyssRankSounds.Stop);
         _ = _services.GetRequiredService<NavigationArrivalService>();
         _ = _services.GetRequiredService<FarmedTargetCleaner>(); // removes marks of pets farmed out of view
         _alerts = _services.GetRequiredService<AlertsService>();
@@ -177,7 +208,7 @@ public sealed class MainForm : Form
         _levelingOverlay = new LevelingOverlayForm(_services.GetRequiredService<MapTargetsService>(),
             _services.GetRequiredService<ExplorationService>(), _settings);
         _ = _services.GetRequiredService<CharacterDetectionService>(); // profile follows the character after loading screens
-        _ = _services.GetRequiredService<LifeskillTrackerService>(); // subscribes before the shared network source starts
+        _ = _services.GetRequiredService<UnifiedLootTrackerService>(); // subscribes before the shared network source starts
         _ = _services.GetRequiredService<DiagnosticsService>(); // runs along, writes logs\diagnose.txt
         _routeOverlay = new RouteOverlayForm(
             _services.GetRequiredService<MapTrackingService>(),
@@ -207,14 +238,28 @@ public sealed class MainForm : Form
         _settings.Current.OverlayTheme, _settings.Current.OverlaysInRecordings,
         AnimationsEnabled: _settings.Current.LootDropAnimationsEnabled)
         { BackgroundOpacity = _settings.Current.LootOverlayBackgroundOpacity,
-            ShowOnSessionStart = _settings.Current.LootOverlayShowOnSessionStart };
+            ShowOnSessionStart = _settings.Current.LootOverlayShowOnSessionStart,
+            OnlyDuringSession = _settings.Current.LootOverlayOnlyDuringSession };
+
+    private AbyssRankOverlayOptions ReadAbyssRankOverlayOptions() => new(_settings.Current.AbyssRankOverlayEnabled,
+        _settings.Current.AbyssRankOverlayX, _settings.Current.AbyssRankOverlayY, _settings.Current.AbyssRankOverlayScale,
+        _settings.Current.OverlayTheme, _settings.Current.OverlaysInRecordings)
+        {
+            Language = _settings.Current.LootNameLanguage,
+            ReducedMotion = _settings.Current.AbyssRankReducedMotion,
+            KillFeedEnabled = _settings.Current.AbyssKillFeedEnabled,
+            ShowKills = _settings.Current.AbyssKillFeedShowKills,
+            ShowDeaths = _settings.Current.AbyssKillFeedShowDeaths,
+            ShowAssists = _settings.Current.AbyssKillFeedShowAssists
+        };
 
     private void ShowLootOverlayForSessionStart(string sessionId)
     {
         if (SmokeTest.Enabled || _closing || _cleanupStarted || IsDisposed) return;
         try
         {
-            if (_settings.TryShowLootOverlayForSessionStart()) _lootOverlay.PrepareAlertsForSessionStart();
+            _settings.TryShowLootOverlayForSessionStart();
+            _lootOverlay.PrepareAlertsForSessionStart();
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         { LogFile.Error("Loot-Overlay beim Sessionstart einblenden", error); }
@@ -250,6 +295,7 @@ public sealed class MainForm : Form
         if (_settings.Current.OverlayEnabled)
             _overlay.Show();
         _ = _lootOverlay.Handle;
+        _ = _abyssRankOverlay.Handle;
         _ = _bossOverlay.Handle;
         _ = _alertsOverlay.Handle;
         _ = _eventTimelineOverlay.Handle;
@@ -290,6 +336,7 @@ public sealed class MainForm : Form
         if (_cleanupStarted) return;
         _overlay.SetInteractionEnabled(enabled);
         _lootOverlay.SetInteractionEnabled(enabled);
+        _abyssRankOverlay.SetInteractionEnabled(enabled);
         _bossOverlay.SetInteractionEnabled(enabled);
         _alertsOverlay.SetInteractionEnabled(enabled);
         _eventTimelineOverlay.SetInteractionEnabled(enabled);
@@ -318,6 +365,8 @@ public sealed class MainForm : Form
         _overlay.SetSuppressed(_lootContextSuppressed);
         _lootOverlay.SetSuppressed(Suppressed("farm-loot"));
         _lootOverlay.ApplySettings();
+        _abyssRankOverlay.SetSuppressed(Suppressed("abyss-rank"));
+        _abyssRankOverlay.ApplySettings();
         _levelingOverlay.SetSuppressed(Suppressed("leveling"));
         _bossOverlay.SetSuppressed(Suppressed("boss"));
         _alertsOverlay.SetSuppressed(Suppressed("alerts"));
@@ -356,6 +405,7 @@ public sealed class MainForm : Form
         var suppressed = OverlayVisibilityPolicy.IsForegroundSuppressed(_settings.Current, gameInForeground);
         _overlay.SetForegroundSuppressed(suppressed);
         _lootOverlay.SetForegroundSuppressed(suppressed);
+        _abyssRankOverlay.SetForegroundSuppressed(suppressed);
         _bossOverlay.SetForegroundSuppressed(suppressed);
         _levelingOverlay.SetForegroundSuppressed(suppressed);
         _alertsOverlay.SetForegroundSuppressed(suppressed);
@@ -434,6 +484,7 @@ public sealed class MainForm : Form
     {
         _overlay.SetPlacementHidden(hidden);
         _lootOverlay.SetPlacementHidden(hidden);
+        _abyssRankOverlay.SetPlacementHidden(hidden);
         _bossOverlay.SetPlacementHidden(hidden);
         _levelingOverlay.SetPlacementHidden(hidden);
         _alertsOverlay.SetPlacementHidden(hidden);
@@ -458,6 +509,7 @@ public sealed class MainForm : Form
                 UpdateOverlayState();
                 return;
             case "farm-loot.unlock": if (_lootOverlay.Visible) _lootOverlay.ToggleManualInteractionFromHotkey(); return;
+            case "abyss-rank.unlock": if (_abyssRankOverlay.Visible) _abyssRankOverlay.ToggleManualInteractionFromHotkey(); return;
             case "alerts.unlock": if (_alertsOverlay.Visible) _alertsOverlay.ToggleManualInteractionFromHotkey(); return;
             case "notifications.unlock": if (_alertNotifications.Visible) _alertNotifications.ToggleManualInteractionFromHotkey(); return;
             case "event-timeline.unlock": if (_eventTimelineOverlay.Visible) _eventTimelineOverlay.ToggleManualInteractionFromHotkey(); return;
@@ -551,6 +603,7 @@ public sealed class MainForm : Form
         StopTracking();
         _overlay.Close();
         _lootOverlay.Close();
+        _abyssRankOverlay.Close();
         _bossOverlay.Close();
         _alertsOverlay.Close();
         _eventTimelineOverlay.Close();
@@ -594,9 +647,10 @@ public sealed class MainForm : Form
         _settings.Changed -= UpdateLanguage;
         _settings.Changed -= ScheduleOverlayContext;
         _settings.Changed -= _dropAlerts.ApplySettings;
+        _settings.Changed -= _abyssRankSounds.ApplySettings;
         _map.Changed -= ScheduleOverlayContext;
         _alerts.NoticeRaised -= DeliverAlertSound;
-        _farmLoot.SessionStarted -= ShowLootOverlayForSessionStart;
+        _unifiedLoot.SessionStarted -= ShowLootOverlayForSessionStart;
         _worldContext.Changed -= ScheduleOverlayContext;
         _hotkeys.Invoked -= ExecuteOverlayHotkey;
         _hotkeys.Detach();
@@ -606,6 +660,7 @@ public sealed class MainForm : Form
             StopTracking();
             _overlay?.Dispose();
             _lootOverlay?.Dispose();
+            _abyssRankOverlay?.Dispose();
             _bossOverlay?.Dispose();
             _alertsOverlay?.Dispose();
             _eventTimelineOverlay?.Dispose();

@@ -248,6 +248,43 @@ public sealed class LootTrackerRouteMapPreviewTests
         finally { CultureInfo.CurrentCulture = previous; }
     }
 
+    [Fact]
+    public void ReplayUsesAFixedViewportFollowingTheLastObservedPositionAndOnlyThePrefixWalk()
+    {
+        var at = new DateTimeOffset(2026, 10, 27, 10, 0, 0, TimeSpan.Zero);
+        var session = new LootTrackerSession { StartedAt = at, Elapsed = TimeSpan.FromSeconds(20),
+            RouteSegments = [new("sample-map", "Sample map", [new(1000, 1000, at, TimeSpan.Zero),
+                new(2000, 1500, at.AddSeconds(10), TimeSpan.FromSeconds(10)),
+                new(3000, 2000, at.AddSeconds(20), TimeSpan.FromSeconds(20))])] };
+        var replay = LootTrackerSessionReplay.Build(session, TimeSpan.FromSeconds(10));
+        var preview = LootTrackerRouteMapPreview.Build(session, "sample-map", Map(), _ => true, replay);
+        Assert.Equal(4096d / 16, preview.View.Width);
+        Assert.Equal(2000, preview.View.X + preview.View.Width / 2);
+        Assert.Equal(1500, preview.View.Y + preview.View.Height / 2);
+        Assert.Equal("1000,1000 2000,1500", Assert.Single(preview.Lines).Points);
+        var stale = LootTrackerRouteMapPreview.Build(session, "sample-map", Map(), _ => true,
+            LootTrackerSessionReplay.Build(session, TimeSpan.FromSeconds(13)));
+        Assert.Equal(preview.View, stale.View);
+    }
+
+    [Fact]
+    public void ReplayLifeskillDrawsTheRealWalkRatherThanTheOptimizedFarmRoute()
+    {
+        var at = new DateTimeOffset(2026, 10, 27, 10, 0, 0, TimeSpan.Zero);
+        var visit = new LootTrackerGatherVisit("visit", 0, "sample-map", "Sample map", 1000, 1000,
+            1010, 1000, at, true, "Example resource");
+        var session = new LootTrackerSession { Kind = LootTrackerSessionKind.Lifeskill,
+            StartedAt = at, Elapsed = TimeSpan.FromSeconds(5), FarmRouteVersion = 1, GatherVisits = [visit],
+            FarmRoutePoints = LifeskillFarmRouteBuilder.Build([visit]),
+            RouteSegments = [new("sample-map", "Sample map", [new(1000, 1000, at, TimeSpan.Zero),
+                new(1200, 1300, at.AddSeconds(5), TimeSpan.FromSeconds(5))])] };
+        var replay = LootTrackerSessionReplay.Build(session, session.Elapsed);
+        var preview = LootTrackerRouteMapPreview.Build(session, "sample-map", Map(), _ => true, replay);
+        Assert.Equal("1000,1000 1200,1300", Assert.Single(preview.Lines).Points);
+        Assert.Equal("1010", Assert.Single(preview.Nodes).X);
+        Assert.Empty(LootTrackerRouteSaveService.Preview(session)); // A single farm stop cannot become an exported walk.
+    }
+
     private static void Contains(LootTrackerRouteMapPreview.Viewport viewport, double x, double y)
     {
         Assert.InRange(x, viewport.X - 0.000001, viewport.X + viewport.Width + 0.000001);

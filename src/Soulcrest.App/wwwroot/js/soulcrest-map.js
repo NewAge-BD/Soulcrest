@@ -14,8 +14,10 @@ window.soulcrestMap = (() => {
     // Groups drawn with their own icons; everything else is a fast canvas dot.
     // Resources and collectibles (hidden cubes) use their legend icons too, not dots (user request 2026-10-04).
     const ICON_GROUPS = new Set(['Pets', 'Locations', 'City Services', 'Quests', 'Resources', 'Collectibles']);
-    // Pet hunting first: everything else starts hidden and can be switched on in the sidebar.
+    // Pets, locations and hunting-ground headings start visible; other categories remain opt-in.
     const DEFAULT_VISIBLE_GROUPS = new Set(['Pets', 'Locations']);
+    const isHuntingGround = cat => cat.group === 'Regions' && cat.name === 'Hunting Ground';
+    const HUNTING_GROUND_ICON = 'icons/map/hunting-ground.png';
 
     let map, base, manifest, dotnet, canvas;
     let current = null;          // map payload
@@ -26,7 +28,7 @@ window.soulcrestMap = (() => {
     // the category layer, so each kind can be hidden on its own (user request 2026-10-05).
     let kindLayers = [];
     let cubeGroups = null; // optional offline group presentation, isolated in soulcrest-cube-groups.js
-    let petRefs = [];
+    let petRefs = [], huntingGroundRefs = [];
     let bossTimerRows = new Map(), bossTimerRefs = new Map(), bossMarkerBySpawn = new Map(), bossTimerInterval = null;
     let bossNavigationMarkers = new Map(); // named-spawn ID -> the independent navigation pin
     let bossShowOlderSpawns = false;
@@ -35,6 +37,12 @@ window.soulcrestMap = (() => {
     let regionLayer = null, focusLayer = null;
     // Session inspection is a separate ephemeral layer, never part of marked navigation targets.
     let lootRouteLayer = null, lootRouteVisible = false;
+    const LOOT_MARKER_STYLES = {
+        kill: { color: '#fbbf24', glyph: '⚔' },
+        death: { color: '#fb7185', glyph: '×' },
+        odyle: { color: '#a78bfa', glyph: '◆' },
+        gathering: { color: '#86d6a5', glyph: '✦' }
+    };
     let doneSet = new Set();
     let hiddenSet = new Set();
     let lang = 'en';
@@ -184,6 +192,10 @@ window.soulcrestMap = (() => {
         map.on('moveend', () => { if (!player) updateProgression(); });
         map.on('zoomend moveend', () => rememberViewport());
         map.on('contextmenu', () => { }); // a listener keeps the browser menu away
+        // Region headings stay readable above pet portraits; only the icon receives clicks.
+        map.createPane('huntingGrounds');
+        map.getPane('huntingGrounds').style.zIndex = 625;
+        map.getPane('huntingGrounds').style.pointerEvents = 'none';
         // Target rings above the (enlarged) symbols; they never take clicks.
         map.createPane('targets');
         map.getPane('targets').style.zIndex = 650;
@@ -321,6 +333,10 @@ window.soulcrestMap = (() => {
         lang = language;
         if (!current) return;
         updateBossTimers();
+        for (const { m, layer } of huntingGroundRefs) {
+            layer.options.title = nameOf(m);
+            layer.setIcon(huntingGroundIcon(m));
+        }
         // Keep pan, zoom, selected layers and targets. Popup factories read lang on opening.
         const regionsVisible = regionLayer && map.hasLayer(regionLayer);
         if (regionLayer) map.removeLayer(regionLayer);
@@ -500,17 +516,23 @@ window.soulcrestMap = (() => {
     function buildMarkers() {
         catLayers = current.categories.map(() => L.layerGroup());
         kindLayers = current.categories.map(() => null);
-        catVisible = current.categories.map(c => !c.hidden && DEFAULT_VISIBLE_GROUPS.has(c.group));
+        catVisible = current.categories.map(c => !c.hidden && (DEFAULT_VISIBLE_GROUPS.has(c.group) || isHuntingGround(c)));
         cubeGroups = window.soulcrestCubeGroups?.create(current, catLayers, catVisible, map, L, toLatLng) || null;
         markerRefs = new Array(current.markers.length);
         markerByPos = new Map();
         petRefs = [];
+        huntingGroundRefs = [];
         current.markers.forEach((m, i) => {
             const cat = current.categories[m[0]];
             const ll = toLatLng(m[1], m[2]);
             let layer;
             const iconIndex = m[5] >= 0 ? m[5] : cat.icon;
-            if (ICON_GROUPS.has(cat.group) && iconIndex >= 0) {
+            if (isHuntingGround(cat)) {
+                // The source already supplies the label position. One marker owns icon, name,
+                // popup and legend visibility; no duplicate dot or invented region boundary.
+                layer = L.marker(ll, { icon: huntingGroundIcon(m), title: nameOf(m), pane: 'huntingGrounds' });
+                huntingGroundRefs.push({ m, layer });
+            } else if (ICON_GROUPS.has(cat.group) && iconIndex >= 0) {
                 layer = cat.group !== 'Pets' && window.soulcrestCanvasIcons
                     ? window.soulcrestCanvasIcons.create(ll, {
                         renderer: canvas, url: base + current.icons[iconIndex],
@@ -599,12 +621,21 @@ window.soulcrestMap = (() => {
         });
     }
 
+    function huntingGroundIcon(m) {
+        return L.divIcon({
+            className: 'hunting-ground-marker',
+            html: `<span class="hunting-ground-label"><img src="${HUNTING_GROUND_ICON}" alt="" aria-hidden="true"><span class="hunting-ground-name">${esc(nameOf(m))}</span></span>`,
+            iconSize: [44, 44], iconAnchor: [22, 22],
+        });
+    }
+
     function applyIconScale(refreshCanvas = true) {
         const scale = iconScale();
         const el = map.getContainer();
         el.style.setProperty('--pet-scale', scale.toFixed(3));
         // Place, resource and cube icons grow like the pet portraits (user report 2026-10-05: "sehr klein").
         el.style.setProperty('--place-scale', scale.toFixed(3));
+        el.style.setProperty('--hunting-scale', Math.min(1.5, scale).toFixed(3));
         if (refreshCanvas) for (const layer of markerRefs) if (layer?.refreshAppearance) layer.refreshAppearance();
         updateLabelVisibility();
     }
@@ -1173,7 +1204,7 @@ window.soulcrestMap = (() => {
 
     // Each array is an already recorded continuous segment. Never draw an edge across segments,
     // invalid positions, map boundaries or unobserved gaps. Coordinates stay in native map pixels.
-    function setLootRoute(mapId, segmentsJson, label, fit = true) {
+    function setLootRoute(mapId, segmentsJson, label, fit = true, markersJson = '[]') {
         if (!current || !map || current.id !== mapId) return 0;
         let segments;
         try { segments = JSON.parse(segmentsJson); } catch { return 0; }
@@ -1206,6 +1237,19 @@ window.soulcrestMap = (() => {
                 else draw();
             }
             draw();
+        }
+        let markers;
+        try { markers = JSON.parse(markersJson); } catch { markers = []; }
+        if (Array.isArray(markers)) for (const marker of markers) {
+            if (!valid(marker) || !Object.prototype.hasOwnProperty.call(LOOT_MARKER_STYLES, marker.kind)) continue;
+            const style = LOOT_MARKER_STYLES[marker.kind], point = toLatLng(marker.x, marker.y);
+            const icon = L.divIcon({ className: `loot-session-marker loot-session-marker-${marker.kind}`,
+                html: `<span aria-hidden="true" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;box-sizing:border-box;border:2px solid ${style.color};border-radius:50%;background:#101827;color:${style.color};font:700 19px/1 'Segoe UI Symbol',sans-serif;box-shadow:0 1px 4px #000">${style.glyph}</span>`,
+                iconSize: [24, 24], iconAnchor: [12, 12] });
+            L.marker(point, { icon, keyboard: false, zIndexOffset: 1100 })
+                .bindTooltip(esc(marker.tooltip || label || ui('Routenvorschau', 'Route preview')), { direction: 'top' })
+                .addTo(lootRouteLayer);
+            all.push(point);
         }
         lootRouteVisible = all.length > 0;
         if (fit && lootRouteVisible) {

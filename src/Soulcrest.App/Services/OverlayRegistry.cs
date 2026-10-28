@@ -13,6 +13,7 @@ public static class OverlayRegistry
     {
         new OverlayDescriptor("loot", "Pet-Fortschritt", true, .6, 2.5),
         new OverlayDescriptor("farm-loot", "Loot-Overlay", true, .6, 2),
+        new OverlayDescriptor("abyss-rank", "Abyss Rank Tracker", true, .6, 2),
         new OverlayDescriptor("boss", "Boss-Spawns", true, .6, 2),
         new OverlayDescriptor("leveling", "Leveling", true, .7, 1.6),
         new OverlayDescriptor("alerts", "Timer-Leiste", true, .6, 2),
@@ -30,6 +31,7 @@ public static class OverlayRegistry
     {
         "loot" => new(settings.OverlayX, settings.OverlayY, settings.OverlayScale),
         "farm-loot" => new(settings.LootOverlayX, settings.LootOverlayY, settings.LootOverlayScale),
+        "abyss-rank" => new(settings.AbyssRankOverlayX, settings.AbyssRankOverlayY, settings.AbyssRankOverlayScale),
         "boss" => new(settings.BossOverlayX, settings.BossOverlayY, settings.BossOverlayScale),
         "leveling" => new(settings.LevelingOverlayX, settings.LevelingOverlayY, settings.LevelingOverlayScale),
         "alerts" => new(settings.AlertsOverlayX, settings.AlertsOverlayY, settings.AlertsOverlayScale),
@@ -57,6 +59,7 @@ public static class OverlayRegistry
         {
             case "loot": (settings.OverlayX, settings.OverlayY, settings.OverlayScale) = (layout.X, layout.Y, layout.Scale); break;
             case "farm-loot": (settings.LootOverlayX, settings.LootOverlayY, settings.LootOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
+            case "abyss-rank": (settings.AbyssRankOverlayX, settings.AbyssRankOverlayY, settings.AbyssRankOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
             case "boss": (settings.BossOverlayX, settings.BossOverlayY, settings.BossOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
             case "leveling": (settings.LevelingOverlayX, settings.LevelingOverlayY, settings.LevelingOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
             case "alerts": (settings.AlertsOverlayX, settings.AlertsOverlayY, settings.AlertsOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
@@ -73,6 +76,7 @@ public static class OverlayRegistry
     {
         "loot" => settings.OverlayEnabled, "boss" => settings.BossOverlayVisible,
         "farm-loot" => settings.LootOverlayEnabled,
+        "abyss-rank" => settings.AbyssRankOverlayEnabled,
         "leveling" => settings.LevelingOverlayEnabled, "alerts" => settings.AlertsOverlayEnabled,
         "event-timeline" => settings.EventTimelineOverlayEnabled, "map" => settings.MapOverlayEnabled,
         "merchant" => settings.MerchantOverlayEnabled, "daevanion" => settings.DaevanionOverlayEnabled, "notifications" => true,
@@ -85,6 +89,7 @@ public static class OverlayRegistry
         {
             case "loot": settings.OverlayEnabled = enabled; break;
             case "farm-loot": settings.LootOverlayEnabled = enabled; break;
+            case "abyss-rank": settings.AbyssRankOverlayEnabled = enabled; break;
             case "boss": settings.BossOverlayVisible = enabled; break;
             case "leveling": settings.LevelingOverlayEnabled = enabled; break;
             case "alerts": settings.AlertsOverlayEnabled = enabled; break;

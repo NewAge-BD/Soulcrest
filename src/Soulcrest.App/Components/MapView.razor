@@ -65,6 +65,14 @@
                     <button type="button" class="btn small" title="@UiText.T("Routenvorschau aufheben")" @onclick="ClearLootRouteFocus">@UiText.T("Aufheben")</button>
                 </div>
                 <div class="note">@UiText.F("Aufgezeichnete Sessionroute · {0} Abschnitte", routeFocus.Segments.Length)</div>
+                @if (routeFocus.Markers.Count > 0)
+                {
+                    <div class="pet-level-options">
+                        <label class="chip"><input type="checkbox" checked="@_lootShowKills" @onchange="@(e => SetLootMarkerVisible("kill", (bool)e.Value!))" /> @UiText.T("Spielerkills")</label>
+                        <label class="chip"><input type="checkbox" checked="@_lootShowDeaths" @onchange="@(e => SetLootMarkerVisible("death", (bool)e.Value!))" /> @UiText.T("Eigene Tode")</label>
+                        <label class="chip"><input type="checkbox" checked="@_lootShowOdyle" @onchange="@(e => SetLootMarkerVisible("gathering", (bool)e.Value!))" /> @UiText.T("Sammelstellen")</label>
+                    </div>
+                }
             </div>
         }
 
@@ -570,6 +578,7 @@
     private bool _sideCollapsed, _rightCollapsed, _relayout; // view-only: sidebars hidden for small windows
     private string? _error;
     private LootTrackerMapFocus? _lootRouteFocus;
+    private bool _lootShowKills = true, _lootShowDeaths = true, _lootShowOdyle = true;
 
     private string MapLabel => UiText.T(_maps.FirstOrDefault(m => m.Id == _mapId)?.Label ?? _mapId);
 
@@ -1224,8 +1233,31 @@
     private Task PushLootRouteFocus(bool fit = false) => _lootRouteFocus is { } route && route.MapId == _mapId
         ? JS.InvokeVoidAsync("soulcrestMap.setLootRoute", route.MapId,
             JsonSerializer.Serialize(route.Segments.Select(segment => segment.Points.Select(point => new { x = point.X, y = point.Y }))),
-            route.Name, fit).AsTask()
+            route.Name, fit,
+            JsonSerializer.Serialize(route.Markers.Where(marker => marker.MapId == route.MapId && LootMarkerVisible(marker.KindKey))
+                .Select(marker => new { x = marker.X, y = marker.Y, kind = marker.KindKey, tooltip = marker.Tooltip }))).AsTask()
         : Task.CompletedTask;
+
+    private bool LootMarkerVisible(string kind) => kind switch
+    {
+        "kill" => _lootShowKills,
+        "death" => _lootShowDeaths,
+        "odyle" or "gathering" => _lootShowOdyle,
+        _ => false
+    };
+
+    private async Task SetLootMarkerVisible(string kind, bool visible)
+    {
+        switch (kind)
+        {
+            case "kill": _lootShowKills = visible; break;
+            case "death": _lootShowDeaths = visible; break;
+            case "odyle":
+            case "gathering": _lootShowOdyle = visible; break;
+            default: return;
+        }
+        await PushLootRouteFocus();
+    }
 
     private async Task ClearLootRouteFocus()
     {

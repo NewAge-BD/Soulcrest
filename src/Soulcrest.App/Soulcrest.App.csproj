@@ -25,6 +25,7 @@
     <EmbeddedResource Include="Assets\lifeskill-item-names.json" LogicalName="Soulcrest.LifeskillItemNames.json" />
     <EmbeddedResource Include="..\..\data\loot-items.json" LogicalName="Soulcrest.LootItems.json" Link="Data\loot-items.json" />
     <EmbeddedResource Include="..\..\data\loot-icons.json" LogicalName="Soulcrest.LootIcons.json" Link="Data\loot-icons.json" />
+    <EmbeddedResource Include="..\..\data\abyss-ranks.json" LogicalName="Soulcrest.AbyssRanks.json" Link="Data\abyss-ranks.json" />
     <EmbeddedResource Include="Assets\alert-standard.wav" LogicalName="Soulcrest.AlertStandard.wav" />
     <EmbeddedResource Include="Assets\loot-drop-standard.wav" LogicalName="Soulcrest.LootDropStandard.wav" />
     <EmbeddedResource Include="..\..\data\routes\leveling.soulroute" LogicalName="Soulcrest.LevelingRoutes.soulroute" Link="Routes\leveling.soulroute" />
@@ -33,6 +34,8 @@
     <EmbeddedResource Include="..\..\docs\PATCHNOTES.en.md" LogicalName="Soulcrest.PATCHNOTES.en.md" Link="PATCHNOTES.en.md" WithCulture="false" />
     <EmbeddedResource Include="Assets\esc-menu-icons.png" LogicalName="Soulcrest.EscMenuIcons.png" />
     <EmbeddedResource Include="Assets\map-window-emblem.png" LogicalName="Soulcrest.MapWindowEmblem.png" />
+    <EmbeddedResource Include="Assets\AbyssRankMorphs\*.png" LogicalName="Soulcrest.AbyssRankMorphs.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Assets\AbyssRankAudio\*.wav" LogicalName="Soulcrest.AbyssRankAudio.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Assets\daevanion-node-round-mask.png" LogicalName="Soulcrest.DaevanionNodeRoundMask.png" />
     <EmbeddedResource Include="Assets\daevanion-node-background.png" LogicalName="Soulcrest.DaevanionNodeBackground.png" />
     <InternalsVisibleTo Include="Soulcrest.App.Tests" />

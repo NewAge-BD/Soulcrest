@@ -1,0 +1,28 @@
+/* Hunting-ground headings share their category marker and remain readable over terrain. */
+.hunting-ground-marker { background: none; border: 0; pointer-events: auto; }
+.hunting-ground-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 44px;
+    transform: scale(var(--hunting-scale, 1));
+    transform-origin: 22px 22px;
+    pointer-events: none;
+}
+.hunting-ground-label > img {
+    display: block;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    filter: drop-shadow(0 1px 2px #000);
+}
+.hunting-ground-name {
+    display: block;
+    margin-top: 3px;
+    color: #fff8e8;
+    font: 700 19px/1.2 "Segoe UI", sans-serif;
+    white-space: nowrap;
+    text-align: center;
+    text-shadow: -1px -1px 1px #14100d, 1px -1px 1px #14100d,
+        -1px 1px 1px #14100d, 1px 1px 1px #14100d, 0 2px 3px #000;
+}

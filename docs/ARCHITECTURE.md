@@ -82,8 +82,8 @@ Karte/Spawn-ID; die vorhandene BossAlertPolicy bleibt die einzige Spawn-Triggerq
 
 `AlertsView` verwaltet Zeitpläne; die gemeinsame `LiveBossTimers`-Liste integriert die individuellen
 Boss-Erinnerungen und Anzeigedauern. Die separate Boss-Alerts-Kachel ist entfernt. `AlertsOverlayForm` zeichnet die sichtbaren Countdowns ohne Fokuswechsel und übernimmt
-Schloss, Alt und Capture-Sichtbarkeit. `TimerOverlayVisibility` wertet ausschließlich für diese
-Leiste die positiven AppSettings-Freigaben für Weltkarte, Menü und Instanzen aus den vorhandenen
+Schloss, Alt und Capture-Sichtbarkeit. Die gemeinsame `OverlayVisibilityPolicy` wertet für diese
+Leiste (Panel `alerts`) die positiven AppSettings-Freigaben für Weltkarte, Menü und Instanzen aus den vorhandenen
 Trackingzuständen aus. Ohne laufendes Tracking gibt es keine Kontextunterdrückung. Ton läuft im MainForm über
 `NoticeRaised` unabhängig von Rendern und Sichtbarkeit. Das Boss-Rush-Overlay zeichnet im Host
 nur noch seine Liste; es erzeugt keine zweite Alarmanzeige. Overlay-Einstellungen und Vorschau stehen im Overlay-Tab; Erinnerungsregeln bleiben unter Alerts.
@@ -280,3 +280,115 @@ MapView wählt anhand des bestätigten Netzwerkorts die unterstützte Karte vor 
 Spielerfund, unabhängig von Follow-/Progressionsschaltern. Diese steuern weiterhin Zentrierung
 und Wegführung. Manuelles Browsen bleibt bis zum nächsten tatsächlichen Netzwerk-Kartenwechsel erhalten.
 Erneutes Own derselben nativen Karte sowie reine Inhaltsverfeinerungen erzwingen keinen Wechsel.
+
+## Loot-Sessions: Statistik und synchroner Replay (2026-10-27)
+
+`UnifiedLootTrackerService` ist der einzige aktive Writer für neue Loot-Sessions.
+Er serialisiert die bestehenden qualifizierten Farm-, Kina-, Sammel- und Abyss-Fakten
+unter einer Session-ID und einer monotonen Sessionuhr. Die bisherigen Farm- und
+Lifeskill-Sessionwriter sowie die alte Abyss-Sessionengine sind entfernt.
+`AbyssProgressService` pflegt ausschließlich den unabhängigen absoluten Punktecache
+und dessen Rangfortschritt. Er abonniert keine Einkommensereignisse, kennt keine
+Sessionjournale oder Routen und erwirbt keine Recorder-Lease. Der Rankadapter
+`AbyssRankOverlaySource` projiziert Punktecache, aktuelle gemeinsame Session und
+flüchtigen Killfeed; das Loot-HUD verwendet allein `UnifiedLootOverlaySource`.
+
+Neue Open-World-Sessions tragen `Kind=Mixed`, Abyss-Aufenthalte `Kind=Abyss` und
+alle neuen Sessions `UnifiedVersion=1`. Das Feld `Kind` hält den Weltkontext fest. Jeder
+Timelinefakt trägt `Origin=Pve`, `Lifeskill` oder `Abyss`; auch im Abyss behalten
+Sammelversuche `Lifeskill` als Herkunft. Gemeinsame Items werden über `Item:{id}`
+zusammengeführt, nicht über quellenspezifische Anzeige-Keys.
+
+Unveränderliche Snapshots tragen Sessiongesamtwerte, exakte Ereignisse und getrennte
+Bewegungssegmente. `LootTrackerSessionProjection` bildet Gesamt-, PvE-, Lifeskill-
+und Abyss-Ansichten aus demselben Parent: ID, Weltkontext und gemeinsame Dauer bleiben
+erhalten, nur passende Fakten und daraus berechnete Werte wechseln. Projektionen
+schreiben keine Journale. Ältere unvollständig trennbare Ansichten werden kenntlich
+gemacht; fehlende Belege bleiben unbekannt. Sortierung, Gruppierung, Minutenwerte
+und Scrubben verändern weder Speicherung noch Beute- oder Sessionzählung.
+
+`TimelineVersion`/`TimelineEvents` ergänzen den Sessionvertrag. Jede bestätigte AP-/RP-/Kina-
+Änderung und jeder vollständige Drop beziehungsweise Sammelreward erzeugt genau ein Ereignis
+an derselben bereits deduplizierten Mutation wie seine Mengen. Eigene Kampfmarker bleiben
+ein separater Ereignisstrom; anonyme validierte Klasse und tatsächlicher Gegner-Ranggrad
+werden darin eingefroren, niemals Namen oder native Kennungen. Ein Punkte-Stufenmarker
+entsteht ausschließlich aus kontinuierlichen absoluten eigenen Rangfakten und bucht keine
+weiteren RP. Erste Bestände, Wiederanbindung und Quellenlücken erzeugen kein Einkommen.
+Verfügbarkeitswechsel unterscheiden unqualifizierte Kanäle von bestätigten Nullwerten.
+
+`UnifiedLootSessionStore` schreibt ein separates Journal unter
+`loot-tracker/unified-sessions/<id>/`: Schema 1 mit absoluten Sessionwerten und
+angehängten Timeline-, Routen-, Kampf- und Sammeldeltas in `events-0001.jsonl`,
+dazu `summary-v1.json` als atomarer Checkpoint. Der letzte vollständige Journalrecord
+ist maßgeblich; Checkpointtotals werden nie dazuaddiert. Der Validator prüft Mengen
+und bekannte Kanal-/Versuchszähler gegen die exakten Fakten. Recovery erhält die
+committete monotone Dauer und Fakten auch bei kleinen Abweichungen zur UTC-Spanne;
+fehlende Daten werden nicht ergänzt. Ein unklarer Schreibzustand unterbricht die
+Aufzeichnung, statt halbe Rewards oder weitere Fundhinweise zu veröffentlichen.
+
+`UnifiedLootLegacyHistory` lädt die bisherigen Farm-/Abyss-Journale bis Schema 5 und
+Lifeskill-Journale bis Schema 4 im Hintergrund als Historie. Es gibt keine Migration
+oder neuen Appends in diese Journale. Historische echte Erntezeilen bleiben nutzbar,
+alte Minutenbins ausdrücklich aggregiert; fehlende Wege, Einzelereignisse und
+Gegnerkategorien werden nicht rekonstruiert. Ein ausdrückliches Löschen verwendet
+den zuständigen alten Store. Tages- und absolute Charaktercaches bleiben getrennt
+von der Sessionlöschung und liefern keine nachgetragenen Sessionereignisse.
+
+Frische Positionsfakten werden nach Karten-/Bindungs-/Beobachtungslücken segmentiert.
+Open-World-Bewegung seit der letzten Aktivität bleibt vorläufig; Ende und Recovery
+verwerfen unproduktiven Nachlauf. Bewegung verlängert keinen Timeout. Der Replay
+zeigt den beobachteten Weg; die Kartenübernahme verwendet ausschließlich die aus
+bestätigten Lifeskill-Sammelstellen gebildete optimierte Route, keine Laufspur,
+Kampfpositionen oder Monsterdropstellen.
+
+Die gemeinsame Replayachse ist die gespeicherte monotone Dauer seit Sessionbeginn;
+ursprüngliche Faktzeiten bleiben für Anzeige und Nachvollziehbarkeit erhalten. Zukunft
+wird am Playhead entfernt, fehlende Zeiten liefern keine synchrone Position. Karte und
+Spielerpunkt folgen nur bestätigten Positionen; nach einer Beobachtungslücke bleibt die
+Kamera am letzten Ort und der frische Spielerpunkt erlischt. Punkte-Stufen, Gegnergrade,
+Walletbestand, Farm-Cap und Sessioneinkommen bleiben getrennte Größen.
+
+Nutzerergänzung 2026-10-27: Gelaufene Route und Session-Timeline bilden ein
+zusammenhängendes Replay-Modul mit gemeinsamer Mediensteuerung: Abspielen/Pause,
+Vorwärts-/Rückwärtswiedergabe, Zehn-Sekunden-Sprünge sowie Anfang/aktuelles Ende.
+Geschwindigkeiten 0,25x, 0,5x, 1x, 2x, 4x und 8x; Start mit 1x. Wiedergabezustand
+und Tempo bleiben lokal im geöffneten Modul, Sessionwechsel pausiert und setzt
+zurück. Die monotone Wiedergabeuhr verändert ausschließlich den Playhead,
+keine Statistik, gespeicherten Ereignisse oder Sessiontimer.
+
+Nutzerergänzung 2026-10-27: Routenmarker zeigen die Originalicons ihrer tatsächlich
+zugeordneten Beute mit der Katalog-Seltenheitsfarbe und bestätigten Mengen. Ernten
+werden nur über ihre exakte Sammelstellenidentität zusammengefasst, Drops nur an
+identischen gespeicherten Kartenkoordinaten. Der Playhead begrenzt Icons, Mengen
+und Besuchszeiten gemeinsam. Neue Drop-Fakten speichern die bereits qualifizierte
+frische Minimap-Position optional atomar mit der Beute; historische oder unplatzierte
+Beute erhält keine nachträglich geschätzte Position. Killmarker zeigen wahlweise
+das eingefrorene Gegner-Rang- oder Klassenicon, ausgegraut mit Totenkopf. Die globale
+Auswahl bleibt gespeichert, unabhängig von Replayartefakt und Playhead; fehlende
+Gegnermetadaten verwenden einen neutralen Platzhalter mit Totenkopf. Das Laden
+alter Journale und Replayartefakte ohne Drop-Position bleibt kompatibel.
+
+### Gemeinsame Lebensdauer und Overlay-Publikation
+
+Außerhalb von Abyss starten qualifizierte Beute und bestätigte Sammelversuche
+(einschließlich Fehlversuchen) die gemeinsame Session und erneuern denselben
+konfigurierten Timeout. Das Ende liegt auf der letzten Aktivität, nicht auf dem
+späteren Timertick. Der 07:00-UTC-Farmtagwechsel trennt Open World. Das Kina-Cap
+markiert lediglich dieselbe Session als Limited Kina; es startet keine zweite
+Session und setzt weder Dauer noch Mengen zurück. Abyss beginnt beim bestätigten
+Eintritt, endet beim Austritt und hat keinen Aktivitätstimeout. Normale Übergänge,
+Tod sowie Daily-/Weekly-Reset teilen den Aufenthalt nicht; fehlende aktuelle
+Own-/Profilbindung außerhalb erlaubter Übergänge und echte Quellenlücken unterbrechen.
+
+Jeder Kanal behält seine eigene Own-/Generations-/Sequenzdeduplikation. Quelle,
+Welt und Faktzeit werden beim Empfang und vor der seriellen Mutation erneut
+geprüft. Eine alte Beobachtung kann keinen neueren Weltkontext zurückrollen.
+Zähler werden nur bei qualifizierter Verfügbarkeit auf bekannte Null gesetzt.
+Keine Sessionlogik ersetzt die bestehenden Producer- oder Transportqualifikationen.
+
+`UnifiedLootOverlayState` veröffentlicht aktive qualifizierte Session, Verfügbarkeit,
+eigenen Tagesfakt, profilgebundenen gespeicherten Tagesstand und Bestätigungsstatus
+als ein unveränderliches Objekt. Der Overlayadapter liest diese Instanz atomar;
+Charakterwechsel kombinieren daher keine Session mit einem fremden Tagescache.
+Ein gespeicherter Stand ersetzt keine aktuelle Netzbestätigung. Quellenverlust
+blendet die aktive Sessionprojektion aus, ohne historische Werte zu löschen.

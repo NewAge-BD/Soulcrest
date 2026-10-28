@@ -10,8 +10,8 @@ public sealed partial class NetworkLootService
     private OwnCharacterContext? _kinaCharacter;
     private DateTimeOffset? _kinaBaselineAt;
     private bool _kinaFormatRejected, _dispatchingKina;
-    private long _kinaSequence, _kinaMessageRevision;
-    private readonly Queue<(string Stream, NetworkKinaGain Gain)> _kinaDispatch = [];
+    private long _kinaSequence, _kinaMessageRevision, _kinaAppliedRevision, _kinaContextRevision;
+    private readonly Queue<(string Stream, long CaptureGeneration, long Revision, NetworkKinaGain Gain)> _kinaDispatch = [];
 
     public event Action<NetworkKinaGain>? KinaGained;
 
@@ -40,7 +40,20 @@ public sealed partial class NetworkLootService
     private void ProcessKinaMessage(string stream, ushort opcode, byte[] message, DateTimeOffset at)
     {
         if (!Running) return;
+        // Receipt-time invalidation also covers the suspended interval with no Own/candidate.
+        // A deferred inventory callback must not let a new Own restore an earlier AP base.
+        ObserveSuspendedAbyssPointInventory(stream, opcode, message, at);
+        // Entry transactions must see an intervening receipt even when a callback defers
+        // application. AppliedRevision separately protects an in-flight inventory reduction.
         _kinaMessageRevision++;
+        var observation = message.ToArray();
+        EnqueueAbyssObservation(stream, isRank: false, () => ProcessKinaMessageCore(stream, opcode, observation, at));
+    }
+
+    private void ProcessKinaMessageCore(string stream, ushort opcode, byte[] message, DateTimeOffset at)
+    {
+        if (!Running) return;
+        _kinaAppliedRevision++;
         if (_ownCharacter is null)
         {
             if (_entryCandidate is not { } candidate || candidate.Stream != stream) return;
@@ -76,15 +89,22 @@ public sealed partial class NetworkLootService
         {
             // Unanchored or late lists are not a newly qualified login transaction.
             ResetKinaContext();
+            ResetAbyssWallet();
             ResetFarmDropContext();
             SafeEvent.Raise(Changed, "Kina-Netzwerkstatus");
             return;
         }
         var update = CurrencyInventoryMessage.TryParseChanges(message);
+        var ownBeforeAbyss = _ownCharacter;
+        var revisionBeforeAbyss = _kinaAppliedRevision;
+        ProcessAbyssInventoryChanges(update, at);
+        if (!ReferenceEquals(ownBeforeAbyss, _ownCharacter) || revisionBeforeAbyss != _kinaAppliedRevision) return;
+        ProcessAbyssKinaInventoryChanges(update, at);
+        if (!ReferenceEquals(ownBeforeAbyss, _ownCharacter) || revisionBeforeAbyss != _kinaAppliedRevision) return;
         var ownBeforeFarm = _ownCharacter;
-        var revisionBeforeFarm = _kinaMessageRevision;
+        var revisionBeforeFarm = _kinaAppliedRevision;
         ProcessFarmInventoryChanges(stream, update, at);
-        if (!ReferenceEquals(ownBeforeFarm, _ownCharacter) || revisionBeforeFarm != _kinaMessageRevision) return;
+        if (!ReferenceEquals(ownBeforeFarm, _ownCharacter) || revisionBeforeFarm != _kinaAppliedRevision) return;
         if (update is null)
         {
             ResetKinaContext();
@@ -130,7 +150,7 @@ public sealed partial class NetworkLootService
                 _kinaFormatRejected = true;
                 break;
             }
-            _kinaDispatch.Enqueue((stream, gain));
+            _kinaDispatch.Enqueue((stream, _generation, _kinaContextRevision, gain));
         }
         DispatchKinaGains();
         SafeEvent.Raise(Changed, "Kina-Netzwerkstatus");
@@ -156,7 +176,8 @@ public sealed partial class NetworkLootService
             while (_kinaDispatch.TryDequeue(out var queued))
                 foreach (var subscriber in KinaGained?.GetInvocationList().Cast<Action<NetworkKinaGain>>() ?? [])
                 {
-                    if (!Running || !ReferenceEquals(queued.Gain.Character, _ownCharacter)
+                    if (!Running || _generation != queued.CaptureGeneration || _kinaContextRevision != queued.Revision
+                        || !ReferenceEquals(queued.Gain.Character, _ownCharacter)
                         || !ReferenceEquals(_kinaCharacter, _ownCharacter) || _identityStream != queued.Stream) break;
                     try { subscriber(queued.Gain); }
                     catch (Exception error) { LogFile.Error("Kina-Netzwerkereignis", error); }
@@ -167,6 +188,8 @@ public sealed partial class NetworkLootService
 
     private void ResetKinaContext()
     {
+        ResetAbyssKinaContext(rejected: true);
+        _kinaContextRevision++;
         _unboundKina = _boundKina = null;
         _kinaCharacter = null;
         _kinaBaselineAt = null;

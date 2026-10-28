@@ -1,0 +1,41 @@
+@using System.Globalization
+@inject SettingsService Settings
+@inject AbyssRankSoundPlayer Sounds
+
+<h4>@UiText.T("Ranganimation")</h4>
+<label class="check"><input id="abyss-rank-reduced-motion" type="checkbox" checked="@Settings.Current.AbyssRankReducedMotion" disabled="@(Disabled || _saving)" @onchange="@(e => Save(() => Settings.SetAbyssRankReducedMotion(e.Value is true)))" />@UiText.T("Reduzierte Bewegung")</label>
+<p>@UiText.T("Entwicklung am linken Rangicon ohne Reise zur Balkenmitte.")</p>
+<label class="check"><input id="abyss-rank-sound-enabled" type="checkbox" checked="@Settings.Current.AbyssRankSoundEnabled" disabled="@(Disabled || _saving)" @onchange="@(e => Save(() => Settings.SetAbyssRankSoundEnabled(e.Value is true)))" />@UiText.T("Orchestraler Aufstiegsklang")</label>
+<label for="abyss-rank-sound-volume">@UiText.T("Lautstärke")<input id="abyss-rank-sound-volume" type="range" min="0" max="100" step="1" value="@Math.Round(Settings.Current.AbyssRankSoundVolume * 100)" disabled="@(Disabled || _saving || !Settings.Current.AbyssRankSoundEnabled)" @onchange="ChangeVolume" /><output for="abyss-rank-sound-volume">@Math.Round(Settings.Current.AbyssRankSoundVolume * 100) %</output></label>
+<button type="button" class="btn" id="abyss-rank-sound-preview" disabled="@(Disabled || _saving || _playing || !Settings.Current.AbyssRankSoundEnabled || Settings.Current.AbyssRankSoundVolume <= 0)" @onclick="PreviewSound">@UiText.T(_playing ? "Aufstiegsklang wird abgespielt …" : "Ton testen")</button>
+@if (_feedback is not null) { <p role="status" aria-live="polite">@_feedback</p> }
+
+@code {
+    [Parameter] public bool Disabled { get; set; }
+    private bool _saving, _playing;
+    private string? _feedback;
+
+    private async Task Save(Action change)
+    {
+        if (Disabled || _saving) return;
+        _saving = true;
+        _feedback = UiText.T("Wird gespeichert …");
+        try { await Task.Run(change); _feedback = UiText.T("Overlay-Einstellungen gespeichert."); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { _feedback = UiText.T("Overlay-Einstellungen konnten nicht gespeichert werden."); }
+        finally { _saving = false; }
+    }
+
+    private Task ChangeVolume(ChangeEventArgs e) => double.TryParse(e.Value?.ToString(), NumberStyles.Float,
+        CultureInfo.InvariantCulture, out var volume) ? Save(() => Settings.SetAbyssRankSoundVolume(volume / 100)) : Task.CompletedTask;
+
+    private async Task PreviewSound()
+    {
+        if (Disabled || _saving || _playing || !Settings.Current.AbyssRankSoundEnabled || Settings.Current.AbyssRankSoundVolume <= 0) return;
+        _playing = true;
+        _feedback = UiText.T("Aufstiegsklang wird abgespielt …");
+        try { _feedback = UiText.T(await Sounds.PreviewAsync(Settings.Current.AbyssRankReducedMotion)
+            ? "Aufstiegsklang abgespielt." : "Aufstiegsklang konnte nicht abgespielt werden."); }
+        finally { _playing = false; }
+    }
+}

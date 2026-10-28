@@ -387,6 +387,59 @@ public sealed class LifeskillSessionStoreTests
         Assert.True(Directory.Exists(Path.Combine(fixture.Root, ".deleted-unrelated")));
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void JournalAttemptsSupplyExactTimelineFactsWithoutRewritingTheJournal(int schemaVersion)
+    {
+        using var fixture = new Fixture(schemaVersion);
+        fixture.Harvest(2, 10);
+        if (schemaVersion >= 2) fixture.Failed(12);
+        var before = File.ReadAllBytes(fixture.Journal);
+        var recovered = Assert.Single(fixture.Store.Read().Sessions);
+        Assert.Equal(1, recovered.TimelineVersion);
+        var harvest = recovered.TimelineEvents[0];
+        Assert.Equal(LootTrackerTimelineEventKind.HarvestSuccess, harvest.Kind);
+        Assert.Equal(TimeSpan.FromSeconds(10), harvest.Elapsed); Assert.Equal(At.AddSeconds(10), harvest.At);
+        Assert.Equal(2, Assert.Single(harvest.Loot).Quantity); Assert.Null(harvest.GatherVisit);
+        if (schemaVersion >= 2) Assert.Equal(LootTrackerTimelineEventKind.HarvestFailure, recovered.TimelineEvents[1].Kind);
+        Assert.Equal(before, File.ReadAllBytes(fixture.Journal));
+        Assert.Equal(recovered.TimelineEvents.Select(row => row.Id), Assert.Single(fixture.Store.Read().Sessions).TimelineEvents.Select(row => row.Id));
+    }
+
+    [Fact]
+    public void SchemaFourMovementBoundariesDoNotAlterTheSeparateFarmRouteSections()
+    {
+        using var fixture = new Fixture(4);
+        fixture.Add(new() { Kind = LifeskillEventKind.Position, At = At, X = 10, Y = 10,
+            MapId = "sample-map", StartsMovementSegment = true });
+        fixture.Harvest(1, 0);
+        fixture.Add(new() { Kind = LifeskillEventKind.Position, At = At.AddSeconds(5), Elapsed = TimeSpan.FromSeconds(5),
+            X = 20, Y = 20, MapId = "sample-map", StartsMovementSegment = true });
+        fixture.Failed(5);
+        fixture.Position(6);
+        var recovered = Assert.Single(fixture.Store.Read().Sessions);
+        Assert.Equal(2, recovered.RouteSegments.Length);
+        Assert.All(recovered.RouteSegments, segment => Assert.Single(segment.Points));
+        Assert.Equal(TimeSpan.FromSeconds(5), recovered.Elapsed);
+        Assert.Equal(0, fixture.State.RouteSection); Assert.Empty(recovered.FarmRoutePoints);
+        Assert.Equal(2, recovered.TimelineEvents.Length);
+    }
+
+    [Fact]
+    public void SchemaFourJournalGapSeparatesMovementEvenWithoutAnExplicitNextSegmentFlag()
+    {
+        using var fixture = new Fixture(4);
+        fixture.Position(0); fixture.Harvest(1, 0);
+        fixture.Add(new() { Kind = LifeskillEventKind.Gap, At = At.AddSeconds(1), Elapsed = TimeSpan.FromSeconds(1) });
+        fixture.Position(2); fixture.Harvest(1, 2);
+        var recovered = Assert.Single(fixture.Store.Read().Sessions);
+        Assert.Equal(2, recovered.RouteSegments.Length);
+        Assert.All(recovered.RouteSegments, segment => Assert.Single(segment.Points));
+    }
+
     private sealed class Fixture : IDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "soulcrest-lifeskill-store-" + Guid.NewGuid().ToString("N"));

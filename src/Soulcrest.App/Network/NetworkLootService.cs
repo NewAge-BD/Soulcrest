@@ -48,7 +48,7 @@ public sealed record NetworkProgressSources(bool IdentityIsLive, string? Charact
 /// </summary>
 public sealed partial class NetworkLootService(ProgressService progress, ExplorationService? exploration = null,
     WorldContextService? worldContext = null) : INetworkLootSource, INetworkMerchantSource,
-    INetworkGatheringSource, INetworkKinaSource, INetworkFarmSource, IDisposable
+    INetworkGatheringSource, INetworkKinaSource, INetworkFarmSource, INetworkAbyssSource, INetworkAbyssCombatSource, IDisposable
 {
     public WorldContextService WorldContext { get; } = worldContext ?? new();
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
@@ -927,6 +927,13 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         return FeedPacket(streams, tcp, key, $"{key.Item1}:{key.Item2}:{key.Item3}");
     }
 
+    private sealed class TcpSynStart(uint sequence)
+    {
+        public uint Sequence { get; } = sequence;
+        public bool FirstPayloadPending { get; set; } = true;
+    }
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<GameMessageStream, TcpSynStart> TcpSynStarts = new();
+
     private static List<ReceivedMessage> FeedPacket<TKey>(Dictionary<TKey, (TcpReassembler Tcp, GameMessageStream Messages)> streams,
         TcpPacket tcp, TKey key, string streamKey, bool deferFinish = false) where TKey : notnull
     {
@@ -937,6 +944,26 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             streams.Remove(key);
             result.Add(new ReceivedMessage(streamKey, [], Gap: true, GapReason: "tcp-reset"));
             return result;
+        }
+        var synBoundary = false;
+        if (tcp.Synchronize && (!streams.TryGetValue(key, out var synStream)
+            || !TcpSynStarts.TryGetValue(synStream.Messages, out var knownSyn)
+            || !knownSyn.FirstPayloadPending || knownSyn.Sequence != tcp.SequenceNumber))
+        {
+            // A new handshake is a new transport even when its tuple is reused and the old
+            // FIN/RST was not observed. Only its exact repeat before the first payload is harmless;
+            // after payload even the same ISN cannot distinguish a retransmission from tuple reuse.
+            streams.Remove(key);
+            if (streams.Count >= 64)
+            {
+                streams.Clear();
+                result.Add(new ReceivedMessage("*", [], Gap: true, GapReason: "stream-limit"));
+            }
+            var fresh = (Tcp: new TcpReassembler(), Messages: new GameMessageStream(requireVerifiedSync: true));
+            streams[key] = fresh;
+            TcpSynStarts.Add(fresh.Messages, new(tcp.SequenceNumber));
+            result.Add(new ReceivedMessage(streamKey, [], Gap: true, GapReason: "tcp-start"));
+            synBoundary = true;
         }
         var payload = tcp.PayloadData;
         if (payload is null || payload.Length == 0)
@@ -960,13 +987,21 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             }
             streams[key] = stream = (new TcpReassembler(), new GameMessageStream(requireVerifiedSync: true));
         }
-        foreach (var chunk in stream.Tcp.Add(tcp.SequenceNumber, payload))
+        if (TcpSynStarts.TryGetValue(stream.Messages, out var initialSyn) && initialSyn.FirstPayloadPending)
+        {
+            startedHere = true;
+            initialSyn.FirstPayloadPending = false;
+        }
+        // TCP SYN consumes one sequence position before any optional payload.
+        var payloadSequence = unchecked(tcp.SequenceNumber + (tcp.Synchronize ? 1u : 0u));
+        foreach (var chunk in stream.Tcp.Add(payloadSequence, payload))
         {
             if (chunk.Gap)
             {
                 stream.Messages.Break();
-                result.Add(new ReceivedMessage(streamKey, [], Gap: true,
-                    GapReason: startedHere ? "tcp-start" : "tcp-pending-overflow"));
+                if (!synBoundary)
+                    result.Add(new ReceivedMessage(streamKey, [], Gap: true,
+                        GapReason: startedHere ? "tcp-start" : "tcp-pending-overflow"));
                 startedHere = false;
             }
             if (chunk.Data.Length > 0)
@@ -992,6 +1027,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
     {
         lock (_gate)
         {
+            if (stream == "*" || _abyssPointContinuity?.Stream == stream) RevokeAbyssPointContinuity();
             var characterAffected = stream == "*" || _identityStream == stream || _entryCandidate?.Stream == stream;
             var characterGeneration = _progressGeneration;
             var ownCharacterChanged = characterAffected && _ownCharacter is not null;
@@ -1003,7 +1039,9 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 _ownCharacter = null;
                 _identity = null;
                 ResetGatheringContext();
+                ResetAbyssCombatContext();
                 ResetKinaContext();
+                ResetAbyssContext();
                 ResetDailyKinaContext();
                 ResetFarmDropContext();
                 _identityStream = null;
@@ -1029,6 +1067,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
     {
         lock (_gate)
         {
+            ExpireAbyssPointContinuity(stream, at);
             ExpireEntryCandidate(at);
             if (message.Length < 2) return;
             var opcode = (ushort)(message[0] | message[1] << 8);
@@ -1056,6 +1095,31 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 ProcessKinaMessage(stream, opcode, message, at);
                 return;
             }
+            if (opcode == 0xE273)
+            {
+                ProcessAbyssRankMessage(stream, message, at);
+                return;
+            }
+            if (opcode == 0x8D04)
+            {
+                ProcessAbyssCombatMessage(stream, message, at);
+                return;
+            }
+            if (opcode == 0x3645)
+            {
+                ProcessAbyssPlayerAppearance(stream, message, at);
+                return;
+            }
+            if (opcode is 0x3641 or 0x3642 or 0x3647)
+            {
+                ProcessAbyssActorRevocation(stream, message, at);
+                return;
+            }
+            if (opcode == 0xFFA9)
+            {
+                ProcessAbyssFarmMessage(stream, message, at);
+                return;
+            }
             if (opcode is 0x5691 or 0x5693)
             {
                 _merchantStreams.Add(stream);
@@ -1080,12 +1144,16 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 // An unknown entry shape also suspends old authority on this same stream. It must
                 // never let the next character's snapshots mutate the previously bound profile.
                 if (_identity is not null && _identityStream != stream ||
-                    _entryCandidate is { } other && other.Stream != stream) return;
+                    _entryCandidate is { } other && other.Stream != stream ||
+                    _abyssPointContinuity is { } otherContinuity && otherContinuity.Stream != stream) return;
                 var captureGeneration = _generation;
                 var candidateGeneration = _progressGeneration + 1;
-                ResetProgressContext("world-entry-candidate", at);
+                var tentative = OwnIdentityMessage.TryParseEntryCandidate(message);
+                var continuity = BeginAbyssPointCandidate(stream, tentative, at);
+                ResetProgressContextCore("world-entry-candidate", at, continuity);
+                CompleteAbyssPointTransitionReset(continuity);
                 if (_generation != captureGeneration || _progressGeneration != candidateGeneration || _identity is not null) return;
-                if (OwnIdentityMessage.TryParseEntryCandidate(message) is { } tentative)
+                if (tentative is not null)
                     _entryCandidate = new(stream, tentative.CharacterId, tentative.EntityKey, at);
                 else
                 {
@@ -1098,13 +1166,16 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             if (OwnIdentityMessage.IsWorldEntryPreparation(message))
             {
                 if (_identity is not null && _identityStream != stream ||
-                    _entryCandidate is { } other && other.Stream != stream) return;
+                    _entryCandidate is { } other && other.Stream != stream ||
+                    _abyssPointContinuity is { } otherContinuity && otherContinuity.Stream != stream) return;
                 var candidate = _entryCandidate;
                 var captureGeneration = _generation;
                 var preparedGeneration = _progressGeneration + 1;
                 var kinaRevision = _kinaMessageRevision;
                 var dailyKinaRevision = _dailyKinaMessageRevision;
-                ResetProgressContext("world-entry-preparation", at);
+                var continuity = PrepareAbyssPointContinuity(stream, at);
+                ResetProgressContextCore("world-entry-preparation", at, continuity);
+                CompleteAbyssPointTransitionReset(continuity);
                 if (_generation != captureGeneration || _progressGeneration != preparedGeneration || _identity is not null) return;
                 if (candidate is { Prepared: false })
                 {
@@ -1127,12 +1198,12 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             }
             if (OwnIdentityMessage.TryParseWorld(message) is { } world)
             {
-                ObserveIdentity(stream, world.Identity, at, world.MapDataId, world.CombatScore, world.GearScore);
+                ObserveIdentity(stream, world.Identity, at, world.MapDataId, world.CombatScore, world.GearScore, world.AbyssRankPoints);
                 return;
             }
             if (opcode is 0x3633 or 0x3621)
             {
-                if (_identityStream == stream || _entryCandidate?.Stream == stream)
+                if (_identityStream == stream || _entryCandidate?.Stream == stream || _abyssPointContinuity?.Stream == stream)
                 {
                     RecordProgressRejection(opcode, at);
                     var rejectedGeneration = _progressGeneration + 1;
@@ -1484,6 +1555,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
 
     private void OverflowPending()
     {
+        RevokeAbyssPointContinuity();
         _entryCandidate = null;
         _pendingProgressOverflow = true;
         ProgressStatus = "Charakter noch unbekannt. Bitte einmal die Charakterauswahl öffnen und den Charakter erneut betreten oder den Charakter wechseln.";
@@ -1494,10 +1566,11 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         _generation == captureGeneration && _progressGeneration == context.Generation && _identity == identity && _identityStream == stream;
 
     internal void ObserveIdentity(string stream, OwnCharacterIdentity identity, DateTimeOffset at, int? mapDataId = null,
-        long? combatScore = null, int? gearScore = null)
+        long? combatScore = null, int? gearScore = null, long? abyssRankPoints = null)
     {
         lock (_gate)
         {
+            ExpireAbyssPointContinuity(stream, at);
             ExpireEntryCandidate(at);
             var captureGeneration = _generation;
             var transaction = _entryCandidate is { Prepared: true } candidate && candidate.Stream == stream &&
@@ -1507,7 +1580,9 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             var ownGeneration = _progressGeneration + 1;
             var kinaRevision = _kinaMessageRevision;
             var dailyKinaRevision = _dailyKinaMessageRevision;
-            ResetProgressContext("world-entry", at);
+            var continuity = BeginAbyssPointRebind(stream, identity, at);
+            ResetProgressContextCore("world-entry", at, continuity);
+            CompleteAbyssPointTransitionReset(continuity);
             if (_generation != captureGeneration || _progressGeneration != ownGeneration || _identity is not null) return;
             _identity = identity;
             _ownCharacter = new(identity, ownGeneration)
@@ -1517,12 +1592,16 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 ObservedAt = at,
             };
             _identityStream = stream;
+            BindAbyssCombatOwnTransport(stream);
             if (transaction is not null && _kinaMessageRevision != kinaRevision)
             {
                 transaction.KinaRejected = true;
                 transaction.KinaList = null;
             }
             BindKinaBaseline(transaction);
+            BindAbyssBaseline(transaction);
+            BindAbyssPointContinuity(continuity, stream, at);
+            BindAbyssRankBaseline(abyssRankPoints, at);
             BindFarmDropBaseline(transaction is { KinaRejected: false, FarmInventoryRejected: false } ? transaction.KinaList : null);
             if (transaction is not null && _dailyKinaMessageRevision != dailyKinaRevision)
             {
@@ -1557,10 +1636,17 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         }
     }
 
-    internal void ResetProgressContext(string reason = "manual", DateTimeOffset? at = null)
+    internal void ResetProgressContext(string reason = "manual", DateTimeOffset? at = null) =>
+        ResetProgressContextCore(reason, at, null);
+
+    private void ResetProgressContextCore(string reason, DateTimeOffset? at, AbyssPointContinuity? continuity)
     {
         lock (_gate)
         {
+            // Default resets are hard. Only the explicit validated soft entry paths retain
+            // their same, still live RAM ticket; nested hard resets can never resurrect it.
+            if (continuity is null || !ReferenceEquals(_abyssPointContinuity, continuity)) RevokeAbyssPointContinuity();
+            else continuity.Resetting = true;
             if (reason == "manual")
             {
                 ClearIncomingPacketsLocked(invalidate: false);
@@ -1575,7 +1661,9 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             _progressSequence = 0;
             _identity = null;
             ResetGatheringContext();
+            ResetAbyssCombatContext();
             ResetKinaContext();
+            ResetAbyssContext();
             ResetDailyKinaContext();
             ResetFarmDropContext();
             var ownCharacterChanged = _ownCharacter is not null;

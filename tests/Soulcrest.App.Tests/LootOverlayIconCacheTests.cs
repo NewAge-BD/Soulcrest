@@ -35,6 +35,35 @@ public sealed class LootOverlayIconCacheTests : IDisposable
     }
 
     [Fact]
+    public void OptionalBackingOnlyAppearsAfterAnImageHasLoadedAndMissingAssetsLeaveNoReplacementBox()
+    {
+        var missing = Path.Combine(_directory, "missing-backed.png");
+        var invalid = Path.Combine(_directory, "invalid-backed.png");
+        File.WriteAllText(invalid, "Not an image.");
+        var transparent = Png("transparent", Color.Transparent, 32, 16);
+        using var cache = new LootOverlayIconCache();
+        using var surface = new Bitmap(64, 64);
+        using var graphics = Graphics.FromImage(surface);
+        var original = Color.Magenta;
+        var backing = Color.FromArgb(14, 17, 22);
+        var bounds = new RectangleF(8, 8, 40, 40);
+        graphics.Clear(original);
+        foreach (var asset in new[] { missing, invalid, missing })
+        {
+            Assert.False(cache.Draw(graphics, asset, bounds, background: backing));
+            Assert.All(Enumerable.Range(0, 64 * 64), index =>
+                Assert.Equal(original.ToArgb(), surface.GetPixel(index % 64, index / 64).ToArgb()));
+        }
+        // The existing default preserves the source transparency, including letterboxed padding.
+        Assert.True(cache.Draw(graphics, transparent, bounds));
+        Assert.Equal(original.ToArgb(), surface.GetPixel(24, 24).ToArgb());
+        Assert.True(cache.Draw(graphics, transparent, bounds, background: backing));
+        Assert.Equal(backing.ToArgb(), surface.GetPixel(24, 24).ToArgb());
+        Assert.Equal(backing.ToArgb(), surface.GetPixel(24, 10).ToArgb());
+        Assert.Equal(original.ToArgb(), surface.GetPixel(4, 4).ToArgb());
+    }
+
+    [Fact]
     public void LeastRecentlyUsedEntriesAreEvictedAndNegativeEntriesShareTheSameBound()
     {
         var first = Png("first", Color.Red);
@@ -84,6 +113,10 @@ public sealed class LootOverlayIconCacheTests : IDisposable
     [InlineData("other/icon.png")]
     [InlineData("loot-icons/icon.jpg")]
     [InlineData("loot-icons/CON.png")]
+    [InlineData("abyss-rank-icons/../icon.png")]
+    [InlineData("abyss-rank-icons/CON.png")]
+    [InlineData("class-icons/../icon.png")]
+    [InlineData("class-icons/CON.png")]
     public void ForbiddenAssetPathsReturnFalseWithoutCacheEntries(string? asset)
     {
         using var cache = new LootOverlayIconCache();
@@ -93,13 +126,16 @@ public sealed class LootOverlayIconCacheTests : IDisposable
         Assert.Equal(0, cache.Count);
     }
 
-    [Fact]
-    public void RelativeBundledPathsAreAcceptedAsBoundedMissingEntries()
+    [Theory]
+    [InlineData("loot-icons")]
+    [InlineData("abyss-rank-icons")]
+    [InlineData("class-icons")]
+    public void RelativeBundledPathsAreAcceptedAsBoundedMissingEntries(string folder)
     {
         using var cache = new LootOverlayIconCache(1);
         using var surface = new Bitmap(64, 64);
         using var graphics = Graphics.FromImage(surface);
-        Assert.False(cache.Draw(graphics, "loot-icons/synthetic-missing-" + Guid.NewGuid().ToString("N") + ".png", new(0, 0, 64, 64)));
+        Assert.False(cache.Draw(graphics, folder + "/synthetic-missing-" + Guid.NewGuid().ToString("N") + ".png", new(0, 0, 64, 64)));
         Assert.Equal(1, cache.Count);
     }
 

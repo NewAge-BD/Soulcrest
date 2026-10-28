@@ -661,7 +661,209 @@ bestehenden Alerts geteilt; Hörprobe und echte Dropwiedergabe verwenden ausschl
 den Drop-Audiokanal. Fehlende oder unlesbare MP3-Dateien melden den Rückfall auf den
 Standardklang. Vorschau erzeugt keine Beute, Session oder gespeicherte Fundmeldung.
 
-Der Standard-Dropklang ist die vom Nutzer gewählte eigene Resonant-Komposition:
-4,1 Sekunden, 48 kHz Stereo, gekürzter weicher Ausklang und reduzierte
-Rauschschichten. Die PCM16-WAV ist eine eingebettete Appressource; sie benötigt
-keine externe Audiodatei. Hörprobe und neue Drops nutzen dieselbe Ressource.
+Der Standard-Dropklang ist ein eigener, synthetisierter Item-Pickup-„Plop“
+(`scripts/sound/generate_loot_drop.py`, Nutzerauftrag 2026-10-28), sehr ähnlich dem
+zuvor bereitgestellten Effekt, aber ohne fremde Aufnahme. Die 0,21 Sekunden lange
+PCM16-WAV mit 48 kHz Stereo ist als Appressource eingebettet. Hörprobe und neue Drops nutzen dieselbe Ressource;
+Lautstärke, Stummschaltung und eigene MP3-Auswahl bleiben einstellbar.
+
+## Abyss Rank Tracker (2026-10-26)
+
+Das frühere Punkte-Stufen-Overlay heißt in Auswahl und HUD „Abyss Rank Tracker“.
+Die Fläche ohne Killfeed beträgt 480×178; gespeicherter Registrykey
+abyss-rank und Layout-/Aktivierungseinstellungen bleiben unverändert.
+
+Zusätzlich zum absoluten Rangstand und Schwellenfortschritt zeigt es „Rank Points
+this Session“ und „Rank Points per hour“: beide ausdrücklich netto, Gewinne minus
+Verluste. Die großen Zahlen übernehmen den Session-Kina-Stil des Loot-Overlays,
+positive Werte grün, negative rot; kein zusätzlicher Popup-Painter. Unbekannte
+Kanäle bleiben „—“, bei null Aufenthaltsdauer bleibt nur die Rate unbekannt.
+Signierte RP-Raten benutzen eigene Berechnung/Formatierung, da Kina-Raten negative
+Werte absichtlich abweisen. Nur eine passende laufende eigene Abyss-Session mit
+aktueller Profil-/Welt-/Ownbindung und verfügbarer Erfassung liefert diese Metriken.
+Die Punkte-Stufe bleibt von einem tatsächlichen Klassenrangplatz getrennt.
+
+Gesamt-Rangpunkte im Balken verwenden 18 Pixel, verbleibende Punkte darüber
+13,5 Pixel, jeweils fett und weiß mit dunkler umlaufender Kontur. So bleiben die
+Werte auf dem goldenen Füllbereich und im leeren Balken lesbar. Große Zahlen
+werden innerhalb ihrer vorhandenen Grenzen passend verkleinert; Breite,
+Rangiconpositionen und Sessionmetriken bleiben erhalten.
+
+
+Seit 27.10.2026 enthält der Rang-Snapshot einen ausdrücklichen
+WorldContextVisible-Status. Das echte Fenster zeigt sich ausschließlich bei
+bestätigtem Abyss-Kontext mit passender aktueller eigener Profil-/Generationbindung.
+Laden, unbekannter/veralteter Kontext, Kartenwechsel nach außerhalb und fehlende
+Erfassung blenden es aus. Ein gecachter Rangstand reicht nicht. Eine laufende
+Session ist für diese Weltentscheidung nicht erforderlich. Position, Skalierung
+und gespeicherte Einstellungen bleiben erhalten; ein ausgeblendetes Fenster
+beendet Drag/Interaktion und erfordert vor erneutem Alt-Entsperren ein Loslassen.
+
+Seit 27.10.2026 entwickeln sich die Originalicons bei bestätigten Stufenwechseln
+im selben eigenen Charakterkontext zusammenhängend weiter beziehungsweise zurück.
+Der Rangcontroller bewegt nur ein Symbol zur Balkenmitte und zurück; rechts erfolgt
+der Austausch unsichtbar. Mehrstufensprünge durchlaufen alle benachbarten Originale
+in einer gemeinsamen Reise. Neueste Ziele ersetzen die Restfolge am nächsten
+eindeutigen Icon. Erstbestätigung, gespeicherte Werte und gleiche Stufe bleiben
+statisch; Kontextverlust und Ausblenden brechen ohne spätere Nachholung ab.
+
+„Ranganimation“ in den eigenen Overlayeinstellungen bietet reduzierte Bewegung
+(lokale Iconentwicklung ohne Reise/Skalierung/Licht), einen unabhängigen orchestralen
+Aufstiegsklang, Lautstärke und Klangvorschau. Ein Klang pro Aufstiegsfolge, ruhiges
+Sustain für große Sprünge; Abstieg bleibt stumm. Neue Zielstufen beenden den bisherigen
+Klang, dessen Landungszeit sonst veraltet wäre. Charakter-/Trackingwechsel stoppen
+auch einen noch ausklingenden Akkord. Keine Abhängigkeit von Drop-/Boss-Soundoptionen.
+Technische Übergabe und reproduzierbare synthetische Vorschauen: ABYSS_RANK_MOTION.md.
+Nach Nutzerfeedback dauert ein Aufstieg 2,64 s, ein Abstieg 2,78 s; der Morph
+in der Mitte erhält 1,4 beziehungsweise 1,5 s. Reduzierte Bewegung dauert 720 ms.
+Der Produktionsklang ist unabhängig von gespeicherter Nutzerlautstärke um insgesamt 11 dB
+abgesenkt; Tonakzente folgen weiterhin Morphbeginn und Landung der jeweiligen Route.
+Die aktuelle Klangfarbe bleibt nach weiterem Nutzerfeedback zurückhaltend: weiche
+Harfe und Kammerstreicher, leises Horn im Hintergrund; Chor, Schlagwerk und heller
+Metallglanz entfallen. Die Ankunft klingt nach einer Sekunde aus. Der feste Master
+und gespeicherte Lautstärkewerte bleiben erhalten.
+
+## Killfeed: letzte zehn und Gegnericons (27.10.2026)
+
+Die letzte Nutzerauswahl gilt: maximal zehn gewählte eigene Kampfergebnisse
+insgesamt, keine zeitliche Ausblendung. Die bisherigen Kills-/Tode-/Assist-Schalter
+bleiben separat; Abwahl entfernt Einträge ohne Wiederherstellung. Abschalten,
+ein anderer Charakter/Server und Empfangsende leeren den rein flüchtigen Feed.
+Ladeübergänge desselben Charakters behalten die letzten Einträge im RAM.
+
+Jede Killzeile zeichnet direkt vor dem Gegnernamen ein originales Klassenicon
+und dahinter sein tatsächliches Rangicon, jeweils 22×22 und vertikal zentriert.
+Der explizite Gegnergrad 1–19 wählt dieselbe `rank-01`–`rank-19`-Originalgrafik;
+es erfolgt keine Berechnung aus Punkten oder aus dem eigenen Overlayrang.
+Unbekannte oder unlesbare Icons belegen keinen Ersatzplatz. Nicht zugeordnetes
+RP-Delta bleibt vollständig ausgeblendet; der Name nutzt dann die zusätzliche Breite.
+
+Der vorhandene Renderer bleibt 480 Pixel breit, die Feedzeilen 27 Pixel hoch;
+mit zehn Zeilen ist das HUD 487 Pixel hoch. Klassen- und Rangmetadaten werden
+beim Ereignis eingefroren und ändern keine historische Zeile. Original-Classicons
+sind lokal gebündelt; Netzwerkpositionen und neue Laufzeitquellen sind ausgeschlossen.
+
+## Eigene Tode und Punktespalten (27.10.2026)
+
+Auch die eigene Todeszeile zeigt bei passender bestätigter Spielerzuordnung die
+Klasse und den tatsächlichen Rang des Angreifers vor seinem Namen. Unbekannte
+Metadaten bleiben ohne Ersatzicon. Der Rang ist weiter der explizite native Grad,
+keine aus eigenen Punkten oder gegnerischer Klasse geschätzte Stufe.
+
+Die rechte Spalte hält für Kill/Assist AP und RP getrennt, für Tod nur die RP-Kosten.
+Beträge benötigen eine direkte Ergebniszuordnung; — bedeutet unbekannt, nicht null
+Punkte. Die aktuell qualifizierten Wallet-/Gesamtstandsquellen enthalten diesen
+Kampfbezug noch nicht. Sie aktualisieren weiterhin die unabhängigen Sessionwerte.
+Die zehn gehaltenen Einträge, Kategorien und Kontextgrenzen bleiben bestehen.
+
+## Loot-Reihenfolge und rangabhängiger Killfeed-Hintergrund (27.10.2026)
+
+Die neuere Nutzerentscheidung erweitert die bisherige Common-Gear-Projektion:
+Common/weiß, Rare/grün und Legend/blau werden im Overlay jeweils zu einer eigenen
+Ausrüstungszeile mit Gesamtmenge zusammengefasst. Nur exakte Katalog-Equip-Items
+dieser Stufen zählen dazu. Materialien, unbekannte Items und Unique+-Ausrüstung
+bleiben einzeln. Deutsche Gruppen heißen „Gewöhnliche“, „Seltene“ und „Legendäre
+Ausrüstung“, englische Common/Rare/Legend Gear. Originalitems im Journal und
+Loot-Tab bleiben erhalten; auch dort ist die Darstellung jetzt sortiert.
+
+Reihenfolge: Special, Mythic, Epic, Unique, Legend, Rare, Common, unbekannt;
+innerhalb derselben Stufe Menge absteigend, bei Gleichstand Name und Item-ID.
+Die Sortierung erfolgt nach der Overlay-Gruppierung und verändert keine
+Beutebuchung oder Drop-Alerts.
+
+Jede Killfeed-Zeile nutzt denselben Lichtband-/Partikeleffekt wie Unique+-Loot.
+Der explizite Gegnergrad steuert die Palette: Grad 19–10 Gold, 9–5 Violett,
+4–2 Rosé, 1 Cyan. Das sind Gestaltungsfarben, keine Item- oder Rangklassifikation.
+Farbintensität und Bewegung nehmen für jeden einzelnen Grad Richtung 1 zu.
+Unbekannter Grad bleibt ohne Rang-Effekt. Der eigene Punktestand beeinflusst
+diesen Hintergrund nicht.
+
+Grüner/roter Seitenstreifen, Punkt und Kill-/Todeslabel bleiben vor einer dunklen
+Ergebnisfläche sichtbar. Original-Class-/Rangicons erhalten bei erfolgreich
+geladenem Bild eine dunkle Unterlage; fehlende Assets erzeugen keine Platzhalter.
+Die bereits vorhandenen zehn Plätze und Kategorie-Schalter bleiben erhalten.
+Animation läuft nur bei tatsächlich sichtbaren ausgewählten Rangzeilen; reduzierte
+Bewegung hält den Effekt statisch. Verbergen, Handleverlust und Dispose stoppen
+den separaten 33-ms-Feedtimer. Der Standard-Loot-Effekt bleibt unverändert.
+
+## Rangpunkte als Quotient (27.10.2026)
+
+Auf Nutzerwunsch ersetzt `Gesamtstand/nächste absolute Punkte-Schwelle` den
+Text „Rangpunkte gesamt“ im Balken, zum Beispiel `999572/1000000`. Beide Zahlen
+stehen ohne Tausendertrennzeichen. Auch während einer Ranganimation bestimmt
+der tatsächlich angezeigte Gesamtstand die nächste Schwelle und die Restpunkte.
+Bei höchster Punkte-Stufe bleibt der Nenner unbekannt (`Gesamtstand/—`);
+fehlende Rangpunkte behalten den bisherigen Unbekannt-Hinweis.
+
+## Gemeinsames Loot-Overlay mit Lifeskill (27.10.2026)
+
+Das Live-HUD verwendet ausschließlich die gemischte aktuelle gemeinsame Session.
+Die historische Auswahl Gemischt/PvE/Lifeskill/Abyss beeinflusst es nicht. Der
+produktive Host verwendet `UnifiedLootOverlaySource`; alte einzelne Recorder
+werden dort nicht mehr parallel gestartet. Neue bestätigte Beute und erfolgreiche
+oder fehlgeschlagene Sammelversuche starten außerhalb des Abyss denselben Timer.
+
+Alle Varianten sind 480 Pixel breit. Schrift, konturierte Zahlen, Trennlinien und
+Abstände folgen dem Abyss Rank Tracker. Nur belegte Aktivitätsblöcke erscheinen:
+PvE mit Kina und Kina/h, Abyss mit AP-Cap und AP-Rate sowie Kina, Lifeskill mit
+erfolgreichen Ernten und Ernten/h, ergänzend Fehlversuchen und Itemmenge. Alle
+Raten verwenden die volle gemeinsame Sessiondauer. Eine reine Lifeskill-Session
+enthält keine leeren Kina-/AP-Blöcke; unbekannte Werte bleiben ausdrücklich unbekannt.
+
+Die 27 Pixel hohen Itemzeilen enthalten Originalicon, Seltenheitsfarbe, Namen und
+rechtsbündige Gesamtmenge. Materialien bleiben einzeln. Common-, Rare- und
+Legend-Ausrüstung werden weiterhin getrennt gruppiert; erst danach wird nach
+Seltenheit und Menge sortiert. Das Journal behält sämtliche Originalitems.
+
+Alle Seltenheiten nutzen denselben Lichtband-/Partikelrenderer wie der Killfeed:
+Common statisch, Rare/Legend dezente Bänder, Unique bis Special zunehmend kräftige
+Farbe und Bewegung. Dunkle Iconunterlagen und kontrastreiche Mengen bleiben davor.
+Fundhinweise und Töne sind weiterhin ausschließlich Unique und höher vorbehalten.
+Abgeschaltete Animation oder reduzierte Windows-Bewegung hält die Effekte statisch;
+ausgeblendete Fenster stoppen den Timer vollständig. Ohne Animation aktualisieren
+sichtbare Fenster nur Uhr und Raten im Sekundentakt.
+
+Automatisches Einblenden und Fundhinweise hängen an derselben erfolgreichen
+Sessionbuchung: erst Journalcommit, dann SessionStarted/Einblenden, danach die
+DropAccepted-Empfänger. Damit bleibt auch der erste Lifeskill-Fund erhalten.
+Wiederhergestellte Sessions lösen weder neue Fundhinweise noch Sounds aus.
+Position, Skalierung, Transparenz, Sperre und Alt-Bedienung bleiben gespeichert.
+
+## Killfeed nach Wiederbelebung und Teleportation (27.10.2026)
+
+Ein vorübergehend fehlendes Own und ein frischer Welteintritt desselben Charakters
+auf demselben Server leeren die bereits bestätigten letzten zehn Einträge nicht.
+Die ursprüngliche Ereignisgeneration, Sequenz, Klasse, der tatsächliche Rang und
+eventuell explizit zugeordnete Beträge bleiben unverändert eingefroren.
+
+Der Feed veröffentlicht seine aktuelle Anzeigebindung atomar mit diesen historischen
+Zeilen. Nur wenn sie zum bestätigten aktuellen Abyss-/Profilkontext passt, zeigt
+der Rank Tracker die Historie wieder. Laden, unbekannter Kontext und außerhalb
+von Abyss bleiben wie bisher ausgeblendet. Ein neues Entity oder eine neue eigene
+Generation desselben Charakters ist allein kein Grund, die Historie zu löschen.
+
+Neue Kampfergebnisse benötigen weiterhin die aktuelle eigene Referenz, Generation,
+Sequenz und gültige Faktzeit. Die Historie überträgt keine Netzwerkqualifikation,
+keine Actor-/Lebenszustände, keine Einkommensbasis und keine Transportkontinuität.
+Charakter-/Serverwechsel, explizites Empfangsende, Abschalten und Dispose leeren
+weiterhin den Feed; Kategorieabwahl entfernt ihre Zeilen. Kein Speichern auf Disk.
+
+## Loot-Overlay nur bei laufender Session (27.10.2026)
+
+Unter Overlay → Loot-Overlay begrenzt die neue Option „Nur bei laufender Session
+anzeigen“ die Sichtbarkeit auf die aktuelle laufende Session. Ohne Session oder
+nach deren Ende wird das Fenster ausgeblendet und sein Timer gestoppt. Die Option
+ist standardmäßig aus; sie ändert weder die Aufzeichnung noch den gespeicherten
+Ein-/Aus-Schalter, die Position oder andere Darstellungseinstellungen.
+
+„Bei Sessionstart einblenden“ bleibt davon unabhängig: Diese vorhandene Option
+kann das ausgeschaltete Overlay bei einer neuen bestätigten Session einschalten.
+Beide Optionen zusammen zeigen es automatisch während der Session und blenden es
+nach deren Ende wieder aus. Vordergrund- und andere Sichtbarkeitsregeln gelten
+weiterhin für alle Sessionarten, einschließlich reiner Lifeskill-Sessions.
+
+Der committed Sessionstand wird vor dem Sessionstart-Callback veröffentlicht.
+Die Fundhinweisfreigabe liest aktuelle Optionen und Sessionstatus gemeinsam unter
+dem bestehenden Präsentations-Gate. So bleibt auch der erste seltene Drop beim
+Start einer zuvor ausgeblendeten Session erhalten; alte UI-Callbacks können ihn
+nicht löschen. Wiederherstellung erzeugt weiterhin keine neuen Fundhinweise.

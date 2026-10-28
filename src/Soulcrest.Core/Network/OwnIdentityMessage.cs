@@ -98,7 +98,8 @@ public static class OwnIdentityMessage
             SkipIf(ref r, flags, 8192, 1);
             if ((flags & 16384) != 0) r.Vi32();
             SkipIf(ref r, flags, 32768, 4);
-            SkipIf(ref r, flags, 65536, 8);
+            // Optional absolute own total; it is published only after complete Own validation.
+            var abyssRankPoints = (flags & 65536) != 0 ? r.I64() : (long?)null;
             if ((flags & 131072) != 0)
             {
                 var pins = r.Count(31);
@@ -130,7 +131,8 @@ public static class OwnIdentityMessage
             return entity > 0 && server > 0 && characterId > 0 && name.Length is >= 2 and <= 32
                 && name.All(char.IsLetterOrDigit)
                 ? new(new(characterId, server, entity, name) { ClassId = classId }, mapDataId > 0 ? mapDataId : null)
-                    { CombatScore = combatScore >= 0 ? combatScore : null, GearScore = gearScore } : null;
+                    { CombatScore = combatScore >= 0 ? combatScore : null, GearScore = gearScore,
+                        AbyssRankPoints = abyssRankPoints is >= 0 ? abyssRankPoints : null } : null;
         }
         catch (InvalidDataException) { return null; }
         catch (DecoderFallbackException) { return null; }
@@ -175,7 +177,8 @@ public static class OwnIdentityMessage
         _ => null
     };
 
-    private static void State(ref ProgressPacketReader r)
+    // Shared complete CharAppear subforms. Callers must still validate their own whole envelope.
+    internal static void State(ref ProgressPacketReader r)
     {
         var flags = r.U16();
         r.Skip(18); // position, direction and movement direction; deliberately not returned
@@ -200,12 +203,12 @@ public static class OwnIdentityMessage
         SkipIf(ref r, flags, 32768, 4);
     }
 
-    private static void Guild(ref ProgressPacketReader r)
+    internal static void Guild(ref ProgressPacketReader r)
     {
         r.I64(); r.SkipString(); r.Skip(2 + 1 + 4 + 8 + 2); r.SkipString();
     }
 
-    private static void Abnormal(ref ProgressPacketReader r)
+    internal static void Abnormal(ref ProgressPacketReader r)
     {
         var flags = r.U8();
         if ((flags & 0xE0) != 0) throw new InvalidDataException("Unknown abnormal flags.");
@@ -219,7 +222,7 @@ public static class OwnIdentityMessage
         SkipIf(ref r, flags, 16, 12);
     }
 
-    private static void Equip(ref ProgressPacketReader r)
+    internal static void Equip(ref ProgressPacketReader r)
     {
         r.Skip(14); r.Bool(); r.I32();
         var decorations = r.Count(28);
@@ -239,7 +242,7 @@ public static class OwnIdentityMessage
         if ((flags & 1) != 0) r.Skip(r.Count(8) * 8);
     }
 
-    private static void Stats(ref ProgressPacketReader r) => r.Skip(r.Count(6) * 6);
+    internal static void Stats(ref ProgressPacketReader r) => r.Skip(r.Count(6) * 6);
     private static void Points(ref ProgressPacketReader r) => r.Skip(r.Count(3) * 3);
     private static void SkipIf(ref ProgressPacketReader r, uint flags, uint mask, int length)
     {

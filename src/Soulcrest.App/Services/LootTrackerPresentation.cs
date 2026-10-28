@@ -1,11 +1,15 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 namespace Soulcrest.App.Services;
 
-public enum LootTrackerSessionKind { Grind, Dungeon, Lifeskill }
+public enum LootTrackerSessionKind { Grind, Dungeon, Lifeskill, Abyss, Mixed = 4 }
+public enum LootTrackerActivityOrigin { Pve, Lifeskill, Abyss }
+public enum LootTrackerViewMode { Mixed, Pve, Lifeskill, Abyss }
 public enum LootTrackerSessionStatus { Live, Completed, Interrupted }
 public enum LootTrackerSessionMode { Normal, LimitedKina }
 public enum LootTrackerLootKind { Item, Soul }
+public enum LootTrackerCombatKind { Kill = 0, Death = 1 }
 
 /// <summary>
 /// Read-only presentation contract. It neither starts a capture nor creates sessions from pet totals.
@@ -31,6 +35,10 @@ public sealed record LootTrackerSession
 {
     public string Id { get; init; } = "";
     public LootTrackerSessionKind Kind { get; init; }
+    /// <summary>One records a single shared session with explicit fact origins; zero preserves legacy sessions.</summary>
+    public int UnifiedVersion { get; init; }
+    [JsonIgnore] public LootTrackerViewMode? ProjectionViewMode { get; init; }
+    [JsonIgnore] public bool ProjectionLimited { get; init; }
     public LootTrackerSessionStatus Status { get; init; }
     /// <summary>Frozen at start; old journals without the field retain Normal.</summary>
     public LootTrackerSessionMode Mode { get; init; }
@@ -43,6 +51,8 @@ public sealed record LootTrackerSession
     public DateTimeOffset StartedAt { get; init; }
     public DateTimeOffset? EndedAt { get; init; }
     public DateTimeOffset? LastLootAt { get; init; }
+    /// <summary>Abyss residence heartbeat; recovery must not discard a quiet observed stay.</summary>
+    public DateTimeOffset? LastPresenceAt { get; init; }
     public TimeSpan Elapsed { get; init; }
     public LootTrackerCharacterSnapshot? Character { get; init; }
     /// <summary>Legacy presentation value, used only when no character start snapshot exists.</summary>
@@ -54,16 +64,25 @@ public sealed record LootTrackerSession
     public long? HarvestCount { get; init; }
     public long? FailedHarvestCount { get; init; }
     public long? SoulCount { get; init; }
+    /// <summary>Canonical earned AP, separate from the spendable wallet and cumulative cap usage.</summary>
+    public long? AbyssPoints { get; init; }
+    public long? RankPointsGained { get; init; }
+    public long? RankPointsLost { get; init; }
     public bool CoverageLimited { get; init; }
     public ImmutableArray<LootTrackerLoot> Loot { get; init; } = [];
     public ImmutableArray<LootTrackerMob> Mobs { get; init; } = [];
     public ImmutableArray<LootTrackerRouteSegment> RouteSegments { get; init; } = [];
+    /// <summary>Explicit own combat results only. Missing historical observations are never reconstructed.</summary>
+    public ImmutableArray<LootTrackerCombatEvent> CombatEvents { get; init; } = [];
     public ImmutableArray<LootTrackerResourceVisit> ResourceNodes { get; init; } = [];
     /// <summary>Version 1 is a growing gathering-point route; zero retains the legacy travelled path.</summary>
     public int FarmRouteVersion { get; init; }
     public ImmutableArray<LootTrackerGatherVisit> GatherVisits { get; init; } = [];
     public ImmutableArray<LootTrackerFarmRoutePoint> FarmRoutePoints { get; init; } = [];
     public ImmutableArray<LootTrackerIncomeBin> MinuteIncome { get; init; } = [];
+    /// <summary>One records exact local timeline facts; zero preserves the aggregate legacy contract.</summary>
+    public int TimelineVersion { get; init; }
+    public ImmutableArray<LootTrackerTimelineEvent> TimelineEvents { get; init; } = [];
 }
 
 /// <summary>Actual observed session loot. A null MobId explicitly leaves the drop source unassigned.</summary>
@@ -81,6 +100,24 @@ public sealed record LootTrackerRouteSegment(string MapId, string MapName,
 
 public sealed record LootTrackerRoutePoint(double X, double Y, DateTimeOffset? At = null, TimeSpan? Elapsed = null);
 
+/// <summary>A fresh visual position on a canonical local map, never a native entity/object identity.</summary>
+public sealed record LootTrackerCombatPosition(string MapId, string MapName, double X, double Y,
+    DateTimeOffset ObservedAt);
+
+/// <summary>A persistent own result without opponent names or native keys. An absent position stays unplaced.</summary>
+public sealed record LootTrackerCombatEvent(string Id, LootTrackerCombatKind Kind, DateTimeOffset At,
+    TimeSpan Elapsed, LootTrackerCombatPosition? Position = null)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LootTrackerActivityOrigin? Origin { get; init; }
+    /// <summary>Anonymous, validated class frozen at the outcome; never an opponent identity.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OpponentClassId { get; init; }
+    /// <summary>Explicit actual opponent grade, never a stage inferred from own rank points.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? OpponentAbyssRankGrade { get; init; }
+}
+
 /// <summary>
 /// A source-confirmed resource-node visit in encounter order, bound to an existing route point.
 /// X/Y are catalogue-node coordinates; the referenced player position may differ.
@@ -91,7 +128,12 @@ public sealed record LootTrackerResourceVisit(string NodeId, string Name, string
     double X, double Y, int SegmentIndex, int PointIndex, DateTimeOffset? At = null);
 
 /// <summary>An observed elapsed-minute bin; missing minutes and null values are not zero income.</summary>
-public sealed record LootTrackerIncomeBin(int Minute, long? KinaBound, long? KinaUnbound);
+public sealed record LootTrackerIncomeBin(int Minute, long? KinaBound, long? KinaUnbound)
+{
+    public long? AbyssPoints { get; init; }
+    public long? RankPointsGained { get; init; }
+    public long? RankPointsLost { get; init; }
+}
 
 /// <summary>Pure UI projection; no source, session engine, persistence, or timer is activated here.</summary>
 public static class LootTrackerPresentation
@@ -99,6 +141,19 @@ public static class LootTrackerPresentation
     public const int DefaultIdleTimeoutMinutes = 2;
     public const int MinIdleTimeoutMinutes = 1;
     public const int MaxIdleTimeoutMinutes = 60;
+
+    /// <summary>Display order only; exact item identities, quantities and stored encounter order stay unchanged.</summary>
+    public static ImmutableArray<LootTrackerLoot> OrderedLoot(LootTrackerSession session) => session.Loot.IsDefaultOrEmpty ? []
+        : OrderDrops(session.Loot, row => MonsterLootItemCatalog.Default.DropRarity(row.Id),
+            row => row.Quantity, row => row.Name, row => row.Id).ToImmutableArray();
+
+    // The existing item-grade order applies to both detail rows and the overlay's grouped rows.
+    internal static IOrderedEnumerable<T> OrderDrops<T>(IEnumerable<T> rows, Func<T, LootItemRarity> rarity,
+        Func<T, long> quantity, Func<T, string> name, Func<T, string> id) => rows
+        .OrderByDescending(row => { var grade = rarity(row); return Enum.IsDefined(grade) ? (int)grade : (int)LootItemRarity.Unknown; })
+        .ThenByDescending(quantity)
+        .ThenBy(name, StringComparer.Ordinal)
+        .ThenBy(id, StringComparer.Ordinal);
 
     public static bool UsesFarmRoute(LootTrackerSession session) =>
         session.Kind == LootTrackerSessionKind.Lifeskill && session.FarmRouteVersion == 1;
@@ -225,6 +280,13 @@ public static class LootTrackerPresentation
 
     public static double? PerHour(long? amount, TimeSpan elapsed) =>
         amount is >= 0 && elapsed > TimeSpan.Zero ? amount.Value / elapsed.TotalHours : null;
+
+    public static double? PerMinute(long? amount, TimeSpan elapsed) =>
+        amount is >= 0 && elapsed > TimeSpan.Zero ? amount.Value / elapsed.TotalMinutes : null;
+
+    public static long? NetRankPoints(LootTrackerSession session) =>
+        session.RankPointsGained is >= 0 and var gained && session.RankPointsLost is >= 0 and var lost
+            ? gained - lost : null;
 
     private static string? ProfileId(string? value) => Guid.TryParse(value, out var id) ? id.ToString("N") : null;
 

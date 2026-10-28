@@ -132,6 +132,38 @@ public sealed class LootTrackerRouteMapViewTests
         finally { UiText.Language = previous; }
     }
 
+    [Fact]
+    public async Task ReplayComponentShowsTheSynchronousPlayerAndHidesFutureMarkersAndStaleDot()
+    {
+        var directory = TemporaryDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "manifest.json"),
+                "{\"maps\":[{\"id\":\"sample-map\",\"tiles\":\"sample-map/{z}_{x}_{y}.webp\",\"size\":4096,\"refZoom\":4,\"tileSize\":512,\"minNativeZoom\":1,\"maxNativeZoom\":6}]}");
+            var at = new DateTimeOffset(2026, 10, 27, 10, 0, 0, TimeSpan.Zero);
+            var session = new LootTrackerSession { Kind = LootTrackerSessionKind.Abyss,
+                StartedAt = at, Elapsed = TimeSpan.FromSeconds(20),
+                RouteSegments = [new("sample-map", "Sample map", [new(1000, 1000, at, TimeSpan.Zero),
+                    new(1200, 1300, at.AddSeconds(10), TimeSpan.FromSeconds(10))])],
+                CombatEvents = [new("future", LootTrackerCombatKind.Kill, at.AddSeconds(15), TimeSpan.FromSeconds(15),
+                    new("sample-map", "Sample map", 1500, 1500, at.AddSeconds(15)))] };
+            await using var provider = new ServiceCollection().AddLogging().BuildServiceProvider();
+            await using var renderer = new HtmlRenderer(provider, provider.GetRequiredService<ILoggerFactory>());
+            async Task<string> Render(int second) => await renderer.Dispatcher.InvokeAsync(async () =>
+                (await renderer.RenderComponentAsync<LootTrackerRouteMap>(ParameterView.FromDictionary(new Dictionary<string, object?>
+                { [nameof(LootTrackerRouteMap.Session)] = session,
+                    [nameof(LootTrackerRouteMap.Replay)] = LootTrackerSessionReplay.Build(session, TimeSpan.FromSeconds(second)),
+                    [nameof(LootTrackerRouteMap.MapDataDirectory)] = directory }))).ToHtmlString());
+            var fresh = await Render(10);
+            Assert.Contains("data-testid=\"replay-player\"", fresh);
+            Assert.Contains("cx=\"1200\" cy=\"1300\"", fresh);
+            Assert.Contains("data-map-id=\"sample-map\"", fresh);
+            Assert.DoesNotContain("data-marker-kind=\"kill\"", fresh);
+            Assert.DoesNotContain("data-testid=\"replay-player\"", await Render(13));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     [Theory]
     [InlineData("de")]
     [InlineData("en")]

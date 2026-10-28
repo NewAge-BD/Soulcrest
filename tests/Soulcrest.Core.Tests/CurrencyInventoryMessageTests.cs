@@ -335,6 +335,18 @@ public sealed class CurrencyInventoryMessageTests
         return packet.Bytes;
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AllItemsPreservesEquipmentVariantForIndependentCurrencyQualification(bool equipment)
+    {
+        using var packet = new Packet(0x5611);
+        packet.U16(528); packet.V(1); packet.Item(91, 930100003, 10, equipment: equipment); packet.Tail();
+        var list = Assert.IsType<CurrencyInventoryList>(CurrencyInventoryMessage.TryParseList(packet.Bytes));
+        Assert.Equal(equipment, Assert.Single(list.AllItems).HasEquipmentData);
+        Assert.Empty(list.Items);
+    }
+
     private static byte[] Change(int id = 930100031, long count = 100, byte kind = 1, byte container = 1)
     {
         using var packet = new Packet(0x561B);

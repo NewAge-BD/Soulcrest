@@ -1,0 +1,160 @@
+@using System.Globalization
+@inject SettingsService Settings
+@inject IServiceProvider Services
+@implements IAsyncDisposable
+
+<section class="lst-root @(Embedded ? "lt-timeline-embedded" : "lt-panel") lt-session-timeline" aria-label="@UiText.T("Session-Timeline")" data-testid="session-timeline">
+    <div class="lt-section-head">
+        <h3>@UiText.T("Session-Timeline")</h3>
+        <div class="lt-timeline-actions">
+            <label>@UiText.T("Timeline-Darstellung") <select id="loot-timeline-mode" value="@Settings.Current.LootTimelineValueMode" disabled="@(_saving || IsExample)" @onchange="ChangeMode"><option value="Cumulative">@UiText.T("Kumuliert")</option><option value="PerMinute">@UiText.T("Pro Minute")</option></select></label>
+            @if (!Embedded) { <button type="button" class="btn" id="loot-timeline-end" aria-pressed="@FollowEnd" @onclick="JumpEnd">@UiText.T("Zum aktuellen Ende")</button> }
+        </div>
+    </div>
+    <div class="lst-body">
+        <div class="lst-layers" role="group" aria-label="@UiText.T("Timeline-Ebenen")">
+            @foreach (var layer in _available)
+            {
+                <label class="lst-layer @(On(layer.Id) ? "is-on" : "")" style="@("--lst-layer:" + layer.Color)"><input type="checkbox" data-timeline-layer="@layer.Id" checked="@On(layer.Id)" disabled="@_saving" @onchange="@(e => ToggleLayer(layer.Id, e.Value is true))" /><span>@UiText.T(layer.Label)</span></label>
+            }
+            <button type="button" class="lst-text-button" id="loot-timeline-loot-toggle" disabled="@(_lootItems.Count == 0)" aria-expanded="@_lootOpen" @onclick="@(() => _lootOpen = !_lootOpen)">@UiText.T("Loot auswählen") · @_items.Count</button>
+            @if (_resourceChoices.Count > 0)
+            {
+                <button type="button" class="lst-text-button" id="loot-timeline-resources-toggle" aria-expanded="@_resourcesOpen" @onclick="@(() => _resourcesOpen = !_resourcesOpen)">@UiText.T("Ressourcen auswählen") · @_resources.Count</button>
+            }
+        </div>
+        @if (_resourcesOpen)
+        {
+            <ul class="lst-loot-list" aria-label="@UiText.T("Ressourcen auswählen")">@foreach (var resource in _resourceChoices.OrderBy(row => row.Key == "unknown").ThenBy(ResourceLabel, StringComparer.Create(Culture, false)))
+            {
+                <li><label><input type="checkbox" data-timeline-resource="@resource.Key" checked="@_resources.Contains(resource.Key)" @onchange="@(e => ToggleResource(resource.Key, e.Value is true))" /><span>@ResourceLabel(resource)</span><strong>@Number(resource.Attempts)</strong></label></li>
+            }</ul>
+        }
+        @if (_lootOpen)
+        {
+            <ul class="lst-loot-list">@foreach (var item in _lootItems)
+            {
+                <li><label><input type="checkbox" data-timeline-item="@item.Key" checked="@_items.Contains(item.Key)" @onchange="@(e => ToggleItem(item.Key, e.Value is true))" />@if (item.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> }<span>@item.Name</span><strong>@Number(item.Quantity)</strong></label></li>
+            }</ul>
+        }
+        <div class="lst-view-controls" role="group" aria-label="@UiText.T("Timeline-Ausschnitt steuern")">
+            <button type="button" class="btn" id="loot-timeline-pan-left" disabled="@(_viewport.From <= TimeSpan.Zero)" aria-label="@UiText.T("Ausschnitt früher anzeigen")" @onclick="@(() => Pan(-.25))">←</button>
+            <button type="button" class="btn" id="loot-timeline-zoom-out" disabled="@(_viewport.Zoom <= 1)" aria-label="@UiText.T("Timeline herauszoomen")" @onclick="@(() => Zoom(.8))">−</button>
+            <span>@UiText.F("Zoom {0}×", _viewport.Zoom.ToString("0.##", Culture))</span>
+            <button type="button" class="btn" id="loot-timeline-zoom-in" disabled="@(_viewport.Zoom >= _viewport.MaximumZoom)" aria-label="@UiText.T("Timeline hineinzoomen")" @onclick="@(() => Zoom(1.25))">+</button>
+            <button type="button" class="btn" id="loot-timeline-pan-right" disabled="@(_viewport.To >= Session.Elapsed)" aria-label="@UiText.T("Ausschnitt später anzeigen")" @onclick="@(() => Pan(.25))">→</button>
+            <button type="button" class="lst-text-button" id="loot-timeline-reset" @onclick="ResetView">@UiText.T("Ganze Session")</button>
+            <button type="button" class="lst-text-button lst-exact-toggle" id="loot-timeline-exact-toggle" aria-expanded="@_exactOpen" aria-controls="@_exactId" @onclick="ToggleExact">@UiText.T(_exactOpen ? "Exakte Werte ausblenden" : "Exakte Werte anzeigen")</button>
+        </div>
+        <div class="lst-position"><span>@UiText.T("Playhead") <strong data-testid="playhead-time">@Duration(Elapsed)</strong> / @Duration(Session.Elapsed)</span><span role="status">@UiText.F("Ausschnitt: {0} bis {1}", Duration(_viewport.From), Duration(_viewport.To))</span></div>
+        @if (_series.Any(row => row.Aggregated)) { <p class="lst-note" data-testid="timeline-legacy">@UiText.T("Altaufzeichnung: verfügbare Punkteverläufe sind minutengenau. Fehlende Ereignisse bleiben unbekannt.")</p> }
+        <div class="lst-chart-shell">
+            @foreach (var plot in _plots)
+            {
+                <div class="lst-plot-legend" aria-label="@UiText.T("Eigene Skala je Ebene")">@foreach (var curve in plot.Curves)
+                {
+                    <span class="lst-legend-entry @(curve.IsLine ? "line" : "bar")" style="@("--lst-layer:" + curve.Color)" data-timeline-series="@curve.Series.Key"><i></i><span>@UiText.T(curve.Series.Label)</span><strong data-testid="@("timeline-value-" + curve.Series.Key)">@Number(curve.Series.ValueAt(Elapsed))</strong><small title="@ScaleTitle(curve)" data-series-scale="@curve.Series.Key" data-known="@(curve.HasValues ? "true" : "false")" data-min="@(curve.HasValues ? curve.ScaleMinimum.ToString(CultureInfo.InvariantCulture) : null)" data-max="@(curve.HasValues ? curve.ScaleMaximum.ToString(CultureInfo.InvariantCulture) : null)">@ScaleRange(curve)</small></span>
+                }</div>
+            }
+            <p class="lst-scale-note">@UiText.T("Eigene Skala je Ebene")</p>
+            <div class="lst-track" @ref="_track" id="loot-timeline-track" tabindex="0" role="region" aria-label="@UiText.T("Timeline-Ausschnitt")" aria-describedby="@_helpId" data-viewport-from="@N(_viewport.From.TotalSeconds)" data-viewport-to="@N(_viewport.To.TotalSeconds)" @onwheel="Wheel" @onkeydown="TrackKeyDown" @onpointerdown="TrackDown" @onpointermove="TrackMove" @onpointerup="TrackUp" @onpointercancel="TrackCancel" @onlostpointercapture="TrackLostCapture">
+                @foreach (var plot in _plots)
+                {
+                    var left = plot.Curves.FirstOrDefault(row => row.Series.Key == "ap" && row.HasValues) ?? plot.Curves.FirstOrDefault(row => row.Axis != "right" && row.HasValues);
+                    var right = plot.Curves.FirstOrDefault(row => row.Axis == "right" && row.HasValues);
+                    var quantities = plot.Curves.Where(row => !row.IsLine && row.HasValues).ToArray();
+                    <div class="lst-plot" data-timeline-plot="@plot.Key">
+                        <svg class="lst-value-chart" data-testid="timeline-values-plot" viewBox="0 0 1000 180" preserveAspectRatio="none" aria-hidden="true">
+                            <path class="lst-grid" d="M0 20H1000 M0 85H1000 M0 150H1000" />
+                            @foreach (var tick in _viewport.Ticks()) { <line class="lst-grid" x1="@X(tick)" x2="@X(tick)" y1="20" y2="150" /> }
+                            @for (var column = 0; column < quantities.Length; column++)
+                            {
+                                var curve = quantities[column];
+                                @foreach (var bar in curve.Bars)
+                                {
+                                    var gap = Math.Min(2, bar.Width * .12); var slot = (bar.Width - gap) / quantities.Length;
+                                    <rect class="lst-bar" data-bar="@curve.Series.Key" data-bar-value="@bar.Value.ToString(CultureInfo.InvariantCulture)" x="@N(bar.X + gap / 2 + slot * column)" width="@N(Math.Max(0, slot * .82))" y="@N(bar.Y)" height="@N(bar.Height)" style="@("fill:" + curve.Color)"><title>@BarTitle(curve, bar)</title></rect>
+                                }
+                            }
+                            @foreach (var curve in plot.Curves.Where(row => row.IsLine))
+                            {
+                                @foreach (var area in curve.Areas) { <polygon class="lst-curve-area" data-area="@curve.Series.Key" points="@area" style="@("fill:" + curve.Color)" /> }
+                            }
+                            @foreach (var curve in plot.Curves.Where(row => row.IsLine))
+                            {
+                                @if (curve.ScaleMinimum < 0) { <line class="lst-zero" data-axis="@curve.Axis" data-zero="@curve.Series.Key" x1="0" x2="1000" y1="@N(curve.Zero)" y2="@N(curve.Zero)" style="@("stroke:" + curve.Color)" /> }
+                                @foreach (var path in curve.Paths) { <polyline class="lst-curve" data-curve="@curve.Series.Key" points="@path" style="@("stroke:" + curve.Color)"><title>@UiText.T(curve.Series.Label)</title></polyline> }
+                            }
+                        </svg>
+                        @if (left is not null) { <div class="lst-axis left" data-scale="@left.Series.Key" style="@("color:" + left.Color)"><b>@AxisLabel(left)</b>@if (left.ScaleMaximum != left.ScaleMinimum) { <span>@Number(left.ScaleMaximum)</span> }<span class="lst-axis-minimum">@Number(left.ScaleMinimum)</span></div> }
+                        @if (right is not null) { <div class="lst-axis right" data-scale="@right.Series.Key" style="@("color:" + right.Color)"><b>@AxisLabel(right)</b>@if (right.ScaleMaximum != right.ScaleMinimum) { <span>@Number(right.ScaleMaximum)</span> }<span class="lst-axis-minimum">@Number(right.ScaleMinimum)</span></div> }
+                        @if (!plot.Curves.Any(row => row.HasValues)) { <div class="lst-unknown">@UiText.T("Keine bestätigten Verlaufsdaten")</div> }
+                    </div>
+                }
+                @if (_plots.Count == 0) { <div class="lst-empty-chart">@UiText.T("Wähle eine Werteebene für das Diagramm.")</div> }
+                @foreach (var layer in _available.Where(row => !row.IsSeries && On(row.Id)))
+                {
+                    <div class="lst-lane" data-timeline-lane="@layer.Id" style="@("--lst-layer:" + layer.Color)"><span>@UiText.T(layer.Label)</span><div class="lst-lane-track">
+                        @if (layer.Id == "loot")
+                        {
+                            @foreach (var group in _lootGroups)
+                            {
+                                <div class="lst-loot-cluster" style="@LootLeft(group)">
+                                    @foreach (var item in group.Items.Take(MaximumIcons))
+                                    {
+                                        <button type="button" class="lst-loot-icon" title="@(item.Name + " ×" + Number(item.Quantity))" data-loot-marker="@item.Key" @onpointerdown:stopPropagation="true" @onkeydown:stopPropagation="true" @onclick="@(() => SelectLoot(group))">@if (item.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="@item.Name" /> } else { <span>◇</span> }<strong>@Number(item.Quantity)</strong></button>
+                                    }
+                                    @if (group.Items.Count > MaximumIcons) { <button type="button" class="lst-loot-icon" @onpointerdown:stopPropagation="true" @onkeydown:stopPropagation="true" @onclick="@(() => SelectLoot(group))">+@(group.Items.Count - MaximumIcons)</button> }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            @foreach (var group in _groups.Where(row => row.Lane == layer.Id))
+                            {
+                                <button type="button" class="lst-event" style="@EventLeft(group.Elapsed)" title="@GroupLabel(group)" aria-label="@GroupLabel(group)" data-event-group="@group.Events[0].Id" @onpointerdown:stopPropagation="true" @onkeydown:stopPropagation="true" @onclick="@(() => Select(group))">@(group.Events.Count > 1 ? group.Events.Count.ToString(Culture) : Glyph(layer.Id))</button>
+                            }
+                        }
+                    </div></div>
+                }
+                <div class="lst-ruler">@foreach (var tick in _viewport.Ticks()) { <span style="@TickStyle(tick)">@TickTime(tick)</span> }</div>
+                @if (_viewport.Fraction(Elapsed) is >= 0 and <= 1)
+                {
+                    <div class="lst-head" style="@("left:" + N(_viewport.Fraction(Elapsed) * 100) + "%")"><i></i><button type="button" class="lst-head-grip" @ref="_headGrip" id="loot-timeline-head-grip" data-playhead-grip="true" role="slider" aria-label="@UiText.T("Playhead verschieben")" aria-valuemin="0" aria-valuemax="@MaximumSeconds" aria-valuenow="@CurrentSeconds" aria-valuetext="@Duration(Elapsed)" @onpointerdown="HeadDown" @onpointerdown:stopPropagation="true" @onpointermove="HeadMove" @onpointermove:stopPropagation="true" @onpointerup="HeadUp" @onpointerup:stopPropagation="true" @onpointercancel="HeadCancel" @onlostpointercapture="HeadLostCapture" @onkeydown="HeadKeyDown" @onkeydown:stopPropagation="true">▼</button></div>
+                }
+            </div>
+        </div>
+        <div class="lst-overview" data-testid="timeline-overview">
+            <svg viewBox="0 0 1000 180" preserveAspectRatio="none" aria-hidden="true">
+                @foreach (var curve in _overviewCurves.Where(row => On(row.Series.Key)))
+                {
+                    @if (curve.IsLine)
+                    {
+                        @foreach (var area in curve.Areas) { <polygon data-overview-area="@curve.Series.Key" points="@area" style="@("fill:" + curve.Color)" /> }
+                        @foreach (var path in curve.Paths) { <polyline data-overview-curve="@curve.Series.Key" points="@path" style="@("stroke:" + curve.Color)" /> }
+                    }
+                    else { @foreach (var bar in curve.Bars) { <rect data-overview-bar="@curve.Series.Key" x="@N(bar.X)" width="@N(bar.Width * .8)" y="@N(bar.Y)" height="@N(bar.Height)" style="@("fill:" + curve.Color)" /> } }
+                }
+                <rect class="lst-overview-window" x="@N(FullFraction(_viewport.From) * 1000)" y="0" width="@N((_viewport.To - _viewport.From).TotalSeconds / Math.Max(.001, Session.Elapsed.TotalSeconds) * 1000)" height="180" />
+                <line class="lst-overview-head" x1="@N(FullFraction(Elapsed) * 1000)" x2="@N(FullFraction(Elapsed) * 1000)" y1="0" y2="180" />
+            </svg>
+            <input id="loot-timeline-playhead" type="range" min="0" max="@MaximumSeconds" step="0.1" value="@CurrentSeconds" aria-label="@UiText.T("Playhead der Session-Timeline")" @oninput="Scrub" />
+            <div><span>00:00</span><span>@Duration(Session.Elapsed)</span></div>
+        </div>
+        <p class="lst-help" id="@_helpId">@UiText.T("Shift + Mausrad zoomt, Ziehen verschiebt den Ausschnitt, Klicken setzt den Playhead. Auf der Timeline: Plus/Minus zoomt, Pfeiltasten verschieben, Pos1 zeigt alles und die Leertaste startet oder pausiert. Am Playhead verschieben Pfeiltasten die Zeit.")</p>
+        @if (_selected is { } selected)
+        {
+            <div class="lt-timeline-selection" aria-live="polite"><strong>@UiText.T("Ereignisse an dieser Stelle")</strong><ul>@foreach (var row in selected.Events) { <li><button type="button" @onclick="@(() => SeekAt(row.Elapsed))"><time>@ExactTime(row.Elapsed)</time><span>@row.Label</span><small>@row.At.ToLocalTime().ToString("T", Culture)</small></button></li> }</ul></div>
+        }
+        @if (_exactOpen)
+        {
+            <section id="@_exactId" class="lst-exact" aria-label="@UiText.T("Exakte Timeline-Werte")"><h4>@UiText.T("Exakte Timeline-Werte")</h4><p>@UiText.T("Alle bestätigten Werte und Ereignisse der ausgewählten Ebenen im sichtbaren Ausschnitt. Fehlende Werte bleiben unbekannt.")</p>
+                <div class="lst-table-scroll" tabindex="0" role="region" aria-label="@UiText.T("Tabelle der Timeline-Werte")"><table><thead><tr><th>@UiText.T("Zeit")</th><th>@UiText.T("Typ")</th><th>@UiText.T("Ereignis")</th><th>@UiText.T("Exakter Wert")</th></tr></thead><tbody>@foreach (var row in _exactRows.Skip((_exactPage - 1) * 25).Take(25))
+                { <tr><td><button type="button" class="lst-time-button" @onclick="@(() => SeekAt(row.At))">@ExactTime(row.At)</button>@if (row.End is { } end) { <span> – @ExactTime(end)</span> }</td><td>@UiText.T(row.Kind)</td><td>@row.Label</td><td>@row.Value</td></tr> }</tbody></table></div>
+                @if (_exactRows.Count == 0) { <p>@UiText.T("Keine erfassten Werte in diesem Ausschnitt.")</p> }
+                <div class="lst-pagination"><span>@UiText.F("{0} Werte", _exactRows.Count)</span><button type="button" class="btn" id="loot-timeline-exact-previous" disabled="@(_exactPage <= 1)" aria-label="@UiText.T("Vorherige Seite der Timeline-Werte")" @onclick="@(() => _exactPage--)">←</button><span>@UiText.F("Seite {0} von {1}", _exactPage, ExactPages)</span><button type="button" class="btn" id="loot-timeline-exact-next" disabled="@(_exactPage >= ExactPages)" aria-label="@UiText.T("Nächste Seite der Timeline-Werte")" @onclick="@(() => _exactPage++)">→</button></div>
+            </section>
+        }
+        @if (_feedback is not null) { <p class="lt-timeline-feedback @(_failed ? "error" : "")" role="status">@UiText.T(_feedback)</p> }
+    </div>
+</section>

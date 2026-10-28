@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Buffers;
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
 
 namespace Soulcrest.App.Services;
 
@@ -23,6 +24,8 @@ internal sealed record LifeskillSessionEvent
     public double? X { get; init; }
     public double? Y { get; init; }
     public LootTrackerGatherVisit? GatherVisit { get; init; }
+    public int? GatherableId { get; init; }
+    public bool StartsMovementSegment { get; init; }
 }
 
 internal sealed record LifeskillCheckpoint(int SchemaVersion, string SessionId, long ThroughSequence,
@@ -161,7 +164,7 @@ public sealed class LifeskillSessionStore
                 {
                     var saved = new FileInfo(checkpoint).Length > 64 * 1024 ? null
                         : JsonSerializer.Deserialize<LifeskillCheckpoint>(File.ReadAllText(checkpoint));
-                    if (saved is null || saved.SchemaVersion is not (1 or 2 or 3) || saved.SchemaVersion != state.SchemaVersion || saved.SessionId != id || saved.ThroughSequence > state.Sequence)
+                    if (saved is null || saved.SchemaVersion is not (1 or 2 or 3 or 4) || saved.SchemaVersion != state.SchemaVersion || saved.SessionId != id || saved.ThroughSequence > state.Sequence)
                     { damaged = true; issues.Add("invalid-session-checkpoint"); }
                 }
             }
@@ -236,6 +239,9 @@ internal sealed class LifeskillSessionState(string id)
     private readonly Dictionary<string, LootTrackerLoot> _loot = new(StringComparer.Ordinal);
     private readonly List<(string MapId, string MapName, List<LootTrackerRoutePoint> Points)> _segments = [];
     private bool _break = true;
+    private readonly List<LootTrackerTimelineEvent> _timeline = [];
+    private TimeSpan _lastMovementElapsed;
+    private bool _movementBreak = true;
     private readonly List<LootTrackerGatherVisit> _gatherVisits = [];
     private readonly HashSet<string> _visitIds = new(StringComparer.Ordinal);
     private int _routeSection;
@@ -265,7 +271,7 @@ internal sealed class LifeskillSessionState(string id)
 
     public bool CanApply(LifeskillSessionEvent entry)
     {
-        if (entry.SchemaVersion is not (1 or 2 or 3) || Started && entry.SchemaVersion != SchemaVersion
+        if (entry.SchemaVersion is not (1 or 2 or 3 or 4) || Started && entry.SchemaVersion != SchemaVersion
             || !Enum.IsDefined(entry.Kind) || entry.Sequence != Sequence + 1
             || entry.Elapsed < TimeSpan.Zero || (Started && _status != LootTrackerSessionStatus.Live)) return false;
         if (!Started)
@@ -274,9 +280,11 @@ internal sealed class LifeskillSessionState(string id)
                 && Guid.TryParse(character.ProfileId, out _) && !string.IsNullOrWhiteSpace(character.Name);
         if (entry.Kind == LifeskillEventKind.Started) return false;
         if (entry.FarmDay is not null) return false;
-        if (entry.GatherVisit is { } visit && (SchemaVersion != 3
+        if (entry.GatherVisit is { } visit && (SchemaVersion < 3
             || entry.Kind is not (LifeskillEventKind.Harvested or LifeskillEventKind.Failed)
             || !ValidVisit(visit, entry))) return false;
+        if (entry.GatherableId is not null && (SchemaVersion < 4 || entry.GatherableId <= 0
+            || entry.Kind is not (LifeskillEventKind.Harvested or LifeskillEventKind.Failed))) return false;
         switch (entry.Kind)
         {
             case LifeskillEventKind.Harvested:
@@ -301,7 +309,8 @@ internal sealed class LifeskillSessionState(string id)
                 return SchemaVersion >= 2 && entry.Items.IsDefaultOrEmpty
                     && entry.Elapsed >= _lastAttemptElapsed && _failedHarvestCount < long.MaxValue;
             case LifeskillEventKind.Position:
-                return SchemaVersion < 3 && !string.IsNullOrWhiteSpace(entry.MapId) && entry.X is { } x && entry.Y is { } y
+                return (SchemaVersion < 3 || SchemaVersion >= 4 && entry.Elapsed >= _lastMovementElapsed)
+                    && !string.IsNullOrWhiteSpace(entry.MapId) && entry.X is { } x && entry.Y is { } y
                     && double.IsFinite(x) && double.IsFinite(y) && x >= 0 && y >= 0;
             default:
                 return true;
@@ -326,6 +335,13 @@ internal sealed class LifeskillSessionState(string id)
             _farmRoute = default;
             if (_location.Length == 0) _location = visit.MapName;
         }
+        if (entry.Kind is LifeskillEventKind.Harvested or LifeskillEventKind.Failed)
+        {
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{Id}:{entry.Sequence}"));
+            _timeline.Add(new(new Guid(hash.AsSpan(0, 16)).ToString("N"),
+                entry.Kind == LifeskillEventKind.Harvested ? LootTrackerTimelineEventKind.HarvestSuccess : LootTrackerTimelineEventKind.HarvestFailure,
+                entry.At, entry.Elapsed) { Loot = entry.Items, GatherVisit = entry.GatherVisit, GatherableId = entry.GatherableId ?? entry.GatherVisit?.GatherableId });
+        }
         switch (entry.Kind)
         {
             case LifeskillEventKind.Harvested:
@@ -346,15 +362,17 @@ internal sealed class LifeskillSessionState(string id)
                 _elapsed = entry.Elapsed;
                 break;
             case LifeskillEventKind.Position:
-                if (_break || _segments.Count == 0 || _segments[^1].MapId != entry.MapId)
+                if ((SchemaVersion >= 4 ? entry.StartsMovementSegment || _movementBreak : _break)
+                    || _segments.Count == 0 || _segments[^1].MapId != entry.MapId)
                     _segments.Add((entry.MapId!, entry.MapName ?? entry.MapId!, []));
-                _break = false;
+                if (SchemaVersion < 4) _break = false;
                 _segments[^1].Points.Add(new(entry.X!.Value, entry.Y!.Value, entry.At, entry.Elapsed));
+                _lastMovementElapsed = entry.Elapsed; _movementBreak = false;
                 if (_location.Length == 0) _location = entry.MapName ?? entry.MapId!;
                 break;
             case LifeskillEventKind.Gap:
                 if (!_break && _gatherVisits.Count > 0) _routeSection++;
-                _break = true;
+                _break = true; _movementBreak = true;
                 CoverageLimited = true;
                 break;
             case LifeskillEventKind.Completed:
@@ -380,11 +398,27 @@ internal sealed class LifeskillSessionState(string id)
 
     private static bool ValidCoordinate(double value, int size) => double.IsFinite(value) && value >= 0 && value <= size;
 
-    public LootTrackerSession Snapshot(TimeSpan? liveElapsed = null, bool recovered = false)
+    public LootTrackerSession Snapshot(TimeSpan? liveElapsed = null, bool recovered = false,
+        IReadOnlyList<LifeskillSessionEvent>? pendingMovement = null)
     {
         var final = recovered || _status != LootTrackerSessionStatus.Live;
         if (_farmRoute.IsDefault) _farmRoute = LifeskillFarmRouteBuilder.Build(_gatherVisits);
         var elapsed = final ? _lastAttemptElapsed : liveElapsed ?? _elapsed;
+        var segments = _segments.Select(segment => new LootTrackerRouteSegment(segment.MapId, segment.MapName,
+            segment.Points.Where(point => !final || point.Elapsed is { } at && at <= _lastAttemptElapsed).ToImmutableArray()))
+            .Where(segment => !segment.Points.IsDefaultOrEmpty).ToImmutableArray();
+        if (!final && pendingMovement is not null)
+        {
+            var live = segments.ToBuilder();
+            foreach (var point in pendingMovement)
+            {
+                var position = new LootTrackerRoutePoint(point.X!.Value, point.Y!.Value, point.At, point.Elapsed);
+                if (point.StartsMovementSegment || live.Count == 0 || live[^1].MapId != point.MapId)
+                    live.Add(new(point.MapId!, point.MapName ?? point.MapId!, [position]));
+                else live[^1] = live[^1] with { Points = live[^1].Points.Add(position) };
+            }
+            segments = live.ToImmutable();
+        }
         return new()
         {
             Id = Id, Kind = LootTrackerSessionKind.Lifeskill,
@@ -397,9 +431,9 @@ internal sealed class LifeskillSessionState(string id)
             GatherVisits = _gatherVisits.ToImmutableArray(),
             FarmRoutePoints = _farmRoute,
             Loot = _loot.Values.OrderBy(item => item.Id, StringComparer.Ordinal).ToImmutableArray(),
-            RouteSegments = _segments.Select(segment => new LootTrackerRouteSegment(segment.MapId, segment.MapName,
-                segment.Points.Where(point => !final || point.Elapsed is { } at && at <= _lastAttemptElapsed).ToImmutableArray()))
-                .Where(segment => !segment.Points.IsDefaultOrEmpty).ToImmutableArray(),
+            RouteSegments = segments,
+            TimelineVersion = 1,
+            TimelineEvents = _timeline.ToImmutableArray(),
         };
     }
 }

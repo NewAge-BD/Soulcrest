@@ -364,3 +364,33 @@ benannten Regions-Mittelpunkt aus dem aktiven Kartenpaket. Sie bleibt ausdrückl
 angenähert: Labelzentren sind keine Gebietsgrenzen. Der Resolver lädt die lokalen
 validierten JSON-Kartenpayloads einmal, führt kein JavaScript aus und verwirft
 Abstandsgleichstände unterschiedlicher Ortslabels.
+
+
+## Gemeinsame Minimapspur für Session-Replays (2026-10-27)
+
+Die Replayaufzeichnung nutzt dieselbe Capture-/SIFT-/Optical-Flow-Pipeline wie das
+Minimap-Overlay. Ein vollständiger Bildabgleich liefert bei Bewegung nominell alle
+250 ms einen Positionsanker, bei Stillstand seltener. Die schnelle Schleife liefert
+bis 60 Hz Bildfluss. Die tatsächliche Auflösung hängt von frischen verfügbaren Bildern
+ab; die frühere 1-Hz-Sessionroute bleibt als kompatible Zusammenfassung erhalten.
+
+Die inverse Overlay-Abbildung am Spieleranker ergibt Kartenkoordinaten für die
+Replay-Zwischenposition. Jede Probe trägt die ursprüngliche monotone Bildzeit,
+eine lokale Sequenz, einen Kontinuitätsabschnitt und Herkunft Bildabgleich/Bildfluss.
+Die öffentliche bestätigte PlayerPosition und automatische Ankunft bleiben getrennt.
+Nur die Minimap darf Bewegung liefern. Weltkarte, ESC, veraltete Aufnahme,
+Kontextverlust und gebrochener Bildfluss trennen die Spur. Bildflussproben bleiben
+bis zum nächsten bestätigten Minimapfix vorläufig.
+
+Der Positionsstrom wird im gemeinsamen Sessionordner in versionierten binären
+Sekundenblöcken mit Sequenz und Prüfsumme gespeichert. Ein begrenzter Hintergrund-
+puffer entkoppelt I/O von Capture und Lootwriter. Überlast und Speicherfehler erzeugen
+eine sichtbare Positionslücke und ändern keine Beutesumme. Recovery verwendet den
+letzten intakten Block und die endgültige monotone Dauer der Originalsession;
+unproduktiver Nachlauf verlängert die Session nicht.
+
+Erst „Replay rendern“ bereitet beendete und unterbrochene Sessions auf. Ausschließlich
+die Replayfassung darf unmittelbar benachbarte Gleichkartenabschnitte als geschätzte
+Gerade verbinden. Bekannte Kartenwechsel und eigene Abyss-Tode verhindern Verbindungen.
+Originalfakten und Farmroutenexport bleiben erhalten. Der Replaycache wird aus
+Originalsession und Positionsstrom abgeleitet, nicht aus einem Ansichtsfilter.

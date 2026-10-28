@@ -129,7 +129,7 @@ public sealed class RareDropAlertTests
 
 
     [Fact]
-    public void SelectedResonantCueIsEmbeddedStereoPcmWithSoftEnds()
+    public void SelectedPickupCueIsEmbeddedPcmWithPromptStartAndSoftEnds()
     {
         var wave = RareDropSound.CreateWave();
         using var reader = new BinaryReader(new MemoryStream(wave));
@@ -143,7 +143,7 @@ public sealed class RareDropAlertTests
         Assert.Equal((int)Math.Round(RareDropSound.Duration * RareDropSound.SampleRate * 2), samples.Count);
         Assert.All(samples, sample => Assert.InRange(sample, -25000, 25000));
         Assert.Equal(0, samples[0]); Assert.InRange(Math.Abs((int)samples[^1]), 0, 30);
-        Assert.Contains(samples.Chunk(2), pair => pair[0] != pair[1]);
+        Assert.Contains(samples.Take(RareDropSound.SampleRate / 20 * 2), sample => sample != 0);
         Assert.Equal(.6, RareDropAlertService.NormalizeVolume(double.NaN));
         Assert.Equal(1, RareDropAlertService.NormalizeVolume(5));
     }

@@ -21,6 +21,7 @@ public static class LootTrackerRouteMapPreview
     public sealed record Preview(Availability Status, Viewport View, IReadOnlyList<Tile> Tiles,
         IReadOnlyList<LootTrackerCharts.RouteLine> Lines, IReadOnlyList<LootTrackerCharts.ResourceNode> Nodes)
     {
+        public IReadOnlyList<LootTrackerCharts.SessionMarker> Markers { get; init; } = [];
         public double UnitsPerPixel => View.Width / 640;
     }
 
@@ -70,28 +71,56 @@ public static class LootTrackerRouteMapPreview
     }
 
     public static Preview Build(LootTrackerSession session, string? mapId, MapDefinition? map,
-        Func<string, bool> tileExists)
+        Func<string, bool> tileExists, LootTrackerSessionReplay? replay = null)
     {
+        session = replay?.Session ?? session;
+        var routeSession = replay is null ? session : session with { FarmRouteVersion = 0 };
         if (mapId is null || map is null || map.Id != mapId || !Valid(map))
-            return new(Availability.MissingMap, new(0, 0, 440, 247.5), [], [], []);
-        var lines = LootTrackerCharts.MapRoute(session, mapId, map.Size);
+        {
+            if (replay is null || mapId is null)
+                return new(Availability.MissingMap, new(0, 0, 440, 247.5), [], [], []);
+            var schematicLines = replay.IsPrepared ? replay.PreparedParts.Where(part => part.MapId == mapId).Select(part => part.Line).ToArray()
+                : LootTrackerCharts.MapRoute(routeSession, mapId, double.MaxValue);
+            var schematicNodes = LootTrackerCharts.MapResourceNodes(session, mapId, double.MaxValue);
+            var schematicMarkers = LootTrackerCharts.MapMarkers(session, mapId, double.MaxValue);
+            var center = replay.LastPosition?.MapId == mapId ? replay.LastPosition : null;
+            var last = routeSession.RouteSegments.LastOrDefault(row => row.MapId == mapId && !row.Points.IsDefaultOrEmpty)?.Points.LastOrDefault();
+            var size = session.GatherVisits.FirstOrDefault(row => row.MapId == mapId)?.MapSize ?? 8192;
+            return new(Availability.MissingMap, FollowView(center?.X ?? last?.X ?? size / 2d,
+                center?.Y ?? last?.Y ?? size / 2d, size, false), [], schematicLines, schematicNodes) { Markers = schematicMarkers };
+        }
+        var lines = replay?.IsPrepared == true ? replay.PreparedParts.Where(part => part.MapId == mapId).Select(part => part.Line).ToArray()
+            : LootTrackerCharts.MapRoute(routeSession, mapId, map.Size);
         var nodes = LootTrackerCharts.MapResourceNodes(session, mapId, map.Size);
-        var route = LootTrackerPresentation.DisplayedRouteSegments(session);
+        var route = replay?.IsPrepared == true ? System.Collections.Immutable.ImmutableArray<LootTrackerRouteSegment>.Empty : LootTrackerPresentation.DisplayedRouteSegments(routeSession);
         var points = route.IsDefaultOrEmpty ? [] : route
             .Where(segment => segment.MapId == mapId && !segment.Points.IsDefaultOrEmpty)
             .SelectMany(segment => segment.Points).Where(point => LootTrackerCharts.InMap(point.X, point.Y, map.Size)).ToList();
-        if (points.Count == 0) return new(Availability.NoRoute, new(0, 0, map.Size, map.Size / Aspect), [], [], []);
+        var markers = LootTrackerCharts.MapMarkers(session, mapId, map.Size);
+        points.AddRange(markers.Select(row => new LootTrackerRoutePoint(Parse(row.X), Parse(row.Y))));
         points.AddRange(nodes.Select(node => new LootTrackerRoutePoint(Parse(node.X), Parse(node.Y))));
-        var view = View(points, map.Size);
+        if (replay?.LastPosition is { } observed && observed.MapId == mapId && LootTrackerCharts.InMap(observed.X, observed.Y, map.Size))
+            points.Add(new(observed.X, observed.Y));
+        if (points.Count == 0 && replay?.IsPrepared == true)
+        {
+            var visible = replay.PreparedParts.LastOrDefault(part => part.MapId == mapId && !part.Points.IsDefaultOrEmpty);
+            if (visible is not null && LootTrackerCharts.InMap(visible.Points[^1].X, visible.Points[^1].Y, map.Size))
+                points.Add(new(visible.Points[^1].X, visible.Points[^1].Y));
+        }
+        if (points.Count == 0) return new(Availability.NoRoute, new(0, 0, map.Size, map.Size / Aspect), [], [], []);
+        var follow = replay?.LastPosition;
+        var view = replay is null ? View(points, map.Size) : FollowView(
+            follow?.MapId == mapId ? follow.X : points[^1].X,
+            follow?.MapId == mapId ? follow.Y : points[^1].Y, map.Size);
         // Match Leaflet's tile geometry: logical side = tileSize * 2^(refZoom - nativeZoom).
         var preferred = Math.Clamp((int)Math.Ceiling(map.RefZoom + Math.Log2(640 / view.Width)), map.MinNativeZoom, map.MaxNativeZoom);
         for (var zoom = preferred; zoom >= map.MinNativeZoom; zoom--)
         {
             var tiles = VisibleTiles(map, view, zoom);
             if (tiles.Count > 0 && tiles.All(tile => tileExists(tile.RelativePath)))
-                return new(Availability.Ready, view, tiles, lines, nodes);
+                return new(Availability.Ready, view, tiles, lines, nodes) { Markers = markers };
         }
-        return new(Availability.MissingTiles, view, [], lines, nodes);
+        return new(Availability.MissingTiles, view, [], lines, nodes) { Markers = markers };
     }
 
     /// <summary>Resolves only the validated relative paths emitted by the manifest, below the product mapdata folder.</summary>
@@ -106,6 +135,14 @@ public static class LootTrackerRouteMapPreview
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         { return false; }
+    }
+
+    /// <summary>Replay follows the last confirmed position at a fixed, map-relative scale.</summary>
+    private static Viewport FollowView(double x, double y, int mapSize, bool clamp = true)
+    {
+        var width = mapSize / 16d; var height = width / Aspect;
+        return new(clamp ? Math.Clamp(x - width / 2, 0, mapSize - width) : x - width / 2,
+            clamp ? Math.Clamp(y - height / 2, 0, mapSize - height) : y - height / 2, width, height);
     }
 
     private static Viewport View(List<LootTrackerRoutePoint> points, int mapSize)

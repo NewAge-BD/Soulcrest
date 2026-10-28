@@ -37,6 +37,124 @@ public sealed class LootKinaOverlayFormTests
     });
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task SessionOnlyKeepsTheFirstRareReceiptWithAutoShowOrAnAlreadyEnabledOverlay(bool alreadyEnabled) => RunSta(() =>
+    {
+        var source = new Source();
+        var options = new LootOverlayOptions(alreadyEnabled, -30_000, -30_000)
+            { OnlyDuringSession = true, ShowOnSessionStart = !alreadyEnabled };
+        using var alerts = new RareDropAlertService(() => new(SoundEnabled: false),
+            () => throw new InvalidOperationException("No audio in a form regression."), TimeProvider.System);
+        using var panel = new LootOverlayForm(source, () => options, alerts: alerts);
+        _ = panel.Handle; AssertHidden(panel);
+        Assert.False(Field<LootOverlaySnapshot>(panel, "_snapshot").SessionActive);
+        source.Publish(new("new-session", true, 0, null, [])); // Published before the session-start callback.
+        options = options with { Enabled = true }; // Auto-show may enable it; otherwise this is unchanged.
+        Task.Run(() =>
+        {
+            panel.PrepareAlertsForSessionStart();
+            alerts.Accept(new("new-session", "example-profile", DateTimeOffset.UtcNow,
+                "Item:210230006", "Example rare item", 1));
+        }).GetAwaiter().GetResult();
+        AssertHidden(panel); Assert.Single(alerts.CurrentNotices);
+        panel.ApplySettings(); // A queued UI refresh must use the committed active snapshot first.
+        Application.DoEvents();
+        Assert.True(panel.Visible); Assert.Single(alerts.CurrentNotices);
+        Assert.Single(Field<LootOverlaySnapshot>(panel, "_snapshot").RareDrops);
+        source.Publish(LootOverlaySnapshot.Empty); Application.DoEvents();
+        AssertHidden(panel); Assert.Empty(alerts.CurrentNotices); Assert.True(options.Enabled);
+    });
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task AQueuedUiRefreshWithOldOptionsCannotEraseTheFirstPreparedSessionReceipt(bool alreadyEnabled) => RunSta(() =>
+    {
+        var source = new Source();
+        var options = new LootOverlayOptions(alreadyEnabled, -30_000, -30_000) { OnlyDuringSession = true };
+        var pauseNextRead = false;
+        using var readStarted = new ManualResetEventSlim(); using var prepared = new ManualResetEventSlim();
+        LootOverlayOptions ReadOptions()
+        {
+            var captured = options;
+            if (pauseNextRead)
+            {
+                pauseNextRead = false;
+                readStarted.Set();
+                if (!prepared.Wait(TimeSpan.FromSeconds(5))) throw new TimeoutException("Synthetic prepare wait expired");
+            }
+            return captured;
+        }
+        using var alerts = new RareDropAlertService(() => new(SoundEnabled: false),
+            () => throw new InvalidOperationException("No audio in a form regression."), TimeProvider.System);
+        using var panel = new LootOverlayForm(source, ReadOptions, alerts: alerts);
+        _ = panel.Handle; AssertHidden(panel);
+        var worker = Task.Run(() =>
+        {
+            try
+            {
+                if (!readStarted.Wait(TimeSpan.FromSeconds(5))) throw new TimeoutException("Synthetic UI wait expired");
+                source.Snapshot = new("new-session", true, 0, null, []);
+                options = options with { Enabled = true };
+                panel.PrepareAlertsForSessionStart();
+                alerts.Accept(new("new-session", "example-profile", DateTimeOffset.UtcNow,
+                    "Item:210230006", "Example rare item", 1));
+            }
+            finally { prepared.Set(); }
+        });
+        pauseNextRead = true;
+        panel.ApplySettings(); // This refresh captured the old master toggle before the worker prepared its receipt.
+        worker.GetAwaiter().GetResult();
+        Assert.Single(alerts.CurrentNotices);
+        source.Publish(source.Snapshot); Application.DoEvents();
+        Assert.True(panel.Visible); Assert.Single(alerts.CurrentNotices);
+        Assert.Single(Field<LootOverlaySnapshot>(panel, "_snapshot").RareDrops);
+    });
+
+    [Theory]
+    [InlineData(LootTrackerSessionKind.Mixed)]
+    [InlineData(LootTrackerSessionKind.Lifeskill)]
+    [InlineData(LootTrackerSessionKind.Abyss)]
+    public Task SessionOnlyFollowsTheLiveSessionWithoutChangingTheSavedOverlayPreference(LootTrackerSessionKind kind) => RunSta(() =>
+    {
+        var source = new Source { Snapshot = LootOverlaySnapshot.Empty with { DailyMonsterKina = 500 } };
+        var options = new LootOverlayOptions(true, -30_000, -30_000) { OnlyDuringSession = true };
+        using var panel = new LootOverlayForm(source, () => options);
+        var handle = panel.Handle; AssertHidden(panel);
+        options = options with { OnlyDuringSession = false }; panel.ApplySettings(); Assert.True(panel.Visible);
+        options = options with { OnlyDuringSession = true }; panel.ApplySettings(); AssertHidden(panel);
+        var active = LootKinaOverlayRendererTests.Example() with { SessionKind = kind };
+        source.Publish(active); Application.DoEvents(); Assert.True(panel.Visible); Assert.True(Timer(panel).Enabled);
+        panel.SetForegroundSuppressed(true); AssertHidden(panel);
+        source.Publish(LootOverlaySnapshot.Empty); Application.DoEvents();
+        panel.SetForegroundSuppressed(false); AssertHidden(panel);
+        source.Publish(active with { SessionId = "next-session" }); Application.DoEvents();
+        Assert.True(panel.Visible); Assert.Equal(handle, panel.Handle); Assert.True(options.Enabled);
+        Assert.False(options.ShowOnSessionStart); Assert.True(options.OnlyDuringSession);
+        Assert.Equal((-30_000, -30_000), (options.X, options.Y));
+        options = options with { Enabled = false }; panel.ApplySettings(); AssertHidden(panel);
+    });
+
+    [Fact]
+    public Task ASessionEndingBetweenTimerTicksHidesAndStopsWithoutAQueuedTickReopeningIt() => RunSta(() =>
+    {
+        var source = new Source { Snapshot = LootKinaOverlayRendererTests.Example() };
+        var options = new LootOverlayOptions(true, -30_000, -30_000) { OnlyDuringSession = true };
+        using var panel = new LootOverlayForm(source, () => options);
+        _ = panel.Handle; Assert.True(panel.Visible);
+        source.Snapshot = LootOverlaySnapshot.Empty; // Timer discovers this before a coalesced Changed callback.
+        typeof(LootOverlayForm).GetMethod("TimerTick", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .Invoke(panel, [null, EventArgs.Empty]);
+        AssertHidden(panel); Assert.True(options.Enabled);
+        source.Snapshot = LootKinaOverlayRendererTests.Example();
+        typeof(LootOverlayForm).GetMethod("TimerTick", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .Invoke(panel, [null, EventArgs.Empty]);
+        AssertHidden(panel);
+        source.Publish(source.Snapshot); Application.DoEvents(); Assert.True(panel.Visible);
+    });
+
+    [Theory]
     [InlineData("foreground")]
     [InlineData("suppressed")]
     [InlineData("placement")]
@@ -44,7 +162,7 @@ public sealed class LootKinaOverlayFormTests
     public Task SessionStartPreparationCannotRetainHiddenReceiptsOrReplayThemLater(string hidden) => RunSta(() =>
     {
         var source = new Source();
-        var options = new LootOverlayOptions(false, -30_000, -30_000);
+        var options = new LootOverlayOptions(false, -30_000, -30_000) { OnlyDuringSession = true };
         using var alerts = new RareDropAlertService(() => new(SoundEnabled: false),
             () => throw new InvalidOperationException("No audio in a form regression."), TimeProvider.System);
         using var panel = new LootOverlayForm(source, () => options, alerts: alerts);
@@ -56,6 +174,7 @@ public sealed class LootKinaOverlayFormTests
             case "placement": panel.SetPlacementHidden(true); break;
             case "disposed": panel.Dispose(); break;
         }
+        source.Snapshot = new("example-session", true, 0, null, []);
         options = options with { Enabled = true };
         Task.Run(() =>
         {
@@ -93,7 +212,7 @@ public sealed class LootKinaOverlayFormTests
     {
         var source = new Source { Snapshot = LootKinaOverlayRendererTests.Example() };
         var options = new LootOverlayOptions(true, -30_000, -30_000);
-        using var panel = new LootOverlayForm(source, () => options);
+        using var panel = new LootOverlayForm(source, () => options, null, null, () => true);
         _ = panel.Handle;
         Assert.True(panel.Visible);
         Assert.True(Lock(panel).Visible);
@@ -125,6 +244,51 @@ public sealed class LootKinaOverlayFormTests
         options = options with { Enabled = false };
         panel.ApplySettings();
         AssertHidden(panel);
+    });
+
+    [Fact]
+    public Task WindowsMotionChangesStopEffectsWithoutStoppingStaticRefreshOrReopeningAHiddenOverlay() => RunSta(() =>
+    {
+        var source = new Source { Snapshot = LootKinaOverlayRendererTests.Example() };
+        var options = new LootOverlayOptions(true, -30_000, -30_000);
+        bool? windowsAnimations = true;
+        using var panel = new LootOverlayForm(source, () => options, null, null, () => windowsAnimations);
+        _ = panel.Handle;
+        Assert.Equal(33, Timer(panel).Interval);
+
+        windowsAnimations = false;
+        MotionPreferenceChanged(panel);
+        Assert.False(Field<LootOverlaySnapshot>(panel, "_snapshot").AnimationsEnabled);
+        Assert.True(Timer(panel).Enabled);
+        Assert.Equal(1000, Timer(panel).Interval); // Duration and rates still update in static mode.
+        Assert.Equal(source.Snapshot.SessionId, Field<LootOverlaySnapshot>(panel, "_snapshot").SessionId);
+
+        windowsAnimations = null;
+        MotionPreferenceChanged(panel);
+        Assert.False(Field<LootOverlaySnapshot>(panel, "_snapshot").AnimationsEnabled);
+        windowsAnimations = true;
+        options = options with { AnimationsEnabled = false };
+        MotionPreferenceChanged(panel);
+        Assert.Equal(1000, Timer(panel).Interval); // Windows cannot override the explicit app opt-out.
+
+        options = options with { AnimationsEnabled = true };
+        source.Snapshot = source.Snapshot with { AnimationsEnabled = false };
+        MotionPreferenceChanged(panel);
+        Assert.False(Field<LootOverlaySnapshot>(panel, "_snapshot").AnimationsEnabled);
+        source.Snapshot = source.Snapshot with { AnimationsEnabled = true };
+        MotionPreferenceChanged(panel);
+        Assert.Equal(33, Timer(panel).Interval);
+
+        panel.SetPlacementHidden(true);
+        windowsAnimations = false;
+        MotionPreferenceChanged(panel);
+        windowsAnimations = true;
+        MotionPreferenceChanged(panel);
+        AssertHidden(panel);
+        Assert.True(options.Enabled);
+        panel.SetPlacementHidden(false);
+        Assert.True(panel.Visible);
+        Assert.Equal(33, Timer(panel).Interval);
     });
 
     [Fact]
@@ -178,7 +342,7 @@ public sealed class LootKinaOverlayFormTests
             Assert.Equal(handle, panel.Handle);
             Assert.True(panel.Visible);
             AssertClickThrough(panel, true);
-            Assert.Equal(320, panel.Width);
+            Assert.Equal(384, panel.Width); // 480-pixel HUD at the configured 80% scale.
             if (GetWindowDisplayAffinity(handle, out var affinity))
                 Assert.Equal((uint)NativeMethods.WDA_EXCLUDEFROMCAPTURE, affinity);
         }
@@ -200,6 +364,9 @@ public sealed class LootKinaOverlayFormTests
         .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(panel)!;
     private static void Mouse(LootOverlayForm panel, string name, MouseEventArgs e) => typeof(LootOverlayForm)
         .GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [e]);
+    private static void MotionPreferenceChanged(LootOverlayForm panel) => typeof(LootOverlayForm)
+        .GetMethod("WndProc", BindingFlags.Instance | BindingFlags.NonPublic)!
+        .Invoke(panel, [Message.Create(panel.Handle, 0x001A, 0, 0)]);
     private static void AssertClickThrough(LootOverlayForm panel, bool expected) =>
         Assert.Equal(expected, (NativeMethods.GetWindowLongPtr(panel.Handle, NativeMethods.GWL_EXSTYLE)
             & NativeMethods.WS_EX_TRANSPARENT) != 0);

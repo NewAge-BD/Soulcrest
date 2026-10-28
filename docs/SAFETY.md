@@ -84,6 +84,33 @@ auswerten darf. Dafür gilt:
   geratene Abbruchursache. Der bestätigte eigene Instanzkontext wird am Abschluss
   eingefroren; solche Versuche bleiben aus der Lifeskill-Erfassung ausgeschlossen.
 
+### Eigener flüchtiger PvP-Killfeed (Nutzerauftrag 2026-10-26)
+
+Der Nutzer beauftragt einen abschaltbaren Killfeed unter der Punkte-Stufe.
+Verarbeitet werden ausschließlich separat belegte eigene PvP-Kills, Assists und Tode,
+optional der zugehörige Gegnername und die Rangpunktänderung. Keine fremden
+Kämpfe, Gruppenanalyse oder Deutung von AP-/Rangdifferenzen als Kill/Assist.
+Assists benötigen einen expliziten eigenen Ergebnisbeleg; einzelne Treffer
+oder Gruppenzugehörigkeit genügen nicht. Alle drei Arten sind einzeln
+abschaltbar; abgewählte Einträge werden entfernt und nicht nachträglich gezeigt.
+Die anfängliche Begrenzung auf fünf Einträge für zehn Sekunden ist durch die spätere
+Entscheidung unten ersetzt. Gegnernamen und native Identitäten bleiben ausschließlich
+im RAM, ohne Journal, Charaktercache oder Log. Abschalten, eigene
+Identitätsänderung und Empfangsende leeren die Ansicht. Der gemeinsame bereits
+autorisierte passive Empfang erhält keine zweite Erfassung oder Spielanfrage;
+ohne eigenen Wirebeleg veröffentlicht der Provider keine Kampfergebnisse.
+
+### Begrenzte eigene PvP-Klassifikation (Nutzerauftrag 2026-10-27)
+
+Der ausdrücklich beauftragte Killnachweis benötigt eine flüchtige PC-Opferzuordnung
+im bereits autorisierten eigenen Serverstrom. Maximal 4.096 gleichzeitig lebende
+RAM-Einträge binden Entity, Name und Server an aktuelles Own, Welt und tatsächlichen
+Transport; Tombstones behalten nur ein Bit je Entity-Key ohne Name oder Server. Keine Speicherung, Netzwerkpositionen, Gruppen- oder Schadensanalyse.
+Die Namen dienen ausschließlich der eigenen Killzuordnung und dem flüchtigen Feed.
+Entfernungs-/NPC-Signale dürfen Belege nur widerrufen; keine Lebensrekonstruktion.
+Assists bleiben ohne ausdrücklichen eigenen Ergebnisbeleg deaktiviert. Klassen-
+und Rangmetadaten werden in diesem Schritt nicht angezeigt.
+
 ### Verworfenes Feature: DPS-Meter (2026-10-19)
 
 Der Nutzer hat den DPS-Meter vollständig verworfen. Die dafür vorgesehene zusätzliche
@@ -103,3 +130,46 @@ Die Nutzung erfolgt auf eigenes Risiko. Ob Overlays und Bildschirmauswertung erl
 entscheiden die Nutzungsbedingungen von NCSOFT.
 
 
+
+### Gehaltener eigener Killfeed (Nutzerentscheidung 2026-10-27)
+
+Die neueste Entscheidung ersetzt die frühere Begrenzung auf fünf Einträge/zehn
+Sekunden: maximal zehn gewählte eigene Ergebnisse, ohne Zeitablauf, weiter nur
+im RAM. Abschalten, Charakter-/Transportwechsel und Empfangsende leeren den Feed.
+Bestätigte Gegnerklasse und tatsächlicher Ranggrad werden beim Kill eingefroren
+und als originale lokale Icons gezeigt. Der Feed selbst bleibt flüchtig; die spätere
+Sessionstatistik unten darf ausschließlich anonyme Klasse-/Rangkategorien speichern.
+Keine fremden Kampfauswertungen oder Ableitung aus eigenen Rangpunkten.
+
+### Angreifer beim eigenen Tod und Punkte je Ergebnis (27.10.2026)
+
+Auf Nutzerauftrag werden die bereits flüchtig gelesenen Klasse/Rang-Metadaten
+auch für den expliziten PC-Caster des eigenen Todes angezeigt, ausschließlich bei
+exakt passender aktueller Spielerzuordnung. Keine neue Erfassung; Gegnernamen und
+native Zuordnungskennungen bleiben flüchtig.
+Optionale AP-/RP-Beträge im Feed verlangen einen eigenen direkten Ergebnisbeleg;
+Wallet-/Totaldifferenzen und Nähe zu einem Tod bleiben unabhängig und unbekannt.
+
+### Anonyme Sessionstatistik und synchroner Replay (Nutzerentscheidung 2026-10-27)
+
+Bestätigte eigene Kills und Tode dürfen ihre beim Ereignis eingefrorene validierte
+Gegnerklasse und den expliziten tatsächlichen Ranggrad im lokalen Sessionjournal tragen.
+Das sind anonyme Kategorien: keine Gegnernamen, Entity-/Server-/Verbindungskennungen
+oder wiedererkennbare Gegnerprofile. Fehlende Kategorien bleiben unbekannt. Die
+Sessionauswertung ist unabhängig von Sichtbarkeit, Filtern und Begrenzung des RAM-Feeds.
+Ein tatsächlicher Gegner-Ranggrad wird niemals aus eigenen Rangpunkten berechnet.
+
+Die Timeline übernimmt nur bereits qualifizierte eigene AP-/RP-/Kina-Gewinne,
+Belohnungen, Sammelergebnisse und Kampfmarker aus derselben passiven Erfassung.
+Keine zusätzliche Aufnahme, Spielanfrage oder Korrelation zeitlich benachbarter
+Punktedeltas mit Kills/Toden. Punkte-Stufenaufstiege beziehen sich ausschließlich
+auf kontinuierlich bestätigte eigene absolute Rangpunkte; Baselines und Quellenlücken
+erzeugen keine nachgetragenen Gewinne oder Aufstiege.
+
+Der synchron sichtbare Weg stammt ausschließlich aus frischen eigenen visuellen
+Kartenpositionen. Die neue Lifeskill-Laufspur bleibt von der optimierten Sammelstellenroute
+getrennt; Sammeln ohne Position zählt weiter, fehlende Wege werden nicht verbunden
+oder geschätzt. Bewegung verlängert keine Farmzeit und der Nachlauf bleibt unproduktiv.
+Replay und Anzeigeauswahl ändern keine gespeicherten Beute- oder Sessiongesamtwerte.
+Altdaten behalten ihre belegte Genauigkeit; unbekannte Mengen/Kanäle und fehlende
+Gegner- oder Bewegungsdaten werden nicht rückwirkend erfunden.

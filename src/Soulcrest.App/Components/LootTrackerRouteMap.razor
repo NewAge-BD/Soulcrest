@@ -1,15 +1,46 @@
+@implements IDisposable
+@using System.Globalization
+@using Soulcrest.App.Overlay
+@using Soulcrest.Core.Daevanion
 @inject IServiceProvider Services
 
-@if (_preview.Status == LootTrackerRouteMapPreview.Availability.NoRoute || (_lines.Count == 0 && _nodes.Count == 0))
+@if (Replay is { Provenance: LootTrackerReplayProvenance.Missing })
 {
-    <div class="lt-visual-empty"><span>⌁</span>@UiText.T(Session.Kind == LootTrackerSessionKind.Dungeon ? "Der Dungeon-Loot wird auch ohne Routenaufzeichnung gesammelt." : LootTrackerPresentation.UsesFarmRoute(Session) ? "Noch keine Sammelstellen mit gültiger Position vorhanden." : "Keine bestätigte Laufroute für diese Session vorhanden.")</div>
+    <p class="lt-panel-subtitle" data-testid="replay-position-unknown">@UiText.T("Keine frische Position an diesem Zeitpunkt.")</p>
+}
+
+@if (Replay is { Provenance: LootTrackerReplayProvenance.GapEstimated })
+{
+    <p class="lt-panel-subtitle" data-testid="replay-position-estimated">@UiText.T("Geschätzte Position zwischen aufgezeichneten Abschnitten.")</p>
+}
+
+@if (DisplaySession.Kind == LootTrackerSessionKind.Abyss || DisplaySession.UnifiedVersion > 0)
+{
+    <div class="lt-marker-filters" role="group" aria-label="@UiText.T("Sessionmarker")">
+        <label><input type="checkbox" @bind="_showKills" /> <span class="lt-marker-key kill">⚔</span>@UiText.T("Spielerkills")</label>
+        <label class="lt-kill-icon-choice">@UiText.T("Kill-Icon")
+            <select @key="_saveFailed" data-testid="replay-kill-icon-mode" value="@_killIconMode" disabled="@_saving" @onchange="ChangeKillIconMode">
+                <option value="Rank">@UiText.T("Rang")</option><option value="Class">@UiText.T("Klasse")</option>
+            </select>
+        </label>
+        <label><input type="checkbox" @bind="_showDeaths" /> <span class="lt-marker-key death">×</span>@UiText.T("Eigene Tode")</label>
+        <label><input type="checkbox" @bind="_showOdyle" /> <span class="lt-marker-key @(DisplaySession.UnifiedVersion > 0 ? "gathering" : "odyle")">✦</span>@UiText.T(DisplaySession.UnifiedVersion > 0 ? "Sammelstellen" : "Odyle")</label>
+        @if (!Session.TimelineEvents.IsDefaultOrEmpty && Session.TimelineEvents.Any(row => row.Kind == LootTrackerTimelineEventKind.Drop && row.Position is not null))
+        { <label><input type="checkbox" @bind="_showLoot" /> <span class="lt-marker-key">◇</span>@UiText.T("Beute")</label> }
+    </div>
+}
+@if (_saveFailed) { <p class="lt-replay-feedback error" role="status" data-testid="replay-kill-icon-error">@UiText.T("Die Auswahl konnte nicht gespeichert werden.")</p> }
+
+@if (_preview.Status == LootTrackerRouteMapPreview.Availability.NoRoute || (_lines.Count == 0 && _nodes.Count == 0 && _markers.Count == 0))
+{
+    <div class="lt-visual-empty"><span>⌁</span>@UiText.T(DisplaySession.Kind == LootTrackerSessionKind.Dungeon ? "Der Dungeon-Loot wird auch ohne Routenaufzeichnung gesammelt." : IsFarmPreview ? "Noch keine Sammelstellen mit gültiger Position vorhanden." : "Keine bestätigte Laufroute für diese Session vorhanden.")</div>
 }
 else
 {
     <p class="lt-panel-subtitle">@UiText.T(_preview.Status == LootTrackerRouteMapPreview.Availability.Ready
-        ? "Kartenansicht · Unterbrechungen bleiben getrennt" : "Offlinekarte nicht verfügbar · schematische Route")</p>
-    <div class="lt-map-preview" data-map-id="@MapId" data-map-background="@(_preview.Status == LootTrackerRouteMapPreview.Availability.Ready ? "offline" : "schematic")">
-        <svg viewBox="@_viewBox" role="img" aria-label="@UiText.T(LootTrackerPresentation.UsesFarmRoute(Session) ? "Farmroute zwischen Sammelstellen" : "Aufgezeichnete Routensegmente")" preserveAspectRatio="xMidYMid meet">
+        ? Replay?.IsPrepared == true ? "Kartenansicht · Geschätzte Verbindungen sind gestrichelt" : "Kartenansicht · Unterbrechungen bleiben getrennt" : "Offlinekarte nicht verfügbar · schematische Route")</p>
+    <div class="lt-map-preview" data-map-id="@DisplayMapId" data-map-background="@(_preview.Status == LootTrackerRouteMapPreview.Availability.Ready ? "offline" : "schematic")">
+        <svg viewBox="@_viewBox" role="img" aria-label="@UiText.T(IsFarmPreview ? "Farmroute zwischen Sammelstellen" : "Aufgezeichnete Routensegmente")" preserveAspectRatio="xMidYMid meet">
             @if (_preview.Status == LootTrackerRouteMapPreview.Availability.Ready)
             {
                 <defs><clipPath id="@_clipId"><rect x="0" y="0" width="@_mapSize" height="@_mapSize" /></clipPath></defs>
@@ -21,12 +52,66 @@ else
             @foreach (var line in _lines)
             {
                 <polyline class="lt-route-path" points="@line.Points" vector-effect="non-scaling-stroke" />
-                <circle class="lt-route-start" cx="@line.StartX" cy="@line.StartY" r="@F(3.5 * _units)" vector-effect="non-scaling-stroke" />
-                <circle class="lt-route-end" cx="@line.EndX" cy="@line.EndY" r="@F(3.5 * _units)" vector-effect="non-scaling-stroke" />
+                @if (Replay?.IsPrepared != true || _routeStarts.Contains(line)) { <circle class="lt-route-start" cx="@line.StartX" cy="@line.StartY" r="@F(3.5 * _units)" vector-effect="non-scaling-stroke" /> }
+                @if (Replay?.IsPrepared != true || _routeEnds.Contains(line)) { <circle class="lt-route-end" cx="@line.EndX" cy="@line.EndY" r="@F(3.5 * _units)" vector-effect="non-scaling-stroke" /> }
             }
-            @foreach (var node in _nodes)
+            @foreach (var connection in Replay?.EstimatedConnections ?? [])
+            {
+                <polyline class="lt-route-estimated" data-testid="replay-estimated-connector" points="@connection.Points" stroke-dasharray="8 6" vector-effect="non-scaling-stroke"><title>@UiText.T("Geschätzte Verbindung zwischen aufgezeichneten Abschnitten.")</title></polyline>
+            }
+            @if (_player is { } player)
+            {
+                <g class="lt-replay-player @(Replay?.Provenance == LootTrackerReplayProvenance.GapEstimated ? "estimated" : "")" data-testid="replay-player" data-provenance="@Replay?.Provenance.ToString().ToLowerInvariant()"><title>@UiText.T(Replay?.Provenance == LootTrackerReplayProvenance.GapEstimated ? "Geschätzte Position zwischen aufgezeichneten Abschnitten." : Replay?.Provenance == LootTrackerReplayProvenance.Flow ? "Position aus Bildfluss." : "Position aus Bildabgleich.")</title><circle data-testid="@(Replay?.Provenance == LootTrackerReplayProvenance.GapEstimated ? "replay-player-estimated" : null)" cx="@F(player.X)" cy="@F(player.Y)" r="@F(6 * _units)" vector-effect="non-scaling-stroke" /></g>
+            }
+            @foreach (var node in _nodes.Where(node => !_markers.Any(marker => Show(marker.Data.Kind) && !marker.Data.Items.IsDefaultOrEmpty && marker.X == node.X && marker.Y == node.Y)))
             {
                 <g class="lt-resource-node" data-node-order="@node.Order"><title>@UiText.T(node.Name)</title><circle cx="@node.X" cy="@node.Y" r="@F(8 * _units)" vector-effect="non-scaling-stroke" /><text x="@node.X" y="@node.Y" text-anchor="middle" dominant-baseline="central" style="@($"font-size:{F(9 * _units)}px")">@node.Order</text></g>
+            }
+            @foreach (var marker in _markers.Where(row => Show(row.Data.Kind)))
+            {
+                <g class="@($"lt-session-marker {marker.Data.KindKey}")" data-marker-kind="@marker.Data.KindKey" data-marker-id="@marker.Data.Id">
+                    <title>@marker.Data.Tooltip</title>
+                    @if (!marker.Data.Items.IsDefaultOrEmpty)
+                    {
+                        <g transform="@($"translate({marker.X} {marker.Y}) scale({F(_units)})")">
+                            @for (var index = 0; index < marker.Data.Items.Length; index++)
+                            {
+                                var item = marker.Data.Items[index];
+                                var columns = Math.Min(3, marker.Data.Items.Length);
+                                var x = (index % 3 - (columns - 1) / 2d) * 28;
+                                var y = index / 3 * 28;
+                                <g class="lt-route-item-marker" data-loot-id="@item.Id" data-quantity="@item.Quantity" data-rarity="@item.Rarity.ToString().ToLowerInvariant()" transform="@($"translate({F(x)} {F(y)})")" style="@RarityStyle(item.Rarity)">
+                                    <title>@ItemTitle(item)</title>
+                                    <rect class="lt-route-item-frame" x="-12" y="-12" width="24" height="24" rx="4" vector-effect="non-scaling-stroke" />
+                                    @if (item.Asset is { } asset) { <image href="@asset" x="-10" y="-10" width="20" height="20" preserveAspectRatio="xMidYMid meet" /> }
+                                    else { <g><text class="lt-route-item-fallback" x="0" y="0" text-anchor="middle" dominant-baseline="central" style="font-size:14px">◇</text></g> }
+                                    <text class="lt-route-item-quantity" x="11" y="11" text-anchor="end" style="font-size:9px">@(item.Quantity?.ToString("N0", Culture) ?? "?")</text>
+                                </g>
+                            }
+                        </g>
+                    }
+                    else if (marker.Data.Kind == LootTrackerSessionMarkerKind.Kill)
+                    {
+                        <g class="lt-route-kill-marker" data-kill-icon-mode="@_killIconMode.ToString().ToLowerInvariant()" transform="@($"translate({marker.X} {marker.Y}) scale({F(_units)})")">
+                            <title>@KillTitle(marker.Data)</title>
+                            <rect class="lt-route-kill-frame" x="-13" y="-13" width="26" height="26" rx="5" vector-effect="non-scaling-stroke" />
+                            @if (KillAsset(marker.Data) is { } asset) { <image class="lt-route-kill-icon" href="@asset" x="-11" y="-11" width="22" height="22" preserveAspectRatio="xMidYMid meet" /> }
+                            else { <g><text class="lt-route-kill-unknown" x="-3" y="0" text-anchor="middle" dominant-baseline="central" style="font-size:14px">?</text></g> }
+                            <g class="lt-route-skull-badge" transform="translate(3 2)">
+                                <path class="lt-route-kill-skull" d="M7 1C3.7 1 1 3.5 1 6.5c0 2 1.1 3.7 3 4.7V14h6v-2.8c1.9-1 3-2.7 3-4.7C13 3.5 10.3 1 7 1Z" />
+                                <circle cx="4.5" cy="6.5" r="1.5" /><circle cx="9.5" cy="6.5" r="1.5" />
+                                <path class="lt-route-skull-detail" d="m7 8-1 2h2ZM5.5 12v2m3-2v2" />
+                            </g>
+                        </g>
+                    }
+                    else
+                    {
+                    <g>
+                    <circle cx="@marker.X" cy="@marker.Y" r="@F(8 * _units)" vector-effect="non-scaling-stroke" />
+                    <text x="@marker.X" y="@marker.Y" text-anchor="middle" dominant-baseline="central" style="@($"font-size:{F(11 * _units)}px")">@Glyph(marker.Data.Kind)</text>
+                    </g>
+                    }
+                </g>
             }
         </svg>
         @if (_preview.Status == LootTrackerRouteMapPreview.Availability.Ready)
@@ -34,12 +119,35 @@ else
             <a class="lt-map-preview-credit" href="https://aion2.gaming.tools/" target="_blank" rel="noopener noreferrer">aion2.gaming.tools</a>
         }
     </div>
-    <div class="lt-route-legend"><span><i></i>@UiText.T("Start")</span><span><i class="end"></i>@UiText.T("Ende")</span><span>@UiText.F(LootTrackerPresentation.UsesFarmRoute(Session) ? "{0} Sammelstellen" : "{0} Segmente", LootTrackerPresentation.UsesFarmRoute(Session) ? _nodes.Count : _lines.Count)</span></div>
+    <div class="lt-route-legend"><span><i></i>@UiText.T("Start")</span><span><i class="end"></i>@UiText.T("Ende")</span><span>@UiText.F(IsFarmPreview ? "{0} Sammelstellen" : "{0} Segmente", IsFarmPreview ? _nodes.Count : RouteCount)</span></div>
+}
+
+@if (!DisplaySession.CombatEvents.IsDefaultOrEmpty)
+{
+    <details class="lt-combat-timeline">
+        <summary>@UiText.T("Kampfereignisse") · @DisplaySession.CombatEvents.Length</summary>
+        <ol>@foreach (var row in DisplaySession.CombatEvents.Where(row => row.Kind == LootTrackerCombatKind.Kill ? _showKills : _showDeaths))
+        {
+            <li data-combat-kind="@(row.Kind == LootTrackerCombatKind.Kill ? "kill" : "death")">
+                <time datetime="@row.At.ToString("O")">@Duration(row.Elapsed)</time>
+                <span>@UiText.T(row.Kind == LootTrackerCombatKind.Kill ? "Kill" : "Tod")</span>
+                <small>@(row.Position is { } position ? position.MapName : UiText.T("Ohne Kartenposition"))</small>
+            </li>
+        }</ol>
+    </details>
 }
 
 @code {
     [Parameter, EditorRequired] public LootTrackerSession Session { get; set; } = null!;
     [Parameter] public string? MapId { get; set; }
+    [Parameter] public LootTrackerSessionReplay? Replay { get; set; }
+    [Parameter] public bool IsExample { get; set; }
+    private LootTrackerSession DisplaySession => Replay?.Session ?? Session;
+    private string? DisplayMapId => Replay?.MapId ?? MapId;
+    private bool IsFarmPreview => Replay is null && LootTrackerPresentation.UsesFarmRoute(Session);
+    private int RouteCount => Replay?.IsPrepared == true
+        ? Replay.PreparedParts.Where(part => part.MapId == DisplayMapId).Select(part => part.RouteIndex).Distinct().Count() : _lines.Count;
+    private LootTrackerCombatPosition? _player;
     // Explicit override for isolated preview/render tests; production uses the same mapdata directory as the map tab.
     [Parameter] public string? MapDataDirectory { get; set; }
 
@@ -48,11 +156,76 @@ else
     private IReadOnlyDictionary<string, LootTrackerRouteMapPreview.MapDefinition> _maps = new Dictionary<string, LootTrackerRouteMapPreview.MapDefinition>();
     private LootTrackerRouteMapPreview.Preview _preview = new(LootTrackerRouteMapPreview.Availability.MissingMap, new(0, 0, 440, 247.5), [], [], []);
     private IReadOnlyList<LootTrackerCharts.RouteLine> _lines = [];
+    private readonly HashSet<LootTrackerCharts.RouteLine> _routeStarts = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<LootTrackerCharts.RouteLine> _routeEnds = new(ReferenceEqualityComparer.Instance);
     private IReadOnlyList<LootTrackerCharts.ResourceNode> _nodes = [];
+    private IReadOnlyList<LootTrackerCharts.SessionMarker> _markers = [];
+    private bool _showKills = true, _showDeaths = true, _showOdyle = true, _showLoot = true;
+    private SettingsService? _settings;
+    private LootTrackerReplayKillIconMode _killIconMode;
+    private bool _saving, _saveFailed, _disposed;
+    private static CultureInfo Culture => CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");
+    private bool Show(LootTrackerSessionMarkerKind kind) => kind switch
+    { LootTrackerSessionMarkerKind.Kill => _showKills, LootTrackerSessionMarkerKind.Death => _showDeaths,
+        LootTrackerSessionMarkerKind.Drop => _showLoot, _ => _showOdyle };
+    private static string Glyph(LootTrackerSessionMarkerKind kind) => kind switch
+    { LootTrackerSessionMarkerKind.Kill => "⚔", LootTrackerSessionMarkerKind.Death => "×", _ => "✦" };
     private readonly string _clipId = "loot-map-" + Guid.NewGuid().ToString("N");
     private string _viewBox = "0 0 440 160";
     private double _units = 1;
     private int _mapSize;
+
+    protected override void OnInitialized()
+    {
+        _settings = Services.GetService(typeof(SettingsService)) as SettingsService;
+        _killIconMode = _settings?.Current.LootReplayKillIconMode ?? LootTrackerReplayKillIconMode.Rank;
+        if (_settings is not null) _settings.Changed += SettingsChanged;
+    }
+
+    private void SettingsChanged()
+    {
+        if (!_disposed) _ = InvokeAsync(() =>
+        {
+            if (!IsExample) _killIconMode = _settings?.Current.LootReplayKillIconMode ?? LootTrackerReplayKillIconMode.Rank;
+            StateHasChanged();
+        });
+    }
+
+    protected async Task ChangeKillIconMode(ChangeEventArgs args)
+    {
+        if (_saving || !Enum.TryParse<LootTrackerReplayKillIconMode>(args.Value?.ToString(), out var mode) || !Enum.IsDefined(mode)) return;
+        _saving = true; _saveFailed = false;
+        try
+        {
+            if (!IsExample && _settings is not null) await Task.Run(() => _settings.SetLootReplayKillIconMode(mode));
+            _killIconMode = mode;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _saveFailed = true; }
+        finally { _saving = false; }
+    }
+
+    private string? KillAsset(LootTrackerSessionMarker marker) => _killIconMode == LootTrackerReplayKillIconMode.Class
+        ? AbyssOpponentIconAssets.ClassAsset(marker.OpponentClassId) : AbyssOpponentIconAssets.RankAsset(marker.OpponentAbyssRankGrade);
+    private string KillTitle(LootTrackerSessionMarker marker)
+    {
+        var name = _killIconMode == LootTrackerReplayKillIconMode.Class
+            ? DaevanionCatalog.Default.Classes.FirstOrDefault(row => row.Id == marker.OpponentClassId)?.Name.For(UiText.Language)
+            : AbyssRankCatalog.Default.Stages.FirstOrDefault(row => row.IconAsset == KillAsset(marker))?.Name(UiText.Language);
+        return $"{marker.Tooltip} · {UiText.T(_killIconMode == LootTrackerReplayKillIconMode.Class ? "Klasse" : "Rang")}: {name ?? UiText.T("Unbekannt")}";
+    }
+    private static string? RarityStyle(LootItemRarity rarity) => LootRarityVisuals.NameCssColor(rarity) is { } color ? "--route-item-color:" + color : null;
+    private static string ItemTitle(LootTrackerMarkerItem item) => $"{item.Name} × {item.Quantity?.ToString("N0", Culture) ?? "?"}";
+    public void Dispose() { _disposed = true; if (_settings is not null) _settings.Changed -= SettingsChanged; }
+
+    // Replay playback renders up to 60 times a second; the offline map tiles do not change while the app runs.
+    private readonly Dictionary<string, bool> _tileExists = new(StringComparer.Ordinal);
+
+    private bool TileExists(string directory, string path)
+    {
+        if (!_tileExists.TryGetValue(path, out var exists))
+            _tileExists[path] = exists = LootTrackerRouteMapPreview.TileExists(directory, path);
+        return exists;
+    }
 
     protected override void OnParametersSet()
     {
@@ -61,16 +234,25 @@ else
         {
             _maps = LootTrackerRouteMapPreview.Load(directory);
             _loadedDirectory = directory;
+            _tileExists.Clear();
             _loaded = true;
         }
-        var map = MapId is not null && _maps.TryGetValue(MapId, out var definition) ? definition : null;
-        _preview = LootTrackerRouteMapPreview.Build(Session, MapId, map,
-            path => directory is not null && LootTrackerRouteMapPreview.TileExists(directory, path));
+        var mapId = DisplayMapId;
+        _routeStarts.Clear(); _routeEnds.Clear();
+        if (Replay?.IsPrepared == true)
+            foreach (var part in Replay.PreparedParts.Where(part => part.MapId == mapId))
+            { if (part.IsRouteStart) _routeStarts.Add(part.Line); if (part.IsRouteEnd) _routeEnds.Add(part.Line); }
+        var map = mapId is not null && _maps.TryGetValue(mapId, out var definition) ? definition : null;
+        _preview = LootTrackerRouteMapPreview.Build(DisplaySession, mapId, map,
+            path => directory is not null && TileExists(directory, path), Replay);
         _mapSize = map?.Size ?? 0;
-        if (_preview.Status == LootTrackerRouteMapPreview.Availability.MissingMap)
+        _player = Replay?.PlayerPosition is { } player && player.MapId == mapId
+            && (map is null || LootTrackerCharts.InMap(player.X, player.Y, map.Size)) ? player : null;
+        if (_preview.Status == LootTrackerRouteMapPreview.Availability.MissingMap && Replay is null)
         {
             _lines = LootTrackerCharts.Route(Session, MapId);
             _nodes = LootTrackerCharts.ResourceNodes(Session, MapId);
+            _markers = LootTrackerCharts.Markers(Session, MapId);
             _viewBox = "0 0 440 160";
             _units = 1;
         }
@@ -78,11 +260,13 @@ else
         {
             _lines = _preview.Lines;
             _nodes = _preview.Nodes;
+            _markers = _preview.Markers;
             _viewBox = _preview.View.ViewBox;
             _units = _preview.UnitsPerPixel;
         }
     }
 
+    private static string Duration(TimeSpan elapsed) => elapsed.TotalHours >= 1 ? $"{(int)elapsed.TotalHours}:{elapsed.Minutes:00}:{elapsed.Seconds:00}" : $"{elapsed.Minutes:00}:{elapsed.Seconds:00}";
     private static string F(double value) => LootTrackerCharts.MapNumber(value);
     private static string TileUrl(string relativePath) => $"https://{MainForm.MapDataHost}/{relativePath}";
 }

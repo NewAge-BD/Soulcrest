@@ -12,6 +12,8 @@ public sealed record OwnWorldObservation(OwnCharacterIdentity Identity, int? Map
 {
     public long? CombatScore { get; init; }
     public int? GearScore { get; init; }
+    /// <summary>Absolute own Abyss rank points; absent or invalid values remain unknown.</summary>
+    public long? AbyssRankPoints { get; init; }
 }
 
 /// <summary>Complete preparation shape, provisional map metadata only.</summary>

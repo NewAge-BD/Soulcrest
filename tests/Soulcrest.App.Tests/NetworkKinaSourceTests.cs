@@ -15,6 +15,103 @@ public sealed class NetworkKinaSourceTests
     private const int UnboundId = 930100031, BoundId = 930100001;
 
     [Fact]
+    public void ExplicitOwnAbyssWalletIsABalanceWithoutFarmOrRankAuthority()
+    {
+        using var f = new Fixture();
+        var apEvents = 0; var rankEvents = 0;
+        f.Network.AbyssPointsGained += _ => apEvents++;
+        f.Network.RankPointsChanged += _ => rankEvents++;
+        f.Begin(); f.Send(Snapshot(Unbound(100), new ItemState(91, 930100003, 125_000)), milliseconds: 20);
+        Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance);
+        f.Prepare(); f.Bind(milliseconds: 100);
+        var snapshot = f.Network.AbyssSnapshot;
+        Assert.Same(f.Source.OwnCharacter, snapshot.Character);
+        Assert.Equal(125_000, snapshot.AbyssPointBalance);
+        Assert.Null(snapshot.FarmedAbyssPoints); Assert.Null(snapshot.RankPoints);
+        Assert.False(snapshot.AbyssPointGainsQualified); Assert.False(snapshot.RankPointChangesQualified);
+        Assert.False(snapshot.KinaGainsQualified);
+        Assert.Equal(0, apEvents); Assert.Equal(0, rankEvents);
+        f.Network.ResetProgressContext("synthetic-gap");
+        Assert.Null(f.Network.AbyssSnapshot.Character); Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance);
+    }
+
+    [Fact]
+    public void SupportedAbyssModificationRefreshesOnlyTheAbsoluteWalletWithoutCreatingIncome()
+    {
+        using var f = new Fixture();
+        f.Login(Snapshot(Unbound(100), new ItemState(91, 930100003, 125_000)));
+        f.Send(Changes(Change(new ItemState(91, 930100003, 126_000))), Foreign, 150);
+        Assert.Equal(125_000, f.Network.AbyssSnapshot.AbyssPointBalance);
+        f.Send(Changes(Change(new ItemState(91, 930100003, 126_000))), milliseconds: 200);
+        Assert.Equal(126_000, f.Network.AbyssSnapshot.AbyssPointBalance);
+        Assert.False(f.Network.AbyssSnapshot.AbyssPointGainsQualified);
+        Assert.Null(f.Network.AbyssSnapshot.FarmedAbyssPoints);
+        Assert.Empty(f.Gains);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AbyssInventoryInvalidationDoesNotRevokeOrRefreshTheIndependentOwnRank(bool malformed)
+    {
+        using var f = new Fixture();
+        f.Begin(); f.Send(Snapshot(Unbound(100), new ItemState(91, 930100003, 125_000)), milliseconds: 20);
+        f.Prepare();
+        f.Network.ObserveIdentity(Game, Identity, At.AddMilliseconds(100), abyssRankPoints: 900_000);
+        var before = f.Network.AbyssSnapshot;
+        Assert.Equal(125_000, before.AbyssPointBalance);
+        Assert.Equal(900_000, before.RankPoints);
+        Assert.Equal(At.AddMilliseconds(20), before.AbyssPointBalanceObservedAt);
+        Assert.Equal(At.AddMilliseconds(100), before.RankPointsObservedAt);
+
+        f.Send(malformed ? [0x1B, 0x56] : Changes(Change(new ItemState(91, 930100003, 126_000), increase: 12)), milliseconds: 200);
+        var after = f.Network.AbyssSnapshot;
+        Assert.Null(after.AbyssPointBalance);
+        Assert.Equal(900_000, after.RankPoints);
+        Assert.Equal(before.RankPointsObservedAt, after.RankPointsObservedAt);
+        Assert.Same(before.Character, after.Character);
+        Assert.False(after.RankPointChangesQualified);
+        Assert.Empty(f.Gains);
+    }
+
+    [Fact]
+    public void LateInventoryListRevokesOnlyWalletAuthorityAndKeepsTheOwnRankEvidence()
+    {
+        using var f = new Fixture();
+        f.Begin(); f.Send(Snapshot(Unbound(100), new ItemState(91, 930100003, 125_000)), milliseconds: 20);
+        f.Prepare();
+        f.Network.ObserveIdentity(Game, Identity, At.AddMilliseconds(100), abyssRankPoints: 900_000);
+        var before = f.Network.AbyssSnapshot;
+        f.Send(Snapshot(Unbound(110), new ItemState(91, 930100003, 126_000)), milliseconds: 200);
+        var after = f.Network.AbyssSnapshot;
+        Assert.False(f.Source.KinaSnapshot.IsReady);
+        Assert.Null(after.AbyssPointBalance);
+        Assert.Equal(before.RankPoints, after.RankPoints);
+        Assert.Equal(before.RankPointsObservedAt, after.RankPointsObservedAt);
+        Assert.Same(before.Character, after.Character);
+        Assert.False(after.RankPointChangesQualified);
+        Assert.Empty(f.Gains);
+    }
+
+    [Fact]
+    public void AbyssWalletChangedBeforeOwnCannotCommitTheEarlierLoginBalance()
+    {
+        using var f = new Fixture(); f.Begin();
+        f.Send(Snapshot(Unbound(100), new ItemState(91, 930100003, 125_000)), milliseconds: 20);
+        f.Send(Changes(Change(new ItemState(91, 930100003, 126_000))), milliseconds: 30);
+        f.Prepare(); f.Bind(milliseconds: 100);
+        Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance);
+    }
+
+    [Fact]
+    public void DuplicateAbyssCurrencyOrInstanceCannotConfirmAnAmbiguousWallet()
+    {
+        using var f = new Fixture();
+        f.Login(Snapshot(Unbound(100), new ItemState(91, 930100003, 1), new ItemState(92, 930100003, 2)));
+        Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance);
+    }
+
+    [Fact]
     public void InitialSourceHasNoInventedBalanceOrIncome()
     {
         using var f = new Fixture();

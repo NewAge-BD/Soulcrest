@@ -24,8 +24,7 @@ public sealed class RareDropAlertService : IDisposable
     private readonly Func<IRareDropAudioSession> _audioFactory;
     private readonly TimeProvider _time;
     private readonly Func<string, bool> _soundFileExists;
-    private readonly FarmLootTrackerService? _source;
-    private readonly LifeskillTrackerService? _lifeskillSource;
+    private readonly UnifiedLootTrackerService? _unifiedSource;
     private IRareDropAudioSession? _audio;
     private CancellationTokenSource? _audioRequest;
     private PlaybackPlan? _audioPlan;
@@ -35,19 +34,17 @@ public sealed class RareDropAlertService : IDisposable
     private string? _status;
     private sealed record PlaybackPlan(LootItemRarity Rarity, DropRarityAlertSettings Settings, double Volume, bool Preview);
 
-    public RareDropAlertService(FarmLootTrackerService source, Func<RareDropAlertOptions> options,
-        LifeskillTrackerService? lifeskillSource = null)
-        : this(options, () => new RareDropAudioSession(), TimeProvider.System, source, lifeskillSource) { }
+    public RareDropAlertService(UnifiedLootTrackerService source, Func<RareDropAlertOptions> options)
+        : this(options, () => new RareDropAudioSession(), TimeProvider.System, unifiedSource: source) { }
 
     internal RareDropAlertService(Func<RareDropAlertOptions> options, Func<IRareDropAudioSession> audioFactory, TimeProvider time,
-        FarmLootTrackerService? source = null, LifeskillTrackerService? lifeskillSource = null,
-        Func<string, bool>? soundFileExists = null)
+        Func<string, bool>? soundFileExists = null,
+        UnifiedLootTrackerService? unifiedSource = null)
     {
         _options = options; _audioFactory = audioFactory; _time = time;
-        _source = source; _lifeskillSource = lifeskillSource;
+        _unifiedSource = unifiedSource;
         _soundFileExists = soundFileExists ?? File.Exists;
-        if (_source is not null) _source.DropAccepted += Accept;
-        if (_lifeskillSource is not null) _lifeskillSource.DropAccepted += Accept;
+        if (_unifiedSource is not null) _unifiedSource.DropAccepted += Accept;
     }
 
     public event Action? Changed;
@@ -263,8 +260,7 @@ public sealed class RareDropAlertService : IDisposable
             if (_disposed) return;
             _disposed = true; _notices.Clear(); StopAudio();
         }
-        if (_source is not null) _source.DropAccepted -= Accept;
-        if (_lifeskillSource is not null) _lifeskillSource.DropAccepted -= Accept;
+        if (_unifiedSource is not null) _unifiedSource.DropAccepted -= Accept;
         GC.SuppressFinalize(this);
     }
 }

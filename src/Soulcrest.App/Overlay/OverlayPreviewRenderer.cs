@@ -48,6 +48,10 @@ public sealed class OverlayPreviewRenderer : IDisposable
             "loot" => Loot(settings, theme),
             "farm-loot" => LootOverlayRenderer.RenderPreview(FarmLootExample(settings.LootNameLanguage), theme.Id,
                 animationSeconds: 1.4, icons: _lootIcons, backgroundOpacity: settings.LootOverlayBackgroundOpacity),
+            "abyss-rank" => AbyssRankOverlayRenderer.RenderPreview(AbyssRankExample(includeKillFeed: true) with
+                { KillFeedEnabled = settings.AbyssKillFeedEnabled, ShowKills = settings.AbyssKillFeedShowKills,
+                    ShowDeaths = settings.AbyssKillFeedShowDeaths, ShowAssists = settings.AbyssKillFeedShowAssists }, theme.Id,
+                language: settings.LootNameLanguage, icons: _lootIcons),
             "boss" => Boss(settings, theme),
             "leveling" => Leveling(settings, theme),
             "alerts" => Timers(settings, theme, maximumWidth),
@@ -83,6 +87,18 @@ public sealed class OverlayPreviewRenderer : IDisposable
     }
 
     private const int PetOverlayFormWidth = 360;
+    internal static AbyssRankOverlaySnapshot AbyssRankExample(bool includeKillFeed = false) => new(12_500, CharacterBound: true, Confirmed: true)
+    {
+        WorldContextVisible = true,
+        SessionId = "synthetic-abyss-session", SessionActive = true,
+        SessionNetRankPoints = 1_240, SessionRankPointsPerHour = 3_720,
+        KillFeed = includeKillFeed ?
+        [
+            new(new DateTimeOffset(2026, 10, 26, 12, 0, 2, TimeSpan.Zero), AbyssKillFeedKind.Kill, "Example opponent", 120) { Generation = 1, Sequence = 3 },
+            new(new DateTimeOffset(2026, 10, 26, 12, 0, 0, TimeSpan.Zero), AbyssKillFeedKind.Assist, "Example opponent", null) { Generation = 1, Sequence = 2 },
+            new(new DateTimeOffset(2026, 10, 26, 11, 59, 58, TimeSpan.Zero), AbyssKillFeedKind.Death, null, -45) { Generation = 1, Sequence = 1 }
+        ] : []
+    };
 
     internal static LootOverlaySnapshot FarmLootExample(string language) => new("synthetic-session", true, 184_720, 684_720,
     [

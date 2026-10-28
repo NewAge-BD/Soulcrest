@@ -20,7 +20,17 @@ public sealed record LootOverlaySnapshot(string? SessionId, bool SessionActive, 
 {
     public const long DailyLimit = 1_000_000;
     public static LootOverlaySnapshot Empty { get; } = new(null, false, 0, null, [], TrackingAvailable: false);
-    public bool DailyLimitReached => DailyMonsterKina >= DailyLimit;
+    public bool DailyLimitReached => HasPveActivity && SessionKind is not (LootTrackerSessionKind.Abyss or LootTrackerSessionKind.Lifeskill)
+        && DailyMonsterKina >= DailyLimit;
+    public LootTrackerSessionKind SessionKind { get; init; }
+    public long? SessionAbyssPoints { get; init; }
+    public double? SessionAbyssPointsRate { get; init; }
+    public AbyssPointRatePeriod AbyssPointRatePeriod { get; init; }
+    public long? FarmedAbyssPoints { get; init; }
+    public long? AbyssPointCap { get; init; }
+    public bool AbyssFarmConfirmed { get; init; }
+    public bool SessionKinaKnown { get; init; } = true;
+    public string? AbyssPointIconPath { get; init; }
     /// <summary>False means a saved value for the safely bound character, awaiting fresh confirmation.</summary>
     public bool DailyConfirmed { get; init; } = true;
     public string? KinaIconPath { get; init; }
@@ -30,6 +40,16 @@ public sealed record LootOverlaySnapshot(string? SessionId, bool SessionActive, 
     public bool LimitedKinaSession { get; init; }
     public double? SessionKinaPerHour { get; init; }
     public TimeSpan SessionElapsed { get; init; }
+    /// <summary>Activity channels of the shared current session, independent of the detail-view selection.</summary>
+    public bool HasPveActivity { get; init; } = true;
+    /// <summary>Confirmed AP income of the current session, never a wallet or cap baseline.</summary>
+    public bool HasAbyssPointActivity { get; init; }
+    public bool HasLifeskillActivity { get; init; }
+    public long? HarvestCount { get; init; }
+    public long? FailedHarvestCount { get; init; }
+    /// <summary>Successful harvests divided by the entire shared session duration; null remains unknown.</summary>
+    public double? HarvestsPerHour { get; init; }
+    public long? ItemCount { get; init; }
 }
 
 public interface ILootOverlaySource
@@ -44,4 +64,5 @@ public sealed record LootOverlayOptions(bool Enabled = false, int X = 48, int Y 
 {
     public double BackgroundOpacity { get; init; } = 1;
     public bool ShowOnSessionStart { get; init; }
+    public bool OnlyDuringSession { get; init; }
 }

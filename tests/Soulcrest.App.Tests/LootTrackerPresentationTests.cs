@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json;
 using Soulcrest.App.Services;
 using Xunit;
@@ -6,6 +7,37 @@ namespace Soulcrest.App.Tests;
 
 public sealed class LootTrackerPresentationTests
 {
+    [Fact]
+    public void LootDisplayUsesRarityThenQuantityNameAndIdWithoutGroupingOrChangingStoredRows()
+    {
+        var session = new LootTrackerSession
+        {
+            Loot = [new("unknown-b", "Same", LootTrackerLootKind.Item, 8),
+                new("Item:110150003", "Rare gear B", LootTrackerLootKind.Item, 1),
+                new("Item:110150004", "Rare gear A", LootTrackerLootKind.Item, 1),
+                new("Item:610530001", "Common material", LootTrackerLootKind.Item, 900),
+                new("Item:610530005", "Rare material", LootTrackerLootKind.Item, 100),
+                new("Item:610530008", "Legend material", LootTrackerLootKind.Item, 1),
+                new("Item:514310110", "Epic item", LootTrackerLootKind.Item, 1),
+                new("Item:210230006", "Unique item", LootTrackerLootKind.Item, 5),
+                new("Item:310900001", "Special item", LootTrackerLootKind.Item, 1),
+                new("unknown-a", "Same", LootTrackerLootKind.Item, 8),
+                new("SoulCrystal:2", "Crystal", LootTrackerLootKind.Soul, 1),
+                new("unknown-z", "Alpha", LootTrackerLootKind.Item, 8)],
+        };
+        var before = session.Loot.ToArray();
+        var ordered = LootTrackerPresentation.OrderedLoot(session);
+        Assert.Equal(new[] { "Item:310900001", "Item:514310110", "Item:210230006", "Item:610530008",
+            "Item:610530005", "Item:110150004", "Item:110150003", "Item:610530001", "unknown-z", "unknown-a", "unknown-b", "SoulCrystal:2" },
+            ordered.Select(row => row.Id));
+        Assert.Equal(before, session.Loot.ToArray());
+        Assert.Equal(session.Loot.Length, ordered.Length);
+        Assert.Equal(before.OrderBy(row => row.Id), ordered.OrderBy(row => row.Id));
+        Assert.Equal(ordered.ToArray(), LootTrackerPresentation.OrderedLoot(session with { Loot = Enumerable.Reverse(ordered).ToImmutableArray() }).ToArray());
+        Assert.Empty(LootTrackerPresentation.OrderedLoot(new LootTrackerSession()));
+        Assert.Empty(LootTrackerPresentation.OrderedLoot(session with { Loot = default }));
+    }
+
     [Fact]
     public void MissingSettingUsesTwoMinutesAndExplicitSettingRoundTrips()
     {

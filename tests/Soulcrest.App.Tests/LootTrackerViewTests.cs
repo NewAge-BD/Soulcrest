@@ -21,6 +21,106 @@ namespace Soulcrest.App.Tests;
 public sealed class LootTrackerViewTests
 {
     private static readonly DateTimeOffset At = new(2026, 10, 25, 13, 30, 0, TimeSpan.Zero);
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task AbyssSessionShowsPointMetricsWithoutReusingDailyKinaOrInventingUnknownValues(string language)
+    {
+        await using var fixture = new Fixture(language);
+        var session = new LootTrackerSession
+        {
+            Id = "synthetic-abyss", Kind = LootTrackerSessionKind.Abyss, Status = LootTrackerSessionStatus.Live,
+            StartedAt = At, LastPresenceAt = At.AddMinutes(20), Elapsed = TimeSpan.FromMinutes(20),
+            Character = new(FirstProfileId, ExampleCharacter("A")), Location = "Abyss",
+            AbyssPoints = 6_000, RankPointsGained = 500, RankPointsLost = 900,
+            MinuteIncome = [new(0, null, null) { AbyssPoints = 6_000 }], KinaUnbound = 100
+        };
+        var html = await fixture.Render(new([session], At), sourceAvailable: true);
+        Assert.Equal(language == "de" ? "6.000" : "6,000", Metric(html, "abyss-points"));
+        Assert.Equal(language == "de" ? "18.000" : "18,000", Metric(html, "abyss-point-rate"));
+        Assert.Equal("-400", Metric(html, "rank-points-net"));
+        Assert.Contains("data-kind=\"abyss\"", html);
+        Assert.DoesNotContain("Limited Kina Session", html);
+        Assert.Contains(UiText.T("AP-Farmstand unbekannt"), WebUtility.HtmlDecode(html));
+        await fixture.Export(await fixture.Render(new([session], At), isExample: true), "abyss");
+        await fixture.SettingsPeriod(AbyssPointRatePeriod.Minute);
+        html = await fixture.Render(new([session with { AbyssPoints = null, RankPointsGained = null, RankPointsLost = null }], At));
+        Assert.Equal("—", Metric(html, "abyss-points"));
+        Assert.Equal("—", Metric(html, "abyss-point-rate"));
+        Assert.Equal("—", Metric(html, "rank-points-net"));
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task OpenWorldPointsRemainVisibleAcrossMixedAndPveViewsWithoutChangingThePlayheadOrSharedRates(string language)
+    {
+        await using var fixture = new Fixture(language);
+        var parent = LootTrackerSessionProjectionTests.OpenWorldPointsExample();
+        var html = await fixture.Render(new([parent], parent.EndedAt), isExample: true);
+        Assert.Equal("20", Metric(html, "abyss-points")); Assert.Equal("20", Metric(html, "abyss-point-rate"));
+        Assert.Equal("10", Metric(html, "rank-points-gained")); Assert.Equal("3", Metric(html, "rank-points-lost"));
+        Assert.Equal("7", Metric(html, "rank-points-net"));
+        Assert.Contains(UiText.T("Bezogen auf die gesamte Sessionzeit"), WebUtility.HtmlDecode(html));
+        Assert.Contains(UiText.T("AP-Farmstand unbekannt"), WebUtility.HtmlDecode(html));
+        Assert.Contains("data-timeline-layer=\"ap\"", html); Assert.Contains("data-timeline-layer=\"rp\"", html);
+        Assert.Equal("20", Metric(html, "timeline-value-ap")); Assert.Equal("7", Metric(html, "timeline-value-rp"));
+        Assert.DoesNotContain("data-combat-category=", html);
+        await fixture.Export(html, "open-world-points-mixed");
+        await fixture.Seek(TimeSpan.FromMinutes(25));
+        html = await fixture.Click("data-session-view", "pve");
+        Assert.Equal("25:00", Metric(html, "playhead-time"));
+        Assert.Equal("20", Metric(html, "abyss-points")); Assert.Equal("20", Metric(html, "abyss-point-rate"));
+        Assert.Equal("7", Metric(html, "rank-points-net"));
+        Assert.Equal("—", Metric(html, "timeline-value-ap"));
+        Assert.Contains("data-timeline-series=\"ap\"", html); Assert.Contains("data-timeline-series=\"rp\"", html);
+        await fixture.Export(html, "open-world-points-pve");
+        foreach (var excluded in new[] { "lifeskill", "abyss" })
+        {
+            html = await fixture.Click("data-session-view", excluded);
+            Assert.Equal("25:00", Metric(html, "playhead-time"));
+            Assert.DoesNotContain("data-testid=\"abyss-points\"", html);
+            Assert.DoesNotContain("data-testid=\"rank-points-net\"", html);
+            Assert.DoesNotContain("data-timeline-layer=\"ap\"", html); Assert.DoesNotContain("data-timeline-layer=\"rp\"", html);
+        }
+        html = await fixture.Render(new([LootTrackerSessionProjectionTests.Example()], parent.EndedAt), isExample: true);
+        Assert.DoesNotContain("data-testid=\"abyss-points\"", html);
+        Assert.DoesNotContain("data-testid=\"rank-points-net\"", html);
+    }
+    [Fact]
+    public async Task SharedPlayheadChangesMapAndItsPrefixWhileWholeSessionStatisticsRemainComplete()
+    {
+        await using var fixture = new Fixture("en");
+        var session = new LootTrackerSession
+        {
+            Id = "replay-parent", Kind = LootTrackerSessionKind.Abyss, Status = LootTrackerSessionStatus.Completed, EndedAt = At.AddSeconds(10),
+            StartedAt = At, Elapsed = TimeSpan.FromSeconds(10), AbyssPoints = 100, TimelineVersion = 1,
+            RouteSegments = [new("map-a", "Map A", [new(100, 100, At, TimeSpan.Zero), new(200, 200, At.AddSeconds(5), TimeSpan.FromSeconds(5))]),
+                new("map-b", "Map B", [new(500, 500, At.AddSeconds(10), TimeSpan.FromSeconds(10))])],
+            CombatEvents = [new("kill", LootTrackerCombatKind.Kill, At.AddSeconds(3), TimeSpan.FromSeconds(3), new("map-a", "Map A", 150, 150, At.AddSeconds(3))) { OpponentClassId = "Ranger" },
+                new("death", LootTrackerCombatKind.Death, At.AddSeconds(9), TimeSpan.FromSeconds(9), new("map-b", "Map B", 490, 490, At.AddSeconds(9))) { OpponentClassId = "Templar" }]
+        };
+        var html = await fixture.Render(new([session], At));
+        Assert.Contains("data-map-id=\"map-b\"", html);
+        Assert.Equal("00:10", Metric(html, "playhead-time"));
+        Assert.True(html.IndexOf("data-testid=\"session-replay-map\"", StringComparison.Ordinal) < html.IndexOf("data-testid=\"session-timeline\"", StringComparison.Ordinal));
+        await fixture.Seek(TimeSpan.FromSeconds(5)); html = await fixture.CurrentMarkup();
+        Assert.Contains("data-map-id=\"map-a\"", html);
+        Assert.Equal("00:05", Metric(html, "playhead-time"));
+        var beforeTimeline = html[..html.IndexOf("data-testid=\"session-timeline\"", StringComparison.Ordinal)];
+        Assert.DoesNotContain("data-marker-kind=\"death\"", beforeTimeline);
+        Assert.Contains("data-combat-category=\"Templar\"", html);
+        Assert.Equal("100", Metric(html, "abyss-points"));
+        await fixture.UpdateSnapshot(new([session with { Elapsed = TimeSpan.FromSeconds(15) }], At.AddSeconds(15)));
+        Assert.Equal("00:05", Metric(await fixture.CurrentMarkup(), "playhead-time"));
+        await fixture.FollowEnd();
+        Assert.Equal("00:15", Metric(await fixture.CurrentMarkup(), "playhead-time"));
+        await fixture.Seek(TimeSpan.FromSeconds(2));
+        await fixture.UpdateSnapshot(new([session with { Id = "second-session", StartedAt = At.AddMinutes(1) }], At.AddMinutes(1)));
+        Assert.Equal("00:10", Metric(await fixture.CurrentMarkup(), "playhead-time"));
+    }
+
     private const string FirstProfileId = "11111111111111111111111111111111";
     private const string SecondProfileId = "22222222222222222222222222222222";
     private const string ThirdProfileId = "33333333333333333333333333333333";
@@ -237,10 +337,11 @@ public sealed class LootTrackerViewTests
         Assert.Contains(language == "de" ? ">Abgeschlossen</span>" : ">Completed</span>", html);
         Assert.Contains("Sample plant material", html);
         Assert.Contains("Sample mineral", html);
-        Assert.Contains(language == "de" ? "Sammelerfolge" : "Successful gathers", html);
+        Assert.Contains(UiText.T("Ernten pro Stunde"), WebUtility.HtmlDecode(html));
         Assert.Contains(language == "de" ? "Fehlversuche" : "Failed attempts", html);
         foreach (var order in Enumerable.Range(1, 4)) Assert.Contains($"data-node-order=\"{order}\"", html);
         Assert.DoesNotContain("data-node-order=\"5\"", html);
+        html = await fixture.Click("data-session-view", "lifeskill");
         Assert.Matches("id=\"loot-save-route\"[^>]*disabled", html);
         await fixture.Export(html, "lifeskill");
     }
@@ -270,9 +371,7 @@ public sealed class LootTrackerViewTests
         Assert.DoesNotContain("Sample plant material", html);
         Assert.DoesNotContain("Sample mineral", html);
         Assert.DoesNotContain(language == "de" ? "Zuletzt gesammelt" : "Last gathered", html);
-        Assert.Contains(language == "de" ? "Der erste bestätigte Sammelversuch startet" : "The first confirmed gathering attempt starts",
-            WebUtility.HtmlDecode(html));
-        Assert.Contains(language == "de" ? "Nur Sammelbeute verlängert ihren Timer." : "Only gathering loot extends its timer.",
+        Assert.Contains(UiText.T("Bestätigte Beute und Sammelversuche gehören außerhalb des Abyss zu einer gemeinsamen Session. Beide verlängern ihren Timer; das Ausblenden des Overlays pausiert die Aufnahme nicht."),
             WebUtility.HtmlDecode(html));
         await fixture.Export(html, "lifeskill-failed-only");
     }
@@ -322,7 +421,7 @@ public sealed class LootTrackerViewTests
         await using var fixture = new Fixture(language);
         var session = new LootTrackerSession
         {
-            Id = "synthetic-unbound-grind", Kind = LootTrackerSessionKind.Grind, StartedAt = At,
+            Id = "synthetic-unbound-grind", Kind = LootTrackerSessionKind.Grind, StartedAt = At, Status = LootTrackerSessionStatus.Completed, EndedAt = At.AddMinutes(10),
             Elapsed = TimeSpan.FromMinutes(10), KinaUnbound = 2_000, KinaBound = null, CoverageLimited = true,
             MinuteIncome = [new(0, null, 100), new(1, null, 200)]
         };
@@ -332,7 +431,7 @@ public sealed class LootTrackerViewTests
         Assert.Equal("—", Metric(html, "kina-bound"));
         Assert.Contains(UiText.T("Ungebundene Kina"), WebUtility.HtmlDecode(html));
         Assert.Contains(UiText.T("Nur bestätigte ungebundene Kina"), WebUtility.HtmlDecode(html));
-        Assert.Contains("lt-income-line", html);
+        Assert.Contains("lst-curve", html);
         Assert.Contains("lt-coverage", html);
         Assert.Null(session.KinaBound);
         Assert.Null(LootTrackerPresentation.TotalKina(session));
@@ -359,8 +458,10 @@ public sealed class LootTrackerViewTests
         await using var fixture = new Fixture("en");
         var dungeon = ExampleSnapshot().Sessions.Single(session => session.Id == "sample-dungeon");
         var html = await fixture.Render(new([dungeon], At), isExample: true);
-        Assert.Equal(4, Regex.Matches(html, "class=\"lt-income-dot\"").Count);
-        Assert.Equal(4, Regex.Matches(html, "class=\"lt-income-line\"").Count);
+        Assert.Contains("data-testid=\"timeline-legacy\"", html);
+        Assert.Equal(4, Regex.Matches(html, "data-curve=\"kina\"").Count);
+        Assert.Equal(4, Regex.Matches(html, "data-area=\"kina\"").Count);
+        Assert.Single(Regex.Matches(html, "data-timeline-plot=\"combined\""));
         Assert.DoesNotContain("NaN", html);
         Assert.DoesNotContain("Infinity", html);
     }
@@ -407,21 +508,24 @@ public sealed class LootTrackerViewTests
     [Theory]
     [InlineData("de")]
     [InlineData("en")]
-    public async Task FarmRouteUsesTheUnifiedStopsAndDoesNotFallBackToTheOldWalk(string language)
+    public async Task HistoricalFarmStopsRemainSeparateFromTheTravelledRoute(string language)
     {
         await using var fixture = new Fixture(language);
         var session = ExampleSnapshot().Sessions.Single(row => row.Kind == LootTrackerSessionKind.Lifeskill) with
         {
-            FarmRouteVersion = 1,
+            FarmRouteVersion = 1, RouteSegments = [], ResourceNodes = [],
+            GatherVisits = [new("visit-one", 0, "sample-altgard", "Altgard", 100, 450, 100, 450, At.AddHours(-5).AddMinutes(5), true, "Sample plant"),
+                new("visit-middle", 0, "sample-altgard", "Altgard", 260, 350, 260, 350, At.AddHours(-5).AddMinutes(10), false, "Sample ore", GatherableId: 7002, CatalogNodeId: "sample-catalogue"),
+                new("visit-last", 0, "sample-altgard", "Altgard", 420, 170, 420, 170, At.AddHours(-5).AddMinutes(15), true, "Sample plant")],
             FarmRoutePoints = [new("stop-one", 0, "sample-altgard", "Altgard", 100, 450, "Sample plant", 2, 1, 1),
                 new("stop-middle", 0, "sample-altgard", "Altgard", 260, 350, "Sample ore", 1, 0, 1, "sample-catalogue"),
                 new("stop-last", 0, "sample-altgard", "Altgard", 420, 170, "Sample plant", 3, 3, 0)],
         };
         var html = await fixture.Render(new([session], At));
         Assert.Equal("3", Metric(html, "resource-count"));
-        Assert.Contains(language == "de" ? ">Farmroute</h3>" : ">Farm route</h3>", html);
+        Assert.Contains(UiText.T("Gelaufene Route"), WebUtility.HtmlDecode(html));
         Assert.Contains(language == "de" ? ">Sammelstellen</h3>" : ">Gathering stops</h3>", html);
-        Assert.DoesNotContain("data-testid=\"legacy-route-note\"", html);
+        Assert.Contains("data-testid=\"legacy-route-note\"", html);
         Assert.DoesNotContain("sample-ore-two", html);
         Assert.Contains("data-farm-stop-id=\"stop-middle\"", html);
         Assert.Contains("data-node-order=\"3\"", html);
@@ -438,9 +542,9 @@ public sealed class LootTrackerViewTests
     {
         await using var fixture = new Fixture(language);
         var session = ExampleSnapshot().Sessions.Single(row => row.Kind == LootTrackerSessionKind.Lifeskill);
-        var html = await fixture.Render(new([session], At));
+        var html = await fixture.Render(new([session], At), viewMode: LootTrackerViewMode.Lifeskill);
         Assert.Contains("data-testid=\"legacy-route-note\"", html);
-        Assert.Contains(UiText.T("Alter Laufweg"), WebUtility.HtmlDecode(html));
+        Assert.Contains(UiText.T("Altaufzeichnung: Laufweg ohne gespeicherte Sammelpositionen."), WebUtility.HtmlDecode(html));
         Assert.Contains(UiText.T("Altaufzeichnungen enthalten keine exportierbaren Sammelpositionen."), WebUtility.HtmlDecode(html));
         Assert.Matches("id=\"loot-save-route\"[^>]*disabled", html);
     }
@@ -690,8 +794,8 @@ public sealed class LootTrackerViewTests
         var kinaIcons = 2;
         foreach (var (path, count) in new[]
         {
-            (catalog.ItemAsset(210350009), 2), (catalog.SoulCrystalAsset(2), 1),
-            (catalog.PetSoulAsset(1004), 1), (catalog.ItemAsset(930100031), kinaIcons)
+            (catalog.ItemAsset(210350009), 4), (catalog.SoulCrystalAsset(2), 2),
+            (catalog.PetSoulAsset(1004), 2), (catalog.ItemAsset(930100031), kinaIcons)
         })
         {
             Assert.NotNull(path);
@@ -757,7 +861,7 @@ public sealed class LootTrackerViewTests
     public async Task RouteButtonInspectsTheRecordedSelectedMapAndExamplesRemainInert()
     {
         await using var fixture = new Fixture("en");
-        var session = ExampleSnapshot().Sessions[0] with { Location = "Immortal Isle", LocationApproximate = true };
+        var session = ExampleSnapshot().Sessions[0] with { Location = "Immortal Isle", LocationApproximate = true, Status = LootTrackerSessionStatus.Completed, EndedAt = At };
         await fixture.Render(new([session], At));
         await fixture.Click("id", "loot-show-route-on-map");
         Assert.Equal("map", fixture.Ui.Tab);
@@ -855,6 +959,128 @@ public sealed class LootTrackerViewTests
         await fixture.Export(qualityHtml, "quality-colors");
     }
 
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task ExactLootRowsRenderByRarityThenQuantityInsteadOfEncounterOrder(string language)
+    {
+        await using var fixture = new Fixture(language);
+        int[] ids = [110160001, 110150003, 110140002, 610530001, 110160008, 110150004, 110140003, 610530005, 610530008, 210230006];
+        long[] quantities = [2, 2, 1, 9, 1, 4, 3, 10, 5, 1];
+        var session = ExampleSnapshot().Sessions[0] with
+        {
+            Loot = ids.Select((id, index) => new LootTrackerLoot("Item:" + id,
+                MonsterLootItemCatalog.Default.Name(id, language), LootTrackerLootKind.Item, quantities[index])).ToImmutableArray(),
+        };
+        var html = await fixture.Render(new([session], At), isExample: true);
+        var displayedIds = Regex.Matches(html, "data-loot-id=\"([^\"]+)\"").Select(match => match.Groups[1].Value);
+        Assert.Equal(new[] { 210230006, 610530008, 110140003, 110140002, 610530005, 110150004, 110150003, 610530001, 110160001, 110160008 }
+            .Select(id => "Item:" + id), displayedIds);
+        Assert.Equal(ids.Select(id => "Item:" + id), session.Loot.Select(row => row.Id));
+        Assert.DoesNotContain("CommonGear", html); Assert.DoesNotContain("RareGear", html); Assert.DoesNotContain("LegendGear", html);
+        await fixture.Export(html, "rarity-order");
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task UnifiedViewsKeepTheSameSessionPlayheadAndFilterBeforeAggregatingItems(string language)
+    {
+        await using var fixture = new Fixture(language);
+        var parent = LootTrackerSessionProjectionTests.Example();
+        var modes = new List<LootTrackerViewMode>();
+        var html = await fixture.Render(new([parent], parent.EndedAt), isExample: true,
+            onViewChanged: mode => { modes.Add(mode); return Task.CompletedTask; });
+        Assert.Equal(1, SessionButtonCount(html));
+        Assert.Contains("data-session-id=\"" + parent.Id + "\"", html);
+        Assert.Contains("data-session-view=\"mixed\" class=\"active\"", html);
+        Assert.Equal("2", Metric(html, "harvest-count"));
+        Assert.Equal("2", Metric(html, "harvest-rate"));
+        Assert.DoesNotContain("id=\"loot-save-route\"", html);
+        await fixture.Export(html, "unified-mixed");
+        await fixture.Seek(TimeSpan.FromMinutes(25));
+        foreach (var (mode, count) in new[] { ("pve", 2), ("lifeskill", 7), ("abyss", 0), ("mixed", 9) })
+        {
+            html = await fixture.Click("data-session-view", mode);
+            Assert.Equal("25:00", Metric(html, "playhead-time"));
+            Assert.Equal(1, SessionButtonCount(html));
+            Assert.Contains("data-session-id=\"" + parent.Id + "\"", html);
+            if (count > 0)
+                Assert.Matches("data-loot-id=\"Item:610530005\"[\\s\\S]*?</td><td>" + count + "</td>", html);
+            else Assert.DoesNotContain("data-loot-id=", html);
+            Assert.Equal(mode == "lifeskill", html.Contains("id=\"loot-save-route\"", StringComparison.Ordinal));
+            if (mode == "lifeskill")
+            {
+                Assert.Equal("2", Metric(html, "harvest-count")); // Whole-session metric, not the 25-minute replay prefix.
+                Assert.Equal("2", Metric(html, "harvest-rate"));
+                Assert.DoesNotContain("data-testid=\"kina-total\"", html);
+                Assert.DoesNotContain("data-testid=\"abyss-points\"", html);
+            }
+            await fixture.Export(html, "unified-" + mode);
+        }
+        Assert.Equal(new[] { LootTrackerViewMode.Pve, LootTrackerViewMode.Lifeskill, LootTrackerViewMode.Abyss, LootTrackerViewMode.Mixed }, modes);
+        Assert.Equal(9, Assert.Single(parent.Loot).Quantity);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ViewChangeStorageFailureRestoresTheVisibleViewAndRetryClearsTheErrorWithoutMovingThePlayhead(bool accessDenied)
+    {
+        await using var fixture = new Fixture("en");
+        fixture.Settings.SetLootTrackerViewMode(LootTrackerViewMode.Mixed);
+        var parent = LootTrackerSessionProjectionTests.Example();
+        var fail = true;
+        var attempted = new List<LootTrackerViewMode>();
+        await fixture.Render(new([parent], parent.EndedAt), isExample: true, onViewChanged: mode =>
+        {
+            attempted.Add(mode);
+            if (fail) return Task.FromException(accessDenied ? new UnauthorizedAccessException("Synthetic denied settings save.")
+                : new IOException("Synthetic failed settings save."));
+            fixture.Settings.SetLootTrackerViewMode(mode);
+            return Task.CompletedTask;
+        });
+        await fixture.Seek(TimeSpan.FromMinutes(25));
+        var html = await fixture.Click("data-session-view", "lifeskill");
+        Assert.Contains("data-session-view=\"mixed\" class=\"active\"", html);
+        Assert.DoesNotContain("data-session-view=\"lifeskill\" class=\"active\"", html);
+        Assert.Equal(LootTrackerViewMode.Mixed, fixture.Settings.Current.LootTrackerViewMode);
+        Assert.Contains(UiText.T("Sessionansicht konnte nicht gespeichert werden."), WebUtility.HtmlDecode(html));
+        Assert.Equal("25:00", Metric(html, "playhead-time"));
+        fail = false;
+        html = await fixture.Click("data-session-view", "lifeskill");
+        Assert.Contains("data-session-view=\"lifeskill\" class=\"active\"", html);
+        Assert.Equal(LootTrackerViewMode.Lifeskill, new SettingsService().Current.LootTrackerViewMode);
+        Assert.DoesNotContain(UiText.T("Sessionansicht konnte nicht gespeichert werden."), WebUtility.HtmlDecode(html));
+        Assert.Equal("25:00", Metric(html, "playhead-time"));
+        Assert.Equal(new[] { LootTrackerViewMode.Lifeskill, LootTrackerViewMode.Lifeskill }, attempted);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task UnifiedAbyssViewIncludesGatheringButLifeskillViewKeepsOnlyHarvestFacts(string language)
+    {
+        await using var fixture = new Fixture(language);
+        var parent = LootTrackerSessionProjectionTests.Example(abyss: true);
+        var html = await fixture.Render(new([parent], parent.EndedAt), isExample: true, viewMode: LootTrackerViewMode.Abyss);
+        Assert.Equal("20", Metric(html, "abyss-points"));
+        Assert.Equal("2", Metric(html, "harvest-count"));
+        Assert.Equal("2", Metric(html, "harvest-rate"));
+        Assert.Contains("data-combat-category=\"unknown\"", html);
+        Assert.DoesNotContain("id=\"loot-save-route\"", html);
+        await fixture.Export(html, "unified-abyss-context");
+        html = await fixture.Click("data-session-view", "lifeskill");
+        Assert.Equal("7", Metric(html, "item-count"));
+        Assert.Equal("2", Metric(html, "harvest-count"));
+        Assert.Contains("id=\"loot-save-route\"", html);
+        Assert.DoesNotContain("data-testid=\"abyss-points\"", html);
+        Assert.DoesNotContain("data-testid=\"kina-total\"", html);
+        Assert.DoesNotContain("data-combat-category=", html);
+        Assert.Contains("data-map-id=\"example-map\"", html);
+        await fixture.Export(html, "unified-abyss-lifeskill");
+    }
+
     private static string Metric(string html, string testId) => WebUtility.HtmlDecode(Regex.Match(html,
         "data-testid=\"" + Regex.Escape(testId) + "\">([^<]*)<").Groups[1].Value);
 
@@ -882,8 +1108,12 @@ public sealed class LootTrackerViewTests
 
         public SettingsService Settings => _provider.GetRequiredService<SettingsService>();
         public UiState Ui => _provider.GetRequiredService<UiState>();
+        public Task Seek(TimeSpan elapsed) => _renderer.Dispatcher.InvokeAsync(() => ((CaptureLootTrackerView)_view!).SeekNow(elapsed));
+        public Task FollowEnd() => _renderer.Dispatcher.InvokeAsync(() => ((CaptureLootTrackerView)_view!).FollowNow());
+        public Task SettingsPeriod(AbyssPointRatePeriod period) => _renderer.Dispatcher.InvokeAsync(() => Settings.SetAbyssPointRatePeriod(period));
 
-        public async Task<string> Render(LootTrackerSnapshot snapshot, bool sourceAvailable = false, bool isExample = false, string? sourceStatus = null, Func<string, Task>? onDelete = null)
+        public async Task<string> Render(LootTrackerSnapshot snapshot, bool sourceAvailable = false, bool isExample = false, string? sourceStatus = null, Func<string, Task>? onDelete = null,
+            LootTrackerViewMode viewMode = LootTrackerViewMode.Mixed, Func<LootTrackerViewMode, Task>? onViewChanged = null)
         {
             _root = await _renderer.Dispatcher.InvokeAsync(() => _renderer.RenderComponentAsync<CaptureLootTrackerView>(
                 ParameterView.FromDictionary(new Dictionary<string, object?>
@@ -893,6 +1123,8 @@ public sealed class LootTrackerViewTests
                     [nameof(LootTrackerView.IsExample)] = isExample,
                     [nameof(LootTrackerView.SourceStatus)] = sourceStatus,
                     [nameof(LootTrackerView.DeleteSession)] = onDelete is null ? default(EventCallback<string>) : EventCallback.Factory.Create<string>(this, onDelete),
+                    [nameof(LootTrackerView.ViewMode)] = viewMode,
+                    [nameof(LootTrackerView.ViewModeChanged)] = onViewChanged is null ? default(EventCallback<LootTrackerViewMode>) : EventCallback.Factory.Create<LootTrackerViewMode>(this, onViewChanged),
                     [nameof(CaptureLootTrackerView.Captured)] = (Action<LootTrackerView>)(view => _view = view),
                 })));
             return await Markup();
@@ -912,8 +1144,11 @@ public sealed class LootTrackerViewTests
             await _renderer.Dispatcher.InvokeAsync(async () =>
             {
                 using var tree = new RenderTreeBuilder();
-                typeof(LootTrackerView).GetMethod("BuildRenderTree", BindingFlags.Instance | BindingFlags.NonPublic)!
-                    .Invoke(_view, [tree]);
+                object target = _view!;
+                if (attribute == "id" && value == "loot-show-route-on-map")
+                    target = typeof(LootTrackerView).GetField("_sessionReplay", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_view)!;
+                target.GetType().GetMethod("BuildRenderTree", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(target, [tree]);
                 var frames = tree.GetFrames();
                 var index = Enumerable.Range(0, frames.Count).Single(i =>
                     frames.Array[i].FrameType == RenderTreeFrameType.Attribute && frames.Array[i].AttributeName == attribute
@@ -973,5 +1208,9 @@ public sealed class CaptureLootTrackerView : LootTrackerView
 {
     [Parameter] public Action<LootTrackerView>? Captured { get; set; }
     protected override void OnInitialized() { base.OnInitialized(); Captured?.Invoke(this); }
+    protected override LootTrackerPreparedReplay? PreparedSessionReplay(LootTrackerSession session) =>
+        session.Status == LootTrackerSessionStatus.Live ? null : LootTrackerPreparedReplay.Prepare(session);
     public Task RefreshNow() => InvokeAsync(StateHasChanged);
+    public Task SeekNow(TimeSpan elapsed) => InvokeAsync(() => { SeekTimeline(elapsed); StateHasChanged(); });
+    public Task FollowNow() => InvokeAsync(() => { FollowTimelineEnd(); StateHasChanged(); });
 }

@@ -201,6 +201,7 @@ public sealed partial class MapTrackingService : IDisposable
             Volatile.Write(ref _appliedWorldContext, source);
         }
         _wake.TrySetResult();
+        PublishReplayNotifications();
         SafeEvent.Raise(Changed, "Weltkontext");
         PlacementMoved?.Invoke();
     }
@@ -230,6 +231,7 @@ public sealed partial class MapTrackingService : IDisposable
             Paused = NetworkSuspended;
         }
         _wake.TrySetResult();
+        PublishReplayNotifications();
         SafeEvent.Raise(Changed, "Kartenquelle");
         PlacementMoved?.Invoke();
     }
@@ -337,6 +339,7 @@ public sealed partial class MapTrackingService : IDisposable
                 _flowBroken = true;
             }
         }
+        PublishReplayNotifications();
         SafeEvent.Raise(Changed, "ESC-Menü");
         if (open) PlacementMoved?.Invoke();
     }
@@ -417,6 +420,7 @@ public sealed partial class MapTrackingService : IDisposable
         lock (_flowGate)
         {
             Interlocked.Increment(ref _mapContextGeneration);
+            InvalidateReplayPosition(ReplayPositionGapReason.SourceInvalidated);
             var hadContext = DetectedMap is not null;
             DetectedMap = null;
             return hadContext;
@@ -768,7 +772,8 @@ public sealed partial class MapTrackingService : IDisposable
                         if (full is not null)
                         {
                             if (!AcceptLastCapture()) continue;
-                            await Task.Run(() => ProcessMiniMapFrame(region, screen, full, token, pausedContextGeneration), token);
+                            var pausedReplayFrame = ReplayCaptureFrame.Current();
+                            await Task.Run(() => ProcessMiniMapFrame(region, screen, full, token, pausedContextGeneration, pausedReplayFrame), token);
                         }
                     }
                     if (Found)
@@ -805,6 +810,7 @@ public sealed partial class MapTrackingService : IDisposable
                 }
                 var frame = GrabCurrent(area, worldMap ? WorldMapScale : 1, contextGeneration);
                 var frameAt = GameCaptureService.GrabbedFrameAt;
+                var replayFrame = ReplayCaptureFrame.Current();
                 var captureTiming = GameCaptureService.GrabbedTiming;
                 if (frame is null)
                 {
@@ -848,6 +854,7 @@ public sealed partial class MapTrackingService : IDisposable
                     {
                         flowLost = true;
                         _flowBroken = true;
+                        lock (_flowGate) InvalidateReplayPosition(ReplayPositionGapReason.FlowBroken);
                     }
                     else
                         motion += Math.Sqrt(step.Value.Tx * step.Value.Tx + step.Value.Ty * step.Value.Ty)
@@ -855,7 +862,10 @@ public sealed partial class MapTrackingService : IDisposable
                     if (step is { } shift)
                     {
                         if (TryApplyFlowShift(shift, frameAt, contextGeneration) && Placement is not null)
+                        {
+                            ObserveReplayFlow(replayFrame, contextGeneration);
                             PlacementMoved?.Invoke();
+                        }
                     }
                 }
 
@@ -914,7 +924,7 @@ public sealed partial class MapTrackingService : IDisposable
                                     if (!AcceptLastCapture()) return;
                                     lock (_flowGate)
                                         _drift = FrameShift.Identity;
-                                    ProcessMiniMapFrame(region, screen, full, token, contextGeneration);
+                                    ProcessMiniMapFrame(region, screen, full, token, contextGeneration, ReplayCaptureFrame.Current());
                                 }
                             }
                         };
@@ -993,7 +1003,8 @@ public sealed partial class MapTrackingService : IDisposable
     /// Checks the small-map crop and world-map extent from one capture. Never combine a crop taken
     /// before opening/closing the world map with a screen taken after that transition.
     /// </summary>
-    internal void ProcessMiniMapFrame(Rectangle region, Rectangle screen, Mat fullFrame, CancellationToken token, long? contextGeneration = null)
+    internal void ProcessMiniMapFrame(Rectangle region, Rectangle screen, Mat fullFrame, CancellationToken token, long? contextGeneration = null,
+        ReplayCaptureFrame? replayFrame = null)
     {
         token.ThrowIfCancellationRequested();
         var generation = contextGeneration ?? Interlocked.Read(ref _mapContextGeneration);
@@ -1049,7 +1060,7 @@ public sealed partial class MapTrackingService : IDisposable
                 }
             if (!IsCurrentMapContext(generation)) return;
             _currentMap = ownDefinition.Id;
-            Step(region, maps, crop, screen, small, header, token, generation, ownDefinition.Id, searchStarted);
+            Step(region, maps, crop, screen, small, header, token, generation, ownDefinition.Id, searchStarted, replayFrame);
             return;
         }
         if (Paused || InInstance || _misses >= MissesBeforeOtherMaps)
@@ -1068,12 +1079,12 @@ public sealed partial class MapTrackingService : IDisposable
                     break;
                 _recoverySearchTick++;
                 var previousFix = Interlocked.Read(ref _lastFixAt);
-                Step(region, maps, crop, screen, small, header, token, generation, candidate, searchStarted);
+                Step(region, maps, crop, screen, small, header, token, generation, candidate, searchStarted, replayFrame);
                 if ((Found && Interlocked.Read(ref _lastFixAt) != previousFix) || _worldMapOpen) break;
             }
             return;
         }
-        Step(region, maps, crop, screen, small, header, token, generation, frameStarted: searchStarted);
+        Step(region, maps, crop, screen, small, header, token, generation, frameStarted: searchStarted, replayFrame: replayFrame);
     }
 
     internal static readonly TimeSpan RecoverySearchBudget = TimeSpan.FromMilliseconds(1200);
@@ -1089,7 +1100,7 @@ public sealed partial class MapTrackingService : IDisposable
     }
 
     private void Step(Rectangle region, List<MapDefinition> maps, Mat frame, Rectangle screen, Mat screenFrame, bool windowHeader, CancellationToken token, long contextGeneration,
-        string? searchMap = null, long? frameStarted = null)
+        string? searchMap = null, long? frameStarted = null, ReplayCaptureFrame? replayFrame = null)
     {
         if (!IsCurrentMapContext(contextGeneration)) return;
         var anchor = new Point2d(region.Width * settings.Current.PlayerAnchorX, region.Height * settings.Current.PlayerAnchorY);
@@ -1229,6 +1240,7 @@ public sealed partial class MapTrackingService : IDisposable
             Placement = new MapPlacement(definition.Id, _drift.Apply(fix), world, region, anchor) { CapturedAt = _flowFrameAt, ContextGeneration = contextGeneration };
         }
         if (Paused) Resume(null);
+        if (replayFrame is { } observedFrame) ObserveReplayFix(definition.Id, fix, locator.Reference.WorldPerPixel, anchor, observedFrame, contextGeneration);
         PlacementMoved?.Invoke();
         SetStatus($"{definition.Label}: Position {Position.X:0}, {Position.Y:0} · {fix.Inliers} Treffer · Erkennung {LocateMs} ms · Overlay {Fps} fps · {CaptureMethod}");
     }
@@ -1378,6 +1390,7 @@ public sealed partial class MapTrackingService : IDisposable
 
     private void SetWorldPlacement(MapDefinition definition, MapFix fix, Rectangle screen, double worldPerPixel)
     {
+        lock (_flowGate) InvalidateReplayPosition(ReplayPositionGapReason.SourceInvalidated);
         // The player stays where the small map last saw them, if the world map shows that zone.
         Point2d? player = Position is { } p && p.MapId == definition.Id && p.ContextGeneration == ContextGeneration
             && EffectiveFeaturePolicy.AllowsLiveMap(NetworkContextEnabled, _worldContext?.Snapshot, p.MapId)
@@ -1667,6 +1680,7 @@ public sealed partial class MapTrackingService : IDisposable
     {
         Status = text;
         StatusIsError = error;
+        PublishReplayNotifications();
         SafeEvent.Raise(Changed, "Spieler-Tracking"); // subscribers save (arrival), a failure must not end tracking
     }
 

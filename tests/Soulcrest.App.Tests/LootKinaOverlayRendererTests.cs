@@ -20,7 +20,7 @@ public sealed class LootKinaOverlayRendererTests
             .Select(index => new LootOverlayDrop(index.ToString(), "Example item " + index, index + 1)).ToArray() };
         using var full = LootOverlayRenderer.RenderBitmap(snapshot, theme);
         using var compact = LootOverlayRenderer.RenderBitmap(snapshot, theme, .6);
-        Assert.Equal(400, full.Width);
+        Assert.Equal(480, full.Width);
         Assert.Equal(LootOverlayRenderer.DropsTop + 24 * LootOverlayRenderer.RowHeight + LootOverlayRenderer.FooterHeight, full.Height);
         Assert.Equal((int)Math.Ceiling(full.Width * .6), compact.Width);
         Assert.Equal((int)Math.Ceiling(full.Height * .6), compact.Height);
@@ -39,7 +39,7 @@ public sealed class LootKinaOverlayRendererTests
         Assert.False(unknown.DailyLimitReached);
         Assert.NotEqual(Pixels(zero), Pixels(unknownImage));
         Assert.NotEqual(Pixels(sessionAsDaily), Pixels(unknownImage));
-        Assert.DoesNotContain(Enumerable.Range(20, 90).Select(x => unknownImage.GetPixel(x, 84)),
+        Assert.DoesNotContain(Enumerable.Range(20, 90).Select(x => unknownImage.GetPixel(x, LootOverlayRenderer.DailyBar.Top + 5)),
             color => color.B > 150 && color.A > 150);
     }
 
@@ -50,8 +50,8 @@ public sealed class LootKinaOverlayRendererTests
         var complete = Example() with { DailyMonsterKina = LootOverlaySnapshot.DailyLimit };
         using var first = LootOverlayRenderer.RenderBitmap(complete, "aion2-stylized", completionSeconds: 0);
         using var late = LootOverlayRenderer.RenderBitmap(complete, "aion2-stylized", animationSeconds: 500, completionSeconds: 100);
-        var bluePixel = blue.GetPixel(80, 84);
-        var goldPixel = late.GetPixel(80, 84);
+        var bluePixel = blue.GetPixel(80, LootOverlayRenderer.DailyBar.Top + 5);
+        var goldPixel = late.GetPixel(80, LootOverlayRenderer.DailyBar.Top + 5);
         Assert.True(bluePixel.B > bluePixel.R + 60);
         Assert.True(goldPixel.R > goldPixel.B + 60 && goldPixel.G > goldPixel.B + 30);
         using var stable = LootOverlayRenderer.RenderBitmap(complete with { SessionActive = false }, "aion2-stylized");
@@ -101,12 +101,12 @@ public sealed class LootKinaOverlayRendererTests
         var before = LootOverlayRenderer.SessionSegmentBounds(first);
         var after = LootOverlayRenderer.SessionSegmentBounds(next);
         Assert.Equal(before.Left, after.Left);
-        Assert.Equal(200f, before.Left);
-        Assert.Equal(36.6, before.Width, 3);
-        Assert.Equal(91.5, after.Width, 3);
+        Assert.Equal(240f, before.Left);
+        Assert.Equal(44.6, before.Width, 3);
+        Assert.Equal(111.5, after.Width, 3);
         using var image = LootOverlayRenderer.RenderBitmap(next, "aion2-stylized", animationSeconds: 0);
         var blue = image.GetPixel(80, LootOverlayRenderer.DailyBar.Top + 2);
-        var green = image.GetPixel(220, LootOverlayRenderer.DailyBar.Top + 2);
+        var green = image.GetPixel(280, LootOverlayRenderer.DailyBar.Top + 2);
         Assert.True(blue.B > blue.R + 60);
         Assert.True(green.G > green.R + 40 && green.G > green.B + 20);
     }
@@ -117,7 +117,7 @@ public sealed class LootKinaOverlayRendererTests
         var snapshot = Example() with { DailyMonsterKina = 50_000, SessionKina = 500_000 };
         var segment = LootOverlayRenderer.SessionSegmentBounds(snapshot);
         Assert.Equal(17f, segment.Left);
-        Assert.Equal(18.3, segment.Width, 3);
+        Assert.Equal(22.3, segment.Width, 3);
         using var clipped = LootOverlayRenderer.RenderBitmap(snapshot, "aion2-stylized", animationSeconds: 1);
         using var baseline = LootOverlayRenderer.RenderBitmap(snapshot with { SessionKina = 0 }, "aion2-stylized", animationSeconds: 1);
         for (var x = (int)Math.Ceiling(segment.Right) + 1; x < LootOverlayRenderer.DailyBar.Right - 1; x++)
@@ -156,7 +156,7 @@ public sealed class LootKinaOverlayRendererTests
         var snapshot = Example() with { DailyMonsterKina = 500_001, SessionKina = 1 };
         Assert.InRange(LootOverlayRenderer.SessionSegmentBounds(snapshot).Width, 0, .001f);
         using var image = LootOverlayRenderer.RenderBitmap(snapshot, "aion2-stylized");
-        Assert.Equal(400, image.Width);
+        Assert.Equal(480, image.Width);
     }
 
     [Fact]
@@ -204,7 +204,7 @@ public sealed class LootKinaOverlayRendererTests
     {
         using var image = LootOverlayRenderer.RenderBitmap(Example(), "aion2-stylized");
         var row = LootOverlayRenderer.DropIconBounds(0);
-        Assert.Equal(image.GetPixel(10, row.Top + row.Height / 2),
+        Assert.Equal(image.GetPixel(14, row.Top + row.Height / 2),
             image.GetPixel(row.Left + row.Width / 2, row.Top + row.Height / 2));
     }
 

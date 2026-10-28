@@ -22,9 +22,11 @@ internal sealed class RareDropAudioSession : IRareDropAudioSession
     private InMemoryRandomAccessStream? _stream;
     private MediaSource? _source;
     private bool _disposed;
+    private readonly TimeSpan _maximumDuration;
 
-    internal RareDropAudioSession()
+    internal RareDropAudioSession(TimeSpan? maximumDuration = null)
     {
+        _maximumDuration = maximumDuration ?? TimeSpan.FromSeconds(5);
         try
         {
             _player.CommandManager.IsEnabled = false;
@@ -56,7 +58,7 @@ internal sealed class RareDropAudioSession : IRareDropAudioSession
                 _player.Source = _source;
                 _player.Play();
             }
-            await _ended.Task.WaitAsync(TimeSpan.FromSeconds(5), cancellation).ConfigureAwait(false);
+            await _ended.Task.WaitAsync(_maximumDuration, cancellation).ConfigureAwait(false);
         }
         finally
         {
@@ -106,17 +108,17 @@ internal sealed class RareDropAudioSession : IRareDropAudioSession
     }
 }
 
-/// <summary>User-selected original Resonant cue with a shorter tail and reduced noise.</summary>
+/// <summary>Own synthesised item-pickup "plop" (scripts/sound/generate_loot_drop.py), embedded as PCM.</summary>
 internal static class RareDropSound
 {
     internal const int SampleRate = 48_000;
-    internal const double Duration = 4.1;
+    internal const double Duration = 10_080d / SampleRate;
     private static readonly Lazy<byte[]> Wave = new(LoadWave);
     internal static byte[] CreateWave() => Wave.Value;
 
     private static byte[] LoadWave()
     {
-        // User request 2026-10-26: original Resonant, shorter end and less noise.
+        // User request 2026-10-28: an own, very similar replacement for the supplied item plop.
         using var stream = typeof(RareDropSound).Assembly.GetManifestResourceStream("Soulcrest.LootDropStandard.wav")
             ?? throw new InvalidOperationException("The embedded standard drop sound is missing.");
         using var memory = new MemoryStream();

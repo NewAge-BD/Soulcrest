@@ -2,6 +2,31 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.15.0 – 2026-10-28
+
+- **Neu:** Abyss-Sessions im Loot-Tracker: Ein bestätigter Eintritt startet die Session, das
+  Verlassen beendet sie. Erfasst werden AP, Kina, Rangpunkte und Sammelbeute; Tode, Pausen und
+  Kartenwechsel im Abyss teilen den Aufenthalt nicht.
+- **Neu:** HUD **Abyss Rank Tracker**: Gesamt-Rangpunkte mit Punkte-Stufe, den Originalicons und der
+  nächsten Schwelle, dazu Session-Rangpunkte netto und Rangpunkte pro Stunde. Ein Aufstieg wird mit
+  einer ruhigen Icon-Entwicklung und dezentem Klang gezeigt (reduzierte Bewegung und Lautstärke
+  einstellbar).
+- **Neu:** Killfeed unter dem Rank Tracker mit den letzten zehn eigenen PvP-Kills und Toden, Klasse
+  und Rang des Gegners als Icon und rangabhängigem Hintergrund; Arten einzeln abwählbar.
+- **Neu:** AP-Farmstand gegen das wöchentlich steigende AP-Cap, AP/h oder AP/min wählbar. Eigene AP-
+  und Rangpunkt-Gewinne außerhalb des Abyss zählen in der normalen Open-World-Session mit.
+- **Neu:** Open-World-PvE und Sammeln laufen in einer gemeinsamen Session mit Ansichten Gesamt, PvE,
+  Lifeskill und Abyss.
+- **Neu:** Session-Replay: gelaufene Route und gemeinsame Timeline mit Abspielen, Rückwärts,
+  10-Sekunden-Sprüngen und 0,25x bis 8x; Kills, Tode, Sammelstellen und Beute mit Originalicons.
+  Dazu eine Sessionstatistik, im Abyss nach Gegnerklasse und -rang.
+- **Neu:** Loot-Overlay: Option „Nur bei laufender Session anzeigen“, Lifeskill-Block, Sortierung
+  nach Seltenheit; grüne und blaue Ausrüstung werden wie weiße zusammengefasst.
+- **Neu:** Jagdgebiete erscheinen auf der Karte mit Originalicon und großen Gebietsnamen.
+- **Geändert:** Neuer, kurzer Standard-Dropklang.
+- **Behoben:** Mehrere Fälle, in denen Beute verloren ging oder die Aufzeichnung stoppte, etwa bei
+  Drops kurz vor 07:00 UTC, beschädigten Zwischenspeichern oder sehr langen Abyss-Aufenthalten.
+
 ## 0.14.0 – 2026-10-26
 
 - **Neu:** Tab **Loot-Tracker**: Sessions mit Kina (gebunden/ungebunden), Kina/h, Items, Souls und

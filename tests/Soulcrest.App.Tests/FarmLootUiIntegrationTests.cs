@@ -80,20 +80,6 @@ public sealed class FarmLootUiIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void MixedSessionSourcesPreserveAllEntriesAndUseTheNewestObservation()
-    {
-        var at = DateTimeOffset.UnixEpoch;
-        var gathering = new LootTrackerSession { Id = "gathering", Kind = LootTrackerSessionKind.Lifeskill, StartedAt = at };
-        var monster = new LootTrackerSession { Id = "monster", Kind = LootTrackerSessionKind.Grind, StartedAt = at.AddMinutes(1) };
-        var merged = LootTrackerLiveView.MergeSnapshots(new([gathering], at), new([monster], at.AddMinutes(2)));
-        Assert.Equal(["monster", "gathering"], merged.Sessions.Select(row => row.Id));
-        Assert.Equal(at.AddMinutes(2), merged.At);
-        var withEmptySource = LootTrackerLiveView.MergeSnapshots(new(default, null), merged);
-        Assert.Equal(merged.Sessions.Select(row => row.Id), withEmptySource.Sessions.Select(row => row.Id));
-        Assert.Equal(merged.At, withEmptySource.At);
-    }
-
-    [Fact]
     public Task HostUsesOneSharedNetworkSourceAndCreatesAnIndependentOverlayWithoutStartingTheApp() => RunSta(() =>
     {
         JsonFile.Save(AppPaths.SettingsFile, new AppSettings
@@ -104,7 +90,16 @@ public sealed class FarmLootUiIntegrationTests : IDisposable
         using var host = new MainForm(); // Never Show: no WebView startup, passive capture or game window.
         var network = host.Services.GetRequiredService<NetworkLootService>();
         Assert.Same(network, host.Services.GetRequiredService<INetworkFarmSource>());
-        Assert.Same(host.Services.GetRequiredService<FarmLootTrackerService>(), host.Services.GetRequiredService<ILootOverlaySource>());
+        Assert.Same(network, host.Services.GetRequiredService<INetworkAbyssSource>());
+        Assert.Same(network, host.Services.GetRequiredService<INetworkAbyssCombatSource>());
+        Assert.Same(network, host.Services.GetRequiredService<INetworkGatheringSource>());
+        Assert.Same(network, host.Services.GetRequiredService<INetworkKinaSource>());
+        var adapter = host.Services.GetRequiredService<UnifiedLootOverlaySource>();
+        Assert.Same(adapter, host.Services.GetRequiredService<ILootOverlaySource>());
+        Assert.Same(host.Services.GetRequiredService<AbyssRankOverlaySource>(), host.Services.GetRequiredService<IAbyssRankOverlaySource>());
+        Assert.NotNull(host.Services.GetRequiredService<UnifiedLootTrackerService>());
+        Assert.NotNull(host.Services.GetRequiredService<AbyssProgressService>());
+        Assert.False(adapter.Snapshot.SessionActive);
         Assert.False(network.Running);
         Assert.False(host.Visible);
     });

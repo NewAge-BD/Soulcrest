@@ -5,6 +5,7 @@ namespace Soulcrest.Core.Network;
 /// <summary>A fully read absolute inventory record. Keys are transient and amounts are never income deltas.</summary>
 public sealed record CurrencyInventoryItem([property: JsonIgnore] long InstanceKey, int ItemId, long Count, byte Container)
 {
+    public bool HasEquipmentData { get; init; }
     public override string ToString() => $"CurrencyInventoryItem {{ ItemId = {ItemId}, Count = {Count}, Container = {Container} }}";
 }
 
@@ -114,7 +115,7 @@ public static class CurrencyInventoryMessage
         reader.Bool();
         if ((flags & 1) != 0) Equipment(ref reader);
         if (itemId <= 0 || amount < 0) throw new InvalidDataException("Invalid currency item amount or definition.");
-        var result = new RawItem(instance, itemId, amount, container);
+        var result = new RawItem(instance, itemId, amount, container, flags != 0);
         if (result.IsWallet && (instance <= 0 || flags != 0))
             throw new InvalidDataException("Unsupported wallet record variant.");
         return result;
@@ -134,11 +135,11 @@ public static class CurrencyInventoryMessage
         reader.Skip(1);
     }
 
-    private readonly record struct RawItem(long Instance, int ItemId, long Count, byte Container)
+    private readonly record struct RawItem(long Instance, int ItemId, long Count, byte Container, bool HasEquipmentData)
     {
         public bool IsKina => ItemId is BoundKinaItemId or UnboundKinaItemId;
         public bool IsWallet => Container == WalletContainer && IsKina;
-        public CurrencyInventoryItem Observation() => new(Instance, ItemId, Count, Container);
+        public CurrencyInventoryItem Observation() => new(Instance, ItemId, Count, Container) { HasEquipmentData = HasEquipmentData };
     }
 
     private sealed class WalletUniqueness

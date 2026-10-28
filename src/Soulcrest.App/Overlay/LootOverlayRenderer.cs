@@ -9,24 +9,48 @@ namespace Soulcrest.App.Overlay;
 /// <summary>The same pixel renderer serves the live layered window, previews and offline visual QA.</summary>
 internal static class LootOverlayRenderer
 {
-    internal const int Width = 400, DropsTop = 242, RowHeight = 29, FooterHeight = 29, RareDropHeight = 92;
+    internal const int Width = 480, DropsTop = 220, RowHeight = 27, FooterHeight = 27, RareDropHeight = 92;
     internal static readonly Color Blue = Color.FromArgb(79, 162, 246);
     internal static readonly Color Green = Color.FromArgb(89, 220, 147);
     internal static readonly Color Gold = Color.FromArgb(245, 199, 89);
     internal static Rectangle LockBounds => new(Width - 31, 8, 20, 20);
-    internal static Rectangle DailyBar => new(16, 79, Width - 32, 24);
+    internal static Rectangle DailyBar => new(16, 60, Width - 32, 24);
     internal static Rectangle DailyKinaIconBounds => new(DailyBar.Left + 5, DailyBar.Top + 4, 16, 16);
     internal static RectangleF DailyKinaNumberBounds => new(DailyBar.Left + 27, DailyBar.Top, DailyBar.Width - 32, DailyBar.Height);
-    internal static Rectangle SessionKinaIconBounds => new(16, 151, 24, 24);
-    internal static RectangleF SessionKinaNumberBounds => new(48, 147, 180, 33);
-    internal static RectangleF SessionRateLabelBounds => new(236, 133, Width - 252, 18);
-    internal static RectangleF SessionRateNumberBounds => new(236, 151, Width - 252, 27);
-    internal static Rectangle DropIconBounds(int row) => new(16, DropsTop + row * RowHeight + 2, 24, 24);
+    internal static Rectangle SessionKinaIconBounds => new(16, 129, 24, 24);
+    internal static RectangleF SessionKinaNumberBounds => new(48, 124, 180, 34);
+    internal static RectangleF SessionRateLabelBounds => new(256, 107, Width - 272, 18);
+    internal static RectangleF SessionRateNumberBounds => new(256, 124, Width - 272, 34);
+    internal static Rectangle DropIconBounds(int row) => new(16, DropsTop + row * RowHeight + 2, 22, 22);
+    internal static Rectangle DropIconBoundsFor(LootOverlaySnapshot snapshot, int row) =>
+        new(16, DropsTopFor(snapshot) + row * RowHeight + 2, 22, 22);
+    internal static bool ShowPveBlock(LootOverlaySnapshot snapshot) => snapshot.HasPveActivity
+        && snapshot.SessionKind is not (LootTrackerSessionKind.Abyss or LootTrackerSessionKind.Lifeskill);
+    internal static bool ShowLifeskillBlock(LootOverlaySnapshot snapshot) => snapshot.HasLifeskillActivity
+        || snapshot.SessionKind == LootTrackerSessionKind.Lifeskill;
+    internal static bool ShowOpenWorldPointsBlock(LootOverlaySnapshot snapshot) => snapshot.SessionActive
+        && snapshot.SessionKind == LootTrackerSessionKind.Mixed && snapshot.HasAbyssPointActivity;
+    internal static int OpenWorldPointsTopFor(LootOverlaySnapshot snapshot) => 38 + (ShowPveBlock(snapshot) ? 156 : 0);
+    internal static RectangleF OpenWorldPointsNumberBoundsFor(LootOverlaySnapshot snapshot) =>
+        new(48, OpenWorldPointsTopFor(snapshot) + 24, 180, 34);
+    internal static RectangleF OpenWorldPointsRateBoundsFor(LootOverlaySnapshot snapshot) =>
+        new(256, OpenWorldPointsTopFor(snapshot) + 24, Width - 272, 34);
+    internal static int LifeskillTopFor(LootOverlaySnapshot snapshot) => 38 +
+        (snapshot.SessionKind == LootTrackerSessionKind.Abyss ? 194 : ShowPveBlock(snapshot) ? 156 : 0)
+        + (ShowOpenWorldPointsBlock(snapshot) ? 76 : 0);
+    internal static RectangleF HarvestNumberBoundsFor(LootOverlaySnapshot snapshot) => new(16, LifeskillTopFor(snapshot) + 24, 212, 34);
+    internal static RectangleF HarvestRateBoundsFor(LootOverlaySnapshot snapshot) => new(256, LifeskillTopFor(snapshot) + 24, Width - 272, 34);
+    internal static int DropsTopFor(LootOverlaySnapshot snapshot) => LifeskillTopFor(snapshot)
+        + (ShowLifeskillBlock(snapshot) ? 100 : 0) + 26 + SummaryLineHeight(snapshot);
+    private static int SummaryLineHeight(LootOverlaySnapshot snapshot)
+    {
+        return 0;
+    }
 
     /// <summary>Only a fresh running session can explain a known part of today's confirmed total.</summary>
     internal static RectangleF SessionSegmentBounds(LootOverlaySnapshot snapshot)
     {
-        if (!snapshot.SessionActive || !snapshot.TrackingAvailable || !snapshot.DailyConfirmed
+        if (!ShowPveBlock(snapshot) || !snapshot.SessionKinaKnown || !snapshot.SessionActive || !snapshot.TrackingAvailable || !snapshot.DailyConfirmed
             || snapshot.DailyLimitReached || snapshot.DailyMonsterKina is not { } total) return RectangleF.Empty;
         var daily = Math.Clamp(total, 0, LootOverlaySnapshot.DailyLimit);
         var contribution = Math.Clamp(snapshot.SessionKina, 0, daily);
@@ -39,18 +63,17 @@ internal static class LootOverlayRenderer
     }
 
     internal static Size Measure(LootOverlaySnapshot snapshot) => new(Width,
-        DropsTop + RowsHeight(snapshot) + FooterHeight
+        DropsTopFor(snapshot) + RowsHeight(snapshot) + FooterHeight
         + RareNotices(snapshot).Count * RareDropHeight);
 
-    private static int RowSize(LootOverlayDrop drop)
-    {
-        var size = RowHeight;
-        return size;
-    }
-    private static int RowsHeight(LootOverlaySnapshot snapshot) => snapshot.Drops.Count == 0 ? RowHeight : snapshot.Drops.Sum(RowSize);
+    private static int RowsHeight(LootOverlaySnapshot snapshot) => Math.Max(1, snapshot.Drops.Count) * RowHeight;
 
-    internal static IReadOnlyList<RareDropNotice> RareNotices(LootOverlaySnapshot snapshot) => snapshot.RareDrops.Count > 0
-        ? snapshot.RareDrops : snapshot.RareDrop is { } notice ? [notice] : [];
+    internal static IReadOnlyList<RareDropNotice> RareNotices(LootOverlaySnapshot snapshot)
+    {
+        IReadOnlyList<RareDropNotice> notices = snapshot.RareDrops.Count > 0 ? snapshot.RareDrops
+            : snapshot.RareDrop is { } notice ? [notice] : [];
+        return notices.Where(notice => MonsterLootItemCatalog.IsExceptional(notice.Rarity)).ToArray();
+    }
 
     internal static LootItemRarity DropRarity(LootOverlayDrop drop) => drop.Rarity == LootItemRarity.Unknown
         ? MonsterLootItemCatalog.Default.DropRarity(drop.Key) : drop.Rarity;
@@ -106,70 +129,123 @@ internal static class LootOverlayRenderer
     {
         using var ownIcons = icons is null ? new LootOverlayIconCache() : null;
         var iconCache = icons ?? ownIcons!;
-        var size = Measure(snapshot);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-        // Only the theme's surface fill is attenuated. Text, icons, progress and rarity effects retain their own alpha.
-        theme.Panel(graphics, new(Point.Empty, size), NormalizedBackgroundOpacity(backgroundOpacity));
-        using var heading = theme.Heading(15);
-        using var body = theme.Body(12, FontStyle.Bold);
-        using var small = theme.Body(10.5f);
-        using var amount = theme.Body(26, FontStyle.Bold);
-        using var rateAmount = theme.Body(19, FontStyle.Bold);
+        theme.Panel(graphics, new(Point.Empty, Measure(snapshot)), NormalizedBackgroundOpacity(backgroundOpacity));
+        using var heading = theme.Heading(14);
+        using var body = theme.Body(10.5f, FontStyle.Bold);
+        using var small = theme.Body(9.5f);
+        using var amount = theme.Body(24, FontStyle.Bold);
+        using var rateAmount = theme.Body(20, FontStyle.Bold);
+        using var compactAmount = theme.Body(16, FontStyle.Bold);
         using var primary = new SolidBrush(theme.Primary);
         using var secondary = new SolidBrush(theme.Secondary);
-        using var blue = new SolidBrush(Blue);
-        using var green = new SolidBrush(Green);
-        using var gold = new SolidBrush(Gold);
         using var edge = new Pen(Color.FromArgb(90, theme.Border));
+        using var rowGround = new SolidBrush(Color.FromArgb(50, 0, 0, 0));
         using var text = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
         using var right = new StringFormat(text) { Alignment = StringAlignment.Far };
         using var center = new StringFormat(text) { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-
+        var abyss = snapshot.SessionKind == LootTrackerSessionKind.Abyss;
+        var currency = abyss || ShowPveBlock(snapshot);
+        var dropsTop = DropsTopFor(snapshot);
         theme.Diamond(graphics, new(16, 17), 4, theme.Gold);
-        graphics.DrawString(UiText.T("Beute"), heading, primary, new RectangleF(29, 6, Width - 70, 24), text);
-        graphics.DrawLine(edge, 15, 35, Width - 15, 35);
-        graphics.DrawString(UiText.T("Monster-Kina heute"), body, primary, new RectangleF(16, 45, Width - 32, 19), text);
-        graphics.DrawString(UiText.T("Ungebundene Kina"), small, secondary, new RectangleF(16, 64, Width - 32, 15), text);
+        graphics.DrawString(UiText.T("Beute") + (abyss ? " · Abyss" : ""), heading, primary,
+            new RectangleF(29, 6, 245, 22), text);
+        var elapsed = snapshot.SessionElapsed < TimeSpan.Zero ? TimeSpan.Zero : snapshot.SessionElapsed;
+        var duration = ((long)elapsed.TotalHours).ToString("00", CultureInfo.InvariantCulture) + ":" + elapsed.ToString(@"mm\:ss");
+        graphics.DrawString(duration, body, secondary, new RectangleF(285, 8, Width - 332, 20), right);
+        graphics.DrawLine(edge, 15, 31, Width - 15, 31);
 
-        PaintDailyBar(graphics, snapshot, body, center, snapshot.AnimationsEnabled ? animationSeconds : 0, iconCache);
-        var dailyStatus = snapshot.DailyMonsterKina is not null && !snapshot.DailyConfirmed ? "Gespeicherter Tagesstand"
-            : snapshot.DailyLimitReached ? "Tageslimit erreicht"
-            : snapshot.DailyMonsterKina is null ? "Tagesstand unbekannt" : "";
-        if (dailyStatus.Length > 0)
-            graphics.DrawString(UiText.T(dailyStatus), small, snapshot.DailyLimitReached ? gold : secondary,
-                new RectangleF(16, 107, Width - 32, 17), text);
-        graphics.DrawString(UiText.T("Kina dieser Session"), small, secondary, new RectangleF(16, 133, Width - 32, 18), text);
-        iconCache.Draw(graphics, snapshot.KinaIconPath, SessionKinaIconBounds);
-        graphics.DrawString(Number(snapshot.SessionKina), amount, green, SessionKinaNumberBounds, text);
-        graphics.DrawString(UiText.T("Kina/h"), small, secondary, SessionRateLabelBounds, right);
-        graphics.DrawString(RateLabel(snapshot.SessionKinaPerHour), rateAmount, green, SessionRateNumberBounds, right);
-        graphics.DrawString(UiText.T("Weitere Beute"), small, secondary, new RectangleF(16, 221, Width - 32, 18), text);
-        graphics.DrawLine(edge, 16, 240, Width - 16, 240);
-
-        var y = DropsTop;
+        if (currency)
+        {
+            graphics.DrawString(UiText.T(abyss ? "Kumulativ gefarmte AP" : "Monster-Kina heute"), body, primary,
+                new RectangleF(16, 39, Width - 32, 18), text);
+            if (abyss) PaintAbyssBar(graphics, snapshot, body, center);
+            else PaintDailyBar(graphics, snapshot, body, center, snapshot.AnimationsEnabled ? animationSeconds : 0, iconCache);
+            var status = abyss ? snapshot.FarmedAbyssPoints is null ? "AP-Farmstand unbekannt"
+                : !snapshot.AbyssFarmConfirmed ? "Gespeicherter AP-Farmstand"
+                : snapshot.AbyssPointCap is > 0 && snapshot.FarmedAbyssPoints >= snapshot.AbyssPointCap ? "AP-Cap erreicht" : ""
+                : snapshot.DailyMonsterKina is not null && !snapshot.DailyConfirmed ? "Gespeicherter Tagesstand"
+                : snapshot.DailyLimitReached ? "Tageslimit erreicht"
+                : snapshot.DailyMonsterKina is null ? "Tagesstand unbekannt" : "";
+            if (status.Length > 0)
+                graphics.DrawString(UiText.T(status), small, secondary, new RectangleF(16, 88, Width - 32, 17), text);
+            graphics.DrawString(UiText.T(abyss ? "Abyss Points dieser Session" : "Kina dieser Session"), small, secondary,
+                new RectangleF(16, 107, 220, 18), text);
+            iconCache.Draw(graphics, abyss ? snapshot.AbyssPointIconPath : snapshot.KinaIconPath, SessionKinaIconBounds);
+            PaintCounter(graphics, abyss ? CountLabel(snapshot.SessionAbyssPoints)
+                : snapshot.SessionKinaKnown ? Number(snapshot.SessionKina) : "—", amount, Green, SessionKinaNumberBounds, text);
+            graphics.DrawString(UiText.T(abyss ? snapshot.AbyssPointRatePeriod == AbyssPointRatePeriod.Minute ? "AP/min" : "AP/h" : "Kina/h"),
+                small, secondary, SessionRateLabelBounds, right);
+            PaintCounter(graphics, RateLabel(abyss ? snapshot.SessionAbyssPointsRate : snapshot.SessionKinaPerHour),
+                rateAmount, Green, SessionRateNumberBounds, right);
+            graphics.DrawLine(edge, 240, 109, 240, 158);
+            if (abyss)
+            {
+                graphics.DrawString(UiText.T("Kina dieser Session"), small, secondary, new RectangleF(16, 166, 215, 17), text);
+                graphics.DrawString(UiText.T("Kina/h"), small, secondary, new RectangleF(256, 166, Width - 272, 17), right);
+                iconCache.Draw(graphics, snapshot.KinaIconPath, new(16, 185, 18, 18));
+                PaintCounter(graphics, snapshot.SessionKinaKnown ? Number(snapshot.SessionKina) : "—", compactAmount,
+                    theme.Primary, new(41, 183, 187, 26), text);
+                PaintCounter(graphics, RateLabel(snapshot.SessionKinaPerHour), compactAmount, theme.Primary,
+                    new(256, 183, Width - 272, 26), right);
+            }
+        }
+        if (ShowOpenWorldPointsBlock(snapshot))
+        {
+            var top = OpenWorldPointsTopFor(snapshot);
+            if (currency) graphics.DrawLine(edge, 16, top, Width - 16, top);
+            graphics.DrawString(UiText.T("Abyss Points dieser Session"), small, secondary,
+                new RectangleF(16, top + 5, 220, 18), text);
+            graphics.DrawString(UiText.T(snapshot.AbyssPointRatePeriod == AbyssPointRatePeriod.Minute ? "AP/min" : "AP/h"),
+                small, secondary, new RectangleF(256, top + 5, Width - 272, 18), right);
+            iconCache.Draw(graphics, snapshot.AbyssPointIconPath, new(16, top + 29, 24, 24));
+            PaintCounter(graphics, CountLabel(snapshot.SessionAbyssPoints), amount, Green,
+                OpenWorldPointsNumberBoundsFor(snapshot), text);
+            PaintCounter(graphics, RateLabel(snapshot.SessionAbyssPointsRate), rateAmount, Green,
+                OpenWorldPointsRateBoundsFor(snapshot), right);
+            graphics.DrawLine(edge, 240, top + 7, 240, top + 58);
+        }
+        if (ShowLifeskillBlock(snapshot))
+        {
+            var top = LifeskillTopFor(snapshot);
+            if (currency || ShowOpenWorldPointsBlock(snapshot)) graphics.DrawLine(edge, 16, top, Width - 16, top);
+            graphics.DrawString(UiText.T("Erfolgreiche Ernten"), small, secondary, new RectangleF(16, top + 5, 220, 18), text);
+            graphics.DrawString(UiText.T("Ernten/h"), small, secondary, new RectangleF(256, top + 5, Width - 272, 18), right);
+            PaintCounter(graphics, CountLabel(snapshot.HarvestCount), amount, Green, HarvestNumberBoundsFor(snapshot), text);
+            PaintCounter(graphics, RateLabel(snapshot.HarvestsPerHour), rateAmount, Green, HarvestRateBoundsFor(snapshot), right);
+            graphics.DrawLine(edge, 240, top + 7, 240, top + 58);
+            graphics.DrawString(UiText.T("Fehlversuche") + ": " + CountLabel(snapshot.FailedHarvestCount), small, secondary,
+                new RectangleF(16, top + 64, 220, 19), text);
+            graphics.DrawString(UiText.T("Itemmenge") + ": " + CountLabel(snapshot.ItemCount), small, secondary,
+                new RectangleF(256, top + 64, Width - 272, 19), right);
+        }
+        graphics.DrawString(UiText.T("Weitere Beute"), small, secondary, new RectangleF(16, dropsTop - 21, Width - 32, 18), text);
+        graphics.DrawLine(edge, 16, dropsTop - 2, Width - 16, dropsTop - 2);
         if (snapshot.Drops.Count == 0)
-            graphics.DrawString(UiText.T("Noch keine Beute"), small, secondary, new RectangleF(16, y + 7, Width - 32, 19), text);
+            graphics.DrawString(UiText.T("Noch keine Beute"), small, secondary, new RectangleF(16, dropsTop + 5, Width - 32, 19), text);
         for (var row = 0; row < snapshot.Drops.Count; row++)
         {
             var drop = snapshot.Drops[row];
             var rarity = DropRarity(drop);
-            var rowSize = RowSize(drop);
-            LootRarityVisuals.PaintBackground(graphics, new RectangleF(13, y + 1, Width - 26, rowSize - 2),
-                rarity, animationSeconds, snapshot.SessionActive && snapshot.AnimationsEnabled);
-            iconCache.Draw(graphics, drop.IconPath, new(16, y + 2, 24, 24));
+            var y = dropsTop + row * RowHeight;
+            var rowBounds = new RectangleF(13, y + 1, Width - 26, RowHeight - 2);
+            graphics.FillRectangle(rowGround, rowBounds);
+            LootRarityVisuals.PaintBackground(graphics, rowBounds, rarity, animationSeconds,
+                snapshot.SessionActive && snapshot.AnimationsEnabled);
+            iconCache.Draw(graphics, drop.IconPath, DropIconBoundsFor(snapshot, row));
             using var nameInk = new SolidBrush(LootRarityVisuals.NameColor(rarity) ?? theme.Primary);
-            graphics.DrawString(drop.Name, body, nameInk, new RectangleF(48, y + 6, Width - 157, 20), text);
-            graphics.DrawString("×" + Number(drop.Count), body, drop.Kind == LootOverlayDropKind.SoulCrystal ? blue : primary,
-                new RectangleF(Width - 106, y + 6, 89, 20), right);
-            y += rowSize;
+            graphics.DrawString(drop.Name, body, nameInk, new RectangleF(46, y + 5, Width - 171, 20), text);
+            PaintCounter(graphics, "×" + Number(drop.Count), body,
+                drop.Kind == LootOverlayDropKind.SoulCrystal ? Blue : theme.Primary, new RectangleF(Width - 116, y + 4, 99, 21), right);
         }
-        y = DropsTop + RowsHeight(snapshot);
-        graphics.DrawLine(edge, 16, y + 3, Width - 16, y + 3);
-        var status = !locked ? "Schloss: sperren · Kopf ziehen" : !snapshot.TrackingAvailable ? "Monsterloot nicht verfügbar"
-            : !snapshot.SessionActive ? "Keine laufende Session" : snapshot.LimitedKinaSession ? "Limited Kina Session" : "Schloss klicken zum Entsperren";
-        graphics.DrawString(UiText.T(status), small, secondary, new RectangleF(16, y + 9, Width - 32, 17), text);
-        var noticeY = y + FooterHeight;
+        var footer = dropsTop + RowsHeight(snapshot);
+        graphics.DrawLine(edge, 16, footer + 3, Width - 16, footer + 3);
+        var footerText = !locked ? "Schloss: sperren · Kopf ziehen" : !snapshot.TrackingAvailable ? "Beuteaufzeichnung nicht verfügbar"
+            : !snapshot.SessionActive ? "Keine laufende Session" : snapshot.LimitedKinaSession ? "Limited Kina Session"
+            : "Schloss klicken zum Entsperren";
+        graphics.DrawString(UiText.T(footerText), small, secondary, new RectangleF(16, footer + 8, Width - 32, 17), text);
+        var noticeY = footer + FooterHeight;
         foreach (var notice in RareNotices(snapshot))
         {
             PaintRareDrop(graphics, notice, noticeY, snapshot.AnimationsEnabled, animationSeconds, theme, iconCache);
@@ -177,6 +253,46 @@ internal static class LootOverlayRenderer
         }
         if (snapshot.AnimationsEnabled && snapshot.DailyLimitReached && completionSeconds is >= 0 and < LootOverlayAnimation.CompletionDuration)
             PaintCompletion(graphics, completionSeconds.Value);
+    }
+
+    private static string CountLabel(long? value) => value is >= 0 ? Number(value.Value) : "—";
+
+    private static void PaintCounter(Graphics graphics, string value, Font preferred, Color color, RectangleF bounds, StringFormat format)
+    {
+        var size = preferred.Size;
+        if (graphics.MeasureString(value, preferred).Width > bounds.Width - 6)
+            for (size -= .5f; size > 10; size -= .5f)
+            {
+                using var fitted = new Font(preferred.FontFamily, size, preferred.Style, GraphicsUnit.Pixel);
+                if (graphics.MeasureString(value, fitted).Width <= bounds.Width - 6) break;
+            }
+        var saved = graphics.Save();
+        try
+        {
+            graphics.SetClip(bounds, CombineMode.Intersect);
+            using var path = new GraphicsPath();
+            path.AddString(value, preferred.FontFamily, (int)preferred.Style, size, bounds, format);
+            using var outline = new Pen(Color.FromArgb(color.A, 3, 6, 10), 3) { LineJoin = LineJoin.Round };
+            using var ink = new SolidBrush(color);
+            graphics.DrawPath(outline, path);
+            graphics.FillPath(ink, path);
+        }
+        finally { graphics.Restore(saved); }
+    }
+
+    private static void PaintAbyssBar(Graphics graphics, LootOverlaySnapshot snapshot, Font font, StringFormat center)
+    {
+        var bounds = DailyBar;
+        using var track = new SolidBrush(Color.FromArgb(190, 11, 20, 30));
+        using var fill = new SolidBrush(Blue);
+        using var border = new Pen(Color.FromArgb(125, Blue));
+        using var ink = new SolidBrush(Color.White);
+        graphics.FillRectangle(track, bounds);
+        if (snapshot.AbyssPointCap is > 0 and var cap && snapshot.FarmedAbyssPoints is >= 0 and var farmed)
+            graphics.FillRectangle(fill, bounds.X + 1, bounds.Y + 1, (float)((bounds.Width - 2) * Math.Clamp(farmed / (double)cap, 0, 1)), bounds.Height - 2);
+        graphics.DrawRectangle(border, bounds);
+        PaintCounter(graphics, (snapshot.FarmedAbyssPoints is { } total ? Number(total) : "—") + " / "
+            + (snapshot.AbyssPointCap is { } limit ? Number(limit) : "—"), font, Color.White, bounds, center);
     }
 
     private static void PaintRareDrop(Graphics graphics, RareDropNotice notice, int y, bool animated, double seconds,
@@ -233,7 +349,7 @@ internal static class LootOverlayRenderer
         using var ink = new SolidBrush(snapshot.DailyLimitReached ? Color.FromArgb(255, 249, 219) : Color.White);
         var labelBounds = DailyKinaNumberBounds;
         graphics.DrawString(label, font, shadow, new RectangleF(labelBounds.X + 1, labelBounds.Y + 1, labelBounds.Width, labelBounds.Height), center);
-        graphics.DrawString(label, font, ink, labelBounds, center);
+        PaintCounter(graphics, label, font, ink.Color, labelBounds, center);
     }
 
     private static void PaintSessionSegment(Graphics graphics, RectangleF bounds, double seconds)
@@ -317,5 +433,5 @@ internal sealed class LootOverlayAnimation
     internal bool IsAnimating(LootOverlaySnapshot snapshot, double seconds) =>
         snapshot.AnimationsEnabled && (LootOverlayRenderer.SessionSegmentBounds(snapshot).Width > 0
             || CompletionSeconds(seconds) is not null || LootOverlayRenderer.RareNotices(snapshot).Count > 0
-            || snapshot.SessionActive && snapshot.Drops.Any(drop => MonsterLootItemCatalog.IsExceptional(LootOverlayRenderer.DropRarity(drop))));
+            || snapshot.SessionActive && snapshot.Drops.Any(drop => LootRarityVisuals.HasAnimatedBackground(LootOverlayRenderer.DropRarity(drop))));
 }

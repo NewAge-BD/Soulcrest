@@ -28,12 +28,24 @@ public sealed class AppSettings
 
     /// <summary>User request 2026-10-25: finish grind sessions after this many minutes without loot.</summary>
     public int LootTrackerIdleTimeoutMinutes { get; set; } = LootTrackerPresentation.DefaultIdleTimeoutMinutes;
+    public AbyssCombatGrouping AbyssCombatGrouping { get; set; } = AbyssCombatGrouping.Class;
+    public AbyssCombatSort AbyssCombatSort { get; set; } = AbyssCombatSort.KillsDescending;
+    public LootResourceSort LifeskillResourceSort { get; set; } = LootResourceSort.SuccessesDescending;
+    public LootQuantitySort PveLootSort { get; set; } = LootQuantitySort.QuantityDescending;
+    public LootQuantitySort PveMobSort { get; set; } = LootQuantitySort.QuantityDescending;
+    public LootTimelineValueMode LootTimelineValueMode { get; set; } = LootTimelineValueMode.Cumulative;
+    public LootTrackerReplayKillIconMode LootReplayKillIconMode { get; set; } = LootTrackerReplayKillIconMode.Rank;
+    public LootTrackerViewMode LootTrackerViewMode { get; set; } = LootTrackerViewMode.Mixed;
+    public Dictionary<LootTrackerViewMode, string[]> LootTimelineLayersByView { get; set; } = [];
 
     /// <summary>User request 2026-10-25: explicitly opt into gathering sessions and their position recorder.</summary>
     public bool LifeskillTrackingEnabled { get; set; }
 
     /// <summary>User request 2026-10-26: record own open-world gains automatically.</summary>
     public bool MonsterLootTrackingEnabled { get; set; } = true;
+    /// <summary>User request 2026-10-26: an Abyss visit records its complete duration.</summary>
+    public bool AbyssTrackingEnabled { get; set; } = true;
+    public AbyssPointRatePeriod AbyssPointRatePeriod { get; set; } = AbyssPointRatePeriod.Hour;
     public int MonsterLootAutoSessionRevision { get; set; }
     public bool LootDropAlertsEnabled { get; set; } = true;
     public bool LootDropSoundEnabled { get; set; } = true;
@@ -46,6 +58,18 @@ public sealed class AppSettings
     public double LootOverlayScale { get; set; } = 1;
     public double LootOverlayBackgroundOpacity { get; set; } = 1;
     public bool LootOverlayShowOnSessionStart { get; set; }
+    public bool LootOverlayOnlyDuringSession { get; set; }
+    public bool AbyssRankOverlayEnabled { get; set; }
+    public bool AbyssRankReducedMotion { get; set; }
+    public bool AbyssRankSoundEnabled { get; set; } = true;
+    public double AbyssRankSoundVolume { get; set; } = .6;
+    public bool AbyssKillFeedEnabled { get; set; } = true;
+    public bool AbyssKillFeedShowKills { get; set; } = true;
+    public bool AbyssKillFeedShowDeaths { get; set; }
+    public bool AbyssKillFeedShowAssists { get; set; } = true;
+    public int AbyssRankOverlayX { get; set; } = 48;
+    public int AbyssRankOverlayY { get; set; } = 220;
+    public double AbyssRankOverlayScale { get; set; } = 1;
 
     /// <summary>Look for a new version on GitHub after every start (UpdateService).</summary>
     public bool CheckUpdatesOnStart { get; set; } = true;
@@ -344,6 +368,7 @@ public sealed class SettingsService
         if (Current.OverlayShowMode is not ("foreground" or "always")) Current.OverlayShowMode = "foreground";
         Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
         Current.LootTrackerIdleTimeoutMinutes = LootTrackerPresentation.NormalizeIdleTimeoutMinutes(Current.LootTrackerIdleTimeoutMinutes);
+        NormalizeSessionPresentation(Current);
         if (Current.MonsterLootAutoSessionRevision < 1)
         {
             // The former false default was serialized in existing files. Subsequent opt-outs
@@ -352,6 +377,7 @@ public sealed class SettingsService
             Current.MonsterLootAutoSessionRevision = 1;
         }
         Current.LootDropSoundVolume = NormalizeLootDropSoundVolume(Current.LootDropSoundVolume);
+        Current.AbyssRankSoundVolume = NormalizeAbyssRankSoundVolume(Current.AbyssRankSoundVolume);
         Current.LootDropRarityAlerts = DropRarityAlertSettings.Normalize(Current.LootDropRarityAlerts);
         NormalizeDaevanionHighlights(Current);
         if (Current.DetectedGameLanguage is not ("de" or "en")) Current.DetectedGameLanguage = null;
@@ -387,6 +413,8 @@ public sealed class SettingsService
         OverlayHotkeys.Normalize(Current);
         Current.OverlayScale = double.IsFinite(Current.OverlayScale) ? Math.Clamp(Current.OverlayScale, .6, 2.5) : 1;
         Current.LootOverlayScale = LootOverlayRenderer.NormalizedScale(Current.LootOverlayScale);
+        Current.AbyssRankOverlayScale = AbyssRankOverlayRenderer.NormalizedScale(Current.AbyssRankOverlayScale);
+        Current.AbyssPointRatePeriod = NormalizeAbyssPointRatePeriod(Current.AbyssPointRatePeriod);
         Current.LootOverlayBackgroundOpacity = NormalizeLootBackgroundOpacity(Current.LootOverlayBackgroundOpacity);
         Current.BossNavigationPreviewCount = Math.Clamp(Current.BossNavigationPreviewCount, 0, 23);
         Current.BossOverlayCount = Math.Clamp(Current.BossOverlayCount, 1, 12);
@@ -532,6 +560,74 @@ public sealed class SettingsService
 
     public void SetLootDropAlertsEnabled(bool enabled) => SetDropOption(
         () => Current.LootDropAlertsEnabled, value => Current.LootDropAlertsEnabled = value, enabled);
+    public void SetAbyssCombatGrouping(AbyssCombatGrouping grouping) => SetDropOption(
+        () => Current.AbyssCombatGrouping, value => Current.AbyssCombatGrouping = value,
+        DefinedOr(grouping, AbyssCombatGrouping.Class));
+    public void SetAbyssCombatSort(AbyssCombatSort sort) => SetDropOption(
+        () => Current.AbyssCombatSort, value => Current.AbyssCombatSort = value,
+        DefinedOr(sort, AbyssCombatSort.KillsDescending));
+    public void SetLifeskillResourceSort(LootResourceSort sort) => SetDropOption(
+        () => Current.LifeskillResourceSort, value => Current.LifeskillResourceSort = value,
+        DefinedOr(sort, LootResourceSort.SuccessesDescending));
+    public void SetPveLootSort(LootQuantitySort sort) => SetDropOption(
+        () => Current.PveLootSort, value => Current.PveLootSort = value,
+        DefinedOr(sort, LootQuantitySort.QuantityDescending));
+    public void SetPveMobSort(LootQuantitySort sort) => SetDropOption(
+        () => Current.PveMobSort, value => Current.PveMobSort = value,
+        DefinedOr(sort, LootQuantitySort.QuantityDescending));
+    public void SetLootTrackerViewMode(LootTrackerViewMode mode) => SetDropOption(
+        () => Current.LootTrackerViewMode, value => Current.LootTrackerViewMode = value,
+        DefinedOr(mode, LootTrackerViewMode.Mixed));
+    public string[] GetLootTimelineLayers(LootTrackerViewMode view)
+    {
+        lock (_gate)
+            return LootTrackerTimelineLayers.Normalize(Current.LootTimelineLayersByView.GetValueOrDefault(
+                DefinedOr(view, LootTrackerViewMode.Mixed)));
+    }
+
+    public void SetLootTimelineLayers(LootTrackerViewMode view, IEnumerable<string> layers)
+    {
+        view = DefinedOr(view, LootTrackerViewMode.Mixed);
+        var selected = LootTrackerTimelineLayers.Normalize(layers);
+        lock (_gate)
+        {
+            if (GetLootTimelineLayers(view).SequenceEqual(selected, StringComparer.Ordinal)) return;
+            var previous = Current.LootTimelineLayersByView;
+            Current.LootTimelineLayersByView = new(previous) { [view] = selected };
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.LootTimelineLayersByView = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
+    public void SetLootTimelineValueMode(LootTimelineValueMode mode) => SetDropOption(
+        () => Current.LootTimelineValueMode, value => Current.LootTimelineValueMode = value,
+        DefinedOr(mode, LootTimelineValueMode.Cumulative));
+
+    public void SetLootReplayKillIconMode(LootTrackerReplayKillIconMode mode) => SetDropOption(
+        () => Current.LootReplayKillIconMode, value => Current.LootReplayKillIconMode = value,
+        DefinedOr(mode, LootTrackerReplayKillIconMode.Rank));
+
+    public void SetAbyssTrackingEnabled(bool enabled) => SetDropOption(
+        () => Current.AbyssTrackingEnabled, value => Current.AbyssTrackingEnabled = value, enabled);
+    public void SetAbyssPointRatePeriod(AbyssPointRatePeriod period) => SetDropOption(
+        () => Current.AbyssPointRatePeriod, value => Current.AbyssPointRatePeriod = value, NormalizeAbyssPointRatePeriod(period));
+    public void SetAbyssRankOverlayEnabled(bool enabled) => SetDropOption(
+        () => Current.AbyssRankOverlayEnabled, value => Current.AbyssRankOverlayEnabled = value, enabled);
+    public void SetAbyssRankReducedMotion(bool enabled) => SetDropOption(
+        () => Current.AbyssRankReducedMotion, value => Current.AbyssRankReducedMotion = value, enabled);
+    public void SetAbyssRankSoundEnabled(bool enabled) => SetDropOption(
+        () => Current.AbyssRankSoundEnabled, value => Current.AbyssRankSoundEnabled = value, enabled);
+    public void SetAbyssRankSoundVolume(double volume) => SetDropOption(
+        () => Current.AbyssRankSoundVolume, value => Current.AbyssRankSoundVolume = value, NormalizeAbyssRankSoundVolume(volume));
+    public void SetAbyssKillFeedEnabled(bool enabled) => SetDropOption(
+        () => Current.AbyssKillFeedEnabled, value => Current.AbyssKillFeedEnabled = value, enabled);
+    public void SetAbyssKillFeedShowKills(bool enabled) => SetDropOption(
+        () => Current.AbyssKillFeedShowKills, value => Current.AbyssKillFeedShowKills = value, enabled);
+    public void SetAbyssKillFeedShowDeaths(bool enabled) => SetDropOption(
+        () => Current.AbyssKillFeedShowDeaths, value => Current.AbyssKillFeedShowDeaths = value, enabled);
+    public void SetAbyssKillFeedShowAssists(bool enabled) => SetDropOption(
+        () => Current.AbyssKillFeedShowAssists, value => Current.AbyssKillFeedShowAssists = value, enabled);
     public void SetLootDropSoundEnabled(bool enabled) => SetDropOption(
         () => Current.LootDropSoundEnabled, value => Current.LootDropSoundEnabled = value, enabled);
     public void SetLootDropAnimationsEnabled(bool enabled) => SetDropOption(
@@ -566,7 +662,10 @@ public sealed class SettingsService
     public void SetLootOverlayShowOnSessionStart(bool enabled) => SetDropOption(
         () => Current.LootOverlayShowOnSessionStart, value => Current.LootOverlayShowOnSessionStart = value, enabled);
 
-    // Called only for a newly persisted PvE session; opening a view or recovering history never calls this.
+    public void SetLootOverlayOnlyDuringSession(bool enabled) => SetDropOption(
+        () => Current.LootOverlayOnlyDuringSession, value => Current.LootOverlayOnlyDuringSession = value, enabled);
+
+    // Called only for a newly persisted session; opening a view or recovering history never calls this.
     public bool TryShowLootOverlayForSessionStart()
     {
         lock (_gate)
@@ -580,9 +679,28 @@ public sealed class SettingsService
         return true;
     }
 
+    private static T DefinedOr<T>(T value, T fallback) where T : struct, Enum => Enum.IsDefined(value) ? value : fallback;
+    private static void NormalizeSessionPresentation(AppSettings settings)
+    {
+        settings.AbyssCombatGrouping = DefinedOr(settings.AbyssCombatGrouping, AbyssCombatGrouping.Class);
+        settings.AbyssCombatSort = DefinedOr(settings.AbyssCombatSort, AbyssCombatSort.KillsDescending);
+        settings.LifeskillResourceSort = DefinedOr(settings.LifeskillResourceSort, LootResourceSort.SuccessesDescending);
+        settings.PveLootSort = DefinedOr(settings.PveLootSort, LootQuantitySort.QuantityDescending);
+        settings.PveMobSort = DefinedOr(settings.PveMobSort, LootQuantitySort.QuantityDescending);
+        settings.LootTimelineValueMode = DefinedOr(settings.LootTimelineValueMode, LootTimelineValueMode.Cumulative);
+        settings.LootReplayKillIconMode = DefinedOr(settings.LootReplayKillIconMode, LootTrackerReplayKillIconMode.Rank);
+        settings.LootTrackerViewMode = DefinedOr(settings.LootTrackerViewMode, LootTrackerViewMode.Mixed);
+        settings.LootTimelineLayersByView = (settings.LootTimelineLayersByView ?? [])
+            .Where(pair => Enum.IsDefined(pair.Key)).ToDictionary(pair => pair.Key,
+                pair => LootTrackerTimelineLayers.Normalize(pair.Value));
+    }
+
     private static double NormalizeLootBackgroundOpacity(double opacity) => double.IsFinite(opacity) ? Math.Clamp(opacity, 0, 1) : 1;
+    private static AbyssPointRatePeriod NormalizeAbyssPointRatePeriod(AbyssPointRatePeriod period) =>
+        Enum.IsDefined(period) ? period : AbyssPointRatePeriod.Hour;
 
     private static double NormalizeLootDropSoundVolume(double volume) => double.IsFinite(volume) ? Math.Clamp(volume, 0, 1) : .6;
+    private static double NormalizeAbyssRankSoundVolume(double volume) => double.IsFinite(volume) ? Math.Clamp(volume, 0, 1) : .6;
     private void SetDropOption<T>(Func<T> read, Action<T> write, T value)
     {
         lock (_gate)
@@ -605,9 +723,13 @@ public sealed class SettingsService
             if (networkEnabled != Current.LootTrackingEnabled) Interlocked.Increment(ref _networkTrackingRevision);
             Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
             Current.LootTrackerIdleTimeoutMinutes = LootTrackerPresentation.NormalizeIdleTimeoutMinutes(Current.LootTrackerIdleTimeoutMinutes);
+            NormalizeSessionPresentation(Current);
             Current.LootDropSoundVolume = NormalizeLootDropSoundVolume(Current.LootDropSoundVolume);
+            Current.AbyssRankSoundVolume = NormalizeAbyssRankSoundVolume(Current.AbyssRankSoundVolume);
             Current.LootDropRarityAlerts = DropRarityAlertSettings.Normalize(Current.LootDropRarityAlerts);
             Current.LootOverlayScale = LootOverlayRenderer.NormalizedScale(Current.LootOverlayScale);
+            Current.AbyssRankOverlayScale = AbyssRankOverlayRenderer.NormalizedScale(Current.AbyssRankOverlayScale);
+            Current.AbyssPointRatePeriod = NormalizeAbyssPointRatePeriod(Current.AbyssPointRatePeriod);
             Current.LootOverlayBackgroundOpacity = NormalizeLootBackgroundOpacity(Current.LootOverlayBackgroundOpacity);
             NormalizeDaevanionHighlights(Current);
             NormalizeProgressionPetGenera(Current);

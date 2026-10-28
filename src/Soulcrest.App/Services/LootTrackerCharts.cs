@@ -8,9 +8,13 @@ public static class LootTrackerCharts
     public sealed record Line(string Points, string Area, string LastX, string LastY);
     public sealed record RouteLine(string Points, string StartX, string StartY, string EndX, string EndY);
     public sealed record ResourceNode(string NodeId, string Name, int Order, string X, string Y);
+    public sealed record SessionMarker(LootTrackerSessionMarker Data, string X, string Y);
     private sealed record Projection(double CenterX, double CenterY, double Scale);
 
     public static IReadOnlyList<Line> Income(LootTrackerSession session) => Income(session, Total);
+
+    public static IReadOnlyList<Line> AbyssIncome(LootTrackerSession session) =>
+        Income(session, bin => bin.AbyssPoints is >= 0 ? bin.AbyssPoints : null);
 
     /// <summary>A separately labelled observed component; missing bound rewards never become zero.</summary>
     public static IReadOnlyList<Line> UnboundIncome(LootTrackerSession session) =>
@@ -138,6 +142,18 @@ public static class LootTrackerCharts
                 MapNumber(row.visit.X), MapNumber(row.visit.Y))).ToArray();
     }
 
+    public static IReadOnlyList<SessionMarker> Markers(LootTrackerSession session, string? mapId)
+    {
+        var projection = Project(session, mapId);
+        return projection is null ? [] : LootTrackerSessionMarkers.All(session).Where(row => row.MapId == mapId)
+            .Select(row => new SessionMarker(row, N(220 + (row.X - projection.CenterX) * projection.Scale),
+                N(80 + (row.Y - projection.CenterY) * projection.Scale))).ToArray();
+    }
+
+    public static IReadOnlyList<SessionMarker> MapMarkers(LootTrackerSession session, string mapId, double mapSize) =>
+        LootTrackerSessionMarkers.All(session).Where(row => row.MapId == mapId && InMap(row.X, row.Y, mapSize))
+            .Select(row => new SessionMarker(row, MapNumber(row.X), MapNumber(row.Y))).ToArray();
+
     internal static bool InMap(double x, double y, double size) => double.IsFinite(size) && size > 0
         && double.IsFinite(x) && double.IsFinite(y) && x >= 0 && y >= 0 && x <= size && y <= size;
     internal static string MapNumber(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
@@ -145,9 +161,11 @@ public static class LootTrackerCharts
     private static Projection? Project(LootTrackerSession session, string? mapId)
     {
         var route = LootTrackerPresentation.DisplayedRouteSegments(session);
-        if (mapId is null || route.IsDefaultOrEmpty) return null;
-        var points = route.Where(segment => segment.MapId == mapId && !segment.Points.IsDefaultOrEmpty)
+        if (mapId is null) return null;
+        var points = route.IsDefaultOrEmpty ? [] : route.Where(segment => segment.MapId == mapId && !segment.Points.IsDefaultOrEmpty)
             .SelectMany(segment => segment.Points).Where(Finite).ToList();
+        points.AddRange(LootTrackerSessionMarkers.All(session).Where(row => row.MapId == mapId)
+            .Select(row => new LootTrackerRoutePoint(row.X, row.Y)));
         if (points.Count == 0) return null;
         if (!LootTrackerPresentation.UsesFarmRoute(session))
             points.AddRange(LootTrackerPresentation.GetValidatedResourceVisits(session).Where(visit => visit.MapId == mapId)

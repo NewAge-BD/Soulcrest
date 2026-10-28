@@ -1,0 +1,146 @@
+@implements IDisposable
+@inject SettingsService Settings
+@using System.Globalization
+
+<section class="lt-panel lt-session-statistics" aria-label="@UiText.T("Sessionstatistik")">
+    <div class="lt-section-head"><h3>@UiText.T("Sessionstatistik")</h3><span class="lt-count">@UiText.T("Gesamte Session")</span></div>
+    @if (_feedback is not null) { <div class="lt-save-feedback @(_saveFailed ? "error" : "")" role="status">@UiText.T(_feedback)</div> }
+    @if (LootTrackerSessionProjection.ShowsAbyss(Session))
+    {
+        var rows = LootTrackerStatistics.Combat(Session, _grouping, _combatSort, UiText.Language);
+        <div class="lt-statistic-grouping" role="group" aria-label="@UiText.T("Gegner gruppieren")">
+            <button type="button" data-combat-grouping="class" class="@(_grouping == AbyssCombatGrouping.Class ? "active" : "")" aria-pressed="@(_grouping == AbyssCombatGrouping.Class)" disabled="@_saving" @onclick="@(() => ChangeGrouping(AbyssCombatGrouping.Class))">@UiText.T("Klasse")</button>
+            <button type="button" data-combat-grouping="rank" class="@(_grouping == AbyssCombatGrouping.Rank ? "active" : "")" aria-pressed="@(_grouping == AbyssCombatGrouping.Rank)" disabled="@_saving" @onclick="@(() => ChangeGrouping(AbyssCombatGrouping.Rank))">@UiText.T("Rang")</button>
+        </div>
+        @if (rows.Length > 0)
+        {
+            <div class="lt-table-wrap"><table class="lt-table lt-statistics-table"><thead><tr>
+                <th aria-sort="@CombatDirection("name")">@SortButton(_grouping == AbyssCombatGrouping.Class ? "Klasse" : "Rang", "combat-name", CombatDirection("name"), () => SortCombat("name"))</th>
+                <th aria-sort="@CombatDirection("kills")">@SortButton("Kills", "combat-kills", CombatDirection("kills"), () => SortCombat("kills"))</th>
+                <th aria-sort="@CombatDirection("deaths")">@SortButton("Tode", "combat-deaths", CombatDirection("deaths"), () => SortCombat("deaths"))</th>
+            </tr></thead><tbody>@foreach (var row in rows)
+            {
+                <tr data-combat-category="@row.Key" class="@(row.Unknown ? "lt-statistic-unknown" : "")"><td><span class="lt-statistic-name">@if (row.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> }@row.Name</span></td><td><strong>@Number(row.Kills)</strong><small class="lt-statistic-share">@Percent(row.KillPercent)</small></td><td><strong>@Number(row.Deaths)</strong><small class="lt-statistic-share">@Percent(row.DeathPercent)</small></td></tr>
+            }</tbody></table></div>
+            <p class="lt-panel-subtitle">@UiText.T("Anteile beziehen sich jeweils auf alle Kills oder Tode der gesamten Session. Unbekannte Gegnerdaten bleiben separat.")</p>
+        }
+        else { <div class="lt-visual-empty">@UiText.T("Noch keine bestätigten Kampfereignisse vorhanden.")</div> }
+    }
+    @if (LootTrackerSessionProjection.ShowsHarvest(Session))
+    {
+        var rows = LootTrackerStatistics.Resources(Session, _resourceSort, UiText.Language);
+        @if (rows.Length > 0)
+        {
+            <div class="lt-table-wrap"><table class="lt-table lt-statistics-table"><thead><tr>
+                <th aria-sort="@ResourceDirection("name")">@SortButton("Ressource", "resource-name", ResourceDirection("name"), () => SortResource("name"))</th>
+                <th aria-sort="@ResourceDirection("attempts")">@SortButton("Versuche", "resource-attempts", ResourceDirection("attempts"), () => SortResource("attempts"))</th>
+                <th aria-sort="@ResourceDirection("successes")">@SortButton("Erfolge", "resource-successes", ResourceDirection("successes"), () => SortResource("successes"))</th>
+                <th aria-sort="@ResourceDirection("failures")">@SortButton("Fehlversuche", "resource-failures", ResourceDirection("failures"), () => SortResource("failures"))</th>
+                <th aria-sort="@ResourceDirection("quantity")">@SortButton("Itemmenge", "resource-quantity", ResourceDirection("quantity"), () => SortResource("quantity"))</th>
+            </tr></thead><tbody>@foreach (var row in rows)
+            {
+                <tr data-resource-category="@row.Key"><td>@UiText.T(row.Name)</td><td>@Number(row.Attempts)</td><td>@Number(row.Successes)</td><td>@Number(row.Failures)</td><td>@Number(row.Quantity)</td></tr>
+            }</tbody></table></div>
+            @if (Session.TimelineVersion == 0) { <p class="lt-panel-subtitle">@UiText.T("Altaufzeichnung: Ressourcenstatistik umfasst nur gespeicherte Sammelpositionen; Itemmengen sind unbekannt.")</p> }
+            @if (Session.FailedHarvestCount is null) { <p class="lt-panel-subtitle">@UiText.T("Altaufzeichnung: Fehlversuche wurden nicht aufgezeichnet.")</p> }
+        }
+        else { <div class="lt-visual-empty">@UiText.T("Noch keine bestätigte Ressourcenstatistik vorhanden.")</div> }
+    }
+    @if (LootTrackerSessionProjection.ShowsPve(Session) || LootTrackerSessionProjection.ShowsAbyss(Session))
+    {
+        var loot = LootTrackerStatistics.Loot(Session, _lootSort, UiText.Language);
+        <div class="lt-section-head"><h4>@UiText.T("Beute nach Menge")</h4></div>
+        @if (loot.Length > 0)
+        {
+            <div class="lt-table-wrap"><table class="lt-table lt-statistics-table"><thead><tr><th aria-sort="@QuantityDirection(_lootSort, "name")">@SortButton("Item / Soul", "loot-name", QuantityDirection(_lootSort, "name"), () => SortLoot("name"))</th><th aria-sort="@QuantityDirection(_lootSort, "quantity")">@SortButton("Menge", "loot-quantity", QuantityDirection(_lootSort, "quantity"), () => SortLoot("quantity"))</th></tr></thead><tbody>@foreach (var row in loot)
+            {
+                <tr data-loot-statistic="@row.Key"><td><span class="lt-statistic-name">@if (row.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> }@row.Name</span></td><td><strong>@Number(row.Quantity)</strong><small class="lt-statistic-share">@Percent(row.Percent)</small></td></tr>
+            }</tbody></table></div>
+        }
+        else { <div class="lt-visual-empty">@UiText.T("Keine einzelnen Loot-Einträge vorhanden.")</div> }
+        var mobs = LootTrackerStatistics.Mobs(Session, _mobSort, UiText.Language);
+        @if (mobs.Length > 0)
+        {
+            <div class="lt-section-head"><h4>@UiText.T("Gefarmte Monster")</h4><span class="lt-count">@UiText.T("Nur bestätigte eigene Kills")</span></div>
+            <div class="lt-table-wrap"><table class="lt-table lt-statistics-table"><thead><tr><th aria-sort="@QuantityDirection(_mobSort, "name")">@SortButton("Monster", "mob-name", QuantityDirection(_mobSort, "name"), () => SortMobs("name"))</th><th aria-sort="@QuantityDirection(_mobSort, "quantity")">@SortButton("Anzahl", "mob-quantity", QuantityDirection(_mobSort, "quantity"), () => SortMobs("quantity"))</th></tr></thead><tbody>@foreach (var row in mobs)
+            {
+                <tr data-mob-statistic="@row.Key"><td>@row.Name</td><td><strong>@Number(row.Quantity)</strong><small class="lt-statistic-share">@Percent(row.Percent)</small></td></tr>
+            }</tbody></table></div>
+        }
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public LootTrackerSession Session { get; set; } = null!;
+    [Parameter] public bool IsExample { get; set; }
+    private AbyssCombatGrouping _grouping;
+    private AbyssCombatSort _combatSort;
+    private LootResourceSort _resourceSort;
+    private LootQuantitySort _lootSort, _mobSort;
+    private bool _saving, _saveFailed, _disposed;
+    private string? _feedback;
+    private CultureInfo Culture => CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");
+
+    protected override void OnInitialized() { Sync(); Settings.Changed += Refresh; }
+    private void Sync()
+    {
+        _grouping = Settings.Current.AbyssCombatGrouping; _combatSort = Settings.Current.AbyssCombatSort;
+        _resourceSort = Settings.Current.LifeskillResourceSort; _lootSort = Settings.Current.PveLootSort;
+        _mobSort = Settings.Current.PveMobSort;
+    }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(() => { if (!IsExample) Sync(); StateHasChanged(); }); }
+    private static string Number(long? value) => value?.ToString("N0", CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US")) ?? "—";
+    private string Percent(double? value) => value is { } known ? known.ToString("0.#", Culture) + " %" : "—";
+    private RenderFragment SortButton(string label, string key, string direction, Func<Task> action) => @<button type="button" class="lt-sort-button" data-statistic-sort="@key" disabled="@_saving" aria-busy="@_saving" @onclick="action">@UiText.T(label) <span aria-hidden="true">@(direction == "descending" ? "↓" : direction == "ascending" ? "↑" : "↕")</span></button>;
+    private string CombatDirection(string key) => key switch
+    {
+        "kills" => _combatSort == AbyssCombatSort.KillsDescending ? "descending" : _combatSort == AbyssCombatSort.KillsAscending ? "ascending" : "none",
+        "deaths" => _combatSort == AbyssCombatSort.DeathsDescending ? "descending" : _combatSort == AbyssCombatSort.DeathsAscending ? "ascending" : "none",
+        _ => _combatSort == AbyssCombatSort.NameDescending ? "descending" : _combatSort == AbyssCombatSort.NameAscending ? "ascending" : "none"
+    };
+    private string ResourceDirection(string key)
+    {
+        var prefix = key switch { "attempts" => "Attempts", "successes" => "Successes", "failures" => "Failures", "quantity" => "Quantity", _ => "Name" };
+        return _resourceSort.ToString() == prefix + "Descending" ? "descending" : _resourceSort.ToString() == prefix + "Ascending" ? "ascending" : "none";
+    }
+    private static string QuantityDirection(LootQuantitySort sort, string key) => key == "name"
+        ? sort == LootQuantitySort.NameAscending ? "ascending" : sort == LootQuantitySort.NameDescending ? "descending" : "none"
+        : sort == LootQuantitySort.QuantityDescending ? "descending" : sort == LootQuantitySort.QuantityAscending ? "ascending" : "none";
+    protected Task ChangeGrouping(AbyssCombatGrouping grouping) => Save(() => Settings.SetAbyssCombatGrouping(grouping), () => _grouping = grouping);
+    protected Task SortCombat(string key)
+    {
+        var next = key switch
+        {
+            "kills" => _combatSort == AbyssCombatSort.KillsDescending ? AbyssCombatSort.KillsAscending : AbyssCombatSort.KillsDescending,
+            "deaths" => _combatSort == AbyssCombatSort.DeathsDescending ? AbyssCombatSort.DeathsAscending : AbyssCombatSort.DeathsDescending,
+            _ => _combatSort == AbyssCombatSort.NameAscending ? AbyssCombatSort.NameDescending : AbyssCombatSort.NameAscending
+        };
+        return Save(() => Settings.SetAbyssCombatSort(next), () => _combatSort = next);
+    }
+    protected Task SortResource(string key)
+    {
+        var prefix = key switch { "attempts" => "Attempts", "successes" => "Successes", "failures" => "Failures", "quantity" => "Quantity", _ => "Name" };
+        var direction = ResourceDirection(key);
+        var next = Enum.Parse<LootResourceSort>(prefix + (direction == "descending" || direction == "none" && key == "name" ? "Ascending" : "Descending"));
+        return Save(() => Settings.SetLifeskillResourceSort(next), () => _resourceSort = next);
+    }
+    protected Task SortLoot(string key) { var next = NextQuantity(_lootSort, key); return Save(() => Settings.SetPveLootSort(next), () => _lootSort = next); }
+    protected Task SortMobs(string key) { var next = NextQuantity(_mobSort, key); return Save(() => Settings.SetPveMobSort(next), () => _mobSort = next); }
+    private static LootQuantitySort NextQuantity(LootQuantitySort current, string key) => key == "name"
+        ? current == LootQuantitySort.NameAscending ? LootQuantitySort.NameDescending : LootQuantitySort.NameAscending
+        : current == LootQuantitySort.QuantityDescending ? LootQuantitySort.QuantityAscending : LootQuantitySort.QuantityDescending;
+    private async Task Save(Action persist, Action update)
+    {
+        if (_saving) return;
+        _saving = true; _feedback = null; _saveFailed = false;
+        try
+        {
+            if (!IsExample) await Task.Run(persist);
+            update(); _feedback = IsExample ? null : "Auswahl gespeichert.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { _saveFailed = true; _feedback = "Die Auswahl konnte nicht gespeichert werden."; }
+        finally { _saving = false; }
+    }
+    public void Dispose() { _disposed = true; Settings.Changed -= Refresh; }
+}

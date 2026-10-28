@@ -2,6 +2,30 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.15.0 – 2026-10-28
+
+- **New:** Abyss sessions in the Loot Tracker: a confirmed entry starts the session and leaving
+  ends it. AP, Kina, rank points and gathered loot are recorded; deaths, breaks and map changes
+  inside the Abyss do not split the stay.
+- **New:** **Abyss Rank Tracker** HUD: total rank points with a points tier, the original icons and
+  the next threshold, plus net session rank points and rank points per hour. A rank-up is shown
+  with a calm icon evolution and a subtle sound (reduced motion and volume adjustable).
+- **New:** Kill feed below the Rank Tracker with your last ten own PvP kills and deaths, the
+  opponent's class and rank as icons and a rank-based background; each type can be turned off.
+- **New:** AP farm progress against the weekly rising AP cap, AP/h or AP/min selectable. Your own
+  AP and rank point gains outside the Abyss also count in the normal open-world session.
+- **New:** Open-world PvE and gathering run in one shared session with Overall, PvE, Lifeskill and
+  Abyss views.
+- **New:** Session replay: the route you walked and a shared timeline with play, reverse,
+  10-second jumps and 0.25x to 8x; kills, deaths, gathering spots and loot with original icons.
+  Plus session statistics, in the Abyss by opponent class and rank.
+- **New:** Loot overlay: "Only show during a running session" option, a Lifeskill block, sorting by
+  rarity; green and blue gear is grouped like white gear.
+- **New:** Hunting grounds appear on the map with their original icon and large area names.
+- **Changed:** New, short default drop sound.
+- **Fixed:** Several cases where loot was lost or recording stopped, for example drops shortly
+  before 07:00 UTC, damaged caches or very long Abyss stays.
+
 ## 0.14.0 – 2026-10-26
 
 - **New:** **Loot Tracker** tab: sessions with Kina (bound/unbound), Kina/h, items, souls and the

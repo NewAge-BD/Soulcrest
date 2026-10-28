@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "stages": [
+    {
+      "id": "rank-19",
+      "nameDe": "Rekrut",
+      "nameEn": "Trainee",
+      "threshold": 0,
+      "iconAsset": "abyss-rank-icons/rank-19.png"
+    },
+    {
+      "id": "rank-18",
+      "nameDe": "Rang-9-Soldat",
+      "nameEn": "Ninth-Class Soldier",
+      "threshold": 3000,
+      "iconAsset": "abyss-rank-icons/rank-18.png"
+    },
+    {
+      "id": "rank-17",
+      "nameDe": "Rang-8-Soldat",
+      "nameEn": "Eighth-Class Soldier",
+      "threshold": 12000,
+      "iconAsset": "abyss-rank-icons/rank-17.png"
+    },
+    {
+      "id": "rank-16",
+      "nameDe": "Rang-7-Soldat",
+      "nameEn": "Seventh-Class Soldier",
+      "threshold": 35000,
+      "iconAsset": "abyss-rank-icons/rank-16.png"
+    },
+    {
+      "id": "rank-15",
+      "nameDe": "Rang-6-Soldat",
+      "nameEn": "Sixth-Class Soldier",
+      "threshold": 75000,
+      "iconAsset": "abyss-rank-icons/rank-15.png"
+    },
+    {
+      "id": "rank-14",
+      "nameDe": "Rang-5-Soldat",
+      "nameEn": "Fifth-Class Soldier",
+      "threshold": 180000,
+      "iconAsset": "abyss-rank-icons/rank-14.png"
+    },
+    {
+      "id": "rank-13",
+      "nameDe": "Rang-4-Soldat",
+      "nameEn": "Fourth-Class Soldier",
+      "threshold": 350000,
+      "iconAsset": "abyss-rank-icons/rank-13.png"
+    },
+    {
+      "id": "rank-12",
+      "nameDe": "Rang-3-Soldat",
+      "nameEn": "Third-Class Soldier",
+      "threshold": 550000,
+      "iconAsset": "abyss-rank-icons/rank-12.png"
+    },
+    {
+      "id": "rank-11",
+      "nameDe": "Rang-2-Soldat",
+      "nameEn": "Second-Class Soldier",
+      "threshold": 750000,
+      "iconAsset": "abyss-rank-icons/rank-11.png"
+    },
+    {
+      "id": "rank-10",
+      "nameDe": "Rang-1-Soldat",
+      "nameEn": "First-Class Soldier",
+      "threshold": 1000000,
+      "iconAsset": "abyss-rank-icons/rank-10.png"
+    },
+    {
+      "id": "rank-09",
+      "nameDe": "1-Stern-Offizier",
+      "nameEn": "1-Star Officer",
+      "threshold": 1500000,
+      "iconAsset": "abyss-rank-icons/rank-09.png"
+    },
+    {
+      "id": "rank-08",
+      "nameDe": "2-Sterne-Offizier",
+      "nameEn": "2-Star Officer",
+      "threshold": 2100000,
+      "iconAsset": "abyss-rank-icons/rank-08.png"
+    },
+    {
+      "id": "rank-07",
+      "nameDe": "3-Sterne-Offizier",
+      "nameEn": "3-Star Officer",
+      "threshold": 2800000,
+      "iconAsset": "abyss-rank-icons/rank-07.png"
+    },
+    {
+      "id": "rank-06",
+      "nameDe": "4-Sterne-Offizier",
+      "nameEn": "4-Star Officer",
+      "threshold": 3500000,
+      "iconAsset": "abyss-rank-icons/rank-06.png"
+    },
+    {
+      "id": "rank-05",
+      "nameDe": "5-Sterne-Offizier",
+      "nameEn": "5-Star Officer",
+      "threshold": 4200000,
+      "iconAsset": "abyss-rank-icons/rank-05.png"
+    },
+    {
+      "id": "rank-04",
+      "nameDe": "General",
+      "nameEn": "General",
+      "threshold": 6000000,
+      "iconAsset": "abyss-rank-icons/rank-04.png"
+    },
+    {
+      "id": "rank-03",
+      "nameDe": "Großgeneral",
+      "nameEn": "Marshal",
+      "threshold": 9000000,
+      "iconAsset": "abyss-rank-icons/rank-03.png"
+    },
+    {
+      "id": "rank-02",
+      "nameDe": "Kommandant",
+      "nameEn": "Commander",
+      "threshold": 13000000,
+      "iconAsset": "abyss-rank-icons/rank-02.png"
+    },
+    {
+      "id": "rank-01",
+      "nameDe": "Oberbefehlshaber",
+      "nameEn": "Supreme Commander",
+      "threshold": 20000000,
+      "iconAsset": "abyss-rank-icons/rank-01.png"
+    }
+  ]
+}

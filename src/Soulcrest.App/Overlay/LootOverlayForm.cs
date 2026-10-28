@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Soulcrest.App.Services;
 
 namespace Soulcrest.App.Overlay;
@@ -8,6 +9,7 @@ public sealed class LootOverlayForm : Form
 {
     private readonly ILootOverlaySource _source;
     private readonly Func<LootOverlayOptions> _options;
+    private readonly Func<bool?> _systemAnimationsEnabled;
     private readonly Action<Point>? _positionChanged;
     private readonly RareDropAlertService? _alerts;
     private readonly object _alertPresentationGate = new();
@@ -25,17 +27,23 @@ public sealed class LootOverlayForm : Form
     private bool _locked = true, _manualInteraction, _altInteractionRequested, _blockAltUntilRelease;
     private bool _suppressed, _placementHidden, _foregroundSuppressed, _rendering, _refreshQueued;
     private bool PresentationHidden => _suppressed || _placementHidden || _foregroundSuppressed;
+    private bool SessionAllowed => !_current.OnlyDuringSession || _snapshot.SessionActive;
 
     public LootOverlayForm(ILootOverlaySource source, Func<LootOverlayOptions> options, Action<Point>? positionChanged = null,
         RareDropAlertService? alerts = null)
+        : this(source, options, positionChanged, alerts, ReadSystemAnimationsEnabled) { }
+
+    internal LootOverlayForm(ILootOverlaySource source, Func<LootOverlayOptions> options, Action<Point>? positionChanged,
+        RareDropAlertService? alerts, Func<bool?> systemAnimationsEnabled)
     {
         _source = source;
         _options = options;
+        _systemAnimationsEnabled = systemAnimationsEnabled;
         _positionChanged = positionChanged;
         _alerts = alerts;
-        _snapshot = source.Snapshot;
-        _animation.Observe(_snapshot, _clock.Elapsed.TotalSeconds);
         _current = options();
+        _snapshot = ApplyMotionPreference(source.Snapshot, _current.AnimationsEnabled, _systemAnimationsEnabled());
+        _animation.Observe(_snapshot, _clock.Elapsed.TotalSeconds);
         _theme = OverlayThemeDefinition.Resolve(_current.Theme);
         AutoScaleMode = AutoScaleMode.None;
         FormBorderStyle = FormBorderStyle.None;
@@ -59,8 +67,6 @@ public sealed class LootOverlayForm : Form
     {
         if (IsDisposed || Disposing || !IsHandleCreated) return;
         _current = _options();
-        PublishAlertPresentation(_current.Enabled);
-        _alerts?.ApplySettings();
         var theme = OverlayThemeDefinition.Resolve(_current.Theme);
         if (theme.Id != _theme.Id)
         {
@@ -70,7 +76,9 @@ public sealed class LootOverlayForm : Form
         NativeMethods.SetCaptureVisibility(Handle, _current.VisibleInRecordings);
         _lockButton.SetVisibleInRecordings(_current.VisibleInRecordings);
         UpdateSnapshot();
-        if (!_current.Enabled || PresentationHidden || SmokeTest.Enabled)
+        PublishAlertPresentation();
+        _alerts?.ApplySettings();
+        if (!_current.Enabled || !SessionAllowed || PresentationHidden || SmokeTest.Enabled)
         {
             FinishDrag();
             ResetInteraction();
@@ -111,7 +119,7 @@ public sealed class LootOverlayForm : Form
 
     private void ApplyPresentationVisibility()
     {
-        PublishAlertPresentation(_current.Enabled);
+        PublishAlertPresentation();
         FinishDrag();
         ResetInteraction();
         _blockAltUntilRelease = true;
@@ -119,28 +127,37 @@ public sealed class LootOverlayForm : Form
     }
 
     /// <summary>
-    /// Makes the first committed receipt eligible after the host has explicitly enabled this overlay for a new session.
+    /// Makes the first committed receipt eligible after the host has applied auto-show for a new session.
     /// Called from the session worker: no control properties, handles, Invoke or UI waits are used here.
     /// </summary>
     public void PrepareAlertsForSessionStart()
     {
         lock (_alertPresentationGate)
-            _alerts?.SetPresentationVisible(Volatile.Read(ref _alertContextAllowed) && _options().Enabled);
+            _alerts?.SetPresentationVisible(Volatile.Read(ref _alertContextAllowed) && AlertPolicyAllows());
     }
 
-    private void PublishAlertPresentation(bool visible, bool revokeContext = false)
+    private void PublishAlertPresentation(bool revokeContext = false)
     {
         var allowed = !revokeContext && !PresentationHidden && !SmokeTest.Enabled
             && IsHandleCreated && !IsDisposed && !Disposing;
         lock (_alertPresentationGate)
         {
             Volatile.Write(ref _alertContextAllowed, allowed);
-            _alerts?.SetPresentationVisible(allowed && visible);
+            _alerts?.SetPresentationVisible(allowed && AlertPolicyAllows());
         }
     }
 
+    // Read the policy under the same gate as session-start preparation. A queued UI
+    // refresh may still hold old options while the worker has enabled a new session;
+    // that old refresh must not clear its already accepted first receipt.
+    private bool AlertPolicyAllows()
+    {
+        var options = _options();
+        return options.Enabled && (!options.OnlyDuringSession || _source.Snapshot.SessionActive);
+    }
+
     protected override bool ShowWithoutActivation => true;
-    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && _current.Enabled && !PresentationHidden && !SmokeTest.Enabled);
+    protected override void SetVisibleCore(bool value) => base.SetVisibleCore(value && _current.Enabled && SessionAllowed && !PresentationHidden && !SmokeTest.Enabled);
     protected override CreateParams CreateParams
     {
         get
@@ -163,7 +180,7 @@ public sealed class LootOverlayForm : Form
 
     protected override void OnHandleDestroyed(EventArgs e)
     {
-        PublishAlertPresentation(false, revokeContext: true);
+        PublishAlertPresentation(revokeContext: true);
         _timer.Stop();
         _refreshQueued = false;
         base.OnHandleDestroyed(e);
@@ -175,10 +192,10 @@ public sealed class LootOverlayForm : Form
         if (!Visible)
         {
             _timer.Stop();
-            PublishAlertPresentation(false);
+            PublishAlertPresentation();
             ResetInteraction();
         }
-        else { PublishAlertPresentation(true); UpdateTimer(); }
+        else { PublishAlertPresentation(); UpdateTimer(); }
     }
 
     protected override void OnPaintBackground(PaintEventArgs e) { }
@@ -201,39 +218,53 @@ public sealed class LootOverlayForm : Form
 
     private void UpdateSnapshot()
     {
-        _snapshot = _source.Snapshot with { AnimationsEnabled = _current.AnimationsEnabled, RareDrops = _alerts?.CurrentNotices ?? [] };
+        _snapshot = ApplyMotionPreference(_source.Snapshot with { RareDrops = _alerts?.CurrentNotices ?? [] },
+            _current.AnimationsEnabled, _systemAnimationsEnabled());
         _animation.Observe(_snapshot, _clock.Elapsed.TotalSeconds);
     }
 
+    internal static LootOverlaySnapshot ApplyMotionPreference(LootOverlaySnapshot snapshot, bool appAnimationsEnabled,
+        bool? systemAnimationsEnabled) => snapshot with
+        { AnimationsEnabled = snapshot.AnimationsEnabled && appAnimationsEnabled && systemAnimationsEnabled == true };
+
+    // Windows' accessibility preference covers client-area flashes, blinking and moving content.
+    // https://learn.microsoft.com/windows/win32/winauto/client-area-animation
+    // An unavailable preference never opts the user into motion.
+    private static bool? ReadSystemAnimationsEnabled() =>
+        QuerySystemAnimations(0x1042 /* SPI_GETCLIENTAREAANIMATION */, 0, out var enabled, 0) ? enabled : null;
+
+    [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool QuerySystemAnimations(uint action, uint parameter,
+        [MarshalAs(UnmanagedType.Bool)] out bool enabled, uint flags);
+
     private void UpdateTimer()
     {
-        if (!Visible || PresentationHidden || !_current.Enabled) { _timer.Stop(); return; }
-        _timer.Interval = _animation.IsAnimating(_snapshot, _clock.Elapsed.TotalSeconds) ? 33
-            : LootOverlayRenderer.RareNotices(_snapshot).Count > 0 ? 100 : 1000;
+        if (!Visible || PresentationHidden || !_current.Enabled || !SessionAllowed) { _timer.Stop(); return; }
+        _timer.Interval = _animation.IsAnimating(_snapshot, _clock.Elapsed.TotalSeconds) ? 33 : 1000;
         _timer.Start();
     }
 
     private void TimerTick(object? sender, EventArgs e)
     {
-        if (!Visible) { _timer.Stop(); return; }
-        var seconds = _clock.Elapsed.TotalSeconds;
-        var oldNoticeCount = LootOverlayRenderer.RareNotices(_snapshot).Count;
+        if (!Visible || PresentationHidden || !_current.Enabled || !SessionAllowed) { _timer.Stop(); return; }
+        var previousSize = LootOverlayRenderer.Measure(_snapshot);
         UpdateSnapshot();
-        var noticeCountChanged = oldNoticeCount != LootOverlayRenderer.RareNotices(_snapshot).Count;
-        if (noticeCountChanged)
+        if (!SessionAllowed) { ApplySettings(); return; }
+        var size = LootOverlayRenderer.Measure(_snapshot);
+        if (previousSize != size)
         {
-            var size = LootOverlayRenderer.Measure(_snapshot);
             var scale = LootOverlayRenderer.NormalizedScale(_current.Scale);
             Size = new((int)Math.Ceiling(size.Width * scale), (int)Math.Ceiling(size.Height * scale));
         }
-        // The last fast tick clears a finished celebration even when the session has just stopped.
-        if (noticeCountChanged || _timer.Interval == 33 || _animation.IsAnimating(_snapshot, seconds)) RenderPanel();
+        // Static mode still refreshes duration/rates once per second. Hidden overlays have no timer.
+        RenderPanel();
         UpdateTimer();
     }
 
     private void RenderPanel()
     {
-        if (_rendering || !Visible || !IsHandleCreated || IsDisposed || PresentationHidden) return;
+        if (_rendering || !Visible || !IsHandleCreated || IsDisposed || PresentationHidden || !SessionAllowed) return;
         _rendering = true;
         try
         {
@@ -293,6 +324,7 @@ public sealed class LootOverlayForm : Form
     {
         if (message.Msg == NativeMethods.WM_MOUSEACTIVATE) { message.Result = NativeMethods.MA_NOACTIVATE; return; }
         base.WndProc(ref message);
+        if (message.Msg == 0x001A /* WM_SETTINGCHANGE */) ApplySettings();
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
@@ -325,7 +357,7 @@ public sealed class LootOverlayForm : Form
     {
         if (disposing)
         {
-            PublishAlertPresentation(false, revokeContext: true);
+            PublishAlertPresentation(revokeContext: true);
             _source.Changed -= SourceChanged;
             if (_alerts is not null) _alerts.Changed -= SourceChanged;
             _timer.Stop();

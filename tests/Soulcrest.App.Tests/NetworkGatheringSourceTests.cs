@@ -11,6 +11,8 @@ namespace Soulcrest.App.Tests;
 public sealed class NetworkGatheringSourceTests
 {
     private static readonly DateTimeOffset At = DateTimeOffset.UnixEpoch;
+    private static readonly PetIdEntry Pet = PetIdTable.Find(1004)!;
+    private static readonly string PetKey = Pet.CatalogId ?? PetCatalog.Slug(Pet.En);
     private const string Game = "synthetic-own";
     private const string Foreign = "synthetic-foreign";
     private const int OwnEntity = 300;
@@ -132,9 +134,9 @@ public sealed class NetworkGatheringSourceTests
 
         Assert.True(rebound());
         Assert.Equal(OwnEntity + 1, Assert.IsType<OwnCharacterContext>(f.Source.OwnCharacter).Identity.EntityKey);
-        Assert.Null(f.Progress.ObservedLevel("synthetic-pet"));
+        Assert.Null(f.Progress.ObservedLevel(PetKey));
         f.Send(acquisition, milliseconds: 2300); // The same valid shape is accepted only as a fresh packet.
-        Assert.Equal(1, f.Progress.ObservedLevel("synthetic-pet"));
+        Assert.Equal(1, f.Progress.ObservedLevel(PetKey));
     }
 
     [Fact]
@@ -151,7 +153,7 @@ public sealed class NetworkGatheringSourceTests
         Assert.True(rebound());
         Assert.Equal(OwnEntity + 1, Assert.IsType<OwnCharacterContext>(f.Source.OwnCharacter).Identity.EntityKey);
         Assert.Equal(2, Assert.Single(souls).Souls);
-        Assert.Equal(2, f.Progress.Souls("synthetic-pet"));
+        Assert.Equal(2, f.Progress.Souls(PetKey));
         Assert.Empty(f.Gatherings);
     }
 
@@ -558,7 +560,7 @@ public sealed class NetworkGatheringSourceTests
         {
             Directory.CreateDirectory(_directory);
             Progress = new ProgressService(Path.Combine(_directory, "progress.json"), new PetCatalog([
-                new PetDefinition { Id = "synthetic-pet", En = "Synthetic Pet", Genus = "Fera", NumericId = "1004" }]));
+                new PetDefinition { Id = PetKey, En = Pet.En, Genus = Pet.Genus, NumericId = "1004" }]));
             Network = new(Progress, worldContext: world);
             typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Running))!.SetValue(Network, true);
             Network.GatheringCompleted += Gatherings.Add;

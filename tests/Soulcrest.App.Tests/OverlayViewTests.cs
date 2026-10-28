@@ -29,7 +29,7 @@ public sealed class OverlayViewTests
         var html = await fixture.Render();
         foreach (var overlay in OverlayRegistry.All)
             Assert.Contains($"data-overlay-select=\"{overlay.Id}\"", html);
-        Assert.Equal(10, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
+        Assert.Equal(11, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
         Assert.Contains(shared, html);
         Assert.Contains(place, html);
         Assert.Contains(language == "de" ? "Pet-Fortschritt" : "Pet progress", html);
@@ -45,6 +45,34 @@ public sealed class OverlayViewTests
         Assert.False(fixture.Placement.Active);
         Assert.Empty(fixture.Alerts.Items);
         await fixture.Export(html, "loot");
+    }
+
+    [Theory]
+    [InlineData("de", "Abyss Rank Tracker", "kein bestätigter Klassenrang")]
+    [InlineData("en", "Abyss Rank Tracker", "not a confirmed class rank")]
+    public async Task AbyssRankTrackerHasIndependentControlsAndAnHonestLocalizedPreview(string language, string title, string explanation)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Ui.ShowOverlay("abyss-rank");
+        var before = JsonSerializer.Serialize(fixture.Settings.Current);
+        var html = await fixture.Render();
+        Assert.Contains("data-overlay-detail=\"abyss-rank\"", html);
+        Assert.Contains(title, html);
+        Assert.Contains(explanation, html);
+        Assert.Contains(language == "de" ? "Netto bedeutet Gewinne minus Verluste" : "Net means gains minus losses", html);
+        Assert.Contains("hotkey-label-abyss-rank.toggle", html);
+        Assert.Contains("hotkey-label-abyss-rank.unlock", html);
+        Assert.Contains("id=\"overlay-scale\"", html);
+        Assert.Contains("id=\"abyss-killfeed-enabled\"", html);
+        Assert.Contains("id=\"abyss-killfeed-kills\"", html);
+        Assert.Contains("id=\"abyss-killfeed-deaths\"", html);
+        Assert.Contains("id=\"abyss-killfeed-assists\"", html);
+        Assert.Contains(language == "de" ? "Killfeed anzeigen" : "Show kill feed", html);
+        Assert.Contains(language == "de" ? "Spielerkills" : "Player kills", html);
+        Assert.Contains(language == "de" ? "Eigene Tode" : "Own deaths", html);
+        Assert.Contains("Assists", html);
+        Assert.Equal(before, JsonSerializer.Serialize(fixture.Settings.Current));
+        await fixture.Export(html, "abyss-rank");
     }
 
     [Theory]
@@ -97,6 +125,7 @@ public sealed class OverlayViewTests
             {
                 Assert.Contains("id=\"loot-background-transparency\"", html);
                 Assert.Contains("id=\"loot-overlay-auto-show\"", html);
+                Assert.Contains("id=\"loot-overlay-session-only\"", html);
                 foreach (var rarity in new[] { "unique", "epic", "mythic", "special" })
                     Assert.Contains($"data-rarity-alert=\"{rarity}\"", html);
                 await fixture.Export(html, "farm-loot");
@@ -117,6 +146,53 @@ public sealed class OverlayViewTests
         Assert.DoesNotContain("id=\"timer-overlay-menu\"", timers);
         await fixture.Export(timers, "timers");
         await fixture.Export(timeline, "timeline");
+    }
+
+    [Theory]
+    [InlineData("de", "Nur bei laufender Session anzeigen", "Ohne laufende Session bleibt das Overlay ausgeblendet. Die Aufnahme läuft unabhängig davon weiter.")]
+    [InlineData("en", "Show only during an active session", "Without an active session, the overlay stays hidden. Recording continues independently.")]
+    public async Task FarmLootSessionOnlyPreferenceIsLocalizedAndPersistsWithoutChangingAutoShowOrTracking(
+        string language, string label, string explanation)
+    {
+        await using var fixture = new Fixture(language);
+        Assert.False(new AppSettings().LootOverlayOnlyDuringSession);
+        fixture.Ui.ShowOverlay("farm-loot");
+        fixture.Settings.Current.LootOverlayOnlyDuringSession = false;
+        fixture.Settings.Current.LootOverlayShowOnSessionStart = true;
+        fixture.Settings.Current.LootTrackingEnabled = true;
+        fixture.Settings.Current.LootOverlayEnabled = false;
+        static string OtherSettings(AppSettings settings)
+        {
+            var node = JsonSerializer.SerializeToNode(settings)!.AsObject();
+            node.Remove(nameof(AppSettings.LootOverlayOnlyDuringSession));
+            return node.ToJsonString();
+        }
+        static string Checkbox(string markup) => System.Text.RegularExpressions.Regex.Match(markup,
+            "<input[^>]*id=\"loot-overlay-session-only\"[^>]*>").Value;
+        var before = OtherSettings(fixture.Settings.Current);
+        var fileBefore = File.Exists(AppPaths.SettingsFile) ? File.ReadAllBytes(AppPaths.SettingsFile) : null;
+        var html = await fixture.Render();
+        Assert.Contains(label, html); Assert.Contains(explanation, html);
+        Assert.NotEmpty(Checkbox(html)); Assert.DoesNotContain("checked", Checkbox(html));
+        Assert.Contains("aria-describedby=\"loot-overlay-session-only-hint\"", Checkbox(html));
+        Assert.Equal(before, OtherSettings(fixture.Settings.Current));
+        Assert.Equal(fileBefore, File.Exists(AppPaths.SettingsFile) ? File.ReadAllBytes(AppPaths.SettingsFile) : null);
+
+        html = await fixture.Invoke("SetLootSessionOnly", new ChangeEventArgs { Value = true });
+        Assert.Contains("checked", Checkbox(html));
+        Assert.True(fixture.Settings.Current.LootOverlayOnlyDuringSession);
+        Assert.True(new SettingsService().Current.LootOverlayOnlyDuringSession);
+        Assert.Equal(before, OtherSettings(fixture.Settings.Current));
+        Assert.True(fixture.Settings.Current.LootOverlayShowOnSessionStart);
+        Assert.True(fixture.Settings.Current.LootTrackingEnabled);
+        Assert.False(fixture.Settings.Current.LootOverlayEnabled);
+        await fixture.Export(html, "farm-loot-settings");
+
+        html = await fixture.Invoke("SetLootSessionOnly", new ChangeEventArgs { Value = false });
+        Assert.DoesNotContain("checked", Checkbox(html));
+        Assert.False(new SettingsService().Current.LootOverlayOnlyDuringSession);
+        Assert.Equal(before, OtherSettings(fixture.Settings.Current));
+        Assert.Empty(fixture.Alerts.Items); Assert.False(fixture.Placement.Active);
     }
 
     [Theory]
@@ -282,6 +358,8 @@ public sealed class OverlayViewTests
             services.AddLogging();
             services.AddSingleton<SettingsService>();
             services.AddSingleton<AlertSoundPlayer>();
+            services.AddSingleton(new AbyssRankSoundPlayer(() => new(),
+                () => throw new InvalidOperationException("Rendering cannot play rank audio."), (_, _, _) => [1]));
             services.AddSingleton(new RareDropAlertService(() => new(), () => throw new InvalidOperationException("Rendering cannot play audio."), TimeProvider.System));
             services.AddSingleton<UiState>();
             services.AddSingleton<OverlayHotkeyService>();

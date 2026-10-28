@@ -72,8 +72,8 @@ public sealed class TimerOverlayVisibilityTests : IDisposable
         {
             TimerOverlayShowWorldMap = false, TimerOverlayShowMenu = false, TimerOverlayShowInstances = false
         };
-        Assert.False(TimerOverlayVisibility.IsSuppressed(settings, false, found, true, true, true));
-        Assert.False(TimerOverlayVisibility.IsSuppressed(settings, false, found, false, false, false));
+        Assert.False(Suppressed(settings, false, found, true, true, true));
+        Assert.False(Suppressed(settings, false, found, false, false, false));
     }
 
     [Theory]
@@ -135,7 +135,11 @@ public sealed class TimerOverlayVisibilityTests : IDisposable
     }
 
     private static bool Suppressed(AppSettings settings, bool found = false, bool worldMap = false, bool menu = false, bool instance = false) =>
-        TimerOverlayVisibility.IsSuppressed(settings, true, found, worldMap, menu, instance);
+        Suppressed(settings, true, found, worldMap, menu, instance);
+
+    // The timer strip is the "alerts" panel of the shared overlay visibility policy.
+    private static bool Suppressed(AppSettings settings, bool trackingRunning, bool found, bool worldMap, bool menu, bool instance) =>
+        OverlayVisibilityPolicy.IsSuppressed(settings, "alerts", new(trackingRunning, found, worldMap, menu, instance));
 
     public void Dispose()
     {

@@ -28,6 +28,33 @@ public sealed class LootTrackerSettingsTests
     }
 
     [Fact]
+    public void SessionOnlyIsOptInPersistsAndRollsBackWithoutChangingOtherTrackingOrDisplayPreferences()
+    {
+        WithSettings(() =>
+        {
+            var settings = new SettingsService();
+            Assert.False(new AppSettings().LootOverlayOnlyDuringSession);
+            settings.SetLootOverlayEnabled(true); settings.SetLootOverlayShowOnSessionStart(false);
+            var events = 0; settings.Changed += () => events++;
+            var before = JsonSerializer.Serialize(settings.Current);
+            settings.SetLootOverlayOnlyDuringSession(true);
+            Assert.True(new SettingsService().Current.LootOverlayOnlyDuringSession); Assert.Equal(1, events);
+            settings.SetLootOverlayOnlyDuringSession(true); Assert.Equal(1, events);
+            settings.SetLootOverlayOnlyDuringSession(false); Assert.Equal(2, events);
+            Assert.Equal(before, JsonSerializer.Serialize(settings.Current));
+            File.Delete(AppPaths.SettingsFile); Directory.CreateDirectory(AppPaths.SettingsFile);
+            try
+            {
+                var error = Record.Exception(() => settings.SetLootOverlayOnlyDuringSession(true));
+                Assert.True(error is IOException or UnauthorizedAccessException);
+                Assert.False(settings.Current.LootOverlayOnlyDuringSession); Assert.Equal(2, events);
+                Assert.Equal(before, JsonSerializer.Serialize(settings.Current));
+            }
+            finally { Directory.Delete(AppPaths.SettingsFile); }
+        });
+    }
+
+    [Fact]
     public void BackgroundOpacityPersistsAndNormalizesWithoutChangingOtherOverlayPreferences()
     {
         WithSettings(() =>

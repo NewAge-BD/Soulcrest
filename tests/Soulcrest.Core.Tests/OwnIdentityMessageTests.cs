@@ -110,6 +110,45 @@ public sealed class OwnIdentityMessageTests
         Assert.False(OwnIdentityMessage.IsWorldEntryPreparation(message)); // map-frame clock opcode
     }
 
+    [Theory]
+    [InlineData(false, 0L)] [InlineData(true, 0L)]
+    [InlineData(false, 952540L)] [InlineData(true, 952540L)]
+    [InlineData(false, long.MaxValue)] [InlineData(true, long.MaxValue)]
+    public void OptionalAbyssRankTotalRequiresTheCompleteOwnSchema(bool optionalFields, long rankPoints)
+    {
+        var message = OwnMessage(optionalFields, pcId: 31, abyssRankPoints: rankPoints, abyssRankPointsPresent: true);
+        var world = Assert.IsType<OwnWorldObservation>(OwnIdentityMessage.TryParseWorld(message));
+        Assert.Equal(rankPoints, world.AbyssRankPoints);
+        Assert.Equal("Cleric", world.Identity.ClassId);
+        Assert.Equal(123456789, world.Identity.CharacterId);
+        NetworkProgressMessageTests.EveryCutRejected(message, data => OwnIdentityMessage.TryParseWorld(data));
+        Assert.Null(OwnIdentityMessage.TryParseWorld([.. message, 0]));
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public void MissingAbyssRankFlagLeavesTheTotalUnknown(bool optionalFields)
+    {
+        var message = OwnMessage(optionalFields, abyssRankPoints: 952540, abyssRankPointsPresent: false);
+        var world = Assert.IsType<OwnWorldObservation>(OwnIdentityMessage.TryParseWorld(message));
+        Assert.Null(world.AbyssRankPoints);
+        Assert.Equal(123456789, world.Identity.CharacterId);
+    }
+
+    [Theory]
+    [InlineData(false, -1L)] [InlineData(true, -1L)]
+    [InlineData(false, long.MinValue)] [InlineData(true, long.MinValue)]
+    public void InvalidAbyssRankTotalPreservesOtherFullyValidatedOwnProgress(bool optionalFields, long rankPoints)
+    {
+        var message = OwnMessage(optionalFields, gearScore: 17, combatScore: 42,
+            abyssRankPoints: rankPoints, abyssRankPointsPresent: true);
+        var world = Assert.IsType<OwnWorldObservation>(OwnIdentityMessage.TryParseWorld(message));
+        Assert.Null(world.AbyssRankPoints);
+        Assert.Equal(17, world.GearScore);
+        Assert.Equal(42, world.CombatScore);
+        Assert.Equal(123456789, world.Identity.CharacterId);
+    }
+
     private static byte[] Preparation()
     {
         using var w = new Packet(0x3621);
@@ -119,10 +158,13 @@ public sealed class OwnIdentityMessageTests
         return w.Bytes;
     }
 
-    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0, int pcId = 0, int gearScore = 0, int highestGearScore = 0, long combatScore = 0, long highestCombatScore = 0)
+    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0, int pcId = 0, int gearScore = 0, int highestGearScore = 0, long combatScore = 0, long highestCombatScore = 0, long? abyssRankPoints = null, bool? abyssRankPointsPresent = null)
     {
         using var w = new Packet(0x3633);
-        w.V(300); w.I(optional ? 0x3fffffff : 0);
+        var hasAbyssRankPoints = abyssRankPointsPresent ?? optional;
+        var flags = optional ? 0x3fffffff : 0;
+        flags = hasAbyssRankPoints ? flags | 65536 : flags & ~65536;
+        w.V(300); w.I(flags);
         w.B(optional ? (byte)63 : (byte)1); w.S(name); w.U(server); w.I(pcId);
         if (optional) w.B(1);
         w.I(0); w.I(gearScore); w.I(highestGearScore); w.Z(24);
@@ -162,7 +204,11 @@ public sealed class OwnIdentityMessageTests
         w.Bool(true);
         if (optional)
         {
-            w.B(1); w.V(300); w.Z(4 + 8);
+            w.B(1); w.V(300); w.Z(4);
+        }
+        if (hasAbyssRankPoints) w.L(abyssRankPoints ?? 0);
+        if (optional)
+        {
             w.V(1); w.B(1); w.B(1); w.S(""); w.Z(4 + 12 + 8 + 8); w.V(1); w.L(0);
             w.Z(4 + 4 + 4 + 8);
             w.Z(10); w.S("SkippedText"); w.Z(5);

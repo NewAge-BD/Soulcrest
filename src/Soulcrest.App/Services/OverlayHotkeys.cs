@@ -58,6 +58,8 @@ public static class OverlayHotkeys
         new OverlayHotkeyAction("loot.unlock", "Loot / Pets", true),
         new OverlayHotkeyAction("farm-loot.toggle", "Loot-Overlay"),
         new OverlayHotkeyAction("farm-loot.unlock", "Loot-Overlay", true),
+        new OverlayHotkeyAction("abyss-rank.toggle", "Punkte-Stufe"),
+        new OverlayHotkeyAction("abyss-rank.unlock", "Punkte-Stufe", true),
         new OverlayHotkeyAction("boss.toggle", "Boss Rush"),
         new OverlayHotkeyAction("boss.unlock", "Boss Rush", true),
         new OverlayHotkeyAction("leveling.toggle", "Leveling Routes"),
@@ -91,6 +93,7 @@ public static class OverlayHotkeys
         {
             case "loot.toggle": settings.OverlayEnabled = !settings.OverlayEnabled; break;
             case "farm-loot.toggle": settings.LootOverlayEnabled = !settings.LootOverlayEnabled; break;
+            case "abyss-rank.toggle": settings.AbyssRankOverlayEnabled = !settings.AbyssRankOverlayEnabled; break;
             case "boss.toggle": settings.BossOverlayVisible = !settings.BossOverlayVisible; break;
             case "leveling.toggle": settings.LevelingOverlayEnabled = !settings.LevelingOverlayEnabled; break;
             case "alerts.toggle": settings.AlertsOverlayEnabled = !settings.AlertsOverlayEnabled; break;
@@ -106,6 +109,7 @@ public static class OverlayHotkeys
     {
         "loot.toggle" => settings.OverlayEnabled,
         "farm-loot.toggle" => settings.LootOverlayEnabled,
+        "abyss-rank.toggle" => settings.AbyssRankOverlayEnabled,
         "boss.toggle" => settings.BossOverlayVisible,
         "leveling.toggle" => settings.LevelingOverlayEnabled,
         "alerts.toggle" => settings.AlertsOverlayEnabled,

@@ -21,6 +21,8 @@ public sealed class LifeskillGatherPointResolver
         _catalog = catalog; _metersPerPixel = metersPerPixel; _mapSize = mapSize;
     }
 
+    internal int? MapSize(string mapId) => _mapSize(mapId);
+
     /// <summary>The caller qualifies position freshness and the own character generation.</summary>
     public LootTrackerGatherVisit Resolve(string id, int section, PlayerPosition position, int? gatherableId,
         DateTimeOffset at, bool succeeded, string mapName, string fallbackName)
