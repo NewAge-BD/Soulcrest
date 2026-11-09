@@ -11,6 +11,72 @@ namespace Soulcrest.App.Tests;
 
 public sealed class OverlayEditorLiveHostTests
 {
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    public Task RecordingVisibilityRequiresBothSafeCaptureAndTheWindowPermission(bool safeCapture, bool excluded, bool expected) => RunSta(() =>
+    {
+        using var fixture = new Fixture { CaptureWindowOnly = safeCapture };
+        fixture.Editor.SaveAsync(fixture.Editor.Settings with { CaptureExcluded = excluded }).GetAwaiter().GetResult();
+        fixture.Host.Start();
+        var surface = Assert.Single(fixture.Surfaces);
+        Assert.True(surface.Visible);
+        Assert.Equal(expected, surface.VisibleInRecordings);
+        Assert.Equal(excluded, fixture.Editor.Settings.CaptureExcluded);
+        Assert.Equal(1, fixture.Source.ActiveLeases);
+    });
+
+    [Fact]
+    public Task RecordingPolicyChangesApplyIndependentlyToTwoWindowsWithoutReplacingTheirHosts() => RunSta(() =>
+    {
+        using var fixture = new Fixture(marketWindow: true) { CaptureWindowOnly = true };
+        var first = fixture.Editor.Overlays[0];
+        var second = fixture.Editor.Overlays[1];
+        fixture.Editor.SaveAsync(first.Id, first.Settings with { CaptureExcluded = false }).GetAwaiter().GetResult();
+        fixture.Host.Start();
+        var firstSurface = fixture.Surfaces.Single(surface => surface.Configured!.Id == first.Id);
+        var secondSurface = fixture.Surfaces.Single(surface => surface.Configured!.Id == second.Id);
+        Assert.True(firstSurface.VisibleInRecordings);
+        Assert.False(secondSurface.VisibleInRecordings);
+        var before = File.ReadAllBytes(fixture.Path);
+        fixture.CaptureWindowOnly = false;
+        fixture.Host.Invalidate();
+        Assert.False(firstSurface.VisibleInRecordings);
+        Assert.False(secondSurface.VisibleInRecordings);
+        Assert.Equal(before, File.ReadAllBytes(fixture.Path));
+        fixture.CaptureWindowOnly = true;
+        fixture.Host.Invalidate();
+        Assert.True(firstSurface.VisibleInRecordings);
+        Assert.False(secondSurface.VisibleInRecordings);
+        first = fixture.Editor.Overlays.Single(window => window.Id == first.Id);
+        fixture.Editor.SaveAsync(first.Id, first.Settings with { CaptureExcluded = true }).GetAwaiter().GetResult();
+        fixture.Host.Invalidate();
+        Assert.False(firstSurface.VisibleInRecordings);
+        Assert.False(secondSurface.VisibleInRecordings);
+        second = fixture.Editor.Overlays.Single(window => window.Id == second.Id);
+        fixture.Editor.SaveAsync(second.Id, second.Settings with { CaptureExcluded = false }).GetAwaiter().GetResult();
+        fixture.Host.Invalidate();
+        Assert.False(firstSurface.VisibleInRecordings);
+        Assert.True(secondSurface.VisibleInRecordings);
+        Assert.Equal(2, fixture.Surfaces.Count);
+        Assert.All(fixture.Surfaces, surface => { Assert.True(surface.Visible); Assert.False(surface.Disposed); });
+        Assert.Equal(1, fixture.Source.ActiveLeases);
+    });
+
+    [Fact]
+    public Task EnabledEmptyWindowKeepsItsMandatoryControlWithoutAcquiringMarketData() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Editor.SaveAsync(fixture.Editor.Settings with { Widgets = [], Visibility = "always" }).GetAwaiter().GetResult();
+        fixture.Host.Start();
+        Assert.True(Assert.Single(fixture.Surfaces).Visible);
+        Assert.Empty(Assert.Single(fixture.Surfaces).Configured!.Settings.Widgets);
+        Assert.Equal(1, fixture.Source.ActiveLeases);
+        Assert.False(fixture.Source.Markets.Last());
+    });
+
     [Fact]
     public Task AllWindowsShareOneSourceFrameAndOnlyVisibleMarketWindowsAcquirePrices() => RunSta(() =>
     {
@@ -553,6 +619,132 @@ public sealed class OverlayEditorLiveHostTests
         Assert.False(runtimeVisible);
     });
 
+    [Fact]
+    public Task NativePlacementCommitsOnlyPortableGeometryAndKeepsItsSharedDataLease() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Host.Start();
+        var surface = Assert.Single(fixture.Surfaces);
+        Assert.NotNull(surface.Configured);
+        var settings = fixture.Editor.Settings;
+        var widgets = settings.Widgets;
+        surface.Place(new(-1700, 80, 360, 260), 1, settings);
+        WaitFor(() => surface.PlacementCompletions.Count == 1);
+        Assert.Null(surface.PlacementCompletions[0]);
+        Assert.Equal("fixture", fixture.Editor.Settings.PositionMonitorId);
+        Assert.Equal(220d / (1920 - 360), fixture.Editor.Settings.PositionX, 8);
+        Assert.Equal(80d / (1040 - 260), fixture.Editor.Settings.PositionY, 8);
+        Assert.Equal(settings.Widgets.Select(widget => widget.Id), fixture.Editor.Settings.Widgets.Select(widget => widget.Id));
+        Assert.Equal(widgets.Select(widget => widget.Kind), fixture.Editor.Settings.Widgets.Select(widget => widget.Kind));
+        Assert.Equal(settings.Enabled, fixture.Editor.Settings.Enabled);
+        Assert.Equal(settings.TriggerRules, fixture.Editor.Settings.TriggerRules);
+        Assert.Equal(1, fixture.Source.ActiveLeases);
+        Assert.False(fixture.Source.Markets.Last());
+    });
+
+    [Fact]
+    public Task NativePlacementWriteFailureKeepsTheFileAndRevokesSurfacesUntilExplicitReload() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Host.Start();
+        var surface = Assert.Single(fixture.Surfaces);
+        surface.RejectAccessAfterDispose = true;
+        var before = File.ReadAllBytes(fixture.Path);
+        using (var blocker = new FileStream(fixture.Path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            surface.Place(new(-1700, 80, 360, 260), 1, fixture.Editor.Settings);
+            WaitFor(() => fixture.Editor.LoadError is not null && surface.Disposed);
+            Assert.Equal(before, File.ReadAllBytes(fixture.Path));
+            Assert.Equal(0, surface.AccessesAfterDispose);
+            fixture.Source.Publish();
+            Assert.All(fixture.Surfaces, item => Assert.True(item.Disposed));
+            Assert.Equal(0, fixture.Source.ActiveLeases);
+        }
+        Assert.True(fixture.Editor.ReloadAsync().GetAwaiter().GetResult().Succeeded);
+        Application.DoEvents();
+        Assert.Null(fixture.Editor.LoadError);
+    });
+
+    [Theory]
+    [InlineData("session-active")]
+    [InlineData("tracking")]
+    [InlineData("session-id")]
+    public Task WorkerAuthorityRevocationBeforeItsOwnerCallbackCannotCommitANativePlacement(string boundary) => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Host.Start();
+        var surface = Assert.Single(fixture.Surfaces);
+        surface.RejectAccessAfterDispose = true;
+        var settings = fixture.Editor.Settings;
+        var before = File.ReadAllBytes(fixture.Path);
+        fixture.Source.Frame = boundary switch
+        {
+            "session-active" => fixture.Source.Frame with { SessionActive = false },
+            "tracking" => fixture.Source.Frame with { TrackingAvailable = false },
+            _ => fixture.Source.Frame with { SessionId = "synthetic-next-session" },
+        };
+        Task.Run(fixture.Source.Publish).GetAwaiter().GetResult();
+        Assert.Equal(1, fixture.Source.Captures); // BeginInvoke is still queued on the owner.
+        surface.Place(new(-1700, 80, 360, 260), 1, settings);
+        Assert.Equal(before, File.ReadAllBytes(fixture.Path));
+        Assert.Same(settings, fixture.Editor.Settings);
+        Assert.Equal(0, surface.AccessesAfterDispose);
+        Application.DoEvents();
+        Assert.Equal(before, File.ReadAllBytes(fixture.Path));
+        Assert.Same(settings, fixture.Editor.Settings);
+    });
+
+    [Fact]
+    public Task PendingSameAuthorityRefreshDoesNotCancelOrHideANativePlacement() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Host.Start();
+        var surface = Assert.Single(fixture.Surfaces);
+        var hides = surface.Hides;
+        fixture.Source.Frame = fixture.Source.Frame with { ClockUtcNow = fixture.Source.Frame.ClockUtcNow.AddSeconds(1) };
+        Task.Run(fixture.Source.Publish).GetAwaiter().GetResult();
+        Assert.Equal(1, fixture.Source.Captures);
+        surface.Place(new(-1700, 80, 360, 260), 1, fixture.Editor.Settings);
+        WaitFor(() => surface.PlacementCompletions.Count == 1);
+        Assert.Null(surface.PlacementCompletions[0]);
+        Assert.Equal(220d / (1920 - 360), fixture.Editor.Settings.PositionX, 8);
+        Assert.Equal(hides, surface.Hides);
+        Assert.True(surface.Visible);
+    });
+
+    [Fact]
+    public Task TwoImmediatePlacementsUseAcknowledgedSettingsWhileTheReplacementRendererIsStillPending() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Host.Start();
+        var surface = Assert.Single(fixture.Surfaces);
+        var pending = new TaskCompletionSource<Bitmap>(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Renderer.Pending = pending;
+        surface.Place(new(-1700, 80, 360, 260), 1, surface.Configured!.Settings);
+        WaitFor(() => surface.PlacementCompletions.Count == 1);
+        Assert.False(pending.Task.IsCompleted);
+        Assert.Null(surface.PlacementCompletions[0]);
+        Assert.Same(fixture.Editor.Settings, surface.Configured!.Settings);
+        surface.Place(new(-1660, 120, 360, 260), 1, surface.Configured.Settings);
+        WaitFor(() => surface.PlacementCompletions.Count == 2);
+        Assert.False(pending.Task.IsCompleted);
+        Assert.All(surface.PlacementCompletions, Assert.Null);
+        Assert.Same(fixture.Editor.Settings, surface.Configured!.Settings);
+        Assert.Equal(260d / (1920 - 360), fixture.Editor.Settings.PositionX, 8);
+        Assert.Equal(120d / (1040 - 260), fixture.Editor.Settings.PositionY, 8);
+        Assert.False(fixture.Editor.GetState("default").IsError);
+        fixture.Renderer.Pending = null;
+        pending.SetResult(new Bitmap(360, 260));
+        DrainRender(fixture);
+    });
+
+    private static void WaitFor(Func<bool> condition)
+    {
+        var deadline = Environment.TickCount64 + 5000;
+        while (!condition() && Environment.TickCount64 < deadline) { Application.DoEvents(); Thread.Sleep(1); }
+        Assert.True(condition());
+    }
+
     private static void DrainRender(Fixture fixture)
     {
         var rendering = typeof(OverlayEditorLiveHostCoordinator).GetField("_rendering", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -601,6 +793,7 @@ public sealed class OverlayEditorLiveHostTests
         internal OverlayEditorLiveHostCoordinator Host { get; }
         internal bool Allowed { get; set; } = true;
         internal bool HasMonitor { get; set; } = true;
+        internal bool CaptureWindowOnly { get; set; }
         internal Fixture(bool marketWindow = false)
         {
             Editor = new(_root, new OverlayCollectionSettings());
@@ -613,7 +806,7 @@ public sealed class OverlayEditorLiveHostTests
             _ = _owner.Handle;
             OverlayMonitor monitor = new("fixture", "Fixture", new(-1920, 0, 1920, 1080), new(-1920, 0, 1920, 1040));
             Host = new(_owner, Editor, Source, Renderer, (_, snapshot) => Allowed && snapshot.SessionActive,
-                () => HasMonitor ? [monitor] : [], () => monitor, () => false, () => { var surface = new Surface(); Surfaces.Add(surface); return surface; });
+                () => HasMonitor ? [monitor] : [], () => monitor, () => CaptureWindowOnly, () => { var surface = new Surface(); Surfaces.Add(surface); return surface; });
         }
         internal void QueueOwnerAction(Action action) => _owner.BeginInvoke(action);
         public void Dispose() { Host.Dispose(); _owner.Dispose(); Editor.Dispose(); if (Directory.Exists(_root)) Directory.Delete(_root, true); }
@@ -662,14 +855,21 @@ public sealed class OverlayEditorLiveHostTests
         internal bool Disposed { get; private set; }
         internal int Shows { get; private set; }
         internal int Hides { get; private set; }
+        internal bool VisibleInRecordings { get; private set; }
         internal Action? OnShow { get; set; }
         internal bool RejectAccessAfterDispose { get; set; }
         internal int AccessesAfterDispose { get; private set; }
+        internal OverlayInstance? Configured { get; private set; }
+        internal List<string?> PlacementCompletions { get; } = [];
+        public event Action<OverlayLivePlacement>? PlacementCompleted;
+        public void ConfigureInteraction(OverlayInstance window, Size logicalSize, OverlayMonitor monitor, string themeId, double? displayedScale = null) => Configured = window;
+        public void CompletePlacement(string? error) { CheckAccess(); PlacementCompletions.Add(error); }
+        internal void Place(Rectangle bounds, double scale, OverlaySettings settings) => PlacementCompleted?.Invoke(new(bounds, scale, "fixture", settings));
         public event Action? GeometryInvalidated;
         internal void ChangeDpi() => GeometryInvalidated?.Invoke();
         public void HideFrame() { CheckAccess(); Hides++; Visible = false; }
         public void ShowFrame(Bitmap image, Rectangle bounds, bool visibleInRecordings)
-        { CheckAccess(); Assert.False(visibleInRecordings); Shows++; Visible = true; OnShow?.Invoke(); }
+        { CheckAccess(); VisibleInRecordings = visibleInRecordings; Shows++; Visible = true; OnShow?.Invoke(); }
         public void Dispose() { Visible = false; Disposed = true; }
         private void CheckAccess()
         {

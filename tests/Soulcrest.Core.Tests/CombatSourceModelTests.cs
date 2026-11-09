@@ -82,21 +82,31 @@ public sealed class CombatSourceModelTests
     }
 
     [Fact]
-    public void SourceLossRecalculatesAllInteractionsAndIsNotAnAdditiveBreakdown()
+    public void SourceLossIsAdditiveBecauseFlatAndPercentComponentsAreWeightedSeparately()
     {
-        var catalog = Catalog();
+        // Research 2026-11-09: the score is linear in the raw components, so no shared multiplier interaction exists.
+        var catalog = RatioCatalog(hpWeight: 1, ratioWeight: 2);
         var graph = Graph(
             Source("base", new CombatEffect("HPMax", 100, Application: CombatApplication.Confirmed)),
             Source("flat", new CombatEffect("HPMax", 100, Application: CombatApplication.Confirmed)),
-            Source("percent", new CombatEffect("HPMax", 10, CombatEffectOperation.IncreasePercent, CombatApplication.Confirmed)));
+            Source("percent", new CombatEffect("MaxHPRatio", 10, Application: CombatApplication.Confirmed)));
         var result = CombatScoreModel.Evaluate(graph, catalog);
         Assert.Equal(220m, result.ModelTotal);
-        Assert.Equal(110m, result.Sources.Single(row => row.SourceId == "flat").ModelLoss);
+        Assert.Equal(100m, result.Sources.Single(row => row.SourceId == "flat").ModelLoss);
         Assert.Equal(20m, result.Sources.Single(row => row.SourceId == "percent").ModelLoss);
-        Assert.Equal(240m, result.Sources.Sum(row => row.ModelLoss)); // Shared multiplier interactions overlap.
+        Assert.Equal(220m, result.Sources.Sum(row => row.ModelLoss));
         var replacement = CombatScoreModel.Counterfactual(graph, ["flat"],
             [Source("flat", new CombatEffect("HPMax", 50, Application: CombatApplication.Confirmed))], catalog);
-        Assert.Equal(-55m, replacement.ModelDelta);
+        Assert.Equal(-50m, replacement.ModelDelta);
+    }
+
+    [Fact]
+    public void DirectPercentIncreaseWithoutWeightedModifierStaysUnknown()
+    {
+        var graph = Graph(Source("base", new CombatEffect("HPMax", 100, Application: CombatApplication.Confirmed)),
+            Source("percent", new CombatEffect("HPMax", 10, CombatEffectOperation.IncreasePercent, CombatApplication.Confirmed)));
+        Assert.Null(CombatScoreModel.Evaluate(graph, Catalog()).ModelTotal);
+        Assert.Equal(220m, CombatScoreModel.Evaluate(graph, RatioCatalog(1, 12)).ModelTotal); // 100 + 10 % × 12
     }
 
     [Fact]
@@ -167,15 +177,15 @@ public sealed class CombatSourceModelTests
         var graph = Graph(Source("base", new CombatEffect("HPMax", 100.1m, Application: CombatApplication.Confirmed)),
             Source("god", new CombatEffect("CON", 1, Application: CombatApplication.Confirmed)));
         var result = CombatScoreModel.Evaluate(graph, catalog);
-        Assert.Equal(108m, result.ModelTotal); // ceil(100.1 * 1.075), not per-source rounding.
-        Assert.Equal(108m, result.Composition.KnownStatSubtotal);
-        Assert.All(result.Composition.Stats.Where(term => term.StatId is "CON" or "MaxHPRatio"), term =>
-        {
-            Assert.True(term.IsIntermediate); Assert.Null(term.Coefficient); Assert.Null(term.Contribution);
-        });
-        Assert.Equal(108m, Assert.Single(result.Composition.Stats, term => !term.IsIntermediate).Contribution);
+        // Raw-linear: 100.1 flat × 1 + 7.5 % × 0.11; the displayed ceil(100.1 × 1.075) is not weighted.
+        Assert.Equal(101m, result.ModelTotal);
+        Assert.Equal(100.925m, result.Composition.UnroundedSubtotal);
+        var con = Assert.Single(result.Composition.Stats, term => term.StatId == "CON");
+        Assert.True(con.IsIntermediate); Assert.Null(con.Coefficient); Assert.Null(con.Contribution);
+        Assert.Equal(0.825m, Assert.Single(result.Composition.Stats, term => term.StatId == "MaxHPRatio").Contribution);
+        Assert.Equal(100.1m, Assert.Single(result.Composition.Stats, term => term.StatId == "HPMax").Contribution);
         Assert.Equal(7.5m, result.Stats.Single(row => row.StatId == "HPMax").IncreasePercent);
-        Assert.Equal(101m, CombatScoreModel.Calculate(graph with
+        Assert.Equal(100.1m, CombatScoreModel.Calculate(graph with
             { Sources = [graph.Sources[0], Source("god", new CombatEffect("CON", 0, Application: CombatApplication.Confirmed))] }, catalog).Total);
         var outside = graph with { Sources = [graph.Sources[0], Source("god", new CombatEffect("CON", 2, Application: CombatApplication.Confirmed))] };
         Assert.Null(CombatScoreModel.Calculate(outside, catalog).Total); // No extrapolation beyond an exact lookup.
@@ -431,6 +441,11 @@ public sealed class CombatSourceModelTests
         [new() { StatId = "HPMax", Unit = CombatStatUnit.Points, Rounding = CombatRounding.Ceiling, NativeId = 10, NativeRawDivisor = 100,
             NativeRole = CombatNativeStatRole.DisplayTotal }],
         [new("HPMax", coefficient, CombatStatUnit.Points)], passiveEffects: passives, sourceEffects: sources);
+    private static CombatEffectCatalog RatioCatalog(decimal hpWeight, decimal ratioWeight) => new("test", 1,
+        [new() { StatId = "HPMax", Unit = CombatStatUnit.Points, Rounding = CombatRounding.Ceiling },
+            new() { StatId = "MaxHPRatio", Unit = CombatStatUnit.Percent, RawDivisor = 100 }],
+        [new("HPMax", hpWeight, CombatStatUnit.Points), new("MaxHPRatio", ratioWeight, CombatStatUnit.Percent)],
+        statRelations: [new("MaxHPRatio", "HPMax")]);
     private static CombatSourceGraph Graph(params CombatSource[] sources) => new() { Status = CombatKnowledgeStatus.Complete, Sources = sources };
     private static CombatSource Source(string id, params CombatEffect[] effects) => new() { Id = id, Status = CombatKnowledgeStatus.Complete, Effects = effects };
     private static CombatSource SkillSource(string id, int level) => new() { Id = id, Status = CombatKnowledgeStatus.Complete,

@@ -17,6 +17,24 @@ public sealed class GenusInsightStateServiceTests
     private const string SourceName = "own-pet-genus-list";
 
     [Fact]
+    public void FeatureDiagnosisCannotEvaluateOrRevokeTheExistingPresetAuthority()
+    {
+        using var f = new Fixture(); f.Login(101, 7, 1);
+        using var lease = f.State.ObserveMenu(); f.SelectGamePreset(3); f.WaitForProjection();
+        var preset = typeof(GenusInsightStateService).GetField("_preset", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(f.State)!;
+        var fields = preset.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var before = fields.Select(field => field.GetValue(preset)).ToArray();
+        var beforeFile = File.ReadAllBytes(f.Path);
+        // No producer callback: a diagnostic read must not perform the normal presentation-side invalidation.
+        f.Network.Running = false;
+        var contributors = DiagnosticContributors.Create(new DiagnosticServiceRegistry(f.Character, f.State, f.Menu));
+        var contributor = contributors.Single(item => item.FeatureIds.Contains("combat-genus-insight"));
+        _ = contributor.Collect("combat-genus-insight");
+        Assert.Equal(before, fields.Select(field => field.GetValue(preset)).ToArray());
+        Assert.Equal(beforeFile, File.ReadAllBytes(f.Path));
+    }
+
+    [Fact]
     public void ClosingTheMenuAndReleasingItsLeaseKeepTheLastConfirmedPresetAndAllDisplayedRolls()
     {
         using var f = new Fixture(); f.Login(101, 7, 1);

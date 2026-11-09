@@ -39,7 +39,7 @@
 .boss-timers-compact { min-width: 0; }
 .boss-timers-compact .boss-timer-grid { grid-template-columns: minmax(0, 1fr); gap: 9px; margin-top: 12px; }
 .event-boss-live[data-boss-searchable="true"] .boss-timer-grid { max-height: 44rem; padding: 2px 5px 2px 2px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #35475a transparent; scrollbar-gutter: stable; }
-.boss-timers-compact .boss-timer-card { padding: 11px 14px 8px; min-width: 0; }
+.boss-timers-compact .boss-timer-card { padding: 11px 14px 8px; min-width: 0; cursor: pointer; }
 .boss-timers-compact .boss-timer-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 190px); column-gap: 16px; row-gap: 5px; align-items: center; }
 .boss-timers-compact .boss-timer-overview .event-card-heading { flex-wrap: nowrap; align-items: center; gap: 10px; min-width: 0; }
 .boss-timers-compact .boss-timer-overview .event-card-heading > div { min-width: 0; }

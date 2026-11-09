@@ -28,7 +28,7 @@ public sealed record OverlayLivePolicyInputs(bool Enabled, int WidgetCount, stri
     bool? WorldMap, bool? EscMenu, bool? MinimapMissing, bool HasRules, bool RulesValid, int AreasMask,
     OverlayTriggerRequirement ForegroundRule, OverlayTriggerRequirement SessionRule,
     OverlayTriggerRequirement WorldMapRule, OverlayTriggerRequirement EscMenuRule, OverlayTriggerRequirement MinimapRule,
-    bool Result, OverlayLiveFailedGates FailedGates);
+    bool Result, OverlayLiveFailedGates FailedGates, bool CaptureExcluded = true);
 
 public sealed record OverlayLiveDiagnosticEntry(long Sequence, double AtMs, int? Window,
     string Action, string Reason, string Phase, long? Epoch = null, OverlayLivePolicyInputs? Policy = null,
@@ -41,10 +41,30 @@ public sealed record OverlayLiveDiagnosticSnapshot(long Version, IReadOnlyList<O
 public static class OverlayEditorLiveDiagnostics
 {
     private static readonly OverlayLiveDiagnosticBuffer Buffer = new();
+    private static int _diagnosticLeases;
     private static readonly JsonSerializerOptions Json = new() { Converters = { new JsonStringEnumConverter() } };
-    public static bool Enabled => ValidPort(Environment.GetEnvironmentVariable("SOULCREST_WEBVIEW_DEBUG_PORT"));
+    public static bool Enabled => Volatile.Read(ref _diagnosticLeases) > 0
+        || ValidPort(Environment.GetEnvironmentVariable("SOULCREST_WEBVIEW_DEBUG_PORT"));
     internal static bool ValidPort(string? value) => int.TryParse(value, out var port) && port is > 1024 and < 65536;
     public static OverlayLiveDiagnosticSnapshot Capture() => Enabled ? Buffer.Capture() : new(0, []);
+    /// <summary>Reads retained anonymous observations without enabling collection or starting a renderer.</summary>
+    public static OverlayLiveDiagnosticSnapshot CaptureRecorded() => Buffer.Capture();
+
+    /// <summary>User-started diagnosis can observe the existing runtime without opening a developer port.</summary>
+    public static IDisposable BeginDiagnosticCollection()
+    {
+        Interlocked.Increment(ref _diagnosticLeases);
+        return new DiagnosticLease();
+    }
+
+    private sealed class DiagnosticLease : IDisposable
+    {
+        private int _disposed;
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0) Interlocked.Decrement(ref _diagnosticLeases);
+        }
+    }
     public static string Serialize(OverlayLiveDiagnosticSnapshot snapshot) => JsonSerializer.Serialize(snapshot, Json);
 
     internal static void Policy(OverlaySettings settings, OverlaySnapshot snapshot, OverlayEditorLiveContext context, bool result)
@@ -110,7 +130,7 @@ public static class OverlayEditorLiveDiagnostics
             snapshot.TrackingAvailable, snapshot.SessionActive, session, context.Visual.WorldMap, context.Visual.EscMenu,
             context.Visual.MinimapMissing, rules is not null, valid, areas,
             rules?.Foreground ?? default, rules?.SessionActive ?? default, rules?.WorldMap ?? default,
-            rules?.EscMenu ?? default, rules?.MinimapMissing ?? default, result, failed);
+            rules?.EscMenu ?? default, rules?.MinimapMissing ?? default, result, failed, settings.CaptureExcluded);
     }
 
     private static bool Matches(OverlayTriggerRequirement rule, bool? observed) => rule switch

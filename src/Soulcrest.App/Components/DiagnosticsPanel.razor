@@ -1,0 +1,234 @@
+@implements IDisposable
+@using System.Globalization
+@using Soulcrest.App.Network
+@inject DiagnosticsService Diagnostics
+
+<section class="card sv-card diagnostics-panel" data-diagnostics-panel>
+    <div class="sv-card-head">
+        <div><h3>@UiText.T("Diagnose")</h3><p class="sv-hint">@UiText.T("Wähle die Funktionen, die untersucht werden sollen. Gemeinsame Quellen werden bei Bedarf mitgeprüft.")</p></div>
+        <span class="sv-badge">@UiText.F("{0} ausgewählt", _selected.Count)</span>
+    </div>
+    <div class="diagnostics-selection-tools">
+        <label class="diagnostics-search"><span>@UiText.T("Funktion suchen")</span><input type="search" value="@_search" @oninput="SearchChanged" placeholder="@UiText.T("Zum Beispiel Killfeed oder Daevanion")" disabled="@_busy" /></label>
+        <div class="row"><button type="button" class="btn" disabled="@_busy" @onclick="SelectAll">@UiText.T("Alle auswählen")</button><button type="button" class="btn link" disabled="@_busy" @onclick="SelectNone">@UiText.T("Auswahl leeren")</button></div>
+    </div>
+    <div class="diagnostics-feature-groups">
+        @foreach (var group in FeatureGroups)
+        {
+            var groupFeatures = Diagnostics.Features.Where(feature => feature.Group == group.Key).ToArray();
+            var selectedCount = groupFeatures.Count(feature => _selected.Contains(feature.Id));
+            <details class="diagnostics-feature-group" open="@(!string.IsNullOrWhiteSpace(_search))" data-diagnostic-group="@group.Key">
+                <summary><span>@UiText.T(group.Key)</span><span class="diagnostics-count">@selectedCount / @groupFeatures.Length</span></summary>
+                <label class="diagnostics-group-choice"><input type="checkbox" checked="@(selectedCount == groupFeatures.Length)" disabled="@_busy" @onchange="e => SelectGroup(group.Key, e.Value is true)" /><span>@UiText.T("Ganze Gruppe auswählen")</span></label>
+                @foreach (var feature in group)
+                {
+                    <label class="diagnostics-feature-choice" data-diagnostic-feature="@feature.Id"><input type="checkbox" checked="@_selected.Contains(feature.Id)" disabled="@_busy" @onchange="e => SelectFeature(feature.Id, e.Value is true)" /><span>@UiText.T(feature.Label)</span></label>
+                }
+            </details>
+        }
+    </div>
+    @if (!FeatureGroups.Any()) { <p class="note">@UiText.T("Keine passende Funktion gefunden.")</p> }
+    @if (_selected.Count == 0) { <p class="diagnostics-empty" role="status">@UiText.T("Wähle mindestens eine Funktion aus.")</p> }
+    @if (RequiredLabels.Count > 0) { <p class="note diagnostics-dependencies">@UiText.F("Zusätzlich benötigte Quellen: {0}", string.Join(", ", RequiredLabels))</p> }
+
+    <div class="diagnostics-actions row">
+        <button type="button" class="btn" disabled="@CannotAct" @onclick="CheckNow">@(_busy && _action == "check" ? UiText.T("Prüfe …") : UiText.T("Auswahl prüfen"))</button>
+        <button type="button" class="btn primary" disabled="@(CannotAct || RecordingActive)" @onclick="CreatePackage">@(_busy && _action == "zip" ? UiText.T("Paket wird erstellt …") : UiText.T("Diagnose-Paket erstellen"))</button>
+        <button type="button" class="btn link" disabled="@CannotAct" @onclick="OpenReport">@UiText.T("Bericht öffnen")</button>
+    </div>
+    <p class="sv-hint diagnostics-local">@UiText.T("Das ZIP enthält die ausgewählten Diagnosen und benötigten Quellen. Es bleibt auf deinem Desktop und wird nicht automatisch versendet.")</p>
+    @if (_packaged is not null) { <div class="note applied" role="status">@UiText.T("✓ Paket erstellt") · <code class="sv-path">@_packaged</code></div> }
+    @if (_error is not null) { <div class="status error" role="alert">@_error</div> }
+
+    <div class="diagnostics-recording" data-diagnostics-recording="@Diagnostics.Recording.State">
+        <div class="sv-card-head"><h4>@UiText.T("Spielverkehr bei Bedarf aufnehmen")</h4><span class="sv-badge @(RecordingActive ? "on" : "")" role="status">@RecordingStatus</span></div>
+        <p class="sv-hint">@UiText.T("Optionaler Mitschnitt: ausschließlich aktuell zugeordnete eigene AION2-Spielverbindungen über IPv4/TCP am verwendeten Adapter. Höchstens 5 Minuten oder 64 MiB. Anderer Rechnerverkehr wird nicht gespeichert.")</p>
+        <p class="note">@UiText.T("Rohmitschnitte können sensible Spieldaten enthalten. Prüfe das Paket vor dem manuellen Weitergeben.")</p>
+        <div class="row">
+            @if (RecordingActive)
+            {
+                <button type="button" class="btn" disabled="@(_busy || Diagnostics.Recording.State == NetworkDiagnosticRecorderState.Stopping)" @onclick="StopRecording">@UiText.T("Aufnahme beenden")</button>
+            }
+            else
+            {
+                <button type="button" class="btn" disabled="@CannotAct" @onclick="StartRecording">@UiText.T("Spielverkehr aufnehmen")</button>
+            }
+            @if (Diagnostics.Recording.StartedAt is not null)
+            {
+                <span class="note">@UiText.F("{0} Pakete · {1} MiB · {2} verworfen", Diagnostics.Recording.Packets, (Diagnostics.Recording.Bytes / 1048576d).ToString("0.0", CultureInfo.CurrentCulture), Diagnostics.Recording.DroppedPackets)</span>
+            }
+        </div>
+        <p class="note">@UiText.T("Die Aufnahme beginnt während der laufenden Verbindung. UDP, IPv6 und weitere Adapter fehlen; die Vollständigkeit ist nicht bestätigt.")</p>
+        @if (Diagnostics.Recording.StopReason is { } reason) { <p class="note">@RecordingReason(reason)</p> }
+        @if (RecordingActive) { <p class="note">@UiText.T("Beende die Aufnahme, bevor du das Diagnose-Paket erstellst.")</p> }
+    </div>
+
+    @if (CurrentResults.Count > 0)
+    {
+        <div class="diagnostics-results" aria-live="polite">
+            <h4>@UiText.T("Ergebnisse der Auswahl")</h4>
+            @foreach (var result in CurrentResults)
+            {
+                var feature = Diagnostics.Features.FirstOrDefault(item => item.Id == result.FeatureId);
+                <details class="diagnostics-result diagnostics-result-@result.Status.ToString().ToLowerInvariant()" data-diagnostic-result="@result.FeatureId">
+                    <summary><span class="diagnostics-result-name">@UiText.T(feature?.Label ?? result.FeatureId)</span><span class="sv-badge">@StatusLabel(result.Status)</span><time>@result.CheckedAt.ToLocalTime().ToString("HH:mm:ss")</time></summary>
+                    <p>@UiText.T(result.Summary)</p>
+                    @if (!_selected.Contains(result.FeatureId)) { <p class="note">@UiText.T("Benötigte gemeinsame Quelle")</p> }
+                    <dl class="diagnostics-facts">@foreach (var fact in result.Facts) { <dt>@UiText.T(fact.Key)</dt><dd>@FormatFact(fact.Value)</dd> }</dl>
+                </details>
+            }
+        </div>
+    }
+    else if (_selectionChanged)
+    {
+        <p class="note" role="status">@UiText.T("Auswahl geändert. Starte eine Prüfung für die aktuelle Auswahl.")</p>
+    }
+</section>
+
+@code {
+    private readonly HashSet<string> _selected = new(StringComparer.Ordinal);
+    private readonly CancellationTokenSource _lifetime = new();
+    private string _search = "";
+    private string? _action, _packaged, _error;
+    private IDisposable? _observation;
+    private bool _busy, _selectionChanged, _disposed;
+    private int _selectionVersion, _checkedVersion = -1;
+
+    private bool CannotAct => _busy || _selected.Count == 0;
+    private bool RecordingActive => Diagnostics.Recording.State is NetworkDiagnosticRecorderState.Recording or NetworkDiagnosticRecorderState.Stopping;
+    private IEnumerable<IGrouping<string, DiagnosticFeature>> FeatureGroups => Diagnostics.Features
+        .Where(feature => string.IsNullOrWhiteSpace(_search) || UiText.T(feature.Label).Contains(_search.Trim(), StringComparison.CurrentCultureIgnoreCase)
+            || UiText.T(feature.Group).Contains(_search.Trim(), StringComparison.CurrentCultureIgnoreCase))
+        .GroupBy(feature => feature.Group);
+    private IReadOnlyList<string> RequiredLabels => DiagnosticFeatureCatalog.Resolve(_selected).Where(feature => !_selected.Contains(feature.Id))
+        .Select(feature => UiText.T(feature.Label)).ToArray();
+    private IReadOnlyList<DiagnosticResult> CurrentResults
+    {
+        get
+        {
+            if (_checkedVersion != _selectionVersion) return [];
+            var ids = DiagnosticFeatureCatalog.Resolve(_selected).Select(feature => feature.Id).ToHashSet(StringComparer.Ordinal);
+            return Diagnostics.Results.Where(result => ids.Contains(result.FeatureId)).ToArray();
+        }
+    }
+    private string RecordingStatus => UiText.T(Diagnostics.Recording.State switch
+    {
+        NetworkDiagnosticRecorderState.Recording => "Aufnahme läuft",
+        NetworkDiagnosticRecorderState.Stopping => "Aufnahme wird beendet …",
+        NetworkDiagnosticRecorderState.Completed => "Aufnahme abgeschlossen",
+        NetworkDiagnosticRecorderState.Failed => "Aufnahme fehlgeschlagen",
+        NetworkDiagnosticRecorderState.Unavailable => "Aufnahme nicht verfügbar",
+        _ => "Keine Aufnahme",
+    });
+
+    protected override void OnInitialized()
+    {
+        _selected.UnionWith(Diagnostics.Features.Select(feature => feature.Id));
+        _observation = Diagnostics.BeginObservation();
+        Diagnostics.Changed += Refresh;
+    }
+
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
+    private void SearchChanged(ChangeEventArgs args) => _search = args.Value?.ToString() ?? "";
+    private void SelectAll() { _selected.UnionWith(Diagnostics.Features.Select(feature => feature.Id)); SelectionChanged(); }
+    private void SelectNone() { _selected.Clear(); SelectionChanged(); }
+    private void SelectFeature(string id, bool selected)
+    {
+        if (selected) _selected.Add(id); else _selected.Remove(id);
+        SelectionChanged();
+    }
+    private void SelectGroup(string group, bool selected)
+    {
+        foreach (var feature in Diagnostics.Features.Where(item => item.Group == group))
+            if (selected) _selected.Add(feature.Id); else _selected.Remove(feature.Id);
+        SelectionChanged();
+    }
+    private void SelectionChanged()
+    {
+        _selectionVersion++;
+        _selectionChanged = true;
+        _packaged = _error = null;
+    }
+
+    private async Task CheckNow() => await Run("check", async () =>
+    {
+        await Diagnostics.CheckAsync(_selected.ToArray(), _lifetime.Token);
+        _checkedVersion = _selectionVersion;
+        _selectionChanged = false;
+    });
+
+    private async Task CreatePackage()
+    {
+        if (RecordingActive) return;
+        await Run("zip", async () =>
+        {
+            _packaged = await Diagnostics.CreatePackageAsync(_selected.ToArray(), _lifetime.Token);
+            _checkedVersion = _selectionVersion;
+            _selectionChanged = false;
+        });
+    }
+
+    private async Task OpenReport() => await Run("report", async () =>
+    {
+        if (_checkedVersion != _selectionVersion || !File.Exists(Diagnostics.ReportPath))
+        {
+            await Diagnostics.CheckAsync(_selected.ToArray(), _lifetime.Token);
+            _checkedVersion = _selectionVersion;
+            _selectionChanged = false;
+        }
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Diagnostics.ReportPath) { UseShellExecute = true });
+    });
+
+    private void StartRecording()
+    {
+        if (CannotAct || RecordingActive) return;
+        _error = _packaged = null;
+        if (!Diagnostics.StartRecording()) _error = UiText.T("Die Aufnahme konnte nicht gestartet werden. Prüfe den Netzwerkstatus.");
+    }
+    private async Task StopRecording() => await Run("recording", Diagnostics.StopRecordingAsync, requireSelection: false);
+
+    private async Task Run(string action, Func<Task> operation, bool requireSelection = true)
+    {
+        if (_busy || (requireSelection && _selected.Count == 0)) return;
+        _busy = true;
+        _action = action;
+        _error = null;
+        try { await operation(); }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        { _error = UiText.F("Diagnose konnte nicht abgeschlossen werden: {0}", UiText.T(error.Message)); }
+        finally { _busy = false; _action = null; }
+    }
+
+    private static string StatusLabel(DiagnosticStatus status) => UiText.T(status switch
+    {
+        DiagnosticStatus.Healthy => "In Ordnung", DiagnosticStatus.Warning => "Hinweis", DiagnosticStatus.Error => "Problem",
+        DiagnosticStatus.Disabled => "Deaktiviert", DiagnosticStatus.Waiting => "Wartet auf Daten", _ => "Nicht verfügbar",
+    });
+    private static string RecordingReason(string reason) => UiText.T(reason switch
+    {
+        "source-unavailable" => "Keine laufende eigene Spielverbindung für die Aufnahme verfügbar.",
+        "size-limit" => "Die Aufnahme hat die Grenze von 64 MiB erreicht.",
+        "time-limit" => "Die Aufnahme hat die Grenze von 5 Minuten erreicht.",
+        "user-stopped" => "Die Aufnahme wurde manuell beendet.",
+        "network-stopped" => "Die Netzwerkquelle wurde beendet.",
+        "writer-timeout" => "Der Dateischreiber antwortet nicht. Der Mitschnitt wird nicht beigefügt.",
+        _ => "Die Aufnahme wurde beendet. Weitere Details stehen im Diagnosebericht.",
+    });
+    private static string FormatFact(object? value) => value switch
+    {
+        null => UiText.T("Unbekannt"), bool flag => UiText.T(flag ? "Ja" : "Nein"),
+        DateTimeOffset at => at.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+        DateTime at => at.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+        _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? UiText.T("Unbekannt"),
+    };
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Diagnostics.Changed -= Refresh;
+        _observation?.Dispose();
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+    }
+}

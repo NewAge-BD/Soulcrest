@@ -43,6 +43,8 @@ public sealed record OverlaySettings
     public bool SnapToGrid { get; init; } = true;
     public bool AutoAlign { get; init; } = true;
     public bool CaptureExcluded { get; init; } = true;
+    // User request 2026-11-09: the required control never consumes an optional content slot.
+    public OverlayLockWidgetPosition? LockWidget { get; init; }
     [System.Text.Json.Serialization.JsonRequired]
     public IReadOnlyList<OverlayWidget> Widgets { get; init; } = [];
 }
@@ -89,12 +91,14 @@ public static class OverlayCatalog
     });
 
     private static readonly OverlayWidgetDefinition LegacyPreview = new("preview-metric", "Beispielwert", "Neutrales Modul mit Beispieldaten", "trend", 168, 72);
-    public static OverlayWidgetDefinition? Find(string kind) => kind == LegacyPreview.Kind ? LegacyPreview : Widgets.FirstOrDefault(value => value.Kind == kind);
+    public static OverlayWidgetDefinition? Find(string kind) => kind == OverlayLockWidget.Kind ? OverlayLockWidget.Definition
+        : kind == LegacyPreview.Kind ? LegacyPreview : Widgets.FirstOrDefault(value => value.Kind == kind);
     public static bool IsLootWidget(string kind) => kind is "drop-grid" or "drop-strip" or "drop-list";
 
     public static OverlayWidget CreateWidget(string kind, double x = 8, double y = 8)
     {
-        var definition = Find(kind) ?? throw new ArgumentException("Unbekanntes Overlay-Modul.", nameof(kind));
+        var definition = kind != OverlayLockWidget.Kind ? Find(kind) : null;
+        if (definition is null) throw new ArgumentException("Unbekanntes Overlay-Modul.", nameof(kind));
         return new() { Kind = kind, X = x, Y = y, Width = definition.Width, Height = definition.Height,
             ItemView = kind switch { "drop-strip" => "strip", "drop-list" => "list", _ => "grid" } };
     }
@@ -116,7 +120,8 @@ public static class OverlayLayout
         var current = Normalize(settings);
         // The canvas is a viewport. Clipped widgets and their content reference
         // sizes survive shrinking it and become visible when enlarged again.
-        return current with { Width = Finite(width, current.Width, 160, 1600), Height = Finite(height, current.Height, 64, 1200) };
+        var resized = current with { Width = Finite(width, current.Width, 160, 1600), Height = Finite(height, current.Height, 64, 1200) };
+        return resized with { LockWidget = OverlayLockWidget.Position(resized) };
     }
 
     public static OverlayWidget ResizeWidget(OverlayWidget widget, double width, double height) => widget with
@@ -132,7 +137,7 @@ public static class OverlayLayout
         settings ??= new();
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var widgets = new List<OverlayWidget>();
-        foreach (var widget in (settings.Widgets ?? []).Take(OverlayCatalog.MaximumWidgets))
+        foreach (var widget in (settings.Widgets ?? []).Where(widget => widget?.Kind != OverlayLockWidget.Kind).Take(OverlayCatalog.MaximumWidgets))
         {
             if (widget is null || OverlayCatalog.Find(widget.Kind) is not { } definition) continue;
             var id = Guid.TryParse(widget.Id, out var parsed) ? parsed.ToString("N") : Guid.NewGuid().ToString("N");
@@ -162,6 +167,7 @@ public static class OverlayLayout
             Interaction = settings.Interaction is "move" or "locked" or "passthrough" ? settings.Interaction : "move",
             Visibility = settings.Visibility is "game" or "session" or "always" ? settings.Visibility : "game",
             TriggerRules = OverlayTriggerRules.Normalize(settings.TriggerRules),
+            LockWidget = OverlayLockWidget.Position(settings),
             Widgets = Array.AsReadOnly(widgets.ToArray()),
         };
     }

@@ -50,6 +50,9 @@ public sealed record BossAlertPresentation
 }
 
 /// <summary>Local alerts, independent of the selected tab. Boss notifications consume the existing policy.</summary>
+public sealed record AlertsDiagnostics(bool TimerRunning, bool StoreReadable, long StorageFailures,
+    int ReminderCount, int EnabledReminders, int ReceiptCount, int RetainedNotices, DateTimeOffset LastTickUtc);
+
 public sealed class AlertsService : IDisposable
 {
     private const int ItemLimit = 128;
@@ -77,6 +80,7 @@ public sealed class AlertsService : IDisposable
     private bool _disposed;
     private bool _unsupportedStore;
     private string? _status;
+    private long _storageFailures;
 
     private sealed record Receipt(string Key, DateTimeOffset At);
     private sealed record DisplayedNotice(AlertNotice Notice, string Owner, long? UntilSpawnSourceId = null);
@@ -225,6 +229,15 @@ public sealed class AlertsService : IDisposable
     public event Action<AlertNotice>? NoticeRaised;
     public DateTimeOffset Now => _time.GetUtcNow();
     public string? Status { get { lock (_gate) return _status; } }
+    /// <summary>Passive counters only: no Tick, notice expiry, callbacks or persistence.</summary>
+    public AlertsDiagnostics Diagnostics
+    {
+        get
+        {
+            lock (_gate) return new(!_disposed && _timer is not null, !_unsupportedStore, _storageFailures,
+                _items.Count, _items.Count(item => item.Enabled), _receipts.Count, _active.Count, _lastTick.ToUniversalTime());
+        }
+    }
     public IReadOnlyList<EventAlert> Items { get { lock (_gate) return _items.Select(Clone).ToArray(); } }
     public IReadOnlyList<AlertUpcoming> Upcoming
     {
@@ -685,6 +698,7 @@ public sealed class AlertsService : IDisposable
         }
         catch (Exception error) when (StorageError(error))
         {
+            _storageFailures++;
             _status = UiText.T("Alerts konnten nicht gespeichert werden.");
             LogFile.Error("Alerts", error);
             return false;

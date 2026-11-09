@@ -43,6 +43,12 @@ const normalizeListAdaptation = source => listAdaptations.reduce((text, [added, 
 const librarySelectionAdaptation = `                // User request 2026-11-09: browsing modules must keep the current widget selection.
                 if (root.contains(e.target) && e.target.closest(".oe-library-controls")) return;
 `;
+// User request 2026-11-09: the separately stored mandatory lock is not content geometry.
+const requiredControlResizeAdaptation = [`                    // User request 2026-11-09: mandatory controls never constrain content canvas resizing.
+                    const widgets = Array.from(stage.querySelectorAll(".oe-widget"))
+                        .filter(element => element.dataset.requiredWidget !== "true");
+`, `                    const widgets = Array.from(stage.querySelectorAll(".oe-widget"));
+`];
 // User request 2026-11-08: native theme frames belong to the canvas; modules stay unboxed.
 // Reverse these exact paint-only adaptations before checking the original declarations.
 const themeAdaptations = [
@@ -95,7 +101,8 @@ test('editor and alignment logic match Kit 1.15.0 after only the documented embe
             .replaceAll('soulcrestOverlayAlignment', 'grindcrestOverlayAlignment')
             .replace('ghost.className = "overlay-editor oe-drag-ghost";', 'ghost.className = "oe-drag-ghost";')
             .replaceAll('\r\n', '\n');
-        if (name === 'overlay-editor.js') source = normalizeListAdaptation(source).replace(librarySelectionAdaptation, '');
+        if (name === 'overlay-editor.js') source = normalizeListAdaptation(source).replace(librarySelectionAdaptation, '')
+            .replace(...requiredControlResizeAdaptation);
         assert.equal(hash(source), manifest.files[`src/BdoGrindTracker.App/wwwroot/${name}`].normalizedTextSha256, name);
     }
 });
@@ -110,6 +117,11 @@ test('the authorized library selection adaptation is present exactly once before
     assert.equal(source.split(librarySelectionAdaptation).length - 1, 1);
 });
 
+test('the authorized required-control resize adaptation is present exactly once before reversing it for provenance', () => {
+    const source = read('overlay-editor.js').replaceAll('\r\n', '\n');
+    assert.equal(source.split(requiredControlResizeAdaptation[0]).length - 1, 1);
+});
+
 test('original editor declarations and breakpoints remain unchanged apart from authorized theme and library adaptations', () => {
     let css = read('overlay-editor.css').replaceAll('\r\n', '\n');
     const start = '/* Widget library layout adaptation:begin (user request 2026-11-09). */';
@@ -117,6 +129,11 @@ test('original editor declarations and breakpoints remain unchanged apart from a
     assert.equal(css.split(start).length - 1, 1);
     assert.equal(css.split(end).length - 1, 1);
     css = css.slice(0, css.indexOf(start)) + css.slice(css.indexOf(end) + end.length);
+    const lockStart = '/* Mandatory overlay lock adaptation:begin (user request 2026-11-09). */';
+    const lockEnd = '/* Mandatory overlay lock adaptation:end. */';
+    assert.equal(css.split(lockStart).length - 1, 1);
+    assert.equal(css.split(lockEnd).length - 1, 1);
+    css = css.slice(0, css.indexOf(lockStart)) + css.slice(css.indexOf(lockEnd) + lockEnd.length);
     for (const [added, original] of themeAdaptations) {
         assert.equal(css.split(added).length - 1, 1, added);
         css = css.replace(added, original);

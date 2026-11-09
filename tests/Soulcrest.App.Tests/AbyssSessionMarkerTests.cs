@@ -267,6 +267,7 @@ public sealed class AbyssSessionMarkerTests
         internal Fixture(LifeskillGatherPointResolver? resolver = null)
         {
             Source = new(Clock); Settings.Current.AbyssTrackingEnabled = true; Settings.Current.LootTrackingEnabled = true;
+            Settings.Current.LootTrackerSmallSessionItemThreshold = 0; // Retention is covered independently.
             Service = new(Settings, Source, Source, Source, Source,
                 _ => { BeforeBind?.Invoke(); return Bound ? new("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "Synthetic character") : null; },
                 () => new(WorldStatus, WorldKind, 10, null, Category, null, "Abyss", "Abyss", WorldGeneration,

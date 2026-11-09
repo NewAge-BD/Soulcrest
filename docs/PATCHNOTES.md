@@ -2,6 +2,25 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.17.0 – 2026-11-09
+
+- **Geändert:** Loot-Sessions außerhalb des Abyss pausieren nach 20 Sekunden ohne neuen Loot, die Pause
+  zählt nicht zur Sessionzeit. Neuer Loot innerhalb von zwei Minuten setzt dieselbe Session fort, sonst
+  endet sie. Teleport und Kartenwechsel beenden sie ebenfalls.
+- **Geändert:** Kleine Sessions werden automatisch gelöscht statt nur ausgeblendet: alle abgeschlossenen
+  Sessions mit weniger als 20 Items, auch bereits gespeicherte. Die Schwelle ist einstellbar, 0 schaltet
+  das Löschen ab. Souls und Währungen zählen nicht; Abyss-Aufenthalte bleiben immer erhalten.
+- **Neu:** Diagnose für alle Funktionen: einzeln, nach Gruppe oder alle auswählen und als ZIP auf dem
+  Desktop speichern. Optional lässt sich der eigene AION2-Spielverkehr höchstens 5 Minuten aufnehmen.
+  Nichts wird automatisch versendet.
+- **Neu:** Jedes Fenster im Overlay Editor hat ein eigenes Schloss, um es direkt im Spiel zu entsperren,
+  zu verschieben und zu skalieren. „In Aufnahmen anzeigen“ lässt sich je Fenster einstellen.
+- **Neu:** Boss Rush filtert auf Bosse mit eigener Unique-Ausrüstung und auf Bosse mit eingerichtetem
+  Alert.
+- **Geändert:** Boss-Karten in Alerts öffnen sich per Klick auf die ganze Karte. Die Timer-Leiste
+  verlinkt direkt zur Boss-Auswahl, und die Haupttabs scrollen bei schmalem Fenster.
+- **Behoben:** Automatische Boss-Töne blieben teils stumm, obwohl der Tontest funktionierte.
+
 ## 0.16.0 – 2026-11-09
 
 - **Neu:** Stat Overview mit Grund-, Gottheits-, Haupt- und Nebenwerten aus deinen eigenen

@@ -80,15 +80,15 @@
         <summary><strong>@UiText.T("Eigenes Modell und Rechenwege")</strong><small>@UiText.T("Eigenständige Schätzung")</small></summary>
         @ModelCompositionSummary()
         <section class="cc-panel cc-composition"><h3>@UiText.T("Statwerte und ihr Modellbeitrag")</h3>
-            <p class="cc-hint">@UiText.T("Jeder bekannte Statwert wird einmal gewichtet. Primärattribute und Prozent-Zwischenwerte wirken über die daraus abgeleiteten Stats; sie erhalten keinen zusätzlichen direkten CP-Beitrag. Ein fehlendes Gewicht ist unbekannt.")</p>
-            <div class="cc-table-wrap"><table><thead><tr><th>@UiText.T("Wert")</th><th>@UiText.T("Abgeleiteter Wert")</th><th>@UiText.T("Modellgewicht")</th><th>@UiText.T("Modell-CP (ungerundet)")</th><th>@UiText.T("Rechenregel")</th></tr></thead><tbody>
+            <p class="cc-hint">@UiText.T("Gemessenes Modell: Flache Werte und ihre Prozentverstärkungen werden getrennt gewichtet, der angezeigte Gesamtwert nicht. Primär- und Götterattribute wirken über ihre Effekte. Ein Gewicht gilt nur mit eigener kontrollierter Messung; jedes andere bleibt unbekannt.")</p>
+            <div class="cc-table-wrap"><table><thead><tr><th>@UiText.T("Wert")</th><th>@UiText.T("Rohkomponente")</th><th>@UiText.T("Gemessenes Gewicht")</th><th>@UiText.T("Modell-CP (ungerundet)")</th><th>@UiText.T("Rechenregel")</th></tr></thead><tbody>
                 @foreach (var term in State.Breakdown?.Composition.Stats ?? [])
                 {
-                    <tr data-score-stat="@term.StatId" class="@(term.IsIntermediate ? "cc-intermediate" : "")"><th>@StatName(term.StatId)</th><td data-score-value>@ExactNumber(term.Value)@(term.Unit == CombatStatUnit.Percent ? "%" : "")</td><td data-score-weight>@ExactNumber(term.Coefficient)</td><td data-score-contribution>@ExactNumber(term.Contribution)</td><td>@ScoreTermExplanation(term)</td></tr>
+                    <tr data-score-stat="@term.StatId" class="@(term.IsIntermediate ? "cc-intermediate" : "")"><th>@StatName(term.StatId)</th><td data-score-value>@ExactNumber(term.Value)@(term.Unit == CombatStatUnit.Percent ? "%" : "")</td><td data-score-weight>@ExactNumber(term.Coefficient)@if (WeightInterval(term) is { } interval) {<small data-score-weight-interval> @interval</small>}</td><td data-score-contribution>@ExactNumber(term.Contribution)</td><td>@ScoreTermExplanation(term)</td></tr>
                 }
             </tbody></table></div>
         </section>
-        <section class="cc-panel cc-composition"><h3>@UiText.T("Skills und ihr Modellbeitrag")</h3><p class="cc-hint">@UiText.T("Die Skillbewertung erfasst die gesamte qualifizierte Skillstufe einmal. Passive Statwirkungen stehen zusätzlich bei den abgeleiteten Statwerten.")</p>
+        <section class="cc-panel cc-composition"><h3>@UiText.T("Skills und ihr Modellbeitrag")</h3><p class="cc-hint">@UiText.T("Jede Skillstufe zählt mit ihrem gemessenen Stufenschritt, unabhängig von der Quelle der Stufe. Die Werte sind relativ zur niedrigsten gemessenen Stufe; ungemessene Stufen bleiben unbekannt. Passive Statwirkungen stehen zusätzlich bei den Statwerten.")</p>
             <div class="cc-table-wrap"><table><thead><tr><th>Skill</th><th>@UiText.T("Art")</th><th>@UiText.T("Modellstufe")</th><th>@UiText.T("Modell-CP (ungerundet)")</th></tr></thead><tbody>
                 @foreach (var term in State.Breakdown?.Composition.Skills ?? [])
                 {
@@ -180,7 +180,7 @@
     private RenderFragment ModelCompositionSummary() => @<section class="cc-panel cc-composition-summary" data-score-composition>
         <h3>@UiText.T("So entsteht der Modellwert")</h3>
         <p class="cc-hint">@UiText.T("Die genaue Ingame-Formel ist weiterhin unbekannt. Diese Aufschlüsselung erklärt ausschließlich das eigene Modell; der beobachtete Ingame-CP bleibt ein eigener Messwert.")</p>
-        <div class="cc-model-formula">@UiText.T("Summe (Statwert × Gewicht) + Summe (Skillwertung) → einmal runden")</div>
+        <div class="cc-model-formula">@UiText.T("Summe (Rohkomponente × gemessenes Gewicht) + Summe (Skillstufen-Schritte) → einmal runden")</div>
         <dl class="cc-score-sums">
             <div><dt>@UiText.T("Bekannte Statbeiträge")</dt><dd data-score-stat-subtotal>@ExactNumber(State.Breakdown?.Composition.KnownStatSubtotal)</dd></div>
             <div><dt>@UiText.T("Bekannte Skillbeiträge")</dt><dd data-score-skill-subtotal>@ExactNumber(State.Breakdown?.Composition.KnownSkillSubtotal)</dd></div>

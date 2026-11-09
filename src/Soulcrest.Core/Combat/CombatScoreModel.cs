@@ -8,14 +8,15 @@ public sealed record CombatScoreValue(decimal Unrounded, decimal Rounded, bool I
 public sealed record CombatCalculation(decimal? Total, decimal KnownSubtotal, CombatDerivation Derivation);
 
 /// <summary>
-/// The own versioned weighted model backend, not the official combat-power formula. User decision 2026-11-09:
-/// no community weights are bundled; without qualified own weights every total stays unknown.
+/// The own versioned weighted model backend, not the official combat-power formula. Research 2026-11-09: the score is
+/// linear in the raw components; every flat component and its percentage modifier carry separate measured weights
+/// (<see cref="CombatScoreWeights"/>). Without a measured weight a nonzero term stays unknown.
 /// Counterfactuals re-evaluate the entire source graph, including skills, passive curves and stat multipliers.
 /// </summary>
 public static class CombatScoreModel
 {
     private static readonly ConditionalWeakTable<CombatEffectCatalog, CachedRules> RuleCache = new();
-    public const string Version = "own-local-source-counterfactual-v1";
+    public const string Version = "own-raw-linear-source-counterfactual-v2";
     public static IReadOnlyList<CombatScoreRule> Rules => RulesFor(CombatEffectCatalog.Default);
 
     public static IReadOnlyList<CombatScoreRule> RulesFor(CombatEffectCatalog catalog) => RuleCache.GetValue(catalog, CreateRules).Rows;
@@ -23,17 +24,19 @@ public static class CombatScoreModel
     private static CachedRules CreateRules(CombatEffectCatalog catalog)
     {
         var rules = catalog.ScoreRules.ToDictionary(row => row.StatId, StringComparer.Ordinal);
-        foreach (var rule in DaevanionCombatScoreModel.Rules)
-            rules.TryAdd(rule.StatId, new(rule.StatId, rule.Coefficient,
-                rule.Unit == DaevanionStatUnit.Percent ? CombatStatUnit.Percent : CombatStatUnit.Points));
-        var intermediateIds = catalog.PrimaryStatCurves.Select(curve => curve.PrimaryStatId)
-            .Concat(catalog.StatRelations.Select(relation => relation.ModifierStatId)).ToHashSet(StringComparer.Ordinal);
-        var rows = Array.AsReadOnly(rules.Values.Where(rule => !intermediateIds.Contains(rule.StatId))
+        foreach (var weight in CombatScoreWeights.Stats)
+            rules.TryAdd(weight.StatId, new(weight.StatId, weight.Coefficient, weight.Unit));
+        // Primary/deity stats act only through their curve effects; they never carry a direct weight.
+        var primaryIds = catalog.PrimaryStatCurves.Select(curve => curve.PrimaryStatId).ToHashSet(StringComparer.Ordinal);
+        var modifiers = catalog.StatRelations.Where(relation => relation.Operation == CombatEffectOperation.IncreasePercent)
+            .ToDictionary(relation => relation.StatId, relation => relation.ModifierStatId, StringComparer.Ordinal);
+        var rows = Array.AsReadOnly(rules.Values.Where(rule => !primaryIds.Contains(rule.StatId))
             .OrderBy(rule => rule.StatId, StringComparer.Ordinal).ToArray());
-        return new(rows, rows.ToFrozenDictionary(rule => rule.StatId, StringComparer.Ordinal), intermediateIds.ToFrozenSet(StringComparer.Ordinal));
+        return new(rows, rows.ToFrozenDictionary(rule => rule.StatId, StringComparer.Ordinal), primaryIds.ToFrozenSet(StringComparer.Ordinal),
+            modifiers.ToFrozenDictionary(StringComparer.Ordinal), modifiers.Values.ToFrozenSet(StringComparer.Ordinal));
     }
 
-    public static int? SkillScore(DaevanionSkillKind kind, int level) => DaevanionCombatScoreModel.SkillScore(kind, level);
+    public static int? SkillScore(DaevanionSkillKind kind, int level) => CombatScoreWeights.SkillScore(kind, level);
     public static decimal RoundScore(decimal value) => decimal.Floor(value + 0.5m);
 
     public static CombatScoreValue Score(CombatSourceGraph graph, CombatEffectCatalog? catalog = null)
@@ -156,33 +159,30 @@ public static class CombatScoreModel
         var unknown = derivation.Status is CombatKnowledgeStatus.Conflict or CombatKnowledgeStatus.Stale;
         foreach (var stat in derivation.Stats)
         {
-            if (!rules.TryGetValue(stat.StatId, out var rule))
+            if (intermediates.Contains(stat.StatId))
             {
-                statTerms?.Add(new(stat.StatId, stat.Unit, stat.Value, null, null,
-                    intermediates.Contains(stat.StatId), stat.Status));
-                if (!intermediates.Contains(stat.StatId) && stat.Value != 0)
+                statTerms?.Add(new(stat.StatId, stat.Unit, stat.Value, null, null, true, stat.Status));
+                continue;
+            }
+            // A percentage modifier is scored once as the target's total increase (incl. direct % effects).
+            if (cached.Modifiers.Contains(stat.StatId)) continue;
+            var unknownStat = stat.Status == CombatKnowledgeStatus.Unknown;
+            AddTerm(stat.StatId, stat.Unit, unknownStat ? null : stat.Flat, stat.Status);
+            if (stat.IncreasePercent != 0 || unknownStat)
+            {
+                if (cached.ModifierOf.TryGetValue(stat.StatId, out var modifier))
+                    AddTerm(modifier, CombatStatUnit.Percent, unknownStat ? null : stat.IncreasePercent, stat.Status);
+                else
                 {
                     unknown = true;
-                    missing.Add("Missing combat-score weight mapping: " + stat.StatId + ".");
+                    missing.Add("Missing combat-score weight mapping: " + stat.StatId + " increase.");
                 }
-                continue;
             }
-            if (rule.Coefficient == 0)
-            {
-                // Explicit model policy, not a game-mechanic assertion.
-                statTerms?.Add(new(stat.StatId, stat.Unit, stat.Value, rule.Coefficient, 0, false, stat.Status));
-                continue;
-            }
-            if (stat.Value is not { } known)
-            {
-                statTerms?.Add(new(stat.StatId, stat.Unit, null, rule.Coefficient, null, false, stat.Status));
-                unknown = true; continue;
-            }
-            var contribution = known * rule.Coefficient;
-            statTerms?.Add(new(stat.StatId, stat.Unit, known, rule.Coefficient, contribution, false, stat.Status));
-            value += contribution;
-            if (includeComposition) statSubtotal += contribution;
         }
+        // Modifiers without a target row in this derivation still count with their own value.
+        foreach (var stat in derivation.Stats.Where(row => cached.Modifiers.Contains(row.StatId)))
+            if (!derivation.Stats.Any(row => cached.ModifierOf.TryGetValue(row.StatId, out var m) && m == stat.StatId))
+                AddTerm(stat.StatId, stat.Unit, stat.Status == CombatKnowledgeStatus.Unknown ? null : stat.Flat, stat.Status);
         foreach (var skill in derivation.Skills)
         {
             if (skill.Level is not { } level)
@@ -201,6 +201,26 @@ public static class CombatScoreModel
         }
         var rounded = RoundScore(value);
         var isComplete = derivation.Status == CombatKnowledgeStatus.Complete && !unknown;
+        void AddTerm(string id, CombatStatUnit unit, decimal? termValue, CombatKnowledgeStatus status)
+        {
+            if (termValue == 0) return;
+            if (!rules.TryGetValue(id, out var rule))
+            {
+                statTerms?.Add(new(id, unit, termValue, null, null, false, status));
+                unknown = true;
+                missing.Add("Missing combat-score weight mapping: " + id + ".");
+                return;
+            }
+            if (termValue is not { } known)
+            {
+                statTerms?.Add(new(id, unit, null, rule.Coefficient, null, false, status));
+                unknown = true; return;
+            }
+            var contribution = known * rule.Coefficient;
+            statTerms?.Add(new(id, unit, known, rule.Coefficient, contribution, false, status));
+            value += contribution;
+            if (includeComposition) statSubtotal += contribution;
+        }
         return (new(value, rounded, isComplete, unknown), missing, includeComposition ? new()
         {
             Stats = Array.AsReadOnly(statTerms!.ToArray()), Skills = Array.AsReadOnly(skillTerms!.ToArray()),
@@ -210,5 +230,6 @@ public static class CombatScoreModel
     }
 
     private sealed record CachedRules(IReadOnlyList<CombatScoreRule> Rows,
-        FrozenDictionary<string, CombatScoreRule> ById, FrozenSet<string> Intermediates);
+        FrozenDictionary<string, CombatScoreRule> ById, FrozenSet<string> Intermediates,
+        FrozenDictionary<string, string> ModifierOf, FrozenSet<string> Modifiers);
 }

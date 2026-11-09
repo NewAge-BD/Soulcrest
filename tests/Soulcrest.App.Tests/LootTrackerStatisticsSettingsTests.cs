@@ -98,6 +98,79 @@ public sealed class LootTrackerStatisticsSettingsTests
         });
     }
 
+    [Fact]
+    public void ItemCleanupDefaultsToTwentyWithoutMigratingTheLegacyActivityPreference()
+    {
+        WithSettings(() =>
+        {
+            File.WriteAllText(AppPaths.SettingsFile, """{"LootTrackerHideSmallSessions":false,"LootTrackerSmallSessionMaxActivities":7}""");
+            var settings = new SettingsService();
+            Assert.Equal(20, settings.Current.LootTrackerSmallSessionItemThreshold);
+            Assert.False(settings.Current.LootTrackerHideSmallSessions);
+            Assert.Equal(7, settings.Current.LootTrackerSmallSessionMaxActivities);
+            settings.SetLootTrackerSmallSessionItemThreshold(5_000_000_000);
+            Assert.Equal(5_000_000_000, new SettingsService().Current.LootTrackerSmallSessionItemThreshold);
+            settings.SetLootTrackerSmallSessionItemThreshold(0);
+            Assert.Equal(0, new SettingsService().Current.LootTrackerSmallSessionItemThreshold);
+            settings.Update(value => value.LootTrackerSmallSessionItemThreshold = -1);
+            Assert.Equal(0, settings.Current.LootTrackerSmallSessionItemThreshold);
+            File.WriteAllText(AppPaths.SettingsFile, """{"LootTrackerSmallSessionItemThreshold":-5}""");
+            Assert.Equal(0, new SettingsService().Current.LootTrackerSmallSessionItemThreshold);
+        });
+    }
+
+    [Fact]
+    public void FailedItemThresholdWritePreservesThePolicyAndDoesNotNotifyTheRecorder()
+    {
+        WithSettings(() =>
+        {
+            File.Delete(AppPaths.SettingsFile);
+            var settings = new SettingsService();
+            settings.SetLootTrackerSmallSessionItemThreshold(80);
+            var changes = 0; settings.Changed += () => changes++;
+            File.Delete(AppPaths.SettingsFile); Directory.CreateDirectory(AppPaths.SettingsFile);
+            try
+            {
+                var error = Record.Exception(() => settings.SetLootTrackerSmallSessionItemThreshold(20));
+                Assert.True(error is IOException or UnauthorizedAccessException);
+                Assert.Equal(80, settings.Current.LootTrackerSmallSessionItemThreshold);
+                Assert.Equal(80, settings.GetLootTrackerSmallSessionItemThreshold());
+                Assert.Equal(0, changes);
+            }
+            finally { Directory.Delete(AppPaths.SettingsFile); }
+        });
+    }
+
+    [Fact]
+    public void ItemCleanupReadsWaitUntilTheSettingsTransactionHasFinished()
+    {
+        WithSettings(() =>
+        {
+            var settings = new SettingsService();
+            settings.SetLootTrackerSmallSessionItemThreshold(20);
+            using var writing = new ManualResetEventSlim();
+            using var release = new ManualResetEventSlim();
+            using var reading = new ManualResetEventSlim();
+            var writer = Task.Run(() => settings.Update(value =>
+            {
+                value.LootTrackerSmallSessionItemThreshold = 500;
+                writing.Set();
+                Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
+            }));
+            Task<long>? reader = null;
+            try
+            {
+                Assert.True(writing.Wait(TimeSpan.FromSeconds(5)));
+                reader = Task.Run(() => { reading.Set(); return settings.GetLootTrackerSmallSessionItemThreshold(); });
+                Assert.True(reading.Wait(TimeSpan.FromSeconds(5)));
+                Assert.False(reader.Wait(TimeSpan.FromMilliseconds(100)));
+            }
+            finally { release.Set(); writer.GetAwaiter().GetResult(); }
+            Assert.Equal(500, reader!.GetAwaiter().GetResult());
+            Assert.Equal(500, new SettingsService().GetLootTrackerSmallSessionItemThreshold());
+        });
+    }
+
     private static void AssertDefaults(AppSettings value)
     {
         Assert.Equal(AbyssCombatGrouping.Class, value.AbyssCombatGrouping); Assert.Equal(AbyssCombatSort.KillsDescending, value.AbyssCombatSort);

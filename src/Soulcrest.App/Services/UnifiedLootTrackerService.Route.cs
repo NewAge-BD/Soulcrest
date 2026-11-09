@@ -9,7 +9,7 @@ public sealed partial class UnifiedLootTrackerService
     private DateTimeOffset? _positionEvidenceAt, _routeRecordedAt;
     private long? _positionStamp;
     private int _gatherSection;
-    private bool _sectionVisited, _locationResolved;
+    private bool _sectionVisited, _locationResolved, _routeStartsAfterPause;
 
     private void BreakRoute()
     {
@@ -33,7 +33,7 @@ public sealed partial class UnifiedLootTrackerService
     private void RecordPosition(RecorderPositionSnapshot? snapshot, WorldContextSnapshot world, OwnCharacterContext own,
         DateTimeOffset at, long stamp, bool activityPosition)
     {
-        if (_active is not { } active || !ReferenceEquals(CurrentOwn, own)
+        if (_active is not { } active || active.IsPaused || !ReferenceEquals(CurrentOwn, own)
             || QualifiedPosition(snapshot, own, world, at) is not { } position)
         { BreakRoute(); return; }
         var mapSize = _resolver.MapSize(position.MapId) ?? 8192;
@@ -54,9 +54,11 @@ public sealed partial class UnifiedLootTrackerService
         if (!activityPosition && _positionStamp is { } previous && _time.GetElapsedTime(previous, stamp) < TimeSpan.FromSeconds(1)) return;
         var segments = active.RouteSegments.ToBuilder();
         var point = new LootTrackerRoutePoint(position.X, position.Y, at, Elapsed(stamp));
-        if (_routeContext is null || segments.Count == 0) segments.Add(new(position.MapId, _mapName(position.MapId), [point]));
+        if (_routeContext is null || segments.Count == 0)
+            segments.Add(new(position.MapId, _mapName(position.MapId), [point]) { StartsAfterPause = _routeStartsAfterPause });
         else segments[^1] = segments[^1] with { Points = segments[^1].Points.Add(point) };
         _active = active with { RouteSegments = segments.ToImmutable() };
+        _routeStartsAfterPause = false;
         _routeContext = context; _positionEvidenceAt = position.At; _routeRecordedAt = at; _positionStamp = stamp;
     }
 

@@ -249,7 +249,7 @@ public sealed class UnifiedLootSessionStore
         // differ by ordinary processing jitter or clock adjustment. The last validated committed
         // transaction already owns the exact activity duration and its complete set of facts;
         // clipping facts by a UTC-derived duration would leave their aggregate income orphaned.
-        return session with { Status = LootTrackerSessionStatus.Interrupted, EndedAt = end,
+        return session with { Status = LootTrackerSessionStatus.Interrupted, IsPaused = false, EndedAt = end,
             RouteSegments = TrimRoute(session, end, session.Elapsed) };
     }
 
@@ -275,7 +275,7 @@ public sealed class UnifiedLootSessionStore
         for (var i = 0; append && i < before.Length; i++)
         {
             var old = before[i]; var current = after[i];
-            append = old.MapId == current.MapId && old.MapName == current.MapName
+            append = old.MapId == current.MapId && old.MapName == current.MapName && old.StartsAfterPause == current.StartsAfterPause
                 && (i == before.Length - 1 ? old.Points.Length <= current.Points.Length : old.Points.Length == current.Points.Length)
                 && old.Points.SequenceEqual(current.Points.Take(old.Points.Length));
         }
@@ -315,6 +315,7 @@ public sealed class UnifiedLootSessionStore
     private static bool SameRoute(ImmutableArray<LootTrackerRouteSegment> left, ImmutableArray<LootTrackerRouteSegment> right) =>
         left.Length == right.Length && left.Zip(right).All(pair => pair.First is not null && pair.Second is not null
             && pair.First.MapId == pair.Second.MapId && pair.First.MapName == pair.Second.MapName
+            && pair.First.StartsAfterPause == pair.Second.StartsAfterPause
             && !pair.First.Points.IsDefault && !pair.Second.Points.IsDefault && pair.First.Points.SequenceEqual(pair.Second.Points));
 
     private static void ValidateSnapshot(LootTrackerSession session)
@@ -323,6 +324,7 @@ public sealed class UnifiedLootSessionStore
             || session.UnifiedVersion != 1 || session.TimelineVersion != 1
             || session.ProjectionViewMode is not null || session.ProjectionLimited
             || !Enum.IsDefined(session.Status) || !Enum.IsDefined(session.Mode)
+            || session.IsPaused && (session.Kind != LootTrackerSessionKind.Mixed || session.Status != LootTrackerSessionStatus.Live)
             || (session.Mode != LootTrackerSessionMode.Normal && session.Kind != LootTrackerSessionKind.Mixed)
             || session.StartedAt == default || session.Elapsed < TimeSpan.Zero
             || (session.FarmDay is { } farmDay && farmDay != LootFarmDay.Get(session.StartedAt))
@@ -355,7 +357,8 @@ public sealed class UnifiedLootSessionStore
             if (mob is null || !Text(mob.Id, 256) || !Text(mob.Name, 1024) || mob.Count < 0) throw new InvalidDataException("Invalid session monster.");
         foreach (var segment in session.RouteSegments)
         {
-            if (segment is null || !Text(segment.MapId, 256) || !Text(segment.MapName, 1024, true) || segment.Points.IsDefault)
+            if (segment is null || !Text(segment.MapId, 256) || !Text(segment.MapName, 1024, true) || segment.Points.IsDefault
+                || segment.StartsAfterPause && session.Kind == LootTrackerSessionKind.Abyss)
                 throw new InvalidDataException("Invalid session route.");
             foreach (var point in segment.Points)
                 if (point is null || !double.IsFinite(point.X) || !double.IsFinite(point.Y) || point.X < 0 || point.Y < 0
@@ -634,6 +637,7 @@ public sealed class UnifiedLootSessionStore
         long? MonsterCount, long? ItemCount, long? SoulCount, bool CoverageLimited)
     {
         public LootTrackerSessionMode Mode { get; init; }
+        public bool IsPaused { get; init; }
         public DateOnly? FarmDay { get; init; }
         public bool LocationApproximate { get; init; }
         public DateTimeOffset? LastPresenceAt { get; init; }
@@ -644,7 +648,7 @@ public sealed class UnifiedLootSessionStore
             session.Id, sequence,
             session.Status, session.StartedAt, session.EndedAt, session.LastLootAt, session.Elapsed, session.Character,
             session.Location, session.KinaBound, session.KinaUnbound, session.MonsterCount, session.ItemCount,
-            session.SoulCount, session.CoverageLimited) { Mode = session.Mode, FarmDay = session.FarmDay,
+            session.SoulCount, session.CoverageLimited) { Mode = session.Mode, IsPaused = session.IsPaused, FarmDay = session.FarmDay,
                 LocationApproximate = session.LocationApproximate, LastPresenceAt = session.LastPresenceAt,
                 AbyssPoints = session.AbyssPoints, RankPointsGained = session.RankPointsGained, RankPointsLost = session.RankPointsLost };
     }

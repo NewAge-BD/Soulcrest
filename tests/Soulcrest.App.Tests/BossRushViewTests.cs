@@ -68,6 +68,7 @@ public sealed class BossRushViewTests
             settings.Current.LastMap = "altgard";
             settings.Current.BossRushEnabled = true;
             settings.Current.BossRushShowOlderSpawns = false;
+            settings.Current.BossRushOnlyUniqueGearBosses = settings.Current.BossRushOnlyAlertBosses = false;
             settings.Current.BossNavigationPreviewCount = 1;
             settings.Current.BossAlertsEnabled = false;
             settings.Current.BossAlertIds = [];
@@ -150,13 +151,28 @@ public sealed class BossRushViewTests
             Assert.Contains("boss-rush-tile", mapMarkup);
             Assert.Contains("checked", Element(mapMarkup, "input", "boss-rush-toggle"));
             Assert.DoesNotContain("checked", Element(mapMarkup, "input", "boss-rush-show-older-spawns"));
+            Assert.DoesNotContain("checked", Element(mapMarkup, "input", "boss-rush-only-unique-gear"));
+            Assert.DoesNotContain("checked", Element(mapMarkup, "input", "boss-rush-only-alert-bosses"));
             var mapHtml = System.Net.WebUtility.HtmlDecode(mapMarkup);
             Assert.Contains(language == "de" ? "Gespawnte Bosse älter als 1 Min. anzeigen" : "Show Bosses Spawned older than 1 min", mapHtml);
+            Assert.Contains(language == "de" ? "Nur Bosse mit eigener Unique-Ausrüstung anzeigen" : "Show only unique Gear Bosses", mapHtml);
+            Assert.Contains(language == "de" ? "Nur Bosse mit eingerichtetem Alert anzeigen" : "Show only Alert Bosses", mapHtml);
             Assert.Contains(language == "de" ? "Boss-Rush-Tab öffnen" : "Open Boss Rush tab", mapHtml);
             Assert.Contains(language == "de" ? "Aktivierte Boss-Alerts bleiben unabhängig davon eingeschaltet." : "Enabled boss alerts remain independent.", mapHtml);
             await renderer.Dispatcher.InvokeAsync(() => settings.Update(s => s.BossRushShowOlderSpawns = true));
             Assert.Contains("checked", Element(await renderer.Dispatcher.InvokeAsync(mapRoot.ToHtmlString), "input", "boss-rush-show-older-spawns"));
             await renderer.Dispatcher.InvokeAsync(() => settings.Update(s => s.BossRushShowOlderSpawns = false));
+            await renderer.Dispatcher.InvokeAsync(() => settings.Update(s => s.BossRushOnlyUniqueGearBosses = s.BossRushOnlyAlertBosses = true));
+            var filteredMapMarkup = await renderer.Dispatcher.InvokeAsync(mapRoot.ToHtmlString);
+            Assert.Contains("checked", Element(filteredMapMarkup, "input", "boss-rush-only-unique-gear"));
+            Assert.Contains("checked", Element(filteredMapMarkup, "input", "boss-rush-only-alert-bosses"));
+            var filteredHtml = System.Net.WebUtility.HtmlDecode(await renderer.Dispatcher.InvokeAsync(bossRoot.ToHtmlString));
+            Assert.Contains(language == "de" ? "Keine Bosse für die gewählten Filter" : "No bosses match the selected filters", filteredHtml);
+            Assert.DoesNotContain(language == "de" ? "Noch keine Bossliste vorhanden" : "No boss list yet", filteredHtml);
+            Assert.Contains("data-boss=\"1110:111001\"", filteredHtml); // Configuration remains accessible with no matching navigation targets.
+            ExportPreview("map-filters", language, filteredMapMarkup);
+            ExportPreview("filtered", language, await renderer.Dispatcher.InvokeAsync(bossRoot.ToHtmlString));
+            await renderer.Dispatcher.InvokeAsync(() => settings.Update(s => s.BossRushOnlyUniqueGearBosses = s.BossRushOnlyAlertBosses = false));
             // A settings change from either tab immediately updates both switches without a language change.
             // Turning guidance off keeps the overlay preference and independently enabled alerts intact.
             await renderer.Dispatcher.InvokeAsync(() => settings.Update(s =>

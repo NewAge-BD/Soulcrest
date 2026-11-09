@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Soulcrest.App.Services;
 
 public enum ReplayPositionProvenance : byte { Matched, Flow }
-public enum ReplayPositionGapReason : byte { SourceInvalidated, FlowBroken, QueueOverflow, WriteFailure, IncompleteTail }
+public enum ReplayPositionGapReason : byte { SourceInvalidated, FlowBroken, QueueOverflow, WriteFailure, IncompleteTail, SessionPaused }
 
 /// <summary>An anonymous visual observation. Frame identity is local to the capture, never a game entity key.</summary>
 public sealed record ReplayPositionSample(TimeSpan Elapsed, DateTimeOffset OriginalAt, string MapId,

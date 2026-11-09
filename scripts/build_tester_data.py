@@ -284,10 +284,17 @@ def boss_loot(npc_id, icons):
     pool = {}
     for row in npc['loot']:
         item = row.get('item', {})
-        if not item.get('id') or not item.get('name') or item['id'] in pool:
+        if not item.get('id') or not item.get('name'):
+            continue
+        # User request 2026-11-09: only the NPC's explicitly own pool qualifies as boss-specific.
+        # Inspect the direct published row; never infer ownership from a name or nested contents.
+        own_pool = row.get('tableKind') == 'own'
+        if item['id'] in pool:
+            pool[item['id']]['ownPool'] |= own_pool
             continue
         pool[item['id']] = {'id': item['id'], 'en': item['name'], 'de': german.get(item['id']),
-                            'icon': icons.get(item.get('iconPath')), 'rarity': item.get('rarity')}
+                            'icon': icons.get(item.get('iconPath')), 'rarity': item.get('rarity'),
+                            'ownPool': own_pool}
     return list(pool.values())
 
 

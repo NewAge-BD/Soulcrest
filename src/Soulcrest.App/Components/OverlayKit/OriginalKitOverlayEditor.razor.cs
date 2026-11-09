@@ -113,7 +113,9 @@ public partial class OriginalKitOverlayEditor
         _moduleCategory = category;
         _previewModule = null;
     }
-    private OverlayWidget? SelectedWidget => _settings.Widgets.FirstOrDefault(w => w.Id == _selectedId);
+    private bool LockSelected => _selectedId == OverlayLockWidget.Id;
+    private OverlayWidget? SelectedWidget => LockSelected ? OverlayLockWidget.Layout(_settings)
+        : _settings.Widgets.FirstOrDefault(w => w.Id == _selectedId);
     /// <summary>The example session, also used for the hovered module's preview while the canvas shows live data.</summary>
     private OverlaySnapshot DemoSnapshot => _exampleSnapshot;
     private OverlaySnapshot PreviewSnapshot => _demo || SelectedSection == "presets" ? _exampleSnapshot : _liveSnapshot;
@@ -286,7 +288,9 @@ public partial class OriginalKitOverlayEditor
                 Enabled = draft.Enabled == original.Enabled ? current.Enabled : draft.Enabled,
                 Interaction = draft.Interaction == original.Interaction ? current.Interaction : draft.Interaction,
                 Visibility = draft.Visibility == original.Visibility ? current.Visibility : draft.Visibility,
+                CaptureExcluded = draft.CaptureExcluded == original.CaptureExcluded ? current.CaptureExcluded : draft.CaptureExcluded,
                 TriggerRules = OverlayTriggerRules.Equivalent(draft.TriggerRules, original.TriggerRules) ? current.TriggerRules : draft.TriggerRules,
+                LockWidget = Equals(draft.LockWidget, original.LockWidget) ? current.LockWidget : draft.LockWidget,
             };
             if (revision == _revision && _editingOverlayId == overlayId)
             {
@@ -354,6 +358,12 @@ public partial class OriginalKitOverlayEditor
     private Task ChangeWidget(Func<OverlayWidget, OverlayWidget> update)
     {
         var id = _selectedId;
+        if (id == OverlayLockWidget.Id)
+            return Change(settings =>
+            {
+                var position = update(OverlayLockWidget.Layout(settings));
+                return OverlayLockWidget.WithPosition(settings, position.X, position.Y);
+            });
         return Change(settings => settings with { Widgets = settings.Widgets.Select(w => w.Id == id ? update(w) : w).ToArray() });
     }
 
@@ -362,7 +372,7 @@ public partial class OriginalKitOverlayEditor
         if (SelectedWidget is not { } widget) return Task.CompletedTask;
         var (minimum, maximum) = field switch
         {
-            "x" => (0d, 1600 - widget.Width), "y" => (0d, 1200 - widget.Height),
+            "x" => (0d, (LockSelected ? _settings.Width : 1600) - widget.Width), "y" => (0d, (LockSelected ? _settings.Height : 1200) - widget.Height),
             "width" => (Math.Min(80, widget.Width), 1600 - widget.X), "height" => (Math.Min(40, widget.Height), 1200 - widget.Y),
             "fontScale" => (.7, 2d), "killFeedRows" => (1d, 10d), "itemLimit" => (1d, 24d), "itemSize" => (32d, 112d), _ => (0d, 0d),
         };
@@ -385,7 +395,7 @@ public partial class OriginalKitOverlayEditor
     public Task SelectWidget(string id)
     {
         if (_selectedId != id) _itemSearch = "";
-        _selectedId = _settings.Widgets.Any(w => w.Id == id) ? id : null;
+        _selectedId = id == OverlayLockWidget.Id || _settings.Widgets.Any(w => w.Id == id) ? id : null;
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -402,6 +412,7 @@ public partial class OriginalKitOverlayEditor
 
     private async Task AddModule(string kind)
     {
+        if (kind == OverlayLockWidget.Kind) { await SelectWidget(OverlayLockWidget.Id); return; }
         if (_settings.Widgets.Count >= OverlayCatalog.MaximumWidgets || OverlayCatalog.Find(kind) is not { } definition) return;
         var width = Math.Min(definition.Width, _settings.Width - 16);
         var height = Math.Min(definition.Height, 1200 - 16);
@@ -420,6 +431,7 @@ public partial class OriginalKitOverlayEditor
     [JSInvokable]
     public async Task AddModuleAt(string kind, double x, double y)
     {
+        if (kind == OverlayLockWidget.Kind) { await SelectWidget(OverlayLockWidget.Id); return; }
         if (_disposed || _settings.Widgets.Count >= OverlayCatalog.MaximumWidgets || OverlayCatalog.Find(kind) is null || !double.IsFinite(x) || !double.IsFinite(y)) return;
         var widget = OverlayCatalog.CreateWidget(kind, x, y);
         _selectedId = widget.Id;
@@ -466,7 +478,11 @@ public partial class OriginalKitOverlayEditor
             }
             var dx = west ? resized.Width - s.Width : 0;
             var dy = north ? resized.Height - s.Height : 0;
-            return resized with { Widgets = s.Widgets.Select(w => w with { X = w.X + dx, Y = w.Y + dy }).ToArray() };
+            var control = OverlayLockWidget.Bounds(s);
+            return OverlayLockWidget.WithPosition(resized with
+            {
+                Widgets = s.Widgets.Select(w => w with { X = w.X + dx, Y = w.Y + dy }).ToArray(),
+            }, control.X + dx, control.Y + dy);
         });
         StateHasChanged();
     }

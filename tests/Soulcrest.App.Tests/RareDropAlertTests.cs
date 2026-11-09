@@ -14,6 +14,26 @@ public sealed class RareDropAlertTests
         new("session", "profile", Started, key, "Example rare item", quantity);
 
     [Fact]
+    public void DiagnosticSnapshotDoesNotExpireReceiptsStartAudioOrExportReceiptIdentity()
+    {
+        var time = new Clock();
+        using var service = new RareDropAlertService(() => new(SoundEnabled: false),
+            () => throw new InvalidOperationException("Diagnosis must not create audio"), time);
+        service.SetPresentationVisible(true);
+        service.Accept(Drop() with { Name = "Synthetic private receipt", ProfileId = "private-profile" });
+        var before = service.Diagnostics;
+        time.Advance(TimeSpan.FromSeconds(10));
+        Assert.Equal(before, service.Diagnostics);
+        Assert.Equal(1, before.ReceivedDrops);
+        Assert.Equal(1, before.RetainedNotices);
+        Assert.Equal(0, before.AudioStarts);
+        Assert.DoesNotContain("private", System.Text.Json.JsonSerializer.Serialize(before));
+        // The regular presentation getter still owns expiry; diagnosis did not consume it.
+        Assert.Empty(service.CurrentNotices);
+        Assert.Equal(0, service.Diagnostics.RetainedNotices);
+    }
+
+    [Fact]
     public void HiddenEventsAreDiscardedAndShowingNeverReplaysThem()
     {
         var time = new Clock();

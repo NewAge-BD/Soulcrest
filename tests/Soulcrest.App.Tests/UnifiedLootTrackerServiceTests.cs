@@ -17,13 +17,13 @@ public sealed partial class UnifiedLootTrackerServiceTests
         Assert.Empty(f.Service.Snapshot.Sessions);
         f.Source.Drop(7, 2, 1); await f.Ready();
         var id = Assert.Single(f.Service.Snapshot.Sessions).Id;
-        f.Clock.Advance(TimeSpan.FromSeconds(30));
+        f.Clock.Advance(TimeSpan.FromSeconds(10));
         f.Source.Harvest(1, new NetworkGatheringItem(7, 3), new NetworkGatheringItem(8, 4)); await f.Ready();
-        f.Clock.Advance(TimeSpan.FromSeconds(30));
+        f.Clock.Advance(TimeSpan.FromSeconds(10));
         f.Source.Kina(25, 1); await f.Ready();
         var session = Assert.Single(f.Service.Snapshot.Sessions);
         Assert.Equal(id, session.Id); Assert.Equal(LootTrackerSessionKind.Mixed, session.Kind);
-        Assert.Equal(1, session.UnifiedVersion); Assert.Equal(TimeSpan.FromMinutes(1), session.Elapsed);
+        Assert.Equal(1, session.UnifiedVersion); Assert.Equal(TimeSpan.FromSeconds(20), session.Elapsed);
         Assert.Equal(9, session.ItemCount); Assert.Equal(1, session.HarvestCount); Assert.Equal(25, session.KinaUnbound);
         Assert.Equal(5, Assert.Single(session.Loot, row => row.Id == "Item:7").Quantity);
         Assert.Equal(4, Assert.Single(session.Loot, row => row.Id == "Item:8").Quantity);
@@ -68,19 +68,18 @@ public sealed partial class UnifiedLootTrackerServiceTests
     }
 
     [Fact]
-    public async Task AFailedAttemptStartsAndExtendsTheCommonOutsideTimeoutButWalkingDoesNot()
+    public async Task FailedAttemptsRemainRecordedWithoutExtendingTheOutsideLootDeadline()
     {
         await using var f = new Fixture(); await f.Ready();
         f.Source.Failed(1); await f.Ready(); var id = Assert.Single(f.Service.Snapshot.Sessions).Id;
         Assert.Empty(f.Accepted);
         f.Clock.Advance(TimeSpan.FromSeconds(100)); f.Source.Failed(2); await f.Ready();
-        f.Clock.Advance(TimeSpan.FromSeconds(100)); await f.Ready();
+        Assert.True(Assert.Single(f.Service.Snapshot.Sessions).IsPaused);
+        f.Clock.Advance(TimeSpan.FromSeconds(20)); await f.Ready();
         Assert.Equal(id, Assert.Single(f.Service.Snapshot.Sessions).Id);
-        Assert.Equal(LootTrackerSessionStatus.Live, Assert.Single(f.Service.Snapshot.Sessions).Status);
-        f.Clock.Advance(TimeSpan.FromSeconds(21)); await f.Ready();
         var finished = Assert.Single(f.Service.Snapshot.Sessions);
         Assert.Equal(LootTrackerSessionStatus.Completed, finished.Status);
-        Assert.Equal(2, finished.FailedHarvestCount); Assert.Equal(TimeSpan.FromSeconds(100), finished.Elapsed);
+        Assert.Equal(2, finished.FailedHarvestCount); Assert.Equal(TimeSpan.Zero, finished.Elapsed);
     }
 
     [Fact]
@@ -208,7 +207,8 @@ public sealed partial class UnifiedLootTrackerServiceTests
         var original = Assert.Single(f.Service.Snapshot.Sessions);
         Assert.Single(original.RouteSegments.SelectMany(row => row.Points));
         x = 20; f.Clock.Advance(TimeSpan.FromSeconds(100)); await f.Ready();
-        Assert.Equal(2, Assert.Single(f.Service.Snapshot.Sessions).RouteSegments.Sum(row => row.Points.Length));
+        Assert.Single(Assert.Single(f.Service.Snapshot.Sessions).RouteSegments.SelectMany(row => row.Points));
+        Assert.True(Assert.Single(f.Service.Snapshot.Sessions).IsPaused);
         var appends = f.Journal.Count;
 
         f.Source.Daily(1_000_000); await f.Ready();
@@ -216,7 +216,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         Assert.Equal(original.Id, marked.Id); Assert.Equal(LootTrackerSessionMode.LimitedKina, marked.Mode);
         Assert.Equal(original.LastLootAt, marked.LastLootAt); Assert.Equal(3, marked.ItemCount);
         Assert.Equal(original.TimelineEvents, marked.TimelineEvents); Assert.Equal(appends + 1, f.Journal.Count);
-        Assert.Equal(2, marked.RouteSegments.Sum(row => row.Points.Length));
+        Assert.Single(marked.RouteSegments.SelectMany(row => row.Points));
         var durable = Assert.Single(new UnifiedLootSessionStore(f.SessionRoot).Read().Sessions);
         Assert.Equal(LootTrackerSessionMode.LimitedKina, durable.Mode); Assert.Equal(original.Elapsed, durable.Elapsed);
         Assert.Equal(original.LastLootAt, durable.LastLootAt);
@@ -465,6 +465,8 @@ public sealed partial class UnifiedLootTrackerServiceTests
         var delete = f.Service.DeleteSessionAsync(legacy.Id);
         Assert.Same(delete, await Task.WhenAny(delete, Task.Delay(TimeSpan.FromSeconds(10))));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => delete);
+        Assert.True(f.Service.StatusIsError);
+        Assert.Equal(legacy.Id, Assert.Single(f.Service.Snapshot.Sessions).Id);
         f.Source.Drop(7, 1, 1); await f.Ready();
         Assert.Single(f.Accepted);
         Assert.Contains(f.Service.Snapshot.Sessions, session => session.Status == LootTrackerSessionStatus.Live);
@@ -585,6 +587,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         internal WorldContextStatus WorldStatus = WorldContextStatus.Confirmed;
         internal string? Category;
         internal long WorldGeneration = 1, BindingOffset;
+        internal int MapDataId = 1;
         internal TimeSpan WorldOffset;
         internal Fixture(bool abyss = false, DateTimeOffset? start = null, IEnumerable<LootTrackerSession>? legacy = null,
             Func<LootTrackerSession, bool>? deleteLegacy = null, bool replayPositions = false,
@@ -593,6 +596,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
             Directory.CreateDirectory(Root); Clock = new(start); Source = new(Clock);
             Settings.Current.LootTrackingEnabled = Settings.Current.MonsterLootTrackingEnabled = true;
             Settings.Current.LifeskillTrackingEnabled = Settings.Current.AbyssTrackingEnabled = true;
+            Settings.Current.LootTrackerSmallSessionItemThreshold = 0;
             if (abyss) { WorldKind = WorldContextKind.Instance; Category = "Abyss"; Source.InInstance = true; }
             var store = new UnifiedLootSessionStore(SessionRoot, (path, line) =>
             {
@@ -610,7 +614,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
                 replayPositionRecorder: PositionRecorder, locationName: locationName);
             Service.DropAccepted += Accepted.Add; Service.SessionStarted += Starts.Add;
         }
-        internal WorldContextSnapshot World() => new(WorldStatus, WorldKind, 1, null, Category, null, "Synthetic map", "Synthetic map",
+        internal WorldContextSnapshot World() => new(WorldStatus, WorldKind, MapDataId, null, Category, null, "Synthetic map", "Synthetic map",
             WorldGeneration, Clock.GetUtcNow() + WorldOffset, "synthetic") { BindingGeneration = Source.OwnCharacter?.Generation + BindingOffset };
         internal void SetWorld(bool abyss)
         { WorldKind = abyss ? WorldContextKind.Instance : WorldContextKind.OpenWorld; Category = abyss ? "Abyss" : null; WorldGeneration++; Source.InInstance = abyss; Source.Notify(); }
@@ -655,6 +659,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         internal void Notify() => Changed?.Invoke();
         internal void Drop(int item, long amount, long sequence, OwnCharacterContext? own = null) =>
             FarmDropGained?.Invoke(new(_clock.GetUtcNow(), sequence, own ?? OwnCharacter!, item, amount, NetworkFarmDropKind.Item, InInstance));
+        internal void Soul(long sequence) => FarmDropGained?.Invoke(new(_clock.GetUtcNow(), sequence, OwnCharacter!, 7, 1, NetworkFarmDropKind.PetSoul, InInstance));
         internal void Harvest(long sequence, params NetworkGatheringItem[] rewards) => GatheringCompleted?.Invoke(
             new(_clock.GetUtcNow(), sequence, OwnCharacter!, 777_777, rewards.ToImmutableArray())
             { InInstance = InInstance, Object = new(42, 888_888, 999_999) });

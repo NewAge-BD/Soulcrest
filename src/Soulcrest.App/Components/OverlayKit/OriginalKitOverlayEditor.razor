@@ -43,6 +43,7 @@
                     <h3 id="oe-visibility-title">@T("Anzeige")</h3>
                     <label class="oe-field oe-setting-row"><span>@T("Sichtbarkeit")</span><select data-kit-overlay-visibility="true" aria-label="@T("Sichtbarkeit")" value="@_settings.Visibility" @onchange="ChangeWindowVisibility"><option value="game">@T("Bei erkanntem Spiel")</option><option value="session">@T("Bei laufender Session")</option><option value="always">@T("Immer")</option></select></label>
                     <p class="oe-empty">@T("Die globale Vordergrundregel und die Sichtbarkeitsbedingungen gelten zusätzlich.")</p>
+                    <label class="oe-setting-toggle" title="@T("Gilt für dieses Overlayfenster einschließlich Schloss.")"><span>@T("In Aufnahmen anzeigen")</span><input class="switch" type="checkbox" data-kit-overlay-recordings="true" checked="@(!_settings.CaptureExcluded)" @onchange="e => Change(s => s with { CaptureExcluded = !Checked(e) })" /></label>
                     </section>
                     <section class="oe-display-group" aria-labelledby="oe-appearance-title">
                     <h3 id="oe-appearance-title">@T("Darstellung")</h3>
@@ -121,11 +122,14 @@
                     <div><h2 id="oe-library-title">@T("Widgetauswahl")</h2><p>@T("Auf die Fläche ziehen oder anklicken.")</p></div>
                     <label class="oe-library-search"><KitIcon Name="search" /><input type="search" data-module-search="true" aria-label="@T("Widgets suchen")" placeholder="@T("Widget suchen …")" maxlength="100" value="@_moduleSearch" @oninput="ChangeModuleSearch" /></label>
                 </div>
+                <div class="oe-library-filter-row">
                 <div class="oe-library-categories" role="group" aria-label="@T("Widgetkategorien")">
                     @foreach (var category in ModuleCategories)
                     {
                         <button type="button" class="oe-library-category @(_moduleCategory == category.Id ? "is-active" : "")" data-library-category="@category.Id" aria-pressed="@(_moduleCategory == category.Id ? "true" : "false")" @onclick="() => SelectModuleCategory(category.Id)"><span>@T(category.Label)</span><span>@ModuleCategoryCount(category.Id)</span></button>
                     }
+                </div>
+                <button type="button" class="button secondary oe-required-widget" data-select-lock-widget="true" @onclick="() => SelectWidget(OverlayLockWidget.Id)"><OverlayLockWidgetPreview ThemeId="@DemoSnapshot.ThemeId" />@T("Overlay-Sperre (Pflicht)")</button>
                 </div>
             </div>
             <div class="oe-module-list" aria-label="@T("Verfügbare Widgets")">
@@ -176,6 +180,13 @@
                                 <button class="oe-widget-resize" data-widget-resize="@widget.Id" aria-label="@(Label(widget.Kind) + T(" vergrößern; alternativ Größe in den Moduleinstellungen ändern"))" title="@T("Größe ändern")"></button>
                             </div>
                         }
+                        @{ var lockWidget = OverlayLockWidget.Layout(_settings); }
+                        <div class="oe-widget oe-lock-widget @(LockSelected ? "is-selected" : "")" data-widget-id="@OverlayLockWidget.Id" data-required-widget="true"
+                             data-x="@Css(lockWidget.X)" data-y="@Css(lockWidget.Y)" data-width="@OverlayLockWidget.Size" data-height="@OverlayLockWidget.Size"
+                             style="@WidgetStyle(lockWidget)" tabindex="0" role="group" aria-label="@T("Overlay-Sperre positionieren")" @onclick="() => SelectWidget(OverlayLockWidget.Id)" @onclick:stopPropagation>
+                            <OverlayLockWidgetPreview ThemeId="@PreviewSnapshot.ThemeId" />
+                            <button type="button" class="oe-widget-grip" data-widget-drag="@OverlayLockWidget.Id" aria-label="@T("Overlay-Sperre verschieben")" title="@T("Verschieben")"><span>⠿</span><span>@T("Overlay-Sperre")</span></button>
+                        </div>
                         <div class="oe-alignment-guides" aria-hidden="true"></div>
                         </div>
                         <button class="oe-canvas-resize" data-canvas-resize="true" aria-label="@T("Overlay-Größe ändern; alternativ Breite und Höhe unter der Fläche eingeben")" title="@T("Overlay-Größe ändern")"></button>
@@ -198,11 +209,19 @@
             @if (SelectedWidget is { } selected)
             {
                 <div class="oe-inspector-body" @key="selected.Id">
-                    <div class="oe-pair"><label class="oe-field"><span>X</span><input type="number" aria-label="@T("Modul Position X")" min="0" max="@Css(1600 - selected.Width)" step="0.01" value="@Css(selected.X)" @onchange='e => WidgetNumber(e, "x")' /></label><label class="oe-field"><span>Y</span><input type="number" aria-label="@T("Modul Position Y")" min="0" max="@Css(1200 - selected.Height)" step="0.01" value="@Css(selected.Y)" @onchange='e => WidgetNumber(e, "y")' /></label></div>
+                    <div class="oe-pair"><label class="oe-field"><span>X</span><input type="number" aria-label="@T("Modul Position X")" min="0" max="@Css((LockSelected ? _settings.Width : 1600) - selected.Width)" step="0.01" value="@Css(selected.X)" @onchange='e => WidgetNumber(e, "x")' /></label><label class="oe-field"><span>Y</span><input type="number" aria-label="@T("Modul Position Y")" min="0" max="@Css((LockSelected ? _settings.Height : 1200) - selected.Height)" step="0.01" value="@Css(selected.Y)" @onchange='e => WidgetNumber(e, "y")' /></label></div>
+                    @if (LockSelected)
+                    {
+                        <p class="oe-help">@T("Dieses Pflicht-Widget bleibt immer über dem Inhalt. Im Spiel anklicken, um das gesamte Overlay zu entsperren oder zu sperren.")</p>
+                        <p class="oe-help">@T("Entsperrt lässt sich das Fenster direkt verschieben und an seinen Ecken skalieren.")</p>
+                    }
+                    else
+                    {
                     <div class="oe-pair"><label class="oe-field"><span>@T("Breite")</span><input type="number" aria-label="@T("Modulbreite")" min="@Css(Math.Min(80, selected.Width))" max="@Css(1600 - selected.X)" step="0.01" value="@Css(selected.Width)" @onchange='e => WidgetNumber(e, "width")' /></label><label class="oe-field"><span>@T("Höhe")</span><input type="number" aria-label="@T("Modulhöhe")" min="@Css(Math.Min(40, selected.Height))" max="@Css(1200 - selected.Y)" step="0.01" value="@Css(selected.Height)" @onchange='e => WidgetNumber(e, "height")' /></label></div>
                     <label class="oe-field"><span>@T("Schriftgröße") <output>@Percent(selected.FontScale)</output></span><input type="range" min="0.7" max="2" step="0.05" value="@Css(selected.FontScale)" @onchange='e => WidgetNumber(e, "fontScale")' /></label>
                     <label class="oe-check"><input type="checkbox" checked="@selected.ShowLabel" @onchange="e => ChangeWidget(w => w with { ShowLabel = Checked(e) })" /><span>@T("Beschriftung")</span></label>
                     <label class="oe-check"><input type="checkbox" checked="@selected.ShowIcon" @onchange="e => ChangeWidget(w => w with { ShowIcon = Checked(e) })" /><span>Icon</span></label>
+                    }
                     @if (selected.Kind == "abyss-killfeed")
                     {
                         <label class="oe-field"><span>@T("Killfeed-Zeilen")</span><input type="number" aria-label="@T("Killfeed-Zeilen")" min="1" max="10" step="1" value="@selected.KillFeedRows" @onchange='e => WidgetNumber(e, "killFeedRows")' /></label>
@@ -264,7 +283,7 @@
                             @if (lootView.HiddenCount > 0) { <p class="oe-help oe-capacity-hint"><KitIcon Name="info" />@F("{0} weitere Items über der maximalen Anzahl.", lootView.HiddenCount)</p> }
                         </div>
                     }
-                    <button class="button secondary oe-remove" @onclick="RemoveSelected"><KitIcon Name="delete" />@T("Modul entfernen")</button>
+                    @if (!LockSelected) { <button class="button secondary oe-remove" @onclick="RemoveSelected"><KitIcon Name="delete" />@T("Modul entfernen")</button> }
                 </div>
             }
             else { <div class="oe-inspector-empty"><KitIcon Name="settings" /><p>@T("Wähle ein Modul auf der Fläche aus, um Position, Größe und Inhalt anzupassen.")</p></div> }

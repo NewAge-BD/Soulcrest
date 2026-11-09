@@ -34,6 +34,9 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
         internal IOverlayEditorLiveRenderSession Session { get; } = session;
         internal bool Failed { get; set; }
         internal OverlaySettings Settings { get; set; } = settings;
+        internal Action<OverlayLivePlacement>? PlacementHandler { get; set; }
+        internal bool SavingPlacement { get; set; }
+        internal string? PlacementError { get; set; }
     }
 
     public OverlayEditorLiveHostCoordinator(Control owner, IOverlayService layouts,
@@ -98,7 +101,7 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
             ReleaseLease();
             return;
         }
-        if (!_layouts.Overlays.Any(window => window.Settings.Enabled && window.Settings.Widgets.Count > 0))
+        if (!_layouts.Overlays.Any(window => window.Settings.Enabled))
         {
             ClearSlots("no-enabled-content", "invalidate"); ReleaseLease(); return;
         }
@@ -208,9 +211,13 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
                             catch { session.Dispose(); throw; }
                             surface.GeometryInvalidated += Invalidate;
                             slot = new(surface, session, window.Settings);
+                            var created = slot;
+                            slot.PlacementHandler = placement => SavePlacement(window.Id, created, placement);
+                            surface.PlacementCompleted += slot.PlacementHandler;
                             _slots.Add(window.Id, slot);
                         }
                         if (slot.Failed) continue;
+                        if (!ReferenceEquals(slot.Settings, window.Settings)) slot.PlacementError = null;
                         slot.Settings = window.Settings;
                         using var bitmap = await slot.Session.UpdateAndCaptureAsync(window, snapshot, token);
                         if (token.IsCancellationRequested || epoch != Volatile.Read(ref _epoch) || _disposed || _paused) break;
@@ -223,6 +230,7 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
                         var layout = OverlayEditorPlacementGeometry.Read(current.Settings, bitmap.Size, monitor);
                         layout = OverlayPlacementForm.FitLayout(layout, bitmap.Size, monitor.WorkingArea, .5);
                         var size = OverlayEditorPlacementGeometry.ScaledSize(bitmap.Size, layout.Scale);
+                        slot.Window.ConfigureInteraction(current, bitmap.Size, monitor, snapshot.ThemeId, layout.Scale);
                         slot.Window.ShowFrame(bitmap, new(new Point(layout.X, layout.Y), size),
                             _recordings() && !current.Settings.CaptureExcluded);
                         CompletePresentation(window.Id, slot, current.Settings, snapshot, epoch);
@@ -272,7 +280,7 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
         {
             if (presented.Window.Visible && epoch != Volatile.Read(ref _appliedEpoch))
                 OverlayEditorLiveDiagnostics.Lifecycle(settings, "retain", "same-authority-refresh", "post-present", epoch);
-            Report(id, presented.Window.Visible);
+            Report(id, presented.Window.Visible, presented.PlacementError);
         }
     }
 
@@ -295,14 +303,14 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
             || GenusInsightOverlayContent.Available(previous.GenusInsight) != GenusInsightOverlayContent.Available(current.GenusInsight));
 
     private bool Eligible(OverlayInstance window, OverlaySnapshot snapshot) => window.Settings.Enabled
-        && window.Settings.Widgets.Count > 0 && _layouts.LoadError is null && _isVisible(window, snapshot);
+        && _layouts.LoadError is null && _isVisible(window, snapshot);
     private static bool Animated(OverlayInstance window) => window.Settings.Widgets.Any(widget =>
         OverlayCatalog.IsLootWidget(widget.Kind) || widget.Kind is "rare-notice" or "abyss-killfeed" or "abyss-rank-progress");
 
     private bool RefreshLease()
     {
         if (_disposed || _paused || !_owner.IsHandleCreated || _layouts.LoadError is not null
-            || !_layouts.Overlays.Any(window => window.Settings.Enabled && window.Settings.Widgets.Count > 0))
+            || !_layouts.Overlays.Any(window => window.Settings.Enabled))
         { ReleaseLease(); return true; }
         if (_acquiringLease) return true;
         var market = _slots.Any(pair => pair.Value.Window.Visible && _layouts.Overlays.FirstOrDefault(window => window.Id == pair.Key)
@@ -329,6 +337,101 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
         finally { _acquiringLease = false; }
     }
     private void ReleaseLease() { _lease?.Dispose(); _lease = null; _leasedMarket = null; }
+
+    private async void SavePlacement(string id, Slot slot, OverlayLivePlacement placement)
+    {
+        if (_disposed || _paused || slot.SavingPlacement || !_slots.TryGetValue(id, out var active) || !ReferenceEquals(active, slot)) return;
+        var startedSnapshot = _snapshot;
+        // A worker publication revokes the source immediately, while its owner callback may
+        // still be queued behind this mouse-up. Apply pending authority before authorizing I/O.
+        for (var attempt = 0; attempt < 2 && !_disposed && !_paused; attempt++)
+        {
+            var latest = Volatile.Read(ref _epoch);
+            if (latest == Volatile.Read(ref _appliedEpoch)) break;
+            InvalidateCore(latest);
+        }
+        if (_disposed || _paused || !_slots.TryGetValue(id, out active) || !ReferenceEquals(active, slot)) return;
+        var current = _layouts.Overlays.FirstOrDefault(window => window.Id == id);
+        if (Volatile.Read(ref _appliedEpoch) != Volatile.Read(ref _epoch)
+            || startedSnapshot is null || _snapshot is null
+            || AuthorityChanged(startedSnapshot, _snapshot, placement.StartedSettings)
+            || current is not null && !Eligible(current, _snapshot))
+        {
+            CancelUncommittedPlacement(id, slot);
+            return;
+        }
+        if (current is null || !ReferenceEquals(current.Settings, placement.StartedSettings) || _snapshot is null || !Eligible(current, _snapshot))
+        {
+            slot.PlacementError = "Die Overlay-Einstellungen wurden während der Bearbeitung geändert.";
+            slot.Window.CompletePlacement(slot.PlacementError);
+            Report(id, slot.Window.Visible, slot.PlacementError);
+            Invalidate();
+            return;
+        }
+        slot.SavingPlacement = true;
+        try
+        {
+            var monitors = _monitors();
+            var monitor = OverlayPlacementService.SelectMonitor(monitors, placement.Bounds);
+            if (monitor is null) throw new InvalidOperationException("Es ist kein Monitor verfügbar.");
+            var logicalSize = new Size(Math.Max(1, (int)Math.Ceiling(current.Settings.Width)), Math.Max(1, (int)Math.Ceiling(current.Settings.Height)));
+            var layout = OverlayPlacementForm.FitLayout(new(placement.Bounds.X, placement.Bounds.Y, placement.Scale), logicalSize, monitor.WorkingArea, .5);
+            var fractions = OverlayEditorPlacementGeometry.Fractions(layout, logicalSize, monitor);
+            if (Volatile.Read(ref _appliedEpoch) != Volatile.Read(ref _epoch))
+            {
+                CancelUncommittedPlacement(id, slot);
+                return;
+            }
+            var result = await _layouts.SavePlacementAsync(id, monitor.Id, fractions.X, fractions.Y, layout.Scale);
+            if (_disposed || !_slots.TryGetValue(id, out active) || !ReferenceEquals(active, slot)) return;
+            if (result.Error is null)
+            {
+                for (var attempt = 0; attempt < 2 && !_disposed && !_paused; attempt++)
+                {
+                    var latest = Volatile.Read(ref _epoch);
+                    if (latest == Volatile.Read(ref _appliedEpoch)) break;
+                    InvalidateCore(latest);
+                }
+                if (_disposed || _paused || !_slots.TryGetValue(id, out active) || !ReferenceEquals(active, slot)) return;
+                var committed = _layouts.Overlays.FirstOrDefault(window => window.Id == id);
+                if (Volatile.Read(ref _appliedEpoch) != Volatile.Read(ref _epoch) || committed is null || _snapshot is null
+                    || AuthorityChanged(startedSnapshot, _snapshot, placement.StartedSettings) || !Eligible(committed, _snapshot))
+                {
+                    CancelUncommittedPlacement(id, slot);
+                    return;
+                }
+                var committedMonitor = _monitors().FirstOrDefault(value => value.Id == committed.Settings.PositionMonitorId);
+                if (committedMonitor is null) throw new InvalidOperationException("Es ist kein Monitor verfügbar.");
+                var committedSize = new Size(Math.Max(1, (int)Math.Ceiling(committed.Settings.Width)), Math.Max(1, (int)Math.Ceiling(committed.Settings.Height)));
+                var committedLayout = OverlayEditorPlacementGeometry.Read(committed.Settings, committedSize, committedMonitor);
+                committedLayout = OverlayPlacementForm.FitLayout(committedLayout, committedSize, committedMonitor.WorkingArea, .5);
+                slot.Settings = committed.Settings;
+                slot.Window.ConfigureInteraction(committed, committedSize, committedMonitor, _snapshot.ThemeId, committedLayout.Scale);
+            }
+            slot.PlacementError = result.Error;
+            slot.Window.CompletePlacement(result.Error);
+            Report(id, slot.Window.Visible, result.Error);
+        }
+        catch (Exception error)
+        {
+            if (_disposed || !_slots.TryGetValue(id, out active) || !ReferenceEquals(active, slot)) return;
+            slot.PlacementError = error.Message;
+            slot.Window.CompletePlacement(error.Message);
+            Report(id, slot.Window.Visible, error.Message);
+        }
+        finally
+        {
+            slot.SavingPlacement = false;
+            if (!_disposed) Invalidate();
+        }
+    }
+    private void CancelUncommittedPlacement(string id, Slot slot)
+    {
+        slot.Window.HideFrame();
+        slot.Window.CompletePlacement(null);
+        Report(id, false);
+        Invalidate();
+    }
     private void Report(string id, bool visible, string? error = null)
     {
         if (_disposed) return;
@@ -339,6 +442,7 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
         if (!_slots.Remove(id, out var slot)) return;
         OverlayEditorLiveDiagnostics.Lifecycle(slot.Settings, "remove", reason, phase, Volatile.Read(ref _epoch));
         slot.Window.GeometryInvalidated -= Invalidate;
+        if (slot.PlacementHandler is not null) slot.Window.PlacementCompleted -= slot.PlacementHandler;
         slot.Window.HideFrame();
         slot.Window.Dispose();
         slot.Session.Dispose();

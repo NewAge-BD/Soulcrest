@@ -277,7 +277,9 @@
                 }
                 if (drag.type === "canvas") {
                     const west = drag.corner.includes("w"), north = drag.corner.includes("n");
-                    const widgets = Array.from(stage.querySelectorAll(".oe-widget"));
+                    // User request 2026-11-09: mandatory controls never constrain content canvas resizing.
+                    const widgets = Array.from(stage.querySelectorAll(".oe-widget"))
+                        .filter(element => element.dataset.requiredWidget !== "true");
                     const minWidth = west && widgets.length ? Math.max(160, drag.canvas.width - Math.min(...widgets.map(element => number(element, "x")))) : 160;
                     const minHeight = north && widgets.length ? Math.max(64, drag.canvas.height - Math.min(...widgets.map(element => number(element, "y")))) : 64;
                     const maxWidth = west && widgets.length ? Math.min(1600, drag.canvas.width + 1600 - Math.max(...widgets.map(element => number(element, "x") + number(element, "width")))) : 1600;

@@ -38,6 +38,9 @@ Dungeon-/Stronghold-Clear-Aktion und frühere OCR-Erkundungshelfer sind entfernt
 
 Services liefern Snapshots und Changed-Events. UI liest deren Zustände; WGC/OpenCV für Navigation
 ist unabhängig von Netzwerkfortschritt. Leaflet und Kartenkacheln bleiben lokal.
+Die Hauptnavigation bleibt einzeilig und hat bei Platzmangel eine sichtbare horizontale
+Scrollleiste. Mausradbewegungen über den Tabs scrollen seitlich; horizontale Touchpad-
+Gesten, Tastaturfokus und Browserzoom behalten ihre Standardfunktion.
 
 ## Fortschritt und Profile
 
@@ -142,6 +145,11 @@ explizit Vorwarnungen aus gespeicherten positiven Deadlines, jedoch niemals best
 oder neue Zyklen aus abgelaufenen Zeiten. Der Standard der Core-API bleibt ohne diese Freigabe
 streng. BossNotice.Cached trägt die Herkunft bis zum erklärenden Bannertext. Der periodische
 Timer läuft unabhängig von einer geöffneten Karten-/Bossansicht; Navigation bleibt getrennt.
+AlertSoundDelivery verbindet NoticeRaised schon vor dem Aufbau der MainForm-Steuerelemente
+mit dem eigenen Worker von AlertSoundPlayer. Die automatische Audioausgabe benötigt weder
+ein Fensterhandle noch BeginInvoke; die bisherige UI-Weiterleitung konnte frühe oder während
+einer UI-Blockade fällige Töne verwerfen. Smoke-Modus, explizite Stummschaltung, abgelaufene
+Notices und Shutdown bleiben gesperrt; manuelle Tontests teilen nur den Audioplayer.
 Der Vorwarnfenstermodus verwendet eine endliche Frist und einen monotonen Restzeitanker.
 Gültige frische Uhrkorrekturen passen nur den ursprünglichen Zyklus an. Bei Restzeit 0
 entfernt BossRushService die Quelle; UntilSpawnNotice liefert null und AlertsService entfernt
@@ -340,19 +348,26 @@ Aufzeichnung, statt halbe Rewards oder weitere Fundhinweise zu veröffentlichen.
 Lifeskill-Journale bis Schema 4 im Hintergrund als Historie. Es gibt keine Migration
 oder neuen Appends in diese Journale. Historische echte Erntezeilen bleiben nutzbar,
 alte Minutenbins ausdrücklich aggregiert; fehlende Wege, Einzelereignisse und
-Gegnerkategorien werden nicht rekonstruiert. Ein ausdrückliches Löschen verwendet
-den zuständigen alten Store. Tages- und absolute Charaktercaches bleiben getrennt
+Gegnerkategorien werden nicht rekonstruiert. Manuelle und seit 2026-11-09 ausdrücklich
+beauftragte automatische Kleinsessionlöschungen verwenden den zuständigen alten Store.
+Tages- und absolute Charaktercaches bleiben getrennt
 von der Sessionlöschung und liefern keine nachgetragenen Sessionereignisse.
 
 Frische Positionsfakten werden nach Karten-/Bindungs-/Beobachtungslücken segmentiert.
-Open-World-Bewegung seit der letzten Aktivität bleibt vorläufig; Ende und Recovery
-verwerfen unproduktiven Nachlauf. Bewegung verlängert keinen Timeout. Der Replay
+Open-World-Bewegung seit dem letzten positiven Loot bleibt vorläufig; Pause, Ende
+und Recovery verwerfen unproduktiven Nachlauf. Der hochfrequente Recorder puffert
+höchstens 4.096 Proben und 20 Sekunden bis zur persistierten Beutebuchung. Pufferverluste
+erzeugen echte Lücken. `SessionPaused` und `StartsAfterPause` trennen HF-/Fallbackspuren
+ohne durchgezogene oder geschätzte Verbindung über die Pause. Bewegung verlängert
+keinen Timeout. Der Replay
 zeigt den beobachteten Weg; die Kartenübernahme verwendet ausschließlich die aus
 bestätigten Lifeskill-Sammelstellen gebildete optimierte Route, keine Laufspur,
 Kampfpositionen oder Monsterdropstellen.
 
-Die gemeinsame Replayachse ist die gespeicherte monotone Dauer seit Sessionbeginn;
-ursprüngliche Faktzeiten bleiben für Anzeige und Nachvollziehbarkeit erhalten. Zukunft
+Die gemeinsame Replayachse ist die gespeicherte monotone Sessiondauer; außerhalb
+des Abyss wird das gesamte Intervall zwischen letztem Gewinn und Wiederaufnahme nach
+einer Pause abgezogen. Ursprüngliche UTC-Faktzeiten bleiben unverändert erhalten.
+Zukunft
 wird am Playhead entfernt, fehlende Zeiten liefern keine synchrone Position. Karte und
 Spielerpunkt folgen nur bestätigten Positionen; nach einer Beobachtungslücke bleibt die
 Kamera am letzten Ort und der frische Spielerpunkt erlischt. Punkte-Stufen, Gegnergrade,
@@ -380,15 +395,33 @@ alter Journale und Replayartefakte ohne Drop-Position bleibt kompatibel.
 
 ### Gemeinsame Lebensdauer und Overlay-Publikation
 
-Außerhalb von Abyss starten qualifizierte Beute und bestätigte Sammelversuche
-(einschließlich Fehlversuchen) die gemeinsame Session und erneuern denselben
-konfigurierten Timeout. Das Ende liegt auf der letzten Aktivität, nicht auf dem
-späteren Timertick. Der 07:00-UTC-Farmtagwechsel trennt Open World. Das Kina-Cap
-markiert lediglich dieselbe Session als Limited Kina; es startet keine zweite
+Außerhalb von Abyss startet bestätigte Beute beziehungsweise ein bestätigter
+Sammelversuch die gemeinsame Session. Seit 2026-11-09 erneuern nur positive Gewinne
+(Items, Souls, Kina, AP/RP) die Frist. Nach 20 Sekunden ohne Gewinn bleibt die Session
+`Live`, wird aber mit `IsPaused=true` und auf den letzten Gewinn zurückgerechneter
+Dauer gespeichert. Neuer Loot vor 120 Sekunden entfernt die gesamte Zwischenzeit
+einmalig aus der monotonen Uhr und setzt dieselbe ID fort. Bei 120 Sekunden, Teleport
+oder bestätigtem Kartenwechsel endet die Session. Fehlversuche und Verluste bleiben
+am letzten produktiven Zeitpunkt gespeichert, ohne die Frist zu verlängern. Ihre
+echte UTC-Zeit bleibt als Faktgrenze erhalten. Der 07:00-UTC-Farmtagwechsel trennt
+Open World. Das Kina-Cap markiert lediglich dieselbe Session als Limited Kina; es startet keine zweite
 Session und setzt weder Dauer noch Mengen zurück. Abyss beginnt beim bestätigten
 Eintritt, endet beim Austritt und hat keinen Aktivitätstimeout. Normale Übergänge,
 Tod sowie Daily-/Weekly-Reset teilen den Aufenthalt nicht; fehlende aktuelle
 Own-/Profilbindung außerhalb erlaubter Übergänge und echte Quellenlücken unterbrechen.
+
+Die automatische Kleinsessionbereinigung läuft serialisiert im selben Worker und
+lässt wartende Lootbefehle vor. Standard ist eine gespeicherte Itemmengenschwelle von
+20; 0 schaltet sie ab. Abgeschlossene/unterbrochene Nicht-Abyss-Sessions darunter
+werden einschließlich alter Historie über den vorhandenen Löschpfad entfernt, mit
+Replayende, Tombstone und Bewertungsabbruch. Live-/pausierte Sessions, unbekannte
+Itemmengen und beschädigt gelesene Historie bleiben geschützt. Einstellungen werden
+unter dem Speicherschloss gelesen; ein fehlgeschlagener Settings-Save kann keine
+vorübergehende Löschfreigabe erteilen. Fehler werden sichtbar, ohne Tick-IO-Schleife.
+Der bestehende Diagnosebeitrag `loot-sessions` projiziert Pausenzahl, feste Fristen,
+Schwelle, Löschzähler und unvollständige Bereinigung anonym aus vorhandenen Diensten.
+Snapshotalter und Zeitrichtung werden mitgeprüft; höchstens fünf Sekunden alte
+Beobachtungen dürfen bei verfügbarer Quelle Healthy sein.
 
 Jeder Kanal behält seine eigene Own-/Generations-/Sequenzdeduplikation. Quelle,
 Welt und Faktzeit werden beim Empfang und vor der seriellen Mutation erneut
@@ -622,3 +655,26 @@ Lokale Suche und Kategorien filtern den unveränderten Modulkatalog; der Canvas
 bleibt montiert. Der native Document-Click-Handler nimmt nur die im selben Editor
 liegenden Bibliothekscontrols vom Abwählen aus. Der dokumentierte CSS-Override
 und diese exakte JS-Anpassung sind bei der Original-Kit-Provenienz separat erfasst.
+
+## Funktionsübergreifende Diagnose (2026-11-09)
+
+`DiagnosticFeatureCatalog` definiert stabile Feature-IDs, Gruppen und notwendige
+Quellen. `IDiagnosticContributor` liefert je Funktion Status, Prüfzeit, festen Hinweis
+und explizit erlaubte skalare Fakten. `DiagnosticServiceRegistry` beobachtet die
+reguläre Erzeugung der Host-Singletons; Diagnose-Lookups liefern ausschließlich bereits
+erzeugte Instanzen. Kein Diagnosezugriff darf einen Dienst konstruieren oder starten.
+
+`DiagnosticsService` führt ausgewählte Beiträge samt Quellen mit begrenzter Wartezeit
+aus. Hängende Beiträge bleiben einzeln in Bearbeitung und erzeugen bei Wiederholung
+keine zusätzlichen Wartethreads. Die leichte Hintergrundprüfung überschreibt keine
+manuell gewählte Diagnose. Pakete enthalten `diagnose.txt`, ein versioniertes Manifest,
+begrenzte Featureprojektionen und gegebenenfalls die vorhandene Kartenvorschau.
+Es gibt keinen pauschalen Export vollständiger Einstellungen oder sämtlicher Logs.
+
+`NetworkDiagnosticRecorder` ist ein separat gestarteter, zeit-/größenbegrenzter Tap der
+laufenden produktiven Quelle. Exact-Ownership, Capturegeneration und Gerätezuordnung
+werden vor der Aufnahme geprüft; unbekannte eingehende Verbindungen erst nach dem
+bestehenden nativen Ownership-Nachweis. Ausgehende Pakete werden ausschließlich
+aufgezeichnet, nicht an Decoder geliefert. Dateischreiben läuft über eine begrenzte
+Queue unabhängig vom Tracker. PCAP-Dateien bewahren Paketbytes und Originalzeiten;
+Manifest und Status nennen IPv4/TCP, aktiven Quelladapter, Grenzen und Unterbrechungen.

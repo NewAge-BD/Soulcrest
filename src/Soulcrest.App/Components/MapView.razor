@@ -265,6 +265,8 @@
                 <InfoTip>@UiText.T("Boss Rush schaltet Wegführung und Spawn-Overlay gemeinsam. Aktivierte Boss-Alerts bleiben unabhängig davon eingeschaltet.")</InfoTip>
             </div>
             <label class="check" for="boss-rush-show-older-spawns"><input id="boss-rush-show-older-spawns" type="checkbox" checked="@Settings.Current.BossRushShowOlderSpawns" @onchange="ToggleOlderBossSpawns" /> @UiText.T("Gespawnte Bosse älter als 1 Min. anzeigen")</label>
+            <label class="check" for="boss-rush-only-unique-gear"><input id="boss-rush-only-unique-gear" type="checkbox" checked="@Settings.Current.BossRushOnlyUniqueGearBosses" @onchange="ToggleOnlyUniqueGearBosses" /> @UiText.T("Nur Bosse mit eigener Unique-Ausrüstung anzeigen")</label>
+            <label class="check" for="boss-rush-only-alert-bosses"><input id="boss-rush-only-alert-bosses" type="checkbox" checked="@Settings.Current.BossRushOnlyAlertBosses" @onchange="ToggleOnlyAlertBosses" /> @UiText.T("Nur Bosse mit eingerichtetem Alert anzeigen")</label>
             <button type="button" class="btn small" @onclick="@(() => Ui.Navigate("bossrush"))">@UiText.T("Boss-Rush-Tab öffnen")</button>
         </div>
         <div class="tile">
@@ -731,6 +733,12 @@
 
     private void ToggleOlderBossSpawns(ChangeEventArgs e) =>
         Settings.Update(s => s.BossRushShowOlderSpawns = e.Value is true);
+
+    private void ToggleOnlyUniqueGearBosses(ChangeEventArgs e) =>
+        Settings.Update(s => s.BossRushOnlyUniqueGearBosses = e.Value is true);
+
+    private void ToggleOnlyAlertBosses(ChangeEventArgs e) =>
+        Settings.Update(s => s.BossRushOnlyAlertBosses = e.Value is true);
 
     private async Task ToggleProgression(ChangeEventArgs e)
     {

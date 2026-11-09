@@ -112,10 +112,14 @@ public static class CombatScoreCalculatorPresentation
     }
     public sealed record CharacterDisplayStatCounts(int Total, int Known, int Missing, int Stale, int Unqualified, int Conflicts);
     public static string ScoreTermExplanation(CombatScoreStatTerm term) => UiText.T(term.IsIntermediate
-        ? "Zwischenwert · wirkt über abgeleitete Stats"
+        ? "Primärattribut · wirkt über seine Effekte"
         : term.Coefficient is null ? "Gewicht unbekannt"
         : term.Coefficient == 0 ? "Gewicht 0 laut eigenem Modell"
-        : term.Value is null ? "Wert unbekannt" : "Statwert × Gewicht");
+        : term.Value is null ? "Wert unbekannt" : "Rohkomponente × gemessenes Gewicht");
+    /// <summary>Measured interval of a weight (own controlled contrasts, research 2026-11-09).</summary>
+    public static string? WeightInterval(CombatScoreStatTerm term) => term.Coefficient is null
+        || CombatScoreWeights.Get(term.StatId) is not { } weight ? null
+        : UiText.F("gemessen {0}–{1}", ExactNumber(weight.Lower), ExactNumber(weight.Upper));
     public static string StatName(string id) => DaevanionCatalog.Default.GetStat(id)?.Name.For(UiText.Language) ?? CombatEffectCatalog.Default.StatLabel(id, UiText.Language);
     public static string SkillName(int id) => DaevanionCatalog.Default.GetSkill(id)?.Name.For(UiText.Language)
         ?? (CombatEffectCatalog.Default.GetSkill(id) is not null ? CombatEffectCatalog.Default.SkillLabel(id, UiText.Language) : UiText.F("Skill {0}", id));

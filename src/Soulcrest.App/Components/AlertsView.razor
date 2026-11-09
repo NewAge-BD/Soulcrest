@@ -3,6 +3,7 @@
 @using Soulcrest.Core.Alerts
 @inject AlertsService Alerts
 @inject SettingsService Settings
+@inject UiState Ui
 
 @{
     var items = FilteredItems.ToArray();
@@ -22,7 +23,9 @@
         <main class="alerts-overview-column">
             <EventTimersDashboard WorkspaceMode="true" SelectedEventId="@_selectedEventId" SelectedEventChanged="SelectEvent" Timers="@VisibleEventTimers" Now="@Alerts.Now" Busy="@_busy" EditorOpen="@(_editing is not null)" EditReminder="EditEventReminder" ReminderSaved="SaveEventReminder" SoundSaved="SaveEventSound" PreviewReminder="PreviewEventReminder" />
             @if (_editing is not null) { <p class="alerts-hint alerts-editor-lock" role="status">@UiText.T("Speichere oder schließe den Editor, um Event-Erinnerungen direkt anzupassen.")</p> }
-            <LiveBossTimers Busy="@(_busy || _editing is not null)" IncludeAllCaptured="true" IncludeCatalogue="true" Compact="true" Searchable="true" ShowTimerStripSelection="true" />
+            <div id="alerts-boss-timers" tabindex="-1" @ref="_bossTimers">
+                <LiveBossTimers Busy="@(_busy || _editing is not null)" IncludeAllCaptured="true" IncludeCatalogue="true" Compact="true" Searchable="true" ShowTimerStripSelection="true" />
+            </div>
         </main>
         <aside class="alerts-detail-column" aria-label="@UiText.T("Deine Einstellungen")">
             <div class="alerts-overlay-shortcuts"><OverlaySettingsLink OverlayId="alerts" /><OverlaySettingsLink OverlayId="notifications" /><OverlaySettingsLink OverlayId="event-timeline" /></div>
@@ -171,7 +174,7 @@
         _busyItems = Alerts.Items; _busyUpcoming = Alerts.Upcoming; _busyEventTimers = Alerts.EventTimers;
         _busy = true; _feedback = UiText.T(text); _actionError = null;
     }
-    private ElementReference _titleInput;
+    private ElementReference _titleInput, _bossTimers;
     private string? _soundFile;
     private string _title = "", _message = "", _zone = "Europe/Berlin", _times = "", _anchorDate = "", _atLocal = "", _color = "#5eead4", _sound = "standard";
     private AlertScheduleKind _kind;
@@ -188,6 +191,7 @@
     protected override void OnInitialized() { Alerts.Changed += Refresh; Settings.Changed += Refresh; }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (Ui.TakePendingBossAlertsFocus()) await _bossTimers.FocusAsync();
         if (!_focusEditor) return;
         _focusEditor = false;
         await _titleInput.FocusAsync();

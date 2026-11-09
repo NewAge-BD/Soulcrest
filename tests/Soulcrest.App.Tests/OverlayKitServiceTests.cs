@@ -141,6 +141,39 @@ public sealed class OverlayKitServiceTests
     }
 
     [Fact]
+    public async Task QueuedContentSaveRetainsTheRecordingChoiceCommittedAheadOfIt()
+    {
+        using var fixture = new Fixture();
+        using var service = fixture.Create();
+        var widget = OverlayCatalog.CreateWidget("clock");
+        Assert.True((await service.SaveAsync(service.Settings with { CaptureExcluded = true, Widgets = [widget] })).Succeeded);
+        var stale = service.Settings;
+        var gate = (SemaphoreSlim)typeof(OverlayService).GetField("_saveGate",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(service)!;
+        await gate.WaitAsync();
+        Task<OverlaySaveResult> recording, content;
+        try
+        {
+            recording = service.SaveAsync(stale with { CaptureExcluded = false });
+            content = service.SaveAsync(stale with { Width = 512, Widgets = [widget with { X = 72, Y = 48 }] });
+            Assert.False(recording.IsCompleted);
+            Assert.False(content.IsCompleted);
+        }
+        finally { gate.Release(); }
+        var results = await Task.WhenAll(recording, content).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.All(results, result => Assert.True(result.Succeeded, result.Error));
+        Assert.False(service.Settings.CaptureExcluded);
+        Assert.Equal(512, service.Settings.Width);
+        var saved = Assert.Single(service.Settings.Widgets);
+        Assert.Equal((72d, 48d), (saved.X, saved.Y));
+        using var restarted = fixture.Create();
+        Assert.Null(restarted.LoadError);
+        Assert.False(restarted.Settings.CaptureExcluded);
+        Assert.Equal(512, restarted.Settings.Width);
+        Assert.Equal((72d, 48d), (restarted.Settings.Widgets.Single().X, restarted.Settings.Widgets.Single().Y));
+    }
+
+    [Fact]
     public async Task ConcurrentServiceInstancesPreserveOtherWindowsAndTheCurrentPositionAndBehavior()
     {
         using var fixture = new Fixture();

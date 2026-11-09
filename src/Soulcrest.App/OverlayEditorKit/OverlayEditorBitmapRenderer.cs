@@ -33,11 +33,11 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
     internal static readonly TimeSpan RenderTimeout = TimeSpan.FromSeconds(15);
 
     public OverlayEditorBitmapRenderer(IServiceProvider services) : this(services, pauseAnimations: true) { }
-    internal OverlayEditorBitmapRenderer(IServiceProvider services, bool pauseAnimations)
+    internal OverlayEditorBitmapRenderer(IServiceProvider services, bool pauseAnimations, bool drawLockWidget = true)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _pauseAnimations = pauseAnimations;
-        _model = new(pauseAnimations);
+        _model = new(pauseAnimations, drawLockWidget);
     }
 
     public async Task<Bitmap> RenderAsync(OverlayInstance window, OverlaySnapshot snapshot, CancellationToken cancellationToken = default)
@@ -359,9 +359,10 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
 }
 
 /// <summary>Per-render-host data only. It does not reference presentation, settings or tracker services.</summary>
-public sealed class OverlayPlacementRenderState(bool pauseAnimations = true)
+public sealed class OverlayPlacementRenderState(bool pauseAnimations = true, bool drawLockWidget = true)
 {
     public bool PauseAnimations { get; } = pauseAnimations;
+    public bool DrawLockWidget { get; } = drawLockWidget;
     public OverlayInstance Window { get; private set; } = new();
     public OverlaySnapshot Snapshot { get; private set; } = new();
     public string Revision { get; private set; } = "0";

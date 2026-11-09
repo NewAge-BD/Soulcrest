@@ -570,6 +570,7 @@ public sealed class AbyssRankNetworkIntegrationTests
                 streams[Connection] = (new TcpReassembler(), new GameMessageStream(requireVerifiedSync: true));
             }
             var settings = new SettingsService();
+            settings.Current.LootTrackerSmallSessionItemThreshold = 0; // Retention is covered independently.
             settings.Current.AbyssTrackingEnabled = abyssTracking;
             settings.Current.LootTrackingEnabled = settings.Current.MonsterLootTrackingEnabled = true;
             Progress = new(Path.Combine(_root, "abyss-progress.json"));

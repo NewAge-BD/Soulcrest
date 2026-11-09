@@ -7,6 +7,33 @@ namespace Soulcrest.App.Tests;
 
 public sealed class OverlayEditorLiveDiagnosticsTests
 {
+    [Fact]
+    public void UserDiagnosisLeasesObserveExistingRuntimeWithoutADeveloperPort()
+    {
+        var previous = Environment.GetEnvironmentVariable("SOULCREST_WEBVIEW_DEBUG_PORT");
+        Environment.SetEnvironmentVariable("SOULCREST_WEBVIEW_DEBUG_PORT", null);
+        try
+        {
+            Assert.False(OverlayEditorLiveDiagnostics.Enabled);
+            var before = OverlayEditorLiveDiagnostics.CaptureRecorded().Version;
+            var first = OverlayEditorLiveDiagnostics.BeginDiagnosticCollection();
+            var second = OverlayEditorLiveDiagnostics.BeginDiagnosticCollection();
+            try
+            {
+                Assert.True(OverlayEditorLiveDiagnostics.Enabled);
+                OverlayEditorLiveDiagnostics.Policy(Settings, new(), Context, true);
+                Assert.True(OverlayEditorLiveDiagnostics.CaptureRecorded().Version > before);
+                first.Dispose(); first.Dispose();
+                Assert.True(OverlayEditorLiveDiagnostics.Enabled);
+            }
+            finally { first.Dispose(); second.Dispose(); }
+            Assert.False(OverlayEditorLiveDiagnostics.Enabled);
+            Assert.NotEmpty(OverlayEditorLiveDiagnostics.CaptureRecorded().Entries);
+            Assert.Null(Environment.GetEnvironmentVariable("SOULCREST_WEBVIEW_DEBUG_PORT"));
+        }
+        finally { Environment.SetEnvironmentVariable("SOULCREST_WEBVIEW_DEBUG_PORT", previous); }
+    }
+
     private static readonly OverlayEditorLiveContext Context = new(true, true, false, OverlayTriggerArea.OpenWorld, new(false, false, false));
     private static OverlaySettings Settings => new() { Enabled = true, Widgets = [OverlayCatalog.CreateWidget("clock")] };
 

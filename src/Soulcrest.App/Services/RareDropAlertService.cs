@@ -17,6 +17,10 @@ public sealed record RareDropNotice(string Id, string Name, long Quantity, LootI
     public string? ProfileId { get; init; }
 }
 
+/// <summary>Read-only anonymous counters; reading never expires notices or touches the audio channel.</summary>
+public sealed record RareDropAlertDiagnostics(bool SourceAttached, bool PresentationVisible, bool Disposed,
+    long ReceivedDrops, long AudioStarts, long AudioCompletions, long AudioFailures, int RetainedNotices, bool AudioActive);
+
 /// <summary>Ephemeral receipt notifications only. No journal replay, price change or snapshot creates an alert.</summary>
 public sealed class RareDropAlertService : IDisposable
 {
@@ -36,6 +40,7 @@ public sealed class RareDropAlertService : IDisposable
     private bool _visible, _disposed;
     private long _revision;
     private string? _status;
+    private long _receivedDrops, _audioStarts, _audioCompletions, _audioFailures;
     private sealed record PlaybackPlan(LootItemRarity Rarity, DropRarityAlertSettings Settings, double Volume, bool Preview);
 
     public RareDropAlertService(UnifiedLootTrackerService source, Func<RareDropAlertOptions> options)
@@ -53,6 +58,14 @@ public sealed class RareDropAlertService : IDisposable
 
     public event Action? Changed;
     public string? Status { get { lock (_gate) return _status; } }
+    public RareDropAlertDiagnostics Diagnostics
+    {
+        get
+        {
+            lock (_gate) return new(_unifiedSource is not null, _visible, _disposed, _receivedDrops,
+                _audioStarts, _audioCompletions, _audioFailures, _notices.Count, _audioRequest is not null);
+        }
+    }
 
     public RareDropNotice? Current => CurrentNotices.LastOrDefault();
 
@@ -133,6 +146,7 @@ public sealed class RareDropAlertService : IDisposable
             var options = _options();
             var tier = options.ForRarity(rarity);
             if (!tier.Enabled) return;
+            _receivedDrops++;
             var notice = new RareDropNotice(Guid.NewGuid().ToString("N"), drop.Name, drop.Quantity, rarity,
                 MonsterLootIconCatalog.Default.DropAsset(drop.LootKey), _time.GetUtcNow())
             {
@@ -181,6 +195,7 @@ public sealed class RareDropAlertService : IDisposable
     // Called under _gate; a newer receipt/preview always replaces older drop audio on its own channel.
     private Task<bool> StartAudio(PlaybackPlan plan)
     {
+        _audioStarts++;
         var request = new CancellationTokenSource();
         _audioRequest = request; _audioPlan = plan;
         var revision = ++_revision;
@@ -219,12 +234,14 @@ public sealed class RareDropAlertService : IDisposable
                     {
                         audio = CreateAudio(revision, plan, request);
                         await audio.PlayFileAsync(Path.GetFullPath(file!), plan.Volume, request.Token).ConfigureAwait(false);
+                        lock (_gate) _audioCompletions++;
                         SetStatus("Drop-Ton abgespielt.", revision);
                         return true;
                     }
                     catch (OperationCanceledException) { throw; }
                     catch (Exception error)
                     {
+                        lock (_gate) _audioFailures++;
                         LogFile.Error("Rare drop custom audio", error);
                         lock (_gate)
                         {
@@ -238,12 +255,14 @@ public sealed class RareDropAlertService : IDisposable
             if (fallback is not null) SetStatus(fallback, revision);
             audio = CreateAudio(revision, plan, request);
             await audio.PlayAsync(RareDropSound.CreateWave(), plan.Volume, request.Token).ConfigureAwait(false);
+            lock (_gate) _audioCompletions++;
             SetStatus(fallback ?? "Drop-Ton abgespielt.", revision);
             return true;
         }
         catch (OperationCanceledException) { return false; }
         catch (Exception error)
         {
+            lock (_gate) _audioFailures++;
             LogFile.Error("Rare drop audio", error);
             SetStatus("Drop-Ton konnte nicht abgespielt werden.", revision);
             return false;

@@ -8,7 +8,7 @@
 
 @{
     var view = BossRush.View;
-    var schedule = BossRush.Schedule.Where(row => row.Place.Map == view.MapId).ToArray();
+    var schedule = BossRush.NavigationSchedule.ToArray();
     var spawned = schedule.Where(r => r.Spawned).ToArray();
     var upcoming = schedule.Where(r => !r.Spawned).ToArray();
     var currentMap = Progress.Maps.FirstOrDefault(m => m.Id == view.MapId);
@@ -59,6 +59,10 @@
                                 <button class="btn" @onclick="@(() => Ui.ShowBossOnMap(target))">@UiText.T("Auf Karte zeigen") <span aria-hidden="true">↗</span></button>
                             }
                         </div>
+                    }
+                    else if (view.FilteredOut)
+                    {
+                        <div class="boss-empty boss-command-empty"><span class="boss-empty-mark" aria-hidden="true">◆</span><h3>@UiText.T("Keine Bosse für die gewählten Filter")</h3><p>@UiText.T("Passe die Boss-Rush-Filter im Karten-Tab an.")</p></div>
                     }
                     else
                     {

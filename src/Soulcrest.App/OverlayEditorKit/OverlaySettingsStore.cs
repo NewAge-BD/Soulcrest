@@ -51,7 +51,7 @@ internal sealed class OverlaySettingsStore(string directory)
         var ids = new HashSet<Guid>();
         foreach (var widget in settings.Widgets)
         {
-            if (widget is null || !Guid.TryParse(widget.Id, out var id) || !ids.Add(id) || OverlayCatalog.Find(widget.Kind) is null)
+            if (widget is null || widget.Kind == OverlayLockWidget.Kind || !Guid.TryParse(widget.Id, out var id) || !ids.Add(id) || OverlayCatalog.Find(widget.Kind) is null)
                 throw new InvalidDataException("Die gespeicherte Modulliste enthält ein unbekanntes oder ungültiges Modul.");
             if (widget.ItemView is not ("grid" or "strip" or "list" or "card") ||
                 widget.ItemFilter is not ("all" or "rare" or "selected") ||
@@ -130,11 +130,13 @@ internal sealed class OverlayTemplateStore(string directory)
         public required bool ShowBorder { get; init; }
         public required bool SnapToGrid { get; init; }
         public bool AutoAlign { get; init; } = true;
+        public OverlayLockWidgetPosition? LockWidget { get; init; }
 
         public OverlaySettings ToSettings() => new()
         {
             Width = Width, Height = Height, Widgets = Widgets, Scale = Scale,
             BackgroundOpacity = BackgroundOpacity, ShowBorder = ShowBorder, SnapToGrid = SnapToGrid, AutoAlign = AutoAlign,
+            LockWidget = LockWidget,
         };
 
         public static StoredLayout FromSettings(OverlaySettings source)
@@ -145,6 +147,7 @@ internal sealed class OverlayTemplateStore(string directory)
                 Width = layout.Width, Height = layout.Height, Widgets = layout.Widgets, Scale = layout.Scale,
                 BackgroundOpacity = layout.BackgroundOpacity, ShowBorder = layout.ShowBorder,
                 SnapToGrid = layout.SnapToGrid, AutoAlign = layout.AutoAlign,
+                LockWidget = layout.LockWidget,
             };
         }
     }

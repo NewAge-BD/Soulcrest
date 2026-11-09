@@ -90,6 +90,48 @@ public sealed class BossNavigationSettingsTests : IDisposable
         Assert.False(reloaded.BossOverlayEnabled);
     }
 
+    [Fact]
+    public void MissingRushFiltersDefaultToFalseWithoutRewritingStoredSelections()
+    {
+        Assert.False(new AppSettings().BossRushOnlyUniqueGearBosses);
+        Assert.False(new AppSettings().BossRushOnlyAlertBosses);
+        JsonFile.Save(AppPaths.SettingsFile, new { BossAlertIds = new[] { "1110:111001" }, BossAlertsEnabled = false });
+        var before = File.ReadAllBytes(AppPaths.SettingsFile);
+
+        var settings = new SettingsService();
+
+        Assert.False(settings.Current.BossRushOnlyUniqueGearBosses);
+        Assert.False(settings.Current.BossRushOnlyAlertBosses);
+        Assert.Equal(new[] { "1110:111001" }, settings.Current.BossAlertIds);
+        Assert.Equal(before, File.ReadAllBytes(AppPaths.SettingsFile));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void RushFiltersPersistIndependentlyAcrossRestart(bool uniqueOnly, bool alertOnly)
+    {
+        JsonFile.Save(AppPaths.SettingsFile, new AppSettings { BossRushEnabled = false, BossAlertsEnabled = false,
+            BossRushShowOlderSpawns = true, BossNavigationPreviewCount = 3, BossOverlayCount = 7,
+            BossAlertIds = ["1110:111001"], BossReminderOverrides = new() { ["1110:111001"] = new() { Enabled = false } } });
+        var settings = new SettingsService();
+
+        settings.Update(current => { current.BossRushOnlyUniqueGearBosses = uniqueOnly; current.BossRushOnlyAlertBosses = alertOnly; });
+
+        var reloaded = new SettingsService().Current;
+        Assert.Equal(uniqueOnly, reloaded.BossRushOnlyUniqueGearBosses);
+        Assert.Equal(alertOnly, reloaded.BossRushOnlyAlertBosses);
+        Assert.False(reloaded.BossRushEnabled);
+        Assert.False(reloaded.BossAlertsEnabled);
+        Assert.True(reloaded.BossRushShowOlderSpawns);
+        Assert.Equal(3, reloaded.BossNavigationPreviewCount);
+        Assert.Equal(7, reloaded.BossOverlayCount);
+        Assert.Equal(new[] { "1110:111001" }, reloaded.BossAlertIds);
+        Assert.False(reloaded.BossReminderOverrides["1110:111001"].Enabled);
+    }
+
     public void Dispose()
     {
         if (_settingsBackup is null) File.Delete(AppPaths.SettingsFile);

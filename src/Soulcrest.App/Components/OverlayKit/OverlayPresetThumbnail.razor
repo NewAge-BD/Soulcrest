@@ -14,6 +14,7 @@
                         <OverlayWidgetPreview Widget="widget" Snapshot="Examples" />
                     </div>
                 }
+                <div class="oe-lock-widget" data-required-widget="true" style="@WidgetStyle(OverlayLockWidget.Layout(Settings))"><OverlayLockWidgetPreview ThemeId="@Examples.ThemeId" /></div>
             </div>
             @if (Settings.Widgets.Count == 0) { <span class="oe-preset-empty">@T("Leeres Overlay")</span> }
         </div>

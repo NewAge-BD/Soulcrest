@@ -258,6 +258,7 @@ public sealed class AbyssGatheringIntegrationTests
         internal Fixture(string language = "en")
         {
             Source = new(Clock); Settings.Current.AbyssTrackingEnabled = true; Settings.Current.LootTrackingEnabled = true;
+            Settings.Current.LootTrackerSmallSessionItemThreshold = 0; // Retention is covered independently.
             Settings.Current.OverlayLanguage = language;
             var store = new UnifiedLootSessionStore(SessionRoot, (path, text) =>
             {

@@ -22,6 +22,7 @@ internal sealed class OverlayLockButton : Form
     private OverlayThemeDefinition _theme = OverlayThemeDefinition.Legacy;
     private bool _locked = true, _hover, _pressed, _targetHandleAvailable, _visibleInRecordings, _presenting, _changingTheme;
     private bool _creatingHandle, _updatingShape, _recoveringRender;
+    private string? _error;
 
     /// <param name="boundsProvider">Optional bounds in physical pixels relative to the target's client area.</param>
     internal OverlayLockButton(Form target, Func<Rectangle>? boundsProvider = null,
@@ -77,7 +78,7 @@ internal sealed class OverlayLockButton : Form
     {
         if (IsDisposed) return;
         _locked = locked;
-        _tooltip.SetToolTip(this, TooltipText(locked));
+        _tooltip.SetToolTip(this, CurrentTooltip);
         RefreshAppearance();
         RefreshTarget();
     }
@@ -90,6 +91,14 @@ internal sealed class OverlayLockButton : Form
     }
 
     internal static string TooltipText(bool locked) => UiText.T(locked ? "Overlay entsperren" : "Overlay sperren");
+
+    internal void SetError(string? error)
+    {
+        if (IsDisposed) return;
+        _error = error;
+        _tooltip.SetToolTip(this, CurrentTooltip);
+    }
+    private string CurrentTooltip => _error is null ? TooltipText(_locked) : UiText.T(_error);
 
     /// <summary>Repositions the button and shows it only while the target is visible and usable.</summary>
     internal void RefreshTarget()
@@ -114,7 +123,7 @@ internal sealed class OverlayLockButton : Form
         }
 
         Bounds = new Rectangle(_target.PointToScreen(relative.Location), relative.Size);
-        _tooltip.SetToolTip(this, TooltipText(_locked));
+        _tooltip.SetToolTip(this, CurrentTooltip);
         if (Owner != _target) Owner = _target;
         if (!_theme.IsLegacy || _style == OverlayLockButtonStyle.TimerStrip)
         {
@@ -214,22 +223,28 @@ internal sealed class OverlayLockButton : Form
     private void PaintLegacy(PaintEventArgs e, Size dimensions)
     {
         base.OnPaint(e);
-        var graphics = e.Graphics;
+        PaintLegacyGlyph(e.Graphics, dimensions, _locked, _hover, _pressed, BackColor);
+    }
+
+    private static void PaintLegacyGlyph(Graphics graphics, Size dimensions, bool locked, bool hover, bool pressed, Color backColor)
+    {
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         graphics.ScaleTransform(dimensions.Width / (float)LogicalSize, dimensions.Height / (float)LogicalSize);
-        var surface = _pressed ? Color.FromArgb(55, 45, 77)
-            : _hover ? Color.FromArgb(39, 48, 64) : BackColor;
+        using var background = new SolidBrush(backColor);
+        graphics.FillRectangle(background, 0, 0, LogicalSize, LogicalSize);
+        var surface = pressed ? Color.FromArgb(55, 45, 77)
+            : hover ? Color.FromArgb(39, 48, 64) : backColor;
         using var fill = new SolidBrush(surface);
         using var outline = Rounded(new RectangleF(.5f, .5f, LogicalSize - 1, LogicalSize - 1), 6);
         graphics.FillPath(fill, outline);
-        using var border = new Pen(_locked ? Color.FromArgb(68, 83, 103) : Color.FromArgb(167, 139, 250));
+        using var border = new Pen(locked ? Color.FromArgb(68, 83, 103) : Color.FromArgb(167, 139, 250));
         graphics.DrawPath(border, outline);
-        using var ink = new Pen(_locked ? Color.FromArgb(200, 211, 226) : Color.FromArgb(196, 177, 255), 1.7f)
+        using var ink = new Pen(locked ? Color.FromArgb(200, 211, 226) : Color.FromArgb(196, 177, 255), 1.7f)
         {
             StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round
         };
         graphics.DrawRectangle(ink, 8, 12, 12, 10);
-        if (_locked)
+        if (locked)
         {
             graphics.DrawArc(ink, 10, 4, 8, 12, 180, 180);
             graphics.DrawLine(ink, 10, 10, 10, 12);
@@ -308,6 +323,23 @@ internal sealed class OverlayLockButton : Form
             graphics.DrawLine(ink, locked ? 10 : 14, 10, locked ? 10 : 14, 12);
             if (locked) graphics.DrawLine(ink, 18, 10, 18, 12);
             graphics.DrawLine(ink, 14, 16, 14, 19);
+            return image;
+        }
+        catch { image.Dispose(); throw; }
+    }
+
+    internal static Bitmap RenderGlyph(Size size, OverlayThemeDefinition theme, bool locked)
+    {
+        if (!theme.IsLegacy) return RenderThemedGlyph(size, theme, locked, false, false);
+        if (!IsRenderableGlyphSize(size)) throw new ArgumentOutOfRangeException(nameof(size));
+        var image = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppPArgb);
+        try
+        {
+            using var graphics = Graphics.FromImage(image);
+            graphics.Clear(Color.Transparent);
+            using var outline = Rounded(new RectangleF(0, 0, size.Width, size.Height), 6f * Math.Min(size.Width, size.Height) / LogicalSize);
+            graphics.SetClip(outline);
+            PaintLegacyGlyph(graphics, size, locked, false, false, Color.FromArgb(20, 29, 40));
             return image;
         }
         catch { image.Dispose(); throw; }

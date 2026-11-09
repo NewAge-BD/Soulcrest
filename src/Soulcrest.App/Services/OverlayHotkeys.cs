@@ -129,6 +129,9 @@ internal sealed class WindowsOverlayHotkeyRegistrar : IOverlayHotkeyRegistrar
     public void Unregister(nint window, int id) => NativeMethods.UnregisterHotKey(window, id);
 }
 
+/// <summary>Anonymous passive registration state without key combinations or window identifiers.</summary>
+public sealed record OverlayHotkeyDiagnostics(bool Attached, bool Capturing, bool Disposed, int RegisteredActions, int RegistrationErrors);
+
 /// <summary>Owns only Soulcrest's global shortcuts; never sends keyboard input to another window.</summary>
 public sealed class OverlayHotkeyService : IDisposable
 {
@@ -141,6 +144,7 @@ public sealed class OverlayHotkeyService : IDisposable
     private Control? _owner;
     private nint _window;
     private bool _capturing, _disposed;
+    private OverlayHotkeyDiagnostics _diagnostics = new(false, false, false, 0, 0);
 
     public OverlayHotkeyService(SettingsService settings) : this(settings, new WindowsOverlayHotkeyRegistrar()) { }
     internal OverlayHotkeyService(SettingsService settings, IOverlayHotkeyRegistrar registrar)
@@ -152,6 +156,10 @@ public sealed class OverlayHotkeyService : IDisposable
     public event Action<string>? Invoked;
     public string? Error(string action) => _errors.GetValueOrDefault(action);
     public OverlayHotkey? Binding(string action) => _settings.Current.OverlayHotkeys.GetValueOrDefault(action);
+    /// <summary>Immutable last registration state; reading never registers keys or accesses the owner window.</summary>
+    public OverlayHotkeyDiagnostics Diagnostics => Volatile.Read(ref _diagnostics);
+    private void PublishDiagnostics() => Volatile.Write(ref _diagnostics,
+        new(_window != 0, _capturing, _disposed, _registered.Count, _errors.Count));
 
     public void Attach(Control owner)
     {
@@ -235,18 +243,19 @@ public sealed class OverlayHotkeyService : IDisposable
                 if (_registrar.Register(_window, id, gesture)) _registered[id] = action;
                 else errors[action] = "Diese Tastenkombination ist von Windows oder einem anderen Programm belegt. Bitte eine andere wählen.";
             }
-        _errors = errors; Changed?.Invoke();
+        _errors = errors; PublishDiagnostics(); Changed?.Invoke();
     }
 
     private void Release()
     {
         foreach (var id in _registered.Keys) _registrar.Unregister(_window, id);
         _registered.Clear();
+        PublishDiagnostics();
     }
 
     public void Dispose()
     {
         if (_disposed) return;
-        _settings.Changed -= SettingsChanged; Detach(); _disposed = true;
+        _settings.Changed -= SettingsChanged; Detach(); _disposed = true; PublishDiagnostics();
     }
 }

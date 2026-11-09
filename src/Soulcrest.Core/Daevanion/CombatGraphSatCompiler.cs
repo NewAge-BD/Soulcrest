@@ -86,19 +86,30 @@ internal sealed class CombatGraphSatCompiler(CpModel model, List<IntVar> allVari
         foreach (var relation in catalog.StatRelations)
             if (_stats.TryGetValue(relation.ModifierStatId, out var modifier))
                 Add(relation.StatId, relation.Operation, RawStat(modifier));
+        // Raw-linear score (research 2026-11-09): flat sum and total percentage increase carry separate weights.
         var weights = CombatScoreModel.RulesFor(catalog).ToDictionary(rule => rule.StatId, rule => rule.Coefficient, StringComparer.Ordinal);
-        var intermediates = primaryIds.Concat(catalog.StatRelations.Select(relation => relation.ModifierStatId)).ToHashSet(StringComparer.Ordinal);
+        var modifierOf = catalog.StatRelations.Where(relation => relation.Operation == CombatEffectOperation.IncreasePercent)
+            .ToDictionary(relation => relation.StatId, relation => relation.ModifierStatId, StringComparer.Ordinal);
+        var modifiers = modifierOf.Values.ToHashSet(StringComparer.Ordinal);
         var scoreTerms = new List<Number>();
         foreach (var (id, aggregate) in _stats)
         {
+            if (primaryIds.Contains(id) || modifiers.Contains(id)) continue;
+            if (catalog.GetStat(id) is null) throw new ArgumentException("Unknown stat definition: " + id);
+            AddWeighted(id, Sum(aggregate.Flat));
+            var increase = Sum(aggregate.Increase);
+            if (increase.Minimum == 0 && increase.Maximum == 0) continue;
+            if (!modifierOf.TryGetValue(id, out var modifier)) throw new ArgumentException("Missing combat-score weight: " + id + " increase");
+            AddWeighted(modifier, increase);
+        }
+        void AddWeighted(string id, Number value)
+        {
             if (!weights.TryGetValue(id, out var weight))
             {
-                if (intermediates.Contains(id)) continue;
-                var value = StatValue(id, aggregate);
                 if (value.Minimum != 0 || value.Maximum != 0) throw new ArgumentException("Missing combat-score weight: " + id);
-                continue;
+                return;
             }
-            if (weight != 0) scoreTerms.Add(Multiply(StatValue(id, aggregate), Constant(weight)));
+            if (weight != 0) scoreTerms.Add(Multiply(value, Constant(weight)));
         }
         foreach (var skill in _skills.Values)
             scoreTerms.Add(Lookup(skill.Level, level => CombatScoreModel.SkillScore(skill.Kind, level), "skillCP"));

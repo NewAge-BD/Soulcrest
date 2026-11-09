@@ -40,6 +40,9 @@ public sealed record LootTrackerSession
     [JsonIgnore] public LootTrackerViewMode? ProjectionViewMode { get; init; }
     [JsonIgnore] public bool ProjectionLimited { get; init; }
     public LootTrackerSessionStatus Status { get; init; }
+    /// <summary>A live outside session retains its identity while its productive clock is paused.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsPaused { get; init; }
     /// <summary>Frozen at start; old journals without the field retain Normal.</summary>
     public LootTrackerSessionMode Mode { get; init; }
     /// <summary>The 07:00 UTC farm day; legacy sessions derive this from StartedAt.</summary>
@@ -96,7 +99,12 @@ public sealed record LootTrackerMob(string Id, string Name, long Count);
 
 /// <summary>An empty point list preserves a known map without inventing a travelled path.</summary>
 public sealed record LootTrackerRouteSegment(string MapId, string MapName,
-    ImmutableArray<LootTrackerRoutePoint> Points);
+    ImmutableArray<LootTrackerRoutePoint> Points)
+{
+    /// <summary>A productive-clock pause is a deliberate break, never an estimated walking connection.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool StartsAfterPause { get; init; }
+}
 
 public sealed record LootTrackerRoutePoint(double X, double Y, DateTimeOffset? At = null, TimeSpan? Elapsed = null);
 
@@ -141,6 +149,8 @@ public sealed record LootTrackerIncomeBin(int Minute, long? KinaBound, long? Kin
 /// <summary>Pure UI projection; no source, session engine, persistence, or timer is activated here.</summary>
 public static class LootTrackerPresentation
 {
+    public const int IdlePauseSeconds = 20;
+    public const int IdleCloseSeconds = 120;
     public const int DefaultIdleTimeoutMinutes = 2;
     public const int MinIdleTimeoutMinutes = 1;
     public const int MaxIdleTimeoutMinutes = 60;

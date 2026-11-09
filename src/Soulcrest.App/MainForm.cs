@@ -12,6 +12,7 @@ public sealed class MainForm : Form
 {
     public const string MapDataHost = "mapdata.soulcrest";
     private readonly OverlayHotkeyService _hotkeys;
+    private readonly DiagnosticOverlayRuntime _diagnosticOverlayRuntime = new();
 
     private readonly ServiceProvider _services;
     private readonly PetOverlayForm _overlay;
@@ -23,6 +24,7 @@ public sealed class MainForm : Form
     private readonly EventTimelineOverlayForm _eventTimelineOverlay;
     private readonly AlertNotificationsForm _alertNotifications;
     private readonly AlertSoundPlayer _alertSounds;
+    private readonly AlertSoundDelivery _alertSoundDelivery;
     private readonly AlertsService _alerts;
     private readonly LevelingOverlayForm _levelingOverlay;
     private readonly RouteOverlayForm _routeOverlay;
@@ -74,6 +76,7 @@ public sealed class MainForm : Form
         services.AddWindowsFormsBlazorWebView();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<OverlayHotkeyService>();
+        services.AddSingleton(_diagnosticOverlayRuntime);
         services.AddSingleton<OverlayPlacementService>();
         services.AddSingleton<OverlayPreviewRenderer>();
         services.AddSingleton<Soulcrest.App.OverlayEditorKit.IOverlayEditorBitmapRenderer, Soulcrest.App.OverlayEditorKit.OverlayEditorBitmapRenderer>();
@@ -152,7 +155,10 @@ public sealed class MainForm : Form
         services.AddSingleton<FarmedTargetCleaner>();
         services.AddSingleton<NavigationArrivalService>();
         services.AddSingleton<CharacterDetectionService>();
-        services.AddSingleton<DiagnosticsService>();
+        services.AddSingleton(sp => new DiagnosticsService(sp.GetRequiredService<SettingsService>(),
+            sp.GetRequiredService<Capture.GameCaptureService>(), sp.GetRequiredService<TrackerService>(),
+            sp.GetRequiredService<MapTrackingService>(), sp.GetRequiredService<Network.NetworkLootService>(),
+            DiagnosticContributors.Create(sp.GetRequiredService<DiagnosticServiceRegistry>())));
         services.AddSingleton<UpdateService>();
         services.AddSingleton<UiState>();
         services.AddSingleton<Soulcrest.App.OverlayEditorKit.IOverlayService>(_ => new Soulcrest.App.OverlayEditorKit.OverlayService());
@@ -161,8 +167,16 @@ public sealed class MainForm : Form
         services.AddSingleton<GenusInsightFavoriteService>();
         services.AddSingleton<GenusInsightStateService>();
         services.AddSingleton<Soulcrest.App.OverlayEditorKit.IOverlayEditorPresentationSource, Soulcrest.App.OverlayEditorKit.OverlayEditorPresentationSource>();
+        // User request 2026-11-09: diagnostics observes only services created by normal product flows.
+        var diagnosticServices = new DiagnosticServiceRegistry();
+        services.AddSingleton(diagnosticServices);
+        diagnosticServices.ObserveSingletons(services);
         _services = services.BuildServiceProvider();
         _settings = _services.GetRequiredService<SettingsService>();
+        // User request 2026-11-09: attach automatic audio before controls and native handles are initialized.
+        _alerts = _services.GetRequiredService<AlertsService>();
+        _alertSounds = _services.GetRequiredService<AlertSoundPlayer>();
+        _alertSoundDelivery = new(_alerts, _alertSounds);
         _hotkeys = _services.GetRequiredService<OverlayHotkeyService>();
         _hotkeys.Invoked += ExecuteOverlayHotkey;
         UpdateLanguage();
@@ -226,9 +240,6 @@ public sealed class MainForm : Form
         _settings.Changed += _overlayAudio.ApplySettings;
         _ = _services.GetRequiredService<NavigationArrivalService>();
         _ = _services.GetRequiredService<FarmedTargetCleaner>(); // removes marks of pets farmed out of view
-        _alerts = _services.GetRequiredService<AlertsService>();
-        _alertSounds = _services.GetRequiredService<AlertSoundPlayer>();
-        _alerts.NoticeRaised += DeliverAlertSound;
         _alertsOverlay = new AlertsOverlayForm(_alerts, _settings, progress.MapDataDirectory);
         _eventTimelineOverlay = new EventTimelineOverlayForm(_alerts, _services.GetRequiredService<BossRushService>(), _settings, _services.GetRequiredService<ProgressService>());
         _alertNotifications = new AlertNotificationsForm(_alerts, _settings);
@@ -325,7 +336,8 @@ public sealed class MainForm : Form
                 var screen = Screen.FromRectangle(_editorGameBounds ?? Bounds);
                 return new OverlayMonitor(screen.DeviceName, screen.DeviceName, screen.Bounds, screen.WorkingArea);
             },
-            visibleInRecordings: () => _settings.Current.OverlaysInRecordings && _gameCapture.CapturesGameWindowOnly);
+            // User request 2026-11-09: editor windows own their recording preference; retain the safe capture gate.
+            visibleInRecordings: () => _gameCapture.CapturesGameWindowOnly);
         UpdateEditorLiveContext();
         _editorLive.Start();
         _editorLive.SetPlacementActive(_placement.Active);
@@ -407,6 +419,7 @@ public sealed class MainForm : Form
         var alt = OverlayInteraction.IsAltHeld;
         var shift = OverlayInteraction.IsShiftHeld;
         SetOverlayInteractionEnabled(alt);
+        ObserveDiagnosticOverlays();
         if (_lastAlt != alt || _lastShift != shift)
         {
             _lastAlt = alt;
@@ -419,6 +432,24 @@ public sealed class MainForm : Form
         _overlaysStarted && !_closing && !_cleanupStarted && !SmokeTest.Enabled
         && !placementHidden && !_placementPresented && !_placement.Active
         && !OverlayVisibilityPolicy.IsForegroundSuppressed(_settings.Current, _gameInForeground));
+
+    private void ObserveDiagnosticOverlays()
+    {
+        if (!Soulcrest.App.OverlayEditorKit.OverlayEditorLiveDiagnostics.Enabled) return;
+        // Run only on the existing host UI loop. Never access native window state from a contributor.
+        void Observe(string id, Form form) => _diagnosticOverlayRuntime.Observe(id,
+            !form.IsDisposed && form.Visible, form.IsHandleCreated, form.IsDisposed);
+        Observe("loot", _overlay);
+        Observe("achievements", _achievementOverlay);
+        Observe("boss", _bossOverlay);
+        Observe("leveling", _levelingOverlay);
+        Observe("alerts", _alertsOverlay);
+        Observe("notifications", _alertNotifications);
+        Observe("event-timeline", _eventTimelineOverlay);
+        Observe("map", _routeOverlay);
+        Observe("merchant", _merchantOverlay);
+        Observe("daevanion", _daevanionOverlay);
+    }
 
     private void UpdateEditorLiveContext()
     {
@@ -579,20 +610,6 @@ public sealed class MainForm : Form
         UpdateOverlayState();
     }
 
-    private void DeliverAlertSound(AlertNotice notice)
-    {
-        if (!notice.PlaySound || SmokeTest.Enabled || _closing || _cleanupStarted || IsDisposed || !IsHandleCreated) return;
-        try
-        {
-            BeginInvoke(() =>
-            {
-                if (_closing || _cleanupStarted || IsDisposed || notice.Expires <= _alerts.Now) return;
-                _ = _alertSounds.Play(notice.Sound, notice.SoundFile);
-            });
-        }
-        catch (InvalidOperationException) when (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) { }
-    }
-
     public void ToggleOverlay()
     {
         var enabled = !_settings.Current.OverlayEnabled;
@@ -664,6 +681,7 @@ public sealed class MainForm : Form
             }
         }
         _closing = true;
+        _alertSoundDelivery.Dispose();
         _overlayAudio.Dispose();
         _editorLive?.Dispose();
         _placement.Stop();
@@ -722,6 +740,7 @@ public sealed class MainForm : Form
         if (!disposing) { base.Dispose(false); return; }
         if (_cleanupStarted) return;
         _cleanupStarted = true;
+        _alertSoundDelivery.Dispose();
         StopWatchdog();
         _overlaysStarted = false;
         OverlayInteraction.Changed -= ScheduleOverlayInteraction;
@@ -738,7 +757,6 @@ public sealed class MainForm : Form
         _settings.Changed -= _abyssRankSounds.ApplySettings;
         _settings.Changed -= _overlayAudio.ApplySettings;
         _map.Changed -= ScheduleOverlayContext;
-        _alerts.NoticeRaised -= DeliverAlertSound;
         _worldContext.Changed -= ScheduleOverlayContext;
         _hotkeys.Invoked -= ExecuteOverlayHotkey;
         _hotkeys.Detach();

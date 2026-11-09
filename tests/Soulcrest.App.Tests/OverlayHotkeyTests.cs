@@ -81,6 +81,34 @@ public sealed class OverlayHotkeyTests : IDisposable
     }
 
     [Fact]
+    public void DiagnosticHotkeysReportRegistrationFailureWithoutClaimingOrExportingKeys()
+    {
+        var native = new FakeRegistrar { Accept = false };
+        var settings = new SettingsService();
+        using var service = new OverlayHotkeyService(settings, native);
+        service.SetWindow(123);
+        settings.Current.OverlayHotkeys["synthetic-private-action"] = new(0x70, 2);
+        var before = service.Diagnostics;
+        var attempts = native.Attempts;
+        var contributors = DiagnosticContributors.Create(new DiagnosticServiceRegistry(settings, service));
+        var contributor = contributors.Single(item => item.FeatureIds.Contains("overlay-hotkeys"));
+        var result = contributor.Collect("overlay-hotkeys");
+        Assert.Equal(DiagnosticStatus.Error, result.Status);
+        Assert.Equal(0, result.Facts["registeredActions"]);
+        Assert.Equal(1, result.Facts["registrationErrors"]);
+        Assert.Equal(true, result.Facts["loot.toggleConfigured"]);
+        Assert.Equal(true, result.Facts["loot.toggleRegistrationError"]);
+        Assert.Equal(attempts, native.Attempts);
+        Assert.Equal(before, service.Diagnostics);
+        Assert.Empty(native.Active);
+        var json = System.Text.Json.JsonSerializer.Serialize(result);
+        Assert.DoesNotContain("synthetic-private-action", json);
+        Assert.DoesNotContain("\"Key\"", json);
+        Assert.DoesNotContain("Modifiers", json);
+        Assert.DoesNotContain(service.Error("loot.toggle")!, json);
+    }
+
+    [Fact]
     public void RebindCaptureAndWindowRecreationReleaseOnlyOwnedRegistrations()
     {
         var native = new FakeRegistrar(); var settings = new SettingsService();

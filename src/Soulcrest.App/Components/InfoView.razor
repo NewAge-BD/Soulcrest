@@ -1,6 +1,5 @@
 @implements IDisposable
 @inject ProgressService Progress
-@inject DiagnosticsService Diagnostics
 @inject UpdateService Updates
 @inject SettingsService Settings
 
@@ -10,41 +9,7 @@
         <p class="sv-lead">@UiText.T("Aion-2-Pet-Begleiter: Offline-Karte, passiver Netzwerkfortschritt, Spieler-Tracking und Overlays. Netzwerk-Tracking startet automatisch und ist dauerhaft ausschaltbar.")</p>
     </header>
 
-    <section class="card sv-card">
-        <div class="sv-card-head">
-            <h3>@UiText.T("Diagnose")</h3>
-            @{ var severe = Diagnostics.Hints.Count(h => h.Severe); }
-            <span class="sv-badge @(Diagnostics.CheckedAt is null ? "" : severe > 0 ? "error" : Diagnostics.Hints.Count > 0 ? "warn" : "ok")">
-                @(Diagnostics.CheckedAt is null ? UiText.T("noch nicht geprüft") : severe > 0 ? UiText.F("Probleme: {0}", severe) : Diagnostics.Hints.Count > 0 ? UiText.T("Hinweise") : UiText.T("alles in Ordnung"))
-            </span>
-        </div>
-        <p class="sv-hint">@UiText.T("Läuft automatisch alle 30 Sekunden mit und schreibt einen Bericht (Windows, Monitore, Spielfenster und Rechte, Aufnahme, Tracker). Nichts wird versendet: das Diagnose-Paket landet als ZIP auf dem Desktop und kann von Hand weitergegeben werden.")</p>
-        @if (Diagnostics.Hints.Count > 0)
-        {
-            @foreach (var hint in Diagnostics.Hints)
-            {
-                <div class="status @(hint.Severe ? "error" : "")">@UiText.T(hint.Text)</div>
-            }
-        }
-        else if (Diagnostics.CheckedAt is not null)
-        {
-            <div class="note">@UiText.T("Keine Auffälligkeiten bei der letzten Prüfung.")</div>
-        }
-        <div class="row">
-            <button type="button" class="btn" disabled="@_busy" @onclick="CheckNow">@(_busy && _action == "check" ? UiText.T("Prüfe …") : UiText.T("Jetzt prüfen"))</button>
-            <button type="button" class="btn primary @(_packaged is not null ? "done" : "")" disabled="@_busy" @onclick="CreatePackage">@(_busy && _action == "zip" ? UiText.T("Paket wird erstellt …") : _packaged is not null ? UiText.T("✓ Paket erstellt") : UiText.T("Diagnose-Paket erstellen"))</button>
-            <button type="button" class="btn link" @onclick="OpenReport">@UiText.T("Bericht öffnen")</button>
-            <span class="note">@(Diagnostics.CheckedAt is { } at ? UiText.F("zuletzt geprüft {0}", at.ToString("HH:mm:ss")) : "")</span>
-        </div>
-        @if (_packaged is not null)
-        {
-            <div class="note applied">@UiText.T("Gespeichert:") <code class="sv-path">@_packaged</code></div>
-        }
-        @if (_error is not null)
-        {
-            <div class="status error">@UiText.T(_error)</div>
-        }
-    </section>
+    <DiagnosticsPanel />
 
     <section class="card sv-card">
         <h3>@UiText.T("So testest du")</h3>
@@ -114,14 +79,10 @@
 </div>
 
 @code {
-    private bool _busy;
-    private string? _action, _packaged, _error;
-
     private bool _checked;
 
     protected override void OnInitialized()
     {
-        Diagnostics.Changed += Refresh;
         Updates.Changed += Refresh;
     }
 
@@ -135,59 +96,8 @@
 
     private void Refresh() => InvokeAsync(StateHasChanged);
 
-    private async Task CheckNow()
-    {
-        _busy = true;
-        _action = "check";
-        await Task.Run(Diagnostics.Check);
-        _busy = false;
-    }
-
-    private async Task CreatePackage()
-    {
-        _busy = true;
-        _action = "zip";
-        _error = null;
-        try
-        {
-            _packaged = await Task.Run(Diagnostics.CreatePackage);
-            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_packaged}\"");
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            _error = UiText.T("Diagnose-Paket konnte nicht erstellt werden: ") + exception.Message;
-        }
-        _busy = false;
-    }
-
-    // The report may not exist yet (first check still running or hanging): say so instead of crashing
-    // (colleague 2026-10-04: unhandled "file not found" when opening it).
-    private async Task OpenReport()
-    {
-        _error = null;
-        if (!File.Exists(Diagnostics.ReportPath))
-        {
-            var check = Task.Run(Diagnostics.Check);
-            await Task.WhenAny(check, Task.Delay(TimeSpan.FromSeconds(5)));
-        }
-        if (!File.Exists(Diagnostics.ReportPath))
-        {
-            _error = UiText.T("Der Bericht ist noch nicht geschrieben – die Prüfung läuft noch oder hängt. Bitte „Diagnose-Paket erstellen“ verwenden oder in einer Minute erneut versuchen.");
-            return;
-        }
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Diagnostics.ReportPath) { UseShellExecute = true });
-        }
-        catch (System.ComponentModel.Win32Exception exception)
-        {
-            _error = UiText.T("Bericht konnte nicht geöffnet werden: ") + exception.Message + UiText.T(" – Pfad: ") + Diagnostics.ReportPath;
-        }
-    }
-
     public void Dispose()
     {
-        Diagnostics.Changed -= Refresh;
         Updates.Changed -= Refresh;
     }
 }

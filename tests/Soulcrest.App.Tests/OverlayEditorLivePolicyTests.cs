@@ -11,11 +11,11 @@ public sealed class OverlayEditorLivePolicyTests
     private static readonly OverlayEditorLiveContext Context = new(true, true, false, OverlayTriggerArea.Abyss, new());
 
     [Fact]
-    public void ActivationContentGameAndGlobalForegroundRemainIndependentGates()
+    public void ActivationGameAndGlobalForegroundRemainIndependentGatesForMandatoryControls()
     {
         Assert.True(OverlayEditorLivePolicy.IsVisible(Enabled, new(), Context));
         Assert.False(OverlayEditorLivePolicy.IsVisible(Enabled with { Enabled = false }, new(), Context));
-        Assert.False(OverlayEditorLivePolicy.IsVisible(Enabled with { Widgets = [] }, new(), Context));
+        Assert.True(OverlayEditorLivePolicy.IsVisible(Enabled with { Widgets = [] }, new(), Context));
         Assert.False(OverlayEditorLivePolicy.IsVisible(Enabled, new(), Context with { GameAvailable = false }));
         var always = Enabled with { Visibility = "always" };
         Assert.False(OverlayEditorLivePolicy.IsVisible(always, new(), Context with { GameAvailable = false, GameForeground = false }));

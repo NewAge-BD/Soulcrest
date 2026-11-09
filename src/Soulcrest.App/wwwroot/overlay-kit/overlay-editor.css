@@ -402,3 +402,16 @@
 .overlay-editor .oe-workbench{grid-template-columns:minmax(0,1fr);gap:12px}
 }
 /* Widget library layout adaptation:end. */
+
+/* Mandatory overlay lock adaptation:begin (user request 2026-11-09). */
+.overlay-editor .oe-lock-widget{position:absolute;z-index:8;isolation:isolate;pointer-events:none}
+.overlay-editor .oe-widget.oe-lock-widget{z-index:8;pointer-events:auto}
+.overlay-editor .oe-lock-widget .oe-widget-grip{inset:0;width:100%;height:100%;max-width:none;padding:0;border:0;background:transparent;border-radius:0}
+.overlay-editor .oe-lock-widget .oe-widget-grip>span{visibility:hidden}
+.overlay-editor .oe-lock-glyph{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none}
+.overlay-editor .oe-required-widget{display:inline-flex;align-items:center;gap:7px;align-self:flex-start;min-height:30px;font-size:11px;padding:3px 8px}
+.overlay-editor .oe-library-filter-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+.overlay-editor .oe-library-filter-row>.oe-library-categories{flex:1 1 450px}
+.overlay-editor .oe-library-filter-row>.oe-required-widget{flex:0 0 auto}
+.overlay-editor .oe-required-widget>.oe-lock-glyph{width:22px;height:22px;flex:0 0 22px}
+/* Mandatory overlay lock adaptation:end. */

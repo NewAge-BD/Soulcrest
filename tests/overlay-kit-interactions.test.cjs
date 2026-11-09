@@ -282,6 +282,62 @@ const spacedWidgets = [
     { x: 180, y: 112, width: 180, height: 72 }
 ];
 
+const requiredControl = { widgetId: 'overlay-lock', requiredWidget: true, x: 0, y: 0, width: 28, height: 28 };
+
+for (const corner of ['nw', 'ne', 'sw']) {
+    test(`${corner} can shrink an otherwise empty canvas with its mandatory control to 160 by 64`, () => {
+        const { stage, dispatch, calls, widgets } = setup({ corner, widgets: [requiredControl] });
+        const controlStyle = { ...widgets[0].style }, rect = stage.getBoundingClientRect();
+        const west = corner.includes('w'), north = corner.includes('n');
+        const start = { clientX: west ? rect.left : rect.right, clientY: north ? rect.top : rect.bottom };
+        dispatch('pointerdown', start);
+        dispatch('pointermove', { clientX: start.clientX + (west ? 500 : -500), clientY: start.clientY + (north ? 500 : -500) });
+        assert.equal(stage.style.width, '164px');
+        assert.equal(stage.style.height, '98px');
+        // The server clamps this separately stored control after committing the new viewport.
+        assert.deepEqual(widgets[0].style, controlStyle);
+        dispatch('pointerup');
+        assert.deepEqual(calls, [['CommitCanvasCorner', 160, 64, corner]]);
+    });
+
+    test(`${corner} ignores the mandatory control when measuring and translating real content`, () => {
+        const { stage, dispatch, calls, widgets } = setup({ corner, widgets: [requiredControl, ...spacedWidgets] });
+        const controlStyle = { ...widgets[0].style }, rect = stage.getBoundingClientRect();
+        const west = corner.includes('w'), north = corner.includes('n');
+        const start = { clientX: west ? rect.left : rect.right, clientY: north ? rect.top : rect.bottom };
+        dispatch('pointerdown', start);
+        dispatch('pointermove', { clientX: start.clientX + (west ? 500 : -500), clientY: start.clientY + (north ? 500 : -500) });
+        assert.equal(stage.style.width, `${(west ? 380 : 160) + 4}px`);
+        assert.equal(stage.style.height, `${(north ? 176 : 64) + 34}px`);
+        assert.equal(parseFloat(widgets[2].style.left) - parseFloat(widgets[1].style.left), 160);
+        assert.equal(parseFloat(widgets[2].style.top) - parseFloat(widgets[1].style.top), 88);
+        assert.deepEqual(widgets[0].style, controlStyle);
+        dispatch('pointercancel');
+        assert.deepEqual(widgets[0].style, controlStyle);
+        assert.deepEqual(widgets.slice(1).map(widget => widget.style.left), ['20px', '180px']);
+        assert.deepEqual(calls, []);
+    });
+}
+
+test('a 28px mandatory control keeps its small size while dragging and accepts ordinary keyboard nudges', () => {
+    const { widgets, dispatch, calls } = setup({ widgets: [{ ...requiredControl, x: 80, y: 48 }] });
+    const control = widgets[0];
+    dispatch('pointerdown', { target: control.grip });
+    dispatch('pointermove', { clientX: 6, clientY: -8 });
+    assert.equal(control.style.left, '92px');
+    assert.equal(control.style.top, '32px');
+    assert.equal(control.style.width, '28px');
+    assert.equal(control.style.height, '28px');
+    dispatch('pointerup');
+    assert.deepEqual(calls.at(-1), ['CommitWidgetGeometry', 'overlay-lock', 92, 32, 28, 28]);
+    dispatch('keydown', { target: control, key: 'ArrowRight', shiftKey: true });
+    assert.deepEqual(calls.at(-1), ['NudgeWidget', 'overlay-lock', 8, 0]);
+    dispatch('keydown', { target: control, key: 'ArrowDown' });
+    assert.deepEqual(calls.at(-1), ['NudgeWidget', 'overlay-lock', 0, 1]);
+    assert.equal(control.style.width, '28px');
+    assert.equal(control.style.height, '28px');
+});
+
 for (const corner of ['nw', 'ne', 'sw', 'se']) {
     test(`${corner} expansion at 50% with chrome preserves widget size, spacing and screen positions`, () => {
         const { stage, dispatch, calls, widgets, observers, canvasHandle, document } = setup({ corner, widgets: spacedWidgets });

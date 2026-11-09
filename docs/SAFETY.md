@@ -268,3 +268,23 @@ Spielanfragen, Speicherzugriffe, Eingaben, Entschluesselung oder Laufzeitabrufe 
 Automatische Charakterwerte bleiben im RAM. Benannte Routen speichern eine namenlose
 eingefrorene Rechenbasis; keine nativen Charakter-/Transportidentitaeten oder Makerdaten.
 Rohmitschnitte, Bibliothek, Generator und Herkunftsbericht bleiben privat.
+
+
+## Funktionsdiagnose und optionale Spielmitschnitte (2026-11-09)
+
+Die Diagnose prüft gezielt gewählte Funktionen und notwendige gemeinsame Quellen,
+indem sie bestehende Zustände liest. Sie aktiviert keine Produktfunktion und startet
+keine Onlineabfrage, Bildaufnahme oder Wiedergabe. Sofortpakete benötigen keinen
+Netzwerkmitschnitt. Textdaten verwenden explizite Diagnosefelder ohne Charakter-/
+Profilidentitäten, Endpunkte oder Payloads; keine vollständigen Einstellungen und
+keine pauschalen Rohlogs.
+
+Eine ausdrücklich gestartete Diagnoseaufnahme nutzt nur die laufende passive Quelle.
+Vor jeder Speicherung muss die vollständige aktuelle Verbindung dem Spielprozess
+zugeordnet sein. Gemeinsame Serveradressen oder Relay-Ports allein reichen nicht.
+Bei unklarer Zuordnung kein breiterer Fallback. Beide Richtungen bleiben unverändert,
+ohne Entschlüsselung oder Feature-/Opcodefilterung. Höchstens fünf Minuten oder 64 MiB;
+aktuell IPv4/TCP des aktiven Quelladapters. Unterbrechungen und Verluste bleiben sichtbar.
+Rohmitschnitte können sensible Spieldaten enthalten und bleiben lokal/privat. Ein Paket
+übernimmt ausschließlich abgeschlossene Artefakte der aktuellen Diagnoseaufnahme,
+keine älteren oder fremden Dateien. Weitergabe ausschließlich manuell.

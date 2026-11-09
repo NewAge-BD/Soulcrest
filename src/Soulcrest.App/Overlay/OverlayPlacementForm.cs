@@ -79,7 +79,19 @@ public sealed class OverlayPlacementForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings);
+        NativeMethods.SetCaptureVisibility(Handle, false);
+    }
+
+    internal static bool RecordingsAllowed(bool staticOverlaysIncluded, bool hasStaticOverlays, IEnumerable<OverlaySettings> editorWindows)
+    {
+        if (hasStaticOverlays && !staticOverlaysIncluded) return false;
+        var hasContent = hasStaticOverlays;
+        foreach (var window in editorWindows)
+        {
+            if (window.CaptureExcluded) return false;
+            hasContent = true;
+        }
+        return hasContent;
     }
 
     protected override void OnShown(EventArgs e)
@@ -153,8 +165,8 @@ public sealed class OverlayPlacementForm : Form
                             _previews.AddRange(created);
                             created.Clear();
                             promotedNativePreviews = true;
-                            NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings
-                                && !items.Any(target => target.Editor?.Settings.CaptureExcluded == true));
+                            NativeMethods.SetCaptureVisibility(Handle, RecordingsAllowed(_settings.Current.OverlaysInRecordings,
+                                items.Any(target => !target.IsEditor), items.Where(target => target.IsEditor).Select(target => target.Editor!.Settings)));
                             PresentFrame();
                         }
                         if (_editorRenderer is null) throw new InvalidOperationException(UiText.T("Die Editor-Vorschau ist nicht verfügbar."));
@@ -176,8 +188,8 @@ public sealed class OverlayPlacementForm : Form
                 _previews.AddRange(created);
                 created.Clear();
             }
-            NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings
-                && !_previews.Any(item => item.Editor?.Settings.CaptureExcluded == true));
+            NativeMethods.SetCaptureVisibility(Handle, RecordingsAllowed(_settings.Current.OverlaysInRecordings,
+                _previews.Any(item => item.Editor is null), _previews.Where(item => item.Editor is not null).Select(item => item.Editor!.Settings)));
             PresentFrame();
         }
         catch (OperationCanceledException) { }

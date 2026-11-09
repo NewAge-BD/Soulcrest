@@ -6,7 +6,7 @@ using Soulcrest.Core.Alerts;
 
 namespace Soulcrest.App.Services;
 
-public sealed record BossLoot(string Id, string En, string? De, string? Icon, string? Rarity)
+public sealed record BossLoot(string Id, string En, string? De, string? Icon, string? Rarity, bool OwnPool = false)
 {
     public string Name(string language) => language == "de" ? De ?? En : En;
     public string RarityStyle => Rarity switch
@@ -56,7 +56,7 @@ public sealed record BossChoice(int MapId, string Map, BossPlace Boss)
 public sealed record BossRushEntry(BossChoice Place, bool Spawned, TimeSpan Remaining, TimeSpan Age, bool Cached = false, bool Calendar = false, TimeSpan? SpawnElapsed = null);
 public sealed record BossNotice(long Id, BossPlace Boss, bool Spawned, TimeSpan Remaining, DateTimeOffset Expires, DateTimeOffset CreatedAt, string? Key = null, bool Preview = false, long? SpawnUnixMs = null, bool Calendar = false, bool UntilSpawn = false, DateTimeOffset? PlannedAt = null, long? HoldTimestamp = null, int LeadSeconds = 0, bool Cached = false);
 
-public sealed record BossRushView(string? MapId, BossPlace? Boss, bool Spawned, TimeSpan Remaining, TimeSpan Age, int SpawnedCount, bool Cached = false);
+public sealed record BossRushView(string? MapId, BossPlace? Boss, bool Spawned, TimeSpan Remaining, TimeSpan Age, int SpawnedCount, bool Cached = false, bool FilteredOut = false);
 
 /// <summary>Confirmed spawned bosses and chronological upcoming navigation from the current native list.</summary>
 public sealed class BossRushService : IDisposable
@@ -71,6 +71,7 @@ public sealed class BossRushService : IDisposable
     private readonly MapTargetsService _targets;
     private readonly NetworkLootService _network;
     private readonly Dictionary<int, (string Map, Dictionary<int, BossPlace> Places)> _maps = [];
+    private readonly HashSet<string> _ownUniqueGearBosses = new(StringComparer.Ordinal);
     private readonly System.Threading.Timer _timer;
     private bool _disposed;
     private readonly TimeProvider _time;
@@ -105,6 +106,8 @@ public sealed class BossRushService : IDisposable
                 }
             }
         }
+        foreach (var choice in Catalogue.Where(choice => DropsOwnUniqueGear(choice.Boss)))
+            _ownUniqueGearBosses.Add(choice.Key);
         foreach (var saved in _cache.LoadAll().Where(KnownList)) RetainSchedule(saved);
         if (_cache.Load() is { } latest && KnownList(latest)) _state.Restore(latest);
         _network.BossMessageReceived += OnMessage;
@@ -173,16 +176,39 @@ public sealed class BossRushService : IDisposable
         saved.Restore(snapshot); // retained maps advance only by the monotonic in-session clock
     }
 
+    /// <summary>Boss Rush filters affect navigation and its spawn panel, never reminder sources or the timer catalogue.</summary>
+    public IReadOnlyList<BossRushEntry> NavigationSchedule
+    {
+        get { lock (_gate) return FilterNavigationSchedule(CurrentSchedule); }
+    }
+
+    private IReadOnlyList<BossRushEntry> FilterNavigationSchedule(IReadOnlyList<BossRushEntry> rows)
+    {
+        var settings = _settings.Current;
+        if (!settings.BossRushOnlyUniqueGearBosses && !settings.BossRushOnlyAlertBosses) return rows;
+        // User request 2026-11-09: both "only" options form an intersection, before chronology/count limits.
+        return rows.Where(row => (!settings.BossRushOnlyUniqueGearBosses || _ownUniqueGearBosses.Contains(row.Place.Key))
+            && (!settings.BossRushOnlyAlertBosses || IsReminderSelected(row.Place.Key))).ToArray();
+    }
+
+    internal static bool DropsOwnUniqueGear(BossPlace boss, MonsterLootItemCatalog? items = null) =>
+        boss.Loot?.Any(loot => loot.OwnPool && loot.Rarity == "unique"
+            && int.TryParse(loot.Id, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            && (items ?? MonsterLootItemCatalog.Default).IsGear(id)
+            && (items ?? MonsterLootItemCatalog.Default).Rarity(id) == LootItemRarity.Unique) == true;
+
     public BossRushView View
     {
         get
         {
             lock (_gate)
             {
-                var rows = CurrentSchedule;
+                var all = CurrentSchedule;
+                var rows = FilterNavigationSchedule(all);
                 var next = rows.FirstOrDefault();
-                return new(next?.Place.Map, next?.Place.Boss, next?.Spawned ?? false, next?.Remaining ?? TimeSpan.Zero,
-                    next?.Age ?? TimeSpan.Zero, rows.Count(boss => boss.Spawned), next?.Cached ?? false);
+                return new(next?.Place.Map ?? all.FirstOrDefault()?.Place.Map, next?.Place.Boss, next?.Spawned ?? false, next?.Remaining ?? TimeSpan.Zero,
+                    next?.Age ?? all.FirstOrDefault()?.Age ?? TimeSpan.Zero, rows.Count(boss => boss.Spawned), next?.Cached ?? all.FirstOrDefault()?.Cached ?? false,
+                    FilteredOut: all.Count > 0 && rows.Count == 0);
             }
         }
     }
@@ -191,7 +217,7 @@ public sealed class BossRushService : IDisposable
     {
         get
         {
-            lock (_gate) return CurrentSchedule.Where(boss => !boss.Spawned)
+            lock (_gate) return FilterNavigationSchedule(CurrentSchedule).Where(boss => !boss.Spawned)
                 .Take(Math.Clamp(_settings.Current.BossOverlayCount, 1, 12)).ToArray();
         }
     }
@@ -322,7 +348,7 @@ public sealed class BossRushService : IDisposable
             var settings = _settings.Current;
             var rows = CurrentSchedule;
             _targets.SetBossNavigationTargets(settings.BossRushEnabled
-                ? NavigationTargets(rows, settings.BossNavigationPreviewCount, settings.NameLanguage, settings.BossRushShowOlderSpawns) : []);
+                ? NavigationTargets(FilterNavigationSchedule(rows), settings.BossNavigationPreviewCount, settings.NameLanguage, settings.BossRushShowOlderSpawns) : []);
             RefreshUntilSpawnAlerts(_time.GetUtcNow());
             _alerts.RemoveAll(a => !a.UntilSpawn && a.Expires <= _time.GetUtcNow() ||
                 !a.Preview && (a.Key is not { } key || !IsReminderSelected(key)));

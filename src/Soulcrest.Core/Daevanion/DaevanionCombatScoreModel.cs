@@ -13,17 +13,20 @@ public sealed record DaevanionCombatEstimate(decimal ObjectiveDelta, decimal Act
     int ExcessLevels);
 
 /// <summary>
-/// Own combat-score weighting backend. User decision 2026-11-09: the former community weights and
-/// skill curve are removed; until qualified own weights exist, every weighted estimate stays unavailable.
+/// Own combat-score weighting backend for Daevanion routes. Uses only the measured raw-linear weights and skill steps
+/// of <see cref="Soulcrest.Core.Combat.CombatScoreWeights"/> (research 2026-11-09). A node stat adds its raw amount ×
+/// weight; no pre-board total or increase percentage is needed. Routes that could touch an unmeasured stat or skill
+/// level stay unavailable instead of being estimated.
 /// </summary>
 public static partial class DaevanionCombatScoreModel
 {
-    public const string Version = "own-direct-stat-skill-v1";
+    public const string Version = "own-measured-raw-linear-v2";
     internal const long Precision = 1_000_000;
 
-    // Qualified own weights only. Empty means no combat-score estimate can be produced.
-    private static readonly FrozenDictionary<string, decimal> Coefficients =
-        new Dictionary<string, decimal>(StringComparer.Ordinal).ToFrozenDictionary(StringComparer.Ordinal);
+    // Measured own weights for the Daevanion board stats only.
+    private static readonly FrozenDictionary<string, decimal> Coefficients = Soulcrest.Core.Combat.CombatScoreWeights.Stats
+        .Where(weight => DaevanionCatalog.Default.GetStat(weight.StatId) is not null)
+        .ToFrozenDictionary(weight => weight.StatId, weight => weight.Coefficient, StringComparer.Ordinal);
 
     internal static bool HasWeights => Coefficients.Count != 0;
 
@@ -49,6 +52,8 @@ public static partial class DaevanionCombatScoreModel
         var context = request.CombatContext;
         if (request.Mode == DaevanionOptimizationMode.CombatScore && !HasWeights)
             return "No qualified combat-score weights are available yet.";
+        if (request.Mode == DaevanionOptimizationMode.CombatScore && MissingWeightReason(request) is { } missingWeight)
+            return missingWeight;
         if (request.Mode == DaevanionOptimizationMode.CombatScore && context is null)
             return "Missing character snapshot for the combat-score estimate.";
         if (context is null) return null;
@@ -94,27 +99,9 @@ public static partial class DaevanionCombatScoreModel
             var amount = group.Sum(effect => Amount(effect));
             var coefficient = Coefficient(group.Key);
             var baseline = request.CombatContext?.GeneralStats.SingleOrDefault(row => row.StatId == group.Key);
-            decimal? gain;
-            decimal? planned;
-            if (DaevanionCatalog.Default.GetStat(group.Key)!.Unit == DaevanionStatUnit.Points && amount != 0)
-            {
-                if (baseline?.Value is not { } before || baseline.IncreasePercent is not { } increase)
-                {
-                    if (coefficient != 0) throw new ArgumentException("Missing pre-board stat snapshot: " + group.Key);
-                    // A zero CP policy does not establish the unknown total-stat change.
-                    planned = null; gain = null;
-                }
-                else
-                {
-                    planned = RoundTotal(group.Key, before + amount * (1 + increase / 100));
-                    gain = planned.Value - RoundTotal(group.Key, before);
-                }
-            }
-            else
-            {
-                gain = amount;
-                planned = baseline?.Value is { } before ? before + gain : null;
-            }
+            // Raw-linear: the node amount itself is scored; the displayed total is not needed.
+            decimal? gain = amount;
+            decimal? planned = baseline?.Value is { } before ? before + amount : null;
             var contribution = coefficient == 0 ? 0 : gain!.Value * coefficient;
             statScore += contribution;
             statPreviews.Add(new(group.Key, baseline?.Value, amount, planned, gain, contribution));
@@ -157,10 +144,31 @@ public static partial class DaevanionCombatScoreModel
             }).ToArray());
     }
 
-    /// <summary>No qualified own skill weighting exists yet; callers treat this as an unknown term.</summary>
+    /// <summary>Measured relative skill score; null outside the measured level range (an unknown term).</summary>
     public static int? SkillScore(DaevanionSkillKind kind, int level)
     {
         if (!Enum.IsDefined(kind)) throw new ArgumentException("Unknown skill kind.");
+        return Soulcrest.Core.Combat.CombatScoreWeights.SkillScore(kind, level);
+    }
+
+    /// <summary>A route that could touch an unmeasured stat or skill level has no full estimate.</summary>
+    internal static string? MissingWeightReason(DaevanionOptimizationRequest request)
+    {
+        var possible = PossibleEffects(request).ToArray();
+        var missing = possible.Where(effect => effect.StatId is { } id && !Coefficients.ContainsKey(id))
+            .Select(effect => effect.StatId!).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (missing.Length != 0)
+            return "No measured combat-score weight yet for: " + string.Join(", ", missing) + ".";
+        var states = (request.CombatContext?.Skills ?? []).ToDictionary(state => state.SkillId);
+        foreach (var group in possible.Where(effect => effect.SkillId is not null).GroupBy(effect => effect.SkillId!.Value))
+        {
+            if (BaseLevel(states.GetValueOrDefault(group.Key)) is not { } baseLevel) continue;
+            var kind = DaevanionCatalog.Default.GetSkill(group.Key)!.Kind;
+            var maximum = Math.Min(40, baseLevel + group.Sum(effect => effect.LevelIncrement));
+            for (var level = baseLevel; level <= maximum; level++)
+                if (SkillScore(kind, level) is null)
+                    return "No measured skill-level weight yet for skill " + group.Key + " at level " + level + ".";
+        }
         return null;
     }
 
@@ -199,8 +207,8 @@ public static partial class DaevanionCombatScoreModel
         && state.CurrentBoardBonus is { } bonus ? current - bonus : null;
     internal static decimal Coefficient(string id) => Coefficients.TryGetValue(id, out var coefficient)
         ? coefficient : throw new ArgumentException("Unmapped estimate stat: " + id);
-    internal static bool NeedsBaseline(string id) => Coefficients.TryGetValue(id, out var coefficient) && coefficient != 0
-        && DaevanionCatalog.Default.GetStat(id)!.Unit == DaevanionStatUnit.Points;
+    // Raw-linear weighting needs no pre-board stat totals.
+    internal static bool NeedsBaseline(string id) => false;
     internal static decimal RoundTotal(string id, decimal value) => id is "HPMax" or "MPMax" ? decimal.Ceiling(value) : decimal.Floor(value);
     internal static decimal RoundScore(decimal value) => decimal.Floor(value + 0.5m);
     internal static decimal Amount(DaevanionEffect effect) => decimal.Parse(effect.Amount, CultureInfo.InvariantCulture);

@@ -1059,3 +1059,69 @@ zeigt bei fehlender aktueller Auswahl den gespeicherten Stand mit Zeitangabe.
 Schließen des Spielmenüs, Fokusverlust und Capturepausen löschen diese Anzeige
 nicht. Das Live-Overlay benötigt weiterhin ein frisch bestätigtes geöffnetes
 Menü und den eigenen aktuellen Charakterkontext.
+
+## Boss-Rush-Filter (2026-11-09)
+
+Im Map-Tab unter Boss Rush stehen zwei unabhängige gespeicherte Checkboxen, beide
+default aus: nur Bosse mit eigener Unique-Ausrüstung sowie nur Bosse mit eingerichtetem
+Alert. Gemeinsam müssen beide Kriterien erfüllt sein. Der Alertfilter verlangt die
+Bossauswahl plus aktivierte Einzelpräferenz; der globale Alert-Master ist davon
+unabhängig. Auch Erinnerungen ohne Vorwarnung, nur bei bestätigtem Spawn, zählen.
+
+NavigationSchedule projiziert ausschließlich die aktuelle native Liste. Filterung liegt
+vor Spawn-/Vorschauanzahl und Kettenbildung und gilt identisch für alle Karten, das
+Spawn-Panel und die Boss-Rush-Zielübersicht. Altersfenster, Cachekennzeichnung und
+fehlende Koordinaten behalten ihre Regeln. Schedule, vollständige Timer-/Bossauswahl
+und Alertquellen werden nicht gefiltert. Ein leeres Filterergebnis verweist auf die
+Map-Filter und behauptet keine fehlende Bossliste.
+
+## Pflicht-Sperre im Overlay Editor (2026-11-09)
+
+Jedes Editorfenster enthält zusätzlich zu seinen höchstens 24 Inhaltswidgets
+genau eine 28×28 Pixel große Overlay-Sperre. Sie liegt über dem Inhalt und lässt
+sich im Canvas per Maus, Pfeiltasten oder X/Y-Feldern frei positionieren. Entfernen,
+Duplizieren und separate Skalierung sind ausgeschlossen. Eine kleinere Canvasfläche
+klemmt die Sperre erreichbar an den Rand; herausragende Inhalte bleiben gespeichert.
+
+`OverlaySettings.LockWidget` speichert ausschließlich ihre logische Position.
+Vorlagen und Fensterduplikate übernehmen sie; ältere Layouts erhalten beim Lesen
+die Position rechts oben, ohne dafür die Datei zu schreiben. Die Sperre gehört
+nicht zur optionalen Widgetliste. Parallele Inhalts- und Bildschirmänderungen
+bewahren eine inzwischen geänderte Sperrposition.
+
+Das native Fenster verwendet denselben separaten `OverlayLockButton` und Painter
+wie die statischen Overlays. Canvas, App-Vorschau und Presetbilder zeigen dessen
+Produktionsglyph. Der Live-DOM-Renderer zeichnet keinen zweiten Glyph darunter.
+Ein Klick entsperrt das gesamte Fenster zum Verschieben und gleichmäßigen Skalieren
+an den Ecken; erneutes Klicken sperrt es. Der Place Mode bleibt zusätzlich verfügbar.
+Das Entsperren ist flüchtig; Ausblenden oder Quellenentzug sperrt wieder.
+
+Abgeschlossene native Gesten speichern einmalig über den vorhandenen atomaren
+Positionspfad. Während einer Geste oder laufenden Speicherung setzen neue Frames
+die Geometrie nicht zurück. Captureverlust, Rechtsklick und Quellenentzug verwerfen
+eine laufende Geste. Aktuelle Quellenautorität und Einstellungen werden vor dem
+Speichern abgeglichen, gespeicherte Geometrie vor einer Folgegeste übernommen.
+Speicherfehler bleiben sichtbar und verhindern weitere unbestätigte Positionsänderungen.
+Es entstehen keine neuen Tracker, Netzwerkzugriffe, Sounds oder Spieleingaben.
+
+Im Loot-Tracker verweist ein direkter Link auf den Editor. Die weiterhin gemeinsamen
+Drop-Meldungs-, Sound- und Animationsoptionen bleiben im Loot-Tracker; ihre Rückmeldung
+spricht ausschließlich von Drop-Einstellungen, nicht von einem alten Loot-HUD.
+
+## Aufnahmefreigabe je Editorfenster (2026-11-09)
+
+Unter „Anzeige & Verhalten“ steuert „In Aufnahmen anzeigen“ ausschließlich das
+ausgewählte Editorfenster einschließlich seines Schlosses. Die Auswahl wird
+atomar gespeichert; Vorlagen verändern sie nicht. Bestehende und neue Fenster
+bleiben ohne ausdrückliche Freigabe aus Aufnahmen ausgeschlossen.
+
+Der globale Schalter der statischen Overlays ist davon unabhängig. Die vorhandene
+Absicherung gegen Selbstaufnahme bleibt erhalten: Live-Editorfenster werden nur
+bei reiner Spielfensteraufnahme durch Soulcrest für externe Aufnahmen freigegeben.
+Die anonyme Editor-Diagnose enthält `CaptureExcluded` als konfigurierte Vorgabe,
+ohne daraus einen erfolgreichen nativen Aufnahmeausschluss abzuleiten.
+
+Der Place Mode zeichnet eine gemeinsame temporäre Fläche. Enthält sie ein nicht
+freigegebenes Editorfenster oder nicht freigegebene statische Overlays, bleibt
+die gesamte Fläche aus Aufnahmen ausgeschlossen. Ausschließlich freigegebene
+Editorfenster benötigen dort keine zusätzliche globale Static-Freigabe.

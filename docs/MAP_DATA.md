@@ -304,3 +304,17 @@ Fortschritt, Soul-IDs, Aliasse und deduplizierte Netzwerkzählung bleiben unabh�
 Die Händlerkategorie `Special` bedeutet weiterhin nur keinen Farmort auf den drei
 bisherigen Regionen und wird durch einen Dungeonfundort nicht überschrieben.
 
+
+## Eigener Boss-Droppool (2026-11-09)
+
+Boss-Loot enthält zusätzlich `ownPool`: ausschließlich die direkte veröffentlichte
+NPC-Lootzeile mit `tableKind == "own"` setzt diesen Wert. Bei mehrfacher exakter
+Item-ID wird die Mitgliedschaft vereinigt; eine eigene Zeile genügt unabhängig von
+der Reihenfolge. Namen, Icons, ID-Präfixe und Containerinhalte begründen keine
+Mitgliedschaft. `own` meint den NPC-eigenen Pool, keine globale Exklusivität über
+Fraktionen oder Bossvarianten. Fehlende Metadaten qualifizieren nicht.
+
+Der Boss-Rush-Filter verbindet eigene Poolmitgliedschaft und Unique-Seltenheit mit der
+bereits gebündelten exakten Ausrüstungsklassifikation. Allgemeine Unique-Drops und
+Unique-Materialien zählen nicht. Alte Kartenpakete bleiben ohne aktivierten Filter
+kompatibel; der Testeraufbereiter erzeugt die zusätzliche Metainformation offline.

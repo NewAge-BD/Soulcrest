@@ -25,3 +25,26 @@ window.addEventListener('resize', () => {
     const list = document.querySelector('.patchnotes .pn-version-list');
     if (list) window.soulcrestUi.revealPatchnotesVersion(list);
 });
+
+// User request 2026-11-09: the whole compact boss card opens its existing settings disclosure.
+// Forward to the summary so Blazor keeps the expanded state across timer refreshes.
+document.addEventListener('click', event => {
+    if (event.button !== 0 || event.defaultPrevented) return;
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    const card = target?.closest('.boss-timers-compact .boss-timer-card');
+    if (!card || target.closest('a,button,input,select,textarea,label,summary,[role="button"],[contenteditable="true"]')) return;
+    if (window.getSelection()?.toString()) return;
+    card.querySelector('.boss-timer-options > summary')?.click();
+});
+
+// A normal mouse wheel can reach every main tab as well as the visible scrollbar and touchpad.
+document.addEventListener('wheel', event => {
+    if (event.ctrlKey || event.defaultPrevented || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    const tabs = target?.closest('.topbar .tabs');
+    if (!tabs || tabs.scrollWidth <= tabs.clientWidth) return;
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? tabs.clientWidth : 1;
+    const previous = tabs.scrollLeft;
+    tabs.scrollLeft += event.deltaY * unit;
+    if (tabs.scrollLeft !== previous) event.preventDefault();
+}, { passive: false });

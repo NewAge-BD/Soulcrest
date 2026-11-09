@@ -19,7 +19,7 @@ public sealed class OverlayEditorLiveRenderer(IServiceProvider services) : IOver
 
     private sealed class Session(IServiceProvider services) : IOverlayEditorLiveRenderSession
     {
-        private readonly OverlayEditorBitmapRenderer _renderer = new(services, pauseAnimations: false);
+        private readonly OverlayEditorBitmapRenderer _renderer = new(services, pauseAnimations: false, drawLockWidget: false);
         public Task<Bitmap> UpdateAndCaptureAsync(OverlayInstance window, OverlaySnapshot snapshot, CancellationToken cancellationToken = default) =>
             _renderer.RenderAsync(window, snapshot, cancellationToken);
         public void Dispose() => _renderer.Dispose();

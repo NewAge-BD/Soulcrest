@@ -51,7 +51,7 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
     private bool _storageIssue, _cleanupPending;
     private long _gatheringWarningVersion;
     private string? _gatheringWarning;
-    private long _startStamp, _lastActivityStamp, _lastActivityElapsedTicks, _lastPresenceSave;
+    private long _startStamp, _lastActivityStamp, _lastActivityElapsedTicks, _lastPresenceSave, _pausedElapsedTicks;
     private string? _suppressedAbyssProfile, _announcedSession;
     private IDisposable? _lease;
     private int _disposed, _overflow, _fatal;
@@ -160,9 +160,11 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
                 }
             }
             catch (Exception error) when (StorageFailure(error)) { _storageIssue = true; }
+            await SweepSmallSessionsAsync().ConfigureAwait(false);
             await foreach (var command in _commands.Reader.ReadAllAsync().ConfigureAwait(false))
             {
                 if (Interlocked.Exchange(ref _overflow, 0) != 0) Fail();
+                Exception? completionError = null;
                 try
                 {
                     switch (command)
@@ -170,12 +172,19 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
                         case Observation observation: Observe(observation); break;
                         case Tick: Observe(Capture()); break;
                         case Activity activity: Accept(activity); break;
-                        case Delete delete: await DeleteSession(delete).ConfigureAwait(false); break;
+                        case Delete delete: completionError = await DeleteSession(delete, deferCompletion: true).ConfigureAwait(false); break;
                     }
                 }
-                catch (Exception error) { Stop(error, command); }
-                try { Publish(); }
-                catch (Exception error) { Stop(error, null); }
+                catch (Exception error) { completionError = error; Stop(error); }
+                try { Expire(_time.GetUtcNow(), _time.GetTimestamp()); await SweepSmallSessionsAsync().ConfigureAwait(false); Publish(); }
+                catch (Exception error) { completionError ??= error; Stop(error); }
+                // Public mutations complete only after their snapshot/status publication. Internal
+                // retention deletes keep their immediate worker-local completion to avoid self-waiting.
+                if (command is Delete completedDelete)
+                {
+                    if (completionError is null) completedDelete.Completion.TrySetResult();
+                    else completedDelete.Completion.TrySetException(completionError);
+                }
                 if (command is Barrier barrier) barrier.Completion.TrySetResult();
             }
         }
@@ -185,6 +194,7 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
             catch (Exception error) when (StorageFailure(error)) { Fail(); }
             _lease?.Dispose(); _lease = null;
             if (_replayPositions is not null) await _replayPositions.DisposeAsync().ConfigureAwait(false);
+            await SweepSmallSessionsAsync().ConfigureAwait(false);
             Publish();
         }
     }
@@ -204,10 +214,22 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
 
     private void Observe(Observation observation)
     {
+        // Qualification precedes even lifecycle side effects: a delayed old capture must not
+        // close the current session as if its superseded own/world binding were a fresh port.
+        if (!ReferenceEquals(CurrentOwn, observation.Own) || _world().Generation != observation.World.Generation) return;
         var character = ValidCharacter(observation.Character);
         var transition = observation.World.Status == WorldContextStatus.Transitioning;
         if (_active is not null && character is not null && (_active.Character?.ProfileId != character.ProfileId
             || _activeIdentity is not null && observation.Own is not null && !SameCharacter(_activeIdentity, observation.Own.Identity)))
+            Finish(LootTrackerSessionStatus.Completed);
+        // An observed entry/loading boundary or a confirmed map change closes only outside sessions.
+        // Repeated timers/absolute updates on the same world are not teleport evidence.
+        if (_active is { Kind: LootTrackerSessionKind.Mixed } && (transition
+            || _own is not null && observation.Own is not null && !ReferenceEquals(_own, observation.Own)
+            || _observedWorld is { Status: WorldContextStatus.Confirmed } priorWorld
+                && observation.World.Status == WorldContextStatus.Confirmed
+                && (priorWorld.MapDataId is { } previousMap && observation.World.MapDataId is { } nextMap && previousMap != nextMap
+                    || priorWorld.SoulcrestMapId is { } previousId && observation.World.SoulcrestMapId is { } nextId && previousId != nextId)))
             Finish(LootTrackerSessionStatus.Completed);
         if (!ReferenceEquals(_own, observation.Own)) BreakRoute();
         ObserveGatheringWarning();
@@ -271,9 +293,9 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
     private void Start(LootTrackerCharacterSnapshot character, OwnCharacterContext own, WorldContextSnapshot world,
         DateTimeOffset at, long stamp)
     {
-        _startStamp = _lastActivityStamp = _lastPresenceSave = stamp; _lastActivityElapsedTicks = 0;
+        _startStamp = _lastActivityStamp = _lastPresenceSave = stamp; _lastActivityElapsedTicks = _pausedElapsedTicks = 0;
         _activeIdentity = own.Identity; _durable = null; _announcedSession = null; BreakRoute(); _gatherSection = 0;
-        _locationResolved = false;
+        _locationResolved = _routeStartsAfterPause = false;
         _active = new()
         {
             Id = Guid.NewGuid().ToString("N"), Kind = IsAbyss(world) ? LootTrackerSessionKind.Abyss : LootTrackerSessionKind.Mixed,
@@ -289,9 +311,16 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
     private void Expire(DateTimeOffset at, long stamp)
     {
         if (_active is not { Kind: LootTrackerSessionKind.Mixed } active) return;
-        if (active.FarmDay != LootFarmDay.Get(at) || _time.GetElapsedTime(_lastActivityStamp, stamp) >=
-            TimeSpan.FromMinutes(LootTrackerPresentation.NormalizeIdleTimeoutMinutes(_settings.Current.LootTrackerIdleTimeoutMinutes)))
+        var idle = _time.GetElapsedTime(_lastActivityStamp, stamp);
+        if (active.FarmDay != LootFarmDay.Get(at) || idle >= TimeSpan.FromSeconds(LootTrackerPresentation.IdleCloseSeconds))
             Finish(LootTrackerSessionStatus.Completed);
+        else if (!active.IsPaused && idle >= TimeSpan.FromSeconds(LootTrackerPresentation.IdlePauseSeconds))
+        {
+            var elapsed = TimeSpan.FromTicks(_lastActivityElapsedTicks);
+            var paused = active with { IsPaused = true, Elapsed = elapsed,
+                RouteSegments = UnifiedLootSessionStore.TrimRoute(active, active.LastLootAt ?? active.StartedAt, elapsed) };
+            Save(paused); BreakRoute(); _routeStartsAfterPause = true; _replayPositions?.Pause();
+        }
     }
 
     private void Presence(DateTimeOffset at, long stamp)
@@ -307,7 +336,8 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         _store.Append(next); _active = _durable = next;
         if (_announcedSession != next.Id)
         {
-            _replayPositions?.Start(next.Id, _startStamp, _own?.Generation, _observedWorld?.Generation);
+            _replayPositions?.Start(next.Id, _startStamp, _own?.Generation, _observedWorld?.Generation,
+                productiveClock: next.Kind == LootTrackerSessionKind.Mixed);
             _announcedSession = next.Id;
             // Session callbacks may enable the HUD and accept the first receipt before
             // the regular command publication. They must already see this committed session.
@@ -322,7 +352,7 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         var abyss = active.Kind == LootTrackerSessionKind.Abyss;
         var end = (abyss ? active.LastPresenceAt : active.LastLootAt) ?? active.StartedAt;
         var elapsed = abyss ? active.Elapsed : TimeSpan.FromTicks(_lastActivityElapsedTicks);
-        var finished = active with { Status = status, EndedAt = end, Elapsed = elapsed,
+        var finished = active with { Status = status, IsPaused = false, EndedAt = end, Elapsed = elapsed,
             RouteSegments = UnifiedLootSessionStore.TrimRoute(active, end, elapsed) };
         if (_durable is not null && Volatile.Read(ref _fatal) == 0) _store.Append(finished);
         if (_durable is not null) _history.Insert(0, finished);
@@ -332,12 +362,11 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
 
     // The single worker must survive every command: a dead reader would silently stop recording
     // and leave pending deletes and flushes waiting forever.
-    private void Stop(Exception error, Command? command)
+    private void Stop(Exception error)
     {
         if (!StorageFailure(error) && error is not OverflowException) LogFile.Error("Loot-Aufzeichnung", error);
         try { Fail(); }
         catch (Exception failure) when (StorageFailure(failure)) { }
-        if (command is Delete delete) delete.Completion.TrySetException(error);
     }
 
     private void Fail()
@@ -379,16 +408,16 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
             : !_available ? "Warte auf einen bestätigten eigenen Weltkontext."
             : _cleanupPending ? "Session gelöscht; Dateibereinigung ausstehend."
             : _gatheringWarning is { } warning ? warning
-            : _active is null ? "Loot-Aufzeichnung bereit." : "Loot-Session läuft.";
+            : _active is null ? "Loot-Aufzeichnung bereit." : _active.IsPaused ? "Loot-Session pausiert." : "Loot-Session läuft.";
         if (notify) SafeEvent.Raise(Changed, "Loot-Verlauf");
     }
 
-    private async Task DeleteSession(Delete command)
+    private async Task<Exception?> DeleteSession(Delete command, bool deferCompletion = false)
     {
         try
         {
             var session = _active?.Id == command.Id ? _active : _history.FirstOrDefault(row => row.Id == command.Id);
-            if (session is null) { command.Completion.TrySetResult(); return; }
+            if (session is null) { if (!deferCompletion) command.Completion.TrySetResult(); return null; }
             if (_replayPositions is not null && session.UnifiedVersion != 0)
                 await _replayPositions.DeleteAsync(command.Id).ConfigureAwait(false);
             var pending = session.UnifiedVersion == 0
@@ -403,10 +432,16 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
                 if (_active.Kind == LootTrackerSessionKind.Abyss) _suppressedAbyssProfile = _active.Character?.ProfileId;
                 _active = _durable = null; _activeIdentity = null; BreakRoute(); ResetRankObservation();
             }
-            _history.RemoveAll(row => row.Id == command.Id); command.Completion.TrySetResult();
+            _history.RemoveAll(row => row.Id == command.Id);
+            if (!deferCompletion) command.Completion.TrySetResult();
+            return null;
         }
         catch (Exception error) when (StorageFailure(error) || error is InvalidOperationException or KeyNotFoundException)
-        { _storageIssue = true; command.Completion.TrySetException(error); }
+        {
+            _storageIssue = true;
+            if (!deferCompletion) command.Completion.TrySetException(error);
+            return error;
+        }
     }
 
     public async Task DeleteSessionAsync(string sessionId)
@@ -435,7 +470,25 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         _commands.Writer.TryComplete(); await _worker.ConfigureAwait(false);
     }
 
-    private TimeSpan Elapsed(long stamp) => _time.GetElapsedTime(_startStamp, stamp) is var elapsed && elapsed >= TimeSpan.Zero ? elapsed : TimeSpan.Zero;
+    private TimeSpan Elapsed(long stamp)
+    {
+        if (_active is { Kind: LootTrackerSessionKind.Mixed, IsPaused: true })
+            return TimeSpan.FromTicks(_lastActivityElapsedTicks);
+        var raw = _time.GetElapsedTime(_startStamp, stamp);
+        return TimeSpan.FromTicks(Math.Max(0, raw.Ticks - _pausedElapsedTicks));
+    }
+
+    private void ResumeForLoot(long stamp)
+    {
+        if (_active is not { Kind: LootTrackerSessionKind.Mixed, IsPaused: true } active) return;
+        // The entire idle stretch, including the initial twenty-second grace window, is removed.
+        // Original UTC facts remain unchanged and may span longer than this productive session clock.
+        var skipped = _time.GetElapsedTime(_lastActivityStamp, stamp);
+        if (skipped < TimeSpan.Zero) return;
+        _pausedElapsedTicks = checked(_pausedElapsedTicks + skipped.Ticks);
+        _active = active with { IsPaused = false };
+        _replayPositions?.Resume(stamp, skipped);
+    }
     private static TimeSpan MaxElapsed(TimeSpan first, TimeSpan second) => first >= second ? first : second;
     private static DateTimeOffset Later(DateTimeOffset? previous, DateTimeOffset next) => previous > next ? previous.Value : next;
     private static bool StorageFailure(Exception error) => error is IOException or UnauthorizedAccessException or InvalidDataException;
@@ -444,5 +497,5 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         && Guid.TryParse(value.ProfileId, out var id) && id != Guid.Empty && !string.IsNullOrWhiteSpace(value.Name)
         ? value with { ProfileId = id.ToString("N") } : null;
     private static LootTrackerSession InterruptLegacy(LootTrackerSession value) => value.Status != LootTrackerSessionStatus.Live ? value
-        : value with { Status = LootTrackerSessionStatus.Interrupted, EndedAt = value.LastPresenceAt ?? value.LastLootAt ?? value.StartedAt };
+        : value with { Status = LootTrackerSessionStatus.Interrupted, IsPaused = false, EndedAt = value.LastPresenceAt ?? value.LastLootAt ?? value.StartedAt };
 }

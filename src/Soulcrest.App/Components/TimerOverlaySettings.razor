@@ -3,6 +3,7 @@
 @using Soulcrest.App.Overlay
 @inject AlertsService Alerts
 @inject SettingsService Settings
+@inject UiState Ui
 
 @{
     var choices = Alerts.TimerOverlayChoices;
@@ -53,6 +54,10 @@
     </details>
     }
     <details class="timer-strip-selection" open><summary>@UiText.T("Timer auswählen")<span>@choices.Count(choice => choice.Selected)</span></summary>
+        <div class="timer-strip-boss-link">
+            <button type="button" class="btn primary" id="timer-overlay-bosses" disabled="@Disabled" @onclick="OpenBossSelection">@UiText.T("Bosse im Alerts-Tab auswählen") <span aria-hidden="true">↗</span></button>
+            <p class="alerts-hint">@UiText.T("Aktiviere in den Boss-Karten „In Timer-Leiste anzeigen“.")</p>
+        </div>
         <fieldset disabled="@Disabled">
             @foreach (var group in new[] { "Events", "Bosse", "Eigene Alerts" })
             {
@@ -101,6 +106,7 @@
     private void IconFailed(string? iconId) { if (iconId is not null) _failedIcons.Add(iconId); }
     protected override void OnInitialized() { Alerts.Changed += Refresh; Settings.Changed += Refresh; }
     private void Refresh() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
+    private void OpenBossSelection() { if (!Disabled) Ui.ShowBossAlerts(); }
     private Task SetEnabled(ChangeEventArgs e) => Save(settings => settings.AlertsOverlayEnabled = e.Value is true);
     private Task SetSeconds(ChangeEventArgs e) => Save(settings => settings.TimerOverlayShowSeconds = e.Value is true);
     private Task SetScale(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)

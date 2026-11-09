@@ -21,6 +21,24 @@ public sealed class AlertsServiceTests : IDisposable
     { Id = id, Title = "Fixture event", Schedule = new() { TimeZoneId = "Europe/Berlin" }, PlaySound = true };
 
     [Fact]
+    public void DiagnosticSnapshotDoesNotTickPersistOrExportReminderText()
+    {
+        using var service = Create();
+        Assert.True(service.Save(Rule() with { Title = "Synthetic private reminder", Message = "private message" }));
+        var beforeFile = File.ReadAllBytes(StorePath);
+        var before = service.Diagnostics;
+        _time.Advance(TimeSpan.FromMinutes(6));
+        Assert.Equal(before, service.Diagnostics);
+        Assert.Equal(beforeFile, File.ReadAllBytes(StorePath));
+        Assert.Equal(0, before.ReceiptCount);
+        Assert.Equal(0, before.RetainedNotices);
+        Assert.False(before.TimerRunning);
+        Assert.True(before.StoreReadable);
+        Assert.DoesNotContain("private", JsonSerializer.Serialize(before));
+        Assert.DoesNotContain(_folder, JsonSerializer.Serialize(before));
+    }
+
+    [Fact]
     public void FreshStoreHasNoAutomaticallyEnabledPresetsOrWrites()
     {
         using var service = Create();
@@ -1312,6 +1330,112 @@ public sealed class AlertsServiceTests : IDisposable
         service.Tick();
         Assert.Equal(hourly ? 6 : 3, delivered.Count);
         Assert.Equal(delivered.Count, delivered.Select(notice => notice.Key).Distinct().Count());
+    }
+
+    [Theory]
+    [InlineData(false, "standard")]
+    [InlineData(true, "standard")]
+    [InlineData(false, "custom")]
+    [InlineData(true, "custom")]
+    public async Task AutomaticBossAudioReachesThePlayerWithoutAWindowOrPumpingTheUi(bool held, string sound)
+    {
+        await using var fixture = new BossFixture(_folder, _time);
+        fixture.Settings.Current.BossAlertUntilSpawn = held;
+        fixture.Settings.Current.BossAlertSound = true;
+        fixture.Settings.Current.BossReminderOverrides = new() { ["1110:111001"] = new() { LeadSecondsList = [900, 600, 300] } };
+        using var service = new AlertsService(StorePath, _time, bosses: fixture.Bosses, settings: fixture.Settings);
+        var file = Path.Combine(_folder, "audio-fixture.mp3");
+        File.WriteAllText(file, "Substituted decoder; no audio playback.");
+        if (sound == "custom") Assert.True(service.SetBossPresentation("1110:111001", new() { PlaySound = true, Sound = sound, SoundFile = file }));
+        var starts = System.Threading.Channels.Channel.CreateUnbounded<(string Sound, string Path)>();
+        using var player = new AlertSoundPlayer(() => new DeliveryAudioSession(starts.Writer, "custom"),
+            _ => throw new InvalidOperationException("No fallback expected"),
+            createStandardSession: () => new DeliveryAudioSession(starts.Writer, "standard"));
+        using var delivery = new AlertSoundDelivery(service, player);
+        var ui = new UnpumpedAlertUi();
+        DateTimeOffset? originalEnd = null;
+        foreach (var remaining in new[] { 900, 600, 300 })
+        {
+            if (remaining != 900) _time.Advance(TimeSpan.FromMinutes(5));
+            var previous = SynchronizationContext.Current;
+            try
+            {
+                SynchronizationContext.SetSynchronizationContext(ui);
+                fixture.Upcoming(remaining);
+            }
+            finally { SynchronizationContext.SetSynchronizationContext(previous); }
+            var played = await starts.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(sound, played.Sound);
+            Assert.Equal(sound == "custom" ? Path.GetFullPath(file) : "", played.Path);
+            var notice = Assert.Single(service.NotificationRows);
+            originalEnd ??= notice.Expires;
+            if (held) Assert.Equal(originalEnd, notice.Expires);
+        }
+        _time.Advance(TimeSpan.FromMinutes(5));
+        service.Tick();
+        Assert.False(starts.Reader.TryRead(out _)); // A zero countdown alone is not a spawn.
+        fixture.Spawned();
+        Assert.Equal(sound, (await starts.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5))).Sound);
+        Assert.Single(service.NotificationRows);
+        Assert.Equal(0, ui.Posted);
+        Assert.False(starts.Reader.TryRead(out _));
+        delivery.Dispose();
+        Assert.True(await player.Play(sound, file)); // Manual tests still own their independent playback path.
+        Assert.Equal(sound, (await starts.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5))).Sound);
+    }
+
+    [Fact]
+    public void AutomaticAudioHonorsMuteSmokeAndShutdownSuppression()
+    {
+        using var service = new AlertsService(StorePath, _time);
+        var alert = Rule() with { PlaySound = false };
+        Assert.True(service.Save(alert));
+        var played = new List<string>();
+        var suppressed = false;
+        using var delivery = new AlertSoundDelivery(service, (sound, _) => played.Add(sound), () => suppressed);
+        service.Preview(alert.Id);
+        Assert.Empty(played);
+        Assert.True(service.Save(alert with { PlaySound = true }));
+        suppressed = true;
+        service.Preview(alert.Id);
+        Assert.Empty(played);
+        suppressed = false;
+        service.Preview(alert.Id);
+        Assert.Single(played);
+        delivery.Dispose();
+        service.Preview(alert.Id);
+        Assert.Single(played);
+    }
+
+    [Fact]
+    public void AutomaticAudioDoesNotCatchUpAnAlreadyExpiredNotice()
+    {
+        using var service = new AlertsService(StorePath, _time);
+        var alert = Rule();
+        Assert.True(service.Save(alert));
+        service.NoticeRaised += _ => _time.Advance(TimeSpan.FromMinutes(1));
+        var played = new List<string>();
+        using var delivery = new AlertSoundDelivery(service, (sound, _) => played.Add(sound), () => false);
+        service.Preview(alert.Id);
+        Assert.Empty(played);
+    }
+
+    private sealed class DeliveryAudioSession(System.Threading.Channels.ChannelWriter<(string Sound, string Path)> starts, string sound) : IAlertAudioSession
+    {
+        public event Action<Exception>? Failed { add { } remove { } }
+        public Task StartAsync(string path, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            Assert.True(starts.TryWrite((sound, path)));
+            return Task.CompletedTask;
+        }
+        public void Dispose() { }
+    }
+
+    private sealed class UnpumpedAlertUi : SynchronizationContext
+    {
+        public int Posted;
+        public override void Post(SendOrPostCallback callback, object? state) => Interlocked.Increment(ref Posted);
     }
 
     private sealed class ManualTime : TimeProvider

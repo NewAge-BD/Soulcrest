@@ -110,7 +110,11 @@ public sealed class OverlayService : IOverlayService
                 Enabled = original is not null && settings.Enabled == original.Enabled ? current.Enabled : settings.Enabled,
                 Interaction = original is not null && settings.Interaction == original.Interaction ? current.Interaction : settings.Interaction,
                 Visibility = original is not null && settings.Visibility == original.Visibility ? current.Visibility : settings.Visibility,
+                CaptureExcluded = original is not null && settings.CaptureExcluded == original.CaptureExcluded ? current.CaptureExcluded : settings.CaptureExcluded,
                 TriggerRules = original is not null && OverlayTriggerRules.Equivalent(settings.TriggerRules, original.TriggerRules) ? current.TriggerRules : settings.TriggerRules,
+                // Older callers omit this additive field; a stale content save must not move the control back.
+                LockWidget = settings.LockWidget is null || original is not null && OverlayLockWidget.Equivalent(
+                    settings.LockWidget, original.LockWidget, original.Width, original.Height) ? current.LockWidget : settings.LockWidget,
             });
             return ReplaceSettings(collection, id, normalized);
         });

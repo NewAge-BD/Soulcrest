@@ -15,7 +15,7 @@
     }
     @if (Session.Status == LootTrackerSessionStatus.Live)
     {
-        <div class="lt-replay-state recording" data-testid="replay-recording" role="status"><span class="lt-dot"></span><strong>@UiText.T("Session wird aufgezeichnet")</strong><p>@UiText.T("Das Replay kann nach Sessionende gerendert werden.")</p></div>
+        <div class="lt-replay-state recording @(Session.IsPaused ? "paused" : "")" data-testid="replay-recording" role="status"><span class="lt-dot"></span><strong>@UiText.T(Session.IsPaused ? "Session pausiert" : "Session wird aufgezeichnet")</strong><p>@UiText.T(Session.IsPaused ? "Neuer Loot setzt dieselbe Session fort. Nach zwei Minuten ohne Loot endet sie." : "Das Replay kann nach Sessionende gerendert werden.")</p></div>
     }
     else
     {

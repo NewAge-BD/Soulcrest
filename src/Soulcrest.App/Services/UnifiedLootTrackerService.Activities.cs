@@ -156,14 +156,16 @@ public sealed partial class UnifiedLootTrackerService
                 || _active is { Kind: LootTrackerSessionKind.Mixed, FarmDay: { } openDay } && openDay > LootFarmDay.Get(activity.At))) return;
         if (abyss && _active?.Kind != LootTrackerSessionKind.Abyss) return; // Own entry, never a late reward, opens residence.
         var rewards = Rewards(activity);
+        var productive = abyss || !rewards.IsDefaultOrEmpty || activity.Amount > 0;
         Expire(activity.At, activity.Stamp);
         if (_active is not null && (_active.Character?.ProfileId != character.ProfileId || (_active.Kind == LootTrackerSessionKind.Abyss) != abyss))
             Finish(LootTrackerSessionStatus.Completed);
         if (_active is null) Start(character, activity.Own, world, activity.At, activity.Stamp);
+        if (productive) ResumeForLoot(activity.Stamp);
         if (_active is not { } active || activity.At < active.StartedAt) return;
-        var elapsed = Elapsed(activity.Stamp);
+        var elapsed = productive ? Elapsed(activity.Stamp) : TimeSpan.FromTicks(_lastActivityElapsedTicks);
         if (abyss) Presence(activity.At, activity.Stamp);
-        RecordPosition(activity.Position, world, activity.Own, activity.At, activity.Stamp, true);
+        if (productive) RecordPosition(activity.Position, world, activity.Own, activity.At, activity.Stamp, true);
         active = _active!;
         var origin = activity.Channel == GainChannel.Harvest ? LootTrackerActivityOrigin.Lifeskill
             : abyss ? LootTrackerActivityOrigin.Abyss : LootTrackerActivityOrigin.Pve;
@@ -207,15 +209,26 @@ public sealed partial class UnifiedLootTrackerService
         foreach (var reward in rewards) accepted.Add(new(next.Id, character.ProfileId!, activity.At, reward.Id, reward.Name, reward.Quantity));
         if (!abyss && QualifiedDaily(_daily, activity.Own, activity.At) && _daily.Total is { } total && total >= Overlay.LootOverlaySnapshot.DailyLimit)
             next = next with { Mode = LootTrackerSessionMode.LimitedKina };
+        var provisionalRoute = next.RouteSegments;
+        if (!productive)
+            next = next with { RouteSegments = UnifiedLootSessionStore.TrimRoute(next, next.LastLootAt ?? next.StartedAt, elapsed) };
         Save(next);
+        if (!productive) _active = next with { RouteSegments = provisionalRoute };
+        if (productive) _replayPositions?.Commit(activity.Stamp, elapsed);
         if (activity.Channel is GainChannel.Drop or GainChannel.Harvest && !rewards.IsDefaultOrEmpty)
         {
             var fact = next.TimelineEvents.Last();
             SafeEvent.Raise(LootFactCommitted, new(next.Id, character.ProfileId!, fact, activity.MarketProfile),
                 "Gespeicherter Loot-Beleg");
         }
-        _lastActivityStamp = Math.Max(_lastActivityStamp, activity.Stamp);
-        _lastActivityElapsedTicks = Math.Max(_lastActivityElapsedTicks, elapsed.Ticks);
+        // Failed gathering attempts and signed losses remain exact facts, but do not wake a pause,
+        // advance productive duration, or postpone the two-minute deadline. LastLootAt remains
+        // the existing upper UTC fact bound so those confirmed observations survive recovery.
+        if (productive)
+        {
+            _lastActivityStamp = Math.Max(_lastActivityStamp, activity.Stamp);
+            _lastActivityElapsedTicks = Math.Max(_lastActivityElapsedTicks, elapsed.Ticks);
+        }
         if (!abyss) Expire(_time.GetUtcNow(), _time.GetTimestamp());
         foreach (var drop in accepted) SafeEvent.Raise(DropAccepted, drop, "Neue Loot-Beute");
     }

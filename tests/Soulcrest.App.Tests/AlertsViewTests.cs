@@ -518,6 +518,31 @@ public sealed class AlertsViewTests
     }
 
     [Theory]
+    [InlineData("de", "Bosse im Alerts-Tab auswählen", "In Timer-Leiste anzeigen")]
+    [InlineData("en", "Select bosses in the Alerts tab", "Show in Timeline Strip")]
+    public async Task TimerSettingsOpenBossSelectionWithoutChangingTimersOrReminders(string language, string link, string option)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Settings.Current.TimerOverlayTimerIds = [];
+        var before = System.Text.Json.JsonSerializer.Serialize(fixture.Settings.Current);
+        var html = await fixture.RenderTimerSettings();
+        Assert.Contains("id=\"timer-overlay-bosses\"", html);
+        Assert.Contains(link, html);
+        var ui = fixture.Ui;
+        ui.ShowOverlay("alerts");
+        await fixture.InvokeTimer("OpenBossSelection");
+        Assert.Equal("alerts", ui.Tab);
+        Assert.True(ui.TakePendingBossAlertsFocus());
+        Assert.False(ui.TakePendingBossAlertsFocus());
+        html = await fixture.Render();
+        Assert.Contains("id=\"alerts-boss-timers\" tabindex=\"-1\"", html);
+        Assert.Contains("data-boss-strip=\"boss:1110:111001\"", html);
+        Assert.Contains(option, html);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(fixture.Settings.Current));
+        await fixture.Export(html, "boss-selection-link");
+    }
+
+    [Theory]
     [InlineData("de")]
     [InlineData("en")]
     public async Task CapturedBossUsesItsLocalPortraitAndBrokenImagesFallBackInPreviewAndSelection(string language)
@@ -752,6 +777,7 @@ public sealed class AlertsViewTests
         private Microsoft.AspNetCore.Components.Web.HtmlRendering.HtmlRootComponent _timerRoot;
         public SettingsService Settings => _provider.GetRequiredService<SettingsService>();
         public AlertsService Alerts => _provider.GetRequiredService<AlertsService>();
+        public UiState Ui => _provider.GetRequiredService<UiState>();
         public TrackerService Tracker => _provider.GetRequiredService<TrackerService>();
         public BossRushService Bosses => _provider.GetRequiredService<BossRushService>();
         public ManualTime Clock { get; } = new();

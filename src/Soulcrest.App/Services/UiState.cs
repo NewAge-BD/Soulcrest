@@ -48,6 +48,22 @@ public sealed class UiState
         Changed?.Invoke();
     }
 
+    private bool _pendingBossAlertsFocus;
+
+    /// <summary>User request 2026-11-09: open the boss timer selection without changing reminders or overlays.</summary>
+    public void ShowBossAlerts()
+    {
+        _pendingBossAlertsFocus = true;
+        Navigate("alerts");
+    }
+
+    public bool TakePendingBossAlertsFocus()
+    {
+        var focus = _pendingBossAlertsFocus;
+        _pendingBossAlertsFocus = false;
+        return focus;
+    }
+
     public string? PendingPetFocus { get; private set; }
 
     private string? _pendingPetCategory;

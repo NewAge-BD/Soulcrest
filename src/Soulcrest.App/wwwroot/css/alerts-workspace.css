@@ -167,6 +167,8 @@
 .timer-strip-selection { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--line); }
 .timer-strip-selection summary { display: flex; justify-content: space-between; gap: 10px; cursor: pointer; font-size: 11px; color: var(--text); }
 .timer-strip-selection summary span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.timer-strip-boss-link { margin-top: 12px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+.timer-strip-boss-link .alerts-hint { margin: 8px 0 0; }
 .timer-strip-selection fieldset { max-height: 230px; overflow-y: auto; margin-top: 11px; }
 .timer-strip-choice-group { display: grid; gap: 7px; }
 .timer-strip-choice-group > strong { color: var(--muted); font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; }

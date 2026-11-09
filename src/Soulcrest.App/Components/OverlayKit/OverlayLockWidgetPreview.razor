@@ -1,0 +1,9 @@
+@using Soulcrest.App.Overlay
+
+<img class="oe-lock-glyph" src="@OverlayLockGlyph.GetDataUri(ThemeId, Locked, OverlayLockWidget.Size)"
+     width="@OverlayLockWidget.Size" height="@OverlayLockWidget.Size" alt="" aria-hidden="true" draggable="false" loading="eager" decoding="sync" />
+
+@code {
+    [Parameter] public string? ThemeId { get; set; }
+    [Parameter] public bool Locked { get; set; } = true;
+}

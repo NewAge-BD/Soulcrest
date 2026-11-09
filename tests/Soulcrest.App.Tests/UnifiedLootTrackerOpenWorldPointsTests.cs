@@ -50,13 +50,13 @@ public sealed partial class UnifiedLootTrackerServiceTests
         await using var f = new Fixture(); await f.Ready();
         f.Source.Harvest(1, new NetworkGatheringItem(7, 2)); await f.Ready();
         var id = Assert.Single(f.Service.Snapshot.Sessions).Id;
-        f.Clock.Advance(TimeSpan.FromSeconds(30)); f.Source.Points(14, 1); f.Source.Rank(20, 1); await f.Ready();
-        f.Clock.Advance(TimeSpan.FromSeconds(30)); f.Source.Drop(7, 3, 1); f.Source.Rank(-50, 2); await f.Ready();
-        f.Clock.Advance(TimeSpan.FromSeconds(30)); f.Source.Points(7, 2); await f.Ready();
+        f.Clock.Advance(TimeSpan.FromSeconds(10)); f.Source.Points(14, 1); f.Source.Rank(20, 1); await f.Ready();
+        f.Clock.Advance(TimeSpan.FromSeconds(10)); f.Source.Drop(7, 3, 1); f.Source.Rank(-50, 2); await f.Ready();
+        f.Clock.Advance(TimeSpan.FromSeconds(10)); f.Source.Points(7, 2); await f.Ready();
         f.Source.Points(7, 2); f.Source.Rank(-50, 2); f.Source.Drop(7, 3, 1);
         f.Source.Harvest(1, new NetworkGatheringItem(7, 2)); await f.Ready();
         var session = Assert.Single(f.Service.Snapshot.Sessions);
-        Assert.Equal(id, session.Id); Assert.Equal(TimeSpan.FromSeconds(90), session.Elapsed);
+        Assert.Equal(id, session.Id); Assert.Equal(TimeSpan.FromSeconds(30), session.Elapsed);
         Assert.Equal(21, session.AbyssPoints); Assert.Equal(-30, LootTrackerPresentation.NetRankPoints(session));
         Assert.Equal(5, session.ItemCount); Assert.Equal(5, Assert.Single(session.Loot).Quantity);
         Assert.Equal(1, session.HarvestCount); Assert.Equal(2, f.Accepted.Count); Assert.Single(f.Starts);
@@ -68,7 +68,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         Assert.Equal(LootTrackerSessionStatus.Live, Assert.Single(f.Service.Snapshot.Sessions).Status);
         f.Clock.Advance(TimeSpan.FromSeconds(1)); await f.Ready();
         var completed = Assert.Single(f.Service.Snapshot.Sessions);
-        Assert.Equal(LootTrackerSessionStatus.Completed, completed.Status); Assert.Equal(TimeSpan.FromSeconds(90), completed.Elapsed);
+        Assert.Equal(LootTrackerSessionStatus.Completed, completed.Status); Assert.Equal(TimeSpan.FromSeconds(30), completed.Elapsed);
     }
 
     [Theory]
@@ -100,7 +100,8 @@ public sealed partial class UnifiedLootTrackerServiceTests
         f.Source.Harvest(1, new NetworkGatheringItem(7, 1)); await f.Ready();
         var original = Assert.Single(f.Service.Snapshot.Sessions); var writes = f.Journal.Count;
         f.Clock.Advance(TimeSpan.FromSeconds(100)); f.Source.ClearAbsolute(); await f.Ready();
-        Assert.Equal(writes, f.Journal.Count); Assert.Equal(original.LastLootAt, Assert.Single(f.Service.Snapshot.Sessions).LastLootAt);
+        Assert.Equal(writes + 1, f.Journal.Count); Assert.True(Assert.Single(f.Service.Snapshot.Sessions).IsPaused);
+        Assert.Equal(original.LastLootAt, Assert.Single(f.Service.Snapshot.Sessions).LastLootAt);
         Assert.Equal(original.TimelineEvents.Length, Assert.Single(f.Service.Snapshot.Sessions).TimelineEvents.Length);
         f.Clock.Advance(TimeSpan.FromSeconds(21)); await f.Ready();
         var completed = Assert.Single(f.Service.Snapshot.Sessions);
@@ -162,14 +163,14 @@ public sealed partial class UnifiedLootTrackerServiceTests
         await using var f = new Fixture(start: new(2026, 10, 28, 6, 59, 0, TimeSpan.Zero)); await f.Ready();
         f.Source.Points(10, 1); await f.Ready(); var id = Assert.Single(f.Service.Snapshot.Sessions).Id;
         f.Source.Daily(1_000_000); await f.Ready();
-        f.Clock.Advance(TimeSpan.FromSeconds(30)); f.Source.Rank(3, 1); await f.Ready();
+        f.Clock.Advance(TimeSpan.FromSeconds(10)); f.Source.Rank(3, 1); await f.Ready();
         var capped = Assert.Single(f.Service.Snapshot.Sessions);
         Assert.Equal(id, capped.Id); Assert.Equal(LootTrackerSessionMode.LimitedKina, capped.Mode);
         Assert.Equal(10, capped.AbyssPoints); Assert.Equal(3, LootTrackerPresentation.NetRankPoints(capped));
         Assert.Equal(1_000_000, f.Service.DailyMonsterKinaSnapshot.Total);
-        f.Clock.Advance(TimeSpan.FromSeconds(31)); await f.Ready();
+        f.Clock.Advance(TimeSpan.FromSeconds(51)); await f.Ready();
         var completed = Assert.Single(f.Service.Snapshot.Sessions);
-        Assert.Equal(LootTrackerSessionStatus.Completed, completed.Status); Assert.Equal(TimeSpan.FromSeconds(30), completed.Elapsed);
+        Assert.Equal(LootTrackerSessionStatus.Completed, completed.Status); Assert.Equal(TimeSpan.FromSeconds(10), completed.Elapsed);
         f.Source.Points(4, 2); await f.Ready();
         var current = Assert.Single(f.Service.Snapshot.Sessions, row => row.Status == LootTrackerSessionStatus.Live);
         Assert.NotEqual(id, current.Id); Assert.Equal(new DateOnly(2026, 10, 28), current.FarmDay);

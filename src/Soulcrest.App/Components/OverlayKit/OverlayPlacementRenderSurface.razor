@@ -14,6 +14,11 @@
                         <div class="oe-widget-content"><OverlayWidgetPreview Widget="widget" Snapshot="Snapshot" /></div>
                     </div>
                 }
+                @if (Model.DrawLockWidget)
+                {
+                    var control = OverlayLockWidget.Layout(Settings);
+                    <div class="oe-lock-widget" data-required-widget="true" style="@WidgetStyle(control)"><OverlayLockWidgetPreview ThemeId="@Snapshot.ThemeId" /></div>
+                }
             </div>
         </div>
     </div></div>

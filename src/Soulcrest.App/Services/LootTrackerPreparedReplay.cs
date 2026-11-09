@@ -100,9 +100,14 @@ public sealed record LootTrackerPreparedReplay
         var placements = (session.TimelineEvents.IsDefault ? [] : session.TimelineEvents)
             .Where(row => row.Position is not null).Select(row => new
             { row.Id, row.Position!.MapId, row.Position.X, row.Position.Y, row.Position.ObservedAt }).ToArray();
+        var pauseBoundaries = (session.RouteSegments.IsDefault ? [] : session.RouteSegments)
+            .Select((route, index) => (route, index)).Where(row => row.route.StartsAfterPause)
+            .Select(row => row.index).ToArray();
         // Preserve existing cache identities for recordings without the new optional drop placements.
-        var bytes = placements.Length == 0 ? JsonSerializer.SerializeToUtf8Bytes(value)
-            : JsonSerializer.SerializeToUtf8Bytes(new { Source = value, Placements = placements });
+        var bytes = pauseBoundaries.Length > 0
+            ? JsonSerializer.SerializeToUtf8Bytes(new { Source = value, Placements = placements, PauseBoundaries = pauseBoundaries })
+            : placements.Length == 0 ? JsonSerializer.SerializeToUtf8Bytes(value)
+                : JsonSerializer.SerializeToUtf8Bytes(new { Source = value, Placements = placements });
         return Convert.ToHexStringLower(SHA256.HashData(bytes));
     }
 
@@ -113,18 +118,29 @@ public sealed record LootTrackerPreparedReplay
         if (session.Status == LootTrackerSessionStatus.Live) throw new InvalidOperationException("Replay requires a terminal session.");
         token.ThrowIfCancellationRequested(); progress?.Invoke(5);
         var routes = new List<LootTrackerPreparedRoute>();
+        var routesAfterPause = new HashSet<int>();
         if (positions.Exists && !positions.Samples.IsDefaultOrEmpty)
         {
             var points = ImmutableArray.CreateBuilder<LootTrackerPreparedPoint>();
             long? segment = null; string? map = null; string name = ""; var order = 0; var gapIndex = 0;
+            TimeSpan? pauseAfter = null;
             var gaps = (positions.Gaps.IsDefault ? [] : positions.Gaps).OrderBy(gap => gap.Elapsed).ToArray();
             foreach (var sample in positions.Samples)
             {
                 token.ThrowIfCancellationRequested();
                 if (!Valid(sample.MapId, sample.X, sample.Y) || sample.Elapsed < TimeSpan.Zero || sample.Elapsed > session.Elapsed)
                 { Flush(); order++; continue; }
-                var crossedGap = false;
-                while (gapIndex < gaps.Length && gaps[gapIndex].Elapsed <= sample.Elapsed) { gapIndex++; crossedGap = true; }
+                // A pause is effective after its last committed point, even when both have
+                // exactly the same elapsed value. Other source gaps retain their old semantics.
+                var crossedGap = pauseAfter is { } boundary && sample.Elapsed > boundary;
+                if (crossedGap) pauseAfter = null;
+                while (gapIndex < gaps.Length && gaps[gapIndex].Elapsed <= sample.Elapsed)
+                {
+                    var gap = gaps[gapIndex++];
+                    if (gap.Reason == ReplayPositionGapReason.SessionPaused && gap.Elapsed == sample.Elapsed)
+                        pauseAfter = gap.Elapsed;
+                    else crossedGap = true;
+                }
                 if (crossedGap || segment != sample.SegmentId || map != sample.MapId) Flush();
                 segment = sample.SegmentId; map = sample.MapId; name = sample.MapName;
                 if (points.Count > 0 && sample.Elapsed < points[^1].Elapsed) { Flush(); order++; }
@@ -144,6 +160,7 @@ public sealed record LootTrackerPreparedReplay
             foreach (var segment in session.RouteSegments.IsDefault ? [] : session.RouteSegments)
             {
                 token.ThrowIfCancellationRequested();
+                var afterPause = segment.StartsAfterPause;
                 var points = ImmutableArray.CreateBuilder<LootTrackerPreparedPoint>();
                 foreach (var point in segment.Points.IsDefault ? [] : segment.Points)
                 {
@@ -157,7 +174,11 @@ public sealed record LootTrackerPreparedReplay
                 Flush(); order++;
                 void Flush()
                 {
-                    if (points.Count > 0) routes.Add(new(segment.MapId, segment.MapName, order, points.ToImmutable()));
+                    if (points.Count > 0)
+                    {
+                        routes.Add(new(segment.MapId, segment.MapName, order, points.ToImmutable()));
+                        if (afterPause) { routesAfterPause.Add(order); afterPause = false; }
+                    }
                     points.Clear();
                 }
             }
@@ -173,9 +194,11 @@ public sealed record LootTrackerPreparedReplay
             var previous = routes[index - 1]; var next = routes[index];
             var from = previous.Points[^1]; var to = next.Points[0];
             if (next.OriginalOrder != previous.OriginalOrder + 1 || temporalOrder[next.OriginalOrder] != temporalOrder[previous.OriginalOrder] + 1
-                || previous.MapId != next.MapId || from.Elapsed >= to.Elapsed
+                || previous.MapId != next.MapId || from.Elapsed >= to.Elapsed || routesAfterPause.Contains(next.OriginalOrder)
                 || from.Provenance == LootTrackerReplayProvenance.Missing || to.Provenance == LootTrackerReplayProvenance.Missing) continue;
-            if (!HasDeath(deaths, from.Elapsed, to.Elapsed) && !mapChanges.Contains(previous.MapId, from.Elapsed, to.Elapsed))
+            if (!HasDeath(deaths, from.Elapsed, to.Elapsed) && !mapChanges.Contains(previous.MapId, from.Elapsed, to.Elapsed)
+                && !(positions.Gaps.IsDefault ? [] : positions.Gaps).Any(gap =>
+                    gap.Reason == ReplayPositionGapReason.SessionPaused && gap.Elapsed >= from.Elapsed && gap.Elapsed <= to.Elapsed))
                 connections.Add(new(previous.MapId, previous.MapName, from, to)
                     { FromRouteOrder = previous.OriginalOrder, ToRouteOrder = next.OriginalOrder });
         }

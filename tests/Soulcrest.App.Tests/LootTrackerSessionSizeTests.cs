@@ -16,6 +16,45 @@ public sealed class LootTrackerSessionSizeTests
         Status = LootTrackerSessionStatus.Completed, StartedAt = At, TimelineEvents = [.. facts]
     };
 
+    [Theory]
+    [InlineData(0L, true)]
+    [InlineData(19L, true)]
+    [InlineData(20L, false)]
+    [InlineData(21L, false)]
+    [InlineData(-1L, false)]
+    [InlineData(null, false)]
+    public void ItemThresholdUsesKnownQuantitiesAndKeepsTheExactBoundary(long? items, bool small)
+    {
+        var session = Timeline() with { ItemCount = items, SoulCount = 100_000, KinaUnbound = 999_999 };
+        Assert.Equal(small, LootTrackerSessionSize.IsBelowItemThreshold(session, 20));
+        Assert.False(LootTrackerSessionSize.IsBelowItemThreshold(session, 0));
+        Assert.False(LootTrackerSessionSize.IsBelowItemThreshold(session, -1));
+    }
+
+    [Theory]
+    [InlineData(LootTrackerSessionStatus.Live)]
+    [InlineData(LootTrackerSessionStatus.Completed)]
+    [InlineData(LootTrackerSessionStatus.Interrupted)]
+    public void AllAbyssSessionsAreExemptFromTheItemPolicy(LootTrackerSessionStatus status)
+    {
+        Assert.False(LootTrackerSessionSize.IsBelowItemThreshold(Timeline() with
+            { Kind = LootTrackerSessionKind.Abyss, Status = status, ItemCount = 0 }, 20));
+    }
+
+    [Fact]
+    public void LiveSessionsAndTheirPausedStateRemainExemptAndLargeThresholdsAreNotClamped()
+    {
+        var session = Timeline() with { ItemCount = long.MaxValue - 1 };
+        Assert.True(LootTrackerSessionSize.IsBelowItemThreshold(session, long.MaxValue));
+        Assert.False(LootTrackerSessionSize.IsBelowItemThreshold(session with { ItemCount = long.MaxValue }, long.MaxValue));
+        Assert.False(LootTrackerSessionSize.IsBelowItemThreshold(session with { Status = LootTrackerSessionStatus.Live, ItemCount = 0 }, long.MaxValue));
+        Assert.False(LootTrackerSessionSize.IsBelowItemThreshold(session with { Status = LootTrackerSessionStatus.Live, IsPaused = true, ItemCount = 0 }, long.MaxValue));
+        Assert.False(LootTrackerSessionSize.IsBelowItemThreshold(session with { IsPaused = true, ItemCount = 0 }, long.MaxValue));
+        Assert.Equal(20, LootTrackerSessionSize.DefaultItemThreshold);
+        Assert.Equal(0, LootTrackerSessionSize.NormalizeItemThreshold(long.MinValue));
+        Assert.Equal(long.MaxValue, LootTrackerSessionSize.NormalizeItemThreshold(long.MaxValue));
+    }
+
     [Fact]
     public void FactsOfOneKillFormOneActivityAndLaterKillsAddMore()
     {

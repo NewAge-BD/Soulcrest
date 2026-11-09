@@ -55,6 +55,19 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
     private readonly object _gate = new();
     private readonly object _connectionGate = new();
+    private NetworkDiagnosticRecorder? _diagnosticRecorder;
+    public NetworkDiagnosticRecorder DiagnosticRecorder
+    {
+        get
+        {
+            lock (_gate)
+                return _diagnosticRecorder ??= new NetworkDiagnosticRecorder(begin =>
+                {
+                    lock (_gate)
+                        return Volatile.Read(ref _disposed) == 0 && Running && _target?.Connections is { Count: > 0 } && begin();
+                });
+        }
+    }
     private int _disposed;
     private readonly Dictionary<CaptureConnection, (TcpReassembler Tcp, GameMessageStream Messages)> _streams = [];
     private IReadOnlySet<CaptureEndpoint> _installedCoverage = new HashSet<CaptureEndpoint>();
@@ -77,7 +90,8 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         public bool Matches(CaptureConnection connection) => connection.RemoteAddress == RemoteAddress
             && connection.RemotePort == RemotePort && connection.LocalAddress == LocalAddress && connection.LocalPort == LocalPort;
     }
-    private sealed record PendingIncoming(IncomingFlow Flow, RawCapture Raw, object Device, long Generation, DateTimeOffset At);
+    private sealed record PendingIncoming(IncomingFlow Flow, RawCapture Raw, object Device, long Generation, DateTimeOffset At,
+        long DiagnosticSessionId);
     private readonly List<PendingIncoming> _incomingPackets = [];
     // A flow remains a barrier while its current packet is being dispatched, including reentrant callbacks.
     private readonly HashSet<IncomingFlow> _incomingBarriers = [];
@@ -276,6 +290,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
     private void StopCore()
     {
         Running = false;
+        _diagnosticRecorder?.SourceStopped();
         _check?.Dispose();
         _check = null;
         CloseDevice();
@@ -615,6 +630,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             _target = null;
             _installedCoverage = new HashSet<CaptureEndpoint>();
             _streams.Clear();
+            _diagnosticRecorder?.RecordBoundary();
             ClearIncomingPacketsLocked(invalidate: false);
             _generation++;
             _ownershipRevision++;
@@ -721,8 +737,14 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             if (packet.Extract<TcpPacket>() is not { } tcp || packet.Extract<IPPacket>() is not { } ip) return;
             var flow = new IncomingFlow(ip.SourceAddress.ToString(), tcp.SourcePort, ip.DestinationAddress.ToString(), tcp.DestinationPort);
             var owned = target.Connections.Any(flow.Matches);
+            // Bidirectional raw tap uses the same exact native owner tuples. Outgoing data is
+            // never fed into the tracker. Keep its counters and dispatch path unchanged.
+            if (packet.Extract<IPv4Packet>() is not null && target.Connections.Any(connection =>
+                connection.MatchesIncoming(ip.DestinationAddress, tcp.DestinationPort, ip.SourceAddress, tcp.SourcePort)))
+                _diagnosticRecorder?.TryRecord(raw, _generation);
             if (owned && !_incomingBarriers.Contains(flow))
             {
+                if (packet.Extract<IPv4Packet>() is not null) _diagnosticRecorder?.TryRecord(raw, _generation);
                 DispatchCapturedPacket(raw, countPacket: false);
                 return;
             }
@@ -736,8 +758,10 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 return;
             }
             _incomingBarriers.Add(flow);
-            var retained = new RawCapture(raw.LinkLayerType, raw.Timeval, raw.Data.ToArray(), null);
-            _incomingPackets.Add(new(flow, retained, sender, _generation, IncomingOwnershipUtcNow()));
+            var retained = new RawCapture(raw.LinkLayerType, raw.Timeval, raw.Data.ToArray(), null)
+                { PacketLength = raw.PacketLength };
+            _incomingPackets.Add(new(flow, retained, sender, _generation, IncomingOwnershipUtcNow(),
+                _diagnosticRecorder?.SessionId ?? 0));
             _incomingBytes += retained.Data.Length;
             StartIncomingProbeLocked();
         }
@@ -843,6 +867,10 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             if (_target?.Connections?.Any(pending.Flow.Matches) != true) { index++; continue; }
             _incomingPackets.RemoveAt(index);
             _incomingBytes -= pending.Raw.Data.Length;
+            // A pending packet is eligible only after the existing fresh native ownership proof,
+            // and only for the diagnostic session active when its capture callback ran.
+            if (Packet.ParsePacket(pending.Raw.LinkLayerType, pending.Raw.Data).Extract<IPv4Packet>() is not null)
+                _diagnosticRecorder?.TryRecord(pending.Raw, pending.Generation, pending.DiagnosticSessionId);
             // Keep its barrier during dispatch: callbacks may supply the next bytes of this same flow.
             DispatchCapturedPacket(pending.Raw, countPacket: false);
             if (!_incomingPackets.Any(item => item.Flow == pending.Flow)) _incomingBarriers.Remove(pending.Flow);
@@ -862,6 +890,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         _incomingPackets.RemoveAll(packet => packet.Flow == flow);
         _incomingBytes -= dropped.Sum(packet => packet.Raw.Data.Length);
         _incomingDroppedPackets += dropped.Length;
+        foreach (var pending in dropped) _diagnosticRecorder?.RecordDropped(1, pending.DiagnosticSessionId);
         _incomingBarriers.Remove(flow);
         if (!invalidate) return;
         foreach (var connection in _target?.Connections?.Where(flow.Matches).ToArray() ?? [])

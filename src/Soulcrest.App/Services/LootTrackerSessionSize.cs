@@ -2,10 +2,19 @@ namespace Soulcrest.App.Services;
 
 /// <summary>
 /// User request 2026-10-28: measures a session by its activity moments so that the list can hide
-/// a single gathered node or one or two kills. Pure presentation; nothing is deleted or rewritten.
+/// a single gathered node or one or two kills. These legacy helpers never delete or rewrite data.
 /// </summary>
 public static class LootTrackerSessionSize
 {
+    // User request 2026-11-09: item quantity is independent of activity moments and currency.
+    public const long DefaultItemThreshold = 20;
+    public static long NormalizeItemThreshold(long threshold) => Math.Max(0, threshold);
+
+    /// <summary>Unknown quantities, live/paused sessions and all Abyss history are never guessed small.</summary>
+    public static bool IsBelowItemThreshold(LootTrackerSession session, long threshold) =>
+        session.Kind != LootTrackerSessionKind.Abyss && session.Status != LootTrackerSessionStatus.Live && !session.IsPaused
+        && session.ItemCount is >= 0 && session.ItemCount.Value < NormalizeItemThreshold(threshold);
+
     public const int DefaultMaxActivities = 3;
     public const int MinMaxActivities = 1;
     public const int MaxMaxActivities = 10;

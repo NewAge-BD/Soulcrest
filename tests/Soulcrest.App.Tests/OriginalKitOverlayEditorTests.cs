@@ -536,6 +536,144 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Equal(visibility, reopened.Overlays.Single(window => window.Id == selected).Settings.Visibility);
     }
 
+    [Theory]
+    [InlineData("de", "In Aufnahmen anzeigen")]
+    [InlineData("en", "Show in recordings")]
+    public async Task RecordingTogglePersistsOnlyItsSelectedWindowWithoutChangingGlobalSettingsOrSources(string language, string label)
+    {
+        using var preferences = new ThemePreferenceScope();
+        await using var fixture = await Fixture.Create(language: language, settings: preferences.Settings, seedLegacy: false,
+            section: "display", initialSettings: new() { Enabled = true, Widgets = [OverlayCatalog.CreateWidget("clock")] });
+        var first = fixture.Service.Overlays.Single();
+        var untouched = System.Text.Json.JsonSerializer.Serialize(first);
+        Assert.True((await fixture.Service.CreateOverlayAsync("Recording choice")).Succeeded);
+        Assert.True((await fixture.Service.SaveAsync(fixture.Service.Settings with
+        {
+            Enabled = true, Visibility = "session", Interaction = "locked", CaptureExcluded = true,
+            TriggerRules = new() { WorldMap = OverlayTriggerRequirement.Excluded },
+            Widgets = [OverlayCatalog.CreateWidget("market-kina")],
+        })).Succeeded);
+        await fixture.Refresh();
+        var selected = fixture.Service.SelectedOverlayId;
+        var original = fixture.Service.Settings;
+        var global = await File.ReadAllBytesAsync(AppPaths.SettingsFile);
+        var acquisitions = fixture.Source.Acquisitions.ToArray();
+        var leases = (fixture.Source.ActiveLeases, fixture.Source.ActiveMarketLeases);
+        var globalChanges = 0;
+        preferences.Settings.Changed += () => globalChanges++;
+        Assert.Contains(label, await fixture.Html());
+        Assert.DoesNotContain("checked", RecordingToggleMarkup(await fixture.Html()));
+
+        await fixture.ChangeAttribute("data-kit-overlay-recordings", "true", true);
+
+        Assert.False(fixture.Service.Settings.CaptureExcluded);
+        Assert.Contains("checked", RecordingToggleMarkup(await fixture.Html()));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(original with { CaptureExcluded = false }),
+            System.Text.Json.JsonSerializer.Serialize(fixture.Service.Settings));
+        using (var restarted = new OverlayService(fixture.Directory, new OverlayCollectionSettings()))
+        {
+            Assert.Null(restarted.LoadError);
+            Assert.False(restarted.Overlays.Single(window => window.Id == selected).Settings.CaptureExcluded);
+            Assert.Equal(untouched, System.Text.Json.JsonSerializer.Serialize(restarted.Overlays.Single(window => window.Id == first.Id)));
+        }
+        await fixture.ChangeAttribute("data-kit-overlay-recordings", "true", false);
+        Assert.True(fixture.Service.Settings.CaptureExcluded);
+        Assert.DoesNotContain("checked", RecordingToggleMarkup(await fixture.Html()));
+        Assert.Equal(selected, fixture.Service.SelectedOverlayId);
+        Assert.Equal(untouched, System.Text.Json.JsonSerializer.Serialize(fixture.Service.Overlays.Single(window => window.Id == first.Id)));
+        Assert.Equal(global, await File.ReadAllBytesAsync(AppPaths.SettingsFile));
+        Assert.Equal(0, globalChanges);
+        Assert.Equal(acquisitions, fixture.Source.Acquisitions);
+        Assert.Equal(leases, (fixture.Source.ActiveLeases, fixture.Source.ActiveMarketLeases));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LoadingATemplateKeepsTheWindowsRecordingChoice(bool captureExcluded)
+    {
+        await using var fixture = await Fixture.Create(seedLegacy: false,
+            initialSettings: new() { CaptureExcluded = captureExcluded, Enabled = true, Widgets = [OverlayCatalog.CreateWidget("duration")] });
+        Assert.True((await fixture.Service.SaveTemplateAsync("Layout only", new()
+        {
+            Width = 512, CaptureExcluded = !captureExcluded, Widgets = [OverlayCatalog.CreateWidget("clock")],
+        })).Succeeded);
+        await fixture.SetField("_selectedTemplateId", fixture.Service.Templates.Single().Id);
+        await fixture.Invoke("ApplySelectedTemplate");
+        Assert.Equal(captureExcluded, fixture.Service.Settings.CaptureExcluded);
+        await fixture.Invoke("ConfirmLayoutChange");
+        Assert.Equal(512, fixture.Service.Settings.Width);
+        Assert.Equal("clock", Assert.Single(fixture.Service.Settings.Widgets).Kind);
+        Assert.Equal(captureExcluded, fixture.Service.Settings.CaptureExcluded);
+        Assert.True(fixture.Service.Settings.Enabled);
+        using var restarted = new OverlayService(fixture.Directory, new OverlayCollectionSettings());
+        Assert.Equal(captureExcluded, restarted.Settings.CaptureExcluded);
+    }
+
+    [Fact]
+    public async Task QueuedEditorGeometryPreservesANewerRecordingChoice()
+    {
+        var widget = OverlayCatalog.CreateWidget("clock");
+        await using var fixture = await Fixture.Create(seedLegacy: false,
+            initialSettings: new() { CaptureExcluded = true, Widgets = [widget] });
+        var acquisitions = fixture.Source.Acquisitions.ToArray();
+        var gate = await fixture.SaveGate();
+        await gate.WaitAsync();
+        Task geometry;
+        try
+        {
+            geometry = await fixture.BeginInvoke("CommitWidgetGeometry", widget.Id, 72d, 48d, widget.Width, widget.Height);
+            Assert.False(geometry.IsCompleted);
+            Assert.True((await fixture.Service.SaveAsync(fixture.Service.Settings with { CaptureExcluded = false })).Succeeded);
+        }
+        finally { gate.Release(); }
+        await geometry.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.False(fixture.Service.Settings.CaptureExcluded);
+        var saved = Assert.Single(fixture.Service.Settings.Widgets);
+        Assert.Equal((72d, 48d), (saved.X, saved.Y));
+        Assert.Equal(acquisitions, fixture.Source.Acquisitions);
+        using var restarted = new OverlayService(fixture.Directory, new OverlayCollectionSettings());
+        Assert.False(restarted.Settings.CaptureExcluded);
+        Assert.Equal((72d, 48d), (restarted.Settings.Widgets.Single().X, restarted.Settings.Widgets.Single().Y));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RecordingToggleCannotOverwriteACorruptLayoutOrAnAtomicSaveFailure(bool corruptOnLoad)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "SoulcrestKitEditorTests", Guid.NewGuid().ToString("N"));
+        var file = Path.Combine(directory, "overlay.json");
+        if (corruptOnLoad)
+        {
+            System.IO.Directory.CreateDirectory(directory);
+            await File.WriteAllTextAsync(file, "{ broken recording choice");
+        }
+        await using var fixture = await Fixture.Create(directory, seedLegacy: false, section: "display",
+            initialSettings: corruptOnLoad ? null : new() { CaptureExcluded = true });
+        var before = await File.ReadAllBytesAsync(file);
+        var acquisitions = fixture.Source.Acquisitions.ToArray();
+        using var replacementBlocker = corruptOnLoad ? null : new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+        await fixture.ChangeAttribute("data-kit-overlay-recordings", "true", true);
+
+        Assert.NotNull(fixture.Service.LoadError);
+        Assert.True(fixture.Service.Settings.CaptureExcluded);
+        Assert.Contains("role=\"alert\"", await fixture.Html());
+        Assert.Contains("class=\"autosave-fields\" disabled", await fixture.Html());
+        Assert.Equal(before, await File.ReadAllBytesAsync(file));
+        await fixture.ChangeAttribute("data-kit-overlay-recordings", "true", false);
+        Assert.Equal(before, await File.ReadAllBytesAsync(file));
+        Assert.Equal(acquisitions, fixture.Source.Acquisitions);
+    }
+
+    private static string RecordingToggleMarkup(string html)
+    {
+        var toggle = System.Text.RegularExpressions.Regex.Match(html, "<input[^>]*data-kit-overlay-recordings=\"true\"[^>]*>");
+        Assert.True(toggle.Success);
+        return toggle.Value;
+    }
+
     [Fact]
     public async Task ThemeSelectorOffersAllSixThemesAndPersistsOnlyTheGlobalPreference()
     {
@@ -1105,6 +1243,85 @@ public sealed class OriginalKitOverlayEditorTests
     private static string[] LibraryKinds(string html) => System.Text.RegularExpressions.Regex.Matches(html,
         "data-module-kind=\"(?<kind>[^\"]+)\"").Cast<System.Text.RegularExpressions.Match>()
         .Select(match => match.Groups["kind"].Value).ToArray();
+
+    [Theory]
+    [InlineData("de", 0)]
+    [InlineData("en", OverlayCatalog.MaximumWidgets)]
+    public async Task MandatoryLockRemainsAboveAnEmptyOrFullCanvasAndOutsideTheOptionalLibrary(string language, int contentCount)
+    {
+        var contents = Enumerable.Range(0, contentCount).Select(_ => OverlayCatalog.CreateWidget("duration", 8, 8)).ToArray();
+        await using var fixture = await Fixture.Create(language: language, seedLegacy: false,
+            initialSettings: new() { Widgets = contents });
+        var html = (await fixture.Html()).Split("<dialog", 2, StringSplitOptions.None)[0];
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "data-widget-id=\"overlay-lock\""));
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "data-required-widget=\"true\""));
+        Assert.Contains("data-select-lock-widget=\"true\"", html);
+        Assert.Equal(22, LibraryKinds(html).Length);
+        Assert.DoesNotContain(OverlayLockWidget.Kind, LibraryKinds(html));
+        if (contents.Length > 0)
+            Assert.True(html.IndexOf("data-widget-id=\"overlay-lock\"", StringComparison.Ordinal)
+                > html.IndexOf($"data-widget-id=\"{contents[^1].Id}\"", StringComparison.Ordinal));
+
+        await fixture.ClickAttribute("data-select-lock-widget", "true");
+        await fixture.Invoke("AddModule", OverlayLockWidget.Kind);
+        await fixture.Invoke("AddModuleAt", OverlayLockWidget.Kind, 40d, 32d);
+        Assert.Equal(OverlayLockWidget.Id, await fixture.EditorField<string?>("_selectedId"));
+        Assert.Equal(contents, fixture.Service.Settings.Widgets);
+        await fixture.Invoke("ChangeModuleSearch", new ChangeEventArgs { Value = "no-such-widget" });
+        var filtered = (await fixture.Html()).Split("<dialog", 2, StringSplitOptions.None)[0];
+        Assert.Empty(LibraryKinds(filtered));
+        Assert.Contains("data-select-lock-widget=\"true\"", filtered);
+        Assert.Equal(contentCount, fixture.Service.Settings.Widgets.Count);
+    }
+
+    [Fact]
+    public async Task MandatoryLockMovesAndNudgesWithinItsOwnCanvasAndRestartsAtTheSavedPosition()
+    {
+        await using var fixture = await Fixture.Create(seedLegacy: false,
+            initialSettings: new() { Width = 240, Height = 120, LockWidget = new() { X = 10, Y = 10 } });
+        await fixture.Invoke("CommitWidgetGeometry", OverlayLockWidget.Id, 100d, 40d, 28d, 28d);
+        Assert.Equal(new System.Drawing.RectangleF(100, 40, 28, 28), OverlayLockWidget.Bounds(fixture.Service.Settings));
+        await fixture.Invoke("NudgeWidget", OverlayLockWidget.Id, 1d, 8d);
+        Assert.Equal(new System.Drawing.RectangleF(101, 48, 28, 28), OverlayLockWidget.Bounds(fixture.Service.Settings));
+        await fixture.Invoke("CommitWidgetGeometry", OverlayLockWidget.Id, 10_000d, -100d, 160d, 80d);
+        Assert.Equal(new System.Drawing.RectangleF(212, 0, 28, 28), OverlayLockWidget.Bounds(fixture.Service.Settings));
+        await fixture.Invoke("NudgeWidget", OverlayLockWidget.Id, 8d, -8d);
+        Assert.Equal(new System.Drawing.RectangleF(212, 0, 28, 28), OverlayLockWidget.Bounds(fixture.Service.Settings));
+        await fixture.Invoke("NudgeWidget", OverlayLockWidget.Id, -8d, 8d);
+        using var restarted = new OverlayService(fixture.Directory, new OverlayCollectionSettings());
+        Assert.Equal(new System.Drawing.RectangleF(204, 8, 28, 28), OverlayLockWidget.Bounds(restarted.Settings));
+        Assert.Empty(restarted.Settings.Widgets);
+    }
+
+    [Fact]
+    public async Task MandatoryLockCannotBeDeletedResizedOrHiddenThroughInspectorOrInteractionCallbacks()
+    {
+        await using var fixture = await Fixture.Create();
+        var contents = fixture.Service.Settings.Widgets.ToArray();
+        var bounds = OverlayLockWidget.Bounds(fixture.Service.Settings);
+        await fixture.ClickAttribute("data-select-lock-widget", "true");
+        var html = (await fixture.Html()).Split("<dialog", 2, StringSplitOptions.None)[0];
+        Assert.DoesNotContain("data-widget-delete=\"overlay-lock\"", html);
+        Assert.DoesNotContain("data-widget-resize=\"overlay-lock\"", html);
+        Assert.DoesNotContain("aria-label=\"Modulbreite\"", html);
+        Assert.DoesNotContain("aria-label=\"Modulhöhe\"", html);
+        Assert.DoesNotContain("<span>Schriftgröße", html);
+        Assert.DoesNotContain("<span>Beschriftung</span>", html);
+
+        await fixture.Invoke("RemoveSelected");
+        await fixture.Invoke("RemoveWidget", OverlayLockWidget.Id);
+        await fixture.Invoke("WidgetNumber", new ChangeEventArgs { Value = "160" }, "width");
+        await fixture.Invoke("WidgetNumber", new ChangeEventArgs { Value = "80" }, "height");
+        await fixture.Invoke("WidgetNumber", new ChangeEventArgs { Value = "2" }, "fontScale");
+        await fixture.Invoke("ChangeWidget", (Func<OverlayWidget, OverlayWidget>)(widget => widget with { ShowIcon = false, ShowLabel = true }));
+        var control = OverlayLockWidget.Layout(fixture.Service.Settings);
+        Assert.Equal(bounds, OverlayLockWidget.Bounds(fixture.Service.Settings));
+        Assert.True(control.ShowIcon);
+        Assert.False(control.ShowLabel);
+        Assert.Equal(1, control.FontScale);
+        Assert.Equal(contents, fixture.Service.Settings.Widgets);
+        Assert.Contains("data-widget-id=\"overlay-lock\"", await fixture.Html());
+    }
 
     [Fact]
     public async Task OriginalEditorDomShowsNineteenModulesAndPreservesLegacyContent()

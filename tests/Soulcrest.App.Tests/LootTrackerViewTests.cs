@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Net;
 using System.Reflection;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -335,118 +336,124 @@ public sealed class LootTrackerViewTests
     [Theory]
     [InlineData("de")]
     [InlineData("en")]
-    public async Task SmallSessionFilterHidesTinySessionsPersistsAndKeepsDayTotalsComplete(string language)
+    public async Task ItemThresholdEditorPersistsFreeQuantitiesAndLeavesDeletionToTheRecorder(string language)
     {
         await using var fixture = new Fixture(language);
-        var all = await fixture.Render(SizedSnapshot(), onDelete: _ => Task.CompletedTask);
-        Assert.Equal(5, SessionButtonCount(all));
-        var unboundTotal = Regex.Match(all, "data-day-unbound=\"[^\"]+\">([^<]*)<").Groups[1].Value;
-
-        var hidden = await fixture.Change("loot-hide-small-sessions", true);
-        Assert.True(new SettingsService().Current.LootTrackerHideSmallSessions);
-        Assert.Equal(3, SessionButtonCount(hidden));
-        Assert.Contains("data-session-id=\"large\"", hidden);
-        Assert.Contains("data-session-id=\"live-start\"", hidden);
-        Assert.Contains("data-session-id=\"legacy-unknown\"", hidden);
-        Assert.DoesNotContain("data-session-id=\"single-node\"", hidden);
-        Assert.DoesNotContain("data-session-id=\"two-kills\"", hidden);
-        Assert.Equal(UiText.F("{0} ausgeblendet", 2), Metric(hidden, "small-session-count"));
-        Assert.Contains(UiText.F("+{0} klein", 2), WebUtility.HtmlDecode(hidden));
-        Assert.Equal(unboundTotal, Regex.Match(hidden, "data-day-unbound=\"[^\"]+\">([^<]*)<").Groups[1].Value);
-        Assert.Contains("class=\"lt-count\">3 / 5<", hidden);
-        await fixture.Export(hidden, "small-sessions-hidden");
-
-        var strict = await fixture.Change("loot-small-session-max", "1");
-        Assert.Equal(1, new SettingsService().Current.LootTrackerSmallSessionMaxActivities);
-        Assert.Equal(4, SessionButtonCount(strict));
-        Assert.Contains("data-session-id=\"two-kills\"", strict);
-        Assert.DoesNotContain("data-session-id=\"single-node\"", strict);
-
-        var shown = await fixture.Change("loot-hide-small-sessions", false);
-        Assert.False(new SettingsService().Current.LootTrackerHideSmallSessions);
-        Assert.Equal(5, SessionButtonCount(shown));
-        Assert.Equal(UiText.F("{0} klein", 1), Metric(shown, "small-session-count"));
-    }
-
-    [Fact]
-    public async Task OnlySmallSessionsLeaveTheDayHeaderAndExplainTheEmptyList()
-    {
-        await using var fixture = new Fixture("en");
-        fixture.Settings.Current.LootTrackerHideSmallSessions = true;
-        var html = await fixture.Render(new([SizedSession("single-node", 1)], At));
-        Assert.Equal(0, SessionButtonCount(html));
-        Assert.Contains("data-day-small=", html);
-        Assert.Contains("Only small sessions here (1 hidden).", html);
-    }
-
-    [Fact]
-    public async Task BulkDeleteNeedsConfirmationAndDeletesOnlyFinishedSmallSessionsOfTheCurrentFilter()
-    {
-        await using var fixture = new Fixture("en");
-        fixture.Settings.Current.LootTrackerHideSmallSessions = true;
-        var snapshot = SizedSnapshot();
-        var deleted = new List<string>();
-        await fixture.Render(snapshot, onDelete: async id =>
-        {
-            deleted.Add(id);
-            snapshot = snapshot with { Sessions = snapshot.Sessions.Where(row => row.Id != id).ToImmutableArray() };
-            await fixture.UpdateSnapshot(snapshot);
-        });
-        var search = await fixture.Change("loot-session-search", "Eltnen", "oninput");
-        Assert.Contains("Delete small (1)", search);
-        await fixture.Change("loot-session-search", "", "oninput");
-        var confirm = await fixture.Click("id", "loot-delete-small-sessions");
-        Assert.Contains("Permanently delete 2 small sessions?", confirm);
-        Assert.Empty(deleted);
-        var cancelled = await fixture.Click("id", "loot-cancel-small-delete");
-        Assert.DoesNotContain("loot-confirm-small-delete", cancelled);
-        Assert.Empty(deleted);
-
-        await fixture.Click("id", "loot-delete-small-sessions");
-        var html = await fixture.Click("id", "loot-confirm-small-delete");
-        Assert.Equal(["single-node", "two-kills"], deleted);
-        Assert.Contains("2 small sessions deleted.", html);
-        Assert.Contains("Delete small (0)", html);
-        Assert.Contains("data-session-id=\"live-start\"", html);
-        Assert.Contains("data-session-id=\"large\"", html);
-        Assert.Contains("data-session-id=\"legacy-unknown\"", html);
-    }
-
-    [Fact]
-    public async Task BulkDeleteFailureStopsAndARetryContinuesAfterTheLastDeletedSession()
-    {
-        await using var fixture = new Fixture("en");
         fixture.Settings.Current.LootTrackerHideSmallSessions = true;
         var deleted = new List<string>();
-        var fail = true;
-        await fixture.Render(SizedSnapshot(), onDelete: id =>
+        var html = await fixture.Render(SizedSnapshot(), onDelete: id => { deleted.Add(id); return Task.CompletedTask; });
+        Assert.Equal(5, SessionButtonCount(html));
+        Assert.Contains("id=\"loot-small-session-items\"", html);
+        Assert.DoesNotContain("loot-hide-small-sessions", html);
+        Assert.DoesNotContain("loot-delete-small-sessions", html);
+        Assert.DoesNotContain("loot-small-session-max", html);
+        Assert.Contains(UiText.T("Abyss bleibt erhalten"), WebUtility.HtmlDecode(html));
+        var changed = await fixture.Change("loot-small-session-items", "5000000000");
+        Assert.Equal(5_000_000_000, new SettingsService().Current.LootTrackerSmallSessionItemThreshold);
+        Assert.Contains(UiText.T("Item-Schwelle gespeichert."), WebUtility.HtmlDecode(changed));
+        Assert.Equal(5, SessionButtonCount(changed)); // Only a changed source snapshot removes sessions.
+        Assert.Empty(deleted);
+        changed = await fixture.Change("loot-small-session-items", "0");
+        Assert.Equal(0, new SettingsService().Current.LootTrackerSmallSessionItemThreshold);
+        Assert.Contains(UiText.T("Automatische Löschung aus"), WebUtility.HtmlDecode(changed));
+        Assert.Empty(deleted);
+        await fixture.Export(await fixture.Change("loot-small-session-items", "20"), "item-cleanup");
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task InvalidItemThresholdDoesNotChangeTheSavedPolicy(string language)
+    {
+        await using var fixture = new Fixture(language);
+        await fixture.Render(SizedSnapshot());
+        await fixture.Change("loot-small-session-items", "750");
+        foreach (var invalid in new[] { "-1", "1.5", "1e3", "not a number", "9223372036854775808", "" })
         {
-            if (id == "two-kills" && fail) throw new IOException("synthetic storage failure");
-            deleted.Add(id); return Task.CompletedTask;
-        });
-        await fixture.Click("id", "loot-delete-small-sessions");
-        var html = await fixture.Click("id", "loot-confirm-small-delete");
-        Assert.Equal(["single-node"], deleted);
-        Assert.Contains("Deletion stopped after 1 of 2 sessions.", html);
-        fail = false;
-        html = await fixture.Click("id", "loot-confirm-small-delete");
-        Assert.Equal(["single-node", "two-kills"], deleted);
-        Assert.Contains("2 small sessions deleted.", html);
+            var rejected = await fixture.Change("loot-small-session-items", invalid);
+            Assert.Equal(750, fixture.Settings.Current.LootTrackerSmallSessionItemThreshold);
+            Assert.Equal(750, new SettingsService().Current.LootTrackerSmallSessionItemThreshold);
+            Assert.Contains(UiText.T("Bitte eine ganze Zahl ab 0 eingeben."), WebUtility.HtmlDecode(rejected));
+        }
     }
 
     [Fact]
-    public async Task ExampleViewsChangeTheSmallFilterLocallyAndCannotBulkDelete()
+    public async Task ExampleItemThresholdChangesOnlyThePreviewAndNeverInvokesDeletion()
     {
         await using var fixture = new Fixture("en");
+        fixture.Settings.Current.LootTrackerSmallSessionItemThreshold = 20;
         var deleted = new List<string>();
         await fixture.Render(SizedSnapshot(), isExample: true, onDelete: id => { deleted.Add(id); return Task.CompletedTask; });
-        var html = await fixture.Change("loot-hide-small-sessions", true);
-        Assert.Equal(3, SessionButtonCount(html));
-        Assert.False(fixture.Settings.Current.LootTrackerHideSmallSessions);
-        Assert.Matches("id=\"loot-delete-small-sessions\"[^>]*disabled", html);
-        html = await fixture.Click("id", "loot-delete-small-sessions");
-        Assert.DoesNotContain("loot-confirm-small-delete", html);
+        var html = await fixture.Change("loot-small-session-items", "42");
+        Assert.Contains("value=\"42\"", html);
+        Assert.Equal(20, fixture.Settings.Current.LootTrackerSmallSessionItemThreshold);
+        Assert.Equal(5, SessionButtonCount(html));
         Assert.Empty(deleted);
+    }
+
+    [Fact]
+    public async Task FailedThresholdSaveShowsTheErrorAndKeepsThePreviousPolicy()
+    {
+        await using var fixture = new Fixture("en");
+        await fixture.Render(SizedSnapshot());
+        await fixture.Change("loot-small-session-items", "750");
+        File.Delete(AppPaths.SettingsFile); Directory.CreateDirectory(AppPaths.SettingsFile);
+        try
+        {
+            var html = await fixture.Change("loot-small-session-items", "20");
+            Assert.Equal(750, fixture.Settings.Current.LootTrackerSmallSessionItemThreshold);
+            Assert.Contains("Could not save the item threshold.", html);
+            Assert.Contains("value=\"750\"", html);
+        }
+        finally { Directory.Delete(AppPaths.SettingsFile); }
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task PausedSessionKeepsItsFrozenDurationAndIsStillLiveForReplay(string language)
+    {
+        await using var fixture = new Fixture(language);
+        var resource = new LootTrackerLoot("Item:610530005", MonsterLootItemCatalog.Default.Name(610530005, language),
+            LootTrackerLootKind.Item, 25);
+        var paused = new LootTrackerSession
+        {
+            Id = "paused-session", Kind = LootTrackerSessionKind.Mixed, UnifiedVersion = 1, TimelineVersion = 1,
+            Status = LootTrackerSessionStatus.Live, IsPaused = true, Location = "Altgard", StartedAt = At,
+            LastLootAt = At.AddSeconds(17), Elapsed = TimeSpan.FromSeconds(17),
+            Character = new(FirstProfileId, ExampleCharacter("A"), 1840, 235),
+            KinaUnbound = 26, ItemCount = 25, SoulCount = 0, HarvestCount = 1, FailedHarvestCount = 0,
+            Loot = [resource], MinuteIncome = [new(0, null, 26)],
+            TimelineEvents = [
+                new("paused-kina-available", LootTrackerTimelineEventKind.Availability, At, TimeSpan.Zero)
+                    { Origin = LootTrackerActivityOrigin.Pve, Metric = LootTrackerTimelineMetric.KinaUnbound, Available = true },
+                new("paused-first-drop", LootTrackerTimelineEventKind.Drop, At, TimeSpan.Zero)
+                    { Origin = LootTrackerActivityOrigin.Pve, Loot = [resource with { Quantity = 10 }] },
+                new("paused-first-kina", LootTrackerTimelineEventKind.KinaUnbound, At, TimeSpan.Zero)
+                    { Origin = LootTrackerActivityOrigin.Pve, Amount = 12 },
+                new("paused-harvest", LootTrackerTimelineEventKind.HarvestSuccess, At.AddSeconds(17), TimeSpan.FromSeconds(17))
+                    { Origin = LootTrackerActivityOrigin.Lifeskill, Loot = [resource with { Quantity = 15 }] },
+                new("paused-last-kina", LootTrackerTimelineEventKind.KinaUnbound, At.AddSeconds(17), TimeSpan.FromSeconds(17))
+                    { Origin = LootTrackerActivityOrigin.Pve, Amount = 14 }
+            ]
+        };
+        var html = await fixture.Render(new([paused], At.AddMinutes(1)), isExample: true);
+        Assert.Contains("class=\"lt-status paused\"", html);
+        Assert.Contains(UiText.T("Pausiert"), WebUtility.HtmlDecode(html));
+        Assert.Contains("00:17", html);
+        Assert.Contains("data-testid=\"replay-recording\"", html);
+        Assert.DoesNotContain("id=\"loot-replay-render\"", html);
+        Assert.Contains(UiText.T("Session pausiert"), WebUtility.HtmlDecode(html));
+        Assert.Contains(UiText.T("Neuer Loot setzt dieselbe Session fort. Nach zwei Minuten ohne Loot endet sie."), WebUtility.HtmlDecode(html));
+        Assert.Equal("25", Metric(html, "item-count"));
+        Assert.Equal("26", Metric(html, "kina-total"));
+        Assert.DoesNotContain("Altaufzeichnung:", WebUtility.HtmlDecode(html));
+        Assert.DoesNotContain("Legacy recording:", WebUtility.HtmlDecode(html));
+        await fixture.Export(html, "paused-session");
+        await fixture.UpdateSnapshot(new([paused with { IsPaused = false, Elapsed = TimeSpan.FromSeconds(20) }], At.AddMinutes(1)));
+        html = await fixture.CurrentMarkup();
+        Assert.Contains("class=\"lt-status live\"", html);
+        Assert.Contains(UiText.T("Session wird aufgezeichnet"), WebUtility.HtmlDecode(html));
     }
 
     [Theory]
@@ -530,7 +537,7 @@ public sealed class LootTrackerViewTests
         Assert.DoesNotContain("Sample plant material", html);
         Assert.DoesNotContain("Sample mineral", html);
         Assert.DoesNotContain(language == "de" ? "Zuletzt gesammelt" : "Last gathered", html);
-        Assert.Contains(UiText.T("Bestätigte Beute und Sammelversuche gehören außerhalb des Abyss zu einer gemeinsamen Session. Beide verlängern ihren Timer; das Ausblenden des Overlays pausiert die Aufnahme nicht."),
+        Assert.Contains(UiText.T("Außerhalb des Abyss pausiert die Session nach 20 Sekunden ohne bestätigten Loot-Gewinn. Die Zeit wird bis zum letzten Gewinn zurückgerechnet. Neue Items, Souls, Kina oder AP setzen dieselbe Session fort."),
             WebUtility.HtmlDecode(html));
         await fixture.Export(html, "lifeskill-failed-only");
     }
@@ -628,22 +635,15 @@ public sealed class LootTrackerViewTests
     [Theory]
     [InlineData("de")]
     [InlineData("en")]
-    public async Task IdleTimeoutUsesTheRenderedChangeCallbackAndInvalidInputLeavesTheSavedDurationAlone(string language)
+    public async Task FixedPauseAndFinishPolicyReplacesTheLegacyTimeoutEditor(string language)
     {
         await using var fixture = new Fixture(language);
-        await fixture.Render(LootTrackerSnapshot.Empty);
-        var changed = await fixture.Change("loot-idle-timeout", "7");
+        fixture.Settings.Current.LootTrackerIdleTimeoutMinutes = 7;
+        var html = await fixture.Render(LootTrackerSnapshot.Empty);
+        Assert.Contains(UiText.T("PvE/Lifeskill: 20 s bis Pause · 2 min bis Ende"), WebUtility.HtmlDecode(html));
+        Assert.DoesNotContain("id=\"loot-idle-timeout\"", html);
         Assert.Equal(7, fixture.Settings.Current.LootTrackerIdleTimeoutMinutes);
-        Assert.Equal(7, new SettingsService().Current.LootTrackerIdleTimeoutMinutes);
-        Assert.Contains("lt-save-feedback", changed);
-        Assert.DoesNotContain("lt-save-feedback error", changed);
-        foreach (var invalid in new[] { "0", "61", "not a number" })
-        {
-            var rejected = await fixture.Change("loot-idle-timeout", invalid);
-            Assert.Equal(7, fixture.Settings.Current.LootTrackerIdleTimeoutMinutes);
-            Assert.Equal(7, new SettingsService().Current.LootTrackerIdleTimeoutMinutes);
-            Assert.Contains("lt-save-feedback error", rejected);
-        }
+        Assert.Contains(UiText.T("Abyss-Sessions, laufende und pausierte Sessions sowie unbekannte Itemmengen bleiben erhalten. 0 deaktiviert die automatische Löschung."), WebUtility.HtmlDecode(html));
     }
 
     [Fact]
@@ -1047,6 +1047,29 @@ public sealed class LootTrackerViewTests
         Assert.Equal(.35, fixture.Settings.Current.LootOverlayBackgroundOpacity);
     }
 
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task OverlayEditorLinkNavigatesDirectlyWithoutChangingPreferencesOrSessions(string language)
+    {
+        await using var fixture = new Fixture(language);
+        var snapshot = ExampleSnapshot();
+        var originalSnapshot = JsonSerializer.Serialize(snapshot);
+        var originalPreferences = JsonSerializer.Serialize(fixture.Settings.Current);
+        var settingsBefore = File.Exists(AppPaths.SettingsFile) ? await File.ReadAllBytesAsync(AppPaths.SettingsFile) : null;
+        var html = await fixture.Render(snapshot);
+        Assert.Contains("data-loot-overlay-editor=\"true\"", html);
+        Assert.Contains(UiText.T("Loot-Overlays werden im Overlay Editor gestaltet und aktiviert."), WebUtility.HtmlDecode(html));
+        Assert.Contains(UiText.T("Overlay Editor öffnen"), WebUtility.HtmlDecode(html));
+        await fixture.Click("data-open-loot-overlay-editor", "true");
+        Assert.Equal("overlay-editor", fixture.Ui.Tab);
+        Assert.Equal("layout", fixture.Ui.OverlayEditorSection);
+        Assert.Equal(originalPreferences, JsonSerializer.Serialize(fixture.Settings.Current));
+        Assert.Equal(originalSnapshot, JsonSerializer.Serialize(snapshot));
+        if (settingsBefore is null) Assert.False(File.Exists(AppPaths.SettingsFile));
+        else Assert.Equal(settingsBefore, await File.ReadAllBytesAsync(AppPaths.SettingsFile));
+    }
+
     [Fact]
     public async Task DropOptionsUseSavedCallbacksAndNeverStartAnAudioPreview()
     {
@@ -1258,8 +1281,9 @@ public sealed class LootTrackerViewTests
             Settings.Current.UiLanguage = language;
             Settings.Current.NameLanguage = language;
             Settings.Current.LootTrackerIdleTimeoutMinutes = 2;
-            // Most scenarios use tiny synthetic sessions; small-session tests enable the filter explicitly.
+            // Legacy display preferences are inert; the source owns automatic cleanup.
             Settings.Current.LootTrackerHideSmallSessions = false;
+            Settings.Current.LootTrackerSmallSessionItemThreshold = 20;
             UiText.Language = language;
             _renderer = new HtmlRenderer(_provider, _provider.GetRequiredService<ILoggerFactory>());
         }

@@ -445,6 +445,24 @@ public sealed class OverlayViewTests
         Assert.Empty(fixture.Alerts.Items);
     }
 
+    [Theory]
+    [InlineData("de", "Bosse im Alerts-Tab auswählen")]
+    [InlineData("en", "Select bosses in the Alerts tab")]
+    public async Task StaticTimerSettingsOfferTheBossSelectionLinkEvenWithoutCapturedBosses(string language, string link)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Ui.ShowOverlay("alerts");
+        var before = JsonSerializer.Serialize(fixture.Settings.Current);
+        var html = await fixture.Render(staticOnly: true, embedded: true);
+        Assert.Contains("Static Overlays", html);
+        Assert.Contains("data-overlay-detail=\"alerts\"", html);
+        Assert.Contains("id=\"timer-overlay-bosses\"", html);
+        Assert.Contains(link, html);
+        Assert.DoesNotContain("data-timer-choice=\"boss:", html);
+        Assert.Equal(before, JsonSerializer.Serialize(fixture.Settings.Current));
+        await fixture.Export(html, "static-boss-link");
+    }
+
     [Fact]
     public void SectionNavigationDoesNotTouchVisibilityOrOtherNavigationTargets()
     {

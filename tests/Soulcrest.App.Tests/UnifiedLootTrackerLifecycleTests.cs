@@ -7,14 +7,14 @@ namespace Soulcrest.App.Tests;
 public sealed partial class UnifiedLootTrackerServiceTests
 {
     [Fact]
-    public async Task AChangedTimeoutAndAMonotonicDeadlineEndOnlyAtTheLastConfirmedActivity()
+    public async Task TheFixedTimeoutUsesTheMonotonicDeadlineAndTheLastConfirmedActivity()
     {
         await using var f = new Fixture(); await f.Ready();
         f.Source.Harvest(1, new NetworkGatheringItem(7, 1)); await f.Ready();
         var started = Assert.Single(f.Service.Snapshot.Sessions).StartedAt;
         f.Settings.Current.LootTrackerIdleTimeoutMinutes = 1;
         f.Clock.AdjustWallClock(TimeSpan.FromHours(-2));
-        f.Clock.Advance(TimeSpan.FromMinutes(1)); await f.Ready();
+        f.Clock.Advance(TimeSpan.FromMinutes(2)); await f.Ready();
         var completed = Assert.Single(f.Service.Snapshot.Sessions);
         Assert.Equal(LootTrackerSessionStatus.Completed, completed.Status);
         Assert.Equal(started, completed.EndedAt); Assert.Equal(TimeSpan.Zero, completed.Elapsed);

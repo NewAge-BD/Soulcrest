@@ -30,7 +30,7 @@ public sealed class AppSettings
     public bool OnlineMarketPricesEnabled { get; set; } = true;
     public Dictionary<string, ExchangeMarketProfileSettings> ExchangeMarketProfiles { get; set; } = [];
 
-    /// <summary>User request 2026-10-25: finish grind sessions after this many minutes without loot.</summary>
+    /// <summary>Legacy persisted timeout; shared sessions now use the fixed pause/finish policy from 2026-11-09.</summary>
     public int LootTrackerIdleTimeoutMinutes { get; set; } = LootTrackerPresentation.DefaultIdleTimeoutMinutes;
     public AbyssCombatGrouping AbyssCombatGrouping { get; set; } = AbyssCombatGrouping.Class;
     public AbyssCombatSort AbyssCombatSort { get; set; } = AbyssCombatSort.KillsDescending;
@@ -41,9 +41,11 @@ public sealed class AppSettings
     public LootTrackerReplayKillIconMode LootReplayKillIconMode { get; set; } = LootTrackerReplayKillIconMode.Rank;
     public LootTrackerViewMode LootTrackerViewMode { get; set; } = LootTrackerViewMode.Mixed;
     public Dictionary<LootTrackerViewMode, string[]> LootTimelineLayersByView { get; set; } = [];
-    /// <summary>User request 2026-10-28: hide finished sessions with at most this many activities from the list.</summary>
+    /// <summary>Legacy activity-filter preferences retained for settings compatibility; the item cleanup policy is independent.</summary>
     public bool LootTrackerHideSmallSessions { get; set; } = true;
     public int LootTrackerSmallSessionMaxActivities { get; set; } = LootTrackerSessionSize.DefaultMaxActivities;
+    /// <summary>User request 2026-11-09: delete finished non-Abyss sessions below this known item quantity; zero disables cleanup.</summary>
+    public long LootTrackerSmallSessionItemThreshold { get; set; } = LootTrackerSessionSize.DefaultItemThreshold;
 
     /// <summary>User request 2026-10-25: explicitly opt into gathering sessions and their position recorder.</summary>
     public bool LifeskillTrackingEnabled { get; set; }
@@ -208,6 +210,10 @@ public sealed class AppSettings
     public bool BossRushEnabled { get; set; }
     /// <summary>Include older spawned map targets beyond their first minute (user request 2026-10-26).</summary>
     public bool BossRushShowOlderSpawns { get; set; }
+    /// <summary>Limit boss navigation to bosses with qualifying unique gear (user request 2026-11-09).</summary>
+    public bool BossRushOnlyUniqueGearBosses { get; set; }
+    /// <summary>Limit boss navigation to bosses with a configured alert (user request 2026-11-09).</summary>
+    public bool BossRushOnlyAlertBosses { get; set; }
     /// <summary>Additional faded map spawns after the next boss, independent of the spawn panel (user request 2026-10-25).</summary>
     public int BossNavigationPreviewCount { get; set; } = 1;
     public bool BossOverlayEnabled { get; set; } = true;
@@ -657,6 +663,16 @@ public sealed class SettingsService
         () => Current.LootTimelineValueMode, value => Current.LootTimelineValueMode = value,
         DefinedOr(mode, LootTimelineValueMode.Cumulative));
 
+    public void SetLootTrackerSmallSessionItemThreshold(long threshold) => SetDropOption(
+        () => Current.LootTrackerSmallSessionItemThreshold, value => Current.LootTrackerSmallSessionItemThreshold = value,
+        LootTrackerSessionSize.NormalizeItemThreshold(threshold));
+
+    /// <summary>Cleanup must not observe a candidate value before its settings transaction commits or rolls back.</summary>
+    public long GetLootTrackerSmallSessionItemThreshold()
+    {
+        lock (_gate) return LootTrackerSessionSize.NormalizeItemThreshold(Current.LootTrackerSmallSessionItemThreshold);
+    }
+
     public void SetLootReplayKillIconMode(LootTrackerReplayKillIconMode mode) => SetDropOption(
         () => Current.LootReplayKillIconMode, value => Current.LootReplayKillIconMode = value,
         DefinedOr(mode, LootTrackerReplayKillIconMode.Rank));
@@ -744,6 +760,7 @@ public sealed class SettingsService
         settings.LootReplayKillIconMode = DefinedOr(settings.LootReplayKillIconMode, LootTrackerReplayKillIconMode.Rank);
         settings.LootTrackerViewMode = DefinedOr(settings.LootTrackerViewMode, LootTrackerViewMode.Mixed);
         settings.LootTrackerSmallSessionMaxActivities = LootTrackerSessionSize.NormalizeMaxActivities(settings.LootTrackerSmallSessionMaxActivities);
+        settings.LootTrackerSmallSessionItemThreshold = LootTrackerSessionSize.NormalizeItemThreshold(settings.LootTrackerSmallSessionItemThreshold);
         settings.LootTimelineLayersByView = (settings.LootTimelineLayersByView ?? [])
             .Where(pair => Enum.IsDefined(pair.Key)).ToDictionary(pair => pair.Key,
                 pair => LootTrackerTimelineLayers.Normalize(pair.Value));

@@ -2,6 +2,24 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.17.0 – 2026-11-09
+
+- **Changed:** Loot sessions outside the Abyss pause after 20 seconds without new loot, and the pause
+  does not count towards session time. New loot within two minutes resumes the same session, otherwise
+  it ends. Teleports and map changes end it as well.
+- **Changed:** Small sessions are now deleted automatically instead of hidden: every finished session
+  with fewer than 20 items, including ones already saved. The threshold is adjustable, and 0 turns the
+  cleanup off. Souls and currencies don't count; Abyss visits are always kept.
+- **New:** Diagnostics for every feature: pick single features, groups or everything and save a ZIP to
+  your desktop. Optionally record your own AION2 game traffic for up to 5 minutes. Nothing is sent
+  automatically.
+- **New:** Every Overlay Editor window has its own lock to unlock, move and resize it right in game.
+  "Show in recordings" can be set per window.
+- **New:** Boss Rush can filter to bosses with their own unique gear and to bosses with an alert set up.
+- **Changed:** Clicking anywhere on a boss card in Alerts opens it. The timer bar links straight to boss
+  selection, and the main tabs scroll in narrow windows.
+- **Fixed:** Automatic boss sounds sometimes stayed silent even though the sound test worked.
+
 ## 0.16.0 – 2026-11-09
 
 - **New:** Stat Overview with primary, god, main and sub stats from your own network data, plus
