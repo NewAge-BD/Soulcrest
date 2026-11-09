@@ -751,6 +751,86 @@ public sealed class AlertsServiceTests : IDisposable
         Assert.Empty(service.Active);
     }
 
+    [Theory]
+    [InlineData("2026-01-12T11:35:00Z", "2026-01-12T12:30:00Z")]
+    [InlineData("2026-07-12T10:35:00Z", "2026-07-12T11:30:00Z")]
+    public void ActiveInvasionStripAndLegacyCountdownTargetTheSameNextBerlinHalfHour(string instant, string nextStart)
+    {
+        var culture = global::System.Globalization.CultureInfo.InvariantCulture;
+        _time.Set(DateTimeOffset.Parse(instant, culture));
+        using var service = Create();
+        Assert.True(service.SetEventPresentation("invasion", new() { ShowOverlay = true, AlwaysShowOverlay = true }));
+        var stored = File.ReadAllBytes(StorePath);
+        var timer = Assert.Single(service.EventTimers, candidate => candidate.Definition.Id == "invasion");
+        Assert.True(timer.Window.IsActive);
+        Assert.Equal(_time.GetUtcNow().AddMinutes(10), timer.Window.EndsAt);
+        Assert.Equal(TimeSpan.FromMinutes(15), timer.Window.EndsAt - timer.Window.StartsAt);
+
+        var expected = DateTimeOffset.Parse(nextStart, culture);
+        var strip = Assert.Single(service.TimerOverlayRows);
+        var legacy = Assert.Single(service.CountdownRows);
+        Assert.Equal("event:catalog:invasion", strip.Key);
+        Assert.Equal(strip.Key, legacy.Key);
+        Assert.Equal(expected, strip.At);
+        Assert.Equal(expected, legacy.At);
+        Assert.Equal(UiText.T("Nächster Start in"), strip.CountdownLabel);
+        Assert.Equal(strip.CountdownLabel, legacy.CountdownLabel);
+        Assert.Equal("00:55:00", TimerOverlayPresentation.Countdown(strip, _time.GetUtcNow()));
+        Assert.True(strip.Started);
+        Assert.True(legacy.Started);
+        Assert.False(service.GetEventReminder("invasion").Enabled);
+        Assert.Equal(stored, File.ReadAllBytes(StorePath));
+    }
+
+    [Fact]
+    public void InvasionWarningsAndStartStillBelongToHalfHourOccurrencesAndNeverToTheActiveEnd()
+    {
+        var culture = global::System.Globalization.CultureInfo.InvariantCulture;
+        _time.Set(DateTimeOffset.Parse("2026-11-02T11:24:59Z", culture));
+        using var service = Create();
+        var reminder = service.GetEventReminder("invasion") with
+        {
+            Enabled = true, LeadMinutes = 5, LeadMinutesList = [5, 1],
+            NotifyAtStart = true, PlaySound = false, ShowOverlay = true,
+        };
+        Assert.True(service.Save(reminder));
+        Assert.True(service.SetEventPresentation("invasion", new() { ShowOverlay = true, AlwaysShowOverlay = true }));
+        var scheduleBefore = JsonSerializer.Serialize(service.GetEventReminder("invasion").Schedule);
+        var start = DateTimeOffset.Parse("2026-11-02T11:30:00Z", culture);
+        List<AlertNotice> notices = [];
+        service.NoticeRaised += notices.Add;
+
+        _time.Advance(TimeSpan.FromSeconds(1));
+        service.Tick(); // 12:25 Berlin: five-minute warning.
+        Assert.Equal(start, Assert.Single(notices).At);
+        _time.Advance(TimeSpan.FromMinutes(4));
+        service.Tick(); // 12:29 Berlin: one-minute warning.
+        Assert.Equal(2, notices.Count);
+        _time.Advance(TimeSpan.FromMinutes(1));
+        service.Tick(); // 12:30 Berlin: start.
+        Assert.Equal(3, notices.Count);
+        Assert.All(notices, notice => Assert.Equal(start, notice.At));
+        Assert.Equal(start.AddHours(1), Assert.Single(service.TimerOverlayRows).At);
+        Assert.Equal(start.AddHours(1), Assert.Single(service.CountdownRows).At);
+
+        _time.Advance(TimeSpan.FromMinutes(15));
+        service.Tick(); // 12:45 Berlin: event end is not an alarm occurrence.
+        Assert.Equal(3, notices.Count);
+        Assert.Empty(service.Active);
+        _time.Advance(TimeSpan.FromMinutes(39));
+        service.Tick();
+        Assert.Equal(3, notices.Count);
+        _time.Advance(TimeSpan.FromMinutes(1));
+        service.Tick(); // 13:25 Berlin: next warning still targets 13:30.
+        Assert.Equal(4, notices.Count);
+        Assert.Equal(start.AddHours(1), notices[^1].At);
+        Assert.Equal(scheduleBefore, JsonSerializer.Serialize(service.GetEventReminder("invasion").Schedule));
+        Assert.Equal(AlertScheduleKind.Hourly, service.GetEventReminder("invasion").Schedule.Kind);
+        Assert.Equal(30, service.GetEventReminder("invasion").Schedule.Minute);
+        Assert.Equal("Europe/Berlin", service.GetEventReminder("invasion").Schedule.TimeZoneId);
+        Assert.Equal(new[] { 5, 1 }, service.GetEventReminder("invasion").WarningMinutes);
+    }
+
     [Fact]
     public void RiftWidgetCountsDownPortalThenEventAndHidesOutsideWindow()
     {

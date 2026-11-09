@@ -27,6 +27,7 @@ window.soulcrestMap = (() => {
     // Resource kinds (Gem: Sapphire, Diamond, Ruby): per category a Map kind name -> L.LayerGroup inside
     // the category layer, so each kind can be hidden on its own (user request 2026-10-05).
     let kindLayers = [];
+    let monsterDrops = null; // additive, per-spawn material presentation; original markers stay unchanged
     let cubeGroups = null; // optional offline group presentation, isolated in soulcrest-cube-groups.js
     let petRefs = [], huntingGroundRefs = [];
     let bossTimerRows = new Map(), bossTimerRefs = new Map(), bossMarkerBySpawn = new Map(), bossTimerInterval = null;
@@ -40,6 +41,7 @@ window.soulcrestMap = (() => {
     const LOOT_MARKER_STYLES = {
         kill: { color: '#fbbf24', glyph: '⚔' },
         death: { color: '#fb7185', glyph: '×' },
+        assist: { color: '#82b4ff', glyph: '+', dashed: true },
         odyle: { color: '#a78bfa', glyph: '◆' },
         gathering: { color: '#86d6a5', glyph: '✦' }
     };
@@ -253,6 +255,7 @@ window.soulcrestMap = (() => {
         spawnLayer = null;
         progressionTarget = null;
         markerRefs = [];
+        monsterDrops = null;
         markerByPos = new Map();
         petRefs = [];
         markedPets = new Set();
@@ -310,13 +313,14 @@ window.soulcrestMap = (() => {
         rememberViewport(); // Only the fully restored view is eligible for persistence.
 
         return JSON.stringify({
-            groups: current.groups.map(g => ({
+            groups: [...current.groups.map(g => ({
                 name: g.name,
                 categories: g.categories.map(i => {
                     const c = current.categories[i];
                     return { index: i, name: c.name, de: c.de || null, count: c.count, hidden: !catVisible[i], color: colorFor(c, i), icon: c.icon >= 0 ? base + current.icons[c.icon] : null, kinds: kindsOf(i) };
                 }),
-            })),
+            })), monsterDropLegend()],
+            monsterDropsAvailable: monsterDrops.available,
             regions: current.regions.length,
             markers: current.markers.length,
         });
@@ -401,7 +405,8 @@ window.soulcrestMap = (() => {
         const retained = new Set();
         for (const spawnId of new Set([...bossTimerRows.keys(), ...bossNavigationMarkers.keys()])) {
             const navigation = bossNavigationMarkers.get(spawnId);
-            const layer = navigation?.layer || bossMarkerBySpawn.get(spawnId);
+            const ordinary = bossMarkerBySpawn.get(spawnId);
+            const layer = navigation?.layer || monsterDrops?.spawns.get(ordinary?.markerIndex)?.activeLayer || ordinary;
             if (!layer?.bindTooltip) continue;
             retained.add(spawnId);
             let item = bossTimerRefs.get(spawnId);
@@ -504,6 +509,136 @@ window.soulcrestMap = (() => {
         dotnet.invokeMethodAsync('OnKibeliskBound', current.id, progression.character, place.id, !place.done);
     }
 
+    // User request 2026-11-02: exact item/NPC relations from the offline map package.
+    // The virtual categories only select material presentations; they never mutate the source
+    // categories, spawn indexes, monster search or the global marker count.
+    const DROP_TYPES = [
+        ['Meat', 'Fleisch'], ['Fruit', 'Früchte'], ['Leather', 'Leder'],
+        ['Spiritstones', 'Geistersteine'],
+    ];
+    // Older packages remain schema-1 compatible. Validate these legacy types before excluding
+    // them from the displayed catalog (user request 2026-11-02).
+    const RETIRED_DROP_TYPES = new Set(['Refining Stones', 'Balaur Materials', 'Other Materials']);
+    const localDropIcon = icon => typeof icon === 'string'
+        && /^icons\/[A-Za-z0-9_./-]+\.png$/.test(icon) && !icon.split('/').includes('..') ? icon : null;
+    const dropId = id => typeof id === 'string' && /^[1-9][0-9]*$/.test(id);
+    const itemOrder = (a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+
+    function buildMonsterDrops() {
+        const payload = current.monsterDrops;
+        monsterDrops = { available: payload?.schemaVersion === 1 && Array.isArray(payload.items) && Array.isArray(payload.spawns),
+            categories: new Map(), items: new Map(), spawns: new Map(), byPosition: new Map(), layer: null };
+        if (!monsterDrops.available) return;
+        const reject = () => { monsterDrops.available = false; monsterDrops.items.clear(); monsterDrops.spawns.clear(); };
+        const typeNames = new Set([...DROP_TYPES.map(([type]) => type), ...RETIRED_DROP_TYPES]);
+        for (const item of payload.items) {
+            if (!dropId(item?.id) || typeof item.en !== 'string' || !item.en.trim() || !typeNames.has(item.type) || monsterDrops.items.has(item.id)
+                || item.de != null && typeof item.de !== 'string' || item.icon != null && typeof item.icon !== 'string') return reject();
+            monsterDrops.items.set(item.id, { id: item.id, en: item.en, de: typeof item.de === 'string' && item.de.trim() ? item.de : null,
+                icon: localDropIcon(item.icon), type: item.type, category: -1 });
+        }
+        for (const source of payload.spawns) {
+            if (!Number.isSafeInteger(source?.marker) || source.marker < 0 || !dropId(source.npcId) || !Array.isArray(source.items) || !source.items.length) return reject();
+            const m = current.markers[source.marker], cat = m && current.categories[m[0]];
+            if (!m || !Number.isSafeInteger(m[0]) || typeof m[3] !== 'string' || !m[3].trim() || !Number.isFinite(m[1]) || !Number.isFinite(m[2]) || !cat
+                || !(cat.group === 'Monsters' || cat.group === 'Locations' && cat.name === 'Field Boss')) return reject();
+            if (m[7]?.npcId != null && String(m[7].npcId) !== source.npcId) return reject();
+            if (monsterDrops.spawns.has(source.marker)) return reject();
+            const ids = new Set();
+            for (const id of source.items) {
+                if (!monsterDrops.items.has(id) || ids.has(id)) return reject();
+                ids.add(id);
+            }
+            monsterDrops.spawns.set(source.marker, { marker: source.marker, npcId: source.npcId, m,
+                items: [...ids].map(id => monsterDrops.items.get(id)).sort(itemOrder), selected: [], signature: '', layer: null, activeLayer: null });
+        }
+        for (const [id, item] of monsterDrops.items) if (RETIRED_DROP_TYPES.has(item.type)) monsterDrops.items.delete(id);
+        for (const [marker, spawn] of monsterDrops.spawns) {
+            spawn.items = spawn.items.filter(item => !RETIRED_DROP_TYPES.has(item.type));
+            if (!spawn.items.length) monsterDrops.spawns.delete(marker);
+        }
+        for (const spawn of monsterDrops.spawns.values()) {
+            const key = spawn.m[1] + ',' + spawn.m[2];
+            if (!monsterDrops.byPosition.has(key)) monsterDrops.byPosition.set(key, []);
+            monsterDrops.byPosition.get(key).push(spawn);
+        }
+        const used = new Set([...monsterDrops.spawns.values()].flatMap(spawn => spawn.items.map(item => item.id)));
+        for (const [type, de] of DROP_TYPES) {
+            const items = [...monsterDrops.items.values()].filter(item => item.type === type && used.has(item.id)).sort(itemOrder);
+            if (!items.length) continue;
+            const index = catLayers.length;
+            for (const item of items) item.category = index;
+            monsterDrops.categories.set(index, { index, name: type, de, items, hidden: new Set() });
+            catLayers.push(L.layerGroup()); kindLayers.push(null); catVisible.push(false);
+        }
+    }
+
+    function monsterDropLegend() {
+        return { name: 'Monster Drops', count: monsterDrops.spawns.size,
+            categories: [...monsterDrops.categories.values()].map(category => {
+                const counts = new Map(category.items.map(item => [item.id, 0]));
+                let count = 0;
+                for (const spawn of monsterDrops.spawns.values()) {
+                    const matches = spawn.items.filter(item => item.category === category.index);
+                    if (matches.length) count++;
+                    for (const item of matches) counts.set(item.id, counts.get(item.id) + 1);
+                }
+                return { index: category.index, name: category.name, de: category.de, count, hidden: !catVisible[category.index],
+                    color: '#e5b66b', icon: category.items[0].icon ? base + category.items[0].icon : null,
+                    kinds: category.items.map(item => ({ key: item.id, name: item.en, de: item.de,
+                        icon: item.icon ? base + item.icon : null, count: counts.get(item.id) })) };
+            }) };
+    }
+
+    const dropItemName = item => lang === 'de' && item.de ? item.de : item.en;
+    function monsterDropPopup(spawn) {
+        const chosen = new Set(spawn.selected.map(item => item.id));
+        const rows = spawn.items.map(item => `<div style="display:flex;align-items:center;gap:6px;${chosen.has(item.id) ? 'font-weight:600' : 'opacity:.6'}">`
+            + (item.icon ? `<img src="${esc(base + item.icon)}" alt="" width="22" height="22">` : '')
+            + `<span>${chosen.has(item.id) ? '✓ ' : ''}${esc(dropItemName(item))}</span></div>`).join('');
+        return `<b>${esc(nameOf(spawn.m))}</b><br><span style="color:#b4bdca">Monster Drops · ${ui('Mögliche Crafting-Materialien', 'Possible crafting materials')}</span>`
+            + `<div style="margin:6px 0">${rows}</div><span style="color:#8b96a8">${ui('Rechtsklick: als Ziel markieren', 'Right-click: set target')}</span>`;
+    }
+
+    function syncMonsterDrops() {
+        if (!monsterDrops) return;
+        let changed = false;
+        for (const spawn of monsterDrops.spawns.values()) {
+            const selected = spawn.items.filter(item => catVisible[item.category] && !monsterDrops.categories.get(item.category).hidden.has(item.id));
+            const signature = selected.map(item => item.id).join(',');
+            if (signature === spawn.signature) continue;
+            changed = true;
+            spawn.selected = selected; spawn.signature = signature;
+            const normal = markerRefs[spawn.marker], parent = catLayers[spawn.m[0]];
+            if (!selected.length) {
+                if (spawn.activeLayer) monsterDrops.layer.removeLayer(spawn.activeLayer);
+                spawn.activeLayer = null;
+                if (normal && !parent.hasLayer(normal)) parent.addLayer(normal);
+                continue;
+            }
+            const urls = selected.slice(0, 3).map(item => item.icon ? base + item.icon : null), more = Math.max(0, selected.length - 3);
+            if (!monsterDrops.layer) monsterDrops.layer = L.layerGroup().addTo(map);
+            if (!spawn.layer) {
+                spawn.layer = window.soulcrestCanvasIcons?.createGroup
+                    ? window.soulcrestCanvasIcons.createGroup(toLatLng(spawn.m[1], spawn.m[2]), {
+                        renderer: canvas, urls, more, appearance: () => ({ scale: Math.min(1.2, iconScale()) }) })
+                    : L.circleMarker(toLatLng(spawn.m[1], spawn.m[2]), { renderer: canvas, radius: 7, color: '#000', weight: 1, fillColor: '#e5b66b', fillOpacity: 1 });
+                spawn.layer.bindPopup(() => monsterDropPopup(spawn));
+                spawn.layer.on('contextmenu', e => {
+                    if (e.originalEvent) L.DomEvent.preventDefault(e.originalEvent);
+                    dotnet.invokeMethodAsync('OnToggleTarget', current.id, spawn.m[1], spawn.m[2], nameOf(spawn.m),
+                        'Monster Drops', spawn.selected[0]?.icon || null, !!e.originalEvent?.shiftKey, null);
+                });
+            } else spawn.layer.setItems?.(urls, more);
+            spawn.layer.getPopup?.()?.setContent(() => monsterDropPopup(spawn));
+            if (normal && parent.hasLayer(normal)) parent.removeLayer(normal);
+            if (!monsterDrops.layer.hasLayer(spawn.layer)) monsterDrops.layer.addLayer(spawn.layer);
+            spawn.activeLayer = spawn.layer;
+        }
+        if (changed) syncBossTimerLayers();
+        window.soulcrestCanvasIcons?.redraw(canvas);
+    }
+
     // Kinds of a resource category for the legend; only listed when there are at least two.
     function kindsOf(index) {
         const kinds = kindLayers[index];
@@ -579,6 +714,7 @@ window.soulcrestMap = (() => {
                 catLayers[m[0]].addLayer(layer);
             }
         });
+        buildMonsterDrops();
         catLayers.forEach((layer, i) => { if (catVisible[i]) layer.addTo(map); });
         indexBossMarkers();
         applyDoneFilter();
@@ -636,7 +772,10 @@ window.soulcrestMap = (() => {
         // Place, resource and cube icons grow like the pet portraits (user report 2026-10-05: "sehr klein").
         el.style.setProperty('--place-scale', scale.toFixed(3));
         el.style.setProperty('--hunting-scale', Math.min(1.5, scale).toFixed(3));
-        if (refreshCanvas) for (const layer of markerRefs) if (layer?.refreshAppearance) layer.refreshAppearance();
+        if (refreshCanvas) {
+            for (const layer of markerRefs) if (layer?.refreshAppearance) layer.refreshAppearance();
+            for (const spawn of monsterDrops?.spawns.values() || []) spawn.activeLayer?.refreshAppearance?.();
+        }
         updateLabelVisibility();
     }
 
@@ -662,6 +801,13 @@ window.soulcrestMap = (() => {
     }
 
     function setCategoryVisible(index, visible) {
+        if (monsterDrops?.categories.has(index)) {
+            catVisible[index] = !!visible;
+            syncMonsterDrops();
+            drawTargets();
+            return;
+        }
+        if (!catLayers[index]) return;
         catVisible[index] = visible;
         if (visible) catLayers[index].addTo(map); else map.removeLayer(catLayers[index]);
         cubeGroups?.sync();
@@ -670,6 +816,14 @@ window.soulcrestMap = (() => {
     }
 
     function setKindVisible(index, kind, visible) {
+        const category = monsterDrops?.categories.get(index);
+        if (category) {
+            if (!category.items.some(item => item.id === kind)) return;
+            if (visible) category.hidden.delete(kind); else category.hidden.add(kind);
+            syncMonsterDrops();
+            drawTargets();
+            return;
+        }
         const group = kindLayers[index] && kindLayers[index].get(kind);
         if (!group) return;
         if (visible) catLayers[index].addLayer(group); else catLayers[index].removeLayer(group);
@@ -803,6 +957,7 @@ window.soulcrestMap = (() => {
     }
 
     function targetSymbolState(t) {
+        if (isMonsterDropTarget(t)) return ['Monster Drops', localDropIcon(t.icon), dropTargetIconVisible(t)];
         if (t.leveling || isBossNavigation(t)) return null;
         const i = markerByPos.get(t.x + ',' + t.y), layer = markerRefs[i], m = current.markers[i];
         if (!layer || !m) return null;
@@ -869,9 +1024,24 @@ window.soulcrestMap = (() => {
         }
     }
 
+    const isMonsterDropTarget = target => target.kind === 'Monster Drops' || target.group === 'Monster Drops';
+    function dropTargetIconVisible(target) {
+        const icon = localDropIcon(target.icon);
+        return !!icon && !!monsterDrops?.byPosition.get(target.x + ',' + target.y)?.some(spawn => spawn.activeLayer
+            && spawn.selected.slice(0, 3).some(item => item.icon === icon));
+    }
+
     // A marked target keeps its symbol when its layer is hidden or filtered (user request 2026-10-07:
     // stops of a route show their icons although the category is switched off).
     function targetSymbol(t) {
+        if (isMonsterDropTarget(t)) {
+            const icon = localDropIcon(t.icon);
+            if (!icon || dropTargetIconVisible(t)) return;
+            L.marker(toLatLng(t.x, t.y), { interactive: false, keyboard: false, opacity: t.completed ? 0.28 : 1,
+                icon: L.divIcon({ className: 'place-marker monster-drop-target', iconSize: [24, 24], iconAnchor: [12, 12],
+                    html: `<img class="place-icon" src="${esc(base + icon)}" alt="">` }) }).addTo(targetLayer);
+            return;
+        }
         if (t.leveling) {
             const style = t.icon ? `--objective-icon:url(${JSON.stringify(base + t.icon)});color:${t.color}` : `color:${t.color}`;
             L.marker(toLatLng(t.x, t.y), { pane: 'targets', zIndexOffset: 1200, interactive: false, keyboard: false,
@@ -1244,7 +1414,7 @@ window.soulcrestMap = (() => {
             if (!valid(marker) || !Object.prototype.hasOwnProperty.call(LOOT_MARKER_STYLES, marker.kind)) continue;
             const style = LOOT_MARKER_STYLES[marker.kind], point = toLatLng(marker.x, marker.y);
             const icon = L.divIcon({ className: `loot-session-marker loot-session-marker-${marker.kind}`,
-                html: `<span aria-hidden="true" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;box-sizing:border-box;border:2px solid ${style.color};border-radius:50%;background:#101827;color:${style.color};font:700 19px/1 'Segoe UI Symbol',sans-serif;box-shadow:0 1px 4px #000">${style.glyph}</span>`,
+                html: `<span aria-hidden="true" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;box-sizing:border-box;border:2px ${style.dashed ? 'dashed' : 'solid'} ${style.color};border-radius:50%;background:#101827;color:${style.color};font:700 19px/1 'Segoe UI Symbol',sans-serif;box-shadow:0 1px 4px #000">${style.glyph}</span>`,
                 iconSize: [24, 24], iconAnchor: [12, 12] });
             L.marker(point, { icon, keyboard: false, zIndexOffset: 1100 })
                 .bindTooltip(esc(marker.tooltip || label || ui('Routenvorschau', 'Route preview')), { direction: 'top' })

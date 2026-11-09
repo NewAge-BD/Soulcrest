@@ -13,6 +13,7 @@ public sealed class AbyssSessionMarkerTests
     public async Task OwnKillAndDeathAreDurableWithoutFeedAndNeverBecomeIncomeOrOpponentData()
     {
         await using var f = new Fixture(); await f.Ready();
+        f.Source.CombatCapabilities = new(true, true, false);
         f.Settings.Current.AbyssKillFeedEnabled = false;
         f.Settings.Current.AbyssKillFeedShowKills = false; f.Settings.Current.AbyssKillFeedShowDeaths = false;
         f.Clock.Advance(TimeSpan.FromSeconds(1)); f.Position = f.Fix(100, 200);

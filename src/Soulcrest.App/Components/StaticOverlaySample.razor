@@ -1,0 +1,34 @@
+@inherits Soulcrest.App.Components.OverlayKit.KitLocalizedComponentBase
+
+<figure class="static-overlay-sample" aria-label="@T("Ingame-Beispiel")">
+    <figcaption>@T("Ingame-Beispiel")@if (Screenshot?.Caption is { } caption) { <span> · @T(caption)</span> }</figcaption>
+    @if (Screenshot is { } source)
+    {
+        <div class="static-overlay-sample-image"><img src="@("overlay-samples/" + source.File)" alt="@ScreenshotAlt(source)" @onerror="ScreenshotUnavailable" /></div>
+    }
+    else
+    {
+        <p class="static-overlay-sample-missing" role="status">@T("Ingame-Beispiel noch nicht vorhanden.")</p>
+    }
+</figure>
+
+@code {
+    [Parameter, EditorRequired] public string OverlayId { get; set; } = "loot";
+    private string? _previous;
+    private bool _screenshotFailed;
+    private sealed record ScreenshotAsset(string File, string? Caption = null);
+    private static readonly IReadOnlyDictionary<string, ScreenshotAsset[]> ScreenshotFiles = new Dictionary<string, ScreenshotAsset[]>(StringComparer.Ordinal)
+    {
+        ["loot"] = [new("pet-tracker.png")],
+        ["boss"] = [new("boss-spawns.png"), new("boss-spawns-2026-10-09.png", "Ingame-Aufnahme · älterer Darstellungsstand · 09.10.2026")],
+        ["leveling"] = [new("leveling.png")], ["alerts"] = [new("timer-strip.png")],
+        ["notifications"] = [new("notification.png")], ["event-timeline"] = [new("timeline.png")],
+        ["map"] = [new("map-overlay.png")], ["merchant"] = [new("merchant-soul-counters.png")], ["daevanion"] = [new("daevanion-board.png")],
+    };
+    private ScreenshotAsset? Screenshot => !_screenshotFailed && ScreenshotFiles.TryGetValue(OverlayId, out var files)
+        ? files.FirstOrDefault(file => File.Exists(Path.Combine(AppContext.BaseDirectory, "wwwroot", "overlay-samples", file.File))) : null;
+    private string ScreenshotAlt(ScreenshotAsset screenshot) => F("Ingame-Beispiel: {0}", T(OverlayRegistry.Get(OverlayId).Title))
+        + (screenshot.Caption is { } caption ? " · " + T(caption) : "");
+    protected override void OnParametersSet() { if (_previous != OverlayId) { _previous = OverlayId; _screenshotFailed = false; } }
+    private void ScreenshotUnavailable() => _screenshotFailed = true;
+}

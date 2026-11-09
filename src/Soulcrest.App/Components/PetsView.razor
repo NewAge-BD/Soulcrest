@@ -9,7 +9,7 @@
     var selected = (_selectedId is null ? null : _verifiedPets.FirstOrDefault(pet => pet.Id == _selectedId)) ?? shown.FirstOrDefault();
 }
 
-<div class="pets-view">
+<div class="pets-view" data-pet-genus="@_genus">
     @* Gattungsleiste links, wie im Pet-Fenster des Spiels *@
     <nav class="pets-rail" aria-label="@UiText.T("Gattung")">
         <button class="pets-rail-item @(_genus.Length == 0 ? "is-active" : "")" title="@UiText.T("Alle Gattungen")" @onclick="@(() => _genus = "")">
@@ -50,7 +50,7 @@
         </header>
 
         <div class="pets-toolbar">
-            <input class="pets-search" type="text" autocomplete="off" spellcheck="false" placeholder="@UiText.T("Pet oder Monster suchen …")" @bind="_query" @bind:event="oninput" />
+            <input class="pets-search" type="text" autocomplete="off" spellcheck="false" placeholder="@UiText.T("Pet, Monster oder Dungeon suchen …")" @bind="_query" @bind:event="oninput" />
             <select @bind="_map" title="@UiText.T("Karte")">
                 <option value="">@UiText.T("Alle Karten")</option>
                 @foreach (var group in Progress.Maps.GroupBy(m => m.Group))
@@ -62,6 +62,10 @@
                         }
                     </optgroup>
                 }
+            </select>
+            <select @bind="_source" title="@UiText.T("Soul-Quelle")">
+                <option value="">@UiText.T("Alle Soul-Quellen")</option>
+                <option value="dungeon">@UiText.F("Neue Dungeonquellen ({0})", _dungeonSourceCount)</option>
             </select>
             <select @bind="_status" title="Status">
                 <option value="">@UiText.T("Jeder Status")</option>
@@ -135,6 +139,10 @@
                             </div>
                             <button class="pets-card-star @(focus ? "on" : "")" title="@UiText.T("Fokus (Overlay)")" @onclick="@(() => Progress.ToggleFocus(petId))" @onclick:stopPropagation="true">★</button>
                             <div class="pets-card-name">@name</div>
+                            @if (Acquisition(pet) is { } cardAcquisition)
+                            {
+                                <div class="pets-card-source"><span class="pill pets-source-@AvailabilityKey(cardAcquisition)" data-pet-dungeon-source="true" data-pet-global-availability="@AvailabilityKey(cardAcquisition)" title="@string.Join(" · ", cardAcquisition.Sources.Select(source => source.DungeonDisplayName(lang)))">@UiText.T(AcquisitionBadge(cardAcquisition))</span></div>
+                            }
                             @if (!progressEntry.ManualOverride && progressEntry.Freshness != ProgressFreshness.Fresh)
                             {
                                 <div class="pets-card-name"><span class="pill" data-pet-progress-unconfirmed="true" title="@UiText.T("In dieser Sitzung noch nicht durch eine vollständige Pet-Liste bestätigt. Gespeicherte Werte bleiben erhalten.")">@UiText.T("Unbestätigt")</span></div>
@@ -272,8 +280,41 @@
                     </div>
                 </section>
 
+                @if (Acquisition(pet) is { } acquisition)
+                {
+                    <section class="pets-detail-section" data-pet-acquisition="@acquisition.PetNumber">
+                        <h3>@UiText.T("Soul-Quellen")</h3>
+                        <p class="note">@UiText.T("Die Global-Verfügbarkeit gilt je Quelle und Variante.")</p>
+                        <ul class="pets-acquisition-list">
+                            @foreach (var source in acquisition.Sources)
+                            {
+                                <li>
+                                    <strong>@source.DungeonDisplayName(lang)</strong>
+                                    <span class="pill">@UiText.T(source.Category == PetAcquisitionCategory.Transcendence ? "Transzendenz" : "Expedition")</span>
+                                    @foreach (var status in AvailabilityOrder)
+                                    {
+                                        var npcs = source.NpcsWithAvailability(status).ToArray();
+                                        @if (npcs.Length > 0)
+                                        {
+                                            <div class="pets-source-variants pets-source-@status.ToString().ToLowerInvariant()" data-pet-source-status="@status.ToString().ToLowerInvariant()">
+                                                <strong>@UiText.T(AvailabilityLabel(status))</strong>
+                                                <div class="note">@UiText.T("Quellmonster"): @string.Join(" · ", npcs.Select(npc => npc.DisplayName(lang)).Distinct(StringComparer.CurrentCultureIgnoreCase))</div>
+                                            </div>
+                                        }
+                                    }
+                                    <div class="note">@UiText.F("Global-Verfügbarkeit geprüft: {0}", string.Join(" / ", source.GlobalAvailability.Select(map => map.CheckedAt).Distinct()))</div>
+                                </li>
+                            }
+                        </ul>
+                        <p class="note">@UiText.T("Dropchance nicht bekannt.")</p>
+                        <a href="https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957" target="_blank" rel="noopener noreferrer">@UiText.T("Update vom 4. November") ↗</a>
+                    </section>
+                }
+
                 <section class="pets-detail-section">
                     <h3>@UiText.T("Fundorte")</h3>
+                    @if (HasMapPositions(pet))
+                    {
                     <div class="pets-where">
                         <span class="pets-where-label">Spawns</span>
                         @if (pet.Spawns.Count == 0)
@@ -304,7 +345,12 @@
                             </ul>
                         }
                     </div>
-                    <button class="btn primary pets-map-btn" @onclick="@(() => Ui.ShowPetOnMap(pet.Id))">@UiText.T("Auf der Karte zeigen")</button>
+                    }
+                    else
+                    {
+                        <p class="note" data-pet-map-unavailable="true">@UiText.T("Keine belegten Positionen auf den verfügbaren Karten.")</p>
+                    }
+                    <button class="btn primary pets-map-btn" data-pet-map-action="true" disabled="@(!HasMapPositions(pet))" @onclick="@(() => Ui.ShowPetOnMap(pet.Id))">@UiText.T("Auf der Karte zeigen")</button>
                 </section>
 
                 <p class="note pets-detail-note">@UiText.F("Stufen: {0} Souls zum Freischalten, dann {1} und {2} weitere Souls bis MAX (gesamt {3}). Namen aus den vorhandenen Kartendaten.", Progress.Thresholds.Steps[0], Progress.Thresholds.Steps[1], Progress.Thresholds.Steps[2], Progress.Thresholds.Max)</p>
@@ -316,9 +362,10 @@
 @code {
     private static readonly string[] KnownGenera = ["cogni", "fera", "natura", "varian", "special"];
 
-    private string _query = "", _genus = "", _map = "", _status = "", _level = "", _sort = "";
+    private string _query = "", _genus = "", _map = "", _source = "", _status = "", _level = "", _sort = "";
     private string? _selectedId;
-    private int _total, _unlocked, _done, _focusCount;
+    private bool _disposed;
+    private int _total, _unlocked, _done, _focusCount, _dungeonSourceCount;
     private IReadOnlyList<PetDefinition> _verifiedPets = [];
     private Dictionary<string, (int Total, int Unlocked)> _genusCounts = [];
 
@@ -327,11 +374,12 @@
         _genusCounts.ContainsKey("unknown") ? KnownGenera.Append("unknown") : KnownGenera;
 
     private bool FiltersActive =>
-        _query.Length > 0 || _genus.Length > 0 || _map.Length > 0 || _status.Length > 0 || _level.Length > 0;
+        _query.Length > 0 || _genus.Length > 0 || _map.Length > 0 || _source.Length > 0 || _status.Length > 0 || _level.Length > 0;
 
     private bool Matches(PetDefinition pet)
     {
         if (_genus.Length > 0 && pet.Genus != _genus) return false;
+        if (_source == "dungeon" && Acquisition(pet) is null) return false;
         if (_map.Length > 0 && pet.Spawns.GetValueOrDefault(_map) + pet.Monsters.GetValueOrDefault(_map) == 0) return false;
         var souls = Progress.Souls(pet.Id);
         switch (_status)
@@ -350,7 +398,12 @@
         if (_query.Length > 1)
         {
             var q = _query.Trim();
-            return pet.En.Contains(q, StringComparison.OrdinalIgnoreCase) || (pet.De?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false);
+            return pet.En.Contains(q, StringComparison.OrdinalIgnoreCase) || (pet.De?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (Acquisition(pet)?.Sources.Any(source =>
+                    source.DungeonEn.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || (source.DungeonDe?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || source.Npcs.Any(npc => (npc.En?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                        || (npc.De?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))) ?? false);
         }
         return true;
     }
@@ -377,8 +430,40 @@
 
     private void ResetFilters()
     {
-        _query = _genus = _map = _status = _level = "";
+        _query = _genus = _map = _source = _status = _level = "";
     }
+
+    // Dungeon acquisition evidence is separate from navigable map positions and saved progress.
+    private PetAcquisitionEntry? Acquisition(PetDefinition pet) =>
+        Progress.SoulId(pet.Id) is { } petNumber ? PetAcquisitionCatalog.Find(petNumber) : null;
+
+    private static readonly PetGlobalAvailability[] AvailabilityOrder =
+        [PetGlobalAvailability.Available, PetGlobalAvailability.Upcoming, PetGlobalAvailability.Unconfirmed];
+
+    private static string AvailabilityLabel(PetGlobalAvailability status) => status switch
+    {
+        PetGlobalAvailability.Available => "Auf Global verfügbare Varianten",
+        PetGlobalAvailability.Upcoming => "Zukünftige Varianten · noch nicht freigeschaltet",
+        _ => "Varianten mit ungeklärter Global-Verfügbarkeit"
+    };
+
+    private static PetGlobalAvailability AcquisitionAvailability(PetAcquisitionEntry entry) =>
+        entry.Sources.Any(source => source.HasAvailableVariants) ? PetGlobalAvailability.Available :
+        entry.Sources.All(source => !source.HasUnconfirmedVariants && source.HasUpcomingVariants)
+            ? PetGlobalAvailability.Upcoming : PetGlobalAvailability.Unconfirmed;
+
+    private static string AvailabilityKey(PetAcquisitionEntry entry) =>
+        AcquisitionAvailability(entry).ToString().ToLowerInvariant();
+
+    private static string AcquisitionBadge(PetAcquisitionEntry entry) => AcquisitionAvailability(entry) switch
+    {
+        PetGlobalAvailability.Available => "Dungeon-Soul",
+        PetGlobalAvailability.Upcoming => "Zukünftige Quelle",
+        _ => "Quelle unbestätigt"
+    };
+
+    private bool HasMapPositions(PetDefinition pet) =>
+        pet.Maps.Any(mapId => Progress.Maps.Any(map => map.Id == mapId));
 
     private void OnCardKey(KeyboardEventArgs e, string petId)
     {
@@ -389,13 +474,35 @@
     protected override void OnInitialized()
     {
         Progress.Changed += Refresh;
+        Ui.Changed += NavigationChanged;
+        ApplyPendingCategory();
         Recount();
+    }
+
+    private bool ApplyPendingCategory()
+    {
+        if (Ui.TakePendingPetCategory() is not { } genus) return false;
+        ResetFilters();
+        _genus = genus;
+        _selectedId = null;
+        return true;
+    }
+
+    private void NavigationChanged()
+    {
+        if (_disposed || Ui.Tab != "pets") return;
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed || Ui.Tab != "pets") return;
+            if (ApplyPendingCategory()) StateHasChanged();
+        });
     }
 
     private void Recount()
     {
         _verifiedPets = Progress.VerifiedPets;
         _total = _verifiedPets.Count;
+        _dungeonSourceCount = _verifiedPets.Count(pet => Acquisition(pet) is not null);
         _unlocked = _verifiedPets.Count(p => Progress.Level(p.Id) >= 1);
         _done = _verifiedPets.Count(p => Progress.IsMax(p.Id));
         _focusCount = _verifiedPets.Count(p => Progress.IsFocus(p.Id));
@@ -470,5 +577,10 @@
         return label;
     }
 
-    public void Dispose() => Progress.Changed -= Refresh;
+    public void Dispose()
+    {
+        _disposed = true;
+        Progress.Changed -= Refresh;
+        Ui.Changed -= NavigationChanged;
+    }
 }

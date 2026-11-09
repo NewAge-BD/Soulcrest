@@ -1,0 +1,46 @@
+@inherits KitLocalizedComponentBase
+@using Soulcrest.App.Services
+@inject IServiceProvider SourceServices
+
+@if (_settings is not null)
+{
+    <fieldset class="oe-killfeed-source" disabled="@(_saving || Disabled)">
+        <legend>@T("Gemeinsamer Killfeed")</legend>
+        <p class="oe-empty">@T("Diese Quellenoptionen gelten für alle Killfeed-Module.")</p>
+        <label class="oe-check"><input type="checkbox" checked="@_settings.Current.AbyssKillFeedEnabled" @onchange="e => Save(() => _settings.SetAbyssKillFeedEnabled(e.Value is true))" /><span>@T("Killfeed anzeigen")</span></label>
+        <label class="oe-check"><input type="checkbox" checked="@_settings.Current.AbyssKillFeedShowKills" @onchange="e => Save(() => _settings.SetAbyssKillFeedShowKills(e.Value is true))" /><span>@T("Spielerkills")</span></label>
+        <label class="oe-check"><input type="checkbox" checked="@_settings.Current.AbyssKillFeedShowAssists" @onchange="e => Save(() => _settings.SetAbyssKillFeedShowAssists(e.Value is true))" /><span>@T("Assists")</span></label>
+        <label class="oe-check"><input type="checkbox" checked="@_settings.Current.AbyssKillFeedShowDeaths" @onchange="e => Save(() => _settings.SetAbyssKillFeedShowDeaths(e.Value is true))" /><span>@T("Eigene Tode")</span></label>
+        @if (_error is not null) { <p class="notice error-notice" role="alert">@T(_error)</p> }
+    </fieldset>
+}
+
+@code {
+    [Parameter] public bool Disabled { get; set; }
+    private SettingsService? _settings;
+    private bool _saving;
+    private string? _error;
+    private bool _disposed;
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _settings = SourceServices.GetService(typeof(SettingsService)) as SettingsService;
+        if (_settings is not null) _settings.Changed += RefreshSource;
+    }
+    private void RefreshSource() { if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); }); }
+    public override void Dispose()
+    {
+        _disposed = true;
+        if (_settings is not null) _settings.Changed -= RefreshSource;
+        base.Dispose();
+    }
+    private async Task Save(Action update)
+    {
+        if (_saving || Disabled) return;
+        _saving = true; _error = null;
+        try { await Task.Run(update); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException)
+        { _error = "Einstellungen konnten nicht gespeichert werden."; }
+        finally { _saving = false; }
+    }
+}

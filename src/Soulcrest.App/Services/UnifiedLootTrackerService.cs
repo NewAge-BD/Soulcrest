@@ -6,7 +6,7 @@ using Soulcrest.Core.Network;
 namespace Soulcrest.App.Services;
 
 /// <summary>One own session, monotonic clock and journal for all qualified loot activities.</summary>
-public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDisposable
+public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDisposable, ICommittedLootFactSource
 {
     private readonly SettingsService _settings;
     private readonly INetworkFarmSource _farm;
@@ -123,6 +123,8 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
     public event Action? Changed;
     public event Action<string>? SessionStarted;
     public event Action<AcceptedFarmLootDrop>? DropAccepted;
+    public event Action<CommittedLootFact>? LootFactCommitted;
+    public event Action<string>? SessionDeleted;
 
     private abstract record Command;
     private sealed record Observation(OwnCharacterContext? Own, LootTrackerCharacterSnapshot? Character,
@@ -392,6 +394,9 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
             var pending = session.UnifiedVersion == 0
                 ? (_deleteLegacy ?? throw new InvalidOperationException("Legacy history is read-only."))(session)
                 : _store.Delete(command.Id);
+            // The journal deletion has committed. Cancel/tombstone dependent price work before
+            // publishing completion, so a late HTTP response cannot recreate deleted sidecars.
+            SafeEvent.Raise(SessionDeleted, command.Id, "Gelöschte Loot-Session");
             _cleanupPending |= pending;
             if (_active?.Id == command.Id)
             {

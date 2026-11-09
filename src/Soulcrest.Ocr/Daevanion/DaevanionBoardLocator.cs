@@ -15,7 +15,11 @@ public sealed record DaevanionNodeAnchor(int Row, int Column, Rect Bounds, doubl
 }
 /// <summary>Origin is the center of native cell (1,1), in the supplied image's pixels.</summary>
 public sealed record DaevanionBoardDetection(string Family, Point2d Origin, double Spacing, double NodeSize,
-    IReadOnlyList<DaevanionNodeAnchor> Nodes, double Confidence);
+    IReadOnlyList<DaevanionNodeAnchor> Nodes, double Confidence)
+{
+    /// <summary>Independently visible start ornament in this frame; never inherited from a preferred raster.</summary>
+    public bool StartVisible { get; init; }
+}
 
 /// <summary>
 /// Finds a complete board family from current pixels, without text, color-to-skill assumptions or a
@@ -27,7 +31,7 @@ public static class DaevanionBoardLocator
     private sealed record Candidate(Rect Bounds, Point2d Center);
     private sealed record Cell(int X, int Y, Candidate Candidate, double Confidence);
     private sealed record Hypothesis(DaevanionBoardPattern Pattern, Point2d Origin, double Score,
-        IReadOnlyList<DaevanionNodeAnchor> Nodes);
+        IReadOnlyList<DaevanionNodeAnchor> Nodes, bool StartVisible);
     private sealed record FrameReference(double[] Values, double Norm, double[] RedValues, double RedNorm, DaevanionNodeAppearance Appearance);
     private static readonly Lazy<(FrameReference[] Frames, Point2d[] Start, Point2d[] Border)> References = new(LoadReferences);
     private const int SamplesPerAxis = 13;
@@ -106,7 +110,7 @@ public static class DaevanionBoardLocator
                 var hypothesis = MatchPatterns(confirmed, phase, spacing.Value, actualSize, gray, red, nearEdges, valid, image.Size());
                 if (hypothesis is null) continue;
                 var result = new DaevanionBoardDetection(hypothesis.Pattern.Family, hypothesis.Origin,
-                    spacing.Value, actualSize, hypothesis.Nodes, hypothesis.Score);
+                    spacing.Value, actualSize, hypothesis.Nodes, hypothesis.Score) { StartVisible = hypothesis.StartVisible };
                 if (Better(result, best)) best = result;
                 if (ratio == 1 && result.Confidence == 1 && result.Nodes.All(n => FrameScorePlane(gray,
                     Center(result.Origin, result.Spacing, n.Row, n.Column), result.NodeSize, false) >= .58)) nativeContour = result;
@@ -227,13 +231,14 @@ public static class DaevanionBoardLocator
             var unexpected = visible.Count - matched.Length;
             var score = (matched.Length + (candidateStartVisible ? 1d : 0)) / (candidate.Cells.Count + unexpected);
             if (score < .80 || unexpected > candidate.Cells.Count * .08 || !candidateStartVisible && matched.Length < 35) continue;
-            hypotheses.Add(new(candidate, origin, score, matched.OrderBy(n => n.Row).ThenBy(n => n.Column).ToArray()));
+            hypotheses.Add(new(candidate, origin, score, matched.OrderBy(n => n.Row).ThenBy(n => n.Column).ToArray(), candidateStartVisible));
         }
         var ordered = hypotheses.OrderByDescending(h => h.Score).ToArray();
         if (ordered.Length == 0 || ordered[0].Pattern.Family != preferred.Family
             || ordered.Skip(1).Any(h => h.Pattern.Family != preferred.Family && ordered[0].Score - h.Score < .035)) return null;
         // No previous nodes/confidences are reused: every returned anchor has current pixel evidence.
-        return new(preferred.Family, origin, spacing, size, ordered[0].Nodes, ordered[0].Score);
+        return new(preferred.Family, origin, spacing, size, ordered[0].Nodes, ordered[0].Score)
+            { StartVisible = ordered[0].StartVisible };
     }
 
     private static Point2d Center(Point2d origin, double spacing, int row, int column) =>
@@ -372,7 +377,7 @@ public static class DaevanionBoardLocator
                 }
                 var score = (matched.Count + 1d) / (pattern.Cells.Count + unexpected);
                 if (score < .80 || unexpected > pattern.Cells.Count * .08) continue;
-                hypotheses.Add(new(pattern, origin, score, matched.OrderBy(n => n.Row).ThenBy(n => n.Column).ToArray()));
+                hypotheses.Add(new(pattern, origin, score, matched.OrderBy(n => n.Row).ThenBy(n => n.Column).ToArray(), true));
             }
         }
         var ordered = hypotheses.OrderByDescending(h => h.Score).ToArray();

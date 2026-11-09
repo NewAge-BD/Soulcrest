@@ -1,0 +1,32 @@
+@inherits KitLocalizedComponentBase
+@using Soulcrest.App.Overlay
+@using Soulcrest.App.Services
+
+<div class="overlay-daily-bar @(Progress.Fraction is null ? "is-unknown" : "") @(Progress.Fraction >= 1 ? "is-complete" : "") @(!Snapshot.ItemAnimationsEnabled ? "is-motion-disabled" : "")"
+     style="@BarStyle" role="progressbar" aria-label="@T("Fortschritt Tages-Kina")"
+     aria-valuenow="@(Progress.Fraction is { } fraction ? Css(fraction * 100) : null)" aria-valuemin="0" aria-valuemax="100" aria-valuetext="@Progress.Value">
+    @if (Progress.Fraction is not null)
+    {
+        <span class="overlay-daily-fill" aria-hidden="true"></span>
+        @if (Progress.Fraction is > 0 and < 1 && Progress.SessionStartFraction is { } start && Progress.SessionFraction is { } contribution && contribution > 0)
+        {
+            <span class="overlay-daily-session" style="left:@Css(start * 100)%;width:@Css(contribution * 100)%" aria-hidden="true"></span>
+        }
+    }
+    <span class="overlay-daily-caption">
+        @if (ShowIcon) { <AssetImage Src="@KinaIcon" Alt="" Class="overlay-daily-icon" /> }
+        <span class="overlay-daily-number" data-overlay-fit>@Progress.Value</span>
+    </span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public OverlaySnapshot Snapshot { get; set; } = new();
+    [Parameter] public bool ShowIcon { get; set; } = true;
+    private OverlayDailyKinaProgress Progress => Snapshot.DailyProgress;
+    private static readonly string? KinaIcon = MonsterLootIconCatalog.Default.ItemAsset(930100031);
+    private double? _phase;
+    protected override void OnParametersSet() => _phase ??= Math.Max(0, Snapshot.ClockUtcNow.ToUnixTimeMilliseconds() / 1000d);
+    private string BarStyle => $"--daily-blue:{Color(LootOverlayRenderer.Blue)};--daily-green:{Color(LootOverlayRenderer.Green)};--daily-gold:{Color(LootOverlayRenderer.Gold)};--daily-fill:{Css(Math.Clamp(Progress.Fraction ?? 0, 0, 1) * 100)}%;--daily-phase:-{Css(_phase ?? 0)}s";
+    private static string Color(System.Drawing.Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    private static string Css(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
+}

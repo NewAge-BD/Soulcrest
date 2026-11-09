@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Soulcrest.Core.Network;
 using Soulcrest.Core.Progress;
@@ -30,6 +30,12 @@ public sealed class CharacterExploration
     public HashSet<string> Done { get; set; } = [];
     public int? ServerId { get; set; }
     public long? NetworkCharacterId { get; set; }
+    public CharacterTitleOwnershipHistory? TitleOwnership { get; set; }
+    public CharacterWingOwnershipHistory? WingOwnership { get; set; }
+    public CharacterPantheonHistory? Pantheon { get; set; }
+    public CharacterGenusInsightPreset? GenusInsightPreset { get; set; }
+    public string? AchievementBindingRevision { get; set; }
+    public string? AchievementOwnerFingerprint { get; set; }
     public Dictionary<string, ExplorationPlaceProgress> Progress { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<int, QuestProgressRecord> RawQuests { get; set; } = [];
     public HashSet<int> RawTeleportIds { get; set; } = [];
@@ -41,6 +47,7 @@ public sealed class CharacterExploration
 public sealed class ExplorationProfiles
 {
     public int SchemaVersion { get; set; }
+    public GenusInsightHistory? GenusInsight { get; set; }
     public string Active { get; set; } = "";
     public List<CharacterExploration> Characters { get; set; } = [];
 }
@@ -190,6 +197,7 @@ public sealed partial class ExplorationService
             { c = new CharacterExploration { Name = context.Name.Trim() }; _state.Characters.Add(c); choice = CharacterChoice.Created; }
             c.NetworkCharacterId = context.CharacterId;
             c.ServerId = context.ServerId;
+            EnsureAchievementBinding(c);
             _state.Active = c.Id;
             _networkCharacter = c.Id;
             _networkContext = context;

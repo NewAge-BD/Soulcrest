@@ -48,7 +48,8 @@ public sealed record NetworkProgressSources(bool IdentityIsLive, string? Charact
 /// </summary>
 public sealed partial class NetworkLootService(ProgressService progress, ExplorationService? exploration = null,
     WorldContextService? worldContext = null) : INetworkLootSource, INetworkMerchantSource,
-    INetworkGatheringSource, INetworkKinaSource, INetworkFarmSource, INetworkAbyssSource, INetworkAbyssCombatSource, IDisposable
+    INetworkGatheringSource, INetworkKinaSource, INetworkFarmSource, INetworkAbyssSource, INetworkAbyssCombatSource,
+    INetworkSkillSource, INetworkCharacterCombatSource, INetworkAchievementSource, IDisposable
 {
     public WorldContextService WorldContext { get; } = worldContext ?? new();
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
@@ -108,6 +109,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         public int EntityKey { get; } = entityKey;
         public DateTimeOffset StartedAt { get; } = startedAt;
         public bool Prepared { get; set; }
+        public DateTimeOffset? PreparedAt { get; set; }
         public List<(byte[] Message, DateTimeOffset At)> Baselines { get; } = [];
         public HashSet<ushort> Sources { get; } = [];
         public HashSet<ushort> RejectedSources { get; } = [];
@@ -120,6 +122,17 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         public DateTimeOffset? DailyKinaAt { get; set; }
         public bool DailyKinaSeen { get; set; }
         public bool DailyKinaRejected { get; set; }
+        public OwnSkillList? Skills { get; set; }
+        public DateTimeOffset? SkillsAt { get; set; }
+        public bool SkillsSeen { get; set; }
+        public bool SkillRejected { get; set; }
+        public NetworkCombatDomain<CharacterPantheonState> Pantheon { get; set; } = NetworkCombatDomain<CharacterPantheonState>.Unknown;
+        public bool PantheonSeen { get; set; }
+        public DateTimeOffset? PantheonAt { get; set; }
+        public NetworkCharacterCombatSnapshot Combat { get; set; } = NetworkCharacterCombatSnapshot.Empty;
+        public HashSet<ushort> CombatSources { get; } = [];
+        public int CombatBytes { get; set; }
+        public int CombatMessages { get; set; }
         public int Bytes { get; set; }
     }
     private EntryCandidate? _entryCandidate;
@@ -1028,6 +1041,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         lock (_gate)
         {
             if (stream == "*" || _abyssPointContinuity?.Stream == stream) RevokeAbyssPointContinuity();
+            var titleOwnershipAffected = InvalidateTitleOwnershipForGap(stream);
             var characterAffected = stream == "*" || _identityStream == stream || _entryCandidate?.Stream == stream;
             var characterGeneration = _progressGeneration;
             var ownCharacterChanged = characterAffected && _ownCharacter is not null;
@@ -1038,6 +1052,8 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             {
                 _ownCharacter = null;
                 _identity = null;
+                ResetSkillContext();
+                ResetCombatContext(at: capturedAtUtc);
                 ResetGatheringContext();
                 ResetAbyssCombatContext();
                 ResetKinaContext();
@@ -1056,7 +1072,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 ResetProgressContext(DiagnosticResetReason(reason));
             else if (!characterAffected && merchantAffected) ResetMerchantContext();
             if (ownCharacterChanged) SafeEvent.Raise(OwnCharacterChanged, "Eigener Charakter");
-            if (characterAffected || petAffected) SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
+            if (characterAffected || petAffected || titleOwnershipAffected) SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
         }
         // Boss schedules can belong to a different stream; notify only after revoking stale Own authority.
         BossStreamGap?.Invoke(stream);
@@ -1071,6 +1087,19 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             ExpireEntryCandidate(at);
             if (message.Length < 2) return;
             var opcode = (ushort)(message[0] | message[1] << 8);
+            CountAchievementIngress(opcode, message);
+            if (opcode == 0x8AAF)
+            {
+                if (ProcessOwnPantheonMessage(stream, message, at))
+                    SafeEvent.Raise(Changed, "Eigene Dekorationen");
+                return;
+            }
+            if (opcode is 0x3649 or 0x364A or 0x3656 or 0x8D00 or 0xE226 or 0xE22E or 0x5672 or 0x5676 or 0x5679 or 0x5683 or 0x5684 or 0x5686 or 0x9018 or 0x901A)
+            {
+                if (ProcessOwnCombatMessage(stream, opcode, message, at))
+                    SafeEvent.Raise(Changed, "Eigene Charakterwerte");
+                return;
+            }
             if (_identityStream == stream && (_gatheringCompletions.Count + _gatheringWitnesses.Count + _ambiguousGatherings.Count > 0))
             {
                 var ownBeforeExpiry = _ownCharacter;
@@ -1092,12 +1121,19 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             }
             if (opcode is 0x5611 or 0x561B)
             {
+                var combatChanged = ProcessOwnCombatMessage(stream, opcode, message, at);
                 ProcessKinaMessage(stream, opcode, message, at);
+                if (combatChanged) SafeEvent.Raise(Changed, "Eigene Ausrüstung");
                 return;
             }
             if (opcode == 0xE273)
             {
                 ProcessAbyssRankMessage(stream, message, at);
+                return;
+            }
+            if (opcode == 0x3804)
+            {
+                ProcessOwnAssistParticipation(stream, message, at);
                 return;
             }
             if (opcode == 0x8D04)
@@ -1131,12 +1167,19 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             }
             if (opcode is 0x9000 or 0x9009 or 0x900D or 0x900E or 0x9014)
             {
+                var combatChanged = ProcessOwnCombatMessage(stream, opcode, message, at);
                 ProcessPetMessage(stream, opcode, message, at);
+                if (combatChanged) SafeEvent.Raise(Changed, "Eigene Petwerte");
                 return;
             }
             if (opcode is 0x3634 or 0x3635 or 0x8D33 or 0x8D34)
             {
                 ProcessGatheringMessage(stream, opcode, message, at);
+                return;
+            }
+            if (opcode is 0x5100 or 0x380F or 0x3813)
+            {
+                ProcessOwnSkillMessage(stream, opcode, message, at);
                 return;
             }
             if (opcode == 0x3620)
@@ -1150,7 +1193,8 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 var candidateGeneration = _progressGeneration + 1;
                 var tentative = OwnIdentityMessage.TryParseEntryCandidate(message);
                 var continuity = BeginAbyssPointCandidate(stream, tentative, at);
-                ResetProgressContextCore("world-entry-candidate", at, continuity);
+                ResetProgressContextCore("world-entry-candidate", at, continuity,
+                    tentative is null ? null : new(stream, tentative.CharacterId, null));
                 CompleteAbyssPointTransitionReset(continuity);
                 if (_generation != captureGeneration || _progressGeneration != candidateGeneration || _identity is not null) return;
                 if (tentative is not null)
@@ -1174,7 +1218,10 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 var kinaRevision = _kinaMessageRevision;
                 var dailyKinaRevision = _dailyKinaMessageRevision;
                 var continuity = PrepareAbyssPointContinuity(stream, at);
-                ResetProgressContextCore("world-entry-preparation", at, continuity);
+                ResetProgressContextCore("world-entry-preparation", at, continuity,
+                    candidate is not null ? new(stream, candidate.CharacterId, null)
+                        : _ownCharacter is { } currentOwn
+                            ? new(stream, currentOwn.Identity.CharacterId, currentOwn.Identity.ServerId) : null);
                 CompleteAbyssPointTransitionReset(continuity);
                 if (_generation != captureGeneration || _progressGeneration != preparedGeneration || _identity is not null) return;
                 if (candidate is { Prepared: false })
@@ -1190,6 +1237,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                         candidate.DailyKina = null;
                     }
                     candidate.Prepared = true;
+                    candidate.PreparedAt = at;
                     _entryCandidate = candidate;
                 }
                 BossSessionReset?.Invoke();
@@ -1198,7 +1246,8 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             }
             if (OwnIdentityMessage.TryParseWorld(message) is { } world)
             {
-                ObserveIdentity(stream, world.Identity, at, world.MapDataId, world.CombatScore, world.GearScore, world.AbyssRankPoints);
+                ObserveIdentityCore(stream, world.Identity, at, world.MapDataId, world.CombatScore, world.GearScore,
+                    world.AbyssRankPoints, world.HasPositiveHealth, skillsQualified: true, world);
                 return;
             }
             if (opcode is 0x3633 or 0x3621)
@@ -1567,6 +1616,12 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
 
     internal void ObserveIdentity(string stream, OwnCharacterIdentity identity, DateTimeOffset at, int? mapDataId = null,
         long? combatScore = null, int? gearScore = null, long? abyssRankPoints = null)
+        => ObserveIdentityCore(stream, identity, at, mapDataId, combatScore, gearScore, abyssRankPoints, null, skillsQualified: false);
+
+    // Preserve the identity-only offline hook: only the complete native Own path supplies health.
+    private void ObserveIdentityCore(string stream, OwnCharacterIdentity identity, DateTimeOffset at, int? mapDataId,
+        long? combatScore, int? gearScore, long? abyssRankPoints, bool? hasPositiveHealth, bool skillsQualified,
+        OwnWorldObservation? combatObservation = null)
     {
         lock (_gate)
         {
@@ -1580,8 +1635,9 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             var ownGeneration = _progressGeneration + 1;
             var kinaRevision = _kinaMessageRevision;
             var dailyKinaRevision = _dailyKinaMessageRevision;
+            var skillRevision = _skillMessageRevision;
             var continuity = BeginAbyssPointRebind(stream, identity, at);
-            ResetProgressContextCore("world-entry", at, continuity);
+            ResetProgressContextCore("world-entry", at, continuity, new(stream, identity.CharacterId, identity.ServerId));
             CompleteAbyssPointTransitionReset(continuity);
             if (_generation != captureGeneration || _progressGeneration != ownGeneration || _identity is not null) return;
             _identity = identity;
@@ -1590,8 +1646,12 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 CombatScore = combatScore is >= 0 ? combatScore : null,
                 GearScore = gearScore is >= 0 ? gearScore : null,
                 ObservedAt = at,
+                HasPositiveHealth = hasPositiveHealth,
             };
             _identityStream = stream;
+            _skillOwnQualified = skillsQualified;
+            BindSkillBaseline(null);
+            BindCombatBaseline(transaction, combatObservation);
             BindAbyssCombatOwnTransport(stream);
             if (transaction is not null && _kinaMessageRevision != kinaRevision)
             {
@@ -1616,6 +1676,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             var context = new NetworkProgressContext(identity, ownGeneration, 0, at);
             exploration?.BindNetworkContext(context);
             if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
+            if (_skillMessageRevision == skillRevision) BindSkillBaseline(transaction);
             WorldContext.ObserveOwn(mapDataId, ownGeneration, at);
             if (!OwnBindingMatches(stream, identity, context, captureGeneration)) return;
             _identityBindings++;
@@ -1639,7 +1700,8 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
     internal void ResetProgressContext(string reason = "manual", DateTimeOffset? at = null) =>
         ResetProgressContextCore(reason, at, null);
 
-    private void ResetProgressContextCore(string reason, DateTimeOffset? at, AbyssPointContinuity? continuity)
+    private void ResetProgressContextCore(string reason, DateTimeOffset? at, AbyssPointContinuity? continuity,
+        TitleOwnershipEntry? titleEntry = null)
     {
         lock (_gate)
         {
@@ -1660,6 +1722,8 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             _progressGeneration++;
             _progressSequence = 0;
             _identity = null;
+            ResetSkillContext();
+            ResetCombatContext(reason is "world-entry-candidate" or "world-entry-preparation" or "world-entry", at, titleEntry);
             ResetGatheringContext();
             ResetAbyssCombatContext();
             ResetKinaContext();

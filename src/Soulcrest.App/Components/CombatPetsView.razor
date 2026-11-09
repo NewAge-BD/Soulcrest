@@ -1,0 +1,86 @@
+@using System.Globalization
+@using Soulcrest.App.Services
+@using Soulcrest.Core.Combat
+@using static Soulcrest.App.Components.CombatTitlesPresentation
+
+<section class="ct-view cpet-view" data-combat-pets data-pet-summary-status="@State.Status" data-pet-summary-source="@Source" data-pet-summary-manual="@State.IncludesManualValues.ToString().ToLowerInvariant()">
+    <header class="ct-collection-heading cpet-heading">
+        <div><h3>@UiText.T("Pet-Sammlung")</h3><p>@UiText.T("Besitzboni und Stufenfortschritt deiner gemeinsamen Pet-Sammlung.")</p></div>
+        <button type="button" class="cpet-open-pets" data-open-main-pets="open" disabled="@(!OpenPets.HasDelegate)" @onclick="@(() => OpenPets.InvokeAsync())">@UiText.T("Zur Pet-Sammlung")<span aria-hidden="true">↗</span></button>
+    </header>
+    @if (State.IsHistorical)
+    {
+        <p class="ct-history-note cpet-history" data-pet-saved-stand><strong>@UiText.T("Gespeicherter Petstand")</strong>@if (State.ObservedAt is { } at) { <time datetime="@at.ToString("O")">@UiText.F("Stand: {0}", at.ToLocalTime().ToString("g", Culture))</time> }<span>@UiText.T("Gespeicherte gemeinsame Pet-Sammlung. Der aktuelle Netzwerkstand ist noch nicht vollständig bestätigt.")</span></p>
+    }
+    @if (State.IncludesManualValues)
+    {
+        <p class="cpet-manual-note" data-pet-manual-values>@UiText.T("Enthält manuell korrigierte Pet-Stufen.")</p>
+    }
+    <div class="ct-passive-summaries cpet-effects">
+        <section class="ct-passive-panel" data-pet-effects="Owned">
+            <header><h4>@UiText.T("Vorhandene Petboni")</h4><span>@UiText.T("Aus erreichten Pet-Stufen")</span></header>
+            @Effects(State.OwnedEffects, "Owned")
+        </section>
+        <section class="ct-passive-panel ct-missing-passives" data-pet-effects="Missing">
+            <header><h4>@UiText.T("Fehlende Petboni")</h4><span>@UiText.T("Bis zu allen maximalen Pet-Stufen")</span></header>
+            @Effects(State.MissingEffects, "Missing")
+        </section>
+    </div>
+    <section class="cpet-completion" aria-label="@UiText.T("Pet-Stufenfortschritt")">
+        <header><h4>@UiText.T("Pet-Stufenfortschritt")</h4><p>@UiText.T("Erreichte Pet-Stufen im Verhältnis zu allen möglichen Stufen.")</p></header>
+        <div class="cpet-category-grid">
+            @foreach (var genus in Genera)
+            {
+                var category = State.Categories.FirstOrDefault(row => row.Genus == genus);
+                var current = category?.CompletedStages;
+                var maximum = category is { MaximumStages: > 0 } ? category.MaximumStages : (int?)null;
+                var percent = category?.CompletionPercent;
+                var label = GenusLabel(genus);
+                <article class="cpet-category pets-g-@genus" data-pet-category="@genus" data-pet-category-status="@(category?.Status ?? CombatKnowledgeStatus.Unknown)" data-pet-completed-stages="@current" data-pet-maximum-stages="@maximum" data-pet-completion-percent="@Machine(percent)">
+                    <header>
+                        @if (PetGenusIcons.IconUrl(genus) is { } icon) { <img src="@icon" alt="" /> }
+                        <div><h5>@label</h5><span>@(category is { PetCount: > 0 } ? UiText.F("{0} Pets", category.PetCount) : "—")</span></div>
+                        <strong class="cpet-percent">@Percent(percent)</strong>
+                    </header>
+                    <div class="cpet-progress" role="progressbar" aria-label="@UiText.F("{0}: Pet-Stufenfortschritt", label)" aria-valuemin="0" aria-valuemax="@maximum" aria-valuenow="@current" aria-valuetext="@(percent is { } ? Percent(percent) : UiText.T("Noch nicht vollständig bestätigt"))"><span style="width:@ProgressWidth(percent)%"></span></div>
+                    <p class="cpet-stage-count">@UiText.F("{0} / {1} Pet-Stufen", current?.ToString(Culture) ?? "—", maximum?.ToString(Culture) ?? "—")</p>
+                    @if (category?.Status != CombatKnowledgeStatus.Complete) { <small class="cpet-category-note">@UiText.T("Noch nicht vollständig bestätigt")</small> }
+                </article>
+            }
+        </div>
+    </section>
+</section>
+
+@code {
+    [Parameter] public CombatPetsSnapshot State { get; set; } = CombatPetsSnapshot.Empty;
+    [Parameter] public EventCallback OpenPets { get; set; }
+    [Parameter] public EventCallback<string> OpenPetCategory { get; set; }
+    private static readonly string[] Genera = ["cogni", "fera", "natura", "varian"];
+    private string Source => State.Status == CombatKnowledgeStatus.Unknown ? "Unknown" : State.IsHistorical ? "Saved"
+        : State.IncludesManualValues ? "IncludesManual" : State.Status == CombatKnowledgeStatus.Partial ? "Partial" : "Current";
+    private CultureInfo Culture => CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");
+    private static string GenusLabel(string genus) => genus switch { "cogni" => "Cogni", "fera" => "Fera", "natura" => "Natura", "varian" => "Varian", _ => genus };
+    private string Percent(decimal? value) => value is { } number ? number.ToString("0.##", Culture) + " %" : "—";
+    private static string? Machine(decimal? value) => value?.ToString(CultureInfo.InvariantCulture);
+    private static string ProgressWidth(decimal? percent) => Math.Clamp(percent ?? 0, 0, 100).ToString(CultureInfo.InvariantCulture);
+    private RenderFragment Effects(IReadOnlyList<CombatPetEffectTotal> effects, string channel) => @<div class="ct-passive-list cpet-effect-list">
+        @foreach (var effect in effects)
+        {
+            if (channel == "Missing")
+            {
+                var genus = CombatPetsPresentation.GenusForStat(effect.Key);
+                <button type="button" class="ct-passive-total cpet-missing-link" data-pet-effect-channel="@channel" data-pet-effect-stat="@PassiveKeyText(effect.Key)" data-pet-effect-status="@effect.Status" data-pet-effect-value="@Machine(effect.Value)" data-pet-effect-known-subtotal="@Machine(effect.KnownSubtotal)" data-pet-missing-stat="@PassiveKeyText(effect.Key)" data-pet-missing-category="@genus" disabled="@(genus is null || !OpenPetCategory.HasDelegate)" title="@(genus is not null ? UiText.F("Pets der Kategorie {0} öffnen", GenusLabel(genus)) : null)" @onclick="@(() => OpenPetCategory.InvokeAsync(genus!))">@EffectContent(effect)</button>
+            }
+            else
+            {
+                <div class="ct-passive-total" data-pet-effect-channel="@channel" data-pet-effect-stat="@PassiveKeyText(effect.Key)" data-pet-effect-status="@effect.Status" data-pet-effect-value="@Machine(effect.Value)" data-pet-effect-known-subtotal="@Machine(effect.KnownSubtotal)">@EffectContent(effect)</div>
+            }
+        }
+        @if (effects.Count == 0) { <p class="ct-passive-note">@UiText.T(State.Status == CombatKnowledgeStatus.Complete ? channel == "Owned" ? "Keine Besitzboni im aktuellen Petstand." : "Keine Petboni mehr offen." : "Petboni noch nicht vollständig bestätigt.")</p> }
+    </div>;
+    private RenderFragment EffectContent(CombatPetEffectTotal effect) => @<text>
+        <span>@PassiveLabel(effect.LabelDe, effect.LabelEn, UiText.Language)</span><strong>@PassiveValue(effect.Value, effect.Key.Unit, UiText.Language)</strong>
+        @if (effect.Value is null && effect.KnownSubtotal is { } subtotal) { <small>@UiText.F("Bekannter Teilwert: {0}", PassiveValue(subtotal, effect.Key.Unit, UiText.Language))</small> }
+        else if (effect.Status != CombatKnowledgeStatus.Complete) { <small>@UiText.T("teilweise")</small> }
+    </text>;
+}

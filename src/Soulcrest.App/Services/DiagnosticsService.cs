@@ -122,7 +122,7 @@ public sealed class DiagnosticsService : IDisposable
             $"Netzwerkfortschritt: {_network?.ProgressStatus ?? "nicht gestartet"}\n" +
             $"Pet-Baseline: {_network?.PetBaselineAt:O}\nQuest-Baseline: {_network?.QuestBaselineAt:O}\nTeleport-Baseline: {_network?.TeleportBaselineAt:O}\n" +
             $"Erweiterte Pruefung aktiv: {Volatile.Read(ref _checking) != 0}\n" +
-            FormatNetworkProgressDiagnostics(networkDiagnostics) + FormatKinaDiagnostics(_network?.KinaSnapshot,
+            FormatNetworkProgressDiagnostics(networkDiagnostics) + FormatAchievementIngressDiagnostics(_network?.AchievementDiagnostics) + FormatKinaDiagnostics(_network?.KinaSnapshot,
                 _network?.DailyMonsterKinaSnapshot) + Soulcrest.App.Overlay.MerchantOverlayForm.Health.Report();
     }
 
@@ -169,6 +169,23 @@ public sealed class DiagnosticsService : IDisposable
             result += FormattableString.Invariant($"{Utc(item.At)} Kind:{kind}; Opcode:{eventOpcode}; Pet:{Number(item.PetNumber)}; Level:{Number(item.Level)}; Souls:{Number(item.Souls)}; Count:{Number(item.Count)}; Reason:{Reason(item.ResetReason ?? "none")}\n");
         }
         return result;
+    }
+
+    /// <summary>Only fixed counters and enum states; no names, native IDs, payloads or endpoints.</summary>
+    internal static string FormatAchievementIngressDiagnostics(AchievementIngressDiagnostics? snapshot)
+    {
+        if (snapshot is null) return "[Anonyme Achievement-Eingangsdiagnose]\nNicht verfügbar.\n";
+        var status = Enum.IsDefined(snapshot.SourceStatus) ? snapshot.SourceStatus.ToString() : "Unknown";
+        return FormattableString.Invariant($"""
+            [Anonyme Achievement-Eingangsdiagnose]
+            Entry3620Framed: {snapshot.Entry3620Framed}; Entry3620Parsed: {snapshot.Entry3620Parsed}
+            Preparation3621Framed: {snapshot.Own3621Framed}; Preparation3621Parsed: {snapshot.Own3621Parsed}
+            Own3633Framed: {snapshot.Own3633Framed}; Own3633Parsed: {snapshot.Own3633Parsed}; OwnBindings: {snapshot.OwnBindings}
+            Lists5683Framed: {snapshot.Lists5683Framed}; Updates5684Framed: {snapshot.Updates5684Framed}; Rewards5686Framed: {snapshot.Rewards5686Framed}
+            AcceptedBaselines: {snapshot.AcceptedBaselines}; AcceptedUpdates: {snapshot.AcceptedUpdates}; AcceptedRewards: {snapshot.AcceptedRewards}
+            Invalidations: {snapshot.Invalidations}; QueueOverflows: {snapshot.QueueOverflows}; PendingNotifications: {snapshot.PendingNotifications}; SubscriberFailures: {snapshot.SubscriberFailures}
+            FramingResyncs: {snapshot.FramingResyncs}; CharacterBound: {snapshot.CharacterBound}; SourceFresh: {snapshot.SourceFresh}; SourceStatus: {status}
+            """) + "\n";
     }
 
     internal static void AddReport(ZipArchive zip, string captureReport, string? fullReport, string? error)
@@ -329,6 +346,7 @@ public sealed class DiagnosticsService : IDisposable
         Line($"Status: {_network?.ProgressStatus ?? "nicht gestartet"}; aktuell: {_network?.ProgressIsLive ?? false}");
         Line($"Pet-Baseline: {_network?.PetBaselineAt:O}; Quest-Baseline: {_network?.QuestBaselineAt:O}; Teleport-Baseline: {_network?.TeleportBaselineAt:O}");
         Line(FormatNetworkProgressDiagnostics(_network?.ProgressDiagnostics).TrimEnd());
+        Line(FormatAchievementIngressDiagnostics(_network?.AchievementDiagnostics).TrimEnd());
         if (_map.StatusIsError) hints.Add(new(true, _map.Status));
         if (_loot.StatusIsError) hints.Add(new(true, _loot.Status));
         if (_map.Status == CaptureReadback.Waiting || _loot.Status == CaptureReadback.Waiting)

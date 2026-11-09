@@ -15,6 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\DiagnosticTestAttributes.cs" Link="DiagnosticTestAttributes.cs" />
+    <Compile Include="..\PendingOwnWeights.cs" Link="PendingOwnWeights.cs" />
     <Using Include="Soulcrest.Testing" />
     <ProjectReference Include="..\..\src\Soulcrest.App\Soulcrest.App.csproj" />
     <Content Include="..\fixtures\pet-window\*.png" Link="fixtures\pet-window\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Collections.Immutable;
 
 namespace Soulcrest.Core.Network;
 
@@ -6,6 +7,7 @@ namespace Soulcrest.Core.Network;
 public sealed record CurrencyInventoryItem([property: JsonIgnore] long InstanceKey, int ItemId, long Count, byte Container)
 {
     public bool HasEquipmentData { get; init; }
+    public CharacterEquipmentDetail? Equipment { get; init; }
     public override string ToString() => $"CurrencyInventoryItem {{ ItemId = {ItemId}, Count = {Count}, Container = {Container} }}";
 }
 
@@ -41,7 +43,6 @@ public static class CurrencyInventoryMessage
     internal const int MaximumMessageBytes = 4 * 1024 * 1024;
     internal const int MaximumItems = 10000;
     internal const int MaximumStringBytes = 65536;
-    private static readonly int[] EquipmentArrayWidths = [6, 6, 6, 5, 5, 6, 5];
 
     public static CurrencyInventoryList? TryParseList(ReadOnlySpan<byte> message)
     {
@@ -113,33 +114,43 @@ public static class CurrencyInventoryMessage
         reader.SkipString(MaximumStringBytes); // Maker bytes are never decoded or retained.
         reader.Skip(8);
         reader.Bool();
-        if ((flags & 1) != 0) Equipment(ref reader);
+        var equipment = (flags & 1) != 0 ? ReadEquipment(ref reader) : null;
         if (itemId <= 0 || amount < 0) throw new InvalidDataException("Invalid currency item amount or definition.");
-        var result = new RawItem(instance, itemId, amount, container, flags != 0);
+        var result = new RawItem(instance, itemId, amount, container, flags != 0, equipment);
         if (result.IsWallet && (instance <= 0 || flags != 0))
             throw new InvalidDataException("Unsupported wallet record variant.");
         return result;
     }
 
-    private static void Equipment(ref ProgressPacketReader reader)
+    private static CharacterEquipmentDetail ReadEquipment(ref ProgressPacketReader reader)
     {
-        reader.Skip(1 + 4 + 4 + 1 + 4 + 4);
-        reader.Bool();
-        reader.Skip(1);
-        reader.Skip(reader.Count(7, MaximumItems) * 7);
-        reader.Skip(8 + 1); // Opaque binding identifier is never retained.
-        reader.Skip(reader.Count(4, MaximumItems) * 4);
-        // Four stat arrays and three skill arrays, in their observed interleaved order.
-        foreach (var width in EquipmentArrayWidths)
-            reader.Skip(reader.Count(width, MaximumItems) * width);
-        reader.Skip(1);
+        var enchant = reader.U8(); var enchantExp = reader.I32(); var enchantBonus = reader.I32();
+        var surpass = reader.U8(); var surpassBonus = reader.I32(); var level = reader.I32();
+        var broken = reader.Bool(); var slot = reader.U8();
+        var count = reader.Count(7, MaximumItems); var magic = ImmutableArray.CreateBuilder<CharacterMagicstone>(count);
+        for (var i = 0; i < count; i++) magic.Add(new(reader.I32(), reader.U16(), reader.U8()));
+        reader.Skip(8); // Native binding identity is never retained.
+        var binds = reader.U8(); count = reader.Count(4, MaximumItems); var god = ImmutableArray.CreateBuilder<int>(count);
+        for (var i = 0; i < count; i++) god.Add(reader.I32());
+        var main = CharacterCombatMessage.ReadStatArray(ref reader);
+        var sub = CharacterCombatMessage.ReadStatArray(ref reader);
+        var add = CharacterCombatMessage.ReadStatArray(ref reader);
+        var skills = CharacterCombatMessage.ReadSkillArray(ref reader);
+        var addSkills = CharacterCombatMessage.ReadSkillArray(ref reader);
+        var soul = CharacterCombatMessage.ReadStatArray(ref reader);
+        var soulSkills = CharacterCombatMessage.ReadSkillArray(ref reader);
+        return new(enchant, enchantExp, enchantBonus, surpass, surpassBonus, level, broken, slot,
+            magic.MoveToImmutable(), binds, god.MoveToImmutable(), main, sub, add, skills, addSkills,
+            soul, soulSkills, reader.U8());
     }
 
-    private readonly record struct RawItem(long Instance, int ItemId, long Count, byte Container, bool HasEquipmentData)
+    private readonly record struct RawItem(long Instance, int ItemId, long Count, byte Container, bool HasEquipmentData,
+        CharacterEquipmentDetail? Equipment)
     {
         public bool IsKina => ItemId is BoundKinaItemId or UnboundKinaItemId;
         public bool IsWallet => Container == WalletContainer && IsKina;
-        public CurrencyInventoryItem Observation() => new(Instance, ItemId, Count, Container) { HasEquipmentData = HasEquipmentData };
+        public CurrencyInventoryItem Observation() => new(Instance, ItemId, Count, Container)
+            { HasEquipmentData = HasEquipmentData, Equipment = Equipment };
     }
 
     private sealed class WalletUniqueness

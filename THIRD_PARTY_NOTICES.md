@@ -58,6 +58,7 @@ Die Klassen- und Abyss-Rangicons im PvP-Killfeed sind originale Spielgrafiken ©
 | Microsoft.ML.OnnxRuntime | MIT | Paddle-Zweitlesung |
 | PaddleOCR `PP-OCRv6_small_rec_onnx` (aus Grindcrest `data/ocr/paddle-v6-small`, inkl. `SOURCES.md` mit Prüfsummen) | Apache-2.0 | Zweitlesung |
 | Microsoft.AspNetCore.Components.WebView.WindowsForms | MIT | Blazor-Hybrid-Host |
+| Google OR-Tools 9.15.6755 | Apache-2.0 | Lokale exakte Daevanion-Routenoptimierung |
 | SharpPcap 6.3.1 | MIT | Netzwerk-Loot-Quelle (Opt-in): Mitschnitt über Npcap |
 | PacketDotNet 1.4.8 | MPL-2.0 | Netzwerk-Loot-Quelle: TCP/IP-Pakete zerlegen |
 | Npcap (nicht mitgeliefert, vom Nutzer installiert) | Npcap-Lizenz | Paketmitschnitt unter Windows |
@@ -68,10 +69,19 @@ Die Klassen- und Abyss-Rangicons im PvP-Killfeed sind originale Spielgrafiken ©
 
 Lizenztexte werden mit der jeweiligen Komponente unter `licenses/` abgelegt (Muster: Grindcrest).
 
+Die Lizenztexte für OR-Tools und seine gebündelten Abhängigkeiten einschließlich Protobuf,
+Abseil, RE2, HiGHS, SCIP/SoPlex, Boost, Eigen, Zlib, Bzip2 und COIN-OR liegen lokal unter
+`wwwroot/licenses/solver/`, zusammen mit den jeweiligen Quellenverweisen. Die native
+Optimierungsbibliothek wird lokal geladen und verwendet keine Netzwerkdienste.
+Die erforderlichen Microsoft Visual C++ x64-Laufzeitdateien werden beim Build aus dem
+offiziellen Visual-Studio-Redistributable-Verzeichnis übernommen und in portablen
+Einzeldatei-Builds eingebettet. Für diese Microsoft-Dateien gelten deren jeweilige
+Redistributionsbedingungen. Auf Windows 10/11 wird die vorhandene Universal CRT verwendet.
+
 
 ## Spielgrafiken und Spieltexte
 
-Für Event-Timer, Daevanion-Boards, Jagdgebiete auf der Karte und die Rangentwicklung des Abyss
+Für Event-Timer, Daevanion-Boards, Charakterwerte, Titel, Achievements, Flügel, Pantheon, Jagdgebiete auf der Karte und die Rangentwicklung des Abyss
 Rank Trackers bündelt Soulcrest einzelne Spielsymbole, Skillbilder und Spieltexte von Aion 2 lokal. Sie sind Eigentum von NCSOFT; eine freie Lizenz wird nicht behauptet.
 Es gibt keine Laufzeitabfragen.
 
@@ -90,3 +100,12 @@ Die zusätzlichen Reset-/Timer-/Boss-Ersatzsymbole sind eigene Soulcrest-Grafike
 (`scripts/sound/generate_loot_drop.py`): ein kurzer, nach oben gleitender Sinuston mit
 leisem Oberton und gefiltertem Anschlag. Es werden keine fremden Aufnahmen oder Samples
 verwendet.
+
+## aion2.exchange: Marktpreisreferenzen
+
+Die optionale Online-Preisfunktion verwendet die öffentliche lesende
+[Aion2Market API](https://aion2.exchange/api/docs). Angebote und Preisstände
+werden dem Anbieter zugeordnet und in der Oberfläche verlinkt. Es wird keine
+freie Weiterverwendungslizenz für dessen Daten oder Inhalte behauptet.
+Die konfigurierbare Netto-Schätzung ist ein Soulcrest-Modell; Angebote sind keine
+bestätigten Verkäufe und keine tatsächlich erhaltenen Kina.

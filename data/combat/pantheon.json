@@ -1,0 +1,2629 @@
+{
+  "schema": 1,
+  "metadataBuild": 26425393,
+  "presentationOnly": true,
+  "items": [
+    {
+      "id": 9,
+      "itemId": 534310009,
+      "nameDe": "Gemälde: Handelsgilde Brisenwind",
+      "nameEn": "Artwork: Wind Breeze Merchants",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-8f18584d00b9990ab851.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 2
+        },
+        {
+          "statId": "Life",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "itemId": 534310010,
+      "nameDe": "Gemälde: Handelsgilde Quai",
+      "nameEn": "Artwork: Quai Merchants",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-8c182b9b45a81da9be54.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 2
+        },
+        {
+          "statId": "Life",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "itemId": 534310011,
+      "nameDe": "Gemälde: Shulak",
+      "nameEn": "Artwork: Shulak",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-74760c9f471b2ebe001a.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Illusion",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "itemId": 534310012,
+      "nameDe": "Gemälde: Meister des Kunsthandwerks",
+      "nameEn": "Artwork: Artisan Handicrafter",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-eb3543db61e4109b7778.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Life",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "itemId": 534310013,
+      "nameDe": "Gemälde: Meister der Alchemie",
+      "nameEn": "Artwork: Artisan Alchemist",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-1932f194b23ad975f34f.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "itemId": 534310014,
+      "nameDe": "Gemälde: Kochmeister",
+      "nameEn": "Artwork: Artisan Chef",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-6cf7969bfc6c62a76043.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 2
+        },
+        {
+          "statId": "Life",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "itemId": 534310030,
+      "nameDe": "Gemälde: Kochmeister",
+      "nameEn": "Artwork: Artisan Chef",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-6cf7969bfc6c62a76043.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 2
+        },
+        {
+          "statId": "Life",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "itemId": 534310031,
+      "nameDe": "Gemälde: Meisterin der Rüstungsschmiede",
+      "nameEn": "Artwork: Artisan Armorsmith",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-2a70838184cfef8d3153.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "itemId": 534310032,
+      "nameDe": "Gemälde: Meisterin der Rüstungsschmiede",
+      "nameEn": "Artwork: Artisan Armorsmith",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-2a70838184cfef8d3153.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "itemId": 514310035,
+      "nameDe": "Gemälde: Feuertempel",
+      "nameEn": "Artwork: Fire Temple",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-0527a3e129fd77e8f2e9.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "itemId": 534310043,
+      "nameDe": "Gemälde: Teinas Porträt",
+      "nameEn": "Artwork: Teina's Portrait",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-7ece6fbf30e684b98c54.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "itemId": 514310052,
+      "nameDe": "Gemälde: Urugugu",
+      "nameEn": "Artwork: Urugugu",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-1cf4b0f61f8a33ba2627.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "itemId": 514310054,
+      "nameDe": "Gemälde: Draupnir",
+      "nameEn": "Artwork: Draupnir",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-4ca44c9b5a3e27e7c120.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 57,
+      "itemId": 534310057,
+      "nameDe": "Gemälde: Meisterin der Schmiede",
+      "nameEn": "Artwork: Artisan Blacksmith",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-dd12aafea08a102900c1.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Illusion",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 58,
+      "itemId": 534310058,
+      "nameDe": "Gemälde: Meisterin der Schmiede",
+      "nameEn": "Artwork: Artisan Blacksmith",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-dd12aafea08a102900c1.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Illusion",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 59,
+      "itemId": 534310059,
+      "nameDe": "Gemälde: Meister des Kunsthandwerks",
+      "nameEn": "Artwork: Artisan Handicrafter",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-eb3543db61e4109b7778.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Life",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 60,
+      "itemId": 534310060,
+      "nameDe": "Gemälde: Meister der Alchemie",
+      "nameEn": "Artwork: Artisan Alchemist",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-1932f194b23ad975f34f.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "itemId": 534310061,
+      "nameDe": "Gemälde: Essenzextraktionsmeister",
+      "nameEn": "Artwork: Artisan Essence Extractor",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-e135a133a7eebb9029e4.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 62,
+      "itemId": 534310062,
+      "nameDe": "Gemälde: Essenzextraktionsmeister",
+      "nameEn": "Artwork: Artisan Essence Extractor",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-e135a133a7eebb9029e4.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 63,
+      "itemId": 534310063,
+      "nameDe": "Gemälde: Zerstörungsarchon Hystan (Hohepriester)",
+      "nameEn": "Artwork: Destruction Archons High Priest Hystan",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-0f191fc1e4e915e4e70a.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "itemId": 514310064,
+      "nameDe": "Gemälde: Schattenarchon Axios",
+      "nameEn": "Artwork: Specter Archon Axios",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-8e06e291629cd32a9a1a.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 65,
+      "itemId": 514310065,
+      "nameDe": "Gemälde: Vergifteter Hadirun",
+      "nameEn": "Artwork: Addicted Hardirun",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-04902df872006a32482c.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 66,
+      "itemId": 514310066,
+      "nameDe": "Gemälde: Henker Barthien",
+      "nameEn": "Artwork: Executioner Barthien",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-21300b979a63f067826e.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 67,
+      "itemId": 514310067,
+      "nameDe": "Gemälde: Bataillonswaffe Guruta (Drakan)",
+      "nameEn": "Artwork: Drakan Battalion Weapon Guruta",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-92d502472d337326ca58.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 68,
+      "itemId": 514310068,
+      "nameDe": "Gemälde: Überwachungswaffe K'nash",
+      "nameEn": "Artwork: Sentinel K'nash",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-92d502472d337326ca58.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 69,
+      "itemId": 514310069,
+      "nameDe": "Gemälde: Veteran Shujakan",
+      "nameEn": "Artwork: Veteran Shujakan",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-a127c214df3dfc3ecc9b.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 70,
+      "itemId": 514310070,
+      "nameDe": "Gemälde: Visionärer Karuka",
+      "nameEn": "Artwork: Visionary Karuka",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-b105a4080dad90b88691.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 71,
+      "itemId": 514310071,
+      "nameDe": "Gemälde: Dunkelschatten Vishwada",
+      "nameEn": "Artwork: Dark Shadow Vishwada",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-8b5ec5c55e4b206ce62e.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 72,
+      "itemId": 514310072,
+      "nameDe": "Gemälde: Forscher Setram",
+      "nameEn": "Artwork: Researcher Setram",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-8b5ec5c55e4b206ce62e.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 73,
+      "itemId": 514310073,
+      "nameDe": "Gemälde: Scharfer Shylak",
+      "nameEn": "Artwork: Sharp Shylak",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-52e64193a4f45d9c8ed5.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 74,
+      "itemId": 514310074,
+      "nameDe": "Gemälde: Schwarztentakel Lawa",
+      "nameEn": "Artwork: Black Tentacle Lawa",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-860cfdc5ae6dc79c8ae9.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 75,
+      "itemId": 514310075,
+      "nameDe": "Gemälde: Apostatin Layla",
+      "nameEn": "Artwork: Heretic Layla",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-f823c4c8299299e60d4d.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 76,
+      "itemId": 514310121,
+      "nameDe": "Gemälde: Zenturio Demiros",
+      "nameEn": "Artwork: Centurion Demiros",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-645a49147aaf2d8cfe70.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 77,
+      "itemId": 514310077,
+      "nameDe": "Gemälde: Heiliger Ansas",
+      "nameEn": "Artwork: Divine Ansas",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-6c1f891cd2a61f60ec16.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 78,
+      "itemId": 514310078,
+      "nameDe": "Gemälde: Ernteaufseher Moshav",
+      "nameEn": "Artwork: Harvest Manager Moshav",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-d753b4a61b0e40c76430.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 79,
+      "itemId": 514310079,
+      "nameDe": "Gemälde: Berater Resana",
+      "nameEn": "Artwork: Advisor Resana",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-d753b4a61b0e40c76430.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 80,
+      "itemId": 514310080,
+      "nameDe": "Gemälde: Traumtrug Kasia",
+      "nameEn": "Artwork: Phantasm Kasia",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-8dcf94fb6b4e43fedf3e.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 81,
+      "itemId": 514310081,
+      "nameDe": "Gemälde: Geschmolzener Danar",
+      "nameEn": "Artwork: Melted Danar",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-1524a31f50a48299c030.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Life",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 82,
+      "itemId": 514310082,
+      "nameDe": "Gemälde: Dunkelkrieger Aed",
+      "nameEn": "Artwork: Black Warrior Aed",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-e55791412bd55346c4f2.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 83,
+      "itemId": 514310083,
+      "nameDe": "Gemälde: Treuer Rajit",
+      "nameEn": "Artwork: Faithful Rajit",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-37444045502e2d0239c0.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Life",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 84,
+      "itemId": 514310084,
+      "nameDe": "Gemälde: Berserker Vargor",
+      "nameEn": "Artwork: Berserker Vargor",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-cd2cddde659a46593d8d.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 85,
+      "itemId": 514310085,
+      "nameDe": "Gemälde: Verschlinger Garsan",
+      "nameEn": "Artwork: Predator Garsan",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-e6796516a8b0d214024c.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 86,
+      "itemId": 514310086,
+      "nameDe": "Gemälde: Blutkrieger Lannar",
+      "nameEn": "Artwork: Blood Warrior Lannar",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-de580c4c173aafa7acaf.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 2
+        },
+        {
+          "statId": "Life",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 87,
+      "itemId": 514310087,
+      "nameDe": "Gemälde: Täuscherin Trid",
+      "nameEn": "Artwork: Deceiver Trid",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-90071ad83e169eea8df8.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 88,
+      "itemId": 514310088,
+      "nameDe": "Gemälde: Blauwelle Kelpina",
+      "nameEn": "Artwork: Blue Wave Kelpina",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-96722a595d4981b03dce.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 89,
+      "itemId": 514310089,
+      "nameDe": "Gemälde: Hauptaufseher Nutah",
+      "nameEn": "Artwork: High Overseer Nutah",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-194ac935c9b2b30cf44e.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Life",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 90,
+      "itemId": 514310090,
+      "nameDe": "Gemälde: Sondereinsatzhauptmann Linx",
+      "nameEn": "Artwork: Special Operations Leader Linx",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-2b224e29bc740fc5d99f.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Life",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 91,
+      "itemId": 514310091,
+      "nameDe": "Gemälde: Schänder Newbold",
+      "nameEn": "Artwork: Desecrator Newbold",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-f292557029d55fee9f5f.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 92,
+      "itemId": 514310092,
+      "nameDe": "Gemälde: Kernon des Westens",
+      "nameEn": "Artwork: Kernon of the West",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-29941f6c9c23b59a215a.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 93,
+      "itemId": 514310093,
+      "nameDe": "Gemälde: Neikel des Ostens",
+      "nameEn": "Artwork: Neikel of the East",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-40081bf5496677e39610.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Illusion",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 94,
+      "itemId": 514310094,
+      "nameDe": "Gemälde: Verfaulter Kutar",
+      "nameEn": "Artwork: Rotten Kutar",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-ed8c0b60cf5b032a37aa.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 2
+        },
+        {
+          "statId": "Illusion",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 95,
+      "itemId": 514310095,
+      "nameDe": "Gemälde: Blühender Korin",
+      "nameEn": "Artwork: Blooming Korin",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-94796df2f68384a69f00.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Life",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 96,
+      "itemId": 514310096,
+      "nameDe": "Gemälde: Leibgardist Teegant",
+      "nameEn": "Artwork: Bodyguard Teegant",
+      "category": "Artwork",
+      "grade": 2,
+      "iconPath": "pantheon/p-e1773b2e8e921e94d870.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Life",
+          "amount": 2
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": 97,
+      "itemId": 514310097,
+      "nameDe": "Gemälde: Wahnstreiter Kusan",
+      "nameEn": "Artwork: Kusan the Mad Gladiator",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-e8072dc40b31ad30ff70.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Illusion",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 98,
+      "itemId": 514310098,
+      "nameDe": "Gemälde: Erzpriester Garshim",
+      "nameEn": "Artwork: Ritualist Garshim",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-9d18a40dfc246e420c4f.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Illusion",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 99,
+      "itemId": 514310099,
+      "nameDe": "Gemälde: Blutzahn Pnyn",
+      "nameEn": "Artwork: Bloodfang Pnyn",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-2f5c0f717631a7c12a0f.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 100,
+      "itemId": 514310100,
+      "nameDe": "Gemälde: Wütende Saursus",
+      "nameEn": "Artwork: Furious Saursus",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-a1c598a00e42cd2b07ae.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "itemId": 514310101,
+      "nameDe": "Gemälde: Gelehrter Aulla",
+      "nameEn": "Artwork: Scholar Aulla",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-92b0c5833f5e0a6c09f5.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "itemId": 514310102,
+      "nameDe": "Gemälde: Waldkrieger Aullamu",
+      "nameEn": "Artwork: Forest Warrior Aullamu",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-a0816027b23595ed00ed.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "itemId": 514310103,
+      "nameDe": "Gemälde: Verfolger Taulo",
+      "nameEn": "Artwork: Chaser Taulo",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-ea449f2dd9d460bb7a93.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 109,
+      "itemId": 514310109,
+      "nameDe": "Gemälde: Ludra des Abgrunds",
+      "nameEn": "Artwork: Abyssal Ludra",
+      "category": "Artwork",
+      "grade": 5,
+      "iconPath": "pantheon/p-de99b4ec8cec98836ee4.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 5
+        },
+        {
+          "statId": "Illusion",
+          "amount": 5
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "id": 110,
+      "itemId": 514310110,
+      "nameDe": "Gemälde: Unsterblicher Gartua",
+      "nameEn": "Artwork: Immortal Gartua",
+      "category": "Artwork",
+      "grade": 5,
+      "iconPath": "pantheon/p-17c5c2ae463b331bde74.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 5
+        },
+        {
+          "statId": "Illusion",
+          "amount": 5
+        },
+        {
+          "statId": "Life",
+          "amount": 5
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "id": 111,
+      "itemId": 514310111,
+      "nameDe": "Gemälde: Ewiger Gartua",
+      "nameEn": "Artwork: Eternal Gartua",
+      "category": "Artwork",
+      "grade": 5,
+      "iconPath": "pantheon/p-17c5c2ae463b331bde74.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 5
+        },
+        {
+          "statId": "Illusion",
+          "amount": 5
+        },
+        {
+          "statId": "Life",
+          "amount": 5
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "id": 112,
+      "itemId": 514310112,
+      "nameDe": "Gemälde: Geisterfürst Agro",
+      "nameEn": "Artwork: Argo, the Spirit King",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-743943b08baae1fde0b4.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 113,
+      "itemId": 514310113,
+      "nameDe": "Gemälde: Seelenherrscher Kashapa",
+      "nameEn": "Artwork: Soul Ruler Kashapa",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-a1641f14819a7a9372f2.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 114,
+      "itemId": 514310114,
+      "nameDe": "Gemälde: Legat Lagta",
+      "nameEn": "Artwork: High Commander Lagta",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-ccba6deb37000ef17298.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 115,
+      "itemId": 514310115,
+      "nameDe": "Gemälde: Wächtergott Nahma",
+      "nameEn": "Artwork: Guardian Lord Nahma",
+      "category": "Artwork",
+      "grade": 5,
+      "iconPath": "pantheon/p-183e1136a44775e9e93a.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 5
+        },
+        {
+          "statId": "Illusion",
+          "amount": 5
+        },
+        {
+          "statId": "Life",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "id": 116,
+      "itemId": 514310116,
+      "nameDe": "Gemälde: Schweigender Dartan",
+      "nameEn": "Artwork: Silent Dartan",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-0f9ec3c9a0b383bb0dfa.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 117,
+      "itemId": 514310117,
+      "nameDe": "Gemälde: Aufseherin Kaira",
+      "nameEn": "Artwork: Watcher Kaira",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-0f9ec3c9a0b383bb0dfa.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 118,
+      "itemId": 514310118,
+      "nameDe": "Gemälde: Vakrons Luftinsel",
+      "nameEn": "Artwork: Vakron Sky Island",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-3a39639ad1d17648bba7.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 119,
+      "itemId": 514310119,
+      "nameDe": "Gemälde: Grimmhornhöhle",
+      "nameEn": "Artwork: Ferocious Horn Den",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-1dc40984d2b7b95a4942.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 120,
+      "itemId": 514310120,
+      "nameDe": "Gemälde: Krao",
+      "nameEn": "Artwork: Krao",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-178aca70c5dfbb160d18.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 143,
+      "itemId": 514310125,
+      "nameDe": "Gemälde: Vollstrecker Tamasa",
+      "nameEn": "Artwork: Executor Tamasa",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-2d8d1c7c341c8a59eb2f.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 177,
+      "itemId": 534310048,
+      "nameDe": "Gemälde: Cantastal",
+      "nameEn": "Artwork: Cantas Valley",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-d9bc2889294334ca5a60.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 178,
+      "itemId": 534310049,
+      "nameDe": "Gemälde: Sümpfe des Ellun",
+      "nameEn": "Artwork: Ellun River Marsh",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-a4b12fb1dc58c165ad8a.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 179,
+      "itemId": 534310003,
+      "nameDe": "Gemälde: Ruinen der Verteronfeste",
+      "nameEn": "Artwork: Verteron Fortress Ruins",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-7ebee9e495439afb4b67.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 180,
+      "itemId": 534310050,
+      "nameDe": "Gemälde: Tolbaswald",
+      "nameEn": "Artwork: Tolbas Forest",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-b70dd434c8a3b850a6f2.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Illusion",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 181,
+      "itemId": 534310045,
+      "nameDe": "Gemälde: Ellunmittellauf",
+      "nameEn": "Artwork: Ellun River Midstream",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-227f40ded780c52e0afe.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 182,
+      "itemId": 534310047,
+      "nameDe": "Gemälde: Pilgerpfad",
+      "nameEn": "Artwork: Pilgrim's Ridge",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-84fd9c389bc5d313f698.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Illusion",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 183,
+      "itemId": 534310001,
+      "nameDe": "Gemälde: Zumionsteintor",
+      "nameEn": "Artwork: Zumion Stone Gate",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-b054b6d3957ce95f65f0.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 184,
+      "itemId": 534310046,
+      "nameDe": "Gemälde: Basis der Legion der Morgenröte",
+      "nameEn": "Artwork: Dawn Legion Base",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-d0d8d64f6b30000f162e.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 186,
+      "itemId": 534310015,
+      "nameDe": "Gemälde: Alchemist (Shugo)",
+      "nameEn": "Artwork: Shugo Alchemist",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-a847a7faacb721348d19.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Illusion",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 187,
+      "itemId": 534310044,
+      "nameDe": "Gemälde: Ardustempel",
+      "nameEn": "Artwork: Ardus Shrine",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-dcfa719de2ddd44acb12.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 188,
+      "itemId": 534310040,
+      "nameDe": "Gemälde: Absturzstelle der Dredgion",
+      "nameEn": "Artwork: Dredgion Crash Site",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-d69d64229581e0da8644.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 189,
+      "itemId": 534310041,
+      "nameDe": "Gemälde: Namenloser Friedhof",
+      "nameEn": "Artwork: Nameless Cemetery",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-f7f643f15258be406a76.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 190,
+      "itemId": 534310042,
+      "nameDe": "Gemälde: Wachposten (Sanktuarium)",
+      "nameEn": "Artwork: Sanctum Outpost",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-e846c8749bd522696867.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 191,
+      "itemId": 534310033,
+      "nameDe": "Gemälde: Moslanwald",
+      "nameEn": "Artwork: Moslan Forest",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-c0b3ad32f8b097d9c9cb.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Illusion",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 192,
+      "itemId": 534310038,
+      "nameDe": "Gemälde: Quai-Lagerplatz",
+      "nameEn": "Artwork: Quai Campsite",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-53974c125976ad68adf7.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 193,
+      "itemId": 534310039,
+      "nameDe": "Gemälde: Calderonschlucht",
+      "nameEn": "Artwork: Calderon Canyon",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-86c4776a39e5d6ecdf97.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Illusion",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 194,
+      "itemId": 534310056,
+      "nameDe": "Gemälde: Tor der Archonuntergrundfeste",
+      "nameEn": "Artwork: Archon Underground Fortress Door",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-78454dc0b9404035ea1d.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 195,
+      "itemId": 534310036,
+      "nameDe": "Gemälde: Exulantendorf",
+      "nameEn": "Artwork: Safe Haven",
+      "category": "Artwork",
+      "grade": 3,
+      "iconPath": "pantheon/p-4d298c14100d99425377.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 3
+        },
+        {
+          "statId": "Life",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": 197,
+      "itemId": 534310055,
+      "nameDe": "Gemälde: Impetusium",
+      "nameEn": "Artwork: Impetusium",
+      "category": "Artwork",
+      "grade": 4,
+      "iconPath": "pantheon/p-20ab289e2d37f25fba55.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 4
+        },
+        {
+          "statId": "Illusion",
+          "amount": 4
+        },
+        {
+          "statId": "Life",
+          "amount": 4
+        }
+      ]
+    },
+    {
+      "id": 198,
+      "itemId": 514310198,
+      "nameDe": "Gemälde: Krao des Zorns",
+      "nameEn": "Artwork: Wrathful Krao",
+      "category": "Artwork",
+      "grade": 5,
+      "iconPath": "",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 5
+        },
+        {
+          "statId": "Illusion",
+          "amount": 5
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "id": 199,
+      "itemId": 514310199,
+      "nameDe": "Gemälde: Draupnir des Zorns",
+      "nameEn": "Artwork: Wrathful Draupnir",
+      "category": "Artwork",
+      "grade": 5,
+      "iconPath": "",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 5
+        },
+        {
+          "statId": "Life",
+          "amount": 5
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "id": 200,
+      "itemId": 514310200,
+      "nameDe": "Gemälde: Urugugu des Zorns",
+      "nameEn": "Artwork: Wrathful Urugugu",
+      "category": "Artwork",
+      "grade": 5,
+      "iconPath": "",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destiny",
+          "amount": 5
+        },
+        {
+          "statId": "Life",
+          "amount": 5
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "id": 201,
+      "itemId": 514310201,
+      "nameDe": "Gemälde: Vakrons Luftinsel des Zorns",
+      "nameEn": "Artwork: Wrathful Vakron Sky Island",
+      "category": "Artwork",
+      "grade": 5,
+      "iconPath": "",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Illusion",
+          "amount": 5
+        },
+        {
+          "statId": "Life",
+          "amount": 5
+        },
+        {
+          "statId": "Wisdom",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "id": 1000,
+      "itemId": 534320001,
+      "nameDe": "Steinstatue: Transzendierter Bakarma",
+      "nameEn": "Statue: Transcendent Bakarma",
+      "category": "Statue",
+      "grade": 4,
+      "iconPath": "pantheon/p-52ba255678e5501cebe5.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 12
+        },
+        {
+          "statId": "Freedom",
+          "amount": 12
+        },
+        {
+          "statId": "Space",
+          "amount": 12
+        }
+      ]
+    },
+    {
+      "id": 1001,
+      "itemId": 534320002,
+      "nameDe": "Steinstatue: Kibelisk",
+      "nameEn": "Statue: Kibelisk",
+      "category": "Statue",
+      "grade": 3,
+      "iconPath": "pantheon/p-665da4ee11e7789ceda0.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Freedom",
+          "amount": 10
+        },
+        {
+          "statId": "Space",
+          "amount": 10
+        }
+      ]
+    },
+    {
+      "id": 1002,
+      "itemId": 534320003,
+      "nameDe": "Steinstatue: Siegelflügel",
+      "nameEn": "Statue: Sealing Wings",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-d12da68dd6c3352e3873.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Freedom",
+          "amount": 8
+        },
+        {
+          "statId": "Space",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1004,
+      "itemId": 534320005,
+      "nameDe": "Steinstatue: Teina",
+      "nameEn": "Statue: Teina",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-bc36948a9902baf3b6d6.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 8
+        },
+        {
+          "statId": "Space",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1005,
+      "itemId": 534320006,
+      "nameDe": "Steinstatue: Glorreiche Flügel",
+      "nameEn": "Statue: Glorious Wings",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-ba8aade14089898e6d0f.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Freedom",
+          "amount": 8
+        },
+        {
+          "statId": "Space",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1006,
+      "itemId": 534320007,
+      "nameDe": "Steinstatue: Rissiges Bannbücherregal",
+      "nameEn": "Statue: Torn Forbidden Bookcase",
+      "category": "Statue",
+      "grade": 1,
+      "iconPath": "pantheon/p-6ea10bab4daa50f7c97a.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 6
+        }
+      ]
+    },
+    {
+      "id": 1007,
+      "itemId": 534320008,
+      "nameDe": "Steinstatue: Urd",
+      "nameEn": "Statue: Urd",
+      "category": "Statue",
+      "grade": 1,
+      "iconPath": "pantheon/p-eecf3ba0070790eb0ba0.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 6
+        }
+      ]
+    },
+    {
+      "id": 1008,
+      "itemId": 534320009,
+      "nameDe": "Steinstatue: Traumfragment",
+      "nameEn": "Statue: Dream Fragment",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-432937c15374d4f258d9.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 8
+        },
+        {
+          "statId": "Freedom",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1013,
+      "itemId": 534320014,
+      "nameDe": "Steinstatue: Selvis",
+      "nameEn": "Statue: Selvis",
+      "category": "Statue",
+      "grade": 1,
+      "iconPath": "pantheon/p-cfd74892a4f39d482b0a.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Freedom",
+          "amount": 6
+        }
+      ]
+    },
+    {
+      "id": 1020,
+      "itemId": 534320021,
+      "nameDe": "Steinstatue: Kibelisk",
+      "nameEn": "Statue: Kibelisk",
+      "category": "Statue",
+      "grade": 3,
+      "iconPath": "pantheon/p-6117fdbd7c2b7808d67b.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Freedom",
+          "amount": 10
+        },
+        {
+          "statId": "Space",
+          "amount": 10
+        }
+      ]
+    },
+    {
+      "id": 1021,
+      "itemId": 534320022,
+      "nameDe": "Steinstatue: Artefakt der Ewigkeit",
+      "nameEn": "Statue: Artifact of Eternity",
+      "category": "Statue",
+      "grade": 3,
+      "iconPath": "pantheon/p-b0d8e1061229b7547ec2.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 10
+        },
+        {
+          "statId": "Freedom",
+          "amount": 10
+        }
+      ]
+    },
+    {
+      "id": 1022,
+      "itemId": 534320023,
+      "nameDe": "Steinstatue: Spiegel des Verlangens",
+      "nameEn": "Statue: Mirror of Desire",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-e23f34feb2374d579bb6.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Freedom",
+          "amount": 8
+        },
+        {
+          "statId": "Space",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1023,
+      "itemId": 534320024,
+      "nameDe": "Steinstatue: Asahrs Spiegel",
+      "nameEn": "Statue: Asahr's Mirror",
+      "category": "Statue",
+      "grade": 3,
+      "iconPath": "pantheon/p-2bc5f504d6a110e0fa0c.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 10
+        },
+        {
+          "statId": "Space",
+          "amount": 10
+        }
+      ]
+    },
+    {
+      "id": 1028,
+      "itemId": 534320029,
+      "nameDe": "Steinstatue: Fafnirs Giftblut",
+      "nameEn": "Statue: Fafnir's Poison Blood",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-388b3613a4a1a1e1a75d.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 8
+        },
+        {
+          "statId": "Freedom",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1031,
+      "itemId": 534320032,
+      "nameDe": "Steinstatue: Torwächter Pinopi",
+      "nameEn": "Statue: Gatekeeper Pinopi",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-1161f54344793c95c2f2.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 8
+        },
+        {
+          "statId": "Space",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1032,
+      "itemId": 534320033,
+      "nameDe": "Steinstatue: Grisilla",
+      "nameEn": "Statue: Grisilla",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-b9b00f6cab729b8d4cf3.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 8
+        },
+        {
+          "statId": "Space",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1034,
+      "itemId": 534320035,
+      "nameDe": "Steinstatue: Rasender Feruk",
+      "nameEn": "Statue: Furious Feruk",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-78305cac42e74e7f1d73.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 8
+        },
+        {
+          "statId": "Space",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1046,
+      "itemId": 534320047,
+      "nameDe": "Steinstatue: Geist Giselle",
+      "nameEn": "Statue: Wraith Giselle",
+      "category": "Statue",
+      "grade": 2,
+      "iconPath": "pantheon/p-4a74f867263852644f45.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Freedom",
+          "amount": 8
+        },
+        {
+          "statId": "Space",
+          "amount": 8
+        }
+      ]
+    },
+    {
+      "id": 1054,
+      "itemId": 534320055,
+      "nameDe": "Steinstatue: Festenhüter Notun",
+      "nameEn": "Statue: Fortress Guardian Notun",
+      "category": "Statue",
+      "grade": 3,
+      "iconPath": "pantheon/p-50919cac922950bbbdbe.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Death",
+          "amount": 10
+        },
+        {
+          "statId": "Space",
+          "amount": 10
+        }
+      ]
+    },
+    {
+      "id": 1055,
+      "itemId": 534320056,
+      "nameDe": "Steinstatue: Gerod",
+      "nameEn": "Statue: Gerod",
+      "category": "Statue",
+      "grade": 3,
+      "iconPath": "pantheon/p-6a234a9b881b126c64a0.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Freedom",
+          "amount": 10
+        },
+        {
+          "statId": "Space",
+          "amount": 10
+        }
+      ]
+    },
+    {
+      "id": 5002,
+      "itemId": 514330003,
+      "nameDe": "Koloss: Wächtergott Nahma",
+      "nameEn": "Colossus: Guardian Lord Nahma",
+      "category": "Colossus",
+      "grade": 5,
+      "iconPath": "pantheon/p-5d177309c9021c54cdcd.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destruction",
+          "amount": 55
+        },
+        {
+          "statId": "Justice",
+          "amount": 55
+        },
+        {
+          "statId": "Time",
+          "amount": 55
+        }
+      ]
+    },
+    {
+      "id": 5010,
+      "itemId": 534330011,
+      "nameDe": "Koloss: Zikels Schemen",
+      "nameEn": "Colossus: Zikel's Apparition",
+      "category": "Colossus",
+      "grade": 4,
+      "iconPath": "pantheon/p-4891b707e2f027e7e35d.png",
+      "faction": null,
+      "effects": [
+        {
+          "statId": "Destruction",
+          "amount": 45
+        },
+        {
+          "statId": "Justice",
+          "amount": 45
+        },
+        {
+          "statId": "Time",
+          "amount": 45
+        }
+      ]
+    },
+    {
+      "id": 5014,
+      "itemId": 534330015,
+      "nameDe": "Koloss: Gefängniswärter Santras",
+      "nameEn": "Colossus: Warden Santras",
+      "category": "Colossus",
+      "grade": 2,
+      "iconPath": "pantheon/p-0a906cd1e4be3ada7bf6.png",
+      "faction": "asmodian",
+      "effects": [
+        {
+          "statId": "Justice",
+          "amount": 35
+        },
+        {
+          "statId": "Time",
+          "amount": 35
+        }
+      ]
+    },
+    {
+      "id": 5015,
+      "itemId": 534330016,
+      "nameDe": "Koloss: Manifestierte Schwinge der Behütung",
+      "nameEn": "Colossus: Incarnated Warding Feather",
+      "category": "Colossus",
+      "grade": 2,
+      "iconPath": "pantheon/p-15e00d7979e749f1bdb5.png",
+      "faction": "elyos",
+      "effects": [
+        {
+          "statId": "Justice",
+          "amount": 35
+        },
+        {
+          "statId": "Time",
+          "amount": 35
+        }
+      ]
+    }
+  ],
+  "slots": [
+    {
+      "id": 1,
+      "category": "Artwork"
+    },
+    {
+      "id": 2,
+      "category": "Artwork"
+    },
+    {
+      "id": 3,
+      "category": "Artwork"
+    },
+    {
+      "id": 4,
+      "category": "Artwork"
+    },
+    {
+      "id": 5,
+      "category": "Artwork"
+    },
+    {
+      "id": 6,
+      "category": "Artwork"
+    },
+    {
+      "id": 7,
+      "category": "Artwork"
+    },
+    {
+      "id": 8,
+      "category": "Artwork"
+    },
+    {
+      "id": 9,
+      "category": "Artwork"
+    },
+    {
+      "id": 10,
+      "category": "Artwork"
+    },
+    {
+      "id": 11,
+      "category": "Artwork"
+    },
+    {
+      "id": 12,
+      "category": "Artwork"
+    },
+    {
+      "id": 13,
+      "category": "Statue"
+    },
+    {
+      "id": 14,
+      "category": "Statue"
+    },
+    {
+      "id": 15,
+      "category": "Statue"
+    },
+    {
+      "id": 16,
+      "category": "Statue"
+    },
+    {
+      "id": 17,
+      "category": "Colossus"
+    }
+  ]
+}

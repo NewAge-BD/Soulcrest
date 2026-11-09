@@ -6,6 +6,7 @@ public enum AbyssKillFeedKind { Kill = 0, Death = 1, Assist = 2 }
 public sealed record AbyssKillFeedEntry(DateTimeOffset At, AbyssKillFeedKind Kind, string? OpponentName = null,
     long? RankPointDelta = null)
 {
+    public bool IsEstimated { get; init; }
     public long Generation { get; init; }
     public long Sequence { get; init; }
     /// <summary>Explicit earned AP for this result; null means not attributed, not zero.</summary>

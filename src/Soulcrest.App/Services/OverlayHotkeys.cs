@@ -56,10 +56,8 @@ public static class OverlayHotkeys
     {
         new OverlayHotkeyAction("loot.toggle", "Loot / Pets"),
         new OverlayHotkeyAction("loot.unlock", "Loot / Pets", true),
-        new OverlayHotkeyAction("farm-loot.toggle", "Loot-Overlay"),
-        new OverlayHotkeyAction("farm-loot.unlock", "Loot-Overlay", true),
-        new OverlayHotkeyAction("abyss-rank.toggle", "Punkte-Stufe"),
-        new OverlayHotkeyAction("abyss-rank.unlock", "Punkte-Stufe", true),
+        new OverlayHotkeyAction("achievements.toggle", "Achievement Tracker"),
+        new OverlayHotkeyAction("achievements.unlock", "Achievement Tracker", true),
         new OverlayHotkeyAction("boss.toggle", "Boss Rush"),
         new OverlayHotkeyAction("boss.unlock", "Boss Rush", true),
         new OverlayHotkeyAction("leveling.toggle", "Leveling Routes"),
@@ -92,8 +90,7 @@ public static class OverlayHotkeys
         switch (action)
         {
             case "loot.toggle": settings.OverlayEnabled = !settings.OverlayEnabled; break;
-            case "farm-loot.toggle": settings.LootOverlayEnabled = !settings.LootOverlayEnabled; break;
-            case "abyss-rank.toggle": settings.AbyssRankOverlayEnabled = !settings.AbyssRankOverlayEnabled; break;
+            case "achievements.toggle": settings.AchievementOverlayEnabled = !settings.AchievementOverlayEnabled; break;
             case "boss.toggle": settings.BossOverlayVisible = !settings.BossOverlayVisible; break;
             case "leveling.toggle": settings.LevelingOverlayEnabled = !settings.LevelingOverlayEnabled; break;
             case "alerts.toggle": settings.AlertsOverlayEnabled = !settings.AlertsOverlayEnabled; break;
@@ -108,8 +105,7 @@ public static class OverlayHotkeys
     public static bool IsVisible(AppSettings settings, string action) => action switch
     {
         "loot.toggle" => settings.OverlayEnabled,
-        "farm-loot.toggle" => settings.LootOverlayEnabled,
-        "abyss-rank.toggle" => settings.AbyssRankOverlayEnabled,
+        "achievements.toggle" => settings.AchievementOverlayEnabled,
         "boss.toggle" => settings.BossOverlayVisible,
         "leveling.toggle" => settings.LevelingOverlayEnabled,
         "alerts.toggle" => settings.AlertsOverlayEnabled,

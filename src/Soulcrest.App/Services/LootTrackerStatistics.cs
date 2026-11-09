@@ -6,7 +6,8 @@ using Soulcrest.Core.Daevanion;
 namespace Soulcrest.App.Services;
 
 public enum AbyssCombatGrouping { Class, Rank }
-public enum AbyssCombatSort { KillsDescending, KillsAscending, DeathsDescending, DeathsAscending, NameAscending, NameDescending }
+public enum AbyssCombatSort { KillsDescending, KillsAscending, DeathsDescending, DeathsAscending, NameAscending, NameDescending,
+    AssistsDescending, AssistsAscending }
 public enum LootResourceSort
 {
     SuccessesDescending, SuccessesAscending, NameAscending, NameDescending, AttemptsDescending, AttemptsAscending,
@@ -19,7 +20,12 @@ public enum LootTimelineValueMode { Cumulative, PerMinute }
 public static class LootTrackerStatistics
 {
     public sealed record CombatRow(string Key, string Name, string? IconAsset, bool Unknown,
-        long Kills, long Deaths, double? KillPercent, double? DeathPercent, int? Grade = null);
+        long Kills, long Deaths, double? KillPercent, double? DeathPercent, int? Grade = null)
+    {
+        public long Assists { get; init; }
+        public long EstimatedAssists { get; init; }
+        public double? AssistPercent { get; init; }
+    }
     public sealed record ResourceRow(string Key, string Name, bool Unknown, long? Attempts,
         long Successes, long? Failures, long? Quantity);
     public sealed record QuantityRow(string Key, string Name, long Quantity, double? Percent, string? IconAsset = null);
@@ -28,9 +34,10 @@ public static class LootTrackerStatistics
         AbyssCombatSort sort = AbyssCombatSort.KillsDescending, string language = "en")
     {
         if (session.Kind != LootTrackerSessionKind.Abyss || session.CombatEvents.IsDefaultOrEmpty) return [];
-        var events = session.CombatEvents.Where(row => row.Kind is LootTrackerCombatKind.Kill or LootTrackerCombatKind.Death).ToArray();
+        var events = session.CombatEvents.Where(row => row.Kind is LootTrackerCombatKind.Kill or LootTrackerCombatKind.Death or LootTrackerCombatKind.Assist).ToArray();
         var kills = events.LongCount(row => row.Kind == LootTrackerCombatKind.Kill);
         var deaths = events.LongCount(row => row.Kind == LootTrackerCombatKind.Death);
+        var assists = events.LongCount(row => row.Kind == LootTrackerCombatKind.Assist);
         var rows = events.GroupBy(row => grouping == AbyssCombatGrouping.Rank
             ? row.OpponentAbyssRankGrade is >= 1 and <= 19 ? $"rank-{row.OpponentAbyssRankGrade:00}" : "unknown"
             : AbyssOpponentIconAssets.ClassAsset(row.OpponentClassId) is not null ? row.OpponentClassId! : "unknown")
@@ -43,9 +50,14 @@ public static class LootTrackerStatistics
                     : DaevanionCatalog.Default.Classes.First(row => row.Id == group.Key).Name.For(language);
                 var countKills = group.LongCount(row => row.Kind == LootTrackerCombatKind.Kill);
                 var countDeaths = group.LongCount(row => row.Kind == LootTrackerCombatKind.Death);
+                var countAssists = group.LongCount(row => row.Kind == LootTrackerCombatKind.Assist);
                 return new CombatRow(group.Key, name, unknown ? null : stage?.IconAsset ?? AbyssOpponentIconAssets.ClassAsset(group.Key),
                     unknown, countKills, countDeaths, Percent(countKills, kills), Percent(countDeaths, deaths),
-                    stage is not null ? int.Parse(group.Key.AsSpan(5), CultureInfo.InvariantCulture) : null);
+                    stage is not null ? int.Parse(group.Key.AsSpan(5), CultureInfo.InvariantCulture) : null)
+                {
+                    Assists = countAssists, EstimatedAssists = group.LongCount(row => row.Kind == LootTrackerCombatKind.Assist && row.IsEstimated),
+                    AssistPercent = Percent(countAssists, assists)
+                };
             }).ToArray();
         var ordered = rows.OrderBy(row => row.Unknown);
         IOrderedEnumerable<CombatRow> result = sort switch
@@ -53,6 +65,8 @@ public static class LootTrackerStatistics
             AbyssCombatSort.KillsAscending => ordered.ThenBy(row => row.Kills),
             AbyssCombatSort.DeathsDescending => ordered.ThenByDescending(row => row.Deaths),
             AbyssCombatSort.DeathsAscending => ordered.ThenBy(row => row.Deaths),
+            AbyssCombatSort.AssistsDescending => ordered.ThenByDescending(row => row.Assists),
+            AbyssCombatSort.AssistsAscending => ordered.ThenBy(row => row.Assists),
             AbyssCombatSort.NameAscending => grouping == AbyssCombatGrouping.Rank
                 ? ordered.ThenBy(row => row.Grade) : ordered.ThenBy(row => row.Name, Comparer(language)),
             AbyssCombatSort.NameDescending => grouping == AbyssCombatGrouping.Rank

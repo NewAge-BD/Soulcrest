@@ -9,6 +9,28 @@ public sealed class LootTrackerStatisticsTests
     private static readonly DateTimeOffset At = new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void AssistsHaveIndependentCountsEvidenceAndPercentagesWithoutIncreasingKillsOrDeaths()
+    {
+        var session = new LootTrackerSession
+        {
+            Kind = LootTrackerSessionKind.Abyss,
+            CombatEvents = [Combat("kill", LootTrackerCombatKind.Kill, "Cleric", 19),
+                Combat("death", LootTrackerCombatKind.Death, "Templar", 1),
+                Combat("assist1", LootTrackerCombatKind.Assist, "Cleric", 19) with { IsEstimated = true },
+                Combat("assist2", LootTrackerCombatKind.Assist, "Cleric", 19) with { IsEstimated = true },
+                Combat("assist3", LootTrackerCombatKind.Assist, null, null)]
+        };
+        var rows = LootTrackerStatistics.Combat(session, AbyssCombatGrouping.Class, AbyssCombatSort.AssistsDescending);
+        Assert.Equal(1, rows.Sum(row => row.Kills)); Assert.Equal(1, rows.Sum(row => row.Deaths));
+        Assert.Equal(3, rows.Sum(row => row.Assists)); Assert.Equal(2, rows.Sum(row => row.EstimatedAssists));
+        Assert.Equal("Cleric", rows[0].Key); Assert.Equal(2, rows[0].Assists);
+        Assert.Equal(2 / 3d * 100, rows[0].AssistPercent); Assert.Equal(100, rows[0].KillPercent);
+        Assert.Equal(100, rows[1].DeathPercent); Assert.Equal("unknown", rows[^1].Key);
+        Assert.Null(Assert.Single(LootTrackerStatistics.Combat(session with
+        { CombatEvents = [Combat("kill-only", LootTrackerCombatKind.Kill, "Cleric", 19)] }, AbyssCombatGrouping.Class)).AssistPercent);
+    }
+
+    [Fact]
     public void CombatUsesAllSessionResultsWithIndependentUnknownBucketsAndWholeSessionDenominators()
     {
         var session = new LootTrackerSession

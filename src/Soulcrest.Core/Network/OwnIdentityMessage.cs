@@ -1,4 +1,5 @@
 using System.Text;
+using System.Collections.Immutable;
 
 namespace Soulcrest.Core.Network;
 
@@ -70,15 +71,16 @@ public static class OwnIdentityMessage
             var entity = r.Vi32();
             var flags = r.U32();
             if ((flags & 0xC0000000) != 0) return null;
-            var (name, server, classId, gearScore) = Detail(ref r);
-            State(ref r);
+            var (name, server, classId, gearScore, characterLevel, combatLevel) = Detail(ref r);
+            var (positiveHealth, resourceMaximums, equippedWing) = ReadStateHealth(ref r);
             if ((flags & 1) != 0) Guild(ref r);
-            Stats(ref r);
+            var statSubset = CharacterCombatMessage.ReadStats(ref r);
             var abnormals = r.Count(23);
-            for (var i = 0; i < abnormals; i++) Abnormal(ref r);
+            var abnormalValues = ImmutableArray.CreateBuilder<CharacterAbnormal>(abnormals);
+            for (var i = 0; i < abnormals; i++) abnormalValues.Add(ReadAbnormal(ref r));
             var equips = r.Count(21);
             for (var i = 0; i < equips; i++) Equip(ref r);
-            SkipIf(ref r, flags, 2, 1); // appear reason
+            var appearReason = (flags & 2) != 0 ? r.U8() : (byte?)null;
             r.Skip(8); // Opaque map key: no unique instance/run meaning established.
             var mapDataId = r.I32();
             SkipIf(ref r, flags, 4, 4);
@@ -116,15 +118,16 @@ public static class OwnIdentityMessage
                 r.Skip(5);
             }
             SkipIf(ref r, flags, 8388608, 2);
-            r.Skip(16); // conqueror level, maximum, experience
+            var conquerorLevel = r.I32();
+            r.Skip(12); // conqueror maximum and experience are not needed for the bounded point contract
             if ((flags & 16777216) != 0) r.Bool();
             SkipIf(ref r, flags, 33554432, 8);
             SkipIf(ref r, flags, 67108864, 4);
             SkipIf(ref r, flags, 134217728, 16);
             var combatScore = r.I64();
             r.Skip(8); // highest combat power is not the current score
-            Points(ref r);
-            Points(ref r);
+            var usedPoints = CharacterCombatMessage.ReadPoints(ref r);
+            var bonusPoints = CharacterCombatMessage.ReadPoints(ref r);
             if ((flags & 268435456) != 0) r.Skip(r.Count(8) * 8);
             if ((flags & 536870912) != 0) r.Skip(r.Count(8) * 8);
             r.Exact();
@@ -132,13 +135,20 @@ public static class OwnIdentityMessage
                 && name.All(char.IsLetterOrDigit)
                 ? new(new(characterId, server, entity, name) { ClassId = classId }, mapDataId > 0 ? mapDataId : null)
                     { CombatScore = combatScore >= 0 ? combatScore : null, GearScore = gearScore,
-                        AbyssRankPoints = abyssRankPoints is >= 0 ? abyssRankPoints : null } : null;
+                        CharacterLevel = characterLevel > 0 ? characterLevel : null, StatSubset = statSubset,
+                        CombatLevel = combatLevel >= 0 ? combatLevel : null,
+                        ConquerorLevel = conquerorLevel >= 0 ? conquerorLevel : null,
+                        DaevanionPoints = new(usedPoints, bonusPoints),
+                        Abnormals = new(abnormalValues.MoveToImmutable()),
+                        ResourceMaximums = resourceMaximums, EquippedWing = equippedWing,
+                        AbyssRankPoints = abyssRankPoints is >= 0 ? abyssRankPoints : null,
+                        HasPositiveHealth = positiveHealth, AppearReasonCode = appearReason } : null;
         }
         catch (InvalidDataException) { return null; }
         catch (DecoderFallbackException) { return null; }
     }
 
-    private static (string Name, int Server, string? ClassId, int? GearScore) Detail(ref ProgressPacketReader r)
+    private static (string Name, int Server, string? ClassId, int? GearScore, int CharacterLevel, int CombatLevel) Detail(ref ProgressPacketReader r)
     {
         var flags = r.U8();
         if ((flags & 0xC0) != 0) throw new InvalidDataException("Unknown own detail flags.");
@@ -146,9 +156,11 @@ public static class OwnIdentityMessage
         var server = r.U16();
         var classId = ClassIdForPcId(r.I32());
         SkipIf(ref r, flags, 2, 1);
-        r.Skip(4); // character level
+        var characterLevel = r.I32();
         var gearScore = r.I32(); // current equip item level, not the following highest total item level
-        r.Skip(4 + 4 + 8 + 4 + 8); // highest gear, maximum level and experience
+        r.Skip(4 + 4 + 8); // highest gear, maximum character level and character experience
+        var combatLevel = r.I32();
+        r.Skip(8); // combat experience
         SkipIf(ref r, flags, 4, 1);
         r.Skip(r.Count(14) * 14); // gathering stats
         r.Skip(r.Count(13) * 13); // crafting stats
@@ -157,7 +169,7 @@ public static class OwnIdentityMessage
         SkipIf(ref r, flags, 8, 1);
         if ((flags & 16) != 0) Points(ref r);
         if ((flags & 32) != 0) Points(ref r);
-        return (name, server, classId, gearScore >= 0 ? gearScore : null);
+        return (name, server, classId, gearScore >= 0 ? gearScore : null, characterLevel, combatLevel);
     }
 
     // User request 2026-10-20: class comes only from full MyCharAppear.detail.pcId (i32 LE).
@@ -178,7 +190,9 @@ public static class OwnIdentityMessage
     };
 
     // Shared complete CharAppear subforms. Callers must still validate their own whole envelope.
-    internal static void State(ref ProgressPacketReader r)
+    internal static void State(ref ProgressPacketReader r) => ReadStateHealth(ref r);
+
+    private static (bool? PositiveHealth, CharacterResourceMaximums Maximums, CharacterWingEquipment? EquippedWing) ReadStateHealth(ref ProgressPacketReader r)
     {
         var flags = r.U16();
         r.Skip(18); // position, direction and movement direction; deliberately not returned
@@ -188,19 +202,29 @@ public static class OwnIdentityMessage
         SkipIf(ref r, flags, 8, 12);
         SkipIf(ref r, flags, 16, 12);
         SkipIf(ref r, flags, 32, 4);
-        r.U8();
-        r.V64(); r.V64();
-        r.Skip(13 * 4);
+        r.U8(); // Native live byte has no qualified value-to-life contract here.
+        var health = r.V64();
+        var maximumHealth = r.V64();
+        r.I32(); // Current MP is deliberately not retained.
+        var maximumMana = r.I32();
+        r.Skip(11 * 4);
         SkipIf(ref r, flags, 64, 1);
         SkipIf(ref r, flags, 128, 4);
         SkipIf(ref r, flags, 256, 1);
         SkipIf(ref r, flags, 512, 1);
         if ((flags & 1024) != 0) r.Vi32();
         SkipIf(ref r, flags, 2048, 4);
-        SkipIf(ref r, flags, 4096, 4);
-        SkipIf(ref r, flags, 8192, 1);
-        SkipIf(ref r, flags, 16384, 4);
+        var wingId = (flags & 4096) != 0 ? r.I32() : (int?)null;
+        var wingLevel = (flags & 8192) != 0 ? r.U8() : (byte?)null;
+        var wingSkinId = (flags & 16384) != 0 ? r.I32() : (int?)null;
         SkipIf(ref r, flags, 32768, 4);
+        bool? positiveHealth = maximumHealth is > 0 and <= long.MaxValue && health <= maximumHealth ? health > 0 : null;
+        // These values leave this reader only when the containing Own reaches its exact end.
+        // Invalid/absent wing IDs remain unknown without discarding the other own facts.
+        CharacterWingEquipment? wing = wingId is not null || wingLevel is not null || wingSkinId is not null
+            ? new(wingId is >= 0 ? wingId : null, wingLevel, wingSkinId is >= 0 ? wingSkinId : null) : null;
+        return (positiveHealth, new(maximumHealth <= long.MaxValue ? (long)maximumHealth : null,
+            maximumMana >= 0 ? maximumMana : null), wing);
     }
 
     internal static void Guild(ref ProgressPacketReader r)
@@ -208,18 +232,22 @@ public static class OwnIdentityMessage
         r.I64(); r.SkipString(); r.Skip(2 + 1 + 4 + 8 + 2); r.SkipString();
     }
 
-    internal static void Abnormal(ref ProgressPacketReader r)
+    internal static void Abnormal(ref ProgressPacketReader r) => ReadAbnormal(ref r);
+
+    private static CharacterAbnormal ReadAbnormal(ref ProgressPacketReader r)
     {
         var flags = r.U8();
         if ((flags & 0xE0) != 0) throw new InvalidDataException("Unknown abnormal flags.");
-        r.Vi32(); r.Skip(20);
+        r.Vi32(); // transient abnormal UID, never retained
+        var abnormalId = r.I32(); r.Skip(16); // durations and expiry are not needed for attribution
         if ((flags & 1) != 0) r.Vi32();
-        r.U8();
+        var level = r.U8();
         SkipIf(ref r, flags, 2, 4);
-        r.Bool();
+        var readyToRemove = r.Bool();
         if ((flags & 4) != 0) r.Vi32();
         SkipIf(ref r, flags, 8, 4);
         SkipIf(ref r, flags, 16, 12);
+        return new(abnormalId, level, readyToRemove);
     }
 
     internal static void Equip(ref ProgressPacketReader r)

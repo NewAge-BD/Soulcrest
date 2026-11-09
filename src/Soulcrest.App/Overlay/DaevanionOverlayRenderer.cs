@@ -184,7 +184,7 @@ public sealed partial class DaevanionOverlayRenderer : IDisposable
 
     public Bitmap Preview(string classId = "Cleric", string family = "nezekan", string language = "en",
         bool nodeContentVisible = true, bool showToggle = false,
-        IReadOnlySet<string>? highlightedStatIds = null, bool showStatRail = false)
+        IReadOnlySet<string>? highlightedStatIds = null, bool showStatRail = false, DaevanionBoardPlan? route = null)
     {
         var board = _catalog.GetBoard(classId, family) ?? throw new ArgumentException("Unknown Daevanion board.");
         const int spacing = 76, nodeSize = 60;
@@ -227,6 +227,13 @@ public sealed partial class DaevanionOverlayRenderer : IDisposable
             {
                 var rail = DaevanionStatRailLayout.Build(board, detection, size, selected, language, toggle);
                 if (rail.HasSpace) DaevanionStatRailRenderer.Paint(g, rail);
+            }
+            if (route is not null && route.BoardId == board.Id && route.FamilyId == board.FamilyId)
+            {
+                var routeDetection = detection with { StartVisible = true, Nodes = anchors.Where(anchor =>
+                    board.Nodes.Single(node => node.Row == anchor.Row && node.Column == anchor.Column).Kind != DaevanionNodeKind.Start).ToArray() };
+                new DaevanionRouteRenderer().Paint(g, board, routeDetection, route.NodeIds.ToHashSet(),
+                    route.Edges.Select(edge => (edge.FromNodeId, edge.ToNodeId)).ToArray(), true);
             }
             return image;
         }

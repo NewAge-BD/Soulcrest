@@ -12,10 +12,10 @@ namespace Soulcrest.App.Tests;
 public sealed class AbyssRankOverlayTests
 {
     [Fact]
-    public void RankTrackerKeepsSavedLayoutKeyAndFitsMoreMetricsIntoASmallerPanel()
+    public void RetiredRankHudKeepsItsReusableRendererButHasNoRuntimeRegistryEntry()
     {
-        var descriptor = Assert.Single(OverlayRegistry.All, row => row.Id == "abyss-rank");
-        Assert.Equal("Abyss Rank Tracker", descriptor.Title);
+        Assert.DoesNotContain(OverlayRegistry.All, row => row.Id == "abyss-rank");
+        Assert.Throws<ArgumentException>(() => OverlayRegistry.Get("abyss-rank"));
         Assert.True(AbyssRankOverlayRenderer.Width < 540);
         Assert.True(AbyssRankOverlayRenderer.Width * AbyssRankOverlayRenderer.Height < 540 * 172);
     }
@@ -312,7 +312,12 @@ public sealed class AbyssRankOverlayTests
             settings.SetAbyssKillFeedShowKills(false);
             settings.SetAbyssKillFeedShowDeaths(true);
             settings.SetAbyssKillFeedShowAssists(false);
-            settings.Update(value => OverlayRegistry.WriteLayout(value, "abyss-rank", new(-1200, 80, 1.4)));
+            settings.Update(value =>
+            {
+                value.AbyssRankOverlayX = -1200;
+                value.AbyssRankOverlayY = 80;
+                value.AbyssRankOverlayScale = 1.4;
+            });
             var loaded = new SettingsService().Current;
             Assert.False(loaded.AbyssTrackingEnabled);
             Assert.True(loaded.AbyssRankOverlayEnabled);
@@ -321,7 +326,7 @@ public sealed class AbyssRankOverlayTests
             Assert.True(loaded.AbyssKillFeedShowDeaths);
             Assert.False(loaded.AbyssKillFeedShowAssists);
             Assert.Equal(AbyssPointRatePeriod.Minute, loaded.AbyssPointRatePeriod);
-            Assert.Equal(new(-1200, 80, 1.4), OverlayRegistry.ReadLayout(loaded, "abyss-rank"));
+            Assert.Equal((-1200, 80, 1.4), (loaded.AbyssRankOverlayX, loaded.AbyssRankOverlayY, loaded.AbyssRankOverlayScale));
             settings.SetAbyssPointRatePeriod((AbyssPointRatePeriod)999);
             Assert.Equal(AbyssPointRatePeriod.Hour, new SettingsService().Current.AbyssPointRatePeriod);
             Assert.Null(OverlayHotkeys.Defaults().GetValueOrDefault("abyss-rank.toggle"));

@@ -5,6 +5,21 @@
 @inject IServiceProvider Provider
 @inject SettingsService Settings
 
+<section class="overlay-settings-card" data-daevanion-route-settings>
+    <h4>@UiText.T("Gespeicherte Routen")</h4>
+    @if (_plans?.GetActiveRoute(_service?.ClassId ?? _classId) is { } route)
+    {
+        <p role="status">@ClassName(route.ClassId) · @route.Name</p>
+    }
+    else
+    {
+        <p>@UiText.T("Für diese Klasse ist keine Overlay-Route aktiviert.")</p>
+    }
+    <p>@UiText.T("Aktiviere eine gespeicherte Route im Rechner. Geplante Nodes und Verbindungen erscheinen blau auf dem erkannten Board.")</p>
+    <p>@UiText.T("Die Route bleibt bei ausgeblendeten Node-Inhalten sichtbar. Beim Boardhover bleiben die Tooltips frei; die Linien kehren nach dem Mausverlassen zurück.")</p>
+    <button class="btn" type="button" disabled="@(_ui is null)" @onclick="@(() => _ui?.Navigate("daevanion-calculator"))">@UiText.T("Daevanion Board Calculator öffnen") ↗</button>
+</section>
+
 <section class="overlay-settings-card" data-daevanion-status>
     <h4>@UiText.T("Erkennung")</h4>
     <p role="status">@UiText.T(_service?.Status ?? "Warte auf Klassenerkennung.")</p>
@@ -63,6 +78,8 @@
     private static DaevanionCatalog Catalog => DaevanionCatalog.Default;
     private readonly DaevanionOverlayRenderer _renderer = new();
     private DaevanionService? _service;
+    private DaevanionPlanService? _plans;
+    private UiState? _ui;
     private string _classId = "Cleric", _family = "nezekan", _key = "", _preview = "", _lastStatus = "";
     private bool _disposed, _highlightError;
     private string? _highlightFeedback;
@@ -97,10 +114,12 @@
     {
         get
         {
-            var key = _classId + ":" + _family + ":" + Settings.Current.LootNameLanguage;
+            var route = _plans?.GetActiveRoute(_classId);
+            var key = _classId + ":" + _family + ":" + Settings.Current.LootNameLanguage + ":" + route?.Id + ":" + route?.UpdatedAt;
             if (key != _key)
             {
-                using var image = _renderer.Preview(_classId, _family, Settings.Current.LootNameLanguage);
+                using var image = _renderer.Preview(_classId, _family, Settings.Current.LootNameLanguage,
+                    route: route?.Result.Boards.FirstOrDefault(board => board.FamilyId == _family));
                 using var stream = new MemoryStream(); image.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
                 _preview = "data:image/png;base64," + Convert.ToBase64String(stream.ToArray()); _key = key;
             }
@@ -110,7 +129,10 @@
     protected override void OnInitialized()
     {
         _service = Provider.GetService<DaevanionService>();
+        _plans = Provider.GetService<DaevanionPlanService>();
+        _ui = Provider.GetService<UiState>();
         if (_service is not null) _service.Changed += RefreshStatus;
+        if (_plans is not null) _plans.Changed += RefreshStatus;
         Settings.Changed += RefreshStatus;
     }
     private void RefreshStatus()
@@ -118,7 +140,8 @@
         if (_disposed) return;
         var status = _service?.Status + ":" + _service?.ClassId + ":" + _service?.Snapshot?.Board.Id
             + ":" + Settings.Current.DaevanionNodeContentVisible + ":" + string.Join(",", Settings.Current.DaevanionHighlightedStatIds)
-            + ":" + _service?.HighlightPlacementStatus + ":" + UiText.Language + ":" + Settings.Current.LootNameLanguage;
+            + ":" + _service?.HighlightPlacementStatus + ":" + UiText.Language + ":" + Settings.Current.LootNameLanguage
+            + ":" + _plans?.GetActiveRoute(_service?.ClassId ?? _classId)?.UpdatedAt;
         if (status == _lastStatus) return;
         _lastStatus = status; _highlightFeedback = null; _highlightError = false;
         _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
@@ -127,6 +150,7 @@
     {
         _disposed = true;
         if (_service is not null) _service.Changed -= RefreshStatus;
+        if (_plans is not null) _plans.Changed -= RefreshStatus;
         Settings.Changed -= RefreshStatus;
         _renderer.Dispose();
     }

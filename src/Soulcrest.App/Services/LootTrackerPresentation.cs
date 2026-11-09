@@ -9,7 +9,7 @@ public enum LootTrackerViewMode { Mixed, Pve, Lifeskill, Abyss }
 public enum LootTrackerSessionStatus { Live, Completed, Interrupted }
 public enum LootTrackerSessionMode { Normal, LimitedKina }
 public enum LootTrackerLootKind { Item, Soul }
-public enum LootTrackerCombatKind { Kill = 0, Death = 1 }
+public enum LootTrackerCombatKind { Kill = 0, Death = 1, Assist = 2 }
 
 /// <summary>
 /// Read-only presentation contract. It neither starts a capture nor creates sessions from pet totals.
@@ -72,7 +72,7 @@ public sealed record LootTrackerSession
     public ImmutableArray<LootTrackerLoot> Loot { get; init; } = [];
     public ImmutableArray<LootTrackerMob> Mobs { get; init; } = [];
     public ImmutableArray<LootTrackerRouteSegment> RouteSegments { get; init; } = [];
-    /// <summary>Explicit own combat results only. Missing historical observations are never reconstructed.</summary>
+    /// <summary>Own combat observations with explicit estimated-assist provenance. Historical observations are never reconstructed.</summary>
     public ImmutableArray<LootTrackerCombatEvent> CombatEvents { get; init; } = [];
     public ImmutableArray<LootTrackerResourceVisit> ResourceNodes { get; init; } = [];
     /// <summary>Version 1 is a growing gathering-point route; zero retains the legacy travelled path.</summary>
@@ -110,6 +110,9 @@ public sealed record LootTrackerCombatEvent(string Id, LootTrackerCombatKind Kin
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public LootTrackerActivityOrigin? Origin { get; init; }
+    /// <summary>Own damage participation inferred at another player's kill; never an explicit server assist credit.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsEstimated { get; init; }
     /// <summary>Anonymous, validated class frozen at the outcome; never an opponent identity.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? OpponentClassId { get; init; }

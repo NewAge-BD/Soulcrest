@@ -295,8 +295,11 @@ public sealed partial class RouteOverlayForm : Form
         foreach (var resource in resources ?? [])
         {
             var at = Offset(placement.WorldToScreen(resource.X, resource.Y), origin);
-            DrawResource(graphics, at, resource.Icon, resource.Color, resource.Opacity, theme,
-                drawBackground: placement.WorldMap || resource.Opacity >= 1f);
+            if (resource.DropIcons is { } drops)
+                DrawMonsterDrops(graphics, at, drops, theme);
+            else
+                DrawResource(graphics, at, resource.Icon, resource.Color, resource.Opacity, theme,
+                    drawBackground: placement.WorldMap || resource.Opacity >= 1f);
             if (resource.OutlineColor is { } outlineColor)
             {
                 using var rim = new Pen(Color.FromArgb(230, ColorTranslator.FromHtml(outlineColor)), 1.5f);
@@ -444,7 +447,11 @@ public sealed partial class RouteOverlayForm : Form
     public sealed record SoulMonster(double X, double Y);
 
     /// <summary>A non-pet map marker to draw with its legend icon.</summary>
-    public sealed record ResourceSymbol(double X, double Y, Bitmap? Icon, string? Color = null, float Opacity = 1f, string? OutlineColor = null);
+    public sealed record ResourceSymbol(double X, double Y, Bitmap? Icon, string? Color = null, float Opacity = 1f, string? OutlineColor = null,
+        MonsterDropIcons? DropIcons = null);
+
+    /// <summary>At most three cached source icons plus the count of further selected materials.</summary>
+    public sealed record MonsterDropIcons(IReadOnlyList<Bitmap?> Icons, int Additional, string CacheKey);
 
     private const int PetIconSize = 26;
     private const int ResourceIconSize = 20;

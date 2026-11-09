@@ -642,7 +642,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         internal long? WalletBalance = 1_000;
         public NetworkKinaSnapshot KinaSnapshot => new(WalletBalance, null, _clock.GetUtcNow(), false, "Synthetic");
         public NetworkAbyssSnapshot AbyssSnapshot { get; private set; }
-        public NetworkAbyssCombatCapabilities CombatCapabilities => new(true, true, false);
+        public NetworkAbyssCombatCapabilities CombatCapabilities { get; set; } = new(true, true, false);
         public event Action? Changed;
         public event Action? OwnCharacterChanged;
         public event Action<NetworkKinaGain>? KinaGained;
@@ -667,8 +667,10 @@ public sealed partial class UnifiedLootTrackerServiceTests
             AbyssPointsGained?.Invoke(new(at ?? _clock.GetUtcNow(), sequence, own ?? OwnCharacter!, amount));
         internal void Rank(long amount, long sequence, DateTimeOffset? at = null, OwnCharacterContext? own = null) =>
             RankPointsChanged?.Invoke(new(at ?? _clock.GetUtcNow(), sequence, own ?? OwnCharacter!, amount));
-        internal void Combat(NetworkAbyssCombatKind kind, long sequence) => CombatEvent?.Invoke(new(_clock.GetUtcNow(), sequence, OwnCharacter!, kind, "Synthetic opponent")
-        { OpponentClassId = "Ranger", OpponentAbyssRankGrade = 19 });
+        internal void Combat(NetworkAbyssCombatKind kind, long sequence, bool estimated = false,
+            OwnCharacterContext? own = null, DateTimeOffset? at = null) =>
+            CombatEvent?.Invoke(new(at ?? _clock.GetUtcNow(), sequence, own ?? OwnCharacter!, kind, "Synthetic opponent")
+            { OpponentClassId = "Ranger", OpponentAbyssRankGrade = 19, IsEstimated = estimated });
         internal void Daily(long total, bool notify = true)
         { DailyMonsterKinaSnapshot = new(OwnCharacter, total, _clock.GetUtcNow(), ++_dailySequence); if (notify) Notify(); }
         internal void Absolute(long rank, bool qualified = true)

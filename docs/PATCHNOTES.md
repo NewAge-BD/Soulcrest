@@ -2,6 +2,33 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.16.0 – 2026-11-09
+
+- **Neu:** Stat Overview mit Grund-, Gottheits-, Haupt- und Nebenwerten aus deinen eigenen
+  Netzwerkdaten, dazu Bereiche für Daevanion Board mit Overlay-Planung, Wings, Gear, Pets,
+  Genus Insight, Pantheon, Achievements und Titles.
+- **Neu:** Achievements mit Fortschritt und Belohnungsstufen, Suche, Fraktionsfilter, Favoriten und
+  einem Achievement-Tracker im Overlay (Meldungsdauer einstellbar).
+- **Neu:** Titel, Flügel und Pantheon als Sammlungen je Charakter mit Besitz, Boni und
+  Freischaltwegen; fehlende Besitzboni lassen sich gezielt filtern.
+- **Neu:** Genus Insight mit Live-Rolls und Favoriten-Overlay.
+- **Neu:** **Overlay Editor** ersetzt den Overlay-Tab: eigene Overlays aus Live-Modulen (Drops,
+  Kina, AP, Rangpunkte, Killfeed, Rangfortschritt u. a.), Presets und Themes, Platzierung direkt im
+  Spiel.
+- **Neu:** Optionale Online-Marktpreise von aion2.exchange (abschaltbar): neue Beute erhält beim
+  Fund einen Netto-Richtwert nach einstellbaren Gebühren, der eingefroren wird. Server je Charakter
+  wählbar.
+- **Neu:** Geschätzte PvP-Assists im Killfeed und in Abyss-Sessions, als geschätzt
+  gekennzeichnet. Weitere eigene Tode nach einer Wiederbelebung werden gezählt.
+- **Behoben:** AP-Gewinne zählen nach AP-Ausgaben weiter; eine weitere AP-Belohnungsform wird
+  erfasst.
+- **Neu:** Monster-Drops als Materialfilter in der Kartenlegende; neue Dungeon-Soulquellen für
+  zwölf Pets.
+- **Neu:** Boss-Vorwarnungen aus gespeicherten Terminen; der Invasions-Countdown zielt auf den
+  nächsten Start zur halben Stunde.
+- **Geändert:** Das Loot-Overlay gruppiert Ausrüstungsdrops nach Seltenheit; Overlays blenden bei
+  Datenupdates nicht mehr kurz aus.
+
 ## 0.15.1 – 2026-10-28
 
 - **Behoben:** Im öffentlichen Download zeichnete der Loot-Tracker keine Sessions auf, Abyss Rank

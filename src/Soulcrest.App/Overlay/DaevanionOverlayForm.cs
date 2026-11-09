@@ -12,6 +12,9 @@ public sealed class DaevanionOverlayForm : Form
     private readonly DaevanionToggleForm _toggle;
     private readonly DaevanionStatRailForm _statRail;
     private readonly DaevanionHighlightForm _highlights;
+    private readonly DaevanionPlanService? _plans;
+    private readonly DaevanionBoardEditService? _edits;
+    private readonly DaevanionRouteForm _route;
     private readonly System.Windows.Forms.Timer _visibility = new() { Interval = 100 };
     private bool _closed, _placementHidden, _foregroundSuppressed;
     private int _queued;
@@ -19,19 +22,25 @@ public sealed class DaevanionOverlayForm : Form
     internal DaevanionToggleForm ToggleWindow => _toggle;
     internal DaevanionStatRailForm StatRailWindow => _statRail;
     internal DaevanionHighlightForm HighlightWindow => _highlights;
+    internal DaevanionRouteForm RouteWindow => _route;
 
-    public DaevanionOverlayForm(DaevanionService service, SettingsService settings)
+    public DaevanionOverlayForm(DaevanionService service, SettingsService settings, DaevanionPlanService? plans = null,
+        DaevanionBoardEditService? edits = null)
     {
-        _service = service; _settings = settings;
+        _service = service; _settings = settings; _plans = plans; _edits = edits;
         _toggle = new DaevanionToggleForm(CanToggleNodeContent);
         _toggle.Toggled += ToggleNodeContent;
         _statRail = new DaevanionStatRailForm(CanToggleNodeContent);
         _statRail.StatToggled += ToggleHighlightedStat;
         _statRail.ClearRequested += ClearHighlightedStats;
         _highlights = new DaevanionHighlightForm(CurrentHighlightSource, SelectedStats);
+        _route = new DaevanionRouteForm(CurrentHighlightSource, classId => _plans?.GetActiveRoute(classId),
+            edit: edits is null ? null : snapshot => edits.ForOverlay(snapshot.Context, snapshot.Board));
         FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
         _visibility.Tick += (_, _) => CheckVisibility();
         _service.Changed += SchedulePresentation;
+        if (_plans is not null) _plans.Changed += SchedulePresentation;
+        if (_edits is not null) _edits.Changed += SchedulePresentation;
     }
     protected override bool ShowWithoutActivation => true;
     protected override CreateParams CreateParams
@@ -62,13 +71,13 @@ public sealed class DaevanionOverlayForm : Form
             if (_shown is not null && HasSameContent(_shown, current)) { _shown = current; return; }
             Present();
         }
-        finally { RefreshHighlights(); }
+        finally { RefreshHighlights(); RefreshRoute(); }
     }
 
     private void HideNodes() { Hide(); _shown = null; }
     private void HideAll()
     {
-        HideNodes(); _controlSource = null; _toggle.Suppress(); _statRail.Suppress(); _highlights.Suppress();
+        HideNodes(); _controlSource = null; _toggle.Suppress(); _statRail.Suppress(); _highlights.Suppress(); _route.Suppress();
         _service.SetHighlightPlacementStatus(null);
     }
 
@@ -121,6 +130,7 @@ public sealed class DaevanionOverlayForm : Form
         if (CurrentHighlightSource() is not { } current) { _highlights.Suppress(); return; }
         _highlights.Present(current, SelectedStats(), _settings.Current.OverlaysInRecordings);
     }
+    private void RefreshRoute() => _route.RefreshRoute(_settings.Current.OverlaysInRecordings);
     private void RefreshControls(DaevanionSnapshot snapshot)
     {
         RefreshToggle(snapshot);
@@ -226,7 +236,7 @@ public sealed class DaevanionOverlayForm : Form
         }
         catch (Exception error) when (error is ArgumentException or InvalidOperationException or ExternalException)
         { HideAll(); System.Diagnostics.Trace.TraceWarning("Daevanion presentation: {0}", error.GetType().Name); }
-        finally { RefreshHighlights(); }
+        finally { RefreshHighlights(); RefreshRoute(); }
     }
     private DaevanionSnapshot? CurrentForPresentation()
     {
@@ -308,9 +318,11 @@ public sealed class DaevanionOverlayForm : Form
         if (disposing && !_closed)
         {
             _closed = true; _service.Changed -= SchedulePresentation; _visibility.Dispose();
+            if (_plans is not null) _plans.Changed -= SchedulePresentation;
+            if (_edits is not null) _edits.Changed -= SchedulePresentation;
             _toggle.Toggled -= ToggleNodeContent; _controlSource = null; _toggle.Dispose();
             _statRail.StatToggled -= ToggleHighlightedStat; _statRail.ClearRequested -= ClearHighlightedStats;
-            _statRail.Dispose(); _highlights.Dispose(); _renderer.Dispose();
+            _statRail.Dispose(); _highlights.Dispose(); _route.Dispose(); _renderer.Dispose();
             _service.SetHighlightPlacementStatus(null);
         }
         base.Dispose(disposing);

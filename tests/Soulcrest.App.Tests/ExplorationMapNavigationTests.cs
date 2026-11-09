@@ -16,6 +16,50 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")]
 public sealed class ExplorationMapNavigationTests
 {
+    [Fact]
+    public async Task SessionAssistMarkersReachTheMainMapByDefaultAndTheirFilterKeepsOtherKindsAndWalkUntouched()
+    {
+        await using var scenario = new Scenario();
+        scenario.Provider.GetRequiredService<SettingsService>().Current.LastMap = "altgard";
+        UiText.Language = "de";
+        var at = new DateTimeOffset(2026, 10, 29, 12, 0, 0, TimeSpan.Zero);
+        var position = new LootTrackerCombatPosition("altgard", "Altgard", 100, 200, at);
+        var session = new LootTrackerSession
+        {
+            Id = "synthetic-assist-focus", Kind = LootTrackerSessionKind.Abyss,
+            StartedAt = at, Elapsed = TimeSpan.FromMinutes(1),
+            RouteSegments = [new("altgard", "Altgard", [new(100, 200), new(300, 400)])],
+            CombatEvents = [new("kill", LootTrackerCombatKind.Kill, at, TimeSpan.Zero, position),
+                new("death", LootTrackerCombatKind.Death, at, TimeSpan.Zero, position),
+                new("assist", LootTrackerCombatKind.Assist, at, TimeSpan.Zero, position) { IsEstimated = true }]
+        };
+        var view = await scenario.Render();
+        await scenario.Renderer.Dispatcher.InvokeAsync(() => view.FocusLootRoute(LootTrackerMapFocus.Create(session)!));
+        var initial = scenario.Js.Calls.Last(call => call.Name == "soulcrestMap.setLootRoute");
+        Assert.Equal(new[] { "kill", "death", "assist" }, Kinds(initial.Arguments[4]));
+        using (var json = System.Text.Json.JsonDocument.Parse((string)initial.Arguments[4]!))
+            Assert.Contains("Assist · geschätzt", json.RootElement[2].GetProperty("tooltip").GetString());
+
+        await Set("assist", false);
+        var hidden = scenario.Js.Calls.Last(call => call.Name == "soulcrestMap.setLootRoute");
+        Assert.Equal(new[] { "kill", "death" }, Kinds(hidden.Arguments[4]));
+        Assert.Equal(initial.Arguments[1], hidden.Arguments[1]);
+        await Set("assist", true);
+        var restored = scenario.Js.Calls.Last(call => call.Name == "soulcrestMap.setLootRoute");
+        Assert.Equal(initial.Arguments[4], restored.Arguments[4]);
+        await Set("kill", false);
+        Assert.Equal(new[] { "death", "assist" }, Kinds(scenario.Js.Calls.Last(call => call.Name == "soulcrestMap.setLootRoute").Arguments[4]));
+        Assert.Equal(0, scenario.Provider.GetRequiredService<GameCaptureService>().Diagnostics.Grabs);
+
+        Task Set(string kind, bool visible) => scenario.Renderer.Dispatcher.InvokeAsync(() => (Task)typeof(MapView)
+            .GetMethod("SetLootMarkerVisible", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(view, [kind, visible])!);
+        static string?[] Kinds(object? argument)
+        {
+            using var json = System.Text.Json.JsonDocument.Parse((string)argument!);
+            return json.RootElement.EnumerateArray().Select(row => row.GetProperty("kind").GetString()).ToArray();
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -1,0 +1,17 @@
+@if (!_failed && !string.IsNullOrEmpty(Src))
+{
+    <img src="@Src" alt="@Alt" class="@Class" loading="lazy" draggable="false" @onerror="() => _failed = true" />
+}
+else
+{
+    <span class="asset-fallback @Class" role="img" aria-label="@Alt"><KitIcon Name="@Fallback" /></span>
+}
+@code {
+    [Parameter] public string? Src { get; set; }
+    [Parameter] public string Alt { get; set; } = "";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string Fallback { get; set; } = "loot";
+    private string? _previous;
+    private bool _failed;
+    protected override void OnParametersSet() { if (_previous != Src) { _previous = Src; _failed = false; } }
+}

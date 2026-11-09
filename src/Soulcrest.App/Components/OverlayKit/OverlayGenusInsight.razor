@@ -1,0 +1,47 @@
+@inherits KitLocalizedComponentBase
+
+<div class="overlay-genus-insight" data-overlay-genus="@(Available ? Snapshot.SelectedGenus : null)" data-overlay-genus-preset="@(Available ? Snapshot.ViewedPreset : null)" data-overlay-genus-current="@Available.ToString().ToLowerInvariant()">
+    @if (!Available)
+    {
+        <div class="overlay-genus-unavailable">@T(Snapshot.MenuVisible == true ? "Genuswerte noch nicht aktuell bestätigt" : "Genusmenü im Spiel öffnen")</div>
+    }
+    else
+    {
+        <header class="overlay-genus-heading">
+            @if (Widget.ShowIcon) { <AssetImage Src="@GenusInsightPresentation.IconPath(Snapshot.SelectedGenus!)" Alt="" Class="overlay-genus-icon" Fallback="spark" /> }
+            <strong>@GenusInsightPresentation.GenusLabel(Snapshot.SelectedGenus!)</strong>
+            @if (Board!.Level is { } level) { <span>@F("Level {0}", level)</span> }
+        </header>
+        <div class="overlay-genus-slots">
+            @for (byte number = 1; number <= 9; number++)
+            {
+                var slot = Board!.Slots.FirstOrDefault(candidate => candidate.Slot == number) ?? new GenusInsightSlotView { Slot = number };
+                var label = UiLanguage == "de" ? slot.LabelDe : slot.LabelEn;
+                var fraction = slot.IsCurrent && slot.RollFraction is { } supplied && double.IsFinite(supplied) && supplied is >= 0 and <= 1 ? supplied : (double?)null;
+                <div class="overlay-genus-slot @(slot.IsFavorite ? "is-favorite" : "")" data-genus-slot="@number" data-genus-rank="@slot.Rank" data-genus-favorite="@slot.IsFavorite.ToString().ToLowerInvariant()" data-genus-max-roll="@((slot.IsCurrent && slot.IsMaxRoll).ToString().ToLowerInvariant())" style="--genus-rank:@GenusInsightPresentation.RankColor(slot.Rank)">
+                    <div class="overlay-genus-range @(fraction is null ? "is-unknown" : "")" role="meter" aria-label="@F("Rollbereich: {0}", label)" aria-valuemin="@Machine(slot.Minimum)" aria-valuemax="@Machine(slot.Maximum)" aria-valuenow="@(fraction is null ? null : Machine(slot.Value))" data-genus-roll-fraction="@Css(fraction)">
+                        <div class="overlay-genus-range-track">@if (fraction is { } roll) { <span class="overlay-genus-range-fill" style="width:@Css(roll * 100)%"></span><i class="overlay-genus-range-marker" style="left:@Css(roll * 100)%"></i> }</div>
+                        <div class="overlay-genus-range-labels"><span>@ExactRangeValue(slot.Minimum, slot.Unit)</span><span>@ExactRangeValue(slot.Maximum, slot.Unit)</span></div>
+                    </div>
+                    <span class="overlay-genus-stat" title="@label">@label</span>
+                    <div class="overlay-genus-value"><strong data-genus-value="@Machine(slot.Value)">@Value(slot.Value, slot.Unit)</strong>@if (slot.IsCurrent && slot.IsMaxRoll) { <small>MAX ROLL!</small> }</div>
+                    <span class="overlay-genus-favorite" aria-label="@(slot.IsFavorite ? T("Favorit") : null)">@(slot.IsFavorite ? "★" : "")</span>
+                </div>
+            }
+        </div>
+        <span class="overlay-genus-source">@(Snapshot.ObservedAt is { } at ? F("Netzwerkstand: {0}", at.ToLocalTime().ToString("HH:mm:ss", UiCulture)) : T("Genuswerte noch nicht aktuell bestätigt"))</span>
+    }
+</div>
+
+@code {
+    [Parameter] public GenusInsightSnapshot Snapshot { get; set; } = GenusInsightSnapshot.Empty;
+    [Parameter] public OverlayWidget Widget { get; set; } = new();
+    private GenusInsightBoardView? Board => Snapshot.ViewedBoard;
+    private bool Available => GenusInsightOverlayContent.Available(Snapshot);
+    private static string? Machine(decimal? value) => value?.ToString(CultureInfo.InvariantCulture);
+    private static string? Css(double? value) => value?.ToString("0.######", CultureInfo.InvariantCulture);
+    private string ExactRangeValue(decimal? value, string? unit) => value is { } number && unit is "Points" or "Percent"
+        ? number.ToString("0.############################", UiCulture) + (unit == "Percent" ? " %" : "") : "—";
+    private string Value(decimal? value, string? unit) => value is { } number && unit is "Points" or "Percent"
+        ? (unit == "Percent" ? decimal.Round(number, 1, MidpointRounding.ToEven).ToString("0.#", UiCulture) : number.ToString("0.##", UiCulture)) + (unit == "Percent" ? " %" : "") : "—";
+}

@@ -26,6 +26,14 @@ public sealed record EventTimerDisplay(string Title, string PhaseLabel, string C
         var phase = portal ? "Portal offen" : window.IsActive ? "Läuft" : "Als Nächstes";
         var label = portal ? "Portal schließt in" : window.IsActive ? "Endet in" : "Startet in";
         var at = portal ? window.PortalEndsAt ?? window.EndsAt : window.IsActive ? window.EndsAt : window.StartsAt;
+        // User request 2026-11-02: Invasion countdowns always target the next
+        // half-hour start in Berlin, including during the current 15-minute phase.
+        // Keep the source window for active status, event details and the timeline.
+        if (timer.Definition.Id == "invasion" && window.IsActive && window.NextAt is { } nextStart)
+        {
+            at = nextStart;
+            label = "Nächster Start in";
+        }
         return new(UiText.T(title), UiText.T(phase), UiText.T(label), at, window.IsActive, window);
     }
 

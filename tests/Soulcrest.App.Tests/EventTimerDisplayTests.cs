@@ -98,7 +98,6 @@ public sealed class EventTimerDisplayTests : IDisposable
     }
 
     [Theory]
-    [InlineData("invasion", "2026-10-12T18:35:00Z", "2026-10-12T18:45:00Z", true)]
     [InlineData("abyss", "2026-10-12T19:05:00Z", "2026-10-12T19:30:00Z", true)]
     [InlineData("shugo", "2026-10-12T18:05:00Z", "2026-10-12T19:00:00Z", false)]
     [InlineData("daily-reset", "2026-10-12T18:05:00Z", "2026-10-13T07:00:00Z", false)]
@@ -112,6 +111,44 @@ public sealed class EventTimerDisplayTests : IDisposable
         Assert.Equal(At(target), display.CountdownAt);
         Assert.Equal(active, display.IsActive);
         Assert.Null(TimerOverlayPresentation.FromEvent(timer.Definition, timer).Row!.InlineLabel);
+    }
+
+    [Theory]
+    [InlineData("2026-11-02T13:29:59.999Z", "2026-11-02T13:30:00Z", false)]
+    [InlineData("2026-11-02T13:30:00Z", "2026-11-02T14:30:00Z", true)]
+    [InlineData("2026-11-02T13:35:00Z", "2026-11-02T14:30:00Z", true)]
+    [InlineData("2026-11-02T13:44:59.999Z", "2026-11-02T14:30:00Z", true)]
+    [InlineData("2026-11-02T13:45:00Z", "2026-11-02T14:30:00Z", false)]
+    [InlineData("2026-11-02T23:35:00Z", "2026-11-03T00:30:00Z", true)]
+    [InlineData("2026-07-15T12:35:00Z", "2026-07-15T13:30:00Z", true)]
+    [InlineData("2026-03-29T00:35:00Z", "2026-03-29T01:30:00Z", true)]
+    [InlineData("2026-10-25T00:35:00Z", "2026-10-25T01:30:00Z", true)]
+    [InlineData("2026-10-25T01:35:00Z", "2026-10-25T02:30:00Z", true)]
+    public void InvasionAlwaysCountsToTheNextBerlinHalfHourWhileKeepingItsActiveWindow(string instant, string target, bool active)
+    {
+        var now = At(instant);
+        var timer = Snapshot("invasion", now);
+        var original = JsonSerializer.Serialize(timer);
+        var berlin = TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
+        foreach (var language in new[] { "de", "en" })
+        {
+            UiText.Language = language;
+            var display = EventTimerDisplay.From(timer);
+            Assert.Equal(At(target), display.CountdownAt);
+            Assert.Equal(30, TimeZoneInfo.ConvertTime(display.CountdownAt, berlin).Minute);
+            Assert.Equal(active, display.IsActive);
+            Assert.Same(timer.Window, display.Window);
+            Assert.Equal(TimeSpan.FromMinutes(15), display.Window.EndsAt - display.Window.StartsAt);
+            Assert.Equal(active ? language == "de" ? "Nächster Start in" : "Next start in"
+                : language == "de" ? "Startet in" : "Starts in", display.CountdownLabel);
+            var strip = TimerOverlayPresentation.FromEvent(timer.Definition, timer).Row!;
+            var map = Assert.Single(MapTimerPresentation.Create([timer], [], [], [], now, language));
+            Assert.Equal(display.CountdownAt, strip.At);
+            Assert.Equal(display.CountdownAt, map.At);
+            Assert.Equal(display.CountdownLabel, strip.CountdownLabel);
+            Assert.Equal(display.CountdownLabel, map.State);
+        }
+        Assert.Equal(original, JsonSerializer.Serialize(timer));
     }
 
     private static EventTimerSnapshot Snapshot(string id, DateTimeOffset now)

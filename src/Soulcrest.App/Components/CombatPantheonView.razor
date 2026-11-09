@@ -1,0 +1,115 @@
+@using Soulcrest.Core.Pantheon
+@using Soulcrest.App.Services
+
+<section class="pt-view" data-pantheon data-pantheon-source="@Snapshot.SourceKind.ToString().ToLowerInvariant()">
+    <header class="pt-heading">
+        <div><h2>Pantheon</h2><p>@UiText.T("Deine Sammlung und ihre ausgerüsteten Gottheitsattribute.")</p></div>
+        <div class="pt-source @(Snapshot.SourceKind == PantheonSourceKind.Live ? "current" : "")" role="status">
+            <strong>@SourceLabel</strong>
+            <span>@(Snapshot.ObservedAt is { } observed ? UiText.F("Stand: {0}", observed.ToLocalTime().ToString("g", Culture)) : UiText.T("Noch kein eigener Pantheon-Stand erkannt."))</span>
+        </div>
+    </header>
+    <div class="pt-layout" data-pantheon-layout="collection-sidebar">
+        <nav class="pt-categories" aria-label="@UiText.T("Kategorie")">
+            <button type="button" class="@(_category.Length == 0 ? "selected" : "")" aria-pressed="@((_category.Length == 0).ToString().ToLowerInvariant())" data-pantheon-category="" @onclick="@(() => _category = "")"><span class="pt-all-symbol" aria-hidden="true">ALL</span><span>@UiText.T("Alle")</span><small>@Eligible.Count</small></button>
+            @foreach (var category in Categories)
+            {
+                <button type="button" class="@(_category == category.ToString() ? "selected" : "")" aria-pressed="@((_category == category.ToString()).ToString().ToLowerInvariant())" data-pantheon-category="@category" @onclick="@(() => _category = category.ToString())">
+                    @if (Eligible.FirstOrDefault(item => item.Category == category && !string.IsNullOrWhiteSpace(item.IconPath)) is { } representative) { <img src="@representative.IconPath" alt="" /> }
+                    else { <span class="pt-all-symbol" aria-hidden="true">◇</span> }
+                    <span>@CategoryLabel(category)</span><small>@Eligible.Count(item => item.Category == category)</small>
+                </button>
+            }
+        </nav>
+        <div class="pt-browser" data-pantheon-browser>
+            <div class="pt-filter-buttons" aria-label="@UiText.T("Besitzstatus")">
+                @foreach (var filter in new[] { "all", "owned", "missing" })
+                { <button type="button" class="@(_ownership == filter ? "selected" : "")" aria-pressed="@((_ownership == filter).ToString().ToLowerInvariant())" data-pantheon-filter="@filter" disabled="@(filter != "all" && (!Snapshot.IsOwnershipKnown || Eligible.Count == 0))" @onclick="@(() => _ownership = filter)">@OwnershipLabel(filter)</button> }
+            </div>
+            <div class="pt-library-heading"><h3>@UiText.T("Sammlung")</h3><span data-pantheon-owned-count>@(Eligible.Count == 0 ? UiText.T("Fraktion noch nicht erkannt.") : Snapshot.IsOwnershipKnown ? UiText.F("{0} von {1} vorhanden", Eligible.Count(item => Snapshot.OwnedIds.Contains(item.Id)), Eligible.Count) : UiText.T("Besitz noch nicht erkannt."))</span></div>
+            <div class="pt-filters">
+                <input class="pt-search" type="search" placeholder="@UiText.T("Nach Namen suchen")" aria-label="@UiText.T("Nach Namen suchen")" @bind="_search" @bind:event="oninput" data-pantheon-search />
+                <label class="pt-sort">@UiText.T("Sortieren nach")<select @bind="_sortGod" data-pantheon-sort>@foreach (var stat in SortGods) { <option value="@stat.Id">@StatLabel(stat.Id)</option> }</select></label>
+            </div>
+            <div class="pt-cards" role="list" aria-label="@UiText.T("Sammlung")" data-pantheon-results="@Filtered.Count">
+                @foreach (var item in Filtered)
+                {
+                    var owned = Snapshot.IsOwnershipKnown && Snapshot.OwnedIds.Contains(item.Id);
+                    var equipped = Snapshot.Slots.Any(slot => slot.IsKnown && slot.DecorId == item.Id);
+                    <article class="pt-card @(Snapshot.IsOwnershipKnown && !owned ? "missing" : "") @(equipped ? "equipped" : "")" role="listitem" data-pantheon-decor="@item.Id" data-ownership="@(Snapshot.IsOwnershipKnown ? owned ? "owned" : "missing" : "unknown")" @key="item.Id">
+                        <div class="pt-card-head">@if (!string.IsNullOrWhiteSpace(item.IconPath)) { <img src="@item.IconPath" alt="" loading="lazy" /> } else { <span class="pt-icon-missing" aria-hidden="true">◇</span> }<div><h4>@item.Name(Language)</h4><small>@CategoryLabel(item.Category)</small></div></div>
+                        <ul class="pt-card-effects">@foreach (var effect in item.Effects.OrderBy(effect => GodOrder(effect.StatId)))
+                            { <li>@if (CombatWorkspaceCatalog.IconPath(effect.StatId) is { } icon) { <img src="@icon" alt="" /> }<span>@StatLabel(effect.StatId)</span><strong>+@effect.Amount</strong></li> }</ul>
+                        <div class="pt-card-status"><span>@(Snapshot.IsOwnershipKnown ? owned ? UiText.T("Vorhanden") : UiText.T("Fehlend") : UiText.T("Besitz unbekannt"))</span>@if (equipped) { <span class="pt-equipped-badge">@UiText.T("Ausgerüstet")</span> }</div>
+                    </article>
+                }
+            </div>
+            @if (Filtered.Count == 0) { <p class="pt-no-results">@UiText.T("Keine passenden Einträge.")</p> }
+        </div>
+        <aside class="pt-sidebar" data-pantheon-sidebar aria-label="@UiText.T("Ausrüstung")">
+            <header class="pt-sidebar-heading"><h3>@UiText.T("Ausrüstung")</h3></header>
+            <div class="pt-equipment">
+                @foreach (var category in Categories)
+                {
+                    var definitions = Catalog.Slots.Where(slot => slot.Category == category).ToArray();
+                    <section class="pt-slot-group @CategoryClass(category)" data-pantheon-slot-category="@category" data-slot-count="@definitions.Length">
+                        <h4>@CategoryLabel(category)<span>@definitions.Length</span></h4>
+                        <div class="pt-slots">
+                            @foreach (var definition in definitions)
+                            {
+                                var slot = Snapshot.Slots.SingleOrDefault(row => row.SlotId == definition.Id && row.Category == category);
+                                var known = slot?.IsKnown == true;
+                                var item = known && slot!.DecorId is > 0 ? Catalog.Find(slot.DecorId.Value) : null;
+                                <div class="pt-slot @(item is not null ? "equipped" : "")" data-pantheon-slot="@definition.Id" data-slot-known="@known.ToString().ToLowerInvariant()" title="@(item?.Name(Language) ?? (known && slot!.DecorId is not > 0 ? UiText.T("Leer") : UiText.T("Nicht erkannt")))">
+                                    @if (item is not null && !string.IsNullOrWhiteSpace(item.IconPath)) { <img src="@item.IconPath" alt="@item.Name(Language)" /> }
+                                    else if (item is not null) { <span class="pt-icon-missing" aria-label="@item.Name(Language)">◇</span> }
+                                    else { <span class="pt-slot-empty">@(known && slot!.DecorId is not > 0 ? "–" : "?")</span> }
+                                    <small>@definition.Id</small>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                }
+            </div>
+            <section class="pt-effect-summary" data-pantheon-effects-known="@Snapshot.AreEffectsKnown.ToString().ToLowerInvariant()">
+                <h3>Pantheon Display Effect</h3>
+                @if (Snapshot.AreEffectsKnown)
+                {
+                    <dl>@foreach (var effect in Snapshot.EquippedEffects.OrderBy(effect => GodOrder(effect.StatId)))
+                        { <div data-pantheon-effect="@effect.StatId"><dt>@if (CombatWorkspaceCatalog.IconPath(effect.StatId) is { } icon) { <img src="@icon" alt="" /> }@StatLabel(effect.StatId)</dt><dd>@effect.Amount</dd></div> }</dl>
+                }
+                else { <p>@UiText.T("Belegung noch nicht erkannt.")</p> }
+            </section>
+        </aside>
+    </div>
+</section>
+
+@code {
+    [Parameter] public PantheonSnapshot Snapshot { get; set; } = PantheonSnapshot.Empty;
+    [Parameter] public string? Faction { get; set; }
+    private static PantheonCatalog Catalog => PantheonCatalog.Default;
+    private static readonly PantheonDecorCategory[] Categories = [PantheonDecorCategory.Colossus, PantheonDecorCategory.Statue, PantheonDecorCategory.Artwork];
+    private static IReadOnlyList<CombatStatOverviewRowDefinition> Gods => CombatStatOverviewCatalog.MainGroups.Single(group => group.Group == CombatStatOverviewGroup.GodAttributes).Rows;
+    private IReadOnlyList<CombatStatOverviewRowDefinition> SortGods => Gods.Where(stat => Eligible.Any(item => item.Effects.Any(effect => effect.StatId == stat.Id))).ToArray();
+    private IReadOnlyList<PantheonDecor> Eligible => Catalog.Items.Where(item => item.IncludesFaction(Faction)).ToArray();
+    private string _ownership = "all", _category = "", _search = "", _sortGod = "Justice";
+    private string Language => UiText.Language;
+    private System.Globalization.CultureInfo Culture => System.Globalization.CultureInfo.GetCultureInfo(Language == "de" ? "de-DE" : "en-US");
+    private string SourceLabel => UiText.T(Snapshot.SourceKind switch { PantheonSourceKind.Live => "Aktueller Charakterstand", PantheonSourceKind.Saved => "Zuletzt gespeicherter Charakterstand", _ => "Warte auf Pantheon-Daten" });
+    private IReadOnlyList<PantheonDecor> Filtered => Eligible.Where(item =>
+        (_category.Length == 0 || item.Category.ToString() == _category)
+        && (_search.Trim().Length == 0 || item.Name(Language).Contains(_search.Trim(), StringComparison.CurrentCultureIgnoreCase))
+        && (_ownership == "all" || Snapshot.IsOwnershipKnown && Snapshot.OwnedIds.Contains(item.Id) == (_ownership == "owned")))
+        .OrderByDescending(item => item.EffectAmount(_sortGod)).ThenByDescending(item => item.Grade)
+        .ThenBy(item => item.Name(Language), StringComparer.CurrentCulture).ThenBy(item => item.Id).ToArray();
+    protected override void OnParametersSet()
+    {
+        if (!Snapshot.IsOwnershipKnown) _ownership = "all";
+        if (!SortGods.Any(stat => stat.Id == _sortGod)) _sortGod = SortGods.FirstOrDefault()?.Id ?? "";
+    }
+    private static string CategoryClass(PantheonDecorCategory category) => category switch { PantheonDecorCategory.Colossus => "pt-colossus", PantheonDecorCategory.Statue => "pt-statues", _ => "pt-artworks" };
+    private static string CategoryLabel(PantheonDecorCategory category) => UiText.T(category switch { PantheonDecorCategory.Colossus => "Koloss", PantheonDecorCategory.Statue => "Statuen", _ => "Kunstwerke" });
+    private static string OwnershipLabel(string filter) => UiText.T(filter switch { "owned" => "Vorhanden", "missing" => "Fehlend", _ => "Alle" });
+    private static int GodOrder(string id) => Gods.ToList().FindIndex(stat => stat.Id == id);
+    private static string StatLabel(string id) => Gods.FirstOrDefault(stat => stat.Id == id) is { } stat ? CombatWorkspaceCatalog.StatLabel(stat) : id;
+}

@@ -1,0 +1,134 @@
+@inherits KitLocalizedComponentBase
+
+<div class="overlay-widget-viewport" data-reflow="@OverlayContentLayout.Reflows(Widget).ToString().ToLowerInvariant()"
+     data-grid-count="@(IsLoot ? Loot.VisibleItems.Count : 0)" data-grid-size="@Css(Widget.ItemSize)" data-grid-font="@Css(Widget.FontScale)"
+     data-grid-header="@(Widget.ShowLabel ? 18 : 0)" data-grid-footer="@(IsLoot && Loot.HiddenCount > 0 ? 18 : 0)"
+     data-content-width="@Css(Content.ReferenceWidth)" data-content-height="@Css(Content.ReferenceHeight)"
+     data-min-content-width="@Css(Content.MinimumWidth)" data-min-content-height="@Css(Content.MinimumHeight)" data-content-layout="@PreviewStyle">
+<div class="overlay-widget-preview overlay-widget-@Widget.Kind @(IsLoot ? "is-loot-widget" : "") @(Metric.IsWarning ? "is-warning" : "") metric-tone-@Metric.Tone.ToString().ToLowerInvariant()" style="@PreviewStyle" title="@(Widget.Kind == "abyss-killfeed" ? null : T(IsLoot ? Loot.Detail : Metric.Tooltip ?? Metric.Detail ?? ""))">
+    @if (Widget.ShowLabel)
+    {
+        <div class="overlay-widget-label" data-overlay-fit>
+            @if (Widget.ShowIcon && Widget.Kind is not ("daily-kina" or "genus-insight")) { <OverlayModuleIcon Kind="@Widget.Kind" /> }
+            <span>@T(IsLoot ? Loot.Label : Widget.Kind == "clock" ? "Lokale Uhrzeit" : Metric.Label)</span>
+        </div>
+    }
+    @if (IsLoot)
+    {
+        @if (Loot.Items.Count == 0)
+        {
+            <div class="overlay-widget-empty" data-overlay-fit>@T(Widget.ItemFilter == "selected" ? "Items im Editor auswählen" : Widget.ItemFilter == "rare" ? "Noch keine seltenen Drops" : "Noch keine Drops")</div>
+        }
+        else
+        {
+            <div class="overlay-loot-viewport">
+                <div class="overlay-widget-items is-@Widget.ItemView @(Widget.ShowIcon ? "" : "without-icons")">
+                    @foreach (var item in Loot.VisibleItems)
+                    {
+                        <div class="overlay-widget-item @(item.IsRare ? "is-rare" : "") @(item.IsEquipmentGroup ? "is-equipment-group" : "")" data-rarity="@item.Rarity" style="@ItemStyle(item)" title="@(item.Tooltip ?? item.Name + " · " + item.QuantityText)" @key="item.Key">
+                            <OverlayRarityBackground Rarity="item.Rarity" AnimationsEnabled="Snapshot.ItemAnimationsEnabled" ClockUtcNow="Snapshot.ClockUtcNow" />
+                            @if (Widget.ShowIcon) { <AssetImage Src="@item.IconPath" Alt="" Class="overlay-item-icon" /> }
+                            <span class="overlay-item-name" data-overlay-fit>@item.Name</span>
+                            <strong class="overlay-item-quantity" data-overlay-fit>@item.QuantityText</strong>
+                        </div>
+                    }
+                </div>
+            </div>
+            @if (Loot.HiddenCount > 0) { <span class="overlay-widget-more" data-overlay-fit title="@T(Widget.ItemView == "list" ? "Modul vergrößern oder Itemauswahl anpassen." : "Maximale Items in den Moduleinstellungen erhöhen")">@F("+ {0} weitere", Loot.HiddenCount)</span> }
+        }
+    }
+    else if (Widget.Kind == "abyss-killfeed")
+    {
+        <OverlayAbyssKillFeed Snapshot="Snapshot" Widget="Widget" />
+    }
+    else if (Widget.Kind == "abyss-rank-progress")
+    {
+        <OverlayAbyssRankProgress Snapshot="Snapshot" Widget="Widget" />
+    }
+    else if (Widget.Kind == "genus-insight")
+    {
+        <OverlayGenusInsight Snapshot="Snapshot.GenusInsight" Widget="Widget" />
+    }
+    else if (Widget.Kind == "clock")
+    {
+        <div class="overlay-clock-rows">
+            <div class="overlay-clock-row is-real" data-overlay-fit>
+                @if (!Widget.ShowLabel && Widget.ShowIcon) { <KitIcon Name="clock" /> }
+                @if (Widget.ShowLabel) { <span class="overlay-clock-row-label">@T("Lokal")</span> }
+                <strong>@Metric.Value</strong>
+            </div>
+        </div>
+    }
+    else if (Widget.Kind == "daily-kina")
+    {
+        <OverlayDailyKinaBar Snapshot="Snapshot" ShowIcon="Widget.ShowIcon" />
+        @if (Widget.ShowLabel) { <span class="overlay-widget-detail" data-overlay-fit>@Snapshot.DailyProgress.Detail</span> }
+    }
+    else if (Widget.Kind == "rare-notice")
+    {
+        @if (Snapshot.RareNotice is { } notice)
+        {
+            <div class="overlay-rare-notice rarity-@notice.Rarity.ToString().ToLowerInvariant()" data-rarity="@notice.Rarity" style="--notice-rarity-color:@(Soulcrest.App.Overlay.LootRarityVisuals.NameCssColor(notice.Rarity) ?? "var(--text)")" @key="notice.Id">
+                <OverlayRarityBackground Rarity="notice.Rarity" AnimationsEnabled="Snapshot.ItemAnimationsEnabled" ClockUtcNow="Snapshot.ClockUtcNow" />
+                @if (Widget.ShowIcon) { <AssetImage Src="@notice.IconPath" Alt="" Class="overlay-rare-icon" /> }
+                <div class="overlay-rare-text">
+                    <strong data-overlay-fit>@notice.Name ×@notice.QuantityText</strong>
+                    <span class="overlay-rare-grade" data-overlay-fit>@notice.Rarity</span>
+                </div>
+            </div>
+        }
+        else { <div class="overlay-widget-empty" data-overlay-fit>@T("Kein aktueller Fundhinweis")</div> }
+    }
+    else
+    {
+        <strong class="overlay-widget-value" data-overlay-fit>
+            @if (!Widget.ShowLabel && Widget.ShowIcon) { <OverlayModuleIcon Kind="@Widget.Kind" /> }
+            <span class="overlay-value-text">@T(Metric.Value)</span>
+        </strong>
+        @if (Metric.HistoricalAge is { } age)
+        {
+            <span class="overlay-widget-detail overlay-market-age" data-overlay-fit>
+                @if (Widget.ShowIcon) { <KitIcon Name="clock" /> }
+                <span>@T("Historisch") · @age</span>
+            </span>
+        }
+        else if (Widget.ShowLabel && Metric.Detail is not null)
+        {
+            <span class="overlay-widget-detail" data-overlay-fit>@T(Metric.Detail)</span>
+        }
+    }
+</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public OverlayWidget Widget { get; set; } = new();
+    [Parameter, EditorRequired] public OverlaySnapshot Snapshot { get; set; } = new();
+    private bool IsLoot => OverlayCatalog.IsLootWidget(Widget.Kind);
+    private OverlayMetric Metric => Snapshot.Metrics.GetValueOrDefault(Widget.Kind) ?? new(T(OverlayCatalog.Find(Widget.Kind)?.Label ?? "Modul"), "—");
+    private OverlayContentLayout? _content;
+    private OverlayContentLayout Content => _content ??= OverlayContentLayout.Create(Widget, Snapshot);
+    private OverlayLootView? _loot;
+    private OverlayLootView Loot => _loot ??= OverlayLootPresentation.Create(Content.LayoutWidget, Snapshot);
+    protected override void OnParametersSet() { _content = null; _loot = null; }
+    private string PreviewStyle => $"width:{Css(Content.LayoutWidget.Width)}px;height:{Css(Content.LayoutWidget.Height)}px;transform:scale({Css(Content.Scale)});--widget-font-scale:{Css(IsLoot ? Loot.FontScale : Content.LayoutWidget.FontScale)}" +
+        (IsLoot ? $";--loot-item-size:{Css(Loot.ItemSize)}px;--loot-gap:{Css(Loot.Gap)}px;--loot-columns:{Math.Max(1, Loot.Columns)};--loot-cell-width:{Css(Loot.CellWidth)}px;--loot-cell-height:{Css(Loot.CellHeight)}px;--loot-header-height:{Css(Loot.HeaderHeight)}px;--loot-footer-height:{Css(Loot.FooterHeight)}px;--loot-layout-width:{Css(LootWidth)}px;--loot-layout-height:{Css(LootHeight)}px" : "");
+    private int LootRows => (int)Math.Ceiling((double)Loot.VisibleItems.Count / Math.Max(1, Loot.Columns));
+    private double LootWidth => Loot.Columns * Loot.CellWidth + Math.Max(0, Loot.Columns - 1) * Loot.Gap;
+    private double LootHeight => LootRows * Loot.CellHeight + Math.Max(0, LootRows - 1) * Loot.Gap;
+    private string ItemStyle(OverlayLootItem item)
+    {
+        var iconSize = Widget.ShowIcon ? Math.Max(0, Math.Min(Loot.ItemSize, Math.Min(Loot.CellWidth * .35, Loot.CellHeight))) : 0;
+        var textWidth = Math.Max(1, Loot.CellWidth - iconSize - (Widget.ShowIcon ? 3 * Loot.Gap : 0));
+        var textHeight = Math.Max(1, Loot.CellHeight - 18 * Loot.FontScale);
+        var fontSize = Math.Max(.1, Math.Min(30 * Loot.FontScale,
+            Math.Min(textWidth / Math.Max(1, item.QuantityText.Length * .65), Math.Max(1, textHeight) / 1.2)));
+        var listIconSize = Widget.ShowIcon ? Math.Min(Loot.ItemSize * .55, Math.Min(Loot.CellHeight, Loot.CellWidth * .5)) : 0;
+        var listTextWidth = Math.Max(.1, Loot.CellWidth - listIconSize - (Widget.ShowIcon ? 2 : 1) * 1.5 * Loot.Gap);
+        var countWidth = Widget.ItemView == "list" ? listTextWidth * .4 : Loot.CellWidth - 1.5 * Loot.Gap;
+        var countSize = Math.Max(.1, Math.Min(13 * Loot.FontScale, Math.Max(1, countWidth) / Math.Max(1, item.QuantityText.Length * .65)));
+        return $"--loot-card-icon-size:{Css(iconSize)}px;--loot-card-count-size:{Css(fontSize)}px;--loot-count-size:{Css(countSize)}px;--loot-list-icon-size:{Css(listIconSize)}px"
+            + (item.IsEquipmentGroup ? ";--loot-group-color:" + (item.Rarity == LootItemRarity.Common ? "#FFFFFF"
+                : Soulcrest.App.Overlay.LootRarityVisuals.NameCssColor(item.Rarity) ?? "#FFFFFF") : "");
+    }
+    private static string Css(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
+}

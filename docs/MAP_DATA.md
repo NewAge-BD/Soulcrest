@@ -237,3 +237,70 @@ betroffenen Namen. Grenzen werden nicht aus den Mittelpunkten erfunden.
 Das lokale Originalicon einschließlich blau-goldener Raute ist © NCSOFT;
 die App benötigt dafür keine Spieldateien. Vorhandene Marker werden verwendet,
 sodass kein neues Kartenpaket für die Beschriftungen erforderlich ist.
+## Monster Drops (2026-11-02)
+
+Die Kartenlegende enthält die standardmäßig geschlossene und ausgeschaltete
+Gruppe „Monster Drops“. Materialarten und einzelne Items sind für interaktive
+Karte, Minimap und Worldmap unabhängig pro Karte wählbar. Itemfilter verwenden
+stabile Item-IDs; bestehende Ressourcenfilter behalten ihre bisherigen Schlüssel.
+
+Der separate Fetcher liest den öffentlichen Itemkatalog und alle Details der
+Kategorien `items/materials/*` auf Deutsch und Englisch sowie deren Icons. Der
+Offline-Builder berücksichtigt nur die eigene `acquisition` eines Items mit
+`method: drop` und NPC-Quelle. Exakte NPC-IDs und gegebenenfalls Quellkarten
+verbinden diese Belege mit den vorhandenen Monster- und Bossplatzierungen.
+Varianten erben keine Dropquellen. Materialarten folgen einer expliziten
+Item-ID-Zuordnung. Sichtbar sind Fleisch, Früchte, Leder und Geistersteine;
+Veredelungssteine, Balaur-Materialien und sonstige Materialien sind seit der
+Nutzerkorrektur vom 2026-11-02 ausgeschlossen, auch aus älteren Kartenpaketen.
+Keine Zuordnung über Namen, Nähe, ID-Präfixe oder private Clientdaten.
+
+`data.js` erhält additiv `monsterDrops` mit `schemaVersion: 1`, `items` und
+`spawns`. Items enthalten `id`, `en`, `de`, einen lokalen `icon`-Pfad und den
+stabilen Materialartschlüssel `type`; Spawnzeilen verknüpfen `marker`, `npcId`
+und eindeutige Item-IDs in `items`. `marker` verweist auf die unveränderte
+bestehende Markerliste. Die Markerzahl, Petzuordnungen und Koordinaten bleiben
+erhalten. Fehlende Quelldateien werden vor Kartendatenschreibvorgängen gemeldet.
+Alte Pakete bleiben lesbar und zeigen den Aktualisierungshinweis; ein gültiges
+leeres Dropobjekt bedeutet ausschließlich, dass keine Drops für diese Karte
+belegt sind.
+
+Nach Auswahl entsteht eine Icongruppe pro Spawn mit bis zu drei Materialicons,
+aufsteigend nach Item-ID, und „+N“ für weitere ausgewählte Items. Diese ersetzt
+den gewöhnlichen Monsterpunkt derselben Quelle. Das Popup der interaktiven
+Karte nennt Quellmonster und belegte Materialien, Rechtsklick verwendet die
+bestehende Zielaktion. Native Overlays verwenden dieselben Filter und gecachte
+zusammengesetzte Symbole. Die Icongruppen und ihre +N-Anzeige haben auf allen
+Kartenansichten einen transparenten Hintergrund. Zähler zählen eindeutige Spawnpunkte statt Dropmengen;
+mehrere Materialien desselben Spawns werden im Gruppenzähler nur einmal gezählt.
+
+Materialcache und vorhandenes Kartenpaket lassen sich getrennt aktualisieren:
+
+```powershell
+python scripts/fetch_gamingtools_dataset.py --materials-only
+python scripts/build_tester_data.py --skip-tiles
+```
+
+Der Desktop-Tester berücksichtigt auch Änderungen am neuen Aufbereiter
+`monster_drops.py` bei der Prüfung auf veraltete Kartendaten.
+
+Die Abdeckung umfasst belegte Material-Drops mit vorhandenen Platzierungen auf
+den unterstützten Karten. Fehlende Quellen beweisen keine Dropfreiheit;
+Dropchancen, aktuelle Beute und garantierte Mengen werden daraus nicht abgeleitet.
+
+## Zusätzliche Dungeon-Soulquellen (2026-11-04)
+
+Der eingebettete `PetAcquisitionCatalog` ergänzt zwölf bestehende Pets um belegte
+Soul-Drops in sieben Dungeonfamilien. `data/pets/dungeon-soul-sources.json` enthält
+Originalnamen DE/EN, Soul-Item und Quellmonster, Quellenreferenzen und das Datum.
+Modus und Dropchance bleiben unbekannt. Die Liste funktioniert auch mit einem
+älteren Kartenpaket und wird ausschließlich lokal gelesen.
+
+Im Pets-Tab erscheinen Kennzeichnung, Quellenfilter, Dungeon und Quellmonster.
+Die Suche berücksichtigt deren deutsche und englische Namen. Diese Quellenliste
+ändert keine `Spawns`-/`Monsters`-Counts, Marker oder Koordinaten; eine Kartenaktion
+benötigt weiterhin positive Positionen auf einer tatsächlich verfügbaren Karte.
+Fortschritt, Soul-IDs, Aliasse und deduplizierte Netzwerkzählung bleiben unabhängig.
+Die Händlerkategorie `Special` bedeutet weiterhin nur keinen Farmort auf den drei
+bisherigen Regionen und wird durch einen Dungeonfundort nicht überschrieben.
+

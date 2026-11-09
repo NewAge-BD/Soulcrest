@@ -13,6 +13,7 @@ internal sealed class AbyssPlayerRegistry
 {
     /// <summary>Simultaneously live, proven PCs. Tombstones are not limited by this budget.</summary>
     internal const int MaximumEntries = 4096;
+    internal static readonly TimeSpan AssistParticipationWindow = TimeSpan.FromSeconds(30);
 
     internal sealed record Context(OwnCharacterContext Own, string Stream, GameMessageStream Transport,
         long CaptureGeneration, long Revision, WorldContextSnapshot World)
@@ -28,6 +29,7 @@ internal sealed class AbyssPlayerRegistry
         internal DateTimeOffset MetadataObservedAt { get; set; } = observedAt;
         internal string? ClassId { get; set; }
         internal int? AbyssRankGrade { get; set; }
+        internal DateTimeOffset? OwnDamageAt { get; set; }
     }
 
     private readonly Dictionary<int, Entry> _entries = [];
@@ -95,7 +97,40 @@ internal sealed class AbyssPlayerRegistry
     internal bool TryConsumeOwnKillWithMetadata(Context context, AbyssPlayerCasterDeathObservation death,
         DateTimeOffset at, DateTimeOffset now, out string? opponentName,
         out string? opponentClassId, out int? opponentAbyssRankGrade)
+        => TryConsumeOwnResult(context, death, at, now, false, out _, out opponentName,
+            out opponentClassId, out opponentAbyssRankGrade);
+
+    /// <summary>One own positive-damage observation, held only on an already proven live PC entry.</summary>
+    internal bool ObserveOwnDamage(Context context, int casterEntity, int victimEntity, bool positiveDamage,
+        DateTimeOffset at, DateTimeOffset now)
     {
+        if (!positiveDamage || casterEntity != context.Own.Identity.EntityKey || casterEntity == victimEntity
+            || !Bind(context, at, now) || !_entries.TryGetValue(victimEntity, out var victim)
+            || at < victim.ObservedAt || victim.OwnDamageAt is { } previous && at < previous) return false;
+        victim.OwnDamageAt = at;
+        return true;
+    }
+
+    internal void ClearOwnParticipation()
+    {
+        foreach (var victim in _entries.Values) victim.OwnDamageAt = null;
+    }
+
+    /// <summary>
+    /// User-authorized 2026-10-29 estimate: a different explicit PC caster kills an independently
+    /// proven victim within thirty seconds of own positive damage. This never establishes credit.
+    /// </summary>
+    internal bool TryConsumeOwnTakedownWithMetadata(Context context, AbyssPlayerCasterDeathObservation death,
+        DateTimeOffset at, DateTimeOffset now, out bool estimatedAssist, out string? opponentName,
+        out string? opponentClassId, out int? opponentAbyssRankGrade) =>
+        TryConsumeOwnResult(context, death, at, now, true, out estimatedAssist, out opponentName,
+            out opponentClassId, out opponentAbyssRankGrade);
+
+    private bool TryConsumeOwnResult(Context context, AbyssPlayerCasterDeathObservation death,
+        DateTimeOffset at, DateTimeOffset now, bool allowEstimatedAssist, out bool estimatedAssist,
+        out string? opponentName, out string? opponentClassId, out int? opponentAbyssRankGrade)
+    {
+        estimatedAssist = false;
         opponentName = null;
         opponentClassId = null;
         opponentAbyssRankGrade = null;
@@ -107,9 +142,17 @@ internal sealed class AbyssPlayerRegistry
             return false;
         }
         Kill(death.VictimEntityKey); // consume before publication, including foreign kills
-        if (at < victim.ObservedAt || death.VictimEntityKey == context.Own.Identity.EntityKey
-            || death.CasterEntityKey != context.Own.Identity.EntityKey
-            || !SameOwnIdentity(context.Own, death.CasterServerId, death.CasterName)) return false;
+        if (at < victim.ObservedAt || death.VictimEntityKey == context.Own.Identity.EntityKey) return false;
+        var ownCaster = death.CasterEntityKey == context.Own.Identity.EntityKey
+            && SameOwnIdentity(context.Own, death.CasterServerId, death.CasterName);
+        if (!ownCaster)
+        {
+            if (!allowEstimatedAssist || death.CasterEntityKey == context.Own.Identity.EntityKey
+                || SameOwnIdentity(context.Own, death.CasterServerId, death.CasterName)
+                || victim.OwnDamageAt is not { } damageAt || damageAt > at
+                || at - damageAt > AssistParticipationWindow) return false;
+            estimatedAssist = true;
+        }
         opponentName = victim.Name;
         // A later-arriving older death can still use the original PC identity, but must not
         // borrow class/rank metadata observed after its own event time. No history is inferred.

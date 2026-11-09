@@ -51,4 +51,21 @@ public sealed class AdvanceWarningsTests
         Assert.Empty(policy.EvaluateMany(snapshot, selected, _ => []));
         Assert.True(Assert.Single(policy.EvaluateMany(snapshot with { Bosses = [new(111001, true, now + 240000)] }, selected, _ => [])).Spawned);
     }
+    [Fact]
+    public void ExplicitSavedWarningsNeverConfirmASpawnOrInferAnotherCycle()
+    {
+        const long now = 1800000000000;
+        var policy = new BossAlertPolicy();
+        var selected = new HashSet<string> { "1110:111001", "1110:111002" };
+        var snapshot = new BossRushSnapshot(1110, [new(111001, false, now + 240000), new(111002, true, now - 1000)], now, TimeSpan.Zero, Cached: true);
+        Assert.Empty(policy.EvaluateMany(snapshot, selected, _ => [300, 60]));
+        var first = Assert.Single(policy.EvaluateMany(snapshot, selected, _ => [300, 60], allowCachedWarnings: true));
+        Assert.Equal(111001, first.Boss.SpawnId);
+        Assert.False(first.Spawned);
+        Assert.Equal(300, first.LeadSeconds);
+        Assert.Empty(policy.EvaluateMany(snapshot, selected, _ => [300, 60], allowCachedWarnings: true));
+        Assert.Equal(60, Assert.Single(policy.EvaluateMany(snapshot with { ServerUnixMs = now + 180000 }, selected, _ => [300, 60], allowCachedWarnings: true)).LeadSeconds);
+        Assert.Empty(policy.EvaluateMany(snapshot with { ServerUnixMs = now + 240000 }, selected, _ => [300, 60], allowCachedWarnings: true));
+        Assert.True(Assert.Single(policy.EvaluateMany(snapshot with { Bosses = [new(111001, true, now + 240000)], ServerUnixMs = now + 240000, Cached = false }, selected, _ => [300, 60], allowCachedWarnings: true)).Spawned);
+    }
 }

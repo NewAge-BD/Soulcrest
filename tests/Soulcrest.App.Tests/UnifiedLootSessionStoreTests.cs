@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Soulcrest.App.Tests;
 
-public sealed class UnifiedLootSessionStoreTests
+public sealed partial class UnifiedLootSessionStoreTests
 {
     private static readonly DateTimeOffset Start = new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
 

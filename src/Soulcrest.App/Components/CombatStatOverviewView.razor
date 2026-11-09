@@ -1,0 +1,82 @@
+@using Soulcrest.Core.Combat
+@using Soulcrest.App.Services
+@using static Soulcrest.App.Components.CombatScoreCalculatorPresentation
+
+<section class="cw-stat-overview" data-stat-overview data-display-version="@Snapshot.DisplayStats.Version" data-display-generation="@Snapshot.Generation" data-display-status="@Snapshot.DisplayStats.Status" data-display-stats-count="@AllRows.Count">
+    <div class="cw-overview-heading">
+        <div><h3>Stat Overview</h3><p>@UiText.T("Alle Charakterwerte, geordnet nach ihren Kategorien.")</p></div>
+        <div class="cw-observed-cp"><span>@UiText.T("Beobachteter Ingame-CP")</span><strong data-native-combat-score>@Number(Snapshot.CurrentCombatScore)</strong></div>
+    </div>
+    <div class="cw-data-summary">
+        <span class="cw-status-dot @(Snapshot.IsFresh ? "known" : "missing")" aria-hidden="true"></span>
+        <span data-display-known-count="@KnownRows">@UiText.F("{0} von {1} Werten zugeordnet", KnownRows, AllRows.Count)</span>
+        <span>@(Snapshot.NativeStats.ObservedAt is { } at ? UiText.F("Stand: {0}", at.ToLocalTime().ToString("g", Culture)) : UiText.T("Noch keine eigenen Statdaten empfangen."))</span>
+        <InfoTip>@UiText.T("Angezeigt werden bestätigte Werte deines eigenen Charakters. Fehlende Daten oder eine ungeklärte Zuordnung bleiben als — sichtbar; sie werden nicht als 0 ergänzt. Klicke auf einen Wert für seinen Belegstatus.")</InfoTip>
+    </div>
+
+    <div class="cw-section-heading"><h3>Main Stats</h3><span>@UiText.T("Grundattribute, Gottheitsattribute und Hauptwerte")</span></div>
+    @foreach (var group in CombatStatOverviewCatalog.ActiveMainGroups)
+    {
+        <section class="cw-stat-group cw-main-group" data-stat-group="@group.Key" data-stat-group-count="@group.Rows.Count" data-display-category="Main">
+            <header>@GroupIcon(group)<h4>@(group.Key == "god-attributes" ? "God Stats" : CombatWorkspaceCatalog.GroupLabel(group))</h4></header>
+            <div class="cw-stat-list @(group.Key == "main-stats" ? "cw-main-values" : "cw-attribute-values")">
+                @foreach (var definition in group.Rows) { @StatRow(definition) }
+            </div>
+        </section>
+    }
+
+    <div class="cw-section-heading cw-sub-heading"><h3>Sub Stats</h3><span>@UiText.T("Kampfwerte und weitere Charaktereigenschaften")</span></div>
+    <div class="cw-sub-groups">
+        @foreach (var group in CombatStatOverviewCatalog.ActiveSubGroups)
+        {
+            <section class="cw-stat-group cw-sub-group" data-stat-group="@group.Key" data-stat-group-count="@group.Rows.Count" data-display-category="Sub">
+                <header>@GroupIcon(group)<h4>@CombatWorkspaceCatalog.GroupLabel(group)</h4><small>@group.Rows.Count</small></header>
+                <div class="cw-stat-list">@foreach (var definition in group.Rows) { @StatRow(definition) }</div>
+            </section>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public CharacterCombatSnapshot Snapshot { get; set; } = CharacterCombatSnapshot.Empty;
+    private System.Globalization.CultureInfo Culture => System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");
+    private IReadOnlyList<CharacterDisplayStatRow> AllRows = [];
+    private IReadOnlyDictionary<string, CharacterDisplayStatRow> RowsById = new Dictionary<string, CharacterDisplayStatRow>();
+    private int KnownRows;
+    protected override void OnParametersSet()
+    {
+        var definitions = CombatStatOverviewCatalog.ActiveMainGroups.Concat(CombatStatOverviewCatalog.ActiveSubGroups).SelectMany(group => group.Rows).ToArray();
+        RowsById = definitions.ToDictionary(row => row.Id, Resolve, StringComparer.Ordinal);
+        AllRows = definitions.Select(row => RowsById[row.Id]).ToArray();
+        KnownRows = AllRows.Count(row => row.Value is not null && row.Status == CombatKnowledgeStatus.Complete && row.Qualification != CharacterDisplayStatQualification.Unknown);
+    }
+    private CharacterDisplayStatRow Resolve(CombatStatOverviewRowDefinition definition)
+    {
+        var row = CombatStatOverviewCatalog.Resolve(definition, Snapshot.DisplayStats);
+        if ((!Snapshot.IsFresh || row.Status == CombatKnowledgeStatus.Stale) && (row.Value is not null || row.ObservedAt is not null || row.Status != CombatKnowledgeStatus.Unknown))
+            return row with { Value = null, UnroundedValue = null, Status = CombatKnowledgeStatus.Stale };
+        return row;
+    }
+    private RenderFragment GroupIcon(CombatStatOverviewGroupDefinition group) => @<span class="cw-group-icon" aria-hidden="true">@if (CombatWorkspaceCatalog.GroupIconPath(group.Key) is { } path) { <img src="@path" alt="" /> } else { <span class="cw-neutral-icon"></span> }</span>;
+    private RenderFragment StatRow(CombatStatOverviewRowDefinition definition) => builder =>
+    {
+        var row = RowsById[definition.Id];
+        RenderFragment content = @<details class="cw-stat-row @DisplayStatStateClass(row)" data-display-stat="@definition.Id" data-display-value="@DisplayMachineValue(row.Value)" data-display-unrounded="@DisplayMachineValue(row.UnroundedValue)" data-display-status="@row.Status" data-display-qualification="@row.Qualification" data-display-stat-at="@(row.ObservedAt?.ToString("O", System.Globalization.CultureInfo.InvariantCulture) ?? "")">
+            <summary>
+                @if (CombatWorkspaceCatalog.IconPath(definition.IconKey) is { } icon) { <img class="cw-stat-icon" src="@icon" alt="" /> }
+                <span class="cw-stat-name">@CombatWorkspaceCatalog.StatLabel(definition)</span>
+                <strong data-display-stat-value>@DisplayStatValue(row)</strong>
+                <span class="cw-status-dot @DisplayStatStateClass(row)" title="@DisplayStatStatus(row)" aria-label="@DisplayStatStatus(row)"></span>
+            </summary>
+            <div class="cw-stat-proof">
+                <p>@DisplayQualification(row.Qualification) · @DisplayStatStatus(row)</p>
+                @if (row.ComparisonStatus == CombatKnowledgeStatus.Conflict) { <p class="cw-conflict" data-display-comparison="Conflict">@UiText.T("Vorwärtsrechnung weicht ab")</p> }
+                @if (row.ObservedAt is { } observed) { <p>@UiText.F("Stand: {0}", observed.ToLocalTime().ToString("g", Culture))</p> }
+                @if (row.UnroundedValue is { } raw && raw != row.Value) { <p>@UiText.T("Vor Rundung"): @ExactNumber(raw)</p> }
+                @if (row.Value is null) { <p>@UiText.T("Für diesen Wert liegen noch keine bestätigten Eingaben oder Zuordnungen vor.")</p> }
+                @if (!string.IsNullOrEmpty(row.Formula)) { <code>@row.Formula</code> }
+            </div>
+        </details>;
+        content(builder);
+    };
+}

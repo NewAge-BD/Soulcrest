@@ -1,0 +1,141 @@
+@using Soulcrest.App.Network
+@using Soulcrest.App.Services
+@using Soulcrest.Core.Combat
+@using Soulcrest.Core.Network
+@using static Soulcrest.App.Components.CombatSourceCategoryPresentation
+@using static Soulcrest.App.Components.CombatTitlesPresentation
+@using Wp = Soulcrest.App.Components.CombatWingsPresentation
+
+<section class="ct-view cw-wings" data-combat-wings data-source-observation="wings" data-wing-ownership-source="@OwnershipSource" data-wing-ownership-complete="@DisplayOwnershipComplete.ToString().ToLowerInvariant()" data-saved-wing-observed-at="@(UsingSavedOwnership ? SavedOwnership!.ObservedAt.ToString("O") : null)">
+    <header class="ct-collection-heading">
+        <div><h3>@UiText.T("Flügelsammlung")</h3><p>@UiText.T("Besitzboni und ausgerüstete Flügel auf einen Blick.")</p></div>
+        <p class="ct-owned-total"><strong data-wing-owned-count="@(!UsingSavedOwnership && OwnershipCurrent ? DisplayOwned?.Count : null)" data-saved-wing-count="@(UsingSavedOwnership ? DisplayOwned?.Count : null)">@(DisplayOwned?.Count.ToString() ?? "—")</strong><span>@UiText.T(UsingSavedOwnership ? "gespeicherte Flügel" : OwnershipCurrent ? "erfasste Flügel" : "Besitz noch nicht bestätigt")</span></p>
+    </header>
+    @if (UsingSavedOwnership)
+    {
+        <p class="ct-history-note" data-wing-saved-stand><strong>@UiText.T("Gespeicherter Flügelstand")</strong><time datetime="@SavedOwnership!.ObservedAt.ToString("O")">@UiText.F("Stand: {0}", SavedOwnership.ObservedAt.ToLocalTime().ToString("g", Culture))</time><span>@UiText.T("Historischer Flügelbesitz dieses Charakters. Aktuelle Netzwerkdaten sind noch nicht vollständig bestätigt.")</span></p>
+    }
+    @{ var owned = OwnedSummary; var missing = MissingSummary; }
+    <div class="ct-passive-summaries">
+        <section class="ct-passive-panel" data-wing-owned-passive-status="@owned.Status">
+            <header><h4>@UiText.T("Vorhandene Flügelboni")</h4><span>@UiText.T("Basiswerte der Flügel im Besitz")</span></header>
+            <div class="ct-passive-list">
+                @foreach (var effect in owned.Rows)
+                {
+                    <div class="ct-passive-total" data-wing-owned-stat="@PassiveKeyText(effect.Key)" data-wing-owned-stat-value="@Machine(effect.Value)"><span>@PassiveLabel(effect.LabelDe, effect.LabelEn, UiText.Language)</span><strong>@PassiveValue(effect.Value, effect.Key.Unit, UiText.Language)</strong></div>
+                }
+            </div>
+            @if (owned.Rows.Count == 0) { <p class="ct-passive-note">@UiText.T(owned.Status == CombatKnowledgeStatus.Complete ? "Keine Besitzboni im erfassten Stand." : "Besitzboni noch nicht vollständig bestätigt.")</p> }
+        </section>
+        <section class="ct-passive-panel ct-missing-passives" data-wing-missing-passive-status="@missing.Status" data-wing-missing-scope="Catalog">
+            <header><h4>@UiText.T("Fehlende Flügelboni")</h4><span>@UiText.T("Basiswerte noch nicht erfasster Katalogflügel")</span></header>
+            <div class="ct-passive-list">
+                @foreach (var effect in missing.Rows)
+                {
+                    <button type="button" class="@(_passive == effect.Key ? "selected" : "")" aria-pressed="@(_passive == effect.Key ? "true" : "false")" data-wing-passive-filter="@PassiveKeyText(effect.Key)" data-wing-missing-stat-value="@Machine(effect.Value)" @onclick="@(() => SelectPassive(effect.Key))"><span>@PassiveLabel(effect.LabelDe, effect.LabelEn, UiText.Language)</span><strong>@(effect.Value is not null ? "≈ " + PassiveValue(effect.Value, effect.Key.Unit, UiText.Language) : "—")</strong><small>@UiText.F("{0} Katalogflügel", effect.WingCount)</small></button>
+                }
+            </div>
+            <p class="ct-passive-note">@UiText.T(MissingConfirmed ? "Basisboni fehlender Flügel im Katalog deiner Fraktion." : "Fehlende Gesamtwerte benötigen einen vollständigen Besitzstand und eine bekannte Fraktion.")</p>
+        </section>
+    </div>
+    <div class="cw-wing-layout">
+        <div class="ct-browser">
+            <nav class="ct-origins cw-wing-filters" aria-label="@UiText.T("Flügelbesitz")">
+                @foreach (var filter in OwnershipFilters)
+                {
+                    <button type="button" class="@(_ownership == filter.Key ? "selected" : "")" aria-pressed="@(_ownership == filter.Key ? "true" : "false")" data-wing-ownership-filter="@filter.Key" @onclick="@(() => SelectOwnership(filter.Key))">@UiText.T(filter.Label)</button>
+                }
+            </nav>
+            @if (_passive is { } selected)
+            {
+                <div class="ct-passive-selection" data-wing-passive-selection="@PassiveKeyText(selected)"><div><strong>@SelectedPassiveLabel</strong><span>@UiText.T("Fehlender Besitzbonus · passende Katalogflügel")</span></div><button type="button" data-wing-clear-passive-filter="clear" @onclick="@(() => SelectOwnership("All"))">@UiText.T("Statfilter aufheben")</button></div>
+            }
+            @if (DisplayOwned is null) { <p class="cw-wing-catalog-note" data-source-awaiting-current>@UiText.T("Flügelkatalog · Besitz noch nicht bestätigt.")</p> }
+            <div class="ct-title-grid cw-wing-grid" role="list" aria-label="@UiText.T("Flügelkatalog")" data-wing-visible-count="@VisibleIds.Count">
+                @foreach (var id in VisibleIds)
+                {
+                    var definition = Catalog.Find(id);
+                    var isOwned = DisplayOwned?.ContainsKey(id) == true;
+                    var equipped = EquipmentCurrent && Snapshot.EquippedWing.Value!.WingId == id;
+                    var status = isOwned ? UsingSavedOwnership ? "SavedOwned" : "Owned" : DisplayOwnershipComplete ? UsingSavedOwnership ? "SavedNotOwned" : "NotOwned" : "Unknown";
+                    <article class="ct-title-card cw-wing-card @GradeClass(definition?.Grade) @(isOwned ? "cw-wing-owned" : "") @(equipped ? "equipped" : "")" role="listitem" data-wing-id="@id" data-wing-owned="@status" data-wing-grade="@definition?.Grade">
+                        @if (definition?.IconPath is { } icon) { <img class="ct-card-emblem cw-wing-emblem" src="@icon" alt="" loading="lazy" /> }
+                        <header><h4>@Wp.Name(Catalog, id, UiText.Language)</h4><div class="ct-card-badges"><span class="ct-ownership-badge @(isOwned ? "owned" : DisplayOwnershipComplete ? "notowned" : "unknown")">@UiText.T(isOwned ? UsingSavedOwnership ? "Gespeicherter Besitz" : "Im Besitz" : DisplayOwnershipComplete ? "Nicht im Besitz" : "Besitz ungeklärt")</span>@if (equipped) { <span class="ct-equipped-badge">@UiText.T("Ausgerüstet")</span> }</div></header>
+                        <div class="ct-card-equipped"><span class="ct-effect-label">@UiText.T("Beim Ausrüsten")</span>@Effects(definition?.EquippedEffects, "Equipped")</div>
+                        <footer class="ct-card-owned"><span class="ct-effect-label">@UiText.T("Besitzbonus")</span>@Effects(definition?.OwnedEffects, "Owned")</footer>
+                    </article>
+                }
+            </div>
+            @if (VisibleIds.Count == 0) { <p class="ct-empty-filter">@UiText.T("Keine passenden Flügel in dieser Auswahl.")</p> }
+            <footer class="ct-browser-footer"><span>@UiText.F("{0} Katalogflügel angezeigt", VisibleIds.Count)</span><small>@UiText.T("Angezeigt werden Basiswerte. Verfügbarkeit weiterer Flügel bleibt ungeklärt.")</small></footer>
+        </div>
+        <aside class="ct-equipped-panel cw-wing-equipped" aria-label="@UiText.T("Ausgerüstete Flügel")">
+            <header><h4>@UiText.T("Ausgerüstete Flügel")</h4><span>@UiText.T("Aktueller Charakter")</span></header>
+            @if (!EquipmentCurrent || Snapshot.EquippedWing.Value!.WingId is null)
+            {
+                <p class="ct-slot-missing" data-wing-equipped-awaiting-current>@UiText.T("Noch nicht aktuell bestätigt")</p>
+            }
+            else if (Snapshot.EquippedWing.Value!.WingId == 0)
+            {
+                <p class="ct-slot-empty" data-equipped-wing="0">@UiText.T("Keine Flügel ausgerüstet")</p>
+            }
+            else
+            {
+                var id = Snapshot.EquippedWing.Value!.WingId!.Value;
+                var definition = Catalog.Find(id);
+                <section class="ct-equipped-slot @GradeClass(definition?.Grade)" data-equipped-wing="@id">
+                    @if (definition?.IconPath is { } icon) { <img class="cw-wing-equipped-image" src="@icon" alt="" /> }
+                    <h4 class="ct-slot-title">@Wp.Name(Catalog, id, UiText.Language)</h4>
+                    <span class="ct-effect-label">@UiText.T("Beim Ausrüsten")</span>@Effects(definition?.EquippedEffects, "Equipped")
+                </section>
+            }
+            <p class="ct-source-note">@UiText.T("Flügelbesitz und ausgerüstete Effekte sind charaktergebunden.")</p>
+        </aside>
+    </div>
+</section>
+
+@code {
+    [Parameter] public CharacterCombatSnapshot Snapshot { get; set; } = CharacterCombatSnapshot.Empty;
+    [Parameter] public ProfileWingSnapshot? SavedWings { get; set; }
+    [Parameter] public CombatWingDisplayCatalog Catalog { get; set; } = CombatWingDisplayCatalog.Default;
+    [Parameter] public string? Faction { get; set; }
+    private static readonly (string Key, string Label)[] OwnershipFilters = [("All", "Alle"), ("Owned", "Im Besitz"), ("Missing", "Fehlende Flügel")];
+    private string _ownership = "All";
+    private CombatTitlePassiveKey? _passive;
+    private string? _lastProfile;
+    private bool OwnershipCurrent => IsCurrent(Snapshot, Snapshot.WingOwnership);
+    private bool OwnershipComplete => OwnershipCurrent && Snapshot.WingOwnership.Status == NetworkCombatSourceStatus.Complete;
+    private bool EquipmentCurrent => IsCurrent(Snapshot, Snapshot.EquippedWing);
+    private ProfileWingSnapshot? SavedOwnership => SavedWings is { } saved && (string.IsNullOrWhiteSpace(Snapshot.ProfileId)
+        || string.Equals(saved.ProfileId, Snapshot.ProfileId, StringComparison.Ordinal)) ? saved : null;
+    private bool UsingSavedOwnership => !OwnershipComplete && SavedOwnership is not null;
+    private System.Collections.Immutable.ImmutableDictionary<int, byte>? DisplayOwned => UsingSavedOwnership ? SavedOwnership!.Wings : OwnershipCurrent ? Snapshot.WingOwnership.Value!.Wings : null;
+    private bool DisplayOwnershipComplete => UsingSavedOwnership || OwnershipComplete;
+    private bool MissingConfirmed => DisplayOwnershipComplete && Wp.Race(Faction) is not null;
+    private string OwnershipSource => UsingSavedOwnership ? "Saved" : OwnershipCurrent ? "Live" : "Unknown";
+    private System.Globalization.CultureInfo Culture => System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-GB");
+    private CombatWingPassiveSummary OwnedSummary => Wp.OwnedPassives(Catalog, DisplayOwned?.Keys, DisplayOwnershipComplete, UiText.Language);
+    private CombatWingPassiveSummary MissingSummary => Wp.MissingPassives(Catalog, DisplayOwned?.Keys, DisplayOwnershipComplete, Faction, UiText.Language);
+    private IReadOnlyList<int> VisibleIds => Wp.CollectionIds(Catalog, DisplayOwned?.Keys, Faction, UiText.Language)
+        .Where(id => _passive is { } key ? DisplayOwned?.ContainsKey(id) != true && Wp.HasOwnedStat(Catalog, id, key)
+            : _ownership == "Owned" ? DisplayOwned?.ContainsKey(id) == true : _ownership != "Missing" || DisplayOwned?.ContainsKey(id) != true).ToArray();
+    private string SelectedPassiveLabel => _passive is { } key && Catalog.Entries.Values.SelectMany(wing => wing.OwnedEffects ?? [])
+        .FirstOrDefault(effect => Key(effect) == key) is { } selected ? EffectLabel(selected, UiText.Language) : "—";
+    private static string? Machine(decimal? value) => value?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    private void SelectPassive(CombatTitlePassiveKey key) { _passive = key; _ownership = "Missing"; }
+    private void SelectOwnership(string selection) { _ownership = selection; _passive = null; }
+    protected override void OnParametersSet()
+    {
+        var profile = string.IsNullOrWhiteSpace(Snapshot.ProfileId) ? SavedOwnership?.ProfileId : Snapshot.ProfileId;
+        if (profile is not null && _lastProfile is not null && profile != _lastProfile) { _passive = null; _ownership = "All"; }
+        if (profile is not null) _lastProfile = profile;
+    }
+    private RenderFragment Effects(IReadOnlyList<CombatTitleDisplayEffect>? effects, string channel) => @<div class="ct-effects" data-wing-effects="@channel" data-wing-effects-status="@(effects is null ? "Unknown" : "Known")">
+        @if (effects is null) { <p class="ct-effect-unknown">@UiText.T("Effektwerte noch nicht zugeordnet")</p> }
+        else if (effects.Count == 0) { <p class="ct-effect-empty">@UiText.T("Keine Effekte")</p> }
+        else
+        {
+            <dl>@foreach (var effect in effects) { <div class="@(channel == "Owned" && _passive == Key(effect) ? "ct-effect-selected" : "")"><dt>@EffectLabel(effect, UiText.Language)</dt><dd data-wing-effect-value="@MachineValue(effect)">@EffectValue(effect, UiText.Language)</dd></div> }</dl>
+        }
+    </div>;
+}

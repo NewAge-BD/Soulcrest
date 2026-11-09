@@ -26,6 +26,10 @@ public sealed class AppSettings
 
     public bool LootTrackingEnabled { get; set; } = true;
 
+    /// <summary>User request 2026-11-01: public reference prices are optional and independent of passive tracking.</summary>
+    public bool OnlineMarketPricesEnabled { get; set; } = true;
+    public Dictionary<string, ExchangeMarketProfileSettings> ExchangeMarketProfiles { get; set; } = [];
+
     /// <summary>User request 2026-10-25: finish grind sessions after this many minutes without loot.</summary>
     public int LootTrackerIdleTimeoutMinutes { get; set; } = LootTrackerPresentation.DefaultIdleTimeoutMinutes;
     public AbyssCombatGrouping AbyssCombatGrouping { get; set; } = AbyssCombatGrouping.Class;
@@ -82,6 +86,11 @@ public sealed class AppSettings
     public bool MapOverlayEnabled { get; set; } = true;
     public bool BossOverlayVisible { get; set; } = true;
     public bool OverlayEnabled { get; set; } = true;
+    public bool AchievementOverlayEnabled { get; set; } = true;
+    public int? AchievementOverlayX { get; set; }
+    public int? AchievementOverlayY { get; set; }
+    public double AchievementOverlayScale { get; set; } = 1;
+    public int AchievementOverlayDisplaySeconds { get; set; } = 20;
     public bool MerchantOverlayEnabled { get; set; } = true;
     public bool DaevanionOverlayEnabled { get; set; } = true;
     /// <summary>User request 2026-10-22: remember node visibility independently of the master switch.</summary>
@@ -372,6 +381,7 @@ public sealed class SettingsService
         Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
         Current.LootTrackerIdleTimeoutMinutes = LootTrackerPresentation.NormalizeIdleTimeoutMinutes(Current.LootTrackerIdleTimeoutMinutes);
         NormalizeSessionPresentation(Current);
+        NormalizeExchangeMarketProfiles(Current);
         if (Current.MonsterLootAutoSessionRevision < 1)
         {
             // The former false default was serialized in existing files. Subsequent opt-outs
@@ -415,6 +425,8 @@ public sealed class SettingsService
         Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
         OverlayHotkeys.Normalize(Current);
         Current.OverlayScale = double.IsFinite(Current.OverlayScale) ? Math.Clamp(Current.OverlayScale, .6, 2.5) : 1;
+        Current.AchievementOverlayScale = double.IsFinite(Current.AchievementOverlayScale) ? Math.Clamp(Current.AchievementOverlayScale, .6, 2.5) : 1;
+        Current.AchievementOverlayDisplaySeconds = NormalizeAchievementOverlayDisplaySeconds(Current.AchievementOverlayDisplaySeconds);
         Current.LootOverlayScale = LootOverlayRenderer.NormalizedScale(Current.LootOverlayScale);
         Current.AbyssRankOverlayScale = AbyssRankOverlayRenderer.NormalizedScale(Current.AbyssRankOverlayScale);
         Current.AbyssPointRatePeriod = NormalizeAbyssPointRatePeriod(Current.AbyssPointRatePeriod);
@@ -507,6 +519,21 @@ public sealed class SettingsService
         settings.ProgressionPetGenera = canonical.Where(selected.Contains).ToArray();
     }
 
+    /// <summary>Commits the shared overlay theme before publishing it; a failed save keeps the previous theme.</summary>
+    public void SetOverlayTheme(string? theme)
+    {
+        lock (_gate)
+        {
+            var previous = Current.OverlayTheme;
+            var normalized = OverlayThemeDefinition.NormalizeId(theme);
+            if (previous == normalized) return;
+            Current.OverlayTheme = normalized;
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.OverlayTheme = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
     /// <summary>Only this preference changes, with rollback before releasing the settings lock on write failure.</summary>
     public void SetLootTrackerIdleTimeoutMinutes(int minutes)
     {
@@ -518,6 +545,23 @@ public sealed class SettingsService
             Current.LootTrackerIdleTimeoutMinutes = normalized;
             try { JsonFile.Save(AppPaths.SettingsFile, Current); }
             catch { Current.LootTrackerIdleTimeoutMinutes = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
+    public static int NormalizeAchievementOverlayDisplaySeconds(int seconds) => Math.Clamp(seconds, 5, 300);
+
+    /// <summary>Only the achievement display duration changes; a failed save retains the previous value.</summary>
+    public void SetAchievementOverlayDisplaySeconds(int seconds)
+    {
+        lock (_gate)
+        {
+            var previous = Current.AchievementOverlayDisplaySeconds;
+            var normalized = NormalizeAchievementOverlayDisplaySeconds(seconds);
+            if (previous == normalized) return;
+            Current.AchievementOverlayDisplaySeconds = normalized;
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.AchievementOverlayDisplaySeconds = previous; throw; }
         }
         Changed?.Invoke();
     }
@@ -724,6 +768,38 @@ public sealed class SettingsService
         Changed?.Invoke();
     }
 
+    public ExchangeMarketProfileSettings GetExchangeMarketProfile(string? profileId)
+    {
+        lock (_gate)
+            return profileId is not null && Current.ExchangeMarketProfiles.TryGetValue(profileId, out var value)
+                ? ExchangeMarketProfileSettings.Normalize(value) : new();
+    }
+
+    public void SetOnlineMarketPricesEnabled(bool enabled) => SetDropOption(
+        () => Current.OnlineMarketPricesEnabled, value => Current.OnlineMarketPricesEnabled = value, enabled);
+
+    public void SetExchangeMarketProfile(string profileId, ExchangeMarketProfileSettings value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (!ExchangeMarketProfileSettings.IsProfileId(profileId)) throw new ArgumentException("A local profile GUID is required.", nameof(profileId));
+        if (!value.HasValidFees) throw new ArgumentOutOfRangeException(nameof(value), "Fee percentages must be between zero and 100 in total.");
+        value = ExchangeMarketProfileSettings.Normalize(value);
+        lock (_gate)
+        {
+            var previous = Current.ExchangeMarketProfiles;
+            if (previous.TryGetValue(profileId, out var old) && old == value) return;
+            Current.ExchangeMarketProfiles = new(previous, StringComparer.Ordinal) { [profileId] = value };
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.ExchangeMarketProfiles = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
+    private static void NormalizeExchangeMarketProfiles(AppSettings settings) =>
+        settings.ExchangeMarketProfiles = (settings.ExchangeMarketProfiles ?? [])
+            .Where(pair => ExchangeMarketProfileSettings.IsProfileId(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => ExchangeMarketProfileSettings.Normalize(pair.Value), StringComparer.Ordinal);
+
     public void Update(Action<AppSettings> change)
     {
         lock (_gate)
@@ -734,6 +810,7 @@ public sealed class SettingsService
             Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
             Current.LootTrackerIdleTimeoutMinutes = LootTrackerPresentation.NormalizeIdleTimeoutMinutes(Current.LootTrackerIdleTimeoutMinutes);
             NormalizeSessionPresentation(Current);
+            NormalizeExchangeMarketProfiles(Current);
             Current.LootDropSoundVolume = NormalizeLootDropSoundVolume(Current.LootDropSoundVolume);
             Current.AbyssRankSoundVolume = NormalizeAbyssRankSoundVolume(Current.AbyssRankSoundVolume);
             Current.LootDropRarityAlerts = DropRarityAlertSettings.Normalize(Current.LootDropRarityAlerts);
@@ -745,6 +822,7 @@ public sealed class SettingsService
             NormalizeProgressionPetGenera(Current);
             Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
             Current.BossNavigationPreviewCount = Math.Clamp(Current.BossNavigationPreviewCount, 0, 23);
+            Current.AchievementOverlayDisplaySeconds = NormalizeAchievementOverlayDisplaySeconds(Current.AchievementOverlayDisplaySeconds);
             UiText.Language = Current.UiLanguage;
             JsonFile.Save(AppPaths.SettingsFile, Current);
         }

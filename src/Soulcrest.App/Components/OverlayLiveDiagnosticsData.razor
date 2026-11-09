@@ -1,0 +1,43 @@
+@implements IDisposable
+@using Soulcrest.App.OverlayEditorKit
+
+@if (_json is not null)
+{
+    <script type="application/json" data-overlay-live-diagnostics>@((MarkupString)_json)</script>
+}
+
+@code {
+    private System.Threading.Timer? _timer;
+    private string? _json;
+    private bool _disposed;
+    private int _pollPending;
+
+    protected override void OnInitialized()
+    {
+        if (!OverlayEditorLiveDiagnostics.Enabled) return;
+        Refresh();
+        _timer = new(state => { _ = PollAsync(); }, null, 250, 250);
+    }
+
+    private void Refresh()
+    {
+        var snapshot = OverlayEditorLiveDiagnostics.Capture();
+        _json = OverlayEditorLiveDiagnostics.Serialize(snapshot);
+    }
+
+    private async Task PollAsync()
+    {
+        if (_disposed || Interlocked.Exchange(ref _pollPending, 1) != 0) return;
+        try { await InvokeAsync(() =>
+        {
+            if (_disposed) return;
+            Refresh();
+            StateHasChanged();
+        }); }
+        catch (ObjectDisposedException) { }
+        catch (InvalidOperationException) when (_disposed) { }
+        finally { Volatile.Write(ref _pollPending, 0); }
+    }
+
+    public void Dispose() { _disposed = true; _timer?.Dispose(); _timer = null; }
+}

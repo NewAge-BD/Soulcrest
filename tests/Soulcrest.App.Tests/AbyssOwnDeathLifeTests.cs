@@ -12,6 +12,63 @@ public sealed class AbyssOwnDeathLifeTests
     private static readonly AbyssPlayerCasterDeathObservation Death = new(300, 400, 502, "SyntheticCaster");
 
     [Fact]
+    public void FullOwnPositiveHealthStrictlyAfterThePreviousDeathAllowsExactlyOneNewSameEntityDeath()
+    {
+        var gate = new AbyssOwnDeathLife();
+        Assert.True(Consume(gate, Own(), Death));
+        var revived = Own(2, At.AddSeconds(5)) with { HasPositiveHealth = true };
+        Assert.True(Consume(gate, revived, Death, At.AddSeconds(6), transportQualified: true));
+        Assert.False(Consume(gate, revived, Death, At.AddSeconds(7), transportQualified: true));
+        Assert.False(Consume(gate, revived, Death with { CasterEntityKey = 401 }, At.AddMinutes(10), transportQualified: true));
+        var thirdLife = Own(3, At.AddMinutes(11)) with { HasPositiveHealth = true };
+        Assert.True(Consume(gate, thirdLife, Death, At.AddMinutes(12), transportQualified: true));
+        Assert.False(gate.Overflowed);
+    }
+
+    [Theory]
+    [InlineData("unknown-health")] [InlineData("nonpositive-health")] [InlineData("old-health")]
+    [InlineData("same-time-as-death")] [InlineData("death-at-alive-time")] [InlineData("unqualified-transport")]
+    public void ResetOrOwnAloneCannotRearmWithoutIndependentLaterPositiveHealthAndCurrentTransport(string invalid)
+    {
+        var gate = new AbyssOwnDeathLife(); Assert.True(Consume(gate, Own(), Death));
+        Assert.True(gate.ObserveCapture(1));
+        var revived = Own(2, At.AddSeconds(5)) with { HasPositiveHealth = true };
+        var eventAt = At.AddSeconds(6);
+        switch (invalid)
+        {
+            case "unknown-health": revived = revived with { HasPositiveHealth = null }; break;
+            case "nonpositive-health": revived = revived with { HasPositiveHealth = false }; break;
+            case "old-health": revived = revived with { ObservedAt = At }; break;
+            case "same-time-as-death": revived = revived with { ObservedAt = At.AddSeconds(1) }; break;
+            case "death-at-alive-time": eventAt = At.AddSeconds(5); break;
+        }
+        Assert.False(Consume(gate, revived, Death, eventAt, transportQualified: invalid != "unqualified-transport"));
+        // A rejected fact never consumes the later independent valid life.
+        Assert.True(Consume(gate, Own(3, At.AddSeconds(7)) with { HasPositiveHealth = true }, Death,
+            At.AddSeconds(8), transportQualified: true));
+    }
+
+    [Fact]
+    public void PositiveSameEntityLivesNeverRecycleTheBoundedCaptureHistory()
+    {
+        var gate = new AbyssOwnDeathLife(); Assert.True(Consume(gate, Own(), Death));
+        for (var index = 1; index <= 300; index++)
+        {
+            var aliveAt = At.AddSeconds(index * 2);
+            Assert.True(Consume(gate, Own(index + 1, aliveAt) with { HasPositiveHealth = true }, Death,
+                aliveAt.AddSeconds(1), transportQualified: true));
+        }
+        for (var index = 1; index < AbyssOwnDeathLife.MaximumSeenEntities; index++)
+            Assert.True(Consume(gate, Own(index + 1) with { Identity = Identity with { EntityKey = 1000 + index } },
+                Death with { VictimEntityKey = 1000 + index }));
+        Assert.False(Consume(gate, Own(1000) with { Identity = Identity with { EntityKey = 9000 } },
+            Death with { VictimEntityKey = 9000 }));
+        Assert.True(gate.Overflowed);
+        Assert.False(Consume(gate, Own(1001, At.AddMinutes(11)) with { HasPositiveHealth = true }, Death,
+            At.AddMinutes(12), transportQualified: true));
+    }
+
+    [Fact]
     public void OneVictimEntityCountsOnceDespiteRepeatedBodiesTimesOrCasters()
     {
         var gate = new AbyssOwnDeathLife(); var own = Own();
@@ -119,8 +176,8 @@ public sealed class AbyssOwnDeathLifeTests
     }
 
     private static bool Consume(AbyssOwnDeathLife gate, OwnCharacterContext own,
-        AbyssPlayerCasterDeathObservation death, DateTimeOffset? at = null, long capture = 1) =>
-        gate.TryConsume(own, death, at ?? At.AddSeconds(1), At.AddHours(1), capture);
+        AbyssPlayerCasterDeathObservation death, DateTimeOffset? at = null, long capture = 1, bool transportQualified = false) =>
+        gate.TryConsume(own, death, at ?? At.AddSeconds(1), At.AddHours(1), capture, transportQualified);
     private static OwnCharacterContext Own(long generation = 1, DateTimeOffset? entered = null) =>
         new(Identity, generation) { ObservedAt = entered ?? At };
 }

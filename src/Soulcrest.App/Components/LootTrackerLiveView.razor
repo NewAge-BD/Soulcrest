@@ -3,10 +3,18 @@
 @inject LootTrackerReplayService Replays
 @inject SettingsService Settings
 @inject AbyssProgressService Abyss
+@inject ExchangeLootValuationService Market
+@inject ExplorationService Exploration
 
 <LootTrackerView Snapshot="_snapshot" SourceAvailable="Unified.SourceAvailable"
                  SourceStatus="@Unified.Status" SourceStatusIsError="Unified.StatusIsError" DeleteSession="DeleteSession" AbyssProgress="Abyss.ProgressSnapshot"
-                 ViewMode="Settings.Current.LootTrackerViewMode" ViewModeChanged="ChangeViewMode" />
+                 ViewMode="Settings.Current.LootTrackerViewMode" ViewModeChanged="ChangeViewMode"
+                 ExchangeSessionSummary="Market.GetSessionSummary" ExchangeRowSummary="Market.GetRowSummary" ExchangeDaySummary="Market.GetDaySummary">
+    <MarketSettingsContent>
+        <ExchangeMarketSettings Profiles="Exploration.Characters" ActiveProfileId="Exploration.ActiveId" Servers="Market.Servers"
+                                LoadServers="LoadMarketServers" SourceStatus="Market.Snapshot.Status" SourceStatusIsError="Market.Snapshot.StatusIsError" />
+    </MarketSettingsContent>
+</LootTrackerView>
 
 @code {
     private bool _disposed;
@@ -16,6 +24,8 @@
         Unified.Changed += Refresh;
         Settings.Changed += Refresh;
         Abyss.Changed += Refresh;
+        Market.Changed += Refresh;
+        Exploration.Changed += Refresh;
         _snapshot = Unified.Snapshot;
     }
     private async Task DeleteSession(string id)
@@ -25,6 +35,7 @@
         if (session is not null) await Replays.RemoveAsync(id, session.Kind);
     }
     private Task ChangeViewMode(LootTrackerViewMode mode) => Task.Run(() => Settings.SetLootTrackerViewMode(mode));
+    private Task LoadMarketServers() => Market.LoadServersAsync();
     private void Refresh()
     {
         if (_disposed) return;
@@ -35,5 +46,5 @@
             StateHasChanged();
         });
     }
-    public void Dispose() { _disposed = true; Unified.Changed -= Refresh; Settings.Changed -= Refresh; Abyss.Changed -= Refresh; }
+    public void Dispose() { _disposed = true; Unified.Changed -= Refresh; Settings.Changed -= Refresh; Abyss.Changed -= Refresh; Market.Changed -= Refresh; Exploration.Changed -= Refresh; }
 }

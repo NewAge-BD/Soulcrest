@@ -1,0 +1,159 @@
+@implements IDisposable
+@using Soulcrest.App.Services
+@using static Soulcrest.App.Components.CombatScoreCalculatorPresentation
+@inject CharacterCombatStateService Character
+@inject IServiceProvider Provider
+
+<section class="cw-workspace" data-combat-score-workspace data-workspace-section="@SelectedSection">
+    <header class="cw-heading">
+        <div><span class="cw-eyebrow">SOULCREST · CHARACTER</span><h2>Combat Score Calculator</h2><p>@UiText.T("Dein Charakter. Alle Werte und Quellen an einem Ort.")</p></div>
+        <div class="cw-character-state"><span class="cw-live @(State.IsFresh ? "known" : "")"><i aria-hidden="true"></i>@UiText.T(State.IsFresh ? "Eigener Charakter erkannt" : "Warte auf Charakterdaten")</span><small>@ClassName(State.ClassId) · @UiText.F("Level {0}", State.CharacterLevel?.ToString() ?? "—")</small></div>
+    </header>
+    <nav class="cw-tabs" aria-label="@UiText.T("Charakterbereiche")">
+        @foreach (var tab in CombatWorkspaceCatalog.Sections)
+        {
+            <button type="button" class="@(SelectedSection == tab.Id ? "selected" : "")" aria-pressed="@(SelectedSection == tab.Id ? "true" : "false")" data-combat-subtab="@tab.Id" @onclick="@(() => SelectSection(tab.Id))">
+                @if (CombatWorkspaceCatalog.IconPath(tab.Id) is { } icon) { <img src="@icon" alt="" /> }
+                <span>@tab.Label</span>
+            </button>
+        }
+    </nav>
+    <div class="cw-content">
+        @if (SelectedSection == "stat-overview")
+        {
+            <CombatStatOverviewView Snapshot="State" />
+        }
+        else if (SelectedSection == "daevanion")
+        {
+            <div class="cw-daevanion"><DaevanionBoardView /></div>
+        }
+        else if (SelectedSection == "pantheon")
+        {
+            <CombatPantheonView Snapshot="PantheonState" Faction="@Faction" />
+        }
+        else
+        {
+            <CombatSourceCategoryView Section="@SelectedSection" Snapshot="State" SavedTitles="SavedTitles" SavedWings="SavedWings" AchievementState="AchievementState" Faction="@Faction" Favorites="Favorites" ToggleFavorite="ToggleFavorite"
+                ToggleTitleFavorite="ToggleTitleFavorite" SelectedTitleId="_selectedTitleId" ShowTitle="ShowTitle" ShowAchievement="ShowAchievement" AchievementNavigation="_achievementNavigation" PetCollection="PetState" GenusState="GenusState" GenusFavorites="_genusFavorites?.Snapshot.Favorites" ToggleGenusFavorite="ToggleGenusFavorite" GenusFavoriteError="@_genusFavoriteError" OpenPets="OpenPets" OpenPetCategory="OpenPetCategory" />
+        }
+    </div>
+    <CombatStatObservationData Snapshot="State" Enabled="DebugObservationEnabled" />
+    <CombatWingObservationData Snapshot="State" Enabled="DebugObservationEnabled" />
+    <CombatGenusObservationData Snapshot="State" Enabled="DebugObservationEnabled" />
+    <CombatPantheonObservationData Snapshot="PantheonState" Enabled="DebugObservationEnabled" />
+    <CombatAchievementObservationData Snapshot="State" Enabled="DebugObservationEnabled" />
+</section>
+
+@code {
+    [Parameter] public AchievementViewState? AchievementState { get; set; }
+    [Parameter] public string? Faction { get; set; }
+    [Parameter] public AchievementFavoriteSnapshot? Favorites { get; set; }
+    [Parameter] public EventCallback<int> ToggleFavorite { get; set; }
+    [Parameter] public EventCallback<int> ToggleTitleFavorite { get; set; }
+    [Parameter] public string Section { get; set; } = "stat-overview";
+    [Parameter] public EventCallback<string> SectionChanged { get; set; }
+    [Parameter] public EventCallback OpenPets { get; set; }
+    [Parameter] public EventCallback<string> OpenPetCategory { get; set; }
+    private CharacterCombatSnapshot State = CharacterCombatSnapshot.Empty;
+    private ProfileTitleSnapshot? SavedTitles;
+    private ProfileWingSnapshot? SavedWings;
+    private GenusInsightStateService? _genus;
+    private GenusInsightFavoriteService? _genusFavorites;
+    private GenusInsightSnapshot GenusState = GenusInsightSnapshot.Empty;
+    private PantheonStateService? _pantheon;
+    private PantheonSnapshot PantheonState = PantheonSnapshot.Empty;
+    private string? _genusFavoriteError;
+    private IDisposable? _genusMenuLease;
+    private ProgressService? _petProgress;
+    private CombatPetsSnapshot PetState = CombatPetsSnapshot.Empty;
+    private string _section = "stat-overview";
+    private int? _selectedTitleId;
+    private CombatAchievementNavigationRequest? _achievementNavigation;
+    private string? _navigationProfile;
+    private bool _disposed;
+    private static bool DebugObservationEnabled => int.TryParse(
+        Environment.GetEnvironmentVariable("SOULCREST_WEBVIEW_DEBUG_PORT"), out var port)
+        && port is > 1024 and < 65536;
+    private string SelectedSection => _section;
+    protected override void OnInitialized()
+    {
+        State = Character.Snapshot; SavedTitles = Character.SavedTitles; SavedWings = Character.SavedWings; Character.Changed += Refresh;
+        _genus = Provider.GetService(typeof(GenusInsightStateService)) as GenusInsightStateService;
+        _genusFavorites = Provider.GetService(typeof(GenusInsightFavoriteService)) as GenusInsightFavoriteService;
+        if (_genus is not null) { _genus.Changed += RefreshGenus; GenusState = _genus.Snapshot; }
+        _pantheon = Provider.GetService(typeof(PantheonStateService)) as PantheonStateService;
+        if (_pantheon is not null) { _pantheon.Changed += RefreshPantheon; PantheonState = _pantheon.Snapshot; }
+        _petProgress = Provider.GetService(typeof(ProgressService)) as ProgressService;
+        if (_petProgress is not null)
+        {
+            _petProgress.Changed += RefreshPets;
+            PetState = CombatPetsPresentation.Create(_petProgress.ReadCollectionSnapshot());
+        }
+    }
+    protected override void OnParametersSet()
+    {
+        _section = CombatWorkspaceCatalog.NormalizeSection(Section);
+        UpdateGenusLease();
+        ResetNavigationOnProfileChange();
+    }
+    private void ResetNavigationOnProfileChange()
+    {
+        var profile = !string.IsNullOrWhiteSpace(State.ProfileId) ? State.ProfileId
+            : !string.IsNullOrWhiteSpace(AchievementState?.ProfileId) ? AchievementState.ProfileId : SavedTitles?.ProfileId ?? SavedWings?.ProfileId;
+        if (_navigationProfile == profile) return;
+        _navigationProfile = profile; _selectedTitleId = null; _achievementNavigation = null;
+    }
+    private async Task ShowTitle(int titleId)
+    {
+        _selectedTitleId = titleId;
+        await SelectSection("titles");
+    }
+    private async Task ShowAchievement(CombatAchievementNavigationRequest request)
+    {
+        _achievementNavigation = request;
+        await SelectSection("achievements");
+    }
+    private async Task SelectSection(string section)
+    {
+        _section = CombatWorkspaceCatalog.NormalizeSection(section);
+        UpdateGenusLease();
+        await SectionChanged.InvokeAsync(_section);
+    }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) { State = Character.Snapshot; SavedTitles = Character.SavedTitles; SavedWings = Character.SavedWings; ResetNavigationOnProfileChange(); StateHasChanged(); } }); }
+    private void RefreshPets()
+    {
+        if (!_disposed) _ = InvokeAsync(() =>
+        {
+            if (_disposed || _petProgress is null) return;
+            PetState = CombatPetsPresentation.Create(_petProgress.ReadCollectionSnapshot());
+            StateHasChanged();
+        });
+    }
+    private void UpdateGenusLease()
+    {
+        if (_section == "genus-insight" && _genus is not null) { _genusMenuLease ??= _genus.ObserveMenu(); GenusState = _genus.Snapshot; }
+        else { _genusMenuLease?.Dispose(); _genusMenuLease = null; }
+    }
+    private void ToggleGenusFavorite(GenusInsightFavoriteKey key)
+    {
+        try { _genusFavorites?.Toggle(key); _genusFavoriteError = null; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
+        { _genusFavoriteError = UiText.T("Favorit konnte nicht gespeichert werden. Bitte erneut versuchen."); }
+    }
+    private void RefreshGenus()
+    {
+        if (!_disposed) _ = InvokeAsync(() => { if (!_disposed && _genus is not null) { GenusState = _genus.Snapshot; StateHasChanged(); } });
+    }
+    private void RefreshPantheon()
+    {
+        if (!_disposed) _ = InvokeAsync(() => { if (!_disposed && _pantheon is not null) { PantheonState = _pantheon.Snapshot; StateHasChanged(); } });
+    }
+    public void Dispose()
+    {
+        _disposed = true; Character.Changed -= Refresh;
+        _genusMenuLease?.Dispose(); _genusMenuLease = null;
+        if (_genus is not null) _genus.Changed -= RefreshGenus;
+        if (_pantheon is not null) _pantheon.Changed -= RefreshPantheon;
+        if (_petProgress is not null) _petProgress.Changed -= RefreshPets;
+    }
+}

@@ -46,6 +46,7 @@ internal sealed class OverlayThemeDefinition
     internal string Id { get; }
     internal string Label { get; }
     internal bool IsLegacy => _frame == FrameStyle.Legacy;
+    internal string HeadingFamily => _headingFamily;
     internal Color Surface { get; }
     internal Color Border { get; }
     internal Color Primary { get; }
@@ -64,12 +65,12 @@ internal sealed class OverlayThemeDefinition
         !IsLegacy && !style.HasFlag(FontStyle.Bold) ? "Segoe UI Semibold" : "Segoe UI", size, style, GraphicsUnit.Pixel);
     internal Font Countdown(float size) => new(TimerStripTypeface.Family, size, TimerStripTypeface.Style, GraphicsUnit.Pixel);
 
-    internal void Panel(Graphics graphics, Rectangle bounds, double surfaceOpacity = 1)
+    internal void Panel(Graphics graphics, Rectangle bounds, double surfaceOpacity = 1, bool showBorder = true)
     {
         if (bounds.Width <= 0 || bounds.Height <= 0) return;
         surfaceOpacity = double.IsFinite(surfaceOpacity) ? Math.Clamp(surfaceOpacity, 0, 1) : 1;
         var surface = Color.FromArgb((int)Math.Round(Surface.A * surfaceOpacity), Surface);
-        if (IsLegacy) { LegacyPanel(graphics, bounds, surface); return; }
+        if (IsLegacy) { LegacyPanel(graphics, bounds, surface, showBorder); return; }
         // Small map labels and lock surfaces must not let ornaments paint outside their measured geometry.
         var state = graphics.Save();
         try
@@ -80,31 +81,32 @@ internal sealed class OverlayThemeDefinition
                 using var fill = new SolidBrush(surface);
                 using var edge = new Pen(Border);
                 graphics.FillRectangle(fill, bounds);
-                graphics.DrawRectangle(edge, bounds.X + .5f, bounds.Y + .5f, bounds.Width - 1, bounds.Height - 1);
+                if (showBorder) graphics.DrawRectangle(edge, bounds.X + .5f, bounds.Y + .5f, bounds.Width - 1, bounds.Height - 1);
                 return;
             }
             switch (_frame)
             {
-                case FrameStyle.Neutral: NeutralPanel(graphics, bounds, surface); break;
-                case FrameStyle.Stylized: StylizedPanel(graphics, bounds, surface); break;
-                case FrameStyle.Obsidian: ObsidianPanel(graphics, bounds, surface); break;
-                case FrameStyle.Aurora: AuroraPanel(graphics, bounds, surface); break;
-                case FrameStyle.Runic: RunicPanel(graphics, bounds, surface); break;
+                case FrameStyle.Neutral: NeutralPanel(graphics, bounds, surface, showBorder); break;
+                case FrameStyle.Stylized: StylizedPanel(graphics, bounds, surface, showBorder); break;
+                case FrameStyle.Obsidian: ObsidianPanel(graphics, bounds, surface, showBorder); break;
+                case FrameStyle.Aurora: AuroraPanel(graphics, bounds, surface, showBorder); break;
+                case FrameStyle.Runic: RunicPanel(graphics, bounds, surface, showBorder); break;
             }
         }
         finally { graphics.Restore(state); }
     }
 
-    private void NeutralPanel(Graphics graphics, Rectangle bounds, Color surface)
+    private void NeutralPanel(Graphics graphics, Rectangle bounds, Color surface, bool showBorder)
     {
         using var fill = new SolidBrush(surface);
         using var edge = new Pen(Color.FromArgb(110, 118, 124, 128));
         graphics.FillRectangle(fill, bounds);
+        if (!showBorder) return;
         graphics.DrawRectangle(edge, bounds.X + .5f, bounds.Y + .5f,
             Math.Max(0, bounds.Width - 1), Math.Max(0, bounds.Height - 1));
     }
 
-    private void StylizedPanel(Graphics graphics, Rectangle bounds, Color surface)
+    private void StylizedPanel(Graphics graphics, Rectangle bounds, Color surface, bool showBorder)
     {
         var x = bounds.Left + .5f;
         var y = bounds.Top + .5f;
@@ -117,6 +119,7 @@ internal sealed class OverlayThemeDefinition
         using var fill = new SolidBrush(surface);
         using var edge = new Pen(Color.FromArgb(165, 167, 157, 133));
         graphics.FillPolygon(fill, outline);
+        if (!showBorder) return;
         graphics.DrawPolygon(edge, outline);
         using var accent = new Pen(Color.FromArgb(215, 205, 188, 141));
         using var inner = new Pen(Color.FromArgb(80, 186, 178, 157));
@@ -131,18 +134,19 @@ internal sealed class OverlayThemeDefinition
         }
     }
 
-    private void ObsidianPanel(Graphics graphics, Rectangle bounds, Color surface)
+    private void ObsidianPanel(Graphics graphics, Rectangle bounds, Color surface, bool showBorder)
     {
         using var fill = new SolidBrush(surface);
         using var edge = new Pen(Border);
         using var top = new Pen(Color.FromArgb(215, Primary), 2);
         graphics.FillRectangle(fill, bounds);
+        if (!showBorder) return;
         graphics.DrawRectangle(edge, bounds.X + .5f, bounds.Y + .5f, bounds.Width - 1, bounds.Height - 1);
         var inset = Math.Min(10, bounds.Width / 4);
         graphics.DrawLine(top, bounds.Left + inset, bounds.Top + 1, bounds.Right - inset, bounds.Top + 1);
     }
 
-    private void AuroraPanel(Graphics graphics, Rectangle bounds, Color surface)
+    private void AuroraPanel(Graphics graphics, Rectangle bounds, Color surface, bool showBorder)
     {
         var rect = new RectangleF(bounds.X + .5f, bounds.Y + .5f, bounds.Width - 1, bounds.Height - 1);
         using var path = RoundedFrame(rect, Math.Min(6, Math.Min(bounds.Width, bounds.Height) / 4f));
@@ -150,18 +154,20 @@ internal sealed class OverlayThemeDefinition
         using var edge = new Pen(Border);
         using var rail = new Pen(Color.FromArgb(220, Mint), 2);
         graphics.FillPath(fill, path);
+        if (!showBorder) return;
         graphics.DrawPath(edge, path);
         var inset = Math.Min(12, bounds.Height / 4);
         graphics.DrawLine(rail, bounds.Left + 2, bounds.Top + inset, bounds.Left + 2, bounds.Bottom - inset);
         graphics.DrawLine(rail, bounds.Right - 2, bounds.Top + inset, bounds.Right - 2, bounds.Bottom - inset);
     }
 
-    private void RunicPanel(Graphics graphics, Rectangle bounds, Color surface)
+    private void RunicPanel(Graphics graphics, Rectangle bounds, Color surface, bool showBorder)
     {
         using var fill = new LinearGradientBrush(bounds, Color.FromArgb(surface.A, 48, 34, 25), surface, LinearGradientMode.Vertical);
         using var edge = new Pen(Border);
         using var inner = new Pen(Color.FromArgb(55, Gold));
         graphics.FillRectangle(fill, bounds);
+        if (!showBorder) return;
         graphics.DrawRectangle(edge, bounds.X + .5f, bounds.Y + .5f, bounds.Width - 1, bounds.Height - 1);
         if (bounds.Width > 8 && bounds.Height > 8)
             graphics.DrawRectangle(inner, bounds.X + 3.5f, bounds.Y + 3.5f, bounds.Width - 7, bounds.Height - 7);
@@ -176,11 +182,12 @@ internal sealed class OverlayThemeDefinition
     }
 
     // Preserve the pre-existing Legacy drawing path and palette.
-    private void LegacyPanel(Graphics graphics, Rectangle bounds, Color surface)
+    private void LegacyPanel(Graphics graphics, Rectangle bounds, Color surface, bool showBorder)
     {
         using var fill = new SolidBrush(surface);
         using var edge = new Pen(Border);
         graphics.FillRectangle(fill, bounds);
+        if (!showBorder) return;
         graphics.DrawRectangle(edge, bounds.X + .5f, bounds.Y + .5f, Math.Max(0, bounds.Width - 1), Math.Max(0, bounds.Height - 1));
         using var accent = new Pen(Color.FromArgb(205, Gold), 1);
         foreach (var (x, y, dx, dy) in new[] { (bounds.Left + 1, bounds.Top + 1, 1, 1),

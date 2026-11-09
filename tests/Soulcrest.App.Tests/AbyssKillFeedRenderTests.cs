@@ -11,6 +11,37 @@ namespace Soulcrest.App.Tests;
 public sealed class AbyssKillFeedRenderTests
 {
     [Theory]
+    [InlineData("de")] [InlineData("en")]
+    public void EstimatedAssistsHaveTheirOwnVisibleEvidenceLabelAndUnknownPoints(string language)
+    {
+        var previous = UiText.Language;
+        try
+        {
+            UiText.Language = language;
+            var assist = Entry(language == "de" ? "Beispielgegner" : "Example opponent") with
+            { Kind = AbyssKillFeedKind.Assist, IsEstimated = true, OpponentClassId = "Cleric", OpponentAbyssRankGrade = 13 };
+            Assert.Equal(language == "de" ? "Assist · geschätzt" : "Assist · estimated",
+                AbyssRankOverlayRenderer.KillFeedResultLabel(assist));
+            Assert.Equal(44, AbyssRankOverlayRenderer.KillFeedEntryHeight(assist));
+            Assert.Equal(27, AbyssRankOverlayRenderer.KillFeedEntryHeight(assist with { IsEstimated = false }));
+            var entries = new[] { assist with { Sequence = 3 }, Entry(language == "de" ? "Beispielgegner" : "Example opponent") with
+                { Sequence = 2, OpponentClassId = "Ranger", OpponentAbyssRankGrade = 1, AbyssPointGain = 200, RankPointDelta = 200 },
+                Entry(language == "de" ? "Beispielgegner" : "Example opponent") with
+                { Sequence = 1, Kind = AbyssKillFeedKind.Death, OpponentClassId = "Templar", OpponentAbyssRankGrade = 7, RankPointDelta = -130 } };
+            using var bitmap = AbyssRankOverlayRenderer.RenderBitmap(Snapshot(entries), "aion2-stylized", language: language);
+            Assert.Equal(480, bitmap.Width);
+            Assert.Equal(AbyssRankOverlayRenderer.KillFeedTop + 44 + 27 + 27 + 9, bitmap.Height);
+            Assert.Null(assist.AbyssPointGain); Assert.Null(assist.RankPointDelta);
+            if (Environment.GetEnvironmentVariable("SOULCREST_ASSIST_UI_PREVIEW") is { Length: > 0 } output)
+            {
+                Directory.CreateDirectory(output);
+                bitmap.Save(Path.Combine(output, $"abyss-estimated-assist-{language}.png"), ImageFormat.Png);
+            }
+        }
+        finally { UiText.Language = previous; }
+    }
+
+    [Theory]
     [InlineData("Gladiator")] [InlineData("Templar")] [InlineData("Ranger")] [InlineData("Assassin")]
     [InlineData("Elementalist")] [InlineData("Sorcerer")] [InlineData("Cleric")] [InlineData("Chanter")]
     public void KnownClassKeysUseExistingBundledOriginalIcons(string classId)

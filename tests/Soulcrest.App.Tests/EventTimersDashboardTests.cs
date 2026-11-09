@@ -104,6 +104,55 @@ public sealed class EventTimersDashboardTests
     }
 
     [Theory]
+    [InlineData("de", "Nächster Start in")]
+    [InlineData("en", "Next start in")]
+    public async Task ActiveInvasionCountsDownToTheNextStartWhileDetailsAndCalendarKeepTheCurrentEnd(string language, string nextStartLabel)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Clock.UtcNow = new(2026, 10, 12, 18, 35, 0, TimeSpan.Zero);
+        var start = new DateTimeOffset(2026, 10, 12, 18, 30, 0, TimeSpan.Zero);
+        var end = start.AddMinutes(15);
+        var nextStart = start.AddHours(1);
+        var before = fixture.Alerts.EventTimers.Single(timer => timer.Definition.Id == "invasion");
+        var calendarBefore = System.Text.Json.JsonSerializer.Serialize(before.Definition.Schedule);
+        var remindersBefore = System.Text.Json.JsonSerializer.Serialize(fixture.Alerts.Items);
+
+        var html = await fixture.Render();
+        var row = Summary(html, "invasion");
+        Assert.Contains(nextStartLabel, row);
+        Assert.Contains("00:55:00", row);
+        Assert.DoesNotContain("00:10:00", row);
+        await fixture.ClickSummary("invasion");
+        html = await fixture.Html();
+        Assert.Contains("invasion", Expanded(html));
+        var detailsAt = html.IndexOf("data-event-details=\"invasion\"", StringComparison.Ordinal);
+        var details = html[detailsAt..html.IndexOf("</section>", detailsAt, StringComparison.Ordinal)];
+        var schedule = Regex.Match(details, "class=\"event-detail-schedule\">([\\s\\S]*?)</div>").Value;
+        Assert.Contains("20:30</b>", schedule);
+        Assert.Contains("20:45</b>", schedule);
+        Assert.Matches("<li><span>[^<]*21:30</span><span>21:45</span></li>", details);
+        Assert.Contains("20:30 – 20:45", html); // The timeline still depicts the original fifteen-minute occurrence.
+
+        var source = fixture.Alerts.EventTimers.Single(timer => timer.Definition.Id == "invasion");
+        Assert.True(source.Window.IsActive);
+        Assert.Equal(start, source.Window.StartsAt);
+        Assert.Equal(end, source.Window.EndsAt);
+        Assert.Equal(nextStart, source.Window.NextAt);
+        Assert.Equal(TimeSpan.FromMinutes(15), source.Window.EndsAt - source.Window.StartsAt);
+        Assert.Equal(before.Window, source.Window);
+        var display = EventTimerDisplay.From(source);
+        Assert.True(display.IsActive);
+        Assert.Equal(source.Window, display.Window);
+        Assert.Equal(nextStart, display.CountdownAt);
+        Assert.Equal(calendarBefore, System.Text.Json.JsonSerializer.Serialize(source.Definition.Schedule));
+        Assert.Equal(remindersBefore, System.Text.Json.JsonSerializer.Serialize(fixture.Alerts.Items));
+        Assert.Empty(fixture.Alerts.Items);
+        Assert.Empty(fixture.Previews);
+        Assert.Equal(0, fixture.SoundPlaybacks);
+        await fixture.Export(html, "invasion-next-start");
+    }
+
+    [Theory]
     [InlineData("de")]
     [InlineData("en")]
     public async Task InlineControlsUseTheOriginalReminderCallbacksAndTheExplicitTestDoesNotFireOnOpening(string language)

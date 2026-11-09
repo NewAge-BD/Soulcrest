@@ -1,0 +1,105 @@
+@using System.Globalization
+@using Soulcrest.App.Services
+@using Soulcrest.Core.Combat
+@using Soulcrest.Core.GenusInsight
+
+<section class="cgi-view" data-combat-genus data-genus-current="@State.IsCurrent.ToString().ToLowerInvariant()" data-genus-source="@(State.IsHistorical ? "Saved" : State.IsCurrent ? "Current" : "Unknown")">
+    @if (State.IsHistorical)
+    {
+        <aside class="cgi-saved-note" data-genus-saved-stand role="status">
+            <strong>@UiText.T("Gespeicherter Genus-Stand")</strong>
+            <span>@UiText.T("Die Genus-Werte werden gemeinsam gespeichert. Das aktive Preset wird für jeden Charakter getrennt gemerkt.")</span>
+            <div class="cgi-saved-meta">
+                @if (State.Preset is { } savedPreset) { <span>@UiText.F("Charakter-Preset {0}", savedPreset)</span> }
+                else { <span>@UiText.T("Das aktive Preset dieses Charakters ist noch nicht zugeordnet.")</span> }
+                @if (State.ObservedAt is { } savedAt) { <time datetime="@savedAt.ToString("O")">@UiText.F("Stand: {0}", savedAt.ToLocalTime().ToString("g", Culture))</time> }
+            </div>
+        </aside>
+    }
+    <section class="ct-passive-panel cgi-applied" data-genus-applied-status="@State.AppliedEffectsStatus">
+        <header><div><h3>@UiText.T("Alle angewendeten Effekte") @if (State.Preset is { } preset) { <small class="cgi-preset">@UiText.F("Preset {0}", preset)</small> }</h3><p>@UiText.T(State.IsHistorical ? State.Preset is null ? "Gemeinsam gespeicherte Genus-Werte." : "Gespeicherte Rolls des zuletzt bestätigten Charakter-Presets." : "Aktive Rolls deines ausgewählten Genus-Presets.")</p></div>
+            @if (!State.IsHistorical && State.ObservedAt is { } at) { <time datetime="@at.ToString("O")">@UiText.F("Stand: {0}", at.ToLocalTime().ToString("g", Culture))</time> }
+        </header>
+        <div class="ct-passive-list">
+            @foreach (var effect in State.AppliedEffects.OrderBy(effect => Label(effect.LabelDe, effect.LabelEn), StringComparer.CurrentCulture))
+            {
+                <div class="ct-passive-total" data-genus-applied-stat="@effect.StatId"><span>@Label(effect.LabelDe, effect.LabelEn)</span><strong>@Value(effect.Value, effect.Unit)</strong></div>
+            }
+        </div>
+        @if (State.AppliedEffectsStatus != CombatKnowledgeStatus.Complete)
+        { <p class="cgi-note" data-genus-partial>@UiText.T(State.IsHistorical ? "Teilstand: Einige gespeicherte Effekte sind noch nicht vollständig zugeordnet." : State.IsCurrent ? State.Preset is null ? "Öffne Genus Insight im Spiel, um das aktive Preset zu bestätigen." : "Teilstand: Einige aktive Effekte sind noch nicht bestätigt." : "Warte auf aktuelle Genus-Daten deines Charakters.")</p> }
+        else if (State.AppliedEffects.Count == 0) { <p class="cgi-note">@UiText.T(State.IsHistorical ? "Keine angewendeten Effekte im gespeicherten Preset." : "Keine angewendeten Effekte im aktuellen Preset.")</p> }
+    </section>
+    <nav class="cgi-categories" aria-label="@UiText.T("Genus-Kategorien")">
+        @foreach (var genus in GenusInsightPresentation.Genera)
+        {
+            var board = State.Boards.FirstOrDefault(board => board.Genus == genus);
+            <button type="button" class="@(_genus == genus ? "selected" : "")" aria-pressed="@(_genus == genus ? "true" : "false")" data-genus-category="@genus" @onclick="@(() => SelectGenus(genus))">
+                <img src="@GenusInsightPresentation.IconPath(genus)" alt="" /><span>@GenusInsightPresentation.GenusLabel(genus)<small>@UiText.F("Level {0}", board?.Level?.ToString(Culture) ?? "—")</small></span>
+            </button>
+        }
+    </nav>
+    <div class="cgi-body">
+        <section class="cgi-rolls" aria-label="@GenusInsightPresentation.GenusLabel(_genus)">
+            <header><h3>@GenusInsightPresentation.GenusLabel(_genus) Insight</h3><span>@UiText.T("9 Slots")</span></header>
+            <div class="cgi-slot-grid">
+                @for (byte index = 1; index <= 9; index++)
+                {
+                    var slot = index;
+                    var roll = CurrentBoard?.Slots.FirstOrDefault(row => row.Slot == slot) ?? new GenusInsightSlotView { Slot = slot };
+                    <button type="button" class="cgi-slot @(_slot == slot ? "selected" : "") @(roll.IsFavorite ? "favorite" : "")" data-genus-slot="@slot" data-genus-rank="@roll.Rank" aria-pressed="@(_slot == slot ? "true" : "false")" @onclick="@(() => _slot = slot)">
+                        <span class="cgi-slot-top"><span>@UiText.F("Slot {0}", slot)</span><small style="color:@GenusInsightPresentation.RankColor(roll.Rank)">@GenusInsightPresentation.RankName(roll.Rank)</small>@if (roll.IsFavorite) { <b class="cgi-star" aria-label="@UiText.T("Favorit")">★</b> }</span>
+                        <strong style="color:@GenusInsightPresentation.RankColor(roll.Rank)">@Label(roll.LabelDe, roll.LabelEn)</strong>
+                        <span class="cgi-slot-value">@Value(roll.Value, roll.Unit)
+                            @if (roll.IsActivated == false) { <small>@UiText.T("Nicht aktiv")</small> }
+                            @if (roll.IsLocked == true) { <span class="cgi-pinned" title="@UiText.T("Beim Analysieren gesperrt")" aria-label="@UiText.T("Beim Analysieren gesperrt")">🔒</span> }
+                        </span>
+                        @if (roll.RollFraction is { } fraction)
+                        {
+                            <span class="cgi-range" aria-label="@UiText.F("Wertebereich {0} bis {1}", ExactValue(roll.Minimum, roll.Unit), ExactValue(roll.Maximum, roll.Unit))"><i style="left:@Percent(fraction)%"></i></span>
+                            <span class="cgi-range-labels"><small>@ExactValue(roll.Minimum, roll.Unit)</small>@if (roll.IsMaxRoll) { <b>MAX ROLL!</b> }<small>@ExactValue(roll.Maximum, roll.Unit)</small></span>
+                        }
+                        else { <small class="cgi-note">@UiText.T("Roll noch nicht bestätigt")</small> }
+                    </button>
+                }
+            </div>
+        </section>
+        <section class="cgi-options" data-genus-options="@(_genus + ":" + _slot)">
+            <header><div><span class="cgi-eyebrow">@GenusInsightPresentation.GenusLabel(_genus) · @UiText.F("Slot {0}", _slot)</span><h3>@UiText.T("Mögliche Stats")</h3></div><span class="cgi-count">@OptionStats.Count()</span></header>
+            <p class="cgi-note">@UiText.T("Markiere deine Wunschstats. Favoriten werden im Overlay hervorgehoben.")</p>
+            @if (!string.IsNullOrEmpty(FavoriteError)) { <p class="cgi-error" role="alert">@FavoriteError</p> }
+            <div class="cgi-option-scroll"><table><thead><tr><th>@UiText.T("Stat")</th>@for (byte rank = 1; rank <= 5; rank++) { <th style="color:@GenusInsightPresentation.RankColor(rank)">@GenusInsightPresentation.RankName(rank)</th> }<th><span class="cgi-star" aria-label="@UiText.T("Favorit")">★</span></th></tr></thead><tbody>
+                @foreach (var stat in OptionStats)
+                {
+                    var key = new GenusInsightFavoriteKey(_genus, _slot, stat.StatId);
+                    var favorite = Favorites?.Contains(key) == true;
+                    <tr class="@(favorite ? "favorite" : "")" data-genus-option-stat="@stat.StatId"><th>@Label(stat.LabelDe, stat.LabelEn)</th>
+                        @for (byte rank = 1; rank <= 5; rank++) { var range = Catalog.Range(_genus, _slot, stat.StatId, rank); <td>@(range is not null ? Range(range, stat.Unit) : "—")</td> }
+                        <td><button type="button" class="cgi-favorite" aria-pressed="@(favorite ? "true" : "false")" aria-label="@UiText.F("{0} als Favorit markieren", Label(stat.LabelDe, stat.LabelEn))" data-genus-favorite="@stat.StatId" disabled="@(!ToggleFavorite.HasDelegate)" @onclick="@(() => ToggleFavorite.InvokeAsync(key))">@(favorite ? "★" : "☆")</button></td>
+                    </tr>
+                }
+            </tbody></table></div>
+            <p class="cgi-catalog-note">@UiText.T("Wertebereiche aus dem Genus-Katalog. Unbestätigte aktuelle Rolls bleiben als unbekannt markiert.")</p>
+        </section>
+    </div>
+    <p class="cgi-overlay-note">@UiText.T("Das Genus-Overlay folgt automatisch der im Spiel geöffneten Kategorie. Füge es im Overlay-Editor als Widget hinzu.")</p>
+</section>
+
+@code {
+    [Parameter] public GenusInsightSnapshot State { get; set; } = GenusInsightSnapshot.Empty;
+    [Parameter] public IReadOnlySet<GenusInsightFavoriteKey>? Favorites { get; set; }
+    [Parameter] public EventCallback<GenusInsightFavoriteKey> ToggleFavorite { get; set; }
+    [Parameter] public string? FavoriteError { get; set; }
+    private string _genus = "cogni";
+    private byte _slot = 1;
+    private GenusInsightCatalog Catalog => GenusInsightCatalog.Default;
+    private GenusInsightBoardView? CurrentBoard => State.Boards.FirstOrDefault(board => board.Genus == _genus);
+    private IEnumerable<GenusInsightStatDefinition> OptionStats => Catalog.Options(_genus, _slot).Select(option => option.StatId).Distinct(StringComparer.Ordinal).Select(id => Catalog.FindStat(id)!).OrderBy(stat => Label(stat.LabelDe, stat.LabelEn), StringComparer.CurrentCulture);
+    private CultureInfo Culture => CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");
+    private static string Label(string de, string en) => UiText.Language == "de" ? de : en;
+    private string Value(decimal? value, string? unit) => value is { } number ? (unit == "Percent" ? decimal.Round(number, 1, MidpointRounding.ToEven) : number).ToString(unit == "Percent" ? "0.#" : "0.##", Culture) + (unit == "Percent" ? " %" : "") : "—";
+    private string ExactValue(decimal? value, string? unit) => value is { } number ? number.ToString("0.##", Culture) + (unit == "Percent" ? " %" : "") : "—";
+    private string Range(GenusInsightRange range, string unit) => range.Minimum == range.Maximum ? ExactValue(range.Minimum, unit) : range.Minimum.ToString("0.##", Culture) + "–" + ExactValue(range.Maximum, unit);
+    private static string Percent(double fraction) => (fraction * 100).ToString("0.##", CultureInfo.InvariantCulture);
+    private void SelectGenus(string genus) { _genus = genus; _slot = 1; }
+}

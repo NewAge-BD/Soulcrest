@@ -1,0 +1,19 @@
+/* Grindcrest overlay-editor-kit 1.15.0; source 231a2f0d40dcba872a2a83aa86b8f7b7a1edf49d. */
+.overlay-editor .browser-overlay-dialog,.overlay-editor.browser-overlay-dialog{ width: min(1500px, 96vw); max-width: 96vw; max-height: 94dvh; padding: 0; border: 1px solid #53606a; border-radius: 12px; background: #12191f; color: #e0e8ee; }
+.overlay-editor .browser-overlay-dialog::backdrop,.overlay-editor.browser-overlay-dialog::backdrop{ background: #02060bd9; }
+.overlay-editor .browser-overlay-toolbar{ display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 18px 24px; border-bottom: 1px solid #ffffff18; }
+.overlay-editor .browser-overlay-toolbar > div{ flex: 1; }
+.overlay-editor .browser-overlay-toolbar h1{ font-size: 20px; margin: 0 0 5px; }
+.overlay-editor .browser-overlay-toolbar p{ color: #a8b7c3; font-size: 12px; margin: 0; }
+.overlay-editor .browser-overlay-toolbar label{ display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.overlay-editor .browser-overlay-stage{ position: relative; min-height: 350px; background-position: center; background-size: cover; }
+.overlay-editor .browser-overlay-stage.background-dark{ background: #0b1017; }
+.overlay-editor .browser-overlay-stage.background-light{ background: #ddd9ce; }
+.overlay-editor .browser-overlay-stage.background-grid{ background-color: #a7abb0; background-image: conic-gradient(#7c8186 25%, transparent 0 50%, #7c8186 0 75%, transparent 0); background-size: 24px 24px; }
+.overlay-editor .browser-overlay-dialog .oe-stage-viewport,.overlay-editor.browser-overlay-dialog .oe-stage-viewport{ padding: 48px 24px; background: none; border: 0; min-height: 350px; }
+.overlay-editor .browser-overlay-dialog .oe-stage-wrap,.overlay-editor.browser-overlay-dialog .oe-stage-wrap{ margin: auto; }
+.overlay-editor .browser-overlay-dialog .oe-stage,.overlay-editor.browser-overlay-dialog .oe-stage{ box-shadow: none; outline: none; }
+.overlay-editor .browser-overlay-dialog .oe-widget,.overlay-editor.browser-overlay-dialog .oe-widget{ border: 0; outline: 0; cursor: default; box-shadow: none; }
+.overlay-editor .browser-overlay-dialog .oe-widget-content,.overlay-editor.browser-overlay-dialog .oe-widget-content{ pointer-events: auto; }
+.overlay-editor .browser-overlay-footer{ padding: 14px 24px; color: #a8b7c3; font-size: 12px; line-height: 1.6; }
+.overlay-editor .browser-overlay-empty{ position: absolute; inset: 40% 24px auto; text-align: center; padding: 20px; color: #fff; background: #12191fd9; }

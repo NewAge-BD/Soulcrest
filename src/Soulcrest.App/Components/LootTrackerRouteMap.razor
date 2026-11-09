@@ -24,6 +24,7 @@
             </select>
         </label>
         <label><input type="checkbox" @bind="_showDeaths" /> <span class="lt-marker-key death">×</span>@UiText.T("Eigene Tode")</label>
+        <label><input type="checkbox" @bind="_showAssists" /> <span class="lt-marker-key assist">+</span>@UiText.T("Assists")</label>
         <label><input type="checkbox" @bind="_showOdyle" /> <span class="lt-marker-key @(DisplaySession.UnifiedVersion > 0 ? "gathering" : "odyle")">✦</span>@UiText.T(DisplaySession.UnifiedVersion > 0 ? "Sammelstellen" : "Odyle")</label>
         @if (!Session.TimelineEvents.IsDefaultOrEmpty && Session.TimelineEvents.Any(row => row.Kind == LootTrackerTimelineEventKind.Drop && row.Position is not null))
         { <label><input type="checkbox" @bind="_showLoot" /> <span class="lt-marker-key">◇</span>@UiText.T("Beute")</label> }
@@ -74,7 +75,7 @@ else
             }
             @foreach (var marker in _markers.Where(row => Show(row.Data.Kind)))
             {
-                <g class="@($"lt-session-marker {marker.Data.KindKey}")" data-marker-kind="@marker.Data.KindKey" data-marker-id="@marker.Data.Id">
+                <g class="@($"lt-session-marker {marker.Data.KindKey}")" data-marker-kind="@marker.Data.KindKey" data-marker-id="@marker.Data.Id" data-estimated="@(marker.Data.IsEstimated ? "true" : null)">
                     <title>@marker.Data.Tooltip</title>
                     @if (!marker.Data.Items.IsDefaultOrEmpty)
                     {
@@ -142,11 +143,11 @@ else
 {
     <details class="lt-combat-timeline">
         <summary>@UiText.T("Kampfereignisse") · @DisplaySession.CombatEvents.Length</summary>
-        <ol>@foreach (var row in DisplaySession.CombatEvents.Where(row => row.Kind == LootTrackerCombatKind.Kill ? _showKills : _showDeaths))
+        <ol>@foreach (var row in DisplaySession.CombatEvents.Where(ShowCombat))
         {
-            <li data-combat-kind="@(row.Kind == LootTrackerCombatKind.Kill ? "kill" : "death")">
+            <li data-combat-kind="@LootTrackerCombatPresentation.Lane(row.Kind)" data-estimated="@(row.IsEstimated ? "true" : null)">
                 <time datetime="@row.At.ToString("O")">@Duration(row.Elapsed)</time>
-                <span>@UiText.T(row.Kind == LootTrackerCombatKind.Kill ? "Kill" : "Tod")</span>
+                <span>@LootTrackerCombatPresentation.Label(row)</span>
                 <small>@(row.Position is { } position ? position.MapName : UiText.T("Ohne Kartenposition"))</small>
             </li>
         }</ol>
@@ -178,16 +179,19 @@ else
     private readonly HashSet<LootTrackerCharts.RouteLine> _routeEnds = new(ReferenceEqualityComparer.Instance);
     private IReadOnlyList<LootTrackerCharts.ResourceNode> _nodes = [];
     private IReadOnlyList<LootTrackerCharts.SessionMarker> _markers = [];
-    private bool _showKills = true, _showDeaths = true, _showOdyle = true, _showLoot = true;
+    private bool _showKills = true, _showDeaths = true, _showAssists = true, _showOdyle = true, _showLoot = true;
     private SettingsService? _settings;
     private LootTrackerReplayKillIconMode _killIconMode;
     private bool _saving, _saveFailed, _disposed;
     private static CultureInfo Culture => CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");
     private bool Show(LootTrackerSessionMarkerKind kind) => kind switch
     { LootTrackerSessionMarkerKind.Kill => _showKills, LootTrackerSessionMarkerKind.Death => _showDeaths,
-        LootTrackerSessionMarkerKind.Drop => _showLoot, _ => _showOdyle };
+        LootTrackerSessionMarkerKind.Assist => _showAssists, LootTrackerSessionMarkerKind.Drop => _showLoot, _ => _showOdyle };
+    private bool ShowCombat(LootTrackerCombatEvent row) => row.Kind switch
+    { LootTrackerCombatKind.Kill => _showKills, LootTrackerCombatKind.Death => _showDeaths,
+        LootTrackerCombatKind.Assist => _showAssists, _ => false };
     private static string Glyph(LootTrackerSessionMarkerKind kind) => kind switch
-    { LootTrackerSessionMarkerKind.Kill => "⚔", LootTrackerSessionMarkerKind.Death => "×", _ => "✦" };
+    { LootTrackerSessionMarkerKind.Kill => "⚔", LootTrackerSessionMarkerKind.Death => "×", LootTrackerSessionMarkerKind.Assist => "+", _ => "✦" };
     private readonly string _clipId = "loot-map-" + Guid.NewGuid().ToString("N");
     private string _viewBox = "0 0 440 160";
     private double _units = 1;

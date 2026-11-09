@@ -189,8 +189,8 @@ public static class LootTrackerTimeline
     {
         var events = new List<Event>();
         if (!session.CombatEvents.IsDefaultOrEmpty)
-            events.AddRange(session.CombatEvents.Select(e => new Event(e.Id, e.Kind == LootTrackerCombatKind.Kill ? "kill" : "death", e.Elapsed, e.At,
-                UiText.T(e.Kind == LootTrackerCombatKind.Kill ? "Kill" : "Tod"))));
+            events.AddRange(session.CombatEvents.Select(e => new Event(e.Id, LootTrackerCombatPresentation.Lane(e.Kind), e.Elapsed, e.At,
+                LootTrackerCombatPresentation.Label(e))));
         foreach (var row in Rows(session))
         {
             var lane = row.Kind switch

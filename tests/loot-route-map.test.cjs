@@ -220,3 +220,20 @@ test('unified gathering markers draw alongside combat and legacy odyle without c
         JSON.stringify(markers.filter(marker => !['gathering', 'odyle'].includes(marker.kind)))), 2);
     assert(f.sessionMarkers().every(marker => !/-gathering$|-odyle$/.test(marker.options.icon.options.className)));
 });
+
+test('estimated assist focus remains an independent escaped blue marker and never contributes route edges', async () => {
+    const f = fixture();
+    await f.api.show('altgard', 'en');
+    f.fits.length = 0;
+    const assist = { x: 160, y: 320, kind: 'assist', tooltip: 'Assist · estimated <example>' };
+    assert.equal(f.api.setLootRoute('altgard', '[]', 'Session', true, JSON.stringify([assist])), 1);
+    assert.equal(f.routeLayers().length, 0);
+    const marker = f.sessionMarkers()[0];
+    assert(marker.options.icon.options.className.endsWith('-assist'));
+    assert(marker.options.icon.options.html.includes('>+</span>'));
+    assert(marker.options.icon.options.html.includes('2px dashed #82b4ff'));
+    assert.equal(marker.tooltip, 'Assist · estimated &lt;example&gt;');
+    assert.deepEqual(f.fits[0].points, [[-20, 10]]);
+    assert.equal(f.api.setLootRoute('altgard', '[]', 'Session', false, '[]'), 0);
+    assert.equal(f.sessionMarkers().length, 0);
+});

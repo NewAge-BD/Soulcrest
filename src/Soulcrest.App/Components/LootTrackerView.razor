@@ -19,17 +19,16 @@
                 <label class="lt-lifeskill-toggle"><input id="loot-abyss-enabled" type="checkbox" checked="@Settings.Current.AbyssTrackingEnabled" disabled="@(IsExample || _savingAbyss)" aria-busy="@_savingAbyss" @onchange="ChangeAbyssEnabled" />@UiText.T("Abyss aufnehmen")</label>
                 <label class="lt-lifeskill-toggle lt-monster-toggle"><input id="loot-monster-enabled" type="checkbox" checked="@Settings.Current.MonsterLootTrackingEnabled" disabled="@(IsExample || _savingMonster)" aria-busy="@_savingMonster" @onchange="ChangeMonsterEnabled" />@UiText.T("Open-World-PvE aufnehmen")</label>
                 <label class="lt-lifeskill-toggle"><input id="loot-lifeskill-enabled" type="checkbox" checked="@Settings.Current.LifeskillTrackingEnabled" disabled="@(IsExample || _savingLifeskill)" aria-busy="@_savingLifeskill" @onchange="ChangeLifeskillEnabled" />@UiText.T("Lifeskill aufnehmen")</label>
-                <label class="lt-lifeskill-toggle lt-overlay-toggle"><input id="loot-overlay-enabled" type="checkbox" checked="@Settings.Current.LootOverlayEnabled" disabled="@(IsExample || _savingOverlay)" aria-busy="@_savingOverlay" @onchange="ChangeLootOverlayEnabled" />@UiText.T("Loot-Overlay anzeigen")</label>
                 <label class="lt-idle-label" for="loot-idle-timeout">@UiText.T("PvE/Lifeskill beenden nach") <input id="loot-idle-timeout" type="number" min="1" max="60" step="1" disabled="@_saving" aria-busy="@_saving" value="@Settings.Current.LootTrackerIdleTimeoutMinutes" @onchange="ChangeIdleTimeout" /> @UiText.T("Min. ohne Loot")</label>
                 <InfoTip><p>@UiText.T("Bestätigte Beute und Sammelversuche gehören außerhalb des Abyss zu einer gemeinsamen Session. Beide verlängern ihren Timer; das Ausblenden des Overlays pausiert die Aufnahme nicht.")</p><p>@UiText.T("Gemischt, PvE, Lifeskill und Abyss zeigen dieselbe Session aus verschiedenen Blickwinkeln. Raten beziehen sich immer auf die gesamte Sessionzeit.")</p><p>@UiText.T("Abyss-Sessions laufen vom bestätigten Eintritt bis zum Verlassen. Pausen, Tod und Kartenwechsel innerhalb des Abyss teilen sie nicht.")</p></InfoTip>
             </div>
         </header>
 
+        @MarketSettingsContent
+
         <details class="lt-drop-options">
-            <summary>@UiText.T("Overlay und Drop-Alerts")</summary>
+            <summary>@UiText.T("Drop-Alerts und Animation")</summary>
             <div>
-                <label><input id="loot-overlay-auto-show" type="checkbox" checked="@Settings.Current.LootOverlayShowOnSessionStart" disabled="@(IsExample || _savingDropOptions)" @onchange="@(e => ChangeDropOption(e, Settings.SetLootOverlayShowOnSessionStart))" />@UiText.T("Bei Sessionstart einblenden")</label>
-                <label for="loot-background-transparency">@UiText.T("Hintergrundtransparenz")<input id="loot-background-transparency" type="range" min="0" max="100" step="1" value="@Math.Round((1 - Settings.Current.LootOverlayBackgroundOpacity) * 100)" disabled="@(IsExample || _savingDropOptions)" @onchange="ChangeLootTransparency" /><span>@Math.Round((1 - Settings.Current.LootOverlayBackgroundOpacity) * 100)%</span></label>
                 <label><input id="loot-drop-alerts-enabled" type="checkbox" checked="@Settings.Current.LootDropAlertsEnabled" disabled="@(IsExample || _savingDropOptions)" @onchange="ChangeDropAlerts" />@UiText.T("Fundhinweise ab Unique")</label>
                 <label><input id="loot-drop-sound-enabled" type="checkbox" checked="@Settings.Current.LootDropSoundEnabled" disabled="@(IsExample || _savingDropOptions)" @onchange="ChangeDropSound" />@UiText.T("Drop-Ton")</label>
                 <label><input id="loot-drop-animations-enabled" type="checkbox" checked="@Settings.Current.LootDropAnimationsEnabled" disabled="@(IsExample || _savingDropOptions)" @onchange="ChangeDropAnimations" />@UiText.T("Item-Animationen")</label>
@@ -98,6 +97,11 @@
                             <span class="lt-day-kina">@UiText.T("Ungebundene Kina") <b data-day-unbound="@dayKey">@DayAmount(day.KinaUnbound)</b></span>
                             <span class="lt-day-kina">@UiText.T("Gebundene Kina") <b data-day-bound="@dayKey">@DayAmount(day.KinaBound)</b></span>
                             <span class="lt-day-loot">@UiText.F("{0} Items · {1} Souls", DayAmount(day.Items), DayAmount(day.Souls))</span>
+                            @if (ExchangeDaySummary is not null)
+                            {
+                                var exchangeDay = ExchangeDaySummary(day.Sessions);
+                                <span class="lt-day-kina exchange-day-value" title="@ExchangeMarketPresentation.Hint(exchangeDay)">@UiText.T("Marktwert · geschätzt") <b data-day-exchange="@dayKey">@ExchangeMarketPresentation.Amount(exchangeDay.NetKina)</b></span>
+                            }
                         </button>
                         <div id="@("loot-day-" + dayKey)" class="lt-day-sessions" hidden="@(!expanded)">
                     @foreach (var row in daySessions)
@@ -178,6 +182,26 @@
                         }
                     </dl>
 
+                    @if (ExchangeSessionSummary is not null)
+                    {
+                        var exchange = ExchangeSessionSummary(session);
+                        <div class="exchange-loot-summary" data-testid="exchange-market-summary">
+                            <span><strong>@UiText.T("Marktwert netto · geschätzt")</strong><small>@UiText.T("Getrennt von tatsächlich erhaltenen Kina.")</small></span>
+                            <strong class="lt-kina-value" data-testid="exchange-net-kina">@ExchangeMarketPresentation.Amount(exchange.NetKina)</strong>
+                            <span class="exchange-coverage" data-testid="exchange-coverage">@ExchangeMarketPresentation.Coverage(exchange)<small data-testid="exchange-quantity-coverage">@ExchangeMarketPresentation.QuantityCoverage(exchange)</small>@if (!exchange.Complete) { <small>@UiText.T("Fehlende Preise bleiben unbekannt.")</small> }</span>
+                            @if (exchange.ReferenceRows > 0)
+                            {
+                                <span class="exchange-reference" data-testid="exchange-reference-value">@UiText.T("Davon Ausrüstung: Netto-Basispreis-Richtwert") <b>@ExchangeMarketPresentation.Amount(exchange.ReferenceNetKina)</b><small>@UiText.T("Niedrigster Preis der Item-ID; Eigenschaften und tatsächlicher Verkaufswert sind nicht belegt.")</small></span>
+                            }
+                            <small class="exchange-source"><a href="https://aion2.exchange" target="_blank" rel="noopener noreferrer">aion2.exchange ↗</a> · @ExchangeMarketPresentation.ObservedAt(exchange)<br />@UiText.T("Preise und Profilgebühren werden je neuer Beute eingefroren.")</small>
+                            <small class="exchange-source" data-testid="exchange-tradeability-note">@ExchangeMarketPresentation.TradeabilityHint</small>
+                            @foreach (var basis in exchange.Bases)
+                            {
+                                <small class="exchange-source" data-testid="exchange-frozen-basis">@ExchangeMarketPresentation.Basis(basis)</small>
+                            }
+                        </div>
+                    }
+
 
                     <LootTrackerSessionReplayView @ref="_sessionReplay" Session="parentSession!" ViewSession="session" PreparedReplay="PreparedSessionReplay(parentSession!)" IsExample="IsExample" CanShowOnMap="@(_ui is not null)" ShowOnMap="@((string? mapId) => ShowRouteOnMap(session, mapId))" />
                     <LootTrackerSessionStatistics Session="session" IsExample="IsExample" />
@@ -212,7 +236,13 @@
                             @if (!session.Loot.IsDefaultOrEmpty)
                             {
                                 <div class="lt-table-wrap"><table class="lt-table lt-loot-table"><thead><tr><th>@UiText.T("Item / Soul")</th><th>@UiText.T("Menge")</th>
+@if (ExchangeRowSummary is not null) { <th>@UiText.T("Marktwert · geschätzt")</th> }
 </tr></thead><tbody>@foreach (var loot in LootTrackerPresentation.OrderedLoot(session)) { var rarity = LootRarity(loot.Id); <tr class="lt-loot-row @RarityClass(rarity)" data-loot-id="@loot.Id"><td><div class="lt-loot-name">@LootIcon(loot.Id)<span style="@LootNameStyle(rarity)">@loot.Name<span class="lt-loot-kind">@(MonsterLootItemCatalog.IsExceptional(rarity) ? rarity.ToString() : UiText.T(loot.Kind == LootTrackerLootKind.Soul ? "Soul" : "Item"))</span></span></div></td><td>@Number(loot.Quantity)</td>
+@if (ExchangeRowSummary is not null)
+{
+    var exchangeRow = ExchangeRowSummary(session, loot);
+    <td class="exchange-row-value" data-exchange-loot-id="@loot.Id" title="@ExchangeMarketPresentation.Hint(exchangeRow)">@ExchangeMarketPresentation.Amount(exchangeRow.NetKina)@if (exchangeRow.ReferenceRows > 0) { <small>@UiText.T("Basispreis-Richtwert")</small> }</td>
+}
 </tr> }</tbody></table></div>
                             }
                             else { <div class="lt-visual-empty">@UiText.T("Keine einzelnen Loot-Einträge vorhanden.")</div> }
@@ -271,6 +301,10 @@
     [Parameter] public EventCallback<string> DeleteSession { get; set; }
     [Parameter] public LootTrackerViewMode ViewMode { get; set; } = LootTrackerViewMode.Mixed;
     [Parameter] public EventCallback<LootTrackerViewMode> ViewModeChanged { get; set; }
+    [Parameter] public RenderFragment? MarketSettingsContent { get; set; }
+    [Parameter] public Func<LootTrackerSession, ExchangeLootValuationSummary>? ExchangeSessionSummary { get; set; }
+    [Parameter] public Func<LootTrackerSession, LootTrackerLoot, ExchangeLootValuationSummary>? ExchangeRowSummary { get; set; }
+    [Parameter] public Func<IEnumerable<LootTrackerSession>, ExchangeLootValuationSummary>? ExchangeDaySummary { get; set; }
 
     private string _kind = "all", _search = "", _characterId = "all";
     private string? _selectedId, _saveFeedback;
@@ -294,7 +328,7 @@
 
     private bool _saveFailed, _saving, _disposed;
     private bool _savingLifeskill;
-    private bool _savingMonster, _savingOverlay, _savingDropOptions, _savingAbyss;
+    private bool _savingMonster, _savingDropOptions, _savingAbyss;
     [Parameter] public AbyssProgressSnapshot? AbyssProgress { get; set; }
     private UiState? _ui;
     private bool _savingRoute, _routeSaveError;
@@ -536,14 +570,6 @@
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _saveFailed = true; _saveFeedback = "Abyss-Einstellung konnte nicht gespeichert werden."; }
         finally { _savingAbyss = false; }
     }
-    protected async Task ChangeLootOverlayEnabled(ChangeEventArgs e)
-    {
-        if (IsExample || _savingOverlay || e.Value is not bool enabled) return;
-        _savingOverlay = true; _saveFailed = false; _saveFeedback = "Speichert …";
-        try { await Task.Run(() => Settings.SetLootOverlayEnabled(enabled)); _saveFeedback = enabled ? "Loot-Overlay eingeschaltet." : "Loot-Overlay ausgeschaltet."; }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _saveFailed = true; _saveFeedback = "Loot-Overlay-Einstellung konnte nicht gespeichert werden."; }
-        finally { _savingOverlay = false; }
-    }
     private Task ChangeDropAlerts(ChangeEventArgs e) => ChangeDropOption(e, Settings.SetLootDropAlertsEnabled);
     private Task ChangeDropSound(ChangeEventArgs e) => ChangeDropOption(e, Settings.SetLootDropSoundEnabled);
     private Task ChangeDropAnimations(ChangeEventArgs e) => ChangeDropOption(e, Settings.SetLootDropAnimationsEnabled);
@@ -551,8 +577,6 @@
         ? SaveDropOptions(() => save(enabled)) : Task.CompletedTask;
     private Task ChangeDropVolume(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var volume) && volume is >= 0 and <= 100
         ? SaveDropOptions(() => Settings.SetLootDropSoundVolume(volume / 100d)) : Task.CompletedTask;
-    private Task ChangeLootTransparency(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var percent) && percent is >= 0 and <= 100
-        ? SaveDropOptions(() => Settings.SetLootOverlayBackgroundOpacity(1 - percent / 100d)) : Task.CompletedTask;
     private async Task SaveDropOptions(Action save)
     {
         if (IsExample || _savingDropOptions) return;

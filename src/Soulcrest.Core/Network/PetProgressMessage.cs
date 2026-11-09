@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Soulcrest.Core.Network;
 
 /// <summary>Passive decoding of complete ride-init, acquired, and spent packets. No game code is loaded.</summary>
@@ -34,29 +36,39 @@ public static class PetProgressMessage
             {
                 if (!crystalKeys.Add(r.U8()) || r.I32() < 0) return null;
             }
-            r.Skip(r.Count(4) * 4); // acquired collections, distinct from individual levels
+            var collectionCount = r.Count(4);
+            var collections = ImmutableHashSet.CreateBuilder<int>();
+            for (var i = 0; i < collectionCount; i++) collections.Add(r.I32());
             var boards = r.Count(15, 256);
             var boardKeys = new HashSet<byte>();
+            var genus = ImmutableDictionary.CreateBuilder<byte, CharacterGenusBoard>();
             for (var i = 0; i < boards; i++)
             {
-                if (!boardKeys.Add(r.U8())) return null;
-                r.U8(); r.I32(); r.I64();
+                var boardKey = r.U8();
+                if (!boardKeys.Add(boardKey)) return null;
+                var type = r.U8(); var level = r.I32(); var experience = r.I64();
                 var panels = r.Count(2, 256);
                 var panelKeys = new HashSet<byte>();
+                var panelValues = ImmutableDictionary.CreateBuilder<byte, ImmutableArray<CharacterGenusEffect>>();
                 for (var j = 0; j < panels; j++)
                 {
-                    if (!panelKeys.Add(r.U8())) return null;
+                    var panel = r.U8();
+                    if (!panelKeys.Add(panel)) return null;
                     var slots = r.Count(12, 256);
+                    var effects = ImmutableArray.CreateBuilder<CharacterGenusEffect>(slots);
                     for (var k = 0; k < slots; k++)
                     {
-                        r.U8(); r.U8(); r.U16(); r.I64();
-                        r.Bool(); r.Bool();
+                        effects.Add(new(r.U8(), r.U8(), r.U16(), r.I64(), r.Bool(), r.Bool()));
                     }
+                    panelValues.Add(panel, effects.MoveToImmutable());
                 }
+                genus.Add(boardKey, new(type, level, experience, panelValues.ToImmutable()));
             }
-            r.U8(); // selected panel
+            var selectedPanel = r.U8();
             r.Exact();
-            return new(levels, balances);
+            return new(levels.ToImmutableDictionary(), balances.ToImmutableDictionary())
+                { GenusBoards = genus.ToImmutable(), SelectedGenusPanel = selectedPanel,
+                    AcquiredCollections = collections.ToImmutable() };
         }
         catch (InvalidDataException) { return null; }
     }

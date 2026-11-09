@@ -1,0 +1,92 @@
+@inherits KitLocalizedComponentBase
+@using Soulcrest.App.Overlay
+
+<div class="overlay-abyss-progress @(!Progress.HasPoints ? "is-unknown" : "") @(Progress.IsMaximum ? "is-maximum" : "") @(!Abyss.Confirmed && Progress.HasPoints ? "is-cached" : "")"
+     style="@ProgressStyle" title="@Tooltip">
+    @if (Widget.ShowLabel && Progress.HasPoints)
+    {
+        <div class="overlay-abyss-stage-names">
+            <span data-overlay-fit>@CurrentName</span>
+            <span data-overlay-fit>@NextName</span>
+        </div>
+    }
+    <div class="overlay-abyss-progress-body @(!Widget.ShowIcon ? "without-icons" : "")">
+        @if (Widget.ShowIcon)
+        {
+            @if (Progress.Current is { } current)
+            {
+                <AssetImage Src="@current.IconAsset" Alt="@current.Name(Snapshot.NameLanguage)" Class="overlay-abyss-stage-icon" Fallback="trend" />
+            }
+            else
+            {
+                <span class="overlay-abyss-stage-icon" aria-hidden="true"></span>
+            }
+        }
+        <div class="overlay-abyss-progress-middle">
+            @if (Widget.ShowLabel)
+            {
+                <span class="overlay-abyss-remaining" data-overlay-fit>@RemainingCaption</span>
+            }
+            <div class="overlay-abyss-rank-bar" role="progressbar" aria-label="@T("Punkte-Stufe")"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="@(Progress.HasPoints ? Css(Progress.Progress * 100) : null)"
+                 aria-valuetext="@AccessibleProgress">
+                @if (Progress.HasPoints)
+                {
+                    <span class="overlay-abyss-rank-fill" aria-hidden="true"></span>
+                }
+                <span class="overlay-abyss-rank-number" data-overlay-fit>@Points</span>
+            </div>
+        </div>
+        @if (Widget.ShowIcon)
+        {
+            @if (Progress.Next is { } next)
+            {
+                <AssetImage Src="@next.IconAsset" Alt="@next.Name(Snapshot.NameLanguage)" Class="overlay-abyss-stage-icon" Fallback="trend" />
+            }
+            else
+            {
+                <span class="overlay-abyss-stage-icon" aria-hidden="true"></span>
+            }
+        }
+    </div>
+    @if (Widget.ShowLabel && Progress.HasPoints && !Abyss.Confirmed)
+    {
+        <span class="overlay-abyss-progress-status" data-overlay-fit>@T("Gespeicherter Rangpunktestand")</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public OverlaySnapshot Snapshot { get; set; } = new();
+    [Parameter, EditorRequired] public OverlayWidget Widget { get; set; } = new();
+
+    private AbyssRankOverlaySnapshot Abyss => Snapshot.Abyss;
+    // The shared source also clears invalid bindings. Retain the native window's
+    // context gate here so a cached total alone cannot become visible content.
+    private bool Eligible => Abyss.CharacterBound && Abyss.WorldContextVisible
+        && !string.IsNullOrWhiteSpace(Abyss.ProfileId) && Abyss.BindingGeneration is > 0;
+    private AbyssRankProgress Progress => AbyssRankPresentation.Project(Eligible ? Abyss.RankPoints : null);
+    private CultureInfo NumberCulture => CultureInfo.GetCultureInfo(Snapshot.UiLanguage == "de" ? "de-DE" : "en-US");
+    private string Number(long value) => value.ToString("N0", NumberCulture);
+    private string CurrentName => Progress.Current?.Name(Snapshot.NameLanguage) ?? "—";
+    private string NextName => Progress.Next?.Name(Snapshot.NameLanguage) ?? "";
+    private string Points => Progress.TotalPoints is not { } total ? "—"
+        : Number(total) + " / " + (Progress.Next is { } next ? Number(next.Threshold) : "—");
+    private string RemainingCaption => Progress.PointsToNext is { } remaining
+        ? F("Noch {0} Rangpunkte", Number(remaining))
+        : T(Progress.IsMaximum ? "Höchste Punkte-Stufe" : "Rangpunkte unbekannt");
+    private string AccessibleProgress => string.Join(" · ", new[]
+    {
+        Points, RemainingCaption,
+        Progress.HasPoints && !Abyss.Confirmed ? T("Gespeicherter Rangpunktestand") : null,
+    }.Where(value => !string.IsNullOrEmpty(value)));
+    private string Tooltip => string.Join(" · ", new[]
+    {
+        T("Punkte-Stufe, kein bestätigter Klassenrang"),
+        Progress.HasPoints ? CurrentName + (Progress.Next is null ? "" : " → " + NextName) : null,
+        AccessibleProgress,
+        !Eligible ? T("Warte auf die eigene Charaktererkennung. Bitte einen Ladebildschirm auslösen.") : null,
+    }.Where(value => !string.IsNullOrEmpty(value)));
+    private double FontScale => double.IsFinite(Widget.FontScale) ? Math.Clamp(Widget.FontScale, .7, 2) : 1;
+    private string ProgressStyle => $"--rank-font-scale:{Css(FontScale)};--rank-progress-fill:{Css(Math.Clamp(Progress.Progress, 0, 1) * 100)}%";
+    private static string Css(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
+}

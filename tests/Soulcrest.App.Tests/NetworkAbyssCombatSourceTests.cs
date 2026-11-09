@@ -14,6 +14,88 @@ public sealed class NetworkAbyssCombatSourceTests
     private static readonly DateTimeOffset At = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
     private const string Stream = "synthetic-combat";
 
+    [Fact]
+    public void CompleteLaterPositiveOwnHealthAllowsAnotherOwnDeathWithoutRearmingForeignPlayers()
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream);
+        f.Send(Appearance(), 1, stream); f.Send(OwnKill(), 2, stream); f.Send(Death(), 3, stream);
+        f.Send(Own(health: 100, maximumHealth: 300, appearReason: 255), 4, stream);
+        Assert.True(f.Network.OwnCharacter!.HasPositiveHealth); // opaque reason does not substitute for health
+        f.Send(Appearance(), 5, stream); f.Send(OwnKill(), 6, stream);
+        f.Send(Death(), 7, stream); f.Send(Death(caster: 401), 8, stream);
+        Assert.Equal(new[] { NetworkAbyssCombatKind.Kill, NetworkAbyssCombatKind.Death, NetworkAbyssCombatKind.Death },
+            f.Events.Select(row => row.Kind));
+        Assert.Null(f.Events[^1].RankPointDelta); Assert.Null(f.Events[^1].AbyssPointGain);
+    }
+
+    [Theory]
+    [InlineData("unknown-health")] [InlineData("zero-health")] [InlineData("inconsistent-health")]
+    [InlineData("truncated-own")] [InlineData("trailing-own")] [InlineData("gap-only")]
+    [InlineData("transport-replaced")] [InlineData("foreign-stream")] [InlineData("outside")]
+    public void LoadsGapsAndUnqualifiedOwnFactsCannotRearmASeenOwnDeath(string invalid)
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream); f.Send(Death(), 1, stream);
+        var body = invalid switch
+        {
+            "unknown-health" => Own(),
+            "zero-health" => Own(health: 0, maximumHealth: 300),
+            "inconsistent-health" => Own(health: 301, maximumHealth: 300),
+            "outside" => Own(map: 21, health: 100, maximumHealth: 300),
+            _ => Own(health: 100, maximumHealth: 300)
+        };
+        if (invalid == "truncated-own") body = body[..^1];
+        if (invalid == "trailing-own") body = [.. body, 0];
+        if (invalid == "gap-only") f.Network.ProcessProgressGap(stream, capturedAtUtc: At.AddSeconds(2));
+        else if (invalid == "foreign-stream") f.Send(body, 2, "synthetic-foreign");
+        else f.Send(body, 2, stream);
+        if (invalid == "transport-replaced") f.InstallTransport();
+        if (invalid == "outside") f.Send(Own(), 3, stream);
+        f.Send(Death(), 4, stream);
+        Assert.Single(f.Events);
+    }
+
+    [Fact]
+    public void AnIndependentFullPositiveOwnAfterAGapCanProveANewLifeButIdentityOnlyHooksCannot()
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream); f.Send(Death(), 1, stream);
+        var identity = f.Network.OwnCharacter!.Identity;
+        f.Network.ObserveIdentity(stream, identity, At.AddSeconds(2), 20);
+        Assert.Null(f.Network.OwnCharacter!.HasPositiveHealth);
+        f.Send(Death(), 3, stream); Assert.Single(f.Events);
+        f.Network.ProcessProgressGap(stream, capturedAtUtc: At.AddSeconds(4));
+        stream = f.InstallTransport();
+        f.Send(Own(health: 100, maximumHealth: 300), 5, stream);
+        f.Send(Death(), 6, stream);
+        Assert.Equal(2, f.Events.Count);
+    }
+
+    [Fact]
+    public void PositiveOwnFactIsFrozenBeforeCallbacksAndADeathCallbackCannotReuseThatLife()
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream); f.Send(Death(), 1, stream);
+        var entered = false;
+        f.Network.OwnCharacterChanged += () =>
+        {
+            if (entered || f.Network.OwnCharacter?.HasPositiveHealth != true) return;
+            entered = true; f.Send(Death(), 4, stream);
+        };
+        f.Network.CombatEvent += _ => f.Send(Death(caster: 401), 5, stream);
+        f.Send(Own(health: 100, maximumHealth: 300), 3, stream);
+        Assert.True(entered); Assert.Equal(2, f.Events.Count);
+    }
+
+    [Fact]
+    public void APositiveOwnDeathLosesRemainingPublicationAuthorityIfItsTransportChangesInACallback()
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream); f.Send(Death(), 1, stream);
+        f.Send(Own(health: 100, maximumHealth: 300), 2, stream);
+        var late = 0;
+        f.Network.CombatEvent += _ => f.InstallTransport();
+        f.Network.CombatEvent += _ => late++;
+        f.Send(Death(), 3, stream);
+        Assert.Equal(2, f.Events.Count); Assert.Equal(0, late);
+    }
+
     [Theory]
     [InlineData(true, false, false, NetworkAbyssCombatKind.Kill)]
     [InlineData(false, true, false, NetworkAbyssCombatKind.Death)]
@@ -26,6 +108,105 @@ public sealed class NetworkAbyssCombatSourceTests
             Assert.Equal(kind == expected, capabilities.Supports(kind));
         Assert.False(capabilities.Supports((NetworkAbyssCombatKind)(-1)));
         Assert.False(capabilities.Supports((NetworkAbyssCombatKind)99));
+    }
+
+    [Fact]
+    public void EstimatedAssistsHaveTheirOwnCapabilityAndNeverQualifyEstimatedKillsOrDeaths()
+    {
+        var estimates = new NetworkAbyssCombatCapabilities(false, false, false) { EstimatedAssistSupported = true };
+        Assert.True(estimates.Supports(NetworkAbyssCombatKind.Assist, true));
+        Assert.False(estimates.Supports(NetworkAbyssCombatKind.Assist));
+        Assert.False(estimates.Supports(NetworkAbyssCombatKind.Assist, false));
+        var server = new NetworkAbyssCombatCapabilities(true, true, true);
+        Assert.True(server.Supports(NetworkAbyssCombatKind.Assist, false));
+        Assert.False(server.Supports(NetworkAbyssCombatKind.Assist, true));
+        foreach (var kind in new[] { NetworkAbyssCombatKind.Kill, NetworkAbyssCombatKind.Death, (NetworkAbyssCombatKind)99 })
+            Assert.False(estimates.Supports(kind, true));
+    }
+
+    [Fact]
+    public void OwnPositivePcDamageAndAnotherPcCasterProduceOneLabelledEstimateWithoutPointAttribution()
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream);
+        f.Send(Appearance(template: 30, grade: 19), 1, stream);
+        f.Send(Damage(), 2, stream);
+        Assert.Empty(f.Events);
+        f.Send(Death(victim: 400, caster: 900), 7, stream);
+        var assist = Assert.Single(f.Events);
+        Assert.Equal(NetworkAbyssCombatKind.Assist, assist.Kind); Assert.True(assist.IsEstimated);
+        Assert.Equal("SyntheticVictim", assist.OpponentName); Assert.Equal("Cleric", assist.OpponentClassId);
+        Assert.Equal(19, assist.OpponentAbyssRankGrade); Assert.Null(assist.AbyssPointGain); Assert.Null(assist.RankPointDelta);
+        f.Send(Damage(), 8, stream); f.Send(Appearance(), 9, stream);
+        f.Send(Death(victim: 400, caster: 900), 10, stream); Assert.Single(f.Events);
+    }
+
+    [Theory]
+    [InlineData("heal")] [InlineData("unknown-effect")] [InlineData("zero")] [InlineData("foreign-caster")]
+    [InlineData("foreign-stream")] [InlineData("truncated")] [InlineData("trailing")]
+    [InlineData("npc")] [InlineData("no-player")] [InlineData("before-player")] [InlineData("expired")]
+    [InlineData("transport")] [InlineData("gap")] [InlineData("own-change")] [InlineData("capture")]
+    public void DamageCannotEstimateAnAssistWithoutItsCurrentProvenOwnPlayerContext(string invalid)
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream);
+        if (invalid != "no-player") f.Send(Appearance(), 1, stream);
+        if (invalid == "npc") f.Send(Revocation(0x3641, 400), 2, stream);
+        var damage = Damage(caster: invalid == "foreign-caster" ? 301u : 300u,
+            amount: invalid == "zero" ? 0u : 17u,
+            effect: invalid == "heal" ? 1_780_000_111u : invalid == "unknown-effect" ? 999u : 1_701_000_011u);
+        if (invalid == "truncated") damage = damage[..^1];
+        if (invalid == "trailing") damage = [.. damage, 0];
+        f.Send(damage, invalid == "before-player" ? 0 : 3, invalid == "foreign-stream" ? "synthetic-foreign" : stream);
+        switch (invalid)
+        {
+            case "transport": f.InstallTransport(); break;
+            case "gap": f.Network.ProcessProgressGap(stream, capturedAtUtc: At.AddSeconds(4)); break;
+            case "own-change": f.Send(Own(entity: 301), 4, stream); break;
+            case "capture": f.ChangeCapture(4); break;
+        }
+        f.Send(Death(victim: 400, caster: 900), invalid == "expired" ? 34 : 5, stream);
+        Assert.Empty(f.Events);
+    }
+
+    [Fact]
+    public void OwnKillWinsOverParticipationAndOwnDeathClearsAllPendingParticipation()
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream);
+        f.Send(Appearance(), 1, stream); f.Send(Appearance(entity: 401), 1, stream);
+        f.Send(Damage(), 2, stream); f.Send(Damage(victim: 401), 2, stream);
+        f.Send(OwnKill(), 3, stream);
+        Assert.Equal(NetworkAbyssCombatKind.Kill, Assert.Single(f.Events).Kind); Assert.False(f.Events[0].IsEstimated);
+        f.Send(Death(), 4, stream); f.Send(Death(victim: 401, caster: 900), 5, stream);
+        Assert.Equal(2, f.Events.Count); Assert.Equal(NetworkAbyssCombatKind.Death, f.Events[1].Kind);
+    }
+
+    [Fact]
+    public void EstimatedVictimIsConsumedBeforeCallbacksAndANestedLegitimateResultStaysInOrder()
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream);
+        f.Send(Appearance(), 1, stream); f.Send(Appearance(entity: 401), 1, stream);
+        f.Send(Damage(), 2, stream); f.Send(Damage(victim: 401), 2, stream);
+        var nested = false; var late = new List<long>();
+        f.Network.CombatEvent += _ =>
+        {
+            if (nested) return; nested = true;
+            f.Send(Death(victim: 400, caster: 900), 4, stream);
+            f.Send(Death(victim: 401, caster: 900), 4, stream);
+        };
+        f.Network.CombatEvent += observation => late.Add(observation.Sequence);
+        f.Send(Death(victim: 400, caster: 900), 3, stream);
+        Assert.Equal(2, f.Events.Count); Assert.All(f.Events, row => Assert.True(row.IsEstimated));
+        Assert.Equal(f.Events.Select(row => row.Sequence), late); Assert.True(late[1] > late[0]);
+    }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public void NeutralOwnDeathAndOwnActorRemovalAlsoClearPendingParticipation(bool actorRemoval)
+    {
+        using var f = new Fixture(); var stream = f.InstallTransport(); f.Send(Own(), stream: stream);
+        f.Send(Appearance(), 1, stream); f.Send(Damage(), 2, stream);
+        f.Send(actorRemoval ? Revocation(0x3647, 300) : NeutralDeath(300), 3, stream);
+        f.Send(Death(victim: 400, caster: 900), 4, stream);
+        Assert.Empty(f.Events);
     }
 
     [Fact]
@@ -665,6 +846,15 @@ public sealed class NetworkAbyssCombatSourceTests
 
     private static byte[] OwnKill(uint victim = 400) => Death(victim, 300, 501, "SyntheticCombat");
 
+    private static byte[] Damage(uint caster = 300, uint victim = 400, uint amount = 17,
+        uint effect = 1_701_000_011) => Packet(0x3804, writer =>
+    {
+        Var(writer, victim); writer.Write((ushort)6); Var(writer, caster); writer.Write(7U);
+        writer.Write((byte)0); writer.Write((byte)2); writer.Write((byte)0); Var(writer, 0);
+        writer.Write((byte)0); writer.Write(effect); writer.Write(0U); Var(writer, 0);
+        Var(writer, amount); writer.Write((ushort)1);
+    });
+
     private static byte[] Appearance(uint entity = 400, int template = 0, int? grade = null) => Packet(0x3645, writer =>
     {
         Var(writer, entity); writer.Write(1 | (grade.HasValue ? 0x1000000 : 0)); writer.Write((byte)1); Text(writer, "SyntheticVictim");
@@ -690,13 +880,15 @@ public sealed class NetworkAbyssCombatSourceTests
         else writer.Write((byte)0xFF);
     }); // no child-byte meaning participates in PC qualification
 
-    private static byte[] Own(int entity = 300, int map = 20) => Packet(0x3633, writer =>
+    private static byte[] Own(int entity = 300, int map = 20, uint health = 0, uint maximumHealth = 0,
+        byte? appearReason = null) => Packet(0x3633, writer =>
     {
-        Var(writer, (uint)entity); writer.Write(65536); writer.Write((byte)1);
+        Var(writer, (uint)entity); writer.Write(65536 | (appearReason is null ? 0 : 2)); writer.Write((byte)1);
         Text(writer, "SyntheticCombat"); writer.Write((ushort)501); writer.Write(29);
         writer.Write(new byte[36]); Var(writer, 0); Var(writer, 0); writer.Write(new byte[16]);
         writer.Write((byte)0); writer.Write((ushort)0); writer.Write(new byte[18]); writer.Write((byte)1);
-        Var(writer, 0); Var(writer, 0); writer.Write(new byte[52]); Var(writer, 0); Var(writer, 0); Var(writer, 0);
+        Var(writer, health); Var(writer, maximumHealth); writer.Write(new byte[52]); Var(writer, 0); Var(writer, 0); Var(writer, 0);
+        if (appearReason is { } reason) writer.Write(reason);
         writer.Write(0L); writer.Write(map); writer.Write(101L); Var(writer, 0); writer.Write((byte)1);
         writer.Write(1_000L); writer.Write(new byte[32]); Var(writer, 0); Var(writer, 0);
     });

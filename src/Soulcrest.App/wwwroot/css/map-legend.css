@@ -37,3 +37,6 @@
 .mapview .group:has(.cat .info-tip[open]) { overflow: visible; }
 .mapview .cat.legend-row:not(:has(.legend-choice input:checked)):has(.info-tip) .legend-name { opacity: 1; }
 .mapview .cat.legend-row:not(:has(.legend-choice input:checked)):has(.info-tip) .legend-name > :not(.info-tip) { opacity: .5; }
+
+.mapview .monster-drops-info { padding: 0 .5rem; }
+.mapview .monster-drops-note { padding: .25rem .5rem; font-size: .75rem; }

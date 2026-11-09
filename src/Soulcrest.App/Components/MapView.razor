@@ -70,6 +70,7 @@
                     <div class="pet-level-options">
                         <label class="chip"><input type="checkbox" checked="@_lootShowKills" @onchange="@(e => SetLootMarkerVisible("kill", (bool)e.Value!))" /> @UiText.T("Spielerkills")</label>
                         <label class="chip"><input type="checkbox" checked="@_lootShowDeaths" @onchange="@(e => SetLootMarkerVisible("death", (bool)e.Value!))" /> @UiText.T("Eigene Tode")</label>
+                        <label class="chip"><input type="checkbox" checked="@_lootShowAssists" @onchange="@(e => SetLootMarkerVisible("assist", (bool)e.Value!))" /> @UiText.T("Assists")</label>
                         <label class="chip"><input type="checkbox" checked="@_lootShowOdyle" @onchange="@(e => SetLootMarkerVisible("gathering", (bool)e.Value!))" /> @UiText.T("Sammelstellen")</label>
                     </div>
                 }
@@ -85,12 +86,24 @@
             {
                 <div class="group">
                     <div class="group-head legend-row">
-                        <button type="button" class="legend-name" aria-expanded="@_open.Contains(group.Name)" @onclick="@(() => ToggleGroupOpen(group.Name))"><span class="caret">@(_open.Contains(group.Name) ? "▾" : "▸")</span><span class="name">@group.Name</span><span class="count">@group.Categories.Where(c => group.Name != "Collectibles" || c.Name != "Cube Groups").Sum(c => c.Count)</span></button>
+                        <button type="button" class="legend-name" aria-expanded="@_open.Contains(group.Name)" @onclick="@(() => ToggleGroupOpen(group.Name))"><span class="caret">@(_open.Contains(group.Name) ? "▾" : "▸")</span><span class="name">@group.Name</span><span class="count">@(group.Count ?? group.Categories.Where(c => group.Name != "Collectibles" || c.Name != "Cube Groups").Sum(c => c.Count))</span></button>
                         @foreach (var surface in LegendSurfaces)
                         {
-                            <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", group.Name, SurfaceLabel(surface))" checked="@group.Categories.All(c => CategoryVisible(group, c, surface))" @onchange="@(e => SetSurfaceGroup(group, surface, (bool)e.Value!))" /></label>
+                            <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", group.Name, SurfaceLabel(surface))" disabled="@(group.Categories.Count == 0)" checked="@(group.Categories.Count > 0 && group.Categories.All(c => CategoryChecked(group, c, surface)))" @onchange="@(e => SetSurfaceGroup(group, surface, (bool)e.Value!))" /></label>
                         }
                     </div>
+                    @if (group.Name == "Monster Drops")
+                    {
+                        <div class="monster-drops-info"><InfoTip>@UiText.T("Zeigt belegte Crafting-Drops an den Spawnpunkten ihrer Monster. Mehrere ausgewählte Materialien erscheinen als Icongruppe. Die Zahlen zählen eindeutige Spawnpunkte, keine Dropmengen oder Chancen.")</InfoTip></div>
+                        @if (!_monsterDropsAvailable)
+                        {
+                            <div class="note monster-drops-note">@UiText.T("Für Monster Drops müssen die Kartendaten aktualisiert werden.")</div>
+                        }
+                        else if (group.Categories.Count == 0 && _open.Contains(group.Name))
+                        {
+                            <div class="note monster-drops-note">@UiText.T("Für diese Karte sind keine Monster-Drops belegt.")</div>
+                        }
+                    }
                     @if (group.Name == "Pets")
                     {
                         @* User request 2026-10-14: checked means shown, with exclusivity kept separate. *@
@@ -130,7 +143,7 @@
                                     </div>
                                     @foreach (var surface in LegendSurfaces)
                                     {
-                                        <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", CategoryLabel(cat), SurfaceLabel(surface))" checked="@CategoryVisible(group, cat, surface)" @onchange="@(e => SetSurfaceCategory(group, cat, surface, (bool)e.Value!))" /></label>
+                                        <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", CategoryLabel(cat), SurfaceLabel(surface))" checked="@CategoryChecked(group, cat, surface)" @onchange="@(e => SetSurfaceCategory(group, cat, surface, (bool)e.Value!))" /></label>
                                     }
                                 </div>
                                 @foreach (var kind in cat.Kinds ?? [])
@@ -140,7 +153,7 @@
                                         <div class="legend-name">@if (kind.Icon is not null) { <img src="@kind.Icon" alt="" /> }<span class="label">@label</span><span class="count">@kind.Count</span></div>
                                         @foreach (var surface in LegendSurfaces)
                                         {
-                                            <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", label, SurfaceLabel(surface))" checked="@KindVisible(group, cat, kind.Name, surface)" @onchange="@(e => SetSurfaceKind(group, cat, kind.Name, surface, (bool)e.Value!))" /></label>
+                                            <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", label, SurfaceLabel(surface))" checked="@KindVisible(group, cat, KindIdentity(kind), surface)" @onchange="@(e => SetSurfaceKind(group, cat, KindIdentity(kind), surface, (bool)e.Value!))" /></label>
                                         }
                                     </div>
                                 }
@@ -548,12 +561,14 @@
     private string CategoryLabel(Category category) => Settings.Current.NameLanguage == "de" ? category.De ?? category.Name : category.Name;
     private sealed record Category(int Index, string Name, int Count, bool Hidden, string Color, string? Icon, string? De = null, List<Kind>? Kinds = null);
     /// <summary>Resource kind of a category (Gem: Sapphire, Diamond, Ruby), with its item icon.</summary>
-    private sealed record Kind(string Name, string? De, string? Icon, int Count);
+    private sealed record Kind(string Name, string? De, string? Icon, int Count, string? Key = null);
+    private static string KindIdentity(Kind kind) => kind.Key ?? kind.Name;
     // Hidden resource kinds of the shown map, keys as MapPetMarkers.KindKey.
     private readonly HashSet<string> _hiddenKinds = [];
     private static string KindKey(Group group, Category cat, string kind) => MapPetMarkers.KindKey(MapPetMarkers.CategoryKey(group.Name, cat.Name), kind);
-    private sealed record Group(string Name, List<Category> Categories);
-    private sealed record ShowResult(List<Group> Groups, int Regions, int Markers, bool Cancelled = false);
+    private sealed record Group(string Name, List<Category> Categories, int? Count = null);
+    private sealed record ShowResult(List<Group> Groups, int Regions, int Markers, bool Cancelled = false, bool MonsterDropsAvailable = false);
+    private bool _monsterDropsAvailable;
     private sealed record SearchHit(int I, string Name, string Cat, bool Monster = false, string? Key = null, string? Group = null, string? PetId = null);
     private sealed record PetFocusCount(int Pets, int Monsters);
 
@@ -578,7 +593,7 @@
     private bool _sideCollapsed, _rightCollapsed, _relayout; // view-only: sidebars hidden for small windows
     private string? _error;
     private LootTrackerMapFocus? _lootRouteFocus;
-    private bool _lootShowKills = true, _lootShowDeaths = true, _lootShowOdyle = true;
+    private bool _lootShowKills = true, _lootShowDeaths = true, _lootShowAssists = true, _lootShowOdyle = true;
 
     private string MapLabel => UiText.T(_maps.FirstOrDefault(m => m.Id == _mapId)?.Label ?? _mapId);
 
@@ -1242,6 +1257,7 @@
     {
         "kill" => _lootShowKills,
         "death" => _lootShowDeaths,
+        "assist" => _lootShowAssists,
         "odyle" or "gathering" => _lootShowOdyle,
         _ => false
     };
@@ -1252,6 +1268,7 @@
         {
             case "kill": _lootShowKills = visible; break;
             case "death": _lootShowDeaths = visible; break;
+            case "assist": _lootShowAssists = visible; break;
             case "odyle":
             case "gathering": _lootShowOdyle = visible; break;
             default: return;
@@ -1312,6 +1329,7 @@
             var result = JsonSerializer.Deserialize<ShowResult>(json, Json)!;
             if (result.Cancelled) return;
             _groups = result.Groups;
+            _monsterDropsAvailable = result.MonsterDropsAvailable;
             _markerCount = result.Markers;
             _visible.Clear();
             foreach (var cat in _groups.SelectMany(g => g.Categories).Where(c => !c.Hidden))
@@ -1376,6 +1394,8 @@
     private static string SurfaceLabel(MapSurface surface) => UiText.T(surface switch { MapSurface.Minimap => "Minimap", MapSurface.Worldmap => "Worldmap", _ => "Interaktive Karte" });
     private bool CategoryVisible(Group group, Category cat, MapSurface surface) => surface == MapSurface.Interactive
         ? _visible.Contains(cat.Index) : MapLayerVisibility.CategoryVisible(Settings.Current, _mapId, surface, group.Name, cat.Name);
+    private bool CategoryChecked(Group group, Category cat, MapSurface surface) => CategoryVisible(group, cat, surface)
+        && (group.Name != "Monster Drops" || (cat.Kinds ?? []).All(kind => KindVisible(group, cat, KindIdentity(kind), surface)));
     private bool KindVisible(Group group, Category cat, string kind, MapSurface surface) => surface == MapSurface.Interactive
         ? _visible.Contains(cat.Index) && !_hiddenKinds.Contains(KindKey(group, cat, kind))
         : MapLayerVisibility.KindVisible(Settings.Current, _mapId, surface, group.Name, cat.Name, kind);
@@ -1399,13 +1419,46 @@
 
     private async Task SetSurfaceCategory(Group group, Category cat, MapSurface surface, bool visible)
     {
-        if (surface == MapSurface.Interactive) { await SetCategory(cat.Index, visible); return; }
-        ChangeNative(surface, (categories, _) => { if (visible) categories.Add(MapPetMarkers.CategoryKey(group.Name, cat.Name)); else categories.Remove(MapPetMarkers.CategoryKey(group.Name, cat.Name)); });
+        if (surface == MapSurface.Interactive)
+        {
+            if (visible && group.Name == "Monster Drops") await ShowAllDropKinds(group, cat);
+            await SetCategory(cat.Index, visible);
+            return;
+        }
+        ChangeNative(surface, (categories, hidden) => {
+            if (visible) {
+                categories.Add(MapPetMarkers.CategoryKey(group.Name, cat.Name));
+                if (group.Name == "Monster Drops") foreach (var kind in cat.Kinds ?? []) hidden.Remove(KindKey(group, cat, KindIdentity(kind)));
+            } else categories.Remove(MapPetMarkers.CategoryKey(group.Name, cat.Name));
+        });
     }
     private async Task SetSurfaceGroup(Group group, MapSurface surface, bool visible)
     {
-        if (surface == MapSurface.Interactive) { await SetGroup(group, visible); return; }
-        ChangeNative(surface, (categories, _) => { foreach (var cat in group.Categories) { var key = MapPetMarkers.CategoryKey(group.Name, cat.Name); if (visible) categories.Add(key); else categories.Remove(key); } });
+        if (surface == MapSurface.Interactive)
+        {
+            if (visible && group.Name == "Monster Drops") foreach (var cat in group.Categories) await ShowAllDropKinds(group, cat);
+            await SetGroup(group, visible);
+            return;
+        }
+        ChangeNative(surface, (categories, hidden) => {
+            foreach (var cat in group.Categories) {
+                var key = MapPetMarkers.CategoryKey(group.Name, cat.Name);
+                if (visible) {
+                    categories.Add(key);
+                    if (group.Name == "Monster Drops") foreach (var kind in cat.Kinds ?? []) hidden.Remove(KindKey(group, cat, KindIdentity(kind)));
+                } else categories.Remove(key);
+            }
+        });
+    }
+    private async Task ShowAllDropKinds(Group group, Category cat)
+    {
+        foreach (var kind in cat.Kinds ?? [])
+        {
+            var key = KindIdentity(kind);
+            _hiddenKinds.Remove(KindKey(group, cat, key));
+            await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, key, true);
+        }
+        SaveKinds();
     }
     private async Task SetSurfaceKind(Group group, Category cat, string kind, MapSurface surface, bool visible)
     {
@@ -1414,7 +1467,7 @@
             var key = KindKey(group, cat, kind); var category = MapPetMarkers.CategoryKey(group.Name, cat.Name);
             if (visible) {
                 hidden.Remove(key);
-                if (categories.Add(category)) foreach (var other in cat.Kinds ?? []) if (other.Name != kind) hidden.Add(KindKey(group, cat, other.Name));
+                if (categories.Add(category)) foreach (var other in cat.Kinds ?? []) if (KindIdentity(other) != kind) hidden.Add(KindKey(group, cat, KindIdentity(other)));
             } else hidden.Add(key);
         });
     }
@@ -1457,9 +1510,9 @@
             // Category was off: show just this kind, as a click on a single entry means.
             foreach (var other in cat.Kinds ?? [])
             {
-                if (other.Name == kind) continue;
-                _hiddenKinds.Add(KindKey(group, cat, other.Name));
-                await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, other.Name, false);
+                if (KindIdentity(other) == kind) continue;
+                _hiddenKinds.Add(KindKey(group, cat, KindIdentity(other)));
+                await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, KindIdentity(other), false);
             }
             await ShowCategory(cat.Index, true);
             SaveCategories();
@@ -1499,10 +1552,10 @@
                     foreach (var kind in cat.Kinds ?? [])
                     {
                         if (!Current()) return;
-                        var key = KindKey(group, cat, kind.Name);
+                        var key = KindKey(group, cat, KindIdentity(kind));
                         if (!hiddenKinds.Contains(key)) continue;
                         _hiddenKinds.Add(key);
-                        await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, kind.Name, false);
+                        await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, KindIdentity(kind), false);
                         if (!Current()) return;
                     }
         }

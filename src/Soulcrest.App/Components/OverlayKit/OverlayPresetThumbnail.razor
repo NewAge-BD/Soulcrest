@@ -1,0 +1,36 @@
+@inherits KitLocalizedComponentBase
+
+@* The SVG viewport uniformly fits the real widget DOM without registering another editor canvas. *@
+<svg class="oe-preset-thumbnail" viewBox="@ViewBox" preserveAspectRatio="xMidYMid meet" role="img"
+     aria-label="@F("Vorschau von {0} mit Beispieldaten", Window.Name)" data-preset-preview="@Window.Id" data-example-only="true">
+    <foreignObject x="0" y="0" width="@Css(Width)" height="@Css(Height)">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="oe-preset-stage @(Settings.ShowBorder ? "has-border" : "")" data-theme="@Examples.ThemeId" style="@StageStyle">
+            <OverlayCanvasFrame ThemeId="@Examples.ThemeId" Width="Settings.Width" Height="Settings.Height" BackgroundOpacity="Settings.BackgroundOpacity" ShowBorder="Settings.ShowBorder" />
+            @if (Chrome.HasTitleBar) { <OverlayWindowTitle Title="@Window.Name" /> }
+            <div class="oe-preset-stage-content" style="@ContentStyle">
+                @foreach (var widget in Settings.Widgets)
+                {
+                    <div @key="widget.Id" class="oe-preset-widget" data-preset-widget-kind="@widget.Kind" style="@WidgetStyle(widget)">
+                        <OverlayWidgetPreview Widget="widget" Snapshot="Examples" />
+                    </div>
+                }
+            </div>
+            @if (Settings.Widgets.Count == 0) { <span class="oe-preset-empty">@T("Leeres Overlay")</span> }
+        </div>
+    </foreignObject>
+</svg>
+
+@code {
+    [Parameter, EditorRequired] public OverlayInstance Window { get; set; } = new();
+    /// <summary>Only the editor's synthetic example frame is passed to thumbnails.</summary>
+    [Parameter, EditorRequired] public OverlaySnapshot Examples { get; set; } = OverlaySnapshot.Demo;
+    private OverlaySettings Settings => Window.Settings;
+    private OverlayWindowChrome Chrome => OverlayWindowChrome.For(Examples.ThemeId, Settings.ShowBorder);
+    private double Width => Chrome.OuterWidth(Settings.Width);
+    private double Height => Chrome.OuterHeight(Settings.Height);
+    private string ViewBox => $"0 0 {Css(Width)} {Css(Height)}";
+    private string StageStyle => $"width:{Css(Width)}px;height:{Css(Height)}px;" + OverlayEditorThemes.CssVariables(Examples.ThemeId);
+    private string ContentStyle => $"left:{Css(Chrome.Left)}px;top:{Css(Chrome.Top)}px;width:{Css(Settings.Width)}px;height:{Css(Settings.Height)}px";
+    private static string WidgetStyle(OverlayWidget widget) => $"left:{Css(widget.X)}px;top:{Css(widget.Y)}px;width:{Css(widget.Width)}px;height:{Css(widget.Height)}px";
+    private static string Css(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
+}

@@ -1307,3 +1307,13 @@ button.route-color:hover, button.route-color.open { box-shadow: 0 0 0 2px #11192
 .exploration-unconfirmed-label { color: var(--muted); }
 .pets-main > .network-progress { margin-bottom: 16px; }
 @media (max-width: 900px) { .exploration-network-setup { grid-template-columns: 1fr; } }
+
+/* Separate dungeon acquisition hints never provide map coordinates. */
+.pets-card-source { padding: 0 8px 4px; font-size: 11px; }
+.pets-acquisition-list { list-style: none; padding: 0; margin: 8px 0; }
+.pets-acquisition-list li { display: grid; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pets-acquisition-list .pill { justify-self: start; }
+.pets-source-variants { display: grid; gap: 4px; border-left: 2px solid var(--line); padding-left: 10px; }
+.pets-source-variants > strong { font-size: 12px; }
+.pets-source-upcoming { color: var(--amber, #dfb86a); }
+.pets-source-unconfirmed { color: var(--muted); }

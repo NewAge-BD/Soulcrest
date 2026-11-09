@@ -1,0 +1,23 @@
+@inherits KitLocalizedComponentBase
+
+<nav class="settings-navigation menu-navigation" aria-label="@T(Label)">
+    @foreach (var category in Sections)
+    {
+        <a class="settings-category @(Selected == category.Id ? "is-active" : "")"
+           href="@category.Href" aria-current="@(Selected == category.Id ? "page" : null)"
+           aria-disabled="@(Disabled ? "true" : null)" tabindex="@(Disabled ? "-1" : null)"
+           @onclick="() => SelectSection(category.Id)" @onclick:preventDefault="@(OnSelect.HasDelegate || Disabled)">
+            <KitIcon Name="@category.Icon" /><span>@T(category.Label)</span>
+        </a>
+    }
+</nav>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlyList<MenuSection> Sections { get; set; } = [];
+    [Parameter, EditorRequired] public string Selected { get; set; } = "";
+    [Parameter] public EventCallback<string> OnSelect { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private Task SelectSection(string section) => Disabled ? Task.CompletedTask : OnSelect.InvokeAsync(section);
+}

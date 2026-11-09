@@ -17,6 +17,9 @@
   Dungeons and Strongholds support undiscovered, discovered incomplete and discovered completed.
   Unverified network status values remain unknown; existing checks and manual corrections stay intact.
 - **Progression mode**: always leads you to the nearest pet that still needs souls.
+- **Loot market estimates**: optional prices from [aion2.exchange](https://aion2.exchange/),
+  with an explicitly selected market per character profile. Net estimates use configurable
+  fees and are frozen for each new loot entry; missing prices stay unknown.
 
 The interface is in English and German.
 
@@ -28,7 +31,9 @@ the game.
 
 The soul tracker reads the game's network traffic **read-only** with Npcap: only the server → client
 stream of the game. Nothing is decrypted. Your own character identity selects the profile;
-pet, quest and teleport progress are processed locally. Nothing leaves your PC. You can turn the tracker off in the settings. Details:
+pet, quest and teleport progress are processed locally. Optional Exchange price requests send only
+the selected market and item IDs, with no character or profile data. You can turn online prices
+and the tracker off independently in the settings. Details:
 [docs/SAFETY.md](docs/SAFETY.md).
 
 Using any third-party tool with an online game is at your own risk.
@@ -101,10 +106,15 @@ Nur Windows, läuft lokal.
   Dungeons und Garnisonen unterstützen drei Zustände: unentdeckt, entdeckt und offen, entdeckt
   und erledigt. Unbestätigte Netzwerkwerte bleiben unbekannt; vorhandene Haken bleiben erhalten.
 - **Progressionsmodus** führt immer zum nächsten Pet, das noch Souls braucht.
+- **Marktwerte der Beute**: optionale Preise von [aion2.exchange](https://aion2.exchange/),
+  mit ausdrücklich gewähltem Markt je Charakterprofil. Netto-Richtwerte verwenden
+  einstellbare Gebühren und bleiben je neuer Beute eingefroren; fehlende Preise bleiben unbekannt.
 
 Soulcrest ist **passiv**: nur Bildpunkte des Spielfensters und eigene Overlay-Fenster, kein
 Spielspeicher, keine Injektion, keine Eingaben ans Spiel. Der Netzwerkverkehr wird nur gelesen, nichts
-wird entschlüsselt, nichts verlässt deinen PC. Die Nutzung von Zusatzprogrammen in Onlinespielen
+wird entschlüsselt. Optionale Preisabfragen an aion2.exchange übertragen nur die gewählte
+Marktkennung und Item-IDs, keine Charakter- oder Profildaten; sie sind separat abschaltbar.
+Die Nutzung von Zusatzprogrammen in Onlinespielen
 geschieht auf eigenes Risiko.
 
 Installation über den Installer unter [Releases](../../releases); beim ersten Start führt ein kurzes

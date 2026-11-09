@@ -18,13 +18,14 @@
                 <th aria-sort="@CombatDirection("name")">@SortButton(_grouping == AbyssCombatGrouping.Class ? "Klasse" : "Rang", "combat-name", CombatDirection("name"), () => SortCombat("name"))</th>
                 <th aria-sort="@CombatDirection("kills")">@SortButton("Kills", "combat-kills", CombatDirection("kills"), () => SortCombat("kills"))</th>
                 <th aria-sort="@CombatDirection("deaths")">@SortButton("Tode", "combat-deaths", CombatDirection("deaths"), () => SortCombat("deaths"))</th>
+                <th aria-sort="@CombatDirection("assists")">@SortButton("Assists", "combat-assists", CombatDirection("assists"), () => SortCombat("assists"))</th>
             </tr></thead><tbody>@foreach (var row in rows)
             {
-                <tr data-combat-category="@row.Key" class="@(row.Unknown ? "lt-statistic-unknown" : "")"><td><span class="lt-statistic-name">@if (row.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> }@row.Name</span></td><td><strong>@Number(row.Kills)</strong><small class="lt-statistic-share">@Percent(row.KillPercent)</small></td><td><strong>@Number(row.Deaths)</strong><small class="lt-statistic-share">@Percent(row.DeathPercent)</small></td></tr>
+                <tr data-combat-category="@row.Key" class="@(row.Unknown ? "lt-statistic-unknown" : "")"><td><span class="lt-statistic-name">@if (row.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> }@row.Name</span></td><td><strong>@Number(row.Kills)</strong><small class="lt-statistic-share">@Percent(row.KillPercent)</small></td><td><strong>@Number(row.Deaths)</strong><small class="lt-statistic-share">@Percent(row.DeathPercent)</small></td><td data-estimated-assists="@row.EstimatedAssists"><strong>@Number(row.Assists)</strong><small class="lt-statistic-share">@Percent(row.AssistPercent)</small>@if (row.EstimatedAssists > 0) { <small class="lt-statistic-share estimated">@UiText.F("{0} geschätzt", Number(row.EstimatedAssists))</small> }</td></tr>
             }</tbody></table></div>
-            <p class="lt-panel-subtitle">@UiText.T("Anteile beziehen sich jeweils auf alle Kills oder Tode der gesamten Session. Unbekannte Gegnerdaten bleiben separat.")</p>
+            <p class="lt-panel-subtitle">@UiText.T("Anteile beziehen sich jeweils auf alle Kills, Tode oder Assists der gesamten Session. Geschätzte Assists sind gekennzeichnet; unbekannte Gegnerdaten bleiben separat.")</p>
         }
-        else { <div class="lt-visual-empty">@UiText.T("Noch keine bestätigten Kampfereignisse vorhanden.")</div> }
+        else { <div class="lt-visual-empty">@UiText.T("Noch keine Kampfereignisse vorhanden.")</div> }
     }
     @if (LootTrackerSessionProjection.ShowsHarvest(Session))
     {
@@ -96,6 +97,7 @@
     {
         "kills" => _combatSort == AbyssCombatSort.KillsDescending ? "descending" : _combatSort == AbyssCombatSort.KillsAscending ? "ascending" : "none",
         "deaths" => _combatSort == AbyssCombatSort.DeathsDescending ? "descending" : _combatSort == AbyssCombatSort.DeathsAscending ? "ascending" : "none",
+        "assists" => _combatSort == AbyssCombatSort.AssistsDescending ? "descending" : _combatSort == AbyssCombatSort.AssistsAscending ? "ascending" : "none",
         _ => _combatSort == AbyssCombatSort.NameDescending ? "descending" : _combatSort == AbyssCombatSort.NameAscending ? "ascending" : "none"
     };
     private string ResourceDirection(string key)
@@ -113,6 +115,7 @@
         {
             "kills" => _combatSort == AbyssCombatSort.KillsDescending ? AbyssCombatSort.KillsAscending : AbyssCombatSort.KillsDescending,
             "deaths" => _combatSort == AbyssCombatSort.DeathsDescending ? AbyssCombatSort.DeathsAscending : AbyssCombatSort.DeathsDescending,
+            "assists" => _combatSort == AbyssCombatSort.AssistsDescending ? AbyssCombatSort.AssistsAscending : AbyssCombatSort.AssistsDescending,
             _ => _combatSort == AbyssCombatSort.NameAscending ? AbyssCombatSort.NameDescending : AbyssCombatSort.NameAscending
         };
         return Save(() => Settings.SetAbyssCombatSort(next), () => _combatSort = next);

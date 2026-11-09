@@ -44,7 +44,9 @@ internal static class LootOverlayRenderer
         + (ShowLifeskillBlock(snapshot) ? 100 : 0) + 26 + SummaryLineHeight(snapshot);
     private static int SummaryLineHeight(LootOverlaySnapshot snapshot)
     {
-        return 0;
+        var height = snapshot.ExchangeMarketDisplay ? (snapshot.ExchangeReferenceNetKina is not null ? 48 : 32)
+            + 16 + (snapshot.ExchangeBases.Count == 1 ? 32 : snapshot.ExchangeBases.Count > 1 ? 16 : 0) : 0;
+        return height;
     }
 
     /// <summary>Only a fresh running session can explain a known part of today's confirmed total.</summary>
@@ -219,6 +221,46 @@ internal static class LootOverlayRenderer
                 new RectangleF(16, top + 64, 220, 19), text);
             graphics.DrawString(UiText.T("Itemmenge") + ": " + CountLabel(snapshot.ItemCount), small, secondary,
                 new RectangleF(256, top + 64, Width - 272, 19), right);
+        }
+        var marketTop = dropsTop - 26 - SummaryLineHeight(snapshot);
+        if (snapshot.ExchangeMarketDisplay)
+        {
+            var coverage = $" · {snapshot.ExchangePricedRows}/{snapshot.ExchangeEligibleRows}";
+            if (snapshot.ExchangePendingRows > 0) coverage += " · " + UiText.F("{0} ausstehend", snapshot.ExchangePendingRows);
+            graphics.DrawString(UiText.T("Marktwert netto · geschätzt") + ": " + ExchangeMarketPresentation.Amount(snapshot.ExchangeNetKina) + coverage,
+                small, secondary, new RectangleF(16, marketTop, Width - 32, 17), text);
+            marketTop += 16;
+            graphics.DrawString(UiText.F("{0} / {1} Einheiten bewertet · {2} unbekannt", ExchangeMarketPresentation.Amount(snapshot.ExchangePricedQuantity),
+                    ExchangeMarketPresentation.Amount(snapshot.ExchangeEligibleQuantity), ExchangeMarketPresentation.Amount(snapshot.ExchangeUnknownQuantity)), small, secondary,
+                new RectangleF(16, marketTop, Width - 32, 17), text);
+            marketTop += 16;
+            if (snapshot.ExchangeReferenceNetKina is { } reference)
+            {
+                graphics.DrawString(UiText.T("Davon Ausrüstung: Netto-Basispreis-Richtwert") + ": " + Number(reference), small, secondary,
+                    new RectangleF(16, marketTop, Width - 32, 17), text);
+                marketTop += 16;
+            }
+            var observed = snapshot.ExchangeOldestObservedAt is { } at
+                ? at.ToLocalTime().ToString("g", CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US"))
+                : UiText.T("Kein Preisbeleg vorhanden.");
+            graphics.DrawString("aion2.exchange · " + observed, small, secondary,
+                new RectangleF(16, marketTop, Width - 32, 17), text);
+            marketTop += 16;
+            if (snapshot.ExchangeBases.Count == 1)
+            {
+                graphics.DrawString(ExchangeMarketPresentation.Market(snapshot.ExchangeBases[0]), small, secondary,
+                    new RectangleF(16, marketTop, Width - 32, 17), text);
+                marketTop += 16;
+                graphics.DrawString(ExchangeMarketPresentation.Fees(snapshot.ExchangeBases[0]), small, secondary,
+                    new RectangleF(16, marketTop, Width - 32, 17), text);
+                marketTop += 16;
+            }
+            else if (snapshot.ExchangeBases.Count > 1)
+            {
+                graphics.DrawString(UiText.F("{0} eingefrorene Markt-/Gebührenmodelle", snapshot.ExchangeBases.Count), small, secondary,
+                    new RectangleF(16, marketTop, Width - 32, 17), text);
+                marketTop += 16;
+            }
         }
         graphics.DrawString(UiText.T("Weitere Beute"), small, secondary, new RectangleF(16, dropsTop - 21, Width - 32, 18), text);
         graphics.DrawLine(edge, 16, dropsTop - 2, Width - 16, dropsTop - 2);

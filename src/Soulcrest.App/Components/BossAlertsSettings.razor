@@ -15,7 +15,7 @@
     </div>
     <div class="boss-alert-actions"><label class="opt-toggle"><input type="checkbox" checked="@Settings.Current.BossAlertSound" @onchange="@(e => Settings.Update(s => s.BossAlertSound = (bool)e.Value!))" /> @UiText.T("Signalton für Bosse ohne eigene Einstellung")</label><button class="btn small" id="boss-alert-test" disabled="@(!Settings.Current.BossAlertsEnabled)" @onclick="BossRush.PreviewAlert">@UiText.T("Alert testen")</button></div>
     <div class="boss-alert-help"><InfoTip>
-        <p>@UiText.T("Jede gewählte Vorwarnzeit und jeder bestätigte Spawn lösen einen Alert aus. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p>
+        <p>@UiText.T("Jede gewählte Vorwarnzeit und jeder bestätigte Spawn lösen einen Alert aus. Vorwarnungen nutzen auch gespeicherte Boss-Termine und funktionieren bei ausgeschaltetem Boss Rush Mode.")</p>
         <p>@UiText.T(CompactSelectionOnly ? "Individuelle Erinnerungen stellst du direkt an den Boss-Kacheln ein. Die Standard-Vorwarnzeiten gelten für Bosse ohne eigene Einstellung." : "Anzeige und Ton lassen sich pro ausgewähltem Boss anpassen.")</p>
     </InfoTip></div>
     @if (_presentationBusy) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Wird gespeichert …")</p> }

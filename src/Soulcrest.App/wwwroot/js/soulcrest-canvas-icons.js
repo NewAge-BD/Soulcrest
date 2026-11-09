@@ -93,7 +93,90 @@ window.soulcrestCanvasIcons = (() => {
             ctx.restore();
         },
     });
-    return { renderer: options => new BufferedCanvas(options), create: (latlng, options) => new Icon(latlng, options), redraw(renderer) {
+    // The same selected material combination is shared by thousands of spawn points.
+    // Keep one composite sprite per size/combination, and one decoded Image per source URL.
+    const composites = new Map();
+    function groupSize(count, more, scale) {
+        const icon = 20 * scale, gap = 2 * scale, badge = more ? 24 * scale : 0;
+        const slots = count + (more ? 1 : 0);
+        return { width: count * icon + badge + Math.max(0, slots - 1) * gap + 4 * scale,
+            height: icon + 4 * scale, icon, gap, padding: 2 * scale, badge };
+    }
+    function groupSprite(layer, scale) {
+        const ratio = Math.min(2, window.devicePixelRatio || 1), entries = layer._groupEntries;
+        const dimensions = groupSize(entries.length, layer._more, scale);
+        const key = JSON.stringify([layer._urls, layer._more, scale, ratio]);
+        const cached = composites.get(key);
+        if (cached) return { sprite: cached, ...dimensions };
+        const sprite = document.createElement('canvas');
+        sprite.width = Math.ceil(dimensions.width * ratio); sprite.height = Math.ceil(dimensions.height * ratio);
+        const ctx = sprite.getContext('2d'), { icon, gap, padding } = dimensions;
+        const y = padding * ratio;
+        entries.forEach((entry, index) => {
+            const x = (padding + index * (icon + gap)) * ratio;
+            if (entry?.image.complete && entry.image.naturalWidth > 0)
+                ctx.drawImage(entry.image, x, y, icon * ratio, icon * ratio);
+            else {
+                ctx.fillStyle = '#94a3b8'; ctx.fillRect(x + icon * ratio / 3, y + icon * ratio / 3, icon * ratio / 3, icon * ratio / 3);
+            }
+        });
+        if (layer._more) {
+            const x = (padding + entries.length * (icon + gap)) * ratio;
+            ctx.fillStyle = '#e5b66b'; ctx.font = `bold ${Math.round(11 * scale * ratio)}px sans-serif`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('+' + layer._more, x + dimensions.badge * ratio / 2, sprite.height / 2, dimensions.badge * ratio);
+        }
+        // Pending images must redraw the group when decoded; never retain their placeholder sprite.
+        if (entries.every(entry => !entry || entry.image.complete)) {
+            if (composites.size >= 128) composites.delete(composites.keys().next().value);
+            composites.set(key, sprite);
+        }
+        return { sprite, ...dimensions };
+    }
+    const GroupIcon = L.CircleMarker.extend({
+        initialize(latlng, options) {
+            L.CircleMarker.prototype.initialize.call(this, latlng, { ...options, radius: 12, stroke: false });
+            this._groupEntries = [];
+            this.setItems(options.urls, options.more);
+        },
+        setItems(urls, more = 0) {
+            for (const entry of this._groupEntries) entry?.waiting.delete(this);
+            this._urls = (urls || []).slice(0, 3);
+            this._more = Math.max(0, Number.isSafeInteger(more) ? more : 0);
+            this._groupEntries = this._urls.map(url => url ? imageFor(url, this) : null);
+            this.refreshAppearance();
+            return this;
+        },
+        refreshAppearance() {
+            const scale = this.options.appearance().scale;
+            this._groupSize = groupSize(this._groupEntries.length, this._more, scale);
+            // CircleMarker's bounds must enclose the whole row, including the badge.
+            this.setRadius(Math.hypot(this._groupSize.width, this._groupSize.height) / 2 + 2);
+            return this;
+        },
+        _getTooltipAnchor() { return [Math.max(0, this._groupSize.width / 2 - 12), 0]; },
+        _containsPoint(point) {
+            const size = this._groupSize, tolerance = this._clickTolerance?.() || 0;
+            return Math.abs(point.x - this._point.x) <= size.width / 2 + tolerance
+                && Math.abs(point.y - this._point.y) <= size.height / 2 + tolerance;
+        },
+        onAdd(map) {
+            for (const entry of this._groupEntries) if (entry && !entry.image.complete) entry.waiting.add(this);
+            L.CircleMarker.prototype.onAdd.call(this, map);
+        },
+        onRemove(map) {
+            for (const entry of this._groupEntries) entry?.waiting.delete(this);
+            L.CircleMarker.prototype.onRemove.call(this, map);
+        },
+        _updatePath() {
+            if (!this._renderer._drawing || this._empty()) return;
+            const { sprite, width, height } = groupSprite(this, this.options.appearance().scale);
+            this._renderer._ctx.drawImage(sprite, this._point.x - width / 2, this._point.y - height / 2, width, height);
+        },
+    });
+    return { renderer: options => new BufferedCanvas(options), create: (latlng, options) => new Icon(latlng, options),
+        createGroup: (latlng, options) => new GroupIcon(latlng, options), redraw(renderer) {
+
         if (!renderer._map || !renderer._ctx) return;
         renderer._redrawBounds = renderer._bounds;
         renderer._redrawRequest = renderer._redrawRequest || L.Util.requestAnimFrame(renderer._redraw, renderer);

@@ -1,6 +1,66 @@
 # Ingame-Overlays
 
-Soulcrest enthält neun Overlayarten als native, transparente Top-Level-Fenster über dem Spiel. Das Spiel
+## Overlay-Verwaltung im Editor (04.11.2026)
+
+Die frühere Overlay-Hauptnavigation ist in **Overlay Editor → Static Overlays**
+aufgegangen. Dort liegen die neun statischen Familien einschließlich ihrer bisherigen
+Einstellungen. Die echten Beispielbilder für Shop, Daevanion-Board und Minimap
+stammen aus den am 04.11.2026 gelieferten Spielausschnitten. Pet Tracker und Timer
+Strip zeigen Ausschnitte einer echten Aufnahme vom selben Tag; Boss Spawns verwendet
+eine als älterer Darstellungsstand gekennzeichnete Aufnahme. Für Leveling,
+Benachrichtigungen und Timeline fehlt noch ein echtes Bild. Loot und Abyss
+Rank Tracker werden künftig als vom Nutzer konfigurierte
+Editor-Vorlagen angelegt; Killfeed und Punkte-Stufenbalken stehen bereits als Module
+bereit. Ältere Verweise auf den „Overlay-Tab“ in den folgenden historischen Abschnitten
+beziehen sich für statische Familien auf diesen neuen Bereich.
+
+Seit dem 05.11.2026 startet „Place Mode starten“ im Editor dieselbe gemeinsame
+Bildschirmbearbeitung wie in Static Overlays. Dort lassen sich auch Editorfenster
+verschieben und skalieren. Unter Anzeige & Verhalten aktivierte, nicht leere
+Editorfenster erscheinen danach als durchklickbare Live-Overlays; Fensterbedingungen
+und globale Vordergrundregel werden angewendet. Start/Stop aktiviert keine zuvor
+ausgeschalteten Fenster. Neue Konfigurationen werden dort ausdrücklich freigegeben.
+Positionen und Maßstäbe werden getrennt von Modulinhalten gespeichert. Bestehende
+native Familien bleiben eigenständig, zusätzliche Hotkeys werden nicht angelegt.
+
+
+## Overlay Presets und entfernte Alt-HUDs (05.11.2026)
+
+„Overlay Presets“ vereint Fensterverwaltung und Vorlagen. Alle konfigurierten
+Editorfenster zeigen eine kleine Vorschau mit Beispieldaten. Anzeige & Verhalten
+ist kompakt gruppiert; zusätzliche Bedingungen bleiben pro Fenster einstellbar.
+
+Die ursprünglichen nativen Loot- und Abyss-Rank-Fenster sind aus Laufzeit,
+Verwaltung, Platzierung und Hotkeys entfernt. Die Datenquellen, Modulrenderer und
+expliziten Audio-/Killfeedoptionen bleiben verfügbar. Alte Layout-/Aktivierungsfelder
+werden nur zur Dateikompatibilität gelesen; sie erzeugen keine alten HUDs mehr.
+Kina und AP verwenden in den Editormodulen ihre vorhandenen Ingame-Icons.
+Details und die Korrektur des zyklischen Ausblendens stehen in OVERLAY_EDITOR_KIT.md.
+
+Die folgenden datierten Abschnitte beschreiben frühere Entwicklungsstände.
+
+## Zusätzlicher Overlay Editor (02.11.2026)
+
+Der separate Tab „Overlay Editor“ übernimmt Oberfläche und Bedienung des
+Grindcrest-Kits und bietet 19 frei kombinierbare Module: drei Dropansichten,
+Sessiondauer und lokale Uhr, sechs Sessionwerte, sechs getrennte Stundenraten,
+das Kina-Tagesziel von 1.000.000 und die neueste Rare-Drop-Meldung. Livewerte und
+Beispieldaten sind im Canvas sowie in der App-Vollansicht verfügbar; die Bibliothek
+zeigt immer Beispiele. Die neuen Fenster erscheinen noch nicht im Spiel.
+
+Market Kina zeigt den aktuellen potenziellen Netto-Marktwert der Sessionitems,
+mit vorhandener Server-/Gebührenkonfiguration. Preiszeit, Abdeckung und unbekannte
+Werte bleiben erkennbar; eingefrorene historische Bewertungen werden nicht geändert.
+Dropped Kina zählt ungebundene Zugänge. Sessiondauer einschließlich stiller Phasen
+ist die gemeinsame Grundlage der Stundenraten. Die lokale Uhr verwendet HH:mm.
+
+Fensterkonfigurationen und Vorlagen liegen getrennt unter `overlay-editor/overlay.json`
+und `overlay-editor/overlay-templates.json` im Soulcrest-Datenordner. Bestehende
+Beispiel-Layouts bleiben kompatibel; neue Fenster starten leer. Die bisherige
+Overlayverwaltung, Fachfenster, Verknüpfungen und Hotkeys bleiben verfügbar.
+Native Anzeigeoptionen und neue globale Hotkeys sind im Editor ausgeblendet.
+
+Soulcrest enthält elf Overlayarten als native, transparente Top-Level-Fenster über dem Spiel. Das Spiel
 muss im **randlosen Fenstermodus** laufen; über exklusivem Vollbild kann nicht gezeichnet werden.
 
 ## 1. Pet-Fortschritt (kompakt)
@@ -738,8 +798,9 @@ es erfolgt keine Berechnung aus Punkten oder aus dem eigenen Overlayrang.
 Unbekannte oder unlesbare Icons belegen keinen Ersatzplatz. Nicht zugeordnetes
 RP-Delta bleibt vollständig ausgeblendet; der Name nutzt dann die zusätzliche Breite.
 
-Der vorhandene Renderer bleibt 480 Pixel breit, die Feedzeilen 27 Pixel hoch;
-mit zehn Zeilen ist das HUD 487 Pixel hoch. Klassen- und Rangmetadaten werden
+Der vorhandene Renderer bleibt 480 Pixel breit, bestätigte Feedzeilen 27 Pixel hoch;
+mit zehn solchen Zeilen ist das HUD 487 Pixel hoch. Geschätzte Assistzeilen erhalten
+die unten beschriebene zusätzliche Beschriftungszeile. Klassen- und Rangmetadaten werden
 beim Ereignis eingefroren und ändern keine historische Zeile. Original-Classicons
 sind lokal gebündelt; Netzwerkpositionen und neue Laufzeitquellen sind ausgeschlossen.
 
@@ -755,6 +816,34 @@ Beträge benötigen eine direkte Ergebniszuordnung; — bedeutet unbekannt, nich
 Punkte. Die aktuell qualifizierten Wallet-/Gesamtstandsquellen enthalten diesen
 Kampfbezug noch nicht. Sie aktualisieren weiterhin die unabhängigen Sessionwerte.
 Die zehn gehaltenen Einträge, Kategorien und Kontextgrenzen bleiben bestehen.
+
+## Geschätzte eigene Assists (Nutzerentscheidung 29.10.2026)
+
+Der Nutzer erlaubt ausdrücklich die eigene Schadensbeteiligung als sichtbar geschätzten
+Assist. Ausschließlich ein vollständig validierter eigener positiver Schadenseffekt an
+einem unabhängig bestätigten Spieler setzt einen kurzlebigen RAM-Beleg. Nur positiv
+belegte Schadenseffektformen sind freigegeben; unbekannte Varianten, Heilung und
+Nullschaden zählen nicht. Ein vollständiger Tod desselben bestätigten Spielerlebens
+durch einen anderen expliziten PC-Caster muss innerhalb von 30 Sekunden folgen.
+Aktuelle eigene Identität, Lebenszyklus-, Transport- und Capturegrenzen gelten weiter;
+ein eigener Todesstoß zählt allein als Kill. Die Frist ist eine Heuristik, kein Server-Credit.
+
+Die blaue Assistzeile zeigt „Assist“ und darunter ausdrücklich „geschätzt“ beziehungsweise
+„estimated“. Sie ist 44 Pixel hoch; normale Kill-/Todeszeilen bleiben 27 Pixel hoch.
+Alle gewählten Arten teilen weiterhin zehn Plätze ohne Zeitablauf. Der bestehende
+Assist-Schalter ist voreingestellt an. Klasse-/Rangicons stammen aus derselben eingefrorenen
+bestätigten Opferzuordnung; unbekannte Kategorien bleiben unbekannt. AP/RP werden nicht aus
+Schaden oder nahen Punktedeltas ergänzt; ohne direkten Ergebnisbezug steht weiterhin —.
+
+Die unabhängige Sessionaufzeichnung speichert anonyme Assist-Ereignisse mit `IsEstimated`.
+Zusammenfassung und Statistik führen Assists getrennt von Kills/Toden und nennen den
+geschätzten Anteil. Die Timeline hat eine eigene Assistspur; Route und zeitliche Ereignisliste
+zeigen „Assist · geschätzt“. Ein eigener Assistfilter ist standardmäßig sichtbar; der blaue
+Plusmarker mit gestricheltem Rand benötigt eine frische eigene Position. Ohne diese bleibt
+allein der zeitliche Eintrag. Marker erzeugen keine Laufwegpunkte oder Verbindungslinien.
+Replay und Ansichtsfilter erhalten die Kennzeichnung. Keine Gegnernamen oder nativen
+Kennungen werden in Sessions gespeichert; keine Schadensbeträge, DPS- oder Gruppenanalyse.
+Der direkte Serververtrag für einen als bestätigt bezeichneten Assist bleibt offen.
 
 ## Loot-Reihenfolge und rangabhängiger Killfeed-Hintergrund (27.10.2026)
 
@@ -867,3 +956,106 @@ Die Fundhinweisfreigabe liest aktuelle Optionen und Sessionstatus gemeinsam unte
 dem bestehenden Präsentations-Gate. So bleibt auch der erste seltene Drop beim
 Start einer zuvor ausgeblendeten Session erhalten; alte UI-Callbacks können ihn
 nicht löschen. Wiederherstellung erzeugt weiterhin keine neuen Fundhinweise.
+
+## Achievement Tracker (07.11.2026)
+
+Das native Achievement-Overlay verwendet das Theme und die Bedienung des Pet
+Progress Trackers, mit eigener Position und Skalierung. Es ist standardmäßig
+aktiviert und startet rechts oben mit 24 Pixel Rand und 360 logischen Pixeln
+Breite. Einstellungen, statische Overlays und Platzierungsmodus führen es als
+„Achievement Tracker“. Globale Sichtbarkeit und Aufnahmeausschluss gelten mit.
+
+Karten zeigen Titel, bekannte aktuelle Kettenstufe, Originalaufgabe,
+Fortschrittsbalken und Belohnungsicons mit Mengen. Bei unbekanntem Ziel bleiben
+Balken und gemeldeter Wert neutral. Nur bestätigte Ziele erhalten Prozente;
+Rohänderungen allein behaupten keinen Abschluss. Favoriten stehen zuerst, offene
+Abschlüsse danach und kurzlebige Änderungen zuletzt. Pro Familie gibt es eine
+Karte. Es gelten keine Pet-Soul-, Max-Level- oder Fünf-Karten-Regeln.
+
+Nicht favorisierte Karten bleiben standardmäßig 20 Sekunden nach der letzten
+echten Änderung sichtbar. Die Meldungsdauer ist in den Einstellungen des
+Achievement Trackers zwischen 5 und 300 Sekunden einstellbar und gilt auch für
+offene Abschlüsse. Fortschritt und offene Belohnungen bleiben gespeichert.
+Favoriten bleiben dauerhaft und sind durch einen kleinen goldenen Stern sowie
+eine dezente Akzentkante erkennbar. Ein neuer bestätigter Abschluss animiert im
+Pet-Stil; bei Favoriten höchstens 60 Sekunden, sonst höchstens die eingestellte
+Meldungsdauer. Favorisierte offene Abschlüsse bleiben anschließend ruhig sichtbar.
+Ein Claim beendet die Animation sofort: ohne Favorit verschwindet die Karte,
+mit Favorit folgt die nächste noch nicht abgeholte explizite Kettenstufe.
+Bereits beim Login offene Abschlüsse werden ohne Animation angezeigt.
+
+Alt entsperrt die Interaktion; Schloss und bestehende Overlay-Hotkey-Auswahl sind
+angebunden. Alt und Mausrad scrollen über weitere Karten, wenn die Liste 80 Prozent
+der Monitor-Arbeitsfläche erreicht. Position und Eckenskalierung sind unabhängig
+vom Pet Tracker gespeichert. Timer laufen auch bei verdecktem Overlay weiter.
+Ohne Favoriten oder noch laufende Meldungen ist das Fenster ganz
+ausgeblendet. Es gibt keine zusätzlichen Sounds oder Spielaktionen.
+
+### Fortschrittsketten und automatische Auswahl (08.11.2026)
+
+Normale Erfolge erscheinen automatisch bei Fortschritt. Battle-Pass-, Saison-,
+Event- und weitere Sonderaufgaben erscheinen nur als ausdrücklich gesetzte
+Favoriten. Ihre Daten und Bereiche im Achievement-Tab bleiben verfügbar.
+
+Bei bekannten Zielen folgt die Hauptkarte dem aktuellen Fortschritt: Sie zeigt
+das nächste noch nicht erreichte Ziel, bei vollständiger Kette die letzte Stufe.
+Ältere offene Belohnungen halten die Karte nicht mehr auf einer früheren Stufe.
+Eine Abschlussanimation legt während ihrer Anzeigedauer einen Goldpuls über die
+aktuelle Karte; ein Haken beim Zähler signalisiert den erreichten Meilenstein.
+Titel, Aufgabe, Balken, Werte und Rewards bleiben dabei live auf der aktuellen
+Stufe. Frühere offene Belohnungen bleiben separat erhalten.
+
+Claims beenden die Animation sofort. Ohne Favorit verschwindet die Karte; mit
+Favorit bleibt die aktuelle Fortschrittsstufe sichtbar. Unbekannte Zielketten
+behalten ihre neutrale Anzeige und die belegte Belohnungszuordnung. Gleichlautende
+Aufgaben verschiedener Spielbereiche werden nicht zu einer Kette zusammengelegt.
+Eine Verlängerung der Meldungsdauer spielt bereits ausgeblendete Karten nicht
+erneut ab. Erst neuer Fortschritt oder ein neuer Abschluss startet ihren Timer neu.
+
+### Titelziele im Achievement Tracker (08.11.2026)
+
+Titelkarten im Combat Score Calculator besitzen einen eigenen Favoritenstern.
+Grau bedeutet inaktiv, Gelb bedeutet aktiv. Die Markierung wird je Charakter
+gespeichert und bleibt von direkt favorisierten Achievement-Reihen unabhängig.
+Ein Linksklick auf die Karte zeigt rechts den Titel und seine Freischaltbedingungen.
+Die verknüpfte Achievement-Karte öffnet genau die erforderliche Stufe im
+Achievement-Tab; dessen Titelbelohnung führt zurück zur Titelansicht.
+
+Ein Titel-Favorit verfolgt die belegte Achievement-Reihe anhand des aktuell
+erkannten eigenen Fortschritts bis zur letzten abgeholten Stufe. Mehrere Pins
+derselben Familie erzeugen keine doppelten Fortschrittskarten. Der Titelname
+erscheint als Ziel auf der Overlay-Karte. Ohne beobachtete passende Reihe bleibt
+das Titelziel mit unbekanntem Fortschritt sichtbar. Ein bestätigter eigener
+Titelbesitz kann einen solchen ungeklärten Platzhalter beenden. Eine abgeholte
+Achievement-Belohnung beweist für sich allein keinen Titelbesitz.
+
+### Genus Insight (09.11.2026)
+
+Das Widget „Genus Insight“ zeigt neun Rolls der im Spiel geöffneten Kategorie
+und des dort betrachteten Presets. Die Auswahl im Combat Score Calculator
+verändert das Overlay nicht. Links stehen Wertebereich und Rollmarker, daneben
+Stat und aktueller Wert in der Seltenheitsfarbe. Sterne markieren die im
+Genus-Tab je Kategorie und Slot gespeicherten Wunschstats. Ein bestätigter
+exakter Höchstwert zeigt „MAX ROLL!“.
+
+Die Kategorie- und Preseterkennung nutzt ausschließlich vorhandene Fensterbilder.
+Zwei unabhängige frische Bilder müssen die Menügeometrie und Auswahl bestätigen.
+Bei fehlendem Menü, unklarer Auswahl, alten Bildern oder verlorener eigener
+Charakterbindung werden alte Rolls nicht als aktuelle Anzeige weitergeführt.
+Der eigene Beobachter ist vom Kartenstatus unabhängig und läuft nur, solange
+der Genus-Tab oder ein entsprechendes Live-Widget benötigt wird. Er nutzt dieselbe WGC-Sitzung wie
+die übrigen passiven Anzeigen. Das Widget führt keine Spielaktionen aus.
+
+Der Klick auf eine Presetnummer aktiviert dessen Boni unmittelbar (Nutzerbestätigung
+vom 09.11.2026). Die Übersicht „Alle angewendeten Effekte“ folgt deshalb ebenfalls
+der bestätigten Spielauswahl. Sie wird nur für die eigene laufende Charakterbindung
+gemerkt und bei Autoritätsverlust oder einer neuen vollständigen Liste verworfen.
+Ohne beobachtete Spielauswahl dient die bestätigte vollständige Liste als Stand. Unvollständige oder noch nicht zugeordnete Stats bleiben
+sichtbar als Teilstand beziehungsweise unbekannter Roll gekennzeichnet.
+
+Seit Nutzerpräzisierung vom 09.11.2026 bleiben die gemeinsamen Genus-Rolls
+persistent erhalten; nur das aktive Preset ist charakterbezogen. Der Calculator
+zeigt bei fehlender aktueller Auswahl den gespeicherten Stand mit Zeitangabe.
+Schließen des Spielmenüs, Fokusverlust und Capturepausen löschen diese Anzeige
+nicht. Das Live-Overlay benötigt weiterhin ein frisch bestätigtes geöffnetes
+Menü und den eigenen aktuellen Charakterkontext.

@@ -100,7 +100,7 @@ public partial class LootTrackerSessionTimeline
         ? UiText.F("Eigene Skala: {0} bis {1}", Number(curve.ScaleMinimum), Number(curve.ScaleMaximum)) : UiText.T("Unbekannt");
     private string BarTitle(LootTrackerTimelineLayout.Curve curve, LootTrackerTimelineLayout.Bar bar) =>
         UiText.T(curve.Series.Label) + " · " + Number(bar.Value) + " · " + ExactTime(bar.From) + " – " + ExactTime(bar.To);
-    private static string Glyph(string lane) => lane switch { "kill" => "⚔", "death" or "failed" => "×", "rank" => "↑", "gather" => "✦", _ => "◇" };
+    private static string Glyph(string lane) => lane switch { "kill" => "⚔", "death" or "failed" => "×", "assist" => "+", "rank" => "↑", "gather" => "✦", _ => "◇" };
 
     protected override void OnParametersSet()
     {

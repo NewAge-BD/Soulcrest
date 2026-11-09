@@ -1,0 +1,37 @@
+@implements IDisposable
+
+<div id="overlay-placement-render-surface" class="overlay-editor kit-placement-render @(Model.PauseAnimations ? "is-static-render" : "")" data-theme="@Snapshot.ThemeId" data-render-token="@Model.Revision" style="@SurfaceStyle">
+    <div class="oe-stage-viewport"><div class="oe-stage-wrap">
+        <div @key="Window.Id" class="oe-stage @(Settings.ShowBorder ? "has-border" : "") @(Chrome.HasTitleBar ? "has-window-chrome" : "")" data-overlay-id="@Window.Id"
+             data-width="@Css(Settings.Width)" data-height="@Css(Settings.Height)" data-chrome-x="@Css(Chrome.Horizontal)" data-chrome-y="@Css(Chrome.Vertical)" style="@StageStyle">
+            <OverlayCanvasFrame ThemeId="@Snapshot.ThemeId" Width="Settings.Width" Height="Settings.Height" BackgroundOpacity="Settings.BackgroundOpacity" ShowBorder="Settings.ShowBorder" />
+            @if (Chrome.HasTitleBar) { <OverlayWindowTitle Title="@Window.Name" /> }
+            <div class="oe-stage-content" style="@ContentStyle">
+                @foreach (var widget in Settings.Widgets)
+                {
+                    <div @key="widget.Id" class="oe-widget" data-widget-id="@widget.Id" data-x="@Css(widget.X)" data-y="@Css(widget.Y)"
+                         data-width="@Css(widget.Width)" data-height="@Css(widget.Height)" style="@WidgetStyle(widget)">
+                        <div class="oe-widget-content"><OverlayWidgetPreview Widget="widget" Snapshot="Snapshot" /></div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div></div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public OverlayPlacementRenderState Model { get; set; } = new();
+    private OverlayInstance Window => Model.Window;
+    private OverlaySettings Settings => Window.Settings;
+    private OverlaySnapshot Snapshot => Model.Snapshot;
+    private OverlayWindowChrome Chrome => OverlayWindowChrome.For(Snapshot.ThemeId, Settings.ShowBorder);
+    private static string Css(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
+    private string SurfaceStyle => $"width:{Css(Chrome.OuterWidth(Settings.Width))}px;height:{Css(Chrome.OuterHeight(Settings.Height))}px";
+    private string StageStyle => SurfaceStyle + ";" + OverlayEditorThemes.CssVariables(Snapshot.ThemeId);
+    private string ContentStyle => $"left:{Css(Chrome.Left)}px;top:{Css(Chrome.Top)}px;right:auto;bottom:auto;width:{Css(Settings.Width)}px;height:{Css(Settings.Height)}px;transform:scale(1);transform-origin:top left";
+    private static string WidgetStyle(OverlayWidget widget) => $"left:{Css(widget.X)}px;top:{Css(widget.Y)}px;width:{Css(widget.Width)}px;height:{Css(widget.Height)}px";
+    private bool _disposed;
+    protected override void OnInitialized() => Model.Changed += Refresh;
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); }); }
+    public void Dispose() { _disposed = true; Model.Changed -= Refresh; }
+}

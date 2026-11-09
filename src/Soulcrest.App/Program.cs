@@ -8,6 +8,14 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Contains("--daevanion-solver-smoke-test", StringComparer.OrdinalIgnoreCase))
+        {
+            var index = Array.IndexOf(args, "--solver-smoke-output");
+            return DaevanionSolverSmokeTest.Run(index >= 0 && index + 1 < args.Length ? args[index + 1] : null);
+        }
+        try { DaevanionNativeRuntime.LoadBundledRuntime(); }
+        catch (Exception error) when (error is DllNotFoundException or BadImageFormatException or FileLoadException)
+        { System.Diagnostics.Trace.TraceWarning("Daevanion native runtime: {0}", error.GetType().Name); }
         // Unexpected exceptions leave a trace in logs\errors.log (review 2026-10-07). On the UI thread the
         // app keeps running; on other threads .NET ends it anyway, but now with the cause written down.
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);

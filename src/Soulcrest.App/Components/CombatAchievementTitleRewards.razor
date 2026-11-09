@@ -1,0 +1,31 @@
+@using Soulcrest.App.Services
+@using static Soulcrest.App.Components.CombatTitlesPresentation
+
+@if (LinkedTitles.Count > 0)
+{
+    <div class="ca-title-rewards" data-achievement-title-rewards>
+        <small>@UiText.T("Titelbelohnung")</small>
+        @foreach (var title in LinkedTitles)
+        {
+            <button type="button" class="@GradeClass(title.Grade)" data-achievement-title-link="@title.Id"
+                title="@Name(Catalog, title.Id, UiText.Language)" disabled="@(!ShowTitle.HasDelegate)" @onclick="@(() => ShowTitle.InvokeAsync(title.Id))">
+                @if (title.IconPath is { } icon) { <img src="@icon" alt="" loading="lazy" /> }
+                <span class="ca-title-reward-name">@Name(Catalog, title.Id, UiText.Language)</span><span aria-hidden="true">↗</span>
+            </button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int FamilyId { get; set; }
+    [Parameter] public int StageId { get; set; }
+    [Parameter] public int MetadataBuild { get; set; }
+    [Parameter] public CombatTitleDisplayCatalog Catalog { get; set; } = CombatTitleDisplayCatalog.Default;
+    [Parameter] public CombatTitleUnlockCatalog UnlockCatalog { get; set; } = CombatTitleUnlockCatalog.Default;
+    [Parameter] public EventCallback<int> ShowTitle { get; set; }
+    private IReadOnlyList<CombatTitleDisplayDefinition> LinkedTitles => Catalog.MetadataBuild != MetadataBuild
+        || UnlockCatalog.MetadataBuild != MetadataBuild ? []
+        : UnlockCatalog.Titles.Values.Where(title => title.Routes.Any(route => route.Kind == "AchievementRewardItem"
+            && route.SourceId == FamilyId && route.StageId == StageId))
+            .Select(title => Catalog.Find(title.Id)).OfType<CombatTitleDisplayDefinition>().OrderBy(title => title.Id).ToArray();
+}

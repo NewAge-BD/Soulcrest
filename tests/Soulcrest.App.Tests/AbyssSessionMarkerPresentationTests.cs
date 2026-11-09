@@ -14,6 +14,47 @@ public sealed class AbyssSessionMarkerPresentationTests
 {
     private static readonly DateTimeOffset At = new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
 
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task EstimatedAssistsStaySeparateInMarkersTimelineReplayAndRenderedCounts(string language)
+    {
+        var previous = UiText.Language;
+        try
+        {
+            UiText.Language = language;
+            var session = Example() with
+            {
+                GatherVisits = [], RouteSegments = [],
+                CombatEvents = [new("assist", LootTrackerCombatKind.Assist, At.AddMinutes(1), TimeSpan.FromMinutes(1),
+                    new("sample-map", "Map", 100, 200, At.AddMinutes(1)))
+                    { IsEstimated = true, OpponentClassId = "Cleric", OpponentAbyssRankGrade = 19 },
+                    new("unplaced-assist", LootTrackerCombatKind.Assist, At.AddMinutes(2), TimeSpan.FromMinutes(2))
+                    { IsEstimated = true }]
+            };
+            var expected = language == "de" ? "Assist · geschätzt" : "Assist · estimated";
+            var marker = Assert.Single(LootTrackerSessionMarkers.All(session));
+            Assert.Equal(LootTrackerSessionMarkerKind.Assist, marker.Kind); Assert.True(marker.IsEstimated);
+            Assert.Equal("Cleric", marker.OpponentClassId); Assert.Equal(19, marker.OpponentAbyssRankGrade);
+            Assert.Contains(expected, marker.Tooltip); Assert.Empty(session.RouteSegments);
+            Assert.Equal(2, LootTrackerTimeline.Events(session).Count);
+            Assert.All(LootTrackerTimeline.Events(session), row =>
+            { Assert.Equal("assist", row.Lane); Assert.Equal(expected, row.Label); });
+            Assert.Contains(LootTrackerTimelineLayers.Available(session, []), row => row.Id == "assist");
+            var prefix = LootTrackerSessionReplay.Build(session, TimeSpan.FromMinutes(1)).Session;
+            Assert.True(Assert.Single(prefix.CombatEvents).IsEstimated);
+            var html = await Render(session);
+            Assert.Contains("data-marker-kind=\"assist\"", html);
+            Assert.Contains("data-estimated=\"true\"", html);
+            Assert.Equal(2, html.Split("data-combat-kind=\"assist\"").Length - 1);
+            Assert.Contains(expected, System.Net.WebUtility.HtmlDecode(html));
+            Assert.DoesNotContain("data-marker-kind=\"kill\"", html);
+            Assert.DoesNotContain("data-marker-kind=\"death\"", html);
+            Assert.DoesNotContain("<polyline", html);
+        }
+        finally { UiText.Language = previous; }
+    }
+
     [Fact]
     public void CatalogueVisitsGroupOnlyByExactNodeAndMapWithoutChangingWalkOrDistance()
     {
@@ -89,7 +130,7 @@ public sealed class AbyssSessionMarkerPresentationTests
             Assert.Contains("data-marker-kind=\"kill\"", html);
             Assert.Contains("data-marker-kind=\"death\"", html);
             Assert.Equal(4, html.Split("data-marker-kind=\"odyle\"").Length - 1);
-            Assert.Equal(3, html.Split("type=\"checkbox\"").Length - 1);
+            Assert.Equal(4, html.Split("type=\"checkbox\"").Length - 1);
             Assert.Contains(System.Net.WebUtility.HtmlEncode(UiText.T("Ohne Kartenposition")), html);
             Assert.DoesNotContain("<polyline", html);
             Assert.DoesNotContain("lt-visual-empty", html);

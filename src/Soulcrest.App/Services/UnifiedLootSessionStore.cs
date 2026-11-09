@@ -366,6 +366,7 @@ public sealed class UnifiedLootSessionStore
         var markerIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var combat in session.CombatEvents)
             if (combat is null || !ValidId(combat.Id) || !markerIds.Add(combat.Id) || !Enum.IsDefined(combat.Kind)
+                || combat.IsEstimated && combat.Kind != LootTrackerCombatKind.Assist
                 || combat.Origin != LootTrackerActivityOrigin.Abyss
                 || combat.At == default || combat.At < session.StartedAt || combat.At > session.LastPresenceAt
                 || combat.Elapsed < TimeSpan.Zero || combat.Elapsed > session.Elapsed

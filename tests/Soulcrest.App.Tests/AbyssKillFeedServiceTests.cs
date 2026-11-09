@@ -9,6 +9,35 @@ namespace Soulcrest.App.Tests;
 public sealed class AbyssKillFeedServiceTests
 {
     [Fact]
+    public void EstimatedAssistsNeedTheirSeparateCapabilityAndRetainEvidenceWithoutInventingAmounts()
+    {
+        using var f = new Fixture();
+        f.Source.CombatCapabilities = new(false, false, false) { EstimatedAssistSupported = true };
+        f.Source.Notify();
+        var assist = new NetworkAbyssCombatEvent(f.Clock.GetUtcNow(), 1, f.Source.OwnCharacter!, NetworkAbyssCombatKind.Assist,
+            "Synthetic opponent") { IsEstimated = true, OpponentClassId = "Cleric", OpponentAbyssRankGrade = 19 };
+        f.Source.Send(assist);
+        var shown = Assert.Single(f.Service.Snapshot);
+        Assert.True(shown.IsEstimated); Assert.Equal(AbyssKillFeedKind.Assist, shown.Kind);
+        Assert.Null(shown.AbyssPointGain); Assert.Null(shown.RankPointDelta);
+        Assert.Equal("Cleric", shown.OpponentClassId); Assert.Equal(19, shown.OpponentAbyssRankGrade);
+        f.Source.Send(assist with { Sequence = 2, IsEstimated = false });
+        Assert.Single(f.Service.Snapshot); // estimated support never pretends to qualify a server assist
+        f.Source.Send(assist with { Sequence = 3, Kind = NetworkAbyssCombatKind.Kill });
+        Assert.Single(f.Service.Snapshot); // only Assist may carry estimated evidence
+        f.Source.CombatCapabilities = new(true, true, true);
+        f.Source.Notify(); f.Source.Send(assist with { Sequence = 4 });
+        Assert.Single(f.Service.Snapshot); // qualified assist support alone never accepts a heuristic
+        f.Source.CombatCapabilities = new(false, false, false) { EstimatedAssistSupported = true };
+        f.Source.Notify(); f.Select(NetworkAbyssCombatKind.Assist, false);
+        Assert.Empty(f.Service.Snapshot);
+        f.Source.Send(assist with { Sequence = 5 });
+        f.Select(NetworkAbyssCombatKind.Assist, true);
+        f.Source.Send(assist with { Sequence = 5 }); Assert.Empty(f.Service.Snapshot);
+        f.Source.Send(assist with { Sequence = 6 }); Assert.True(Assert.Single(f.Service.Snapshot).IsEstimated);
+    }
+
+    [Fact]
     public void ExplicitResultAmountsAndKillerMetadataAreFrozenWithoutBorrowingFromAnotherEvent()
     {
         using var f = new Fixture(showDeaths: true);

@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace Soulcrest.App.Services;
 
-public enum LootTrackerSessionMarkerKind { Kill, Death, Odyle, Gathering, Drop }
+public enum LootTrackerSessionMarkerKind { Kill, Death, Odyle, Gathering, Drop, Assist }
 
 /// <summary>Exact bundled presentation for a confirmed marker reward. Null quantity preserves an unrepresentable sum.</summary>
 public sealed record LootTrackerMarkerItem(string Id, string Name, long? Quantity, string? Asset, LootItemRarity Rarity);
@@ -15,6 +15,7 @@ public sealed record LootTrackerSessionMarker(string Id, LootTrackerSessionMarke
     public ImmutableArray<LootTrackerMarkerItem> Items { get; init; } = [];
     public string? OpponentClassId { get; init; }
     public int? OpponentAbyssRankGrade { get; init; }
+    public bool IsEstimated { get; init; }
     public string KindKey => Kind.ToString().ToLowerInvariant();
     public string Tooltip
     {
@@ -22,7 +23,9 @@ public sealed record LootTrackerSessionMarker(string Id, LootTrackerSessionMarke
         {
             var label = Kind is LootTrackerSessionMarkerKind.Odyle or LootTrackerSessionMarkerKind.Gathering
                 ? $"{UiText.T(Name)} · {UiText.F("{0} Ernten", Times.Length)}"
-                : UiText.T(Kind == LootTrackerSessionMarkerKind.Kill ? "Kill" : Kind == LootTrackerSessionMarkerKind.Death ? "Tod" : "Loot");
+                : UiText.T(Kind switch { LootTrackerSessionMarkerKind.Kill => "Kill", LootTrackerSessionMarkerKind.Death => "Tod",
+                    LootTrackerSessionMarkerKind.Assist when IsEstimated => "Assist · geschätzt",
+                    LootTrackerSessionMarkerKind.Assist => "Assist", _ => "Loot" });
             var rewards = Items.IsDefaultOrEmpty ? "" : " · " + string.Join(", ", Items.Select(item =>
                 item.Name + " ×" + (item.Quantity?.ToString("N0", CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US")) ?? "—")));
             return $"{label}{rewards} · {string.Join(", ", Times.Select(Time))}";
@@ -40,13 +43,14 @@ public static class LootTrackerSessionMarkers
         if (!session.CombatEvents.IsDefaultOrEmpty)
             foreach (var row in session.CombatEvents)
                 if (row.Position is { } position && Valid(position.MapId, position.X, position.Y)
-                    && row.Kind is LootTrackerCombatKind.Kill or LootTrackerCombatKind.Death)
-                    result.Add(new(row.Id, row.Kind == LootTrackerCombatKind.Kill ? LootTrackerSessionMarkerKind.Kill
-                        : LootTrackerSessionMarkerKind.Death, position.MapId, position.MapName,
+                    && row.Kind is LootTrackerCombatKind.Kill or LootTrackerCombatKind.Death or LootTrackerCombatKind.Assist)
+                    result.Add(new(row.Id, row.Kind switch { LootTrackerCombatKind.Kill => LootTrackerSessionMarkerKind.Kill,
+                        LootTrackerCombatKind.Assist => LootTrackerSessionMarkerKind.Assist, _ => LootTrackerSessionMarkerKind.Death }, position.MapId, position.MapName,
                         position.X, position.Y, "", [row.At])
                     {
-                        OpponentClassId = row.Kind == LootTrackerCombatKind.Kill ? LootTrackerTimelineFacts.ClassId(row.OpponentClassId) : null,
-                        OpponentAbyssRankGrade = row.Kind == LootTrackerCombatKind.Kill && row.OpponentAbyssRankGrade is >= 1 and <= 19
+                        IsEstimated = row.IsEstimated,
+                        OpponentClassId = row.Kind != LootTrackerCombatKind.Death ? LootTrackerTimelineFacts.ClassId(row.OpponentClassId) : null,
+                        OpponentAbyssRankGrade = row.Kind != LootTrackerCombatKind.Death && row.OpponentAbyssRankGrade is >= 1 and <= 19
                             ? row.OpponentAbyssRankGrade : null
                     });
 

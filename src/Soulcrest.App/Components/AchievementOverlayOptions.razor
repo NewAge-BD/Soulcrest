@@ -1,0 +1,61 @@
+@implements IDisposable
+@using System.Globalization
+@inject SettingsService Settings
+
+<section class="overlay-settings-card" data-achievement-overlay-options aria-busy="@(_saving ? "true" : "false")">
+    <h4>@UiText.T("Anzeigedauer")</h4>
+    <label class="overlay-number-field" for="achievement-overlay-display-seconds">
+        @UiText.T("Meldungsdauer (Sekunden)")
+        <input @key="_inputVersion" id="achievement-overlay-display-seconds" type="number" min="5" max="300" step="1"
+            value="@Settings.Current.AchievementOverlayDisplaySeconds" disabled="@(_saving || Busy)"
+            aria-describedby="achievement-overlay-duration-hint achievement-overlay-favorite-hint"
+            @onchange="SetDuration" />
+    </label>
+    <p id="achievement-overlay-duration-hint">@UiText.T("Nicht favorisierte Achievements werden nach dieser Zeit ausgeblendet. Neuer Fortschritt startet den Timer erneut.")</p>
+    <p id="achievement-overlay-favorite-hint">@UiText.T("Favoriten bleiben dauerhaft sichtbar.")</p>
+    @if (_feedback is { } message)
+    {
+        <p role="@(_error ? "alert" : "status")" data-achievement-overlay-duration-feedback>@UiText.T(message)</p>
+    }
+</section>
+
+@code {
+    [Parameter] public bool Busy { get; set; }
+    private bool _saving, _error, _disposed;
+    private int _inputVersion;
+    private string? _feedback;
+
+    protected override void OnInitialized() => Settings.Changed += Refresh;
+    private void Refresh()
+    {
+        if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
+    }
+
+    private async Task SetDuration(ChangeEventArgs args)
+    {
+        if (_saving || Busy) return;
+        if (!int.TryParse(args.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds)
+            || seconds is < 5 or > 300)
+        {
+            _feedback = "Bitte eine ganze Zahl zwischen 5 und 300 eingeben.";
+            _error = true;
+            _inputVersion++;
+            return;
+        }
+        _saving = true; _error = false; _feedback = "Wird gespeichert …";
+        try
+        {
+            await Task.Run(() => Settings.SetAchievementOverlayDisplaySeconds(seconds));
+            _feedback = "Anzeigedauer gespeichert.";
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _feedback = "Anzeigedauer konnte nicht gespeichert werden.";
+            _error = true;
+            _inputVersion++;
+        }
+        finally { _saving = false; }
+    }
+
+    public void Dispose() { _disposed = true; Settings.Changed -= Refresh; }
+}

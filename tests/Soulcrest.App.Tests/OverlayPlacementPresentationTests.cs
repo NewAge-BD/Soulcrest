@@ -52,7 +52,7 @@ public sealed class OverlayPlacementPresentationTests : IDisposable
         settings.Current.OverlayShowMode = mode;
         var before = File.ReadAllBytes(AppPaths.SettingsFile);
         host.UpdateForegroundVisibility(foreground);
-        foreach (var name in new[] { "_overlay", "_bossOverlay", "_levelingOverlay", "_alertsOverlay",
+        foreach (var name in new[] { "_overlay", "_achievementOverlay", "_bossOverlay", "_levelingOverlay", "_alertsOverlay",
                      "_alertNotifications", "_eventTimelineOverlay", "_routeOverlay", "_merchantOverlay" })
         {
             var panel = (Form)Field(host, name).GetValue(host)!;

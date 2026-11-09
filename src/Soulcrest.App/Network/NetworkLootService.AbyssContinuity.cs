@@ -55,6 +55,7 @@ public sealed partial class NetworkLootService
         if (_dispatchingAbyssObservations || !Running || _ownCharacter is not { } own
             || _identityStream != stream || own.Generation != _progressGeneration
             || !ReferenceEquals(_abyssCharacter, own) || _abyssPointRejected || !_abyssPointModificationSeen
+            || _abyssPointCaptureGeneration != _generation
             || _abyssWallet is not { Count: >= 0, InstanceKey: > 0, Container: CurrencyInventoryMessage.WalletContainer,
                 HasEquipmentData: false } wallet || _abyssAt is not { } factAt || factAt == default
             || own.ObservedAt is not { } ownAt || ownAt == default
@@ -128,6 +129,7 @@ public sealed partial class NetworkLootService
         _abyssWallet = continuity.Wallet;
         _abyssCharacter = own;
         _abyssAt = continuity.FactAt;
+        _abyssPointCaptureGeneration = continuity.CaptureGeneration;
         _abyssPointTransport = continuity.Transport;
         // Several Owns without a fresh inventory fact share the first transition's deadline.
         _abyssPointCarryStartedAt = continuity.StartedAt;

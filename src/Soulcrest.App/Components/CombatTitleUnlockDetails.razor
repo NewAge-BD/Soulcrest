@@ -1,0 +1,51 @@
+@using Soulcrest.App.Services
+
+<details class="ct-unlock" data-title-unlock="@TitleId" data-title-unlock-status="@(Definition is null ? "Unknown" : Definition.Routes.Count > 0 ? "Referenced" : Definition.DirectGrantItemIds.Count > 0 ? "ItemOnly" : "Unknown")">
+    <summary>@UiText.T("Freischaltweg")</summary>
+    @if (Definition is not { } definition || definition.DirectGrantItemIds.Count == 0)
+    {
+        <p>@UiText.T("Der Freischaltweg dieses Titels ist noch nicht zugeordnet.")</p>
+    }
+    else
+    {
+        @if (definition.Routes.Count == 0)
+        {
+            <p>@UiText.T("Der Titelgegenstand ist bekannt. Seine Bezugsquelle ist noch nicht zugeordnet.")</p>
+        }
+        else
+        {
+            <ul>
+                @foreach (var route in definition.Routes)
+                {
+                    <li data-title-unlock-kind="@route.Kind" data-title-unlock-source="@route.SourceId">
+                        <span>@UiText.T(Kind(route.Kind))</span>
+                        @if (Text(route.NameDe, route.NameEn) is { } name) { <strong>@name</strong> }
+                        @if (Text(route.ConditionDe, route.ConditionEn) is { } condition) { <p>@condition</p> }
+                    </li>
+                }
+            </ul>
+        }
+        <p class="ct-unlock-use">@UiText.T("Die Belohnung liefert einen Titelgegenstand. Erst dessen Benutzung schaltet den Titel frei.")</p>
+        @if (definition.Routes.Any(route => route.Kind is "SeasonRankingRewardItem" or "RankingCatalogReference"))
+        {
+            <p>@UiText.T("Die erforderliche Saison und Rangplatzierung sind noch nicht bestätigt.")</p>
+        }
+        <small>@UiText.T("Ein Freischaltweg bestätigt weder deinen Fortschritt noch eine abgeholte Belohnung oder Titelbesitz.")</small>
+    }
+</details>
+
+@code {
+    [Parameter] public int TitleId { get; set; }
+    [Parameter] public int MetadataBuild { get; set; }
+    [Parameter] public CombatTitleUnlockCatalog Catalog { get; set; } = CombatTitleUnlockCatalog.Default;
+    private CombatTitleUnlockDefinition? Definition => Catalog.MetadataBuild == MetadataBuild ? Catalog.Find(TitleId) : null;
+    private static string? Text(string? de, string? en) => UiText.Language == "de" ? de : en;
+    private static string Kind(string kind) => kind switch
+    {
+        "AchievementRewardItem" => "Erfolgsbelohnung",
+        "QuestRewardItem" => "Questbelohnung",
+        "SeasonRankingRewardItem" => "Ranglistenbelohnung",
+        "RankingCatalogReference" => "Ranglistenkatalog",
+        _ => throw new InvalidOperationException("Unvalidated title unlock kind.")
+    };
+}

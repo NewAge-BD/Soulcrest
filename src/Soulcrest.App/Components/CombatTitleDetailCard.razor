@@ -1,0 +1,28 @@
+@using Soulcrest.App.Services
+@using static Soulcrest.App.Components.CombatTitlesPresentation
+
+<article class="ct-title-card ct-detail-card @GradeClass(Definition?.Grade)" data-title-detail-id="@TitleId" data-title-grade="@Definition?.Grade">
+    <button type="button" class="ct-favorite @(Favorite ? "selected" : "")" data-title-detail-favorite-id="@TitleId" aria-pressed="@(Favorite ? "true" : "false")" disabled="@(!CanFavorite)" title="@FavoriteLabel" aria-label="@FavoriteLabel" @onclick="@(() => ToggleFavorite.InvokeAsync(TitleId))" @onclick:stopPropagation="true"><span aria-hidden="true">@(Favorite ? "★" : "☆")</span></button>
+    @if (Definition?.IconPath is { } icon) { <img class="ct-card-emblem" src="@icon" alt="" /> }
+    <header><h4>@Name(Catalog, TitleId, UiText.Language)</h4></header>
+    <div class="ct-card-equipped"><span class="ct-effect-label">@UiText.T("Beim Ausrüsten")</span>@Effects(Definition?.EquippedEffects, "Equipped")</div>
+    <footer class="ct-card-owned"><span class="ct-effect-label">@UiText.T("Besitzbonus")</span>@Effects(Definition?.OwnedEffects, "Owned")</footer>
+</article>
+
+@code {
+    [Parameter] public int TitleId { get; set; }
+    [Parameter] public CombatTitleDisplayCatalog Catalog { get; set; } = CombatTitleDisplayCatalog.Default;
+    [Parameter] public bool Favorite { get; set; }
+    [Parameter] public bool CanFavorite { get; set; }
+    [Parameter] public string FavoriteLabel { get; set; } = "";
+    [Parameter] public EventCallback<int> ToggleFavorite { get; set; }
+    private CombatTitleDisplayDefinition? Definition => Catalog.Find(TitleId);
+    private RenderFragment Effects(IReadOnlyList<CombatTitleDisplayEffect>? effects, string channel) => @<div class="ct-effects" data-title-detail-effects="@channel">
+        @if (effects is null) { <p class="ct-effect-unknown">@UiText.T("Effektwerte noch nicht zugeordnet")</p> }
+        else if (effects.Count == 0) { <p class="ct-effect-empty">@UiText.T("Keine Effekte")</p> }
+        else
+        {
+            <dl>@foreach (var effect in effects) { <div><dt>@EffectLabel(effect, UiText.Language)</dt><dd>@EffectValue(effect, UiText.Language)</dd></div> }</dl>
+        }
+    </div>;
+}

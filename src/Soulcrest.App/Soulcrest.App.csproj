@@ -22,6 +22,16 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Localization\en.json" />
+    <EmbeddedResource Include="..\..\data\combat\title-labels.json" LogicalName="Soulcrest.CombatTitleLabels.json" Link="Data\title-labels.json" />
+    <EmbeddedResource Include="..\..\data\combat\wing-labels.json" LogicalName="Soulcrest.CombatWingLabels.json" Link="Data\wing-labels.json" />
+    <EmbeddedResource Include="..\..\data\combat\title-roster-estimate.json" LogicalName="Soulcrest.CombatTitleRosterEstimate.json" Link="Data\title-roster-estimate.json" />
+    <EmbeddedResource Include="..\..\data\combat\title-unlocks.json" LogicalName="Soulcrest.CombatTitleUnlocks.json" Link="Data\title-unlocks.json" />
+    <EmbeddedResource Include="..\..\data\achievements\definition-scopes.json" LogicalName="Soulcrest.AchievementDefinitionScopes.json" Link="Data\achievement-definition-scopes.json" />
+    <EmbeddedResource Include="..\..\data\achievements\catalog.json" LogicalName="Soulcrest.CombatAchievementDisplayCatalog.json" Link="Data\achievement-catalog.json" />
+    <EmbeddedResource Include="..\..\data\achievements\factions.json" LogicalName="Soulcrest.CombatAchievementFactions.json" Link="Data\achievement-factions.json" />
+    <EmbeddedResource Include="..\..\data\achievements\progress-contracts.json" LogicalName="Soulcrest.CombatAchievementProgressContracts.json" Link="Data\achievement-progress-contracts.json" />
+    <EmbeddedResource Include="..\..\data\achievements\progress-thresholds.json" LogicalName="Soulcrest.AchievementProgressThresholds.json" Link="Data\achievement-progress-thresholds.json" />
+    <EmbeddedResource Include="..\..\data\achievements\reward-prefix-scopes.json" LogicalName="Soulcrest.CombatAchievementRewardScopes.json" Link="Data\achievement-reward-scopes.json" />
     <EmbeddedResource Include="Assets\lifeskill-item-names.json" LogicalName="Soulcrest.LifeskillItemNames.json" />
     <EmbeddedResource Include="..\..\data\loot-items.json" LogicalName="Soulcrest.LootItems.json" Link="Data\loot-items.json" />
     <EmbeddedResource Include="..\..\data\loot-icons.json" LogicalName="Soulcrest.LootIcons.json" Link="Data\loot-icons.json" />
@@ -47,6 +57,22 @@
     <ItemGroup>
       <!-- OpenCV is used for still images only (map tracking); the FFmpeg plugin is ~25 MB of nothing (as Grindcrest). -->
       <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(ResolvedFileToPublish.Filename)', '^opencv_videoio_ffmpeg[0-9]+_64$'))" />
+    </ItemGroup>
+  </Target>
+
+  <!-- App-local Microsoft CRT: also bundled in single-file tester/portable builds. -->
+  <Target Name="IncludeSoulcrestVcRuntime" AfterTargets="ComputeFilesToPublish" BeforeTargets="_ComputeFilesToBundle"
+          Condition="'$(RuntimeIdentifier)' == 'win-x64'">
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\Resolve-VcRuntime.ps1&quot; -Directory &quot;$(SoulcrestVcRuntimeDirectory)&quot;"
+          ConsoleToMSBuild="true" StandardOutputImportance="Low">
+      <Output TaskParameter="ConsoleOutput" ItemName="_SoulcrestVcRuntime" />
+    </Exec>
+    <ItemGroup>
+      <ResolvedFileToPublish Include="@(_SoulcrestVcRuntime)">
+        <RelativePath>%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>false</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
     </ItemGroup>
   </Target>
 

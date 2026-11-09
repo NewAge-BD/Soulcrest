@@ -1,0 +1,80 @@
+@implements IDisposable
+@using Soulcrest.App.Network
+@using Soulcrest.App.Services
+@inject IServiceProvider Provider
+
+@if (_json is not null)
+{
+    <script type="application/json" data-achievement-tracker-observation>@((MarkupString)_json)</script>
+}
+
+@code {
+    [Parameter] public bool Enabled { get; set; } = true;
+    private AchievementStateService? _state;
+    private AchievementTrackerService? _tracker;
+    private INetworkAchievementSource? _source;
+    private string? _json;
+    private bool _connected, _disposed;
+    private int _queued, _dirty;
+    private bool Active => !_disposed && AchievementTrackerObservationPresentation.Enabled(Enabled);
+
+    protected override void OnParametersSet()
+    {
+        if (!Active) { Disconnect(); _json = null; return; }
+        if (!_connected)
+        {
+            _state = Provider.GetService(typeof(AchievementStateService)) as AchievementStateService;
+            _tracker = Provider.GetService(typeof(AchievementTrackerService)) as AchievementTrackerService;
+            _source = Provider.GetService(typeof(INetworkAchievementSource)) as INetworkAchievementSource;
+            if (_state is not null) _state.Changed += RequestRefresh;
+            if (_tracker is not null) _tracker.Changed += RequestRefresh;
+            if (_source is not null) _source.AchievementObserved += SourceObserved;
+            _connected = true;
+        }
+        Capture();
+    }
+
+    private bool Capture()
+    {
+        var own = _state?.CurrentOwnSnapshot;
+        var observation = AchievementTrackerObservationPresentation.Create(_source?.AchievementSnapshot,
+            own, _state?.View, _tracker?.Snapshot,
+            own is not null && _tracker?.MatchesSourceInstance(own.SourceInstanceId) == true);
+        var next = AchievementTrackerObservationPresentation.Serialize(observation);
+        if (_json == next) return false;
+        _json = next; return true;
+    }
+    private void SourceObserved(NetworkAchievementObservation _) => RequestRefresh();
+    private void RequestRefresh()
+    {
+        if (!Active) return;
+        Volatile.Write(ref _dirty, 1);
+        if (Interlocked.CompareExchange(ref _queued, 1, 0) == 0) _ = RefreshAsync();
+    }
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                Volatile.Write(ref _dirty, 0);
+                if (Active && Capture()) StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+        catch (InvalidOperationException) when (_disposed) { }
+        finally
+        {
+            Volatile.Write(ref _queued, 0);
+            if (Active && Volatile.Read(ref _dirty) != 0) RequestRefresh();
+        }
+    }
+    private void Disconnect()
+    {
+        if (_state is not null) _state.Changed -= RequestRefresh;
+        if (_tracker is not null) _tracker.Changed -= RequestRefresh;
+        if (_source is not null) _source.AchievementObserved -= SourceObserved;
+        _state = null; _tracker = null; _source = null; _connected = false;
+    }
+    public void Dispose() { _disposed = true; Disconnect(); }
+}

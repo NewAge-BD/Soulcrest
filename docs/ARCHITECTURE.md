@@ -135,7 +135,13 @@ Banner-/Minutenfenster-Gates. Legacy-ShowOverlay/AlwaysShowOverlay/OverlayLeadMi
 für Store- und Timer-Leisten-Kompatibilität erhalten, beeinflussen jedoch echte Bossnotices und
 Tests nicht. Die UI bietet daher mehrere Vorwarnzeiten und optionalen Ton. Bereits zulässig erzeugte
 feste Notices überstehen Map-/Streamwechsel bis Expires; Metadatenänderungen löschen sie nicht.
-Neue Cache-Warnungen bleiben durch die unveränderte Triggerpolicy ausgeschlossen.
+Seit Nutzerauftrag 2026-11-09 wertet BossRushService dieselben CapturedSnapshots wie die Timer-
+Projektion aus: alle vollständig bekannten Kartenlisten, einschließlich geladener und nach
+Quelllücken erhaltener Stände. BossAlertPolicy.EvaluateMany erlaubt über allowCachedWarnings
+explizit Vorwarnungen aus gespeicherten positiven Deadlines, jedoch niemals bestätigte Spawns
+oder neue Zyklen aus abgelaufenen Zeiten. Der Standard der Core-API bleibt ohne diese Freigabe
+streng. BossNotice.Cached trägt die Herkunft bis zum erklärenden Bannertext. Der periodische
+Timer läuft unabhängig von einer geöffneten Karten-/Bossansicht; Navigation bleibt getrennt.
 Der Vorwarnfenstermodus verwendet eine endliche Frist und einen monotonen Restzeitanker.
 Gültige frische Uhrkorrekturen passen nur den ursprünglichen Zyklus an. Bei Restzeit 0
 entfernt BossRushService die Quelle; UntilSpawnNotice liefert null und AlertsService entfernt
@@ -160,7 +166,11 @@ Toleranz für Startmeldungen bleibt. Weitere Stufen ersetzen die Banner-Identit�
 behalten jedoch den monotonen Fensteranker und dessen Ablauf. Die Tonausgabe erfolgt je Stufe.
 `BossAlertPolicy` löst weiterhin allein aus; ein per-key Resolver kann einen Boss pausieren,
 ohne die Timerauswahl zu verändern. Queue- und AlertsService-Prüfungen verwerfen deaktivierte
-echte Hinweise. Bestehende Zyklusidentität und Cache-/Freshness-Grenzen bleiben maßgeblich.
+echte Hinweise. Bestehende Zyklusidentität und persistente Stufenbelege verhindern Doppelmeldungen beim Wechsel
+zwischen gespeichertem und frisch beobachtetem Stand sowie bei wiederholtem Neustart.
+Spawnbestätigungen bleiben an die frische Quelle gebunden. BossTimerCache behält sein atomisches
+Schema 1 mit Serverzeit-/UTC-Speicheranker; vollständige Listen ersetzen nur ihre jeweilige Karte.
+Monotone In-Session-Fortschreibung, Prüfung beschädigter Dateien und Rückwärtsuhr-Gate bleiben erhalten.
 
 `EventTimelinePresentation` berechnet eine reine Timeline-Projektion aus dem lokalen Katalog
 und erfassten Bossdaten; keine erfundenen Bosszyklen. `EventTimelineOverlayForm` ist ein eigenes
@@ -392,3 +402,223 @@ als ein unveränderliches Objekt. Der Overlayadapter liest diese Instanz atomar;
 Charakterwechsel kombinieren daher keine Session mit einem fremden Tagescache.
 Ein gespeicherter Stand ersetzt keine aktuelle Netzbestätigung. Quellenverlust
 blendet die aktive Sessionprojektion aus, ohne historische Werte zu löschen.
+
+## Exchange-Bewertungen im Loot-Tracker (2026-11-01)
+
+Neue bestätigte Loot-/Erntefakten speisen zusätzlich einen unabhängigen
+Bewertungsdienst. Der Exchange-Client lädt explizit serverbezogene Angebote,
+führt einen lokalen Cache und verwendet weder Spielzugangsdaten noch Charakterdaten.
+Je lokalem Profil werden Markt und Gebühren ausgewählt. Diese Angaben werden
+bereits beim Loot zusammen mit Session-, Fakt- und Itembezug festgehalten.
+
+Unveränderliche Bewertungstranchen liegen getrennt unter
+`loot-tracker/market-valuations/`. Die originale Sessiontransaktion und ihre
+Timeline bleiben unverändert. Preisantworten lösen keine Beute, Timer oder Alerts
+aus. UI, Tagesansichten und Overlay summieren dieselben Tranchen; unbewertete
+Mengen und der Preisstand bleiben sichtbar. Bestehende eigene Marktbelege behalten
+ihre ursprüngliche Quelle und Speicherung.
+
+
+## Main-/Sub-Stats aus dem eigenen Netzwerkstand (2026-11-03)
+
+`CharacterDisplayStatProjection` ergänzt eine versionierte Anzeigeprojektion neben dem
+Combat-Score-Modell. Die vollständige eigene Statliste und absolute Änderungen liefern
+Komponenten; vollständig validierte eigene Eintrittsdaten und Ressourcenupdates liefern
+HP-/MP-Maxima direkt. `NetworkLootService` bindet diese ausschließlich an den aktuellen
+eigenen Transport und die Entity. Beide Maxima behalten ihre eigene Faktzeit.
+
+`CharacterCombatStateService` veröffentlicht `DisplayStats` synchron im unveränderlichen
+RAM-Snapshot. Die Oberfläche trennt direkte Werte, geprüfte Ableitungen, Datenlücken und
+Widersprüche; Rohkomponenten und Modellrechnung bleiben separat aufklappbar. 16 Haupt-/
+Primärwertzeilen und 73 Nebenwertzeilen bilden den aktuellen Zuordnungsscope. Intelligenz,
+weitere Stat-IDs und nicht qualifizierte Gottheitszuordnungen bleiben offen; Absenz ist kein
+Nullwert. Die acht Hauptwertformeln sind zunächst für Kleriker qualifiziert. Referenzstand
+ist Build 26262663; die Anzeigezuordnung erweitert keine allgemeinen Effektverträge der CP-Bewertung.
+
+Die Projektion verwendet exakte Dezimalrechnung. Prozentanzeigen besitzen zusätzlich ihren
+ungerundeten Wert. Empfangslücken, widersprüchliche Formate und Charakterwechsel entwerten
+betroffene Eingaben. Direkt beobachtete Maxima haben Vorrang; eine abweichende Vorwärtsrechnung
+bleibt sichtbar. Maschinenlesbare DOM-Felder tragen Wert, Status, Belegstufe, Version,
+Generation und Faktzeit für lokale Debugprüfungen ohne visuelle Spielauswertung.
+
+
+## Gemeinsamer Combat-Score-Arbeitsbereich (2026-11-05)
+
+`CombatScoreWorkspaceView` ersetzt die beiden bisherigen Hauptnavigationseinträge.
+`UiState.CombatScoreSection` hält ausschließlich im RAM den aktiven Unterbereich;
+`Navigate("daevanion-calculator")` bleibt als Alias für den Untertab Daevanion Board
+bestehen. Ein direkter Aufruf von combat-score öffnet Stat Overview. Die Route-
+und Entwurfsformate sowie die Overlay-Anbindung des Boardrechners bleiben erhalten.
+
+`CombatStatOverviewCatalog` enthält reine Anzeigedefinitionen: 28 Main-/Attribut-
+zeilen und 169 Sub-Statzeilen in neun Kategorien. `CombatStatOverviewView` übernimmt
+Werte nur aus der bestehenden qualifizierten `CharacterDisplayStats`-Projektion.
+Nicht gebundene God-/Ragewerte bleiben unbekannt; fehlende Einträge bedeuten keine
+Nullwerte. Metadaten und Icons erweitern keine Wire- oder CP-Bewertungsverträge.
+
+`CombatSourceCategoryView` trennt beobachtete Quellenstände von Modellbeiträgen.
+Gear, Pets, Genus, Titel und Erfolge verwenden ihre eigenen Domänen und Frische-
+prüfungen. Flügel- und Pantheon-Lücken bleiben sichtbar. Pantheon wird weder aus
+Monolith- noch aus Daevanion-Effekten rekonstruiert. Modellverluste bleiben ausdrücklich
+Schätzwerte und nicht addierbar. Die bisherige detaillierte Modell-, Quellen-,
+Rohdaten- und Skillansicht liegt im aufklappbaren Modellbereich von Stat Overview.
+
+`CombatWorkspaceCatalog` hält die Präsentationsrouten und relativen Original-Iconpfade.
+Neutrale Kategoriesymbole sind reine UI-Auswahl; sie begründen keine Statzuordnung.
+
+Der Achievement-Browser verwendet `CombatAchievementSearchIndex` für deutsche und
+englische Namen, Belohnungen und exakt zugeordnete Titelbelohnungen aller Stufen.
+Ein genauer Titelname öffnet die zugehörige Katalogstufe. Der reine
+`CombatAchievementFactionCatalog` filtert Familien anhand von `AppSettings.Faction`;
+gemeinsame und unbekannte Zuordnungen bleiben sichtbar. Die Zuordnung ist an den
+Metadatenstand gebunden. Diese Browserfilter verändern weder Charakterhistorie
+noch den eigenen Overlay-Datenstrom. Gewöhnliche Belohnungen erscheinen als Icons
+mit Menge und Tastaturtooltip, zugeordnete Titel zusätzlich mit ihrem Namen.
+
+## Gemeinsamer Marktpreis-Cache (2026-11-06)
+
+Lootbewertung und aktuelle Overlay-Marktwerte verwenden denselben Cache-Abrufpfad.
+Wie in Grindcrest wird ein laufender Abruf geteilt: Nach dem gemeinsamen Gate wird
+der Cache erneut geprüft. Überlappende Nachfragen laden nur noch fehlende Items,
+in höchstens 100er-Batches und über den vorhandenen fünfsekündigen HTTP-Abstand.
+Positive Preise gelten zehn Minuten. Erfolgreiche Lookup-Quittungen ohne zulässigen
+Preis sperren weitere Abrufe desselben Items gemeinsam für eine Minute. Damit
+bleibt die bestehende zehnminütige Erstbewertungsfrist nutzbar; neue Beutefakten
+umgehen die Sperre nicht. Die Serverliste wird ebenfalls zehn Minuten gecacht. Server- und Item-IDs trennen die Preisstände;
+Profilgebühren gehören weiterhin ausschließlich zur Wertberechnung.
+
+Erfolgreiche Lookup-Quittungen werden zusätzlich zu Quotes anonym und begrenzt in
+der bestehenden Schema-1-Cachedatei gespeichert. Alte Dateien ohne dieses optionale
+Feld bleiben lesbar. Ein vollständig erhaltener Batch wird sofort übernommen;
+spätere Fehler verwerfen seine Preise nicht. Netzwerk-, Timeout- und Antwortfehler
+teilen eine wachsende Pause von 30 bis 600 Sekunden; längeres Retry-After gilt als
+Mindestpause. Abbruch durch einen Verbraucher gilt nicht als Anbieterfehler.
+
+Ein erfolgreicher Batch ändert Preise, Fehlpreise und Abrufzeiten zusammen und
+speichert einmal atomar. Dateischreiben ist separat serialisiert und hält den
+kurzen Leselock nicht über Flush/Replace. RAM-Werte bleiben bei Speicherfehlern
+nutzbar. HTTP-Fehler löschen keine vorher zulässigen Preise. Erfolgreich bestätigte
+Fehlpreise bleiben unbekannt; das bisherige Quellenhöchstalter von zwei Stunden,
+Offline-Schalter und eingefrorene Bewertungen bleiben unverändert.
+
+Die Overlay-Präsentation zeigt seit Nutzerentscheidung vom 08.11.2026 einen
+vorhandenen bekannten Teilwert als `N0 + ?`, wenn bewertete und unbekannte
+Itemarten gemeinsam vorliegen. Total und Stundenrate verwenden denselben
+qualifizierten Snapshot; `NetKina` bleibt bei unvollständiger Abdeckung null.
+Der Zusatz ist Teil des dargestellten Werts und unabhängig vom Label-Schalter.
+Ohne bewertete Zeile, bei ungültiger Session-/Profilbindung oder fehlender
+Ratenlaufzeit entsteht keine Ersatzanzeige. Preise, Cache und Belege werden
+durch diese reine Formatierung nicht verändert.
+
+### Historische Exchange-Referenzen (08.11.2026)
+
+Nach expliziter Freigabe werden `last_price` und `last_seen_at` aus derselben
+öffentlichen Items-Antwort getrennt von aktuellen Quotes übernommen. Die optionale
+Details-Capability erweitert den vorhandenen Client, während sein alter
+`GetQuotesAsync`-Vertrag ausschließlich aktuelle Quotes liefert. Der gemeinsame
+Cache ruft je Batch genau eine Variante auf; Mindestabstand, Abbrüche, Negative-TTL
+und Backoff bleiben gemeinsam. Historie unterdrückt keine aktuellen Wiederholungen.
+
+Historische DTOs und ihr optionaler Schema-1-Persistenzblock enthalten nur
+Server-/Item-ID, Preis und Zeitpunkte. Rückläufige LastSeenAt-Werte ersetzen keine
+jüngeren Beobachtungen. Die Historie ist mengen-/bytebegrenzt; ungültige optionale
+Historienblöcke verwerfen keine gültigen aktuellen Cachewerte. Das bisherige
+`GetQuote` und alle eingefrorenen Bewertungen bleiben historyfrei.
+
+Die Editorprojektion nutzt pro Item genau einmal einen gültigen aktuellen Preis
+oder die historische Referenz mit denselben Mengen, Gebühren und Rundungsregeln.
+`NetKina`, `PartialNetKina` und aktuelle Abdeckung behalten ihre ursprüngliche
+Bedeutung. `KnownEstimateNetKina`, historische Abdeckung und LastSeenAt-Grenzen
+beschreiben die ergänzende Schätzung. Ein immer sichtbares `≈` plus Alterszeile
+kennzeichnet sie; `+ ?` beschreibt nur den weiterhin unbewerteten Rest. Der Renderer
+reserviert die Alterszeile auch bei ausgeschalteten Labels und hoher Schriftgröße.
+
+## Stabile Overlay-Bildausgabe (2026-11-06)
+
+Die eigene Offscreen-WebView liefert PNGs über Chromium `Page.captureScreenshot`
+mit `fromSurface:true` und `captureBeyondViewport:false`. Dieser Oberflächenabzug
+erhält Alpha und liefert den aktuellen Rasterstand; `fromSurface:false` wäre ein
+opaker Viewabzug. DOM-/Assetbereitschaft, genau eine laufende Captureoperation,
+Abbruch-Epochen, die bisherige Drossel und die logische Pixeldichte bleiben erhalten.
+Spät abgeschlossene Abzüge werden nach Abbruch nicht präsentiert.
+
+Ein separater Decoder prüft JSON/Base64, PNG-Signatur, IHDR und erwartete Maße vor
+GDI sowie ein von der Pixelzahl abgeleitetes Größenbudget. Die Ausgabe bleibt neu
+kopiertes `32bppPArgb`. Transparente gültige Frames werden weiterhin unterstützt;
+kein Einfrieren alter Inhalte und keine Lockerung der Sichtbarkeitsprüfung.
+
+Die native Livefläche setzt die Aufnahmesichtbarkeit nur bei neuem HWND oder
+geänderter Policy. Ausschließlich erfolgreiche Win32-Aufrufe werden gecacht;
+Fehler bleiben erneut versuchbar und Handlezerstörung verwirft den Zustand auch
+bei Wiederverwendung derselben Handlezahl. Der Aufnahmeausschluss bleibt unverändert.
+
+Ein alter nativer Abzug bleibt nach Auftragsabbruch eine Serialisierungsbarriere,
+sein späterer Fehler oder Abbruch gehört aber nicht zum Folgeauftrag. Auch der
+Livekoordinator darf einen Fehler einer widerrufenen Epoche weder als aktuellen
+Fensterfehler markieren noch eine weiterhin zulässige Fläche verstecken.
+
+Änderungen der reinen Abyss-Weltsichtbarkeit widerrufen nur Fenster mit Killfeed
+oder Rangfortschritt. Session-, Tracking-, Profil- und Bindungswechsel bleiben
+globale Grenzen; die Fenstertrigger und die fachliche Quellenprüfung gelten weiter.
+
+Nur bei ausdrücklich gesetztem gültigem `SOULCREST_WEBVIEW_DEBUG_PORT` sammelt ein
+RAM-Ringpuffer die letzten 128 anonymen Policy- und Lebenszyklusereignisse. Der
+lokale DOM-Diagnoseblock enthält boolesche/nullable Beobachtungen, Filter, Ursachen,
+Fensterordnungen und monotone Zeiten. Keine Namen, IDs, Positionen, Fachwerte,
+Fehlermeldungstexte oder Dateizugriffe. Die Diagnose startet keine Quelle; ohne
+Debug-Port laufen weder Sammlung noch DOM-Timer.
+
+### Aktualisierung während der nativen Bildausgabe
+
+Ein `Changed` kann während `ShowFrame` eintreffen. Die reine Änderung der
+Renderrevision widerruft dann keine weiterhin gültige Anzeige: Der Koordinator
+gleicht einen noch nicht angewandten Stand synchron ab und prüft danach die
+ursprüngliche Slotidentität, aktuelle Einstellungen, Quellenautorität und Policy.
+Bei gleicher Autorität bleibt der letzte Frame sichtbar, während der Folgeframe
+gerendert wird. Echte Session-/Tracking-/Charakter- oder Triggerverluste verbergen
+weiterhin sofort; entfernte/disposete Slots werden nicht erneut angesprochen.
+
+Der synchrone Abgleich hat höchstens zwei Versuche. Bleibt der Stand instabil,
+wird konservativ ausgeblendet; es gibt keine unbegrenzte Schleife oder Freigabe
+auf Basis eines ungeprüften alten Stands. Bereits angewandte Revisionen werden
+auch durch nachlaufende UI-Callbacks nicht noch einmal angewandt. Ein während
+des Lesens verworfener Snapshot wird nicht zum Autoritätsvergleich übernommen.
+Die optionale RAM-Diagnose protokolliert erfolgreiche Überbrückungen als
+`retain / same-authority-refresh`, ohne zusätzliche Fachdaten zu lesen.
+
+### Theme-Painter für die Editorfläche
+
+`OverlayEditorThemes` projiziert die sechs bestehenden `OverlayThemeDefinition`-
+Paletten und Schriftfamilien in ausschließlich auf die Overlayfläche begrenzte
+CSS-Variablen. `OverlayEditorCanvasFrames` ruft denselben nativen Panel-Painter
+für transparente PNGs auf. Ein synchronisierter LRU-Cache hält höchstens 64
+Einträge beziehungsweise 8 MiB URI-Zeichenspeicher; Sessiondaten sind kein Schlüssel.
+
+`OverlayCanvasFrame` liegt einmal hinter dem Modulinhalt in Editor, App-Vorschau,
+Presetminiatur und nativer Renderfläche. Hintergrunddeckkraft verändert nur die
+Panelfüllung, `ShowBorder=false` unterdrückt Rahmen und Ornamente. Modulgeometrie,
+Canvasbeschnitt und gleichmäßige Skalierung bleiben unverändert. Allgemeine
+Modulboxen entfallen; fachliche Balken, Itemzellen und Animationen bleiben Inhalt.
+
+Die Theme-ID kommt aus der vorhandenen globalen Einstellung. `SetOverlayTheme`
+speichert unter dem Settings-Lock und rollt einen Fehler zurück, bevor `Changed`
+ausgelöst wird. Editor und lokale Beispielansichten beobachten Themeänderungen
+auch ohne Live-Consumer. Layouts und Vorlagen erhalten keine neuen Datenfelder.
+
+### Portable Editorstandards und horizontale Bibliothek
+
+`OverlayEditorDefaults` enthält ausschließlich neutrale Layoutdefinitionen für
+Open World und Abyss. Der öffentliche `OverlayService` verwendet sie nur als
+Fallback bei fehlender Datei. Die bisherigen leeren Modellstandards bleiben
+erhalten; ein interner Konstruktor erlaubt einen expliziten Missing-Fallback für
+isolierte Store-/CRUD-Tests. Die erste Mutation bewahrt die zuvor geladenen IDs.
+
+Vorlagen werden über `OverlayTemplate.ApplyTo` angewendet. Damit bleiben Position,
+Monitor, Aktivierung, Sichtbarkeitsregeln und Quellenkontext des Zielfensters erhalten.
+Weder Layoutdefinitionen noch Suche lesen Nutzerdateien oder Livequellen zur Laufzeit.
+
+Die Bibliothek ist ein eigener Bereich vor dem zweispaltigen Canvas/Inspector.
+Lokale Suche und Kategorien filtern den unveränderten Modulkatalog; der Canvas
+bleibt montiert. Der native Document-Click-Handler nimmt nur die im selben Editor
+liegenden Bibliothekscontrols vom Abwählen aus. Der dokumentierte CSS-Override
+und diese exakte JS-Anpassung sind bei der Original-Kit-Provenienz separat erfasst.

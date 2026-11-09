@@ -7,6 +7,12 @@
         <div class="lt-metric"><dt>@UiText.T("Rangpunkte gewonnen")</dt><dd data-testid="rank-points-gained">@Number(Session.RankPointsGained)</dd></div>
         <div class="lt-metric failed"><dt>@UiText.T("Rangpunkte verloren")</dt><dd data-testid="rank-points-lost">@Number(Session.RankPointsLost)</dd></div>
         <div class="lt-metric"><dt>@UiText.T("Rangpunkte netto")</dt><dd data-testid="rank-points-net">@Number(LootTrackerPresentation.NetRankPoints(Session))</dd></div>
+        @if (!Session.CombatEvents.IsDefaultOrEmpty)
+        {
+            <div class="lt-metric"><dt>@UiText.T("Spielerkills")</dt><dd data-testid="player-kill-count">@Number(Session.CombatEvents.LongCount(row => row.Kind == LootTrackerCombatKind.Kill))</dd></div>
+            <div class="lt-metric failed"><dt>@UiText.T("Eigene Tode")</dt><dd data-testid="player-death-count">@Number(Session.CombatEvents.LongCount(row => row.Kind == LootTrackerCombatKind.Death))</dd></div>
+            <div class="lt-metric"><dt>@UiText.T("Assists")</dt><dd data-testid="assist-count">@Number(Session.CombatEvents.LongCount(row => row.Kind == LootTrackerCombatKind.Assist))</dd>@if (Session.CombatEvents.Any(row => row.Kind == LootTrackerCombatKind.Assist && row.IsEstimated)) { <small data-testid="estimated-assist-count">@UiText.F("{0} geschätzt", Number(Session.CombatEvents.LongCount(row => row.Kind == LootTrackerCombatKind.Assist && row.IsEstimated)))</small> }</div>
+        }
     </dl>
     <div class="lt-abyss-cap">
         <div><strong>@UiText.T("AP-Cap")</strong><span data-testid="abyss-farm-total">@Number(CurrentProgress?.FarmedAbyssPoints) / @Number(Cap)</span></div>

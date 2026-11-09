@@ -30,12 +30,14 @@ public sealed partial class RouteOverlayForm
     /// Keep offscreen icons unloaded, as before caching: a small minimap must not read an entire
     /// map's portraits on its first frame. Only the compositor realizes candidates, after culling.
     /// </summary>
-    internal sealed class PreparedCandidate<T>(double x, double y, Func<T> create)
+    internal sealed class PreparedCandidate<T>(double x, double y, Func<T> create, float marginX = 12, float marginY = 12)
     {
         private bool _created;
         private T? _symbol;
         internal double X { get; } = x;
         internal double Y { get; } = y;
+        internal float MarginX { get; } = marginX;
+        internal float MarginY { get; } = marginY;
 
         internal T Symbol
         {
@@ -118,8 +120,30 @@ public sealed partial class RouteOverlayForm
                         () => new PetSymbol(spawn.X, spawn.Y, petIcon(spawn, mapdata), state.Label, state.Done)));
             }
             var cubeGroupsVisible = HiddenCubeGroupsVisible(settings, map, surface);
+            // One prepared icon row per exact source marker; material filters do not enable
+            // or hide a pet, a neighbouring NPC or a same-position marker from another category.
+            var replacedSymbols = new HashSet<MapResource>(ReferenceEqualityComparer.Instance);
+            var dropGroups = new Dictionary<string, Lazy<MonsterDropIcons>>(StringComparer.Ordinal);
+            foreach (var spawn in MapPetMarkers.MonsterDropsFor(mapdata, map))
+            {
+                var selected = spawn.Items.Where(item => MapLayerVisibility.KindVisible(settings, map, surface,
+                    "Monster Drops", item.Type, item.Id)).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray();
+                if (selected.Length == 0) continue;
+                replacedSymbols.Add(spawn.SourceSymbol);
+                var key = mapdata + "\n" + string.Join("/", selected.Select(item => item.Id));
+                if (!dropGroups.TryGetValue(key, out var group))
+                {
+                    group = new Lazy<MonsterDropIcons>(() => new(selected.Take(3).Select(item => resourceIcon(item.Icon, mapdata)).ToArray(),
+                        Math.Max(0, selected.Length - 3), key), LazyThreadSafetyMode.PublicationOnly);
+                    dropGroups.Add(key, group);
+                }
+                var sharedGroup = group;
+                resources.Add(new PreparedCandidate<ResourceSymbol>(spawn.X, spawn.Y,
+                    () => new ResourceSymbol(spawn.X, spawn.Y, null, DropIcons: sharedGroup.Value),
+                    MonsterDropRowWidth(selected.Length) / 2f, 12));
+            }
             foreach (var symbol in MapPetMarkers.SymbolsFor(mapdata, map))
-                if (SymbolVisible(settings, map, surface, symbol))
+                if (!replacedSymbols.Contains(symbol) && SymbolVisible(settings, map, surface, symbol))
                     resources.Add(new PreparedCandidate<ResourceSymbol>(symbol.X, symbol.Y,
                         () => new ResourceSymbol(symbol.X, symbol.Y, resourceIcon(symbol.Icon, mapdata), OutlineColor: cubeGroupsVisible ? symbol.OutlineColor : null)));
             if (marked.Count > 0)
@@ -212,8 +236,9 @@ public sealed partial class RouteOverlayForm
 
     internal static List<ResourceSymbol> VisibleSymbols(MapPlacement placement, PreparedOverlay prepared)
     {
-        var area = new RectangleF(placement.Region.X - 12, placement.Region.Y - 12, placement.Region.Width + 24, placement.Region.Height + 24);
-        return prepared.Resources.Where(p => area.Contains(placement.WorldToScreen(p.X, p.Y))).Select(p => p.Symbol).ToList();
+        return prepared.Resources.Where(p => new RectangleF(placement.Region.X - p.MarginX, placement.Region.Y - p.MarginY,
+                placement.Region.Width + 2 * p.MarginX, placement.Region.Height + 2 * p.MarginY)
+            .Contains(placement.WorldToScreen(p.X, p.Y))).Select(p => p.Symbol).ToList();
     }
 
     internal static GuardZones? VisibleGuardZones(MapPlacement placement, PreparedOverlay prepared)

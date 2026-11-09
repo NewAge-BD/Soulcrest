@@ -1,3 +1,6 @@
+using System.Drawing;
+using System.Drawing.Imaging;
+using Soulcrest.App.Overlay;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -14,7 +17,7 @@ namespace Soulcrest.App.Tests;
 public sealed class BossSchedulePersistenceTests
 {
     [Fact]
-    public async Task SwitchingMapsRetainsOtherCountdownsWithoutRoutesOrNewAlertsForCachedMaps()
+    public async Task SwitchingMapsRetainsOtherCountdownsAndWarnsWithoutChangingCurrentMapNavigation()
     {
         await using var fixture = new Fixture();
         fixture.Settings.Current.BossRushEnabled = fixture.Settings.Current.BossAlertsEnabled = true;
@@ -35,8 +38,11 @@ public sealed class BossSchedulePersistenceTests
         Assert.True(rows["boss:1110:111001"].Provisional);
         Assert.False(rows["boss:1010:101001"].Provisional);
         Assert.Equal(TimeSpan.FromSeconds(50), rows["boss:1110:111001"].At - fixture.Clock.GetUtcNow());
-        Assert.Empty(fixture.Bosses.Alerts);
-        Assert.DoesNotContain(alerts.NotificationRows, row => row.Key.StartsWith("boss:", StringComparison.Ordinal));
+        var warning = Assert.Single(fixture.Bosses.Alerts);
+        Assert.Equal("1110:111001", warning.Key);
+        Assert.True(warning.Cached);
+        Assert.False(warning.Spawned);
+        Assert.Equal(rows["boss:1110:111001"].At, Assert.Single(alerts.NotificationRows).At);
         fixture.Clock.Advance(TimeSpan.FromSeconds(700));
         fixture.Refresh();
         Assert.All(fixture.Bosses.Schedule, row => { Assert.False(row.Spawned); Assert.Equal(TimeSpan.Zero, row.Remaining); });
@@ -452,6 +458,162 @@ public sealed class BossSchedulePersistenceTests
         Assert.Equal(scheduleBefore, fixture.Bosses.Schedule);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SavedSchedulesWarnAcrossRestartsWithoutNewListsAndPreserveStageReceipts(bool untilSpawn)
+    {
+        await using var fixture = new Fixture();
+        const string key = "1110:111001";
+        UiText.Language = "en";
+        fixture.Settings.Current.BossRushEnabled = false;
+        fixture.Settings.Current.BossAlertsEnabled = true;
+        fixture.Settings.Current.BossAlertUntilSpawn = untilSpawn;
+        fixture.Settings.Current.BossAlertDurationSeconds = 15;
+        fixture.Settings.Current.BossAlertIds = [key, "1010:101001"];
+        fixture.Settings.Current.BossReminderOverrides[key] = new() { LeadSecondsList = [300, 60] };
+        fixture.Settings.Current.TimerOverlayTimerIds = ["boss:" + key];
+        var deadline = fixture.UnixNow + 1200000;
+        fixture.Observe(1110, new BossSpawn(111001, false, deadline));
+        fixture.Observe(1010, new BossSpawn(101001, false, fixture.UnixNow + 900000));
+        var cacheBytes = File.ReadAllBytes(fixture.CachePath);
+        fixture.Clock.Advance(TimeSpan.FromMinutes(16));
+        fixture.Restart();
+        using (var restored = fixture.CreateAlerts(persistent: true))
+        {
+            restored.SetBossPresentation(key, new() { PlaySound = true });
+            List<AlertNotice> notices = [];
+            restored.NoticeRaised += notices.Add;
+            fixture.Refresh(); // No map/list/clock message after the restart.
+            var first = Assert.Single(notices);
+            Assert.EndsWith(":lead:300", first.Key);
+            Assert.True(first.PlaySound);
+            Assert.Contains("saved", first.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(2, fixture.Bosses.Schedule.Count);
+            Assert.All(fixture.Bosses.Schedule, row => Assert.True(row.Cached));
+            Assert.False(fixture.Settings.Current.BossRushEnabled);
+            Assert.Empty(fixture.Targets.BossNavigationTargets);
+            var strip = Assert.Single(restored.TimerOverlayRows);
+            Assert.Equal(fixture.Clock.GetUtcNow().AddMinutes(4), strip.At);
+            Assert.Equal(strip.At, first.At);
+            fixture.Clock.Advance(TimeSpan.FromMinutes(3));
+            fixture.Refresh();
+            Assert.Equal(2, notices.Count);
+            Assert.EndsWith(":lead:60", notices[^1].Key);
+            Assert.Single(restored.NotificationRows);
+            Assert.Equal(first.At, notices[^1].At);
+            if (untilSpawn) Assert.Equal(first.Expires, notices[^1].Expires);
+        }
+        fixture.Restart();
+        using var restartedAgain = fixture.CreateAlerts(persistent: true);
+        List<AlertNotice> deliveredAgain = [];
+        restartedAgain.NoticeRaised += deliveredAgain.Add;
+        fixture.Refresh();
+        Assert.Empty(deliveredAgain); // The 60-second receipt survived another process lifetime.
+        fixture.Clock.Advance(TimeSpan.FromMinutes(1));
+        fixture.Refresh();
+        Assert.Empty(deliveredAgain);
+        Assert.Empty(restartedAgain.NotificationRows);
+        Assert.False(Assert.Single(fixture.Bosses.Schedule, row => row.Place.Key == key).Spawned);
+        Assert.Equal("?", TimerOverlayPresentation.Countdown(Assert.Single(restartedAgain.TimerOverlayRows), fixture.Clock.GetUtcNow()));
+        Assert.Equal(cacheBytes, File.ReadAllBytes(fixture.CachePath));
+        fixture.Observe(1110, new BossSpawn(111001, true, deadline));
+        Assert.EndsWith(":spawn", Assert.Single(deliveredAgain).Key);
+        Assert.False(Assert.Single(fixture.Bosses.Alerts).Cached);
+    }
+
+    [Fact]
+    public async Task PeriodicSchedulerWarnsAfterRestartWithoutAnyUiOrNewNetworkMessages()
+    {
+        await using var fixture = new Fixture();
+        fixture.Settings.Current.TimerOverlayTimerIds = ["boss:1110:111001"];
+        fixture.Settings.Current.BossReminderOverrides["1110:111001"] = new() { LeadSecondsList = [60] };
+        fixture.Settings.Current.BossAlertsEnabled = true;
+        fixture.Settings.Current.BossRushEnabled = false;
+        fixture.Settings.Current.BossAlertIds = ["1110:111001"];
+        fixture.Settings.Current.BossAlertUntilSpawn = false;
+        fixture.Observe(1110, new BossSpawn(111001, false, fixture.UnixNow + 120000));
+        fixture.Restart();
+        using var alerts = fixture.CreateAlerts();
+        var delivered = new TaskCompletionSource<AlertNotice>(TaskCreationOptions.RunContinuationsAsynchronously);
+        alerts.NoticeRaised += notice => delivered.TrySetResult(notice);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(61));
+        var warning = await delivered.Task.WaitAsync(TimeSpan.FromSeconds(8));
+        Assert.EndsWith(":lead:60", warning.Key);
+        Assert.Equal(Assert.Single(alerts.TimerOverlayRows).At, warning.At);
+        Assert.True(Assert.Single(fixture.Bosses.Alerts).Cached);
+    }
+
+    [Fact]
+    public async Task ASourceGapKeepsFutureWarningsAndFreshListsDoNotRepeatConsumedStages()
+    {
+        await using var fixture = new Fixture();
+        fixture.Settings.Current.BossAlertsEnabled = true;
+        fixture.Settings.Current.BossAlertIds = ["1110:111001"];
+        fixture.Settings.Current.BossReminderOverrides["1110:111001"] = new() { LeadSecondsList = [300, 60] };
+        fixture.Settings.Current.BossAlertUntilSpawn = false;
+        var deadline = fixture.UnixNow + 600000;
+        fixture.Observe(1110, new BossSpawn(111001, false, deadline));
+        using var alerts = fixture.CreateAlerts();
+        List<AlertNotice> notices = [];
+        alerts.NoticeRaised += notices.Add;
+        fixture.Network.Stop();
+        fixture.Clock.Advance(TimeSpan.FromMinutes(6));
+        fixture.Refresh();
+        Assert.EndsWith(":lead:300", Assert.Single(notices).Key);
+        fixture.Observe(1110, new BossSpawn(111001, false, deadline));
+        Assert.Single(notices);
+        fixture.Clock.Advance(TimeSpan.FromMinutes(3));
+        fixture.Refresh();
+        Assert.Equal(2, notices.Count);
+        Assert.EndsWith(":lead:60", notices[^1].Key);
+        Assert.False(Assert.Single(fixture.Bosses.Alerts).Cached);
+    }
+
+    [DiagnosticTheory]
+    [Trait("Category", "Diagnostic")]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task RenderRestoredScheduleWarningWithoutOpeningAnyAppOrGameWindow(string language)
+    {
+        var output = TestPrerequisites.RequiredValue("SOULCREST_BOSS_PERSISTENCE_PREVIEW");
+        Directory.CreateDirectory(output);
+        await using var fixture = new Fixture();
+        fixture.Settings.Current.UiLanguage = fixture.Settings.Current.NameLanguage = fixture.Settings.Current.OverlayLanguage = UiText.Language = language;
+        fixture.Settings.Current.BossAlertsEnabled = true;
+        fixture.Settings.Current.BossRushEnabled = false;
+        fixture.Settings.Current.BossAlertUntilSpawn = true;
+        fixture.Settings.Current.BossAlertIds = ["1110:111001"];
+        fixture.Settings.Current.BossReminderOverrides["1110:111001"] = new() { LeadSecondsList = [300] };
+        fixture.Settings.Current.TimerOverlayTimerIds = ["boss:1110:111001"];
+        fixture.Observe(1110, new BossSpawn(111001, false, fixture.UnixNow + 600000));
+        fixture.Clock.Advance(TimeSpan.FromSeconds(301));
+        fixture.Restart();
+        using var alerts = fixture.CreateAlerts(persistent: true);
+        fixture.Refresh();
+        var now = fixture.Clock.GetUtcNow();
+        var notification = Assert.Single(alerts.NotificationRows);
+        Assert.Equal(Assert.Single(alerts.TimerOverlayRows).At, notification.At);
+        var rows = alerts.NotificationRows.Select(notice => new AlertDisplayRow(notice.Key, notice.Title, notice.Message, notice.Color, notice.At, notice.At <= now)).ToArray();
+        var theme = OverlayThemeDefinition.Aion2;
+        var strip = TimerStripRenderer.Layout(alerts.TimerOverlayRows);
+        const int width = 520, gap = 12, scale = 2;
+        using var bitmap = new Bitmap(width * scale, (strip.Size.Height + gap + AlertsOverlayForm.LogicalHeight(rows.Length, theme)) * scale, PixelFormat.Format32bppPArgb);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.Transparent);
+            graphics.ScaleTransform(scale, scale);
+            TimerStripRenderer.Paint(graphics, strip, now, theme: theme);
+            graphics.TranslateTransform(0, strip.Size.Height + gap);
+            AlertsOverlayForm.PaintNotifications(graphics, rows, now, true, width, theme);
+        }
+        bitmap.Save(Path.Combine(output, "restored-boss-warning-" + language + ".png"), ImageFormat.Png);
+        var html = await fixture.RenderBossRush();
+        var styles = string.Join("", Directory.GetFiles(Path.Combine(TestPrerequisites.RepositoryRoot, "src", "Soulcrest.App", "wwwroot", "css"), "*.css")
+            .Select(path => "<link rel=\"stylesheet\" href=\"/css/" + Path.GetFileName(path) + "\">"));
+        await File.WriteAllTextAsync(Path.Combine(output, "boss-persistence-" + language + ".html"), "<!doctype html><html><head><meta charset=\"utf-8\">" + styles + "</head><body>" + html + "</body></html>");
+    }
+
     private static byte[] ListMessage(int mapId, params BossSpawn[] bosses)
     {
         List<byte> message = [1, 0x91, 0, 0, .. BitConverter.GetBytes(mapId)];
@@ -538,7 +700,7 @@ public sealed class BossSchedulePersistenceTests
         private BossRushService CreateBosses() => new(_provider.GetRequiredService<ProgressService>(), Settings, Targets, Network, Clock, CachePath);
         public void Restart() { Bosses.Dispose(); Bosses = CreateBosses(); }
         public void Refresh() => Settings.Update(_ => { });
-        public AlertsService CreateAlerts() => new(Path.Combine(_folder, Guid.NewGuid().ToString("N") + "-alerts.json"), Clock, runTimer: false, bosses: Bosses, settings: Settings);
+        public AlertsService CreateAlerts(bool persistent = false) => new(Path.Combine(_folder, persistent ? "alerts.json" : Guid.NewGuid().ToString("N") + "-alerts.json"), Clock, runTimer: false, bosses: Bosses, settings: Settings);
         public void Observe(int mapId, params BossSpawn[] bosses)
         {
             Bosses.OnMessage("fixture", [0, 0x36, .. BitConverter.GetBytes(UnixNow)]);

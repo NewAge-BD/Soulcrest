@@ -20,7 +20,8 @@ public sealed partial class NetworkLootService
     private sealed record PendingAbyssObservation(OwnCharacterContext? Character, long CaptureGeneration,
         long ProgressGeneration, bool IsRank, bool IsFarm, Action Apply);
 
-    // AP income requires successive qualified own Mod1/11/0/0 wallet observations.
+    // AP income is a supported positive acquisition delta from the previous qualified own wallet fact.
+    // A validated decrease only advances that comparison base; it never emits income.
     // The independent absolute farm counter never emits this acquisition event.
     public event Action<NetworkAbyssPointGain>? AbyssPointsGained;
     public event Action<NetworkAbyssRankChange>? RankPointsChanged;

@@ -1,0 +1,92 @@
+@implements IAsyncDisposable
+@inherits KitLocalizedComponentBase
+@inject IOverlayService Overlay
+@inject IOverlayEditorPresentationSource Presentation
+@inject IJSRuntime JS
+
+<dialog id="kit-overlay-preview" class="overlay-editor kit-overlay-preview browser-overlay-dialog" data-theme="@Snapshot.ThemeId" aria-labelledby="kit-overlay-preview-title" @onclose="Close" @oncancel="Close">
+    <header class="browser-overlay-toolbar">
+        <div><h1 id="kit-overlay-preview-title">@SelectedName</h1><p>@F("Overlay-Vorschau · {0} × {1} px", Settings.Width, Settings.Height)</p></div>
+        <label>@T("Hintergrund")
+            <select aria-label="@T("Vorschau-Hintergrund")" @bind="_background">
+                <option value="dark">@T("Dunkel")</option><option value="light">@T("Hell")</option><option value="grid">@T("Transparenzraster")</option>
+            </select>
+        </label>
+        <button type="button" class="button secondary" @onclick="Close" autofocus>@T("Zurück zum Editor")</button>
+    </header>
+    <div class="browser-overlay-stage background-@_background">
+        <div class="oe-stage-viewport">
+            <div class="oe-stage-wrap">
+                <div class="oe-stage @(Settings.ShowBorder ? "has-border" : "") @(Chrome.HasTitleBar ? "has-window-chrome" : "")" data-overlay-id="@Overlay.SelectedOverlayId" data-width="@Css(Settings.Width * Settings.Scale)" data-height="@Css(Settings.Height * Settings.Scale)" data-chrome-x="@Css(Chrome.Horizontal * Settings.Scale)" data-chrome-y="@Css(Chrome.Vertical * Settings.Scale)" style="@StageStyle">
+                    <OverlayCanvasFrame ThemeId="@Snapshot.ThemeId" Width="Settings.Width" Height="Settings.Height" BackgroundOpacity="Settings.BackgroundOpacity" ShowBorder="Settings.ShowBorder" />
+                    @if (Chrome.HasTitleBar) { <OverlayWindowTitle Title="@SelectedName" /> }
+                    <div class="oe-stage-content" style="@ContentStyle">
+                        @foreach (var widget in Settings.Widgets)
+                        {
+                            <div @key="widget.Id" class="oe-widget" data-widget-id="@widget.Id" data-x="@Css(widget.X)" data-y="@Css(widget.Y)" data-width="@Css(widget.Width)" data-height="@Css(widget.Height)" style="@WidgetStyle(widget)">
+                                <div class="oe-widget-content"><OverlayWidgetPreview Widget="widget" Snapshot="Snapshot" /></div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        @if (Settings.Widgets.Count == 0) { <p class="browser-overlay-empty">@T("Dieses Overlay ist leer. Füge im Editor Module hinzu oder wähle eine Vorlage.")</p> }
+    </div>
+</dialog>
+
+@code {
+    [Parameter] public bool Examples { get; set; }
+    private const string DialogId = "kit-overlay-preview";
+    private string _background = "dark";
+    private bool _shown, _disposed;
+    private OverlaySnapshot Snapshot { get; set; } = new();
+    private OverlaySettings Settings => Overlay.Settings;
+    private string SelectedName => Overlay.Overlays.First(overlay => overlay.Id == Overlay.SelectedOverlayId).Name;
+    private static string Css(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+    private OverlayWindowChrome Chrome => OverlayWindowChrome.For(Snapshot.ThemeId, Settings.ShowBorder);
+    private string StageStyle => $"width:{Css(Chrome.OuterWidth(Settings.Width) * Settings.Scale)}px;height:{Css(Chrome.OuterHeight(Settings.Height) * Settings.Scale)}px;" + OverlayEditorThemes.CssVariables(Snapshot.ThemeId);
+    private string ContentStyle => $"left:{Css(Chrome.Left * Settings.Scale)}px;top:{Css(Chrome.Top * Settings.Scale)}px;right:auto;bottom:auto;width:{Css(Settings.Width)}px;height:{Css(Settings.Height)}px;transform:scale({Css(Settings.Scale)});transform-origin:top left";
+    private static string WidgetStyle(OverlayWidget widget) => $"left:{Css(widget.X)}px;top:{Css(widget.Y)}px;width:{Css(widget.Width)}px;height:{Css(widget.Height)}px";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        Overlay.Changed += OnChanged;
+        Presentation.Changed += OnChanged;
+    }
+    protected override void OnParametersSet() => Snapshot = Presentation.Capture(Examples, UiLanguage);
+    protected override void OnUiLanguageChanged() => Snapshot = Presentation.Capture(Examples, UiLanguage);
+    protected override void OnUiThemeChanged() => Snapshot = Presentation.Capture(Examples, UiLanguage);
+    private void OnChanged()
+    {
+        if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) { Snapshot = Presentation.Capture(Examples, UiLanguage); StateHasChanged(); } });
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var visible = Overlay.State.Previewing;
+        if (_shown == visible) return;
+        _shown = visible;
+        if (visible)
+        {
+            await JS.InvokeVoidAsync("soulcrestOverlayDialogs.showDialog", DialogId);
+            await JS.InvokeVoidAsync("soulcrestOverlayEditor.mount", DialogId, null, true);
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("soulcrestOverlayEditor.unmount", DialogId);
+            await JS.InvokeVoidAsync("soulcrestOverlayDialogs.closeDialog", DialogId);
+        }
+    }
+    private Task Close() => Overlay.SetPreviewAsync(false);
+    public async ValueTask DisposeAsync()
+    {
+        base.Dispose();
+        _disposed = true;
+        Overlay.Changed -= OnChanged;
+        Presentation.Changed -= OnChanged;
+        try { await JS.InvokeVoidAsync("soulcrestOverlayEditor.unmount", DialogId); }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or TaskCanceledException or InvalidOperationException) { }
+        GC.SuppressFinalize(this);
+    }
+}

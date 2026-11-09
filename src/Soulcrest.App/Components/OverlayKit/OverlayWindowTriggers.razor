@@ -1,0 +1,83 @@
+<section class="oe-window-triggers" aria-labelledby="@(_id + "-title")">
+    <h3 id="@(_id + "-title")">@T("Sichtbarkeitsbedingungen")</h3>
+    <p>@T("Diese Regeln werden für das ausgewählte Overlayfenster gespeichert.")</p>
+    <fieldset>
+        <legend>@T("Gebiete")</legend>
+        @foreach (var area in Areas)
+        {
+            <label class="oe-setting-toggle"><span>@T(area.Label)</span><input type="checkbox" checked="@CurrentRules.Areas.Contains(area.Value)" @onchange="e => SetArea(area.Value, e.Value is true)" /></label>
+        }
+        <p>@T("Ohne Gebietsauswahl ist jedes Gebiet erlaubt. Mehrere ausgewählte Gebiete gelten alternativ.")</p>
+    </fieldset>
+    @foreach (var condition in Conditions)
+    {
+        <label class="oe-field oe-setting-row" for="@(_id + "-" + condition.Key)">
+            <span>@T(condition.Label)</span>
+            <select id="@(_id + "-" + condition.Key)" value="@Read(CurrentRules, condition.Key)" @onchange="e => SetRequirement(condition.Key, e)">
+                <option value="@OverlayTriggerRequirement.Any" selected="@(Read(CurrentRules, condition.Key) == OverlayTriggerRequirement.Any)">@T("Egal")</option>
+                <option value="@OverlayTriggerRequirement.Required" selected="@(Read(CurrentRules, condition.Key) == OverlayTriggerRequirement.Required)">@T("Erforderlich")</option>
+                <option value="@OverlayTriggerRequirement.Excluded" selected="@(Read(CurrentRules, condition.Key) == OverlayTriggerRequirement.Excluded)">@T("Ausgeschlossen")</option>
+            </select>
+        </label>
+    }
+    <p>@T("Alle weiteren Bedingungen müssen gemeinsam erfüllt sein. Unbekannte Zustände erfüllen keine erforderliche oder ausgeschlossene Bedingung.")</p>
+</section>
+
+@code {
+    [Parameter] public OverlayTriggerRules? Rules { get; set; }
+    [Parameter] public EventCallback<OverlayTriggerRules?> RulesChanged { get; set; }
+    [Parameter] public Func<string, string>? UiT { get; set; }
+
+    private readonly string _id = "overlay-window-triggers-" + Guid.NewGuid().ToString("N");
+    private OverlayTriggerRules CurrentRules => OverlayTriggerRules.Normalize(Rules) ?? new();
+    private string T(string text) => UiT?.Invoke(text) ?? text;
+    private static readonly (OverlayTriggerArea Value, string Label)[] Areas =
+    [
+        (OverlayTriggerArea.OpenWorld, "Offene Welt"),
+        (OverlayTriggerArea.Abyss, "Abyss"),
+        (OverlayTriggerArea.Instances, "Instanzen"),
+    ];
+    private static readonly (string Key, string Label)[] Conditions =
+    [
+        ("foreground", "Spiel im Vordergrund"),
+        ("session", "Laufende Session"),
+        ("world-map", "Weltkarte geöffnet"),
+        ("esc-menu", "ESC-Menü geöffnet"),
+        ("minimap-missing", "Keine Minimap erkannt"),
+    ];
+
+    private Task SetArea(OverlayTriggerArea area, bool enabled)
+    {
+        var current = CurrentRules;
+        var areas = current.Areas.ToHashSet();
+        if (enabled) areas.Add(area); else areas.Remove(area);
+        return RulesChanged.InvokeAsync(OverlayTriggerRules.Normalize(current with { Areas = areas.ToArray() }));
+    }
+
+    private Task SetRequirement(string key, ChangeEventArgs change)
+    {
+        if (!Enum.TryParse<OverlayTriggerRequirement>(change.Value?.ToString(), out var requirement)
+            || !Enum.IsDefined(requirement)) return Task.CompletedTask;
+        var current = CurrentRules;
+        var next = key switch
+        {
+            "foreground" => current with { Foreground = requirement },
+            "session" => current with { SessionActive = requirement },
+            "world-map" => current with { WorldMap = requirement },
+            "esc-menu" => current with { EscMenu = requirement },
+            "minimap-missing" => current with { MinimapMissing = requirement },
+            _ => current,
+        };
+        return RulesChanged.InvokeAsync(OverlayTriggerRules.Normalize(next));
+    }
+
+    private static OverlayTriggerRequirement Read(OverlayTriggerRules rules, string key) => key switch
+    {
+        "foreground" => rules.Foreground,
+        "session" => rules.SessionActive,
+        "world-map" => rules.WorldMap,
+        "esc-menu" => rules.EscMenu,
+        "minimap-missing" => rules.MinimapMissing,
+        _ => OverlayTriggerRequirement.Any,
+    };
+}

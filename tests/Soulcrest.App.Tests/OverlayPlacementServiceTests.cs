@@ -32,6 +32,45 @@ public sealed class OverlayPlacementServiceTests : IDisposable
     }
 
     [Fact]
+    public void AScopedRunOnlyOffersItsFamiliesAndTheNextDefaultRunRestoresTheFullInventoryWithoutSaving()
+    {
+        var settings = Fresh();
+        settings.Update(current =>
+        {
+            current.LootOverlayEnabled = true;
+            current.AbyssRankOverlayEnabled = true;
+            current.LootOverlayX = 812;
+            current.AbyssRankOverlayY = 427;
+        });
+        var before = File.ReadAllBytes(AppPaths.SettingsFile);
+        using var placement = new OverlayPlacementService(settings, () => [Left], () => null);
+        placement.SelectedOverlayId = "boss";
+        string[] families = ["loot", "boss", "leveling", "alerts", "notifications", "event-timeline", "map", "merchant", "daevanion"];
+        Assert.True(placement.Start(overlayIds: families));
+        Assert.Equal(families, placement.Overlays.Select(overlay => overlay.Id));
+        Assert.Equal(6, placement.PlaceableOverlays.Count());
+        Assert.DoesNotContain(placement.PlaceableOverlays, overlay => overlay.Id is "farm-loot" or "abyss-rank");
+        Assert.Equal("boss", placement.SelectedOverlayId);
+        families[0] = "farm-loot"; // callers cannot change an active run's inventory after Start
+        Assert.Equal("loot", placement.Overlays[0].Id);
+        Assert.Throws<ArgumentException>(() => placement.SelectedOverlayId = "farm-loot");
+        Assert.Equal("boss", placement.SelectedOverlayId);
+        Assert.Equal(before, File.ReadAllBytes(AppPaths.SettingsFile));
+        placement.Stop();
+        Assert.Same(OverlayRegistry.All, placement.Overlays);
+        Assert.True(placement.Start());
+        Assert.Equal(7, placement.PlaceableOverlays.Count());
+        Assert.Contains(placement.PlaceableOverlays, overlay => overlay.Id == "achievements");
+        Assert.DoesNotContain(placement.PlaceableOverlays, overlay => overlay.Id is "farm-loot" or "abyss-rank");
+        placement.Stop();
+        Assert.Equal(before, File.ReadAllBytes(AppPaths.SettingsFile));
+        Assert.True(settings.Current.LootOverlayEnabled);
+        Assert.True(settings.Current.AbyssRankOverlayEnabled);
+        Assert.Equal(812, settings.Current.LootOverlayX);
+        Assert.Equal(427, settings.Current.AbyssRankOverlayY);
+    }
+
+    [Fact]
     public void AutoMonitorPrefersLargestGameIntersectionThenOwnerWithoutGame()
     {
         var settings = Fresh();
@@ -93,8 +132,6 @@ public sealed class OverlayPlacementServiceTests : IDisposable
 
     [Theory]
     [InlineData("loot", .6, 2.5)]
-    [InlineData("farm-loot", .6, 2)]
-    [InlineData("abyss-rank", .6, 2)]
     [InlineData("boss", .6, 2)]
     [InlineData("leveling", .7, 1.6)]
     [InlineData("alerts", .6, 2)]
@@ -114,8 +151,24 @@ public sealed class OverlayPlacementServiceTests : IDisposable
         Assert.Throws<ArgumentException>(() => OverlayRegistry.NormalizeLayout("merchant", new(0, 0, 1)));
         Assert.Equal(240, OverlayRegistry.NormalizeLayout("notifications", new(0, 0, 1, 10)).Width);
         Assert.Equal(1600, OverlayRegistry.NormalizeLayout("event-timeline", new(0, 0, 1, 9999)).Width);
-        Assert.Equal(11, OverlayRegistry.All.Count);
-        Assert.Equal(8, OverlayRegistry.All.Count(item => item.CanPlace));
+        Assert.Equal(10, OverlayRegistry.All.Count);
+        Assert.Equal(7, OverlayRegistry.All.Count(item => item.CanPlace));
+    }
+
+    [Theory]
+    [InlineData("farm-loot")]
+    [InlineData("abyss-rank")]
+    public void RetiredNativeHudsCannotBeSelectedEnabledOrPlaced(string id)
+    {
+        var settings = Fresh();
+        using var placement = new OverlayPlacementService(settings, () => [Left], () => null);
+        var before = File.ReadAllBytes(AppPaths.SettingsFile);
+        Assert.Throws<ArgumentException>(() => OverlayRegistry.Get(id));
+        Assert.Throws<ArgumentException>(() => OverlayRegistry.ReadLayout(settings.Current, id));
+        Assert.Throws<ArgumentException>(() => OverlayRegistry.SetEnabled(settings.Current, id, true));
+        Assert.Throws<ArgumentException>(() => placement.SelectedOverlayId = id);
+        Assert.Throws<ArgumentException>(() => placement.UpdateLayout(id, new(0, 0, 1)));
+        Assert.Equal(before, File.ReadAllBytes(AppPaths.SettingsFile));
     }
 
     private static SettingsService Fresh()

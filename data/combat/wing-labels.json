@@ -1,0 +1,3374 @@
+{
+  "schema": 1,
+  "metadataBuild": 26425393,
+  "presentationOnly": true,
+  "doesNotEstablishOwnershipOrEffectApplicability": true,
+  "wings": [
+    {
+      "id": 30100300,
+      "nameDe": "Flügel des Streiters",
+      "nameEn": "Brawler Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_003.png",
+      "equippedEffects": [
+        {
+          "statId": "AbnormalResistance",
+          "labelDe": "Widerstand (Statuseffekte)",
+          "labelEn": "Status Effect Resist",
+          "value": 3.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "AbnormalAccuracy",
+          "labelDe": "Statuseffekt-Trefferchance",
+          "labelEn": "Status Effect Chance",
+          "value": 3.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "AbnormalAccuracy",
+          "labelDe": "Statuseffekt-Trefferchance",
+          "labelEn": "Status Effect Chance",
+          "value": 2.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "PvPAmplifyDamage",
+          "labelDe": "Schadensverstärkung (PvP)",
+          "labelEn": "PvP Damage Boost",
+          "value": 1.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "PvPDamageDefense",
+          "labelDe": "Verteidigung (PvP)",
+          "labelEn": "PvP Defense",
+          "value": 100.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30100301,
+      "nameDe": "Flügel des Kriegers",
+      "nameEn": "Warrior Wings",
+      "race": "Light",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_winga_003a.png",
+      "equippedEffects": [
+        {
+          "statId": "AbnormalAccuracy",
+          "labelDe": "Statuseffekt-Trefferchance",
+          "labelEn": "Status Effect Chance",
+          "value": 3.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "AbnormalResistance",
+          "labelDe": "Widerstand (Statuseffekte)",
+          "labelEn": "Status Effect Resist",
+          "value": 2.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "PvPDecreaseDamage",
+          "labelDe": "Schadensresistenz (PvP)",
+          "labelEn": "PvP Damage Tolerance",
+          "value": 1.0,
+          "unit": "Percent"
+        }
+      ]
+    },
+    {
+      "id": 30100500,
+      "nameDe": "Albtraumflügel",
+      "nameEn": "Nightmare Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_005.png",
+      "equippedEffects": [
+        {
+          "statId": "BossNpcAmplifyDamage",
+          "labelDe": "Schadensverstärkung (Boss)",
+          "labelEn": "Boss Damage Boost",
+          "value": 3.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcDefense",
+          "labelDe": "Verteidigung (Boss)",
+          "labelEn": "Boss Defense",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEAmplifyDamage",
+          "labelDe": "Schadensverstärkung (PvE)",
+          "labelEn": "PvE Damage Boost",
+          "value": 1.0,
+          "unit": "Percent"
+        }
+      ]
+    },
+    {
+      "id": 30101000,
+      "nameDe": "Waldgeistflügel",
+      "nameEn": "Forest Spirit Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_010.png",
+      "equippedEffects": [
+        {
+          "statId": "DecreaseDamage",
+          "labelDe": "Schadensresistenz",
+          "labelEn": "Damage Tolerance",
+          "value": 2.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 95.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAmplifyDamage",
+          "labelDe": "Schadensverstärkung (Boss)",
+          "labelEn": "Boss Damage Boost",
+          "value": 3.5,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DecreaseDamage",
+          "labelDe": "Schadensresistenz",
+          "labelEn": "Damage Tolerance",
+          "value": 1.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 30.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30101100,
+      "nameDe": "Flügel der Talisra der Leere",
+      "nameEn": "Talisra Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_011.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "CoolTimeDecrease",
+          "labelDe": "Abklingzeit −",
+          "labelEn": "Cooldown Reduction",
+          "value": 4.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30101200,
+      "nameDe": "Schwarzsplitterflügel",
+      "nameEn": "Black Fragment Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_012.png",
+      "equippedEffects": [
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "CriticalAddDamage",
+          "labelDe": "Krit.-Angriffskraft",
+          "labelEn": "Critical Attack",
+          "value": 95.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPRegen",
+          "labelDe": "LP-Regeneration (Natürlich)",
+          "labelEn": "Natural HP Regen",
+          "value": 250.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Evasion",
+          "labelDe": "Zusatzausweichen",
+          "labelEn": "Evasion Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Block",
+          "labelDe": "Block",
+          "labelEn": "Block",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30200101,
+      "nameDe": "Meisterhafte Daeva-Flügel",
+      "nameEn": "Ultimate Daeva Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingb_001a.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 250.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 35.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 1000.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30200400,
+      "nameDe": "Flügel des Aulaus",
+      "nameEn": "Aullaeu Wings",
+      "race": "Light",
+      "grade": "Rare",
+      "iconPath": "icons/combat/wings/icon_wingb_004.png",
+      "equippedEffects": [
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30200500,
+      "nameDe": "Fortgeschrittene Daeva-Flügel",
+      "nameEn": "Intermediate Daeva Wings",
+      "race": "Light",
+      "grade": "Rare",
+      "iconPath": "icons/combat/wings/icon_wingb_005.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 200.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 1000.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30200600,
+      "nameDe": "Geringe Daeva-Flügel",
+      "nameEn": "Lesser Daeva Wings",
+      "race": "Light",
+      "grade": "Common",
+      "iconPath": "icons/combat/wings/icon_wingb_006.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 200.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 2500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30200703,
+      "nameDe": "Hochwertige Daeva-Flügel",
+      "nameEn": "Superior Daeva Wings",
+      "race": "Light",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_wingb_007c.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 25.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 1000.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FrontAttackCriticalResist",
+          "labelDe": "Widerstand (Kritischer Treffer Frontal)",
+          "labelEn": "Front Attack Critical Hit Resist",
+          "value": 40.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30201400,
+      "nameDe": "Kromedes Flügel",
+      "nameEn": "Kromede Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingb_014.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPRegen",
+          "labelDe": "LP-Regeneration (Natürlich)",
+          "labelEn": "Natural HP Regen",
+          "value": 250.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPRegen",
+          "labelDe": "LP-Regeneration (Natürlich)",
+          "labelEn": "Natural HP Regen",
+          "value": 50.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30201500,
+      "nameDe": "Brennende Sonnenflügel",
+      "nameEn": "Blazing Sun Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_015.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30201900,
+      "nameDe": "Dunkelschleierflügel",
+      "nameEn": "Dark Veil Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingb_019.png",
+      "equippedEffects": [
+        {
+          "statId": "AmplifyAllDamage",
+          "labelDe": "Schadensverstärkung",
+          "labelEn": "Damage Boost",
+          "value": 2.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcDefense",
+          "labelDe": "Verteidigung (Boss)",
+          "labelEn": "Boss Defense",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcDecreaseDamage",
+          "labelDe": "Schadensresistenz (Boss)",
+          "labelEn": "Boss Damage Tolerance",
+          "value": 3.5,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "AmplifyAllDamage",
+          "labelDe": "Schadensverstärkung",
+          "labelEn": "Damage Boost",
+          "value": 1.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "BossNpcDefense",
+          "labelDe": "Verteidigung (Boss)",
+          "labelEn": "Boss Defense",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEAddDamage",
+          "labelDe": "Angriffskraft (PvE)",
+          "labelEn": "PvE Attack",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30202100,
+      "nameDe": "Abgrundwellenflügel",
+      "nameEn": "Abyssal Waves Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingb_021.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEAmplifyDamage",
+          "labelDe": "Schadensverstärkung (PvE)",
+          "labelEn": "PvE Damage Boost",
+          "value": 3.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "PvEDecreaseDamage",
+          "labelDe": "Schadensresistenz (PvE)",
+          "labelEn": "PvE Damage Tolerance",
+          "value": 3.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "CoolTimeDecrease",
+          "labelDe": "Abklingzeit −",
+          "labelEn": "Cooldown Reduction",
+          "value": 4.0,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30202101,
+      "nameDe": "Flügel der geheimnisvollen Nacht",
+      "nameEn": "Mystic Night Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_021a.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202102,
+      "nameDe": "Feurige Dunkelheitsflügel",
+      "nameEn": "Fiery Darkness Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_021b.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202200,
+      "nameDe": "Flügel der Dunkelblauwelle",
+      "nameEn": "Azure Waves Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_022.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202300,
+      "nameDe": "Flügel der Sternenlichtwelle",
+      "nameEn": "Starsparkle Waves Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_023.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202400,
+      "nameDe": "Schwarzwellenflügel",
+      "nameEn": "Black Waves Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_024.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202500,
+      "nameDe": "Silberne Sternenwindflügel",
+      "nameEn": "Silver Starbreeze Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_025.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202501,
+      "nameDe": "Abendrotflügel",
+      "nameEn": "Sunset Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_025a.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202502,
+      "nameDe": "Strahlende Lichtflügel",
+      "nameEn": "Radiant Light Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_025b.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202600,
+      "nameDe": "Flügel des Dunkelblauwinds",
+      "nameEn": "Azure Wind Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_026.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202700,
+      "nameDe": "Flügel des Sternenlichtwinds",
+      "nameEn": "Starsparkle Wind Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_027.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30202800,
+      "nameDe": "Sternenwindflügel",
+      "nameEn": "Starbreeze Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_028.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30203300,
+      "nameDe": "Abgrundspaltende Flügel",
+      "nameEn": "Void Rending Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_033.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30300300,
+      "nameDe": "Flügel des Eroberers",
+      "nameEn": "Conqueror Wings",
+      "race": "Light",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_wingc_003.png",
+      "equippedEffects": [
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 80.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcDefense",
+          "labelDe": "Verteidigung (Boss)",
+          "labelEn": "Boss Defense",
+          "value": 400.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEDecreaseDamage",
+          "labelDe": "Schadensresistenz (PvE)",
+          "labelEn": "PvE Damage Tolerance",
+          "value": 1.0,
+          "unit": "Percent"
+        }
+      ]
+    },
+    {
+      "id": 30400200,
+      "nameDe": "Naturgeistflügel",
+      "nameEn": "Spirit Wings",
+      "race": "Light",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_wingd_002.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Block",
+          "labelDe": "Block",
+          "labelEn": "Block",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30400300,
+      "nameDe": "Strahlende Liebesflügel",
+      "nameEn": "Radiant Love Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingd_003.png",
+      "equippedEffects": [
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Evasion",
+          "labelDe": "Zusatzausweichen",
+          "labelEn": "Evasion Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HpPotionRate",
+          "labelDe": "LP-Trank-Regeneration +",
+          "labelEn": "HP Potion Recovery increase",
+          "value": 5.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 90.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BackAttackDamage",
+          "labelDe": "Angriffskraft (Rückseitig)",
+          "labelEn": "Back Attack",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 25.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30400400,
+      "nameDe": "Blauwellenflügel",
+      "nameEn": "Blue Wave Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingd_004.png",
+      "equippedEffects": [
+        {
+          "statId": "Evasion",
+          "labelDe": "Zusatzausweichen",
+          "labelEn": "Evasion Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "CriticalResist",
+          "labelDe": "Krit.-Widerstand",
+          "labelEn": "Critical Hit Resist",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 250.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 90.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "CriticalResist",
+          "labelDe": "Krit.-Widerstand",
+          "labelEn": "Critical Hit Resist",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BackAttackCriticalResist",
+          "labelDe": "Krit.-Widerstand (Rückseitig)",
+          "labelEn": "Back Attack Critical Hit Resist",
+          "value": 40.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEAddDamage",
+          "labelDe": "Angriffskraft (PvE)",
+          "labelEn": "PvE Attack",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30400500,
+      "nameDe": "Flügel des Frühlingsblumenfalters",
+      "nameEn": "Springflower Butterfly Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingd_005.png",
+      "equippedEffects": [
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BlockPierce",
+          "labelDe": "Penetration (Block)",
+          "labelEn": "Block Penetration",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Evasion",
+          "labelDe": "Zusatzausweichen",
+          "labelEn": "Evasion Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Block",
+          "labelDe": "Block",
+          "labelEn": "Block",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FrontAttackDamage",
+          "labelDe": "Angriffskraft (Frontal)",
+          "labelEn": "Front Attack",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30400900,
+      "nameDe": "Flügel des Veilchenschmetterlings",
+      "nameEn": "Violet Butterfly Wings",
+      "race": "Light",
+      "grade": "Rare",
+      "iconPath": "icons/combat/wings/icon_wingd_009.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 40.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 200.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30401100,
+      "nameDe": "Schleifenflügel des Dienstmädchens",
+      "nameEn": "Maid Ribbon Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingd_011.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30500100,
+      "nameDe": "Siegelflügel",
+      "nameEn": "Sealing Wings",
+      "race": "Light",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_winge_001.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPRegen",
+          "labelDe": "LP-Regeneration (Natürlich)",
+          "labelEn": "Natural HP Regen",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "AmplifyHpHealGet",
+          "labelDe": "Heilung (Erhalten)",
+          "labelEn": "Incoming Heal",
+          "value": 5.0,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30500101,
+      "nameDe": "Glorreiche Flügel",
+      "nameEn": "Glorious Wings",
+      "race": "Light",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_winge_001a.png",
+      "equippedEffects": [
+        {
+          "statId": "MPUseDecrease",
+          "labelDe": "MP-Kosten −",
+          "labelEn": "MP Cost Reduction",
+          "value": 3.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 80.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 25.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30500200,
+      "nameDe": "Flügel des uralten Aulaus",
+      "nameEn": "Ancient Aullaeu Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winge_002.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 250.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 90.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 25.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30600100,
+      "nameDe": "Feentraumflügel",
+      "nameEn": "Fairy's Dream Wings",
+      "race": "Light",
+      "grade": "Rare",
+      "iconPath": "icons/combat/wings/icon_wingf_001.png",
+      "equippedEffects": [
+        {
+          "statId": "HpPotionRegen",
+          "labelDe": "LP-Regeneration (Tränke)",
+          "labelEn": "HP Potion Recovery",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HpPotionRate",
+          "labelDe": "LP-Trank-Regeneration +",
+          "labelEn": "HP Potion Recovery increase",
+          "value": 5.0,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30600200,
+      "nameDe": "Odflügel",
+      "nameEn": "Odyle Wings",
+      "race": "Light",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_wingf_002.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 80.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30600300,
+      "nameDe": "Flügel des Blauschmetterlings",
+      "nameEn": "Blue Butterfly Wings",
+      "race": "Light",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingf_003.png",
+      "equippedEffects": [
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HpPotionRegen",
+          "labelDe": "LP-Regeneration (Tränke)",
+          "labelEn": "HP Potion Recovery",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HpPotionRate",
+          "labelDe": "LP-Trank-Regeneration +",
+          "labelEn": "HP Potion Recovery increase",
+          "value": 5.0,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 25.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 30700400,
+      "nameDe": "Punkiger Hasen-Taschenflügel",
+      "nameEn": "Punk Bunny Bag Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingz_004.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 30701000,
+      "nameDe": "Spinnenflügel",
+      "nameEn": "Spider Wings",
+      "race": "Light",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingz_010.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40100300,
+      "nameDe": "Flügel des Streiters",
+      "nameEn": "Brawler Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_003.png",
+      "equippedEffects": [
+        {
+          "statId": "AbnormalResistance",
+          "labelDe": "Widerstand (Statuseffekte)",
+          "labelEn": "Status Effect Resist",
+          "value": 3.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "AbnormalAccuracy",
+          "labelDe": "Statuseffekt-Trefferchance",
+          "labelEn": "Status Effect Chance",
+          "value": 3.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "AbnormalAccuracy",
+          "labelDe": "Statuseffekt-Trefferchance",
+          "labelEn": "Status Effect Chance",
+          "value": 2.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "PvPAmplifyDamage",
+          "labelDe": "Schadensverstärkung (PvP)",
+          "labelEn": "PvP Damage Boost",
+          "value": 1.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "PvPDamageDefense",
+          "labelDe": "Verteidigung (PvP)",
+          "labelEn": "PvP Defense",
+          "value": 100.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40100301,
+      "nameDe": "Flügel des Kriegers",
+      "nameEn": "Warrior Wings",
+      "race": "Dark",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_winga_003a.png",
+      "equippedEffects": [
+        {
+          "statId": "AbnormalAccuracy",
+          "labelDe": "Statuseffekt-Trefferchance",
+          "labelEn": "Status Effect Chance",
+          "value": 3.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "AbnormalResistance",
+          "labelDe": "Widerstand (Statuseffekte)",
+          "labelEn": "Status Effect Resist",
+          "value": 2.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "PvPDecreaseDamage",
+          "labelDe": "Schadensresistenz (PvP)",
+          "labelEn": "PvP Damage Tolerance",
+          "value": 1.0,
+          "unit": "Percent"
+        }
+      ]
+    },
+    {
+      "id": 40100500,
+      "nameDe": "Albtraumflügel",
+      "nameEn": "Nightmare Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_005.png",
+      "equippedEffects": [
+        {
+          "statId": "BossNpcAmplifyDamage",
+          "labelDe": "Schadensverstärkung (Boss)",
+          "labelEn": "Boss Damage Boost",
+          "value": 3.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcDefense",
+          "labelDe": "Verteidigung (Boss)",
+          "labelEn": "Boss Defense",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEAmplifyDamage",
+          "labelDe": "Schadensverstärkung (PvE)",
+          "labelEn": "PvE Damage Boost",
+          "value": 1.0,
+          "unit": "Percent"
+        }
+      ]
+    },
+    {
+      "id": 40101000,
+      "nameDe": "Waldgeistflügel",
+      "nameEn": "Forest Spirit Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_010.png",
+      "equippedEffects": [
+        {
+          "statId": "DecreaseDamage",
+          "labelDe": "Schadensresistenz",
+          "labelEn": "Damage Tolerance",
+          "value": 2.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 95.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAmplifyDamage",
+          "labelDe": "Schadensverstärkung (Boss)",
+          "labelEn": "Boss Damage Boost",
+          "value": 3.5,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DecreaseDamage",
+          "labelDe": "Schadensresistenz",
+          "labelEn": "Damage Tolerance",
+          "value": 1.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 30.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40101100,
+      "nameDe": "Flügel der Talisra der Leere",
+      "nameEn": "Talisra Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_011.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "CoolTimeDecrease",
+          "labelDe": "Abklingzeit −",
+          "labelEn": "Cooldown Reduction",
+          "value": 4.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40101200,
+      "nameDe": "Schwarzsplitterflügel",
+      "nameEn": "Black Fragment Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winga_012.png",
+      "equippedEffects": [
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "CriticalAddDamage",
+          "labelDe": "Krit.-Angriffskraft",
+          "labelEn": "Critical Attack",
+          "value": 95.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPRegen",
+          "labelDe": "LP-Regeneration (Natürlich)",
+          "labelEn": "Natural HP Regen",
+          "value": 250.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Evasion",
+          "labelDe": "Zusatzausweichen",
+          "labelEn": "Evasion Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Block",
+          "labelDe": "Block",
+          "labelEn": "Block",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40200100,
+      "nameDe": "Meisterhafte Daeva-Flügel",
+      "nameEn": "Ultimate Daeva Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingb_001.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 250.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 35.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 1000.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40200400,
+      "nameDe": "Flügel des Aulaus",
+      "nameEn": "Aullaeu Wings",
+      "race": "Dark",
+      "grade": "Rare",
+      "iconPath": "icons/combat/wings/icon_wingb_004.png",
+      "equippedEffects": [
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40200503,
+      "nameDe": "Fortgeschrittene Daeva-Flügel",
+      "nameEn": "Intermediate Daeva Wings",
+      "race": "Dark",
+      "grade": "Rare",
+      "iconPath": "icons/combat/wings/icon_wingb_005c.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 200.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 1000.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40200601,
+      "nameDe": "Geringe Daeva-Flügel",
+      "nameEn": "Lesser Daeva Wings",
+      "race": "Dark",
+      "grade": "Common",
+      "iconPath": "icons/combat/wings/icon_wingb_006a.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 200.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 2500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40200700,
+      "nameDe": "Hochwertige Daeva-Flügel",
+      "nameEn": "Superior Daeva Wings",
+      "race": "Dark",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_wingb_007.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 25.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 1000.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FrontAttackCriticalResist",
+          "labelDe": "Widerstand (Kritischer Treffer Frontal)",
+          "labelEn": "Front Attack Critical Hit Resist",
+          "value": 40.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40201400,
+      "nameDe": "Kromedes Flügel",
+      "nameEn": "Kromede Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingb_014.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPRegen",
+          "labelDe": "LP-Regeneration (Natürlich)",
+          "labelEn": "Natural HP Regen",
+          "value": 250.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPRegen",
+          "labelDe": "LP-Regeneration (Natürlich)",
+          "labelEn": "Natural HP Regen",
+          "value": 50.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40201500,
+      "nameDe": "Brennende Sonnenflügel",
+      "nameEn": "Blazing Sun Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_015.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40201900,
+      "nameDe": "Dunkelschleierflügel",
+      "nameEn": "Dark Veil Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingb_019.png",
+      "equippedEffects": [
+        {
+          "statId": "AmplifyAllDamage",
+          "labelDe": "Schadensverstärkung",
+          "labelEn": "Damage Boost",
+          "value": 2.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcDefense",
+          "labelDe": "Verteidigung (Boss)",
+          "labelEn": "Boss Defense",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcDecreaseDamage",
+          "labelDe": "Schadensresistenz (Boss)",
+          "labelEn": "Boss Damage Tolerance",
+          "value": 3.5,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "AmplifyAllDamage",
+          "labelDe": "Schadensverstärkung",
+          "labelEn": "Damage Boost",
+          "value": 1.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "BossNpcDefense",
+          "labelDe": "Verteidigung (Boss)",
+          "labelEn": "Boss Defense",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEAddDamage",
+          "labelDe": "Angriffskraft (PvE)",
+          "labelEn": "PvE Attack",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40202100,
+      "nameDe": "Abgrundwellenflügel",
+      "nameEn": "Abyssal Waves Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingb_021.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEAmplifyDamage",
+          "labelDe": "Schadensverstärkung (PvE)",
+          "labelEn": "PvE Damage Boost",
+          "value": 3.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "PvEDecreaseDamage",
+          "labelDe": "Schadensresistenz (PvE)",
+          "labelEn": "PvE Damage Tolerance",
+          "value": 3.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "CoolTimeDecrease",
+          "labelDe": "Abklingzeit −",
+          "labelEn": "Cooldown Reduction",
+          "value": 4.0,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40202101,
+      "nameDe": "Flügel der geheimnisvollen Nacht",
+      "nameEn": "Mystic Night Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_021a.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202102,
+      "nameDe": "Feurige Dunkelheitsflügel",
+      "nameEn": "Fiery Darkness Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_021b.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202200,
+      "nameDe": "Flügel der Dunkelblauwelle",
+      "nameEn": "Azure Waves Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_022.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202300,
+      "nameDe": "Flügel der Sternenlichtwelle",
+      "nameEn": "Starsparkle Waves Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_023.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202400,
+      "nameDe": "Schwarzwellenflügel",
+      "nameEn": "Black Waves Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_024.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202500,
+      "nameDe": "Silberne Sternenwindflügel",
+      "nameEn": "Silver Starbreeze Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_025.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202501,
+      "nameDe": "Abendrotflügel",
+      "nameEn": "Sunset Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_025a.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202502,
+      "nameDe": "Strahlende Lichtflügel",
+      "nameEn": "Radiant Light Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_025b.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202600,
+      "nameDe": "Flügel des Dunkelblauwinds",
+      "nameEn": "Azure Wind Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_026.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202700,
+      "nameDe": "Flügel des Sternenlichtwinds",
+      "nameEn": "Starsparkle Wind Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_027.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40202800,
+      "nameDe": "Sternenwindflügel",
+      "nameEn": "Starbreeze Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_028.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40203300,
+      "nameDe": "Abgrundspaltende Flügel",
+      "nameEn": "Void Rending Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingb_033.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40300300,
+      "nameDe": "Flügel des Eroberers",
+      "nameEn": "Conqueror Wings",
+      "race": "Dark",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_wingc_003.png",
+      "equippedEffects": [
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 80.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcDefense",
+          "labelDe": "Verteidigung (Boss)",
+          "labelEn": "Boss Defense",
+          "value": 400.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BossNpcAddDamage",
+          "labelDe": "Angriffskraft (Boss)",
+          "labelEn": "Boss Attack",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEDecreaseDamage",
+          "labelDe": "Schadensresistenz (PvE)",
+          "labelEn": "PvE Damage Tolerance",
+          "value": 1.0,
+          "unit": "Percent"
+        }
+      ]
+    },
+    {
+      "id": 40400200,
+      "nameDe": "Naturgeistflügel",
+      "nameEn": "Spirit Wings",
+      "race": "Dark",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_wingd_002.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Block",
+          "labelDe": "Block",
+          "labelEn": "Block",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40400300,
+      "nameDe": "Strahlende Liebesflügel",
+      "nameEn": "Radiant Love Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingd_003.png",
+      "equippedEffects": [
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Evasion",
+          "labelDe": "Zusatzausweichen",
+          "labelEn": "Evasion Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HpPotionRate",
+          "labelDe": "LP-Trank-Regeneration +",
+          "labelEn": "HP Potion Recovery increase",
+          "value": 5.5,
+          "unit": "Percent"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 90.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BackAttackDamage",
+          "labelDe": "Angriffskraft (Rückseitig)",
+          "labelEn": "Back Attack",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 25.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40400400,
+      "nameDe": "Blauwellenflügel",
+      "nameEn": "Blue Wave Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingd_004.png",
+      "equippedEffects": [
+        {
+          "statId": "Evasion",
+          "labelDe": "Zusatzausweichen",
+          "labelEn": "Evasion Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "CriticalResist",
+          "labelDe": "Krit.-Widerstand",
+          "labelEn": "Critical Hit Resist",
+          "value": 35.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 250.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 90.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "CriticalResist",
+          "labelDe": "Krit.-Widerstand",
+          "labelEn": "Critical Hit Resist",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BackAttackCriticalResist",
+          "labelDe": "Krit.-Widerstand (Rückseitig)",
+          "labelEn": "Back Attack Critical Hit Resist",
+          "value": 40.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "PvEAddDamage",
+          "labelDe": "Angriffskraft (PvE)",
+          "labelEn": "PvE Attack",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40400500,
+      "nameDe": "Flügel des Frühlingsblumenfalters",
+      "nameEn": "Springflower Butterfly Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingd_005.png",
+      "equippedEffects": [
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "BlockPierce",
+          "labelDe": "Penetration (Block)",
+          "labelEn": "Block Penetration",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 35.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Evasion",
+          "labelDe": "Zusatzausweichen",
+          "labelEn": "Evasion Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Block",
+          "labelDe": "Block",
+          "labelEn": "Block",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FrontAttackDamage",
+          "labelDe": "Angriffskraft (Frontal)",
+          "labelEn": "Front Attack",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40400900,
+      "nameDe": "Flügel des Veilchenschmetterlings",
+      "nameEn": "Violet Butterfly Wings",
+      "race": "Dark",
+      "grade": "Rare",
+      "iconPath": "icons/combat/wings/icon_wingd_009.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 40.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 200.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40401100,
+      "nameDe": "Schleifenflügel des Dienstmädchens",
+      "nameEn": "Maid Ribbon Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingd_011.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40500100,
+      "nameDe": "Siegelflügel",
+      "nameEn": "Sealing Wings",
+      "race": "Dark",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_winge_001.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPRegen",
+          "labelDe": "LP-Regeneration (Natürlich)",
+          "labelEn": "Natural HP Regen",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "AmplifyHpHealGet",
+          "labelDe": "Heilung (Erhalten)",
+          "labelEn": "Incoming Heal",
+          "value": 5.0,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40500101,
+      "nameDe": "Glorreiche Flügel",
+      "nameEn": "Glorious Wings",
+      "race": "Dark",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_winge_001a.png",
+      "equippedEffects": [
+        {
+          "statId": "MPUseDecrease",
+          "labelDe": "MP-Kosten −",
+          "labelEn": "MP Cost Reduction",
+          "value": 3.0,
+          "unit": "Percent"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 80.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 25.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40500200,
+      "nameDe": "Flügel des uralten Aulaus",
+      "nameEn": "Ancient Aullaeu Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_winge_002.png",
+      "equippedEffects": [
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 60.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 250.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 90.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 25.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40600100,
+      "nameDe": "Feentraumflügel",
+      "nameEn": "Fairy's Dream Wings",
+      "race": "Dark",
+      "grade": "Rare",
+      "iconPath": "icons/combat/wings/icon_wingf_001.png",
+      "equippedEffects": [
+        {
+          "statId": "HpPotionRegen",
+          "labelDe": "LP-Regeneration (Tränke)",
+          "labelEn": "HP Potion Recovery",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HpPotionRate",
+          "labelDe": "LP-Trank-Regeneration +",
+          "labelEn": "HP Potion Recovery increase",
+          "value": 5.0,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40600200,
+      "nameDe": "Odflügel",
+      "nameEn": "Odyle Wings",
+      "race": "Dark",
+      "grade": "Legend",
+      "iconPath": "icons/combat/wings/icon_wingf_002.png",
+      "equippedEffects": [
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPRegen",
+          "labelDe": "MP-Regeneration (Natürlich)",
+          "labelEn": "Natural MP Regen",
+          "value": 80.0,
+          "unit": "Points"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "FixingDamage",
+          "labelDe": "Zusatzangriffskraft",
+          "labelEn": "Attack Bonus",
+          "value": 10.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "MPMax",
+          "labelDe": "MP",
+          "labelEn": "MP",
+          "value": 50.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40600300,
+      "nameDe": "Flügel des Blauschmetterlings",
+      "nameEn": "Blue Butterfly Wings",
+      "race": "Dark",
+      "grade": "Unique",
+      "iconPath": "icons/combat/wings/icon_wingf_003.png",
+      "equippedEffects": [
+        {
+          "statId": "Defense",
+          "labelDe": "Zusatzverteidigung",
+          "labelEn": "Defense Bonus",
+          "value": 400.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HPMax",
+          "labelDe": "LP",
+          "labelEn": "HP",
+          "value": 500.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HpPotionRegen",
+          "labelDe": "LP-Regeneration (Tränke)",
+          "labelEn": "HP Potion Recovery",
+          "value": 300.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "HpPotionRate",
+          "labelDe": "LP-Trank-Regeneration +",
+          "labelEn": "HP Potion Recovery increase",
+          "value": 5.0,
+          "unit": "Percent"
+        }
+      ],
+      "ownedEffects": [
+        {
+          "statId": "FPMax",
+          "labelDe": "FP",
+          "labelEn": "Flight Power",
+          "value": 200.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Accuracy",
+          "labelDe": "Zusatzpräzision",
+          "labelEn": "Accuracy Bonus",
+          "value": 20.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "DefensePierce",
+          "labelDe": "Penetration",
+          "labelEn": "Penetration",
+          "value": 100.0,
+          "unit": "Points"
+        },
+        {
+          "statId": "Critical",
+          "labelDe": "Kritischer Treffer",
+          "labelEn": "Critical Hit",
+          "value": 25.0,
+          "unit": "Points"
+        }
+      ]
+    },
+    {
+      "id": 40700400,
+      "nameDe": "Punkiger Hasen-Taschenflügel",
+      "nameEn": "Punk Bunny Bag Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingz_004.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    },
+    {
+      "id": 40701000,
+      "nameDe": "Spinnenflügel",
+      "nameEn": "Spider Wings",
+      "race": "Dark",
+      "grade": "Special",
+      "iconPath": "icons/combat/wings/icon_wingz_010.png",
+      "equippedEffects": [],
+      "ownedEffects": []
+    }
+  ]
+}

@@ -18,7 +18,7 @@ public static class OverlayVisibilityPolicy
 
     private static OverlayVisibilityRules Initial(AppSettings settings, string id) => id switch
     {
-        "loot" or "leveling" => new(false, false, false, false),
+        "loot" or "leveling" or "achievements" => new(false, false, false, false),
         // User request 2026-10-20: boss spawns remain visible in all four contexts.
         "boss" or "notifications" or "farm-loot" or "abyss-rank" => new(),
         "event-timeline" => new(true, !settings.EventTimelineFollowMinimap, true, !settings.EventTimelineFollowMinimap),

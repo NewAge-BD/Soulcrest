@@ -53,7 +53,7 @@ public static class LootTrackerTimelineLayers
         new("kina", "Kina", "#efd096", true), new("items", "Itemmenge", "#8fb7e8", true),
         new("souls", "Souls", "#bda0ec", true), new("success", "Ernten", "#9ed9a1", true),
         new("failure", "Fehlversuche (Anzahl)", "#f49eaa", true), new("kill", "Kills", "#86efac"),
-        new("death", "Tode", "#fda4af"), new("rank", "Punkte-Stufen", "#efd096"),
+        new("death", "Tode", "#fda4af"), new("assist", "Assists", "#82b4ff"), new("rank", "Punkte-Stufen", "#efd096"),
         new("gather", "Sammelerfolge", "#67e8f9"), new("failed", "Fehlversuche (Ereignisse)", "#f49eaa"),
         new("loot", "Beute", "#c8b3ef")
     ];
@@ -63,9 +63,9 @@ public static class LootTrackerTimelineLayers
     public static IReadOnlyList<Layer> Available(LootTrackerSession session, IReadOnlyList<LootTrackerTimeline.Series> series)
     {
         var ids = series.Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
-        if (LootTrackerSessionProjection.ShowsAbyss(session)) ids.UnionWith(["kill", "death", "rank"]);
+        if (LootTrackerSessionProjection.ShowsAbyss(session)) ids.UnionWith(["kill", "death", "assist", "rank"]);
         if (LootTrackerSessionProjection.ShowsHarvest(session)) ids.UnionWith(["gather", "failed"]);
-        if (!session.CombatEvents.IsDefaultOrEmpty) ids.UnionWith(session.CombatEvents.Select(row => row.Kind == LootTrackerCombatKind.Kill ? "kill" : "death"));
+        if (!session.CombatEvents.IsDefaultOrEmpty) ids.UnionWith(session.CombatEvents.Select(row => LootTrackerCombatPresentation.Lane(row.Kind)));
         ids.Add("loot");
         return All.Where(row => ids.Contains(row.Id)).ToArray();
     }

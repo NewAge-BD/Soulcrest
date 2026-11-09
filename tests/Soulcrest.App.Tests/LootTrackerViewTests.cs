@@ -865,37 +865,30 @@ public sealed class LootTrackerViewTests
     [Theory]
     [InlineData("de")]
     [InlineData("en")]
-    public async Task MonsterRecordingAndItsLootOverlayPersistIndependentlyAndExamplesStayInert(string language)
+    public async Task MonsterRecordingLeavesRetiredHudSettingsUntouchedAndExamplesStayInert(string language)
     {
         await using var fixture = new Fixture(language);
         fixture.Settings.Current.MonsterLootTrackingEnabled = false;
-        fixture.Settings.Current.LootOverlayEnabled = false;
+        fixture.Settings.Current.LootOverlayEnabled = true;
         fixture.Settings.Current.LifeskillTrackingEnabled = false;
         fixture.Settings.Current.OverlayEnabled = false;
-        await fixture.Render(LootTrackerSnapshot.Empty);
+        var initial = await fixture.Render(LootTrackerSnapshot.Empty);
+        Assert.DoesNotContain("id=\"loot-overlay-enabled\"", initial);
         var enabled = await fixture.Change("loot-monster-enabled", true);
         Assert.True(new SettingsService().Current.MonsterLootTrackingEnabled);
-        Assert.False(fixture.Settings.Current.LootOverlayEnabled);
+        Assert.True(fixture.Settings.Current.LootOverlayEnabled);
         Assert.False(fixture.Settings.Current.LifeskillTrackingEnabled);
         Assert.False(fixture.Settings.Current.OverlayEnabled);
         Assert.Contains(UiText.T("Open-World-PvE-Aufnahme eingeschaltet."), WebUtility.HtmlDecode(enabled));
-        enabled = await fixture.Change("loot-overlay-enabled", true);
-        Assert.True(new SettingsService().Current.LootOverlayEnabled);
-        Assert.True(fixture.Settings.Current.MonsterLootTrackingEnabled);
-        Assert.Contains(UiText.T("Loot-Overlay eingeschaltet."), WebUtility.HtmlDecode(enabled));
         await fixture.Change("loot-monster-enabled", false);
         Assert.False(new SettingsService().Current.MonsterLootTrackingEnabled);
         Assert.True(fixture.Settings.Current.LootOverlayEnabled);
-        await fixture.Change("loot-overlay-enabled", false);
-        Assert.False(new SettingsService().Current.LootOverlayEnabled);
-
         var example = await fixture.Render(ExampleSnapshot(), isExample: true);
         Assert.Matches("id=\"loot-monster-enabled\"[^>]*disabled", example);
-        Assert.Matches("id=\"loot-overlay-enabled\"[^>]*disabled", example);
+        Assert.DoesNotContain("id=\"loot-overlay-enabled\"", example);
         await fixture.Change("loot-monster-enabled", true);
-        await fixture.Change("loot-overlay-enabled", true);
         Assert.False(fixture.Settings.Current.MonsterLootTrackingEnabled);
-        Assert.False(fixture.Settings.Current.LootOverlayEnabled);
+        Assert.True(fixture.Settings.Current.LootOverlayEnabled);
     }
 
     [Fact]
@@ -1037,17 +1030,21 @@ public sealed class LootTrackerViewTests
     }
 
     [Fact]
-    public async Task OverlayOptionsSaveTransparencyAndAutoShowThroughRenderedControls()
+    public async Task RetiredLootHudControlsAreAbsentWhileDropOptionsRemainAvailable()
     {
         await using var fixture = new Fixture("en");
-        fixture.Settings.Current.LootOverlayShowOnSessionStart = false;
-        fixture.Settings.Current.LootOverlayEnabled = false;
-        await fixture.Render(LootTrackerSnapshot.Empty);
-        await fixture.Change("loot-overlay-auto-show", true);
-        await fixture.Change("loot-background-transparency", "65");
-        Assert.Equal(.35, new SettingsService().Current.LootOverlayBackgroundOpacity, 10);
-        Assert.True(new SettingsService().Current.LootOverlayShowOnSessionStart);
-        Assert.False(fixture.Settings.Current.LootOverlayEnabled);
+        fixture.Settings.Current.LootOverlayShowOnSessionStart = true;
+        fixture.Settings.Current.LootOverlayEnabled = true;
+        fixture.Settings.Current.LootOverlayBackgroundOpacity = .35;
+        var html = await fixture.Render(LootTrackerSnapshot.Empty);
+        foreach (var id in new[] { "loot-overlay-enabled", "loot-overlay-auto-show", "loot-background-transparency" })
+            Assert.DoesNotContain($"id=\"{id}\"", html);
+        foreach (var id in new[] { "loot-drop-alerts-enabled", "loot-drop-sound-enabled", "loot-drop-animations-enabled", "loot-drop-volume" })
+            Assert.Contains($"id=\"{id}\"", html);
+        await fixture.Change("loot-drop-alerts-enabled", false);
+        Assert.True(fixture.Settings.Current.LootOverlayEnabled);
+        Assert.True(fixture.Settings.Current.LootOverlayShowOnSessionStart);
+        Assert.Equal(.35, fixture.Settings.Current.LootOverlayBackgroundOpacity);
     }
 
     [Fact]

@@ -8,17 +8,29 @@ public sealed class UnifiedLootOverlaySource : ILootOverlaySource, IDisposable
     private readonly UnifiedLootTrackerService _source;
     private readonly AbyssProgressService _abyss;
     private readonly SettingsService _settings;
+    private readonly ExchangeLootValuationService? _market;
 
-    public UnifiedLootOverlaySource(UnifiedLootTrackerService source, AbyssProgressService abyss, SettingsService settings)
+    public UnifiedLootOverlaySource(UnifiedLootTrackerService source, AbyssProgressService abyss, SettingsService settings,
+        ExchangeLootValuationService? market = null)
     {
-        _source = source; _abyss = abyss; _settings = settings;
+        _source = source; _abyss = abyss; _settings = settings; _market = market;
         source.Changed += Refresh; abyss.Changed += Refresh; settings.Changed += Refresh;
+        if (_market is not null) _market.Changed += Refresh;
     }
 
-    public LootOverlaySnapshot Snapshot => Project(_source.OverlayState, _abyss.ProgressSnapshot, _settings.Current);
+    public LootOverlaySnapshot Snapshot
+    {
+        get
+        {
+            var state = _source.OverlayState;
+            var market = _market is not null && state.Session is { } session ? _market.GetSessionSummary(session) : null;
+            return Project(state, _abyss.ProgressSnapshot, _settings.Current, market);
+        }
+    }
     public event Action? Changed;
 
-    internal static LootOverlaySnapshot Project(UnifiedLootOverlayState state, AbyssProgressSnapshot progress, AppSettings settings)
+    internal static LootOverlaySnapshot Project(UnifiedLootOverlayState state, AbyssProgressSnapshot progress, AppSettings settings,
+        ExchangeLootValuationSummary? exchange = null)
     {
         var session = state.TrackingAvailable && state.Session is { Status: LootTrackerSessionStatus.Live, EndedAt: null }
             ? state.Session : null;
@@ -43,6 +55,19 @@ public sealed class UnifiedLootOverlaySource : ILootOverlaySource, IDisposable
         {
             SessionKind = session?.Kind ?? LootTrackerSessionKind.Mixed,
             HasPveActivity = pve, HasLifeskillActivity = life,
+            ExchangeMarketDisplay = session is not null && exchange is not null,
+            ExchangeNetKina = session is not null ? exchange?.NetKina : null,
+            ExchangeReferenceGrossKina = session is not null ? exchange?.ReferenceGrossKina : null,
+            ExchangeReferenceNetKina = session is not null ? exchange?.ReferenceNetKina : null,
+            ExchangePricedRows = session is not null ? exchange?.PricedRows ?? 0 : 0,
+            ExchangeEligibleRows = session is not null ? exchange?.EligibleRows ?? 0 : 0,
+            ExchangePendingRows = session is not null ? exchange?.PendingRows ?? 0 : 0,
+            ExchangeOldestObservedAt = session is not null ? exchange?.OldestObservedAt : null,
+            ExchangeNewestObservedAt = session is not null ? exchange?.NewestObservedAt : null,
+            ExchangePricedQuantity = session is not null ? exchange?.PricedQuantity : null,
+            ExchangeEligibleQuantity = session is not null ? exchange?.EligibleQuantity : null,
+            ExchangeUnknownQuantity = session is not null ? exchange?.UnknownQuantity : null,
+            ExchangeBases = session is not null && exchange is not null ? exchange.Bases : [],
             HasAbyssPointActivity = session?.TimelineEvents.Any(fact =>
                 fact.Kind == LootTrackerTimelineEventKind.AbyssPoints && fact.Amount is > 0) == true,
             HarvestCount = life ? session?.HarvestCount : null,
@@ -72,5 +97,6 @@ public sealed class UnifiedLootOverlaySource : ILootOverlaySource, IDisposable
     public void Dispose()
     {
         _source.Changed -= Refresh; _abyss.Changed -= Refresh; _settings.Changed -= Refresh;
+        if (_market is not null) _market.Changed -= Refresh;
     }
 }

@@ -909,7 +909,7 @@ public sealed partial class MapTrackingService : IDisposable
                                 token.ThrowIfCancellationRequested();
                                 if (!IsCurrentVisualContext(contextGeneration)) return;
                                 if (worldMap)
-                                    StepWorldMap(region, maps, f, token, contextGeneration);
+                                    StepWorldMap(region, maps, f, token, contextGeneration, replayFrame);
                                 else
                                 {
                                     var screen = capture.GameBounds ?? Screen.FromRectangle(region).Bounds;
@@ -985,6 +985,7 @@ public sealed partial class MapTrackingService : IDisposable
 
     private void ReportBusyFrame()
     {
+        ClearOverlayVisualObservations();
         // Retain the last position but stop moving the overlay from an unvalidated frame.
         Found = false;
         DetectedMap = null;
@@ -1020,6 +1021,7 @@ public sealed partial class MapTrackingService : IDisposable
         }
         var escMenuOpen = _escMenu.Detect(fullFrame);
         UpdateEscMenuContext(escMenuOpen, generation);
+        ObserveOverlayMenu(escMenuOpen, generation, replayFrame);
         if (escMenuOpen)
         {
             SetStatus("ESC-Menü offen – Overlays ausgeblendet.");
@@ -1034,7 +1036,7 @@ public sealed partial class MapTrackingService : IDisposable
         Cv2.Resize(fullFrame, small, new OpenCvSharp.Size(), WorldMapScale, WorldMapScale, InterpolationFlags.Area);
         if (_worldMapOpen)
         {
-            StepWorldMap(region, maps, small, token, generation);
+            StepWorldMap(region, maps, small, token, generation, replayFrame);
             return;
         }
         var header = MapWindowEmblem.Shows(fullFrame);
@@ -1056,7 +1058,7 @@ public sealed partial class MapTrackingService : IDisposable
                         PrepareWorldReference(viewed, token, generation);
                         continue;
                     }
-                    if (ProbeWorldMap(region, viewed, screen, small, token, generation)) return;
+                    if (ProbeWorldMap(region, viewed, screen, small, token, generation, replayFrame)) return;
                 }
             if (!IsCurrentMapContext(generation)) return;
             _currentMap = ownDefinition.Id;
@@ -1163,7 +1165,7 @@ public sealed partial class MapTrackingService : IDisposable
         // The world-map check costs as much as the search itself (184 ms on the quarter-size screen). It
         // runs only when the header symbol of a game window shows top left (world map; the pet window has
         // it too), and as a safety net on every 4th miss (user idea 2026-10-05: "nur die obere linke Ecke").
-        if ((windowHeader || (fix is null && _misses % 4 == 3)) && ProbeWorldMap(region, definition, screen, screenFrame, token, contextGeneration))
+        if ((windowHeader || (fix is null && _misses % 4 == 3)) && ProbeWorldMap(region, definition, screen, screenFrame, token, contextGeneration, replayFrame))
             return;
         token.ThrowIfCancellationRequested();
         if (!IsCurrentMapContext(contextGeneration))
@@ -1195,6 +1197,7 @@ public sealed partial class MapTrackingService : IDisposable
             Found = false;
             DetectedMap = null;
             Placement = null;
+            ObserveOverlayMap(false, false, contextGeneration, replayFrame);
             SetStatus(_misses >= MissesBeforeOtherMaps
                 ? $"Karte nicht erkannt – probiere {definition.Label} … ({locator.LastInfo.Keypoints} Merkmale im Bild)"
                 : $"Karte kurz nicht erkannt ({locator.LastInfo.Matches} Treffer).");
@@ -1239,6 +1242,7 @@ public sealed partial class MapTrackingService : IDisposable
             // The map moved on while this frame was being matched: carry the result by the flow since then.
             Placement = new MapPlacement(definition.Id, _drift.Apply(fix), world, region, anchor) { CapturedAt = _flowFrameAt, ContextGeneration = contextGeneration };
         }
+        ObserveOverlayMap(false, true, contextGeneration, replayFrame);
         if (Paused) Resume(null);
         if (replayFrame is { } observedFrame) ObserveReplayFix(definition.Id, fix, locator.Reference.WorldPerPixel, anchor, observedFrame, contextGeneration);
         PlacementMoved?.Invoke();
@@ -1279,7 +1283,7 @@ public sealed partial class MapTrackingService : IDisposable
         };
     }
 
-    private bool ProbeWorldMap(Rectangle region, MapDefinition definition, Rectangle screen, Mat small, CancellationToken token, long contextGeneration)
+    private bool ProbeWorldMap(Rectangle region, MapDefinition definition, Rectangle screen, Mat small, CancellationToken token, long contextGeneration, ReplayCaptureFrame? replayFrame = null)
     {
         if (!IsCurrentMapContext(contextGeneration)) return false;
         // Same capture as the crop being considered for a player position.
@@ -1301,14 +1305,14 @@ public sealed partial class MapTrackingService : IDisposable
             _worldMisses = 0;
             _worldEmblemSeen = false;
             _worldEmblemMisses = 0;
-            SetWorldPlacement(definition, fix, screen, locator.Reference.WorldPerPixel);
+            SetWorldPlacement(definition, fix, screen, locator.Reference.WorldPerPixel, replayFrame);
         }
         Trace(definition.Id + " (Weltkarte)", true, fix, locator);
         return true;
     }
 
     /// <summary>Detection while the world map is open; closes the mode when the world map is gone.</summary>
-    private void StepWorldMap(Rectangle region, List<MapDefinition> maps, Mat frame, CancellationToken token, long contextGeneration)
+    private void StepWorldMap(Rectangle region, List<MapDefinition> maps, Mat frame, CancellationToken token, long contextGeneration, ReplayCaptureFrame? replayFrame = null)
     {
         if (!_worldMapOpen || !IsCurrentMapContext(contextGeneration))
             return;
@@ -1333,7 +1337,7 @@ public sealed partial class MapTrackingService : IDisposable
             {
                 if (!_worldMapOpen || !IsCurrentMapContext(contextGeneration))
                     return; // closed, loaded or stopped meanwhile
-                SetWorldPlacement(definition, _drift.Apply(fix), _worldScreen, locator.Reference.WorldPerPixel);
+                SetWorldPlacement(definition, _drift.Apply(fix), _worldScreen, locator.Reference.WorldPerPixel, replayFrame);
             }
             _cost.AddWorldDetection(true);
             Trace(definition.Id + " (Weltkarte)", true, fix, locator);
@@ -1344,7 +1348,7 @@ public sealed partial class MapTrackingService : IDisposable
         if (++_worldMisses < 2)
             return;
         Trace(definition.Id + " (Weltkarte zu)", true, null, locator);
-        CloseWorldMap(null);
+        CloseWorldMap(null, replayFrame);
     }
 
     private const int EmblemCheckMs = 100;
@@ -1363,12 +1367,12 @@ public sealed partial class MapTrackingService : IDisposable
             // Diagnosis 2026-10-22: hundreds of map inliers, then "Symbol weg" on every opening.
             // An unrecognized header is not proof of closure. Full-map matching remains the fallback.
             else if (_worldEmblemSeen && ++_worldEmblemMisses >= 2)
-                CloseWorldMap("Symbol weg");
+                CloseWorldMap("Symbol weg", ReplayCaptureFrame.Current());
         }
     }
 
     /// <summary>Leaves the world-map mode; the small map is searched again from the next frame on.</summary>
-    private void CloseWorldMap(string? reason)
+    private void CloseWorldMap(string? reason, ReplayCaptureFrame? replayFrame = null)
     {
         lock (_flowGate)
         {
@@ -1380,6 +1384,7 @@ public sealed partial class MapTrackingService : IDisposable
             Found = false;
             DetectedMap = null;
         }
+        ObserveOverlayMap(false, null, ContextGeneration, replayFrame);
         if (reason is not null)
             LogFile.Append("map-tracking.log", $"{DateTime.Now:HH:mm:ss} Weltkarte zu ({reason}){Environment.NewLine}");
         PlacementMoved?.Invoke();
@@ -1388,7 +1393,7 @@ public sealed partial class MapTrackingService : IDisposable
 
     private const int MinWorldInliers = 20;
 
-    private void SetWorldPlacement(MapDefinition definition, MapFix fix, Rectangle screen, double worldPerPixel)
+    private void SetWorldPlacement(MapDefinition definition, MapFix fix, Rectangle screen, double worldPerPixel, ReplayCaptureFrame? replayFrame = null)
     {
         lock (_flowGate) InvalidateReplayPosition(ReplayPositionGapReason.SourceInvalidated);
         // The player stays where the small map last saw them, if the world map shows that zone.
@@ -1399,6 +1404,7 @@ public sealed partial class MapTrackingService : IDisposable
         Found = true;
         _inInstance = false;
         DetectedMap = new DetectedMapContext(definition.Id, true, DateTimeOffset.UtcNow) { ContextGeneration = ContextGeneration };
+        ObserveOverlayMap(true, true, ContextGeneration, replayFrame);
         if (Paused) Resume(null);
         PlacementMoved?.Invoke();
         SetStatus($"Weltkarte {definition.Label} offen – Overlay folgt ihr, Position eingefroren · {fix.Inliers} Treffer · Overlay {Fps} fps");

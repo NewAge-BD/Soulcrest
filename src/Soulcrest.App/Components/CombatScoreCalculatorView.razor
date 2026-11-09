@@ -1,0 +1,207 @@
+@implements IDisposable
+@using Soulcrest.Core.Combat
+@using Soulcrest.Core.Daevanion
+@using Soulcrest.App.Network
+@using System.Collections.Immutable
+@using static Soulcrest.App.Components.CombatScoreCalculatorPresentation
+@inject CharacterCombatStateService Character
+
+<section class="cc-calculator" data-combat-score-calculator>
+    <header class="cc-heading"><div><span class="cc-eyebrow">SOULCREST · CHARACTER</span><h2>Combat Score Calculator</h2><p>@UiText.T("Dein Charakter. Seine Quellen. Nachvollziehbare Werte.")</p></div><span class="cc-live @(State.IsFresh ? "known" : "")">@UiText.T(State.IsFresh ? "Eigener Charakter erkannt" : "Warte auf Charakterdaten")</span></header>
+    <div class="cc-hero-grid">
+        <article class="cc-panel cc-native"><span>@UiText.T("Beobachteter Ingame-CP")</span><strong data-native-combat-score>@Number(State.CurrentCombatScore)</strong><small>@ClassName(State.ClassId) · @UiText.F("Level {0}", State.CharacterLevel?.ToString() ?? "—")</small><small>@ObservedAt</small></article>
+        <article class="cc-panel"><span>@UiText.T("Eigener Modellwert")</span><strong data-model-combat-score>@Number(State.Breakdown?.ModelTotal)</strong><small>@UiText.T("Eigenständige Schätzung; keine exakte Spielformel.")</small><small>@UiText.T("Eigene Gewichte und qualifizierte lokale Effektregeln")</small><small data-native-model-difference>@UiText.T("Abweichung Ingame-CP zum Modell"): @(State.Breakdown?.ModelTotal is { } total && State.CurrentCombatScore is { } native ? Number(native - total) : "—")</small></article>
+        <article class="cc-panel"><span>@UiText.T("Bekannter Modellanteil")</span><strong data-known-model-subtotal>@(State.Breakdown is null ? "—" : Number(State.Breakdown.KnownSubtotal))</strong><small>@UiText.T("Unvollständige Quellen bleiben sichtbar und werden nicht als null gewertet.")</small><small>@UiText.F("{0} Statwerte · {1} Skills beobachtet", State.NativeStats.Value?.Count ?? 0, State.Skills.Count)</small></article>
+    </div>
+    <nav class="cc-tabs" aria-label="@UiText.T("Combat-Score-Ansicht")">
+        @foreach (var tab in new[] { "overview", "sources", "stats", "skills" })
+        { <button type="button" class="@(_tab == tab ? "selected" : "")" aria-pressed="@(_tab == tab)" @onclick="@(() => _tab = tab)" data-combat-section="@tab">@UiText.T(tab switch { "overview" => "Übersicht", "sources" => "Quellen", "stats" => "Werte", _ => "Skills" })</button> }
+    </nav>
+    @if (_tab == "overview")
+    {
+        @ModelCompositionSummary()
+        <div class="cc-overview">
+            <section class="cc-panel"><h3>@UiText.T("Datenstand")</h3><dl class="cc-domain-list">
+                <div><dt>@UiText.T("Statdaten")</dt><dd>@Status(State.NativeStats.Status)</dd></div><div><dt>@UiText.T("Skillstufen")</dt><dd>@Status(State.SkillStatus)</dd></div>
+                <div><dt>@UiText.T("Daevanion")</dt><dd>@Status(State.ActivatedBoards.Status)</dd></div><div><dt>@UiText.T("Titel")</dt><dd>@Status(State.Titles.Status)</dd></div>
+                <div><dt>@UiText.T("Ausrüstung")</dt><dd>@Status(State.Equipment.Status)</dd></div><div><dt>@UiText.T("Erfolge")</dt><dd>@Status(State.Achievements.Status)</dd></div>
+                <div><dt>@UiText.T("Pets und Gattung")</dt><dd>@Status(State.Pets.Status)</dd></div>
+            </dl><p class="cc-hint">@UiText.T("Nur bestätigte Daten deines eigenen Charakters werden übernommen. Fehlende Listen oder Felder bedeuten unbekannt.")</p></section>
+            <section class="cc-panel"><h3>@UiText.T("Punktepools")</h3>@PointPools()<p class="cc-hint">@UiText.T("Kapazität ist die belegte Obergrenze, kein Nachweis für bereits erhaltene Punkte.")</p></section>
+        </div>
+        <section class="cc-panel cc-coverage"><h3>@UiText.T("Noch nicht vollständig aufgeschlüsselt")</h3>
+            @if (!State.IsFresh) { <p>@UiText.T("Die Übersicht füllt sich automatisch mit einem passenden eigenen Login- oder Teleport-Snapshot.")</p> }
+            @if (State.MissingRequirements.Count > 0) { <ul>@foreach (var item in State.MissingRequirements.Select(Reason).Distinct()) { <li>@item</li> }</ul> }
+            else if (State.IsFresh && State.Breakdown?.Status == CombatKnowledgeStatus.Complete) { <p>@UiText.T("Für den aktuellen Modellumfang liegen die benötigten Quellen vor.")</p> }
+            @if (State.MissingRequirements.Count > 0) { <details class="cc-technical"><summary>@UiText.T("Herkunftsdetails")</summary>@foreach (var item in State.MissingRequirements) { <p><code>@item</code></p> }</details> }
+        </section>
+    }
+    else if (_tab == "sources")
+    {
+        <p class="cc-explanation">@UiText.T("Verlust ohne Quelle vergleicht das vollständige Modell mit derselben Berechnung ohne diesen Beitrag. Wechselwirkungen und Rundung machen diese Werte nicht addierbar.")</p>
+        <div class="cc-source-grid">
+            @foreach (var kind in Enum.GetValues<CombatSourceKind>().Where(kind => kind != CombatSourceKind.Unknown || State.Breakdown?.Sources.Any(source => source.Kind == kind) == true))
+            {
+                var reports = State.Breakdown?.Sources.Where(source => source.Kind == kind).ToArray() ?? [];
+                <details class="cc-panel cc-source" data-source-kind="@kind"><summary><strong>@SourceKind(kind)</strong><span>@(reports.Length == 0 ? UiText.T("Unbekannt") : UiText.F("{0} Beiträge", reports.Length))</span></summary>
+                    @if (reports.Length == 0) { <p class="cc-hint">@UiText.T("Für diese Quelle liegt noch kein bestätigter anwendbarer Beitrag vor.")</p> }
+                    @foreach (var entry in reports.Select((source, index) => (source, index)))
+                    {
+                        var source = entry.source;
+                        <div class="cc-source-entry" data-source-id="@source.SourceId"><div class="cc-source-title"><strong>@SourceTitle(source, entry.index)</strong><span>@Status(source.Status)</span></div>
+                            <div class="cc-loss"><span>@UiText.T("Verlust ohne Quelle")</span><strong>@Number(source.ModelLoss)</strong></div>
+                            @if (source.Reason is { Length: > 0 } reason) { <p class="cc-hint">@Reason(reason)</p> }
+                            @foreach (var effect in source.Effects) { <div class="cc-effect"><span>@StatName(effect.StatId)</span><strong>@Number(effect.Value)@(effect.Operation == CombatEffectOperation.IncreasePercent ? "%" : "")</strong><small>@Application(effect.Application)</small></div> }
+                            @foreach (var skill in source.Skills) { <div class="cc-effect"><span>@SkillName(skill.SkillId)</span><strong>+@Number(skill.Level)</strong><small>@Application(skill.Application)</small></div> }
+                            @foreach (var stat in source.StatContributions) { <div class="cc-effect"><span>@StatName(stat.StatId)</span><span>@Number(stat.WithoutSource) → @Number(stat.WithSource)</span><strong>@Number(stat.Delta)</strong></div> }
+                            <details class="cc-technical"><summary>@UiText.T("Herkunftsdetails")</summary><code>@source.SourceId</code>@if (source.Reason is { } rawReason) { <p><code>@rawReason</code></p> }@foreach (var effect in source.Effects.Where(effect => effect.RuleId is not null)) { <p><code>@effect.RuleId</code></p> }</details>
+                        </div>
+                    }
+                </details>
+            }
+        </div>
+        @ObservedSources()
+    }
+    else if (_tab == "stats")
+    {
+        @DisplayStatsPanel()
+        <details class="cc-panel cc-stat-details" data-native-stats-details>
+            <summary><strong>@UiText.T("Beobachtete Statdaten")</strong><small>@Status(State.NativeStats.Status)</small></summary>
+            <p class="cc-hint">@UiText.T("Die Werte sind beobachtete Rohdaten und können Einzelkomponenten sein. Ihre Zuordnung zu angezeigten Ingame-Gesamtwerten und ihre Skalierung sind noch nicht bestätigt. Der Datenstatus beschreibt die Vollständigkeit der empfangenen Nachricht.")</p>
+            <div class="cc-table-wrap"><table><thead><tr><th>@UiText.T("Stat-ID")</th><th>@UiText.T("Rohwert")</th></tr></thead><tbody>
+                @foreach (var stat in (State.NativeStats.Value ?? ImmutableDictionary<ushort, int>.Empty).OrderBy(row => row.Key))
+                {
+                    <tr data-native-stat="@stat.Key"><th>@stat.Key</th><td data-native-stat-raw>@stat.Value</td></tr>
+                }
+            </tbody></table></div>
+            @if (State.NativeStats.Value is null) { <p>@UiText.T("Noch keine eigenen Statdaten empfangen.")</p> }
+        </details>
+        <details class="cc-panel cc-stat-details cc-model-details" data-model-stats-details>
+        <summary><strong>@UiText.T("Eigenes Modell und Rechenwege")</strong><small>@UiText.T("Eigenständige Schätzung")</small></summary>
+        @ModelCompositionSummary()
+        <section class="cc-panel cc-composition"><h3>@UiText.T("Statwerte und ihr Modellbeitrag")</h3>
+            <p class="cc-hint">@UiText.T("Jeder bekannte Statwert wird einmal gewichtet. Primärattribute und Prozent-Zwischenwerte wirken über die daraus abgeleiteten Stats; sie erhalten keinen zusätzlichen direkten CP-Beitrag. Ein fehlendes Gewicht ist unbekannt.")</p>
+            <div class="cc-table-wrap"><table><thead><tr><th>@UiText.T("Wert")</th><th>@UiText.T("Abgeleiteter Wert")</th><th>@UiText.T("Modellgewicht")</th><th>@UiText.T("Modell-CP (ungerundet)")</th><th>@UiText.T("Rechenregel")</th></tr></thead><tbody>
+                @foreach (var term in State.Breakdown?.Composition.Stats ?? [])
+                {
+                    <tr data-score-stat="@term.StatId" class="@(term.IsIntermediate ? "cc-intermediate" : "")"><th>@StatName(term.StatId)</th><td data-score-value>@ExactNumber(term.Value)@(term.Unit == CombatStatUnit.Percent ? "%" : "")</td><td data-score-weight>@ExactNumber(term.Coefficient)</td><td data-score-contribution>@ExactNumber(term.Contribution)</td><td>@ScoreTermExplanation(term)</td></tr>
+                }
+            </tbody></table></div>
+        </section>
+        <section class="cc-panel cc-composition"><h3>@UiText.T("Skills und ihr Modellbeitrag")</h3><p class="cc-hint">@UiText.T("Die Skillbewertung erfasst die gesamte qualifizierte Skillstufe einmal. Passive Statwirkungen stehen zusätzlich bei den abgeleiteten Statwerten.")</p>
+            <div class="cc-table-wrap"><table><thead><tr><th>Skill</th><th>@UiText.T("Art")</th><th>@UiText.T("Modellstufe")</th><th>@UiText.T("Modell-CP (ungerundet)")</th></tr></thead><tbody>
+                @foreach (var term in State.Breakdown?.Composition.Skills ?? [])
+                {
+                    <tr data-score-skill="@term.SkillId"><th>@SkillName(term.SkillId)</th><td>@UiText.T(term.Kind == DaevanionSkillKind.Active ? "Aktiv" : "Passiv")</td><td>@Number(term.Level)</td><td data-score-contribution>@ExactNumber(term.Contribution)</td></tr>
+                }
+            </tbody></table></div>
+        </section>
+        <section class="cc-panel"><h3>@UiText.T("Rechenweg der Statwerte")</h3><div class="cc-table-wrap"><table><thead><tr><th>@UiText.T("Wert")</th><th>@UiText.T("Flache Beiträge")</th><th>@UiText.T("Verstärkung (%)")</th><th>@UiText.T("Abgeleiteter Wert")</th><th>@UiText.T("Status")</th></tr></thead><tbody>
+            @foreach (var stat in State.Breakdown?.Stats ?? []) { <tr data-derived-stat="@stat.StatId"><th>@StatName(stat.StatId)</th><td>@Number(stat.Flat)</td><td>@Number(stat.IncreasePercent)</td><td>@Number(stat.Value)</td><td>@Status(stat.Status)</td></tr> }
+        </tbody></table></div></section>
+        </details>
+    }
+    else
+    {
+        <section class="cc-panel"><h3>@UiText.T("Eigene Skillstufen") <small>@Status(State.SkillStatus)</small></h3><p class="cc-hint">@UiText.T("Gesamtstufe und Bonusanteile sind getrennte Beobachtungen. Fehlende Komponenten bleiben unbekannt; Original ist nicht Gesamt minus Daevanion.")</p>
+            <div class="cc-table-wrap"><table><thead><tr><th>Skill</th><th>@UiText.T("Gesamt")</th><th>@UiText.T("Original")</th><th>Daevanion</th><th>@UiText.T("Ausrüstung")</th><th>Arcana</th><th>@UiText.T("Zustandseffekte")</th><th>@UiText.T("Fest")</th><th>@UiText.T("Modell")</th></tr></thead><tbody>
+                @foreach (var skill in State.Skills.Values.OrderBy(skill => SkillName(skill.SkillId), StringComparer.CurrentCulture))
+                { <tr data-observed-skill="@skill.SkillId"><th>@SkillName(skill.SkillId)</th><td>@skill.TotalLevel</td><td>@skill.OriginalLevel</td><td>@Number(skill.AdditionalLevels?.Daevanion)</td><td>@Number(skill.AdditionalLevels?.Equipment)</td><td>@Number(skill.AdditionalLevels?.Arcana)</td><td>@Number(skill.AdditionalLevels?.Abnormal)</td><td>@Number(skill.AdditionalLevels?.Fixed)</td><td>@Number(State.Breakdown?.Skills.FirstOrDefault(row => row.SkillId == skill.SkillId)?.Level)</td></tr> }
+            </tbody></table></div>
+            @if (State.Skills.Count == 0) { <p>@UiText.T("Noch keine vollständige eigene Skillliste empfangen.")</p> }
+        </section>
+    }
+    @if (_tab == "skills" && State.Breakdown is { } details)
+    {
+        <section class="cc-panel"><h3>@UiText.T("Ableitungen passiver Skills")</h3><p class="cc-hint">@UiText.T("Eine bekannte Effektkurve belegt noch nicht ihre Anwendung. Ungeklärte Wirkungen bleiben unbekannt.")</p><div class="cc-table-wrap"><table><thead><tr><th>Skill</th><th>@UiText.T("Wert")</th><th>@UiText.T("Beitrag")</th><th>@UiText.T("Status")</th></tr></thead><tbody>@foreach (var passive in details.Passives) { <tr><th>@SkillName(passive.SkillId)</th><td>@(passive.Effect is { } effect ? StatName(effect.StatId) : "—")</td><td>@Number(passive.Effect?.Value)</td><td>@Status(passive.Status)</td></tr> }</tbody></table></div></section>
+    }
+    <footer class="cc-footer"><span>@UiText.T("Lokale Auswertung · keine Profilabfrage und keine zusätzlichen Spielanfragen")</span></footer>
+</section>
+
+@code {
+    private CharacterCombatSnapshot State = CharacterCombatSnapshot.Empty;
+    private string _tab = "overview";
+    private bool _disposed;
+    private string ObservedAt => State.ObservedAt is { } at ? at.ToLocalTime().ToString("g", System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US")) : UiText.T("Noch kein eigener Snapshot");
+    protected override void OnInitialized() { State = Character.Snapshot; Character.Changed += Refresh; }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) { State = Character.Snapshot; StateHasChanged(); } }); }
+    private RenderFragment DisplayStatsPanel() => @<section class="cc-display-stats" data-display-stats-count="@State.DisplayStats.Rows.Count" data-display-generation="@State.DisplayStats.Generation" data-display-version="@State.DisplayStats.Version" data-display-status="@State.DisplayStats.Status">
+        @{ var counts = CountDisplayStats(State.DisplayStats.Rows); }
+        <div class="cc-display-heading">
+            <div><h3>@UiText.T("Charakterwerte")</h3><p class="cc-hint">@UiText.T("Automatisch aus deinem eigenen Netzwerkstand. Direkte Beobachtungen und abgeleitete Werte tragen ihren jeweiligen Belegstatus; fehlende Eingaben bleiben unbekannt.")</p><p class="cc-hint">@UiText.T("Die Ansicht umfasst die bislang belegten Zuordnungen. Weitere empfangene Werte findest du im Rohdatenbereich. Fehlende Felder werden nicht als 0 ergänzt.")</p></div>
+            <div class="cc-display-counts" aria-live="polite">
+                <span data-display-known-count="@counts.Known">@UiText.F("{0} von {1} zugeordneten Werten aktuell", counts.Known, counts.Total)</span>
+                <span data-display-missing-count="@counts.Missing">@UiText.F("{0} fehlen", counts.Missing)</span>
+                @if (counts.Stale > 0) { <span class="stale" data-display-stale-count="@counts.Stale">@UiText.F("{0} veraltet", counts.Stale)</span> }
+                @if (counts.Unqualified > 0) { <span data-display-unqualified-count="@counts.Unqualified">@UiText.F(counts.Unqualified == 1 ? "{0} Zuordnung ungeklärt" : "{0} Zuordnungen ungeklärt", counts.Unqualified)</span> }
+                @if (counts.Conflicts > 0) { <span class="conflict" data-display-conflict-count="@counts.Conflicts">@UiText.F("{0} Abweichungen", counts.Conflicts)</span> }
+            </div>
+        </div>
+        <div class="cc-display-groups">
+            @foreach (var category in Enum.GetValues<CharacterDisplayStatCategory>())
+            {
+                var rows = State.DisplayStats.Rows.Where(row => row.Category == category).ToArray();
+                <section class="cc-panel cc-display-group" data-display-category="@category" data-display-category-count="@rows.Length">
+                    <h3>@DisplayCategory(category)<small>@UiText.F("{0} Werte", rows.Length)</small></h3>
+                    @if (rows.Length == 0) { <p class="cc-hint cc-display-empty">@UiText.T("Für diese Kategorie liegt noch keine qualifizierte Zuordnung vor.")</p> }
+                    else
+                    {
+                        <div class="cc-display-list"><table class="cc-display-table"><thead><tr><th>@UiText.T("Wert")</th><th>@UiText.T("Aktueller Wert")</th><th>@UiText.T("Beleg und Stand")</th></tr></thead><tbody>
+                            @foreach (var row in rows)
+                            {
+                                <tr class="cc-display-row @DisplayStatStateClass(row)" data-display-stat="@row.Id" data-display-value="@DisplayMachineValue(row.Value)" data-display-unrounded="@DisplayMachineValue(row.UnroundedValue)" data-display-status="@row.Status" data-display-qualification="@row.Qualification" data-display-stat-at="@(row.ObservedAt?.ToString("O", System.Globalization.CultureInfo.InvariantCulture) ?? "")">
+                                    <th scope="row">@DisplayStatLabel(row)
+                                        <details class="cc-display-proof"><summary>@UiText.T("Beleg und Rechenweg")</summary>
+                                            @if (!string.IsNullOrWhiteSpace(row.Formula)) { <code>@row.Formula</code> }
+                                            @if (row.UnroundedValue is { } unrounded && unrounded != row.Value) { <p>@UiText.T("Vor Rundung"): @ExactNumber(unrounded)</p> }
+                                            @if (row.ForwardValue is not null) { <p>@UiText.T("Vorwärtsrechnung"): <strong data-display-forward-value="@DisplayMachineValue(row.ForwardValue)">@ExactNumber(row.ForwardValue)@(row.Unit == CombatStatUnit.Percent ? " %" : "")</strong> · @Status(row.ForwardStatus)</p> }
+                                            @if (row.MissingInputIds.Count > 0) { <p>@UiText.T("Fehlende Stat-IDs"): @string.Join(", ", row.MissingInputIds)</p> }
+                                            @if (row.Inputs.Count > 0) { <dl>@foreach (var input in row.Inputs) { <div><dt>@UiText.F("Stat {0}", input.NativeId)<small> · @DisplayInputRole(input.Role)</small></dt><dd>@Number(input.RawValue) <small>× @ExactNumber(input.Coefficient)</small></dd></div> }</dl> }
+                                            @if (row.ObservedAt is { } observed) { <p>@UiText.F("Stand: {0}", observed.ToLocalTime().ToString("g", System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US")))</p> }
+                                            @if (!string.IsNullOrWhiteSpace(row.RuleId)) { <p><code>@row.RuleId</code></p> }
+                                            @if (!string.IsNullOrWhiteSpace(row.Source)) { <p><code>@row.Source</code></p> }
+                                            @if (!string.IsNullOrWhiteSpace(row.Reason)) { <p><code>@row.Reason</code></p> }
+                                            @if (!string.IsNullOrWhiteSpace(row.ForwardReason) && row.ForwardReason != row.Reason) { <p><code>@row.ForwardReason</code></p> }
+                                            @foreach (var evidence in row.Evidence) { <p><code>@evidence</code></p> }
+                                        </details>
+                                    </th>
+                                    <td class="cc-display-value" data-display-stat-value>@DisplayStatValue(row)</td>
+                                    <td class="cc-display-state"><span class="cc-display-badge">@DisplayQualification(row.Qualification)</span><small>@DisplayStatStatus(row)</small>
+                                        @if (row.ComparisonStatus == CombatKnowledgeStatus.Conflict) { <span class="cc-display-conflict" data-display-comparison="Conflict">@UiText.T("Vorwärtsrechnung weicht ab")</span> }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody></table></div>
+                    }
+                </section>
+            }
+        </div>
+    </section>;
+    private RenderFragment ModelCompositionSummary() => @<section class="cc-panel cc-composition-summary" data-score-composition>
+        <h3>@UiText.T("So entsteht der Modellwert")</h3>
+        <p class="cc-hint">@UiText.T("Die genaue Ingame-Formel ist weiterhin unbekannt. Diese Aufschlüsselung erklärt ausschließlich das eigene Modell; der beobachtete Ingame-CP bleibt ein eigener Messwert.")</p>
+        <div class="cc-model-formula">@UiText.T("Summe (Statwert × Gewicht) + Summe (Skillwertung) → einmal runden")</div>
+        <dl class="cc-score-sums">
+            <div><dt>@UiText.T("Bekannte Statbeiträge")</dt><dd data-score-stat-subtotal>@ExactNumber(State.Breakdown?.Composition.KnownStatSubtotal)</dd></div>
+            <div><dt>@UiText.T("Bekannte Skillbeiträge")</dt><dd data-score-skill-subtotal>@ExactNumber(State.Breakdown?.Composition.KnownSkillSubtotal)</dd></div>
+            <div><dt>@UiText.T("Bekannte Summe, ungerundet")</dt><dd data-score-unrounded>@ExactNumber(State.Breakdown?.Composition.UnroundedSubtotal)</dd></div>
+            <div><dt>@UiText.T("Einmalige Rundung")</dt><dd data-score-rounding>@ExactNumber(State.Breakdown?.Composition.RoundingAdjustment)</dd></div>
+            <div class="cc-score-result"><dt>@UiText.T("Bekannter Modellanteil")</dt><dd data-score-rounded>@ExactNumber(State.Breakdown?.Composition.RoundedSubtotal)</dd></div>
+        </dl>
+        <p class="cc-hint">@UiText.T("Rundung: floor(Summe + 0,5). Einzelbeiträge bleiben ungerundet.")</p>
+        @if (State.Breakdown?.Composition.IsComplete != true) { <p class="cc-incomplete" data-score-incomplete>@UiText.T("Unvollständige Aufschlüsselung: Unbekannte Quellen, Werte oder Gewichte sind nicht als 0 enthalten. Eine vollständige Modellsumme ist noch nicht verfügbar.")</p> }
+        @if (_tab == "overview") { <button type="button" class="cc-details-button" @onclick="@(() => _tab = "stats")">@UiText.T("Alle Modellbestandteile ansehen")</button> }
+    </section>;
+    private RenderFragment PointPools() => @<div class="cc-pool-grid">@foreach (var pool in Pools) { <div class="cc-pool" data-point-pool="@pool.Pool"><strong>@PoolName(pool.Pool)</strong><dl><div><dt>@UiText.T("Frei")</dt><dd>@Number(pool.Free)</dd></div><div><dt>@UiText.T("Verteilt")</dt><dd>@Number(pool.Spent)</dd></div><div><dt>@UiText.T("Erhalten")</dt><dd>@Number(pool.Total)</dd></div><div><dt>@UiText.T("Bonus (beobachtet)")</dt><dd>@Number(pool.Bonus)</dd></div><div><dt>@UiText.T("Kapazität")</dt><dd>@Number(pool.Capacity)</dd></div></dl><small>@Status(pool.Status)</small>@if (pool.Source == CharacterCombatStateService.DerivedPointBudgetSource) { <small data-derived-point-budget>@UiText.T("Abgeleitet aus Levelbasis, Bonus und verteilten Punkten")</small> }</div> }</div>;
+    private IReadOnlyList<CharacterCombatPointPoolSnapshot> Pools => State.PointPools.Count > 0 ? State.PointPools : Enum.GetValues<DaevanionBudgetPool>().Select(pool => new CharacterCombatPointPoolSnapshot(pool)).ToArray();
+    private RenderFragment ObservedSources() => @<section class="cc-panel cc-observed-sources"><h3>@UiText.T("Beobachtete Quellen im Detail")</h3>
+        <details><summary>@UiText.T("Titel") · @Status(State.Titles.Status)</summary>@if (State.Titles.Value is { } titles) { <p>@UiText.F("{0} Titel im Besitz", titles.OwnedTitleIds.Count)</p><dl>@foreach (var slot in titles.EquippedByCategory.OrderBy(row => row.Key)) { <div><dt>@UiText.F("Titelslot {0}", slot.Key)</dt><dd>@slot.Value</dd></div> }</dl><p class="cc-id-list">@string.Join(" · ", titles.OwnedTitleIds.Order())</p> }</details>
+        <details><summary>@UiText.T("Ausrüstung und Seelenbindungen") · @Status(State.Equipment.Status)</summary>@if (State.Equipment.Value is { } equipment) { @foreach (var item in equipment.Items.OrderBy(item => item.Detail.EquipSlot)) { <div class="cc-equipment"><strong>@ItemName(item.ItemId)</strong><small> · @UiText.F("Slot {0} · Item {1}", item.Detail.EquipSlot, item.ItemId)</small><p>@UiText.F("Verzauberung +{0} · Durchbruch +{1} · Seelenbindungen {2}", item.Detail.EnchantLevel, item.Detail.SurpassEnchantLevel, item.Detail.SoulBindCount)</p>@foreach (var stat in item.Detail.SubStats.Concat(item.Detail.AdditionalSubStats).Concat(item.Detail.SoulAdditionalSubStats)) { <span class="cc-raw-chip">@UiText.F("Stat {0}", stat.StatType): @stat.Value</span> }<p>@UiText.F("{0} Manasteine · {1} Gottsteine", item.Detail.Magicstones.Length, item.Detail.Godstones.Length)</p></div> } }</details>
+        <details><summary>@UiText.T("Erfolge") · @Status(State.Achievements.Status)</summary>@if (State.Achievements.Value is { } achievements) { <p>@UiText.F("{0} Erfolgsstände empfangen", achievements.Achievements.Count)</p><div class="cc-table-wrap"><table><thead><tr><th>ID</th><th>@UiText.T("Fortschritt")</th><th>@UiText.T("Belohnte Stufe")</th></tr></thead><tbody>@foreach (var item in achievements.Achievements.OrderBy(row => row.Key)) { <tr><th>@item.Key</th><td>@item.Value.Count</td><td>@item.Value.RewardedStep</td></tr> }</tbody></table></div> }</details>
+        <details><summary>@UiText.T("Aktivierte Daevanion-Nodes") · @Status(State.ActivatedBoards.Status)</summary>@if (State.ActivatedBoards.Value is { } boards) { @foreach (var board in boards.Boards.OrderBy(row => row.Key)) { <p><strong>@(DaevanionRuleCatalog.Default.GetBoardRules(board.Key)?.Board.Name.For(UiText.Language) ?? board.Key.ToString())</strong> · @string.Join(" · ", board.Value.Order())</p> }<p class="cc-hint">@UiText.T("Nicht aufgeführte Boards bleiben unbekannt.")</p> }</details>
+        <details><summary>@UiText.T("Gattungsverständnis") · @Status(State.Pets.Status)</summary>@if (State.Pets.Value is { } genus) { <p>@UiText.F("Ausgewähltes Panel: {0}", genus.SelectedGenusPanel?.ToString() ?? "—")</p>@foreach (var board in genus.GenusBoards.OrderBy(row => row.Key)) { <h4>@UiText.F("Gattung {0} · Level {1}", board.Key, board.Value.Level)</h4>@foreach (var panel in board.Value.Panels.OrderBy(row => row.Key)) { <p>@UiText.F("Panel {0}", panel.Key)</p><div class="cc-table-wrap"><table><thead><tr><th>Slot</th><th>@UiText.T("Wert")</th><th>@UiText.T("Rohwert")</th><th>@UiText.T("Aktiviert")</th><th>@UiText.T("Gesperrt")</th></tr></thead><tbody>@foreach (var slot in panel.Value) { <tr><td>@slot.Slot</td><td>@UiText.F("Stat {0}", slot.StatType)</td><td>@slot.Value</td><td>@UiText.T(slot.IsActivated ? "Ja" : "Nein")</td><td>@UiText.T(slot.IsLocked ? "Ja" : "Nein")</td></tr> }</tbody></table></div> } } }</details>
+        <details><summary>@UiText.T("Aktuelle Zustandseffekte") · @Status(State.Abnormals.Status)</summary>@if (State.Abnormals.Value is { } abnormals) { <div class="cc-table-wrap"><table><thead><tr><th>ID</th><th>@UiText.T("Stufe")</th><th>@UiText.T("Entfernung vorgemerkt")</th></tr></thead><tbody>@foreach (var effect in abnormals.Abnormals.OrderBy(row => row.AbnormalId)) { <tr><td>@effect.AbnormalId</td><td>@effect.Level</td><td>@UiText.T(effect.ReadyToRemove ? "Ja" : "Nein")</td></tr> }</tbody></table></div> }</details>
+        <details><summary>@UiText.T("Pet-Besitz") · @Status(State.Pets.Status)</summary>@if (State.Pets.Value is { } pets) { <div class="cc-table-wrap"><table><thead><tr><th>Pet</th><th>@UiText.T("Stufe")</th><th>Souls</th></tr></thead><tbody>@foreach (var pet in pets.Levels.OrderBy(row => row.Key)) { <tr><th>@PetName(pet.Key)</th><td>@pet.Value</td><td>@(pets.AvailableSouls.TryGetValue(pet.Key, out var souls) ? souls.ToString() : "—")</td></tr> }</tbody></table></div> }</details>
+    </section>;
+    public void Dispose() { _disposed = true; Character.Changed -= Refresh; }
+}

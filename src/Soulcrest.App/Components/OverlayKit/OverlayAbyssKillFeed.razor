@@ -1,0 +1,58 @@
+@inherits KitLocalizedComponentBase
+@using Soulcrest.App.Overlay
+@using Soulcrest.Core.Daevanion
+
+<div class="overlay-abyss-killfeed" style="@FeedStyle" data-killfeed-rows="@Entries.Count">
+    @if (Entries.Count == 0)
+    {
+        <div class="overlay-widget-empty" data-overlay-fit>@T("Keine Killfeed-Einträge")</div>
+    }
+    else
+    {
+        @foreach (var entry in Entries)
+        {
+            var estimated = entry.Kind == AbyssKillFeedKind.Assist && entry.IsEstimated;
+            var classAsset = Widget.ShowIcon ? AbyssOpponentIconAssets.ClassAsset(entry.OpponentClassId) : null;
+            var rankAsset = Widget.ShowIcon ? AbyssOpponentIconAssets.RankAsset(entry.OpponentAbyssRankGrade) : null;
+            <div class="overlay-abyss-killfeed-row kind-@entry.Kind.ToString().ToLowerInvariant() @(estimated ? "is-estimated" : "")"
+                 data-killfeed-kind="@entry.Kind" @key="(entry.Generation, entry.Sequence, entry.At, entry.Kind, entry.OpponentName)">
+                <OverlayAbyssRankBackground Grade="entry.OpponentAbyssRankGrade" AnimationsEnabled="Snapshot.ItemAnimationsEnabled" ClockUtcNow="Snapshot.ClockUtcNow" />
+                <span class="overlay-abyss-killfeed-result">
+                    <span class="overlay-abyss-killfeed-result-label" data-overlay-fit>@Result(entry.Kind)</span>
+                    @if (estimated) { <span class="overlay-abyss-killfeed-estimated" data-overlay-fit>@T("geschätzt")</span> }
+                </span>
+                <time class="overlay-abyss-killfeed-time" datetime="@entry.At.ToString("O", CultureInfo.InvariantCulture)" data-overlay-fit>@entry.At.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture)</time>
+                <span class="overlay-abyss-killfeed-opponent">
+                    @if (classAsset is not null)
+                    {
+                        <AssetImage Src="@classAsset" Alt="@ClassName(entry.OpponentClassId)" Class="overlay-abyss-killfeed-icon" />
+                    }
+                    @if (rankAsset is not null)
+                    {
+                        <AssetImage Src="@rankAsset" Alt="@RankName(rankAsset)" Class="overlay-abyss-killfeed-icon" />
+                    }
+                    <span class="overlay-abyss-killfeed-name">@AbyssRankOverlayRenderer.OpponentLabel(entry.OpponentName)</span>
+                </span>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public OverlaySnapshot Snapshot { get; set; } = new();
+    [Parameter, EditorRequired] public OverlayWidget Widget { get; set; } = new();
+    private IReadOnlyList<AbyssKillFeedEntry> Entries { get; set; } = [];
+
+    protected override void OnParametersSet() => Entries = Snapshot.Abyss is
+        { CharacterBound: true, WorldContextVisible: true, ProfileId.Length: > 0, BindingGeneration: > 0 }
+        ? AbyssRankOverlayRenderer.KillFeedEntries(Snapshot.Abyss)
+            .Take(Math.Clamp(Widget.KillFeedRows, 1, AbyssRankOverlayRenderer.MaximumKillFeedEntries)).ToArray() : [];
+
+    private string Result(AbyssKillFeedKind kind) => T(kind switch
+    {
+        AbyssKillFeedKind.Kill => "Kill", AbyssKillFeedKind.Assist => "Assist", _ => "Tod"
+    });
+    private string ClassName(string? id) => DaevanionCatalog.Default.Classes.FirstOrDefault(item => item.Id == id)?.Name.For(Snapshot.NameLanguage) ?? "";
+    private string RankName(string asset) => AbyssRankCatalog.Default.Stages.FirstOrDefault(stage => stage.IconAsset == asset)?.Name(Snapshot.NameLanguage) ?? "";
+    private string FeedStyle => "--killfeed-font-scale:" + (double.IsFinite(Widget.FontScale) ? Math.Clamp(Widget.FontScale, .7, 2) : 1).ToString("0.######", CultureInfo.InvariantCulture);
+}

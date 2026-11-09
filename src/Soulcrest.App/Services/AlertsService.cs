@@ -342,10 +342,13 @@ public sealed class AlertsService : IDisposable
                 var window = timer.Window;
                 if (!window.IsActive && !presentation.AlwaysShowOverlay &&
                     window.StartsAt - now > TimeSpan.FromMinutes(presentation.OverlayLeadMinutes)) continue;
-                var at = window.Phase == EventWindowPhase.PortalOpen ? window.PortalEndsAt!.Value :
-                    window.IsActive ? window.EndsAt : window.StartsAt;
-                var label = window.Phase == EventWindowPhase.PortalOpen ? "Portal schließt in" :
-                    window.IsActive ? "Endet in" : "Startet in";
+                // Only Invasion shares the next-start display override. Keep the
+                // legacy phase targets of every other event unchanged.
+                var display = definition.Id == "invasion" ? EventTimerDisplay.From(timer) : null;
+                var at = display?.CountdownAt ?? (window.Phase == EventWindowPhase.PortalOpen ? window.PortalEndsAt!.Value :
+                    window.IsActive ? window.EndsAt : window.StartsAt);
+                var label = display?.CountdownLabel ?? (window.Phase == EventWindowPhase.PortalOpen ? "Portal schließt in" :
+                    window.IsActive ? "Endet in" : "Startet in");
                 var owner = "event:" + EventCatalog.ReminderId(definition.Id);
                 rows[owner] = new(owner, UiText.T(definition.Title), "", definition.Color, at,
                     window.IsActive, CountdownLabel: UiText.T(label));
@@ -585,11 +588,11 @@ public sealed class AlertsService : IDisposable
                     }
                     if (keys.Add(key)) receipts.Add(new(key, now));
                     if (!deliver) continue;
-                    // The source already passed the full-list/clock or verified-calendar policy.
+                    // The source passed the live, saved-future-deadline or verified-calendar policy.
                     // Map changes and later gaps do not revoke a notification that was validly created.
                     if (!(_settings.Current.BossAlertIds ?? []).Contains(bossKey, StringComparer.Ordinal)) continue;
                     var presentation = BossPresentation(bossKey);
-                    generated.Add((new(key, BossName(source.Boss), "", "#ef4444", now, source.Expires,
+                    generated.Add((new(key, BossName(source.Boss), source.Cached ? UiText.T("Vorwarnung aus gespeichertem Boss-Timer.") : "", "#ef4444", now, source.Expires,
                         source.PlannedAt ?? SafeAdd(now, source.Remaining), presentation.PlaySound, presentation.Sound,
                         true, // Boss reminders always produce their own banner, independently of timer-HUD windows.
                         SoundFile: presentation.SoundFile),

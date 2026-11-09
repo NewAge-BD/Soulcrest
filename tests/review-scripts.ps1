@@ -12,11 +12,14 @@ foreach ($name in @('Test-Tester', 'Quote')) {
 }
 $Logs = Join-Path $env:TEMP 'soulcrest-script-test'
 $original = $env:SOULCREST_DATA
+$originalDebugPort = $env:SOULCREST_WEBVIEW_DEBUG_PORT
 try {
     $env:SOULCREST_DATA = 'sentinel-user-profile'
+    $env:SOULCREST_WEBVIEW_DEBUG_PORT = '9555'
     $script:seen = @()
     function Test-TesterIsolated($Path, $SmokeData) {
         if ($env:SOULCREST_DATA -ne $SmokeData -or $SmokeData -eq 'sentinel-user-profile') { throw 'Smoke profile not isolated' }
+        if ($env:SOULCREST_WEBVIEW_DEBUG_PORT) { throw 'Smoke debug port not isolated' }
         $script:seen += $SmokeData
         return 'ok'
     }
@@ -24,10 +27,12 @@ try {
     if ((Test-Tester 'unused.exe') -ne 'ok') { throw 'Smoke result lost' }
     if ($seen[0] -eq $seen[1]) { throw 'Smoke directory reused' }
     if ($env:SOULCREST_DATA -ne 'sentinel-user-profile') { throw 'Environment not restored' }
+    if ($env:SOULCREST_WEBVIEW_DEBUG_PORT -ne '9555') { throw 'Debug environment not restored' }
     function Test-TesterIsolated($Path, $SmokeData) { throw 'simulated failure' }
     try { Test-Tester 'unused.exe' } catch { if ($_.Exception.Message -ne 'simulated failure') { throw } }
     if ($env:SOULCREST_DATA -ne 'sentinel-user-profile') { throw 'Environment not restored after failure' }
-} finally { $env:SOULCREST_DATA = $original }
+    if ($env:SOULCREST_WEBVIEW_DEBUG_PORT -ne '9555') { throw 'Debug environment not restored after failure' }
+} finally { $env:SOULCREST_DATA = $original; $env:SOULCREST_WEBVIEW_DEBUG_PORT = $originalDebugPort }
 
 $assignment = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$arguments' }, $true)
 $Source = 'G:\a custom repository\Pet Companion'
@@ -50,3 +55,6 @@ $prefix = $recorder.Substring(0, $recorder.IndexOf('New-Item -ItemType Directory
 . ([scriptblock]::Create($prefix))
 if ($device -ne '\Device\NPF_Loopback' -or $filter -ne 'tcp and (port 5000)') { throw 'Wrong relay capture target' }
 Write-Output 'PASS: PS5.1 syntax/ASCII, isolated smoke success/failure, Source forwarding, relay-only discovery.'
+
+& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'review-debug-tester.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Debug tester regression failure' }

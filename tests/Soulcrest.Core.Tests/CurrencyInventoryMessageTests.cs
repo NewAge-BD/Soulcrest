@@ -347,6 +347,23 @@ public sealed class CurrencyInventoryMessageTests
         Assert.Empty(list.Items);
     }
 
+    [Fact]
+    public void EquipmentDetailsExposeEveryStatAndSkillComponentWithoutBindingOrMakerIdentity()
+    {
+        using var packet = new Packet(0x5611);
+        packet.U16(528); packet.V(1); packet.Item(91, 1234, 1, container: 11, equipment: true); packet.Tail();
+        var item = Assert.Single(Assert.IsType<CurrencyInventoryList>(CurrencyInventoryMessage.TryParseList(packet.Bytes)).AllItems);
+        var detail = Assert.IsType<CharacterEquipmentDetail>(item.Equipment);
+        Assert.Equal(9, detail.EnchantLevel); Assert.Equal(3, detail.SurpassEnchantLevel);
+        Assert.Equal(100, detail.ItemLevel); Assert.Equal(4, detail.EquipSlot); Assert.Equal(1, detail.SoulBindCount);
+        Assert.Equal(2, detail.Magicstones.Length); Assert.Equal([41, 42], detail.Godstones.ToArray());
+        Assert.Equal(new CharacterStatValue(1, 111), detail.ArcanaMainStats[0]);
+        Assert.Equal(new CharacterStatValue(2, 222), detail.SoulAdditionalSubStats[1]);
+        Assert.Equal(new CharacterSkillBonus(444, 2), detail.SoulAdditionalSubSkills[1]);
+        var json = System.Text.Json.JsonSerializer.Serialize(detail);
+        Assert.DoesNotContain("Dbid", json); Assert.DoesNotContain("maker", json, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static byte[] Change(int id = 930100031, long count = 100, byte kind = 1, byte container = 1)
     {
         using var packet = new Packet(0x561B);

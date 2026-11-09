@@ -120,6 +120,35 @@ public sealed class OverlayHotkeyTests : IDisposable
         Assert.True(current.BossOverlayEnabled); // preserve the boss list and alert configuration
     }
 
+    [Theory]
+    [InlineData("farm-loot")]
+    [InlineData("abyss-rank")]
+    public void SavedRetiredHudShortcutsCannotRegisterOrToggleButKeepLegacyLayoutFields(string family)
+    {
+        JsonFile.Save(AppPaths.SettingsFile, new AppSettings
+        {
+            LootOverlayEnabled = true, AbyssRankOverlayEnabled = true,
+            LootOverlayX = -1200, LootOverlayY = 80, LootOverlayScale = 1.4,
+            AbyssRankOverlayX = -900, AbyssRankOverlayY = 120, AbyssRankOverlayScale = 1.2,
+            OverlayHotkeys = new() { [family + ".toggle"] = new(0x78, 0), [family + ".unlock"] = new(0x79, 0) },
+        });
+        var before = File.ReadAllBytes(AppPaths.SettingsFile);
+        var settings = new SettingsService();
+        var native = new FakeRegistrar();
+        using var service = new OverlayHotkeyService(settings, native);
+        service.SetWindow(123);
+        Assert.Empty(native.Active);
+        Assert.DoesNotContain(OverlayHotkeys.Actions, action => action.Id.StartsWith(family + ".", StringComparison.Ordinal));
+        Assert.False(OverlayHotkeys.ToggleVisibility(settings.Current, family + ".toggle"));
+        Assert.False(OverlayHotkeys.IsVisible(settings.Current, family + ".toggle"));
+        Assert.NotNull(service.Assign(family + ".toggle", new(0x78, 0)));
+        Assert.True(settings.Current.LootOverlayEnabled);
+        Assert.True(settings.Current.AbyssRankOverlayEnabled);
+        Assert.Equal((-1200, 80, 1.4), (settings.Current.LootOverlayX, settings.Current.LootOverlayY, settings.Current.LootOverlayScale));
+        Assert.Equal((-900, 120, 1.2), (settings.Current.AbyssRankOverlayX, settings.Current.AbyssRankOverlayY, settings.Current.AbyssRankOverlayScale));
+        Assert.Equal(before, File.ReadAllBytes(AppPaths.SettingsFile));
+    }
+
     [Fact]
     public void InvalidSavedBindingsCannotBlockTheEntireHotkeyService()
     {

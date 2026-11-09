@@ -12,8 +12,7 @@ public static class OverlayRegistry
     public static IReadOnlyList<OverlayDescriptor> All { get; } = Array.AsReadOnly(new[]
     {
         new OverlayDescriptor("loot", "Pet-Fortschritt", true, .6, 2.5),
-        new OverlayDescriptor("farm-loot", "Loot-Overlay", true, .6, 2),
-        new OverlayDescriptor("abyss-rank", "Abyss Rank Tracker", true, .6, 2),
+        new OverlayDescriptor("achievements", "Achievement Tracker", true, .6, 2.5),
         new OverlayDescriptor("boss", "Boss-Spawns", true, .6, 2),
         new OverlayDescriptor("leveling", "Leveling", true, .7, 1.6),
         new OverlayDescriptor("alerts", "Timer-Leiste", true, .6, 2),
@@ -24,14 +23,21 @@ public static class OverlayRegistry
         new OverlayDescriptor("daevanion", "Daevanion-Board", false)
     });
 
+    private static OverlayLayout AchievementLayout(AppSettings settings)
+    {
+        var workingArea = Screen.PrimaryScreen?.WorkingArea ?? new System.Drawing.Rectangle(0, 0, 1920, 1080);
+        var scale = double.IsFinite(settings.AchievementOverlayScale) ? Math.Clamp(settings.AchievementOverlayScale, .6, 2.5) : 1;
+        return new(settings.AchievementOverlayX ?? workingArea.Right - 24 - (int)Math.Round(360 * scale),
+            settings.AchievementOverlayY ?? workingArea.Top + 24, scale);
+    }
+
     public static OverlayDescriptor Get(string id) => All.FirstOrDefault(item => item.Id == id)
         ?? throw new ArgumentException("Unknown overlay.", nameof(id));
 
     public static OverlayLayout ReadLayout(AppSettings settings, string id) => id switch
     {
         "loot" => new(settings.OverlayX, settings.OverlayY, settings.OverlayScale),
-        "farm-loot" => new(settings.LootOverlayX, settings.LootOverlayY, settings.LootOverlayScale),
-        "abyss-rank" => new(settings.AbyssRankOverlayX, settings.AbyssRankOverlayY, settings.AbyssRankOverlayScale),
+        "achievements" => AchievementLayout(settings),
         "boss" => new(settings.BossOverlayX, settings.BossOverlayY, settings.BossOverlayScale),
         "leveling" => new(settings.LevelingOverlayX, settings.LevelingOverlayY, settings.LevelingOverlayScale),
         "alerts" => new(settings.AlertsOverlayX, settings.AlertsOverlayY, settings.AlertsOverlayScale),
@@ -58,8 +64,7 @@ public static class OverlayRegistry
         switch (id)
         {
             case "loot": (settings.OverlayX, settings.OverlayY, settings.OverlayScale) = (layout.X, layout.Y, layout.Scale); break;
-            case "farm-loot": (settings.LootOverlayX, settings.LootOverlayY, settings.LootOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
-            case "abyss-rank": (settings.AbyssRankOverlayX, settings.AbyssRankOverlayY, settings.AbyssRankOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
+            case "achievements": (settings.AchievementOverlayX, settings.AchievementOverlayY, settings.AchievementOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
             case "boss": (settings.BossOverlayX, settings.BossOverlayY, settings.BossOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
             case "leveling": (settings.LevelingOverlayX, settings.LevelingOverlayY, settings.LevelingOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
             case "alerts": (settings.AlertsOverlayX, settings.AlertsOverlayY, settings.AlertsOverlayScale) = (layout.X, layout.Y, layout.Scale); break;
@@ -74,9 +79,7 @@ public static class OverlayRegistry
 
     public static bool IsEnabled(AppSettings settings, string id) => id switch
     {
-        "loot" => settings.OverlayEnabled, "boss" => settings.BossOverlayVisible,
-        "farm-loot" => settings.LootOverlayEnabled,
-        "abyss-rank" => settings.AbyssRankOverlayEnabled,
+        "loot" => settings.OverlayEnabled, "achievements" => settings.AchievementOverlayEnabled, "boss" => settings.BossOverlayVisible,
         "leveling" => settings.LevelingOverlayEnabled, "alerts" => settings.AlertsOverlayEnabled,
         "event-timeline" => settings.EventTimelineOverlayEnabled, "map" => settings.MapOverlayEnabled,
         "merchant" => settings.MerchantOverlayEnabled, "daevanion" => settings.DaevanionOverlayEnabled, "notifications" => true,
@@ -88,8 +91,7 @@ public static class OverlayRegistry
         switch (id)
         {
             case "loot": settings.OverlayEnabled = enabled; break;
-            case "farm-loot": settings.LootOverlayEnabled = enabled; break;
-            case "abyss-rank": settings.AbyssRankOverlayEnabled = enabled; break;
+            case "achievements": settings.AchievementOverlayEnabled = enabled; break;
             case "boss": settings.BossOverlayVisible = enabled; break;
             case "leveling": settings.LevelingOverlayEnabled = enabled; break;
             case "alerts": settings.AlertsOverlayEnabled = enabled; break;

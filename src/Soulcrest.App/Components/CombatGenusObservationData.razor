@@ -1,0 +1,11 @@
+@using Soulcrest.App.Services
+
+@if (Enabled && CombatGenusObservationPresentation.Create(Snapshot) is { } observation)
+{
+    <script type="application/json" data-genus-observation>@((MarkupString)CombatGenusObservationPresentation.Serialize(observation))</script>
+}
+
+@code {
+    [Parameter] public CharacterCombatSnapshot Snapshot { get; set; } = CharacterCombatSnapshot.Empty;
+    [Parameter] public bool Enabled { get; set; }
+}

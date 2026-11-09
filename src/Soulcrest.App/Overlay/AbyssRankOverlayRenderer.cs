@@ -35,9 +35,14 @@ internal static class AbyssRankOverlayRenderer
             .Take(MaximumKillFeedEntries).ToArray();
     internal static Size Measure(AbyssRankOverlaySnapshot snapshot)
     {
-        var count = KillFeedEntries(snapshot).Count;
-        return new(Width, count == 0 ? Height : KillFeedTop + count * KillFeedRowHeight + 9);
+        var entries = KillFeedEntries(snapshot);
+        return new(Width, entries.Count == 0 ? Height : KillFeedTop + entries.Sum(KillFeedEntryHeight) + 9);
     }
+    internal static int KillFeedEntryHeight(AbyssKillFeedEntry entry) =>
+        entry.Kind == AbyssKillFeedKind.Assist && entry.IsEstimated ? 44 : KillFeedRowHeight;
+    internal static string KillFeedResultLabel(AbyssKillFeedEntry entry) => UiText.T(entry.Kind switch
+    { AbyssKillFeedKind.Kill => "Kill", AbyssKillFeedKind.Assist when entry.IsEstimated => "Assist · geschätzt",
+        AbyssKillFeedKind.Assist => "Assist", _ => "Tod" });
 
     internal static Bitmap RenderBitmap(AbyssRankOverlaySnapshot snapshot, string themeId, double scale = 1,
         bool locked = true, LootOverlayIconCache? icons = null, string? language = null,
@@ -303,23 +308,27 @@ internal static class AbyssRankOverlayRenderer
         using var nameFormat = new StringFormat(text) { LineAlignment = StringAlignment.Center };
         graphics.DrawLine(edge, 16, Height + 2, Width - 16, Height + 2);
         graphics.DrawString(UiText.T("Killfeed"), small, secondary, new RectangleF(17, Height + 8, Width - 34, 18), text);
+        var y = KillFeedTop;
         for (var index = 0; index < entries.Count; index++)
         {
             var entry = entries[index];
-            var y = KillFeedTop + index * KillFeedRowHeight;
+            var rowHeight = KillFeedEntryHeight(entry);
+            var estimated = entry.Kind == AbyssKillFeedKind.Assist && entry.IsEstimated;
             var ink = entry.Kind switch { AbyssKillFeedKind.Kill => green, AbyssKillFeedKind.Assist => blue, _ => red };
-            var rowBounds = new RectangleF(13, y + 1, Width - 26, KillFeedRowHeight - 2);
+            var rowBounds = new RectangleF(13, y + 1, Width - 26, rowHeight - 2);
             graphics.FillRectangle(rowBackground, rowBounds);
             AbyssKillFeedRankVisuals.PaintBackground(graphics, rowBounds, entry.OpponentAbyssRankGrade, seconds, animated);
             // Result cues remain separate from rank colors, including a bright cyan commander background.
-            graphics.FillRectangle(resultBackground, 17, y + 1, KillFeedOpponentLeft - 19, KillFeedRowHeight - 2);
-            graphics.FillRectangle(ink, 13, y + 2, 3, KillFeedRowHeight - 4);
-            graphics.FillEllipse(ink, 18, y + 11, 5, 5);
+            graphics.FillRectangle(resultBackground, 17, y + 1, KillFeedOpponentLeft - 19, rowHeight - 2);
+            graphics.FillRectangle(ink, 13, y + 2, 3, rowHeight - 4);
+            graphics.FillEllipse(ink, 18, y + (rowHeight - 5) / 2f, 5, 5);
             var label = entry.Kind switch { AbyssKillFeedKind.Kill => "Kill", AbyssKillFeedKind.Assist => "Assist", _ => "Tod" };
             graphics.DrawString(UiText.T(label), body, ink,
-                new RectangleF(31, y + 2, 60, 23), nameFormat);
+                new RectangleF(31, y + 2, 60, estimated ? 20 : 23), nameFormat);
+            if (estimated)
+                graphics.DrawString(UiText.T("geschätzt"), small, ink, new RectangleF(27, y + 21, 67, 19), nameFormat);
             var opponentLeft = (float)KillFeedOpponentLeft;
-            var iconY = y + (KillFeedRowHeight - KillFeedIconSize) / 2f;
+            var iconY = y + (rowHeight - KillFeedIconSize) / 2f;
             foreach (var asset in new[] { AbyssOpponentIconAssets.ClassAsset(entry.OpponentClassId),
                 AbyssOpponentIconAssets.RankAsset(entry.OpponentAbyssRankGrade) })
             {
@@ -332,19 +341,21 @@ internal static class AbyssRankOverlayRenderer
             if (opponentLeft > KillFeedOpponentLeft) opponentLeft += 2;
             const int opponentRight = Width - 137;
             graphics.DrawString(OpponentLabel(entry.OpponentName), body, primary,
-                new RectangleF(opponentLeft, y + 2, opponentRight - opponentLeft, 23), nameFormat);
+                new RectangleF(opponentLeft, y + 2, opponentRight - opponentLeft, rowHeight - 4), nameFormat);
             var rankInk = entry.RankPointDelta is null ? secondary : entry.RankPointDelta < 0 ? red : green;
             if (entry.Kind == AbyssKillFeedKind.Death)
                 PaintKillFeedMetric(graphics, KillFeedAmountLabel(entry.RankPointDelta, "RP", culture), body,
                     rankInk, new RectangleF(Width - 125, y, 108, KillFeedRowHeight), metricFormat);
             else
             {
+                var metricY = y + (rowHeight - KillFeedRowHeight) / 2f;
                 PaintKillFeedMetric(graphics, KillFeedAmountLabel(entry.AbyssPointGain, "AP", culture), metricFont,
                     entry.AbyssPointGain is null ? secondary : green,
-                    new RectangleF(Width - 125, y + .5f, 108, 13), metricFormat);
+                    new RectangleF(Width - 125, metricY + .5f, 108, 13), metricFormat);
                 PaintKillFeedMetric(graphics, KillFeedAmountLabel(entry.RankPointDelta, "RP", culture), metricFont,
-                    rankInk, new RectangleF(Width - 125, y + 13.5f, 108, 13), metricFormat);
+                    rankInk, new RectangleF(Width - 125, metricY + 13.5f, 108, 13), metricFormat);
             }
+            y += rowHeight;
         }
     }
 

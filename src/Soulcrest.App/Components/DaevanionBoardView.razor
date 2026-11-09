@@ -1,0 +1,117 @@
+@using Soulcrest.Core.Daevanion
+@implements IDisposable
+@inject DaevanionBoardEditService Edits
+
+@{ var actionBinding = State; }
+<section class="db-workspace" data-daevanion-boards data-fresh="@State.IsFresh.ToString().ToLowerInvariant()" data-edit-active="@State.IsActive.ToString().ToLowerInvariant()">
+    <header class="db-heading">
+        <div><span class="db-eyebrow">Daevanion</span><h2>@UiText.T("Aktuelle Boards")</h2><p>@UiText.T("Lokale Planung · geänderte Nodes werden im Overlay markiert.")</p></div>
+        @if (State.ClassId is not null)
+        {
+            <div class="db-character"><strong>@ClassName</strong><span>@UiText.F("Charakterlevel: {0}", State.CharacterLevel?.ToString() ?? "—")</span></div>
+        }
+    </header>
+    <div class="db-actions">
+        <span class="db-status" role="status">@UiText.T(State.IsActive ? "Lokale Planung aktiv" : "Aktuelle Boards")</span>
+        <div>
+            <button class="btn" type="button" data-board-reset disabled="@(!State.IsFresh || !State.Boards.Any(board => board.CanEdit))" @onclick="@(() => Reset(actionBinding))">@UiText.T("Änderungen zurücksetzen")</button>
+            <button class="btn" type="button" data-board-end disabled="@(!State.IsActive || !State.IsFresh)" @onclick="@(() => End(actionBinding))">@UiText.T("Lokale Planung beenden")</button>
+        </div>
+    </div>
+    @if (!State.IsFresh)
+    {
+        <p class="db-source-note" data-board-source-missing>@UiText.T("Keine aktuellen Boarddaten. Auf neue Erkennung warten.")</p>
+    }
+    @if (State.Boards.Count > 0)
+    {
+        <nav class="db-tabs" aria-label="@UiText.T("Daevanion-Boards")">
+            @foreach (var board in State.Boards)
+            {
+                <button type="button" class="@(board.Board.Id == _boardId ? "selected" : "")" data-board-tab="@board.Board.Id" aria-pressed="@((board.Board.Id == _boardId).ToString().ToLowerInvariant())" disabled="@(!board.IsKnown || !board.IsUnlocked)" @onclick="@(() => SelectBoard(board.Board.Id))">@board.Board.Name.For(Language)<small>@BoardStatus(board)</small></button>
+            }
+        </nav>
+    }
+    @if (CurrentBoard is { } current)
+    {
+        var rendered = State;
+        <div class="db-board-panel" data-current-board="@current.Board.Id">
+            <div class="db-board-summary"><h3>@current.Board.Name.For(Language)</h3>
+                @if (current.IsKnown && current.IsUnlocked)
+                {
+                    <span data-board-actual-count="@NodeCount(current, current.ActualNodeIds)">@UiText.F("{0} erkannt", NodeCount(current, current.ActualNodeIds))</span>
+                    <span data-board-desired-count="@NodeCount(current, current.DesiredNodeIds)">@UiText.F("{0} geplant", NodeCount(current, current.DesiredNodeIds))</span>
+                    <span class="db-added" data-board-added-count="@current.AddedNodeIds.Count">+@current.AddedNodeIds.Count</span><span class="db-removed" data-board-removed-count="@current.RemovedNodeIds.Count">−@current.RemovedNodeIds.Count</span>
+                }
+                else { <span data-board-count-unknown>—</span> }
+            </div>
+            @if (current.IsKnown)
+            {
+                <DaevanionBoardSvg Board="current.Board" Language="Language" EditMode="true" CanEdit="current.CanEdit" ActualNodeIds="current.ActualNodeIds" DesiredNodeIds="current.DesiredNodeIds" AddedNodeIds="current.AddedNodeIds" RemovedNodeIds="current.RemovedNodeIds" SelectedNodeId="_nodeId" NodeSelected="@(id => ToggleNode(id, current.Board.Id, rendered.ProfileId, rendered.Generation))" />
+            }
+            else
+            {
+                <p class="db-empty" data-board-unknown>@UiText.T("Dieses Board wurde noch nicht aktuell erkannt.")</p>
+            }
+            <div class="db-legend" aria-label="@UiText.T("Node-Zustände")"><span class="db-actual">● @UiText.T("Aktuell erkannt")</span><span class="db-added">+ @UiText.T("Lokal hinzugefügt")</span><span class="db-removed">− @UiText.T("Lokal entfernt")</span></div>
+            @if (SelectedNode is { } node)
+            {
+                <div class="db-node-detail" data-board-node-detail><strong>@node.Title.For(Language)</strong><span>@string.Join(" · ", node.Effects.Select(effect => effect.ShortLabel.For(Language) + " " + effect.DisplayAmount.For(Language)))</span></div>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private DaevanionBoardEditSnapshot State = new();
+    private int? _boardId;
+    private int? _nodeId;
+    private bool _disposed;
+    private string Language => UiText.Language;
+    private string ClassName => DaevanionCatalog.Default.Classes.FirstOrDefault(row => row.Id == State.ClassId)?.Name.For(Language) ?? "—";
+    private DaevanionBoardEditBoard? CurrentBoard => State.Boards.FirstOrDefault(board => board.Board.Id == _boardId);
+    private DaevanionNode? SelectedNode => CurrentBoard?.Board.Nodes.FirstOrDefault(node => node.Id == _nodeId);
+
+    protected override void OnInitialized()
+    {
+        Edits.Changed += Changed;
+        Refresh();
+    }
+    private void Refresh()
+    {
+        var next = Edits.Snapshot;
+        if (next.ProfileId != State.ProfileId || next.ClassId != State.ClassId || next.Generation != State.Generation) { _boardId = null; _nodeId = null; }
+        State = next;
+        if (!State.Boards.Any(board => board.Board.Id == _boardId))
+            _boardId = (State.Boards.FirstOrDefault(board => board.CanEdit) ?? State.Boards.FirstOrDefault())?.Board.Id;
+        if (CurrentBoard?.IsKnown != true) _nodeId = null;
+    }
+    private void Changed()
+    {
+        if (!_disposed) _ = InvokeAsync(() => { if (_disposed) return; Refresh(); StateHasChanged(); });
+    }
+    private void SelectBoard(int id)
+    {
+        Refresh();
+        if (!State.Boards.Any(board => board.Board.Id == id && board.IsKnown && board.IsUnlocked)) return;
+        _boardId = id; _nodeId = null;
+    }
+    private void ToggleNode(int id, int boardId, string? profileId, long generation)
+    {
+        Refresh();
+        // A queued click belongs to the owner and board that were actually rendered.
+        if (State.ProfileId == profileId && State.Generation == generation && CurrentBoard is { CanEdit: true } current
+            && current.Board.Id == boardId && Edits.ToggleNode(boardId, id)) _nodeId = id;
+        Refresh();
+    }
+    private bool MatchesBinding(DaevanionBoardEditSnapshot rendered)
+    {
+        Refresh();
+        return !_disposed && State.IsFresh && State.ProfileId is not null && State.ProfileId == rendered.ProfileId
+            && State.ClassId == rendered.ClassId && State.Generation == rendered.Generation;
+    }
+    private void Reset(DaevanionBoardEditSnapshot rendered) { if (MatchesBinding(rendered)) Edits.ResetToCurrent(); Refresh(); }
+    private void End(DaevanionBoardEditSnapshot rendered) { if (MatchesBinding(rendered)) Edits.EndEdit(); Refresh(); }
+    private static string BoardStatus(DaevanionBoardEditBoard board) => UiText.T(!board.IsKnown ? "Nicht erkannt" : !board.IsUnlocked ? "Gesperrt" : "Erkannt");
+    private static int NodeCount(DaevanionBoardEditBoard board, IReadOnlySet<int> ids) => ids.Count(id => board.Board.Nodes.Any(node => node.Id == id && node.Kind != DaevanionNodeKind.Start));
+    public void Dispose() { _disposed = true; Edits.Changed -= Changed; }
+}

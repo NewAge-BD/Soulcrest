@@ -14,13 +14,16 @@ public sealed partial class NetworkLootService
     private sealed record PendingCombatEvent(NetworkAbyssCombatEvent Observation, string Stream,
         long CaptureGeneration, long Revision, WorldContextSnapshot World, GameMessageStream? Transport);
     private long _abyssCombatRevision, _abyssCombatSequence;
-    private static readonly NetworkAbyssCombatCapabilities WireCombatCapabilities = new(true, true, false);
+    private static readonly NetworkAbyssCombatCapabilities WireCombatCapabilities = new(true, true, false)
+    { EstimatedAssistSupported = true };
 
     // Controlled 2026-10-27 Own -> complete PlayerAppear -> own-caster CharDie qualifies Kill;
     // the independent full Own -> own PC-caster death comparison qualifies Death separately.
     // The bounded victim-entity gate deliberately cannot rearm the same entity on a soft Own.
-    // Assist still needs explicit own participation; nearby deaths or rewards cannot supply it.
-    // No user setting or AP/rank delta can promote these missing proofs into a capability.
+    // Server-qualified Assist remains separate. User-authorized own-damage estimates have their
+    // own capability and provenance; nearby rewards never establish participation or credit.
+    // The closed controlled assist was replayed through the product source and feed on 2026-10-29.
+    // OwnDamageParticipationMessage admits only individually positively compared direct effects.
     public NetworkAbyssCombatCapabilities CombatCapabilities
     {
         get
@@ -32,7 +35,8 @@ public sealed partial class NetworkLootService
                 return WireCombatCapabilities with
                 {
                     DeathQualified = WireCombatCapabilities.DeathQualified && !_abyssDeathLife.Overflowed,
-                    KillQualified = WireCombatCapabilities.KillQualified && !_abyssPlayers.Overflowed
+                    KillQualified = WireCombatCapabilities.KillQualified && !_abyssPlayers.Overflowed,
+                    EstimatedAssistSupported = WireCombatCapabilities.EstimatedAssistSupported && !_abyssPlayers.Overflowed
                 };
             }
         }
@@ -54,6 +58,8 @@ public sealed partial class NetworkLootService
         if (_identityStream is not null && _identityStream != stream) return;
         if (_ownCharacter is not { } own || !AbyssCombatOwnBindingMatches(own, stream, _generation, _abyssCombatRevision))
         { _abyssPlayers.Invalidate(); return; }
+        // Neutral own deaths and explicit own actor removal are participation boundaries too.
+        if (entity == own.Identity.EntityKey) _abyssPlayers.ClearOwnParticipation();
         var context = CombatPlayerContext(own, stream, WorldContext.Snapshot, at);
         if (context is null) return;
         // Known NPC and narrowly qualified CharDisappear forms revoke only their explicit actor.
@@ -82,6 +88,19 @@ public sealed partial class NetworkLootService
         PublishPlayerRegistryOverflow(overflowed);
     }
 
+    private void ProcessOwnAssistParticipation(string stream, byte[] message, DateTimeOffset at)
+    {
+        if (_ownCharacter is not { } own
+            || !AbyssCombatOwnBindingMatches(own, stream, _generation, _abyssCombatRevision)) return;
+        var context = CombatPlayerContext(own, stream, WorldContext.Snapshot, at);
+        if (context is null
+            || OwnDamageParticipationMessage.TryParse(message, own.Identity.EntityKey) is not { } damage) return;
+        // No damage amount, skill history, network coordinate or group state is retained.
+        // Only an already independently confirmed player may acquire a thirty-second RAM witness.
+        _abyssPlayers.ObserveOwnDamage(context, damage.CasterEntityKey, damage.VictimEntityKey,
+            damage.HasPositiveDamage, at, DateTimeOffset.UtcNow);
+    }
+
     private void ProcessAbyssCombatMessage(string stream, byte[] message, DateTimeOffset at)
     {
         if (_ownCharacter is not { } own || !AbyssCombatOwnBindingMatches(own, stream, _generation, _abyssCombatRevision)) return;
@@ -98,20 +117,28 @@ public sealed partial class NetworkLootService
         string? opponent = null;
         string? opponentClass = null;
         int? opponentGrade = null;
+        var estimatedAssist = false;
+        if (death.VictimEntityKey == own.Identity.EntityKey) _abyssPlayers.ClearOwnParticipation();
         var overflowed = _abyssPlayers.Overflowed;
-        var ownKill = context is not null && _abyssPlayers.TryConsumeOwnKillWithMetadata(context, death, at,
-            DateTimeOffset.UtcNow, out opponent, out opponentClass, out opponentGrade);
+        var ownTakedown = context is not null && _abyssPlayers.TryConsumeOwnTakedownWithMetadata(context, death, at,
+            DateTimeOffset.UtcNow, out estimatedAssist, out opponent, out opponentClass, out opponentGrade);
         PublishPlayerRegistryOverflow(overflowed);
-        var kind = death.VictimEntityKey == own.Identity.EntityKey ? NetworkAbyssCombatKind.Death : NetworkAbyssCombatKind.Kill;
-        if (!CombatCapabilities.Supports(kind) || !AbyssCombatOwnBindingMatches(own, stream, _generation, _abyssCombatRevision)
+        var kind = death.VictimEntityKey == own.Identity.EntityKey ? NetworkAbyssCombatKind.Death
+            : estimatedAssist ? NetworkAbyssCombatKind.Assist : NetworkAbyssCombatKind.Kill;
+        if (!CombatCapabilities.Supports(kind, estimatedAssist) || !AbyssCombatOwnBindingMatches(own, stream, _generation, _abyssCombatRevision)
             || !ReferenceEquals(WorldContext.Snapshot, world)) return;
+        var ownTransportQualified = context is not null && ReferenceEquals(context.Transport, _abyssCombatOwnTransport)
+            && ReferenceEquals(context.Transport, AbyssCombatTransport(stream));
+        // Reusing a seen own life requires the positive full-Own fact AND independently current
+        // directed transport authority. Identity-only hooks retain their prior first-death contract.
+        if (kind == NetworkAbyssCombatKind.Death && own.HasPositiveHealth == true && !ownTransportQualified) return;
         if (kind == NetworkAbyssCombatKind.Death
-            && !_abyssDeathLife.TryConsume(own, death, at, DateTimeOffset.UtcNow, _generation))
+            && !_abyssDeathLife.TryConsume(own, death, at, DateTimeOffset.UtcNow, _generation, ownTransportQualified))
         {
             if (_abyssDeathLife.Overflowed) SafeEvent.Raise(Changed, "Abyss-Kampfergebnis-Netzwerkstatus");
             return;
         }
-        if (kind == NetworkAbyssCombatKind.Kill && !ownKill) return;
+        if ((kind is NetworkAbyssCombatKind.Kill or NetworkAbyssCombatKind.Assist) && !ownTakedown) return;
         if (kind == NetworkAbyssCombatKind.Death && context is not null)
             _abyssPlayers.TryGetOwnDeathCasterMetadata(context, death, at, DateTimeOffset.UtcNow,
                 out opponentClass, out opponentGrade);
@@ -121,6 +148,7 @@ public sealed partial class NetworkLootService
         var observation = new NetworkAbyssCombatEvent(at, ++_abyssCombatSequence, own,
             kind, kind == NetworkAbyssCombatKind.Death ? death.CasterName : opponent)
         {
+            IsEstimated = estimatedAssist,
             OpponentClassId = opponentClass,
             OpponentAbyssRankGrade = opponentGrade
         };
@@ -155,8 +183,9 @@ public sealed partial class NetworkLootService
 
     private bool CombatPublicationCurrent(PendingCombatEvent pending) =>
         AbyssCombatBindingMatches(pending.Observation.Character, pending.Stream, pending.CaptureGeneration,
-            pending.Revision, pending.Observation.Kind) && ReferenceEquals(WorldContext.Snapshot, pending.World)
-        && (pending.Observation.Kind != NetworkAbyssCombatKind.Kill || pending.Transport is not null
+            pending.Revision, pending.Observation.Kind, pending.Observation.IsEstimated) && ReferenceEquals(WorldContext.Snapshot, pending.World)
+        && (pending.Observation.Kind == NetworkAbyssCombatKind.Death && pending.Observation.Character.HasPositiveHealth != true
+            || pending.Transport is not null
             && ReferenceEquals(pending.Transport, _abyssCombatOwnTransport)
             && ReferenceEquals(pending.Transport, AbyssCombatTransport(pending.Stream)));
 
@@ -166,7 +195,7 @@ public sealed partial class NetworkLootService
         && ReferenceEquals(_identity, own.Identity) && _identityStream == stream;
 
     private bool AbyssCombatBindingMatches(OwnCharacterContext own, string stream, long generation, long revision,
-        NetworkAbyssCombatKind kind) => CombatCapabilities.Supports(kind)
+        NetworkAbyssCombatKind kind, bool isEstimated) => CombatCapabilities.Supports(kind, isEstimated)
         && AbyssCombatOwnBindingMatches(own, stream, generation, revision);
 
     private AbyssPlayerRegistry.Context? CombatPlayerContext(OwnCharacterContext own, string stream,

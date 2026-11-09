@@ -1,0 +1,131 @@
+{
+  "packageVersion": "1.15.0",
+  "sourceRevision": "231a2f0d40dcba872a2a83aa86b8f7b7a1edf49d",
+  "files": {
+    "src/BdoGrindTracker.App/wwwroot/overlay-editor.js": {
+      "sha256": "7805099da95309b63b86a5f8b695fac04711d2bf192a96b73fa3a3bc65a58c33",
+      "normalizedTextSha256": "ae851acd4a39d955d403f8c17181b35923fc1f03255d287fcc7ca956bd9db921"
+    },
+    "src/BdoGrindTracker.App/wwwroot/overlay-alignment.js": {
+      "sha256": "2cb1d47f67408154c64284cdb18200881cca56006890c813ab711b95564848e7",
+      "normalizedTextSha256": "6c40ccc950c7a34002f83704f84075f744e7ba34817e8bcd2303a353895d149d"
+    },
+    "src/BdoGrindTracker.App/wwwroot/app.js": {
+      "sha256": "f212681d2078436da0e5341082888c172cdf0ee954e0e86d3bcfd4cd9dd27803",
+      "normalizedTextSha256": "018d7813f5025367587eb6045fa22b9a2db5292b951559f97c2cf8fc9fc5407c"
+    },
+    "src/BdoGrindTracker.App/wwwroot/overlay-editor.css": {
+      "sha256": "eff7ab8c27e78b0981bf2e93d5d544bde881047db899ecd2e9a26d9928adc2e0",
+      "normalizedTextSha256": "72a4d4de3b95d80542077500667e292c97fb17f9bedfaec76155a65ffb13b106",
+      "declarationsSha256": "8835211598be496ca1c860d03e0d3ba09f85db56ee5f86b13d3e4c9677338c07",
+      "mediaQueries": [
+        "@media(max-width:1420px)",
+        "@media(max-width:1160px)",
+        "@media(max-width:880px)",
+        "@media(max-width:700px)",
+        "@media(min-width:1161px)",
+        "@media(max-width:700px)",
+        "@media(max-width:1050px)",
+        "@media(max-width:700px)",
+        "@media(max-width:1050px)",
+        "@media(max-width:700px)"
+      ]
+    },
+    "src/BdoGrindTracker.App/wwwroot/overlay-widgets.css": {
+      "sha256": "6a526aef484458fc2e06e764f6159be572f7d9c5afdf79970b3415c66fed8aa0",
+      "normalizedTextSha256": "625ba819e195b66f3ebf502308bd3533006d23147ff10ed43d421de064826202"
+    },
+    "src/BdoGrindTracker.App/wwwroot/app.css": {
+      "sha256": "0c00cf241840f98309c592ca7e1766463869085755e3e9f91f4a00e7ff6911fd",
+      "normalizedTextSha256": "5cb84df00bac43147e9c5f891a4f8d860720848c6955d8537b1842a38987add7",
+      "pageAndStatusRules": [
+        {
+          "selector": ".overlay-editor .status-dot",
+          "media": [],
+          "declarations": "display:inline-block;width:6px;height:6px;border-radius:50%;background:#7a8594;flex-shrink:0"
+        },
+        {
+          "selector": ".overlay-editor .status-dot.running",
+          "media": [],
+          "declarations": "background:var(--teal);box-shadow:0 0 9px #69c4b02b"
+        },
+        {
+          "selector": ".overlay-editor .status-dot.error",
+          "media": [],
+          "declarations": "background:var(--red)"
+        },
+        {
+          "selector": ".overlay-editor.page",
+          "media": [],
+          "declarations": "width:100%;min-width:0;margin:0;padding:29px 32px 28px"
+        },
+        {
+          "selector": ".overlay-editor.page",
+          "media": [
+            "@media(min-width:1500px)"
+          ],
+          "declarations": "padding:35px 43px"
+        },
+        {
+          "selector": ".overlay-editor.page",
+          "media": [
+            "@media(max-width:1050px)"
+          ],
+          "declarations": "padding-top:25px"
+        },
+        {
+          "selector": ".overlay-editor.page",
+          "media": [
+            "@media(max-width:880px)"
+          ],
+          "declarations": "padding-top:20px"
+        },
+        {
+          "selector": ".overlay-editor.page",
+          "media": [
+            "@media(max-width:640px)"
+          ],
+          "declarations": "padding:18px 13px 22px"
+        },
+        {
+          "selector": ".overlay-editor.page",
+          "media": [
+            "@media(max-width:360px)"
+          ],
+          "declarations": "padding-left:10px;padding-right:10px"
+        }
+      ]
+    },
+    "src/BdoGrindTracker.App/wwwroot/themes.css": {
+      "sha256": "e31e46d71b300831ae0cbf60838bd34aeb32634de8a9d0cd31e469c462b1d4e8",
+      "normalizedTextSha256": "15f56842791b2be2f87f0ba128c0eb53f6a0d94d80b3eaf07ea6948fcd7a4fa2"
+    },
+    "src/BdoGrindTracker.BrowserPreview/wwwroot/browser-preview.css": {
+      "sha256": "5cfa0c6a06226c800f05a02616a0a3c26233f53914d6368572662aece1ccb7c9",
+      "normalizedTextSha256": "f89e0368544ffd78b5c74b339d10b4ded006536df4cdc9a220b0b365047c9793"
+    },
+    "tests/ui/dialog-backdrop.test.cjs": {
+      "sha256": "4db077ff40243efcb6c8733cb81b7b4fa47d5bdfd5b1d912da7fde15fcedbb28",
+      "normalizedTextSha256": "2526fd2fb432a105cca028579498311767bd3af51c37c9fc94ad56b3908185a2"
+    },
+    "tests/ui/overlay-alignment.test.cjs": {
+      "sha256": "b29a1d7d564f83f6f53087d8918d653c28c7ba6857e986baef2968bfa841384f",
+      "normalizedTextSha256": "892c5e9c25df3d0f8da4f48ea99cb734fbb471640af8044476fafb5eb96bbe39"
+    },
+    "tests/ui/overlay-editor-interactions.test.cjs": {
+      "sha256": "281dc092bf03702716f33cca4bba34357c7d1e8cac5de8e43f2102cfe93cf138",
+      "normalizedTextSha256": "f940a100143393796daf5c98cc6336d280cbbd1529f9e7574b19c7de85a1f2ca"
+    }
+  },
+  "adaptations": [
+    "JavaScript globals renamed to soulcrestOverlayEditor and soulcrestOverlayAlignment.",
+    "Drag ghost receives overlay-editor scope class; original document-body cursor lifecycle unchanged.",
+    "Dialog helpers isolated as soulcrestOverlayDialogs.",
+    "CSS selectors restricted to overlay-editor boundaries; original declarations and media queries retained.",
+    "Only generic metric widget styles and default-theme tokens retained; no game artwork or game-specific modules.",
+    "Browser preview retains dark, light and grid backgrounds; game scene artwork omitted.",
+    "Original Node tests relocated with script paths and global names adapted.",
+    "Application-shell body height/overflow omitted; editor page top inset excludes standalone dialogs and drag ghost.",
+    "Original page padding and status-dot rules scoped to overlay-editor; host page height and scrolling retained."
+  ]
+}

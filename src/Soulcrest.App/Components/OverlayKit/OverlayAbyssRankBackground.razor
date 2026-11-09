@@ -1,0 +1,20 @@
+@using Soulcrest.App.Overlay
+
+@if (AbyssKillFeedRankVisuals.ForGrade(Grade) is { } treatment)
+{
+    <span class="overlay-abyss-rank-background @(!AnimationsEnabled ? "is-motion-disabled" : "")"
+          aria-hidden="true" style="@BackgroundStyle(treatment)"></span>
+}
+
+@code {
+    [Parameter] public int? Grade { get; set; }
+    [Parameter] public bool AnimationsEnabled { get; set; } = true;
+    [Parameter] public DateTimeOffset ClockUtcNow { get; set; }
+
+    private double? _phase;
+    // Preserve each receipt's compositor phase across clock, layout and source refreshes.
+    protected override void OnParametersSet() => _phase ??= Math.Max(0, ClockUtcNow.ToUnixTimeMilliseconds() / 1000d);
+
+    private string BackgroundStyle(AbyssKillFeedRankVisuals.Treatment treatment) => FormattableString.Invariant(
+        $"--rank-glow:{treatment.Accent.R},{treatment.Accent.G},{treatment.Accent.B};--rank-strength:{treatment.Strength:0.######};--rank-ribbon-duration:{4.2 / treatment.MotionIntensity:0.######}s;--rank-dust-duration:{3.8 / treatment.MotionIntensity:0.######}s;--rank-phase:-{_phase:0.###}s");
+}

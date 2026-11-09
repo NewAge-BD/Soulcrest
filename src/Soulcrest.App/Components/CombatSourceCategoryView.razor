@@ -1,0 +1,177 @@
+@using Soulcrest.App.Network
+@using Soulcrest.App.Services
+@using Soulcrest.Core.Combat
+@using Soulcrest.Core.Network
+@using static Soulcrest.App.Components.CombatSourceCategoryPresentation
+@using CpUi = Soulcrest.App.Components.CombatScoreCalculatorPresentation
+
+<section class="cw-source-category @(Key is "titles" or "wings" or "pets" ? "ct-source-category" : "")" data-combat-source-category="@Key" data-source-observation-status="@(Key == "pets" ? PetCollectionStatus : Key == "genus-insight" ? GenusObservationStatus : ObservationStatus(Current, Key))">
+    <header class="cw-source-header">
+        @if (CombatWorkspaceCatalog.IconPath(Key) is { } icon) { <img src="@icon" alt="" aria-hidden="true" /> }
+        <div><h2>@CombatWorkspaceCatalog.SectionLabel(Key)</h2><p>@UiText.T(Key == "titles" ? "Titelbesitz und ausgerüstete Effekte deines Charakters." : Key == "wings" ? "Flügelbesitz und ausgerüstete Effekte deines Charakters." : Key == "pets" ? "Besitzboni und Stufenfortschritt deiner gemeinsamen Pet-Sammlung." : Key == "genus-insight" ? "Deine Genus-Rolls, Wertebereiche und Wunschstats." : Key == "achievements" ? "Deine Erfolge und ihre Freischaltbedingungen." : "Beobachtete Quellen und ihre getrennte Modellaufschlüsselung.")</p></div>
+        <div class="cw-source-status">
+            @if (ShowingSavedTitles)
+            {
+                <strong>@UiText.T("Gespeicherter Titelstand")</strong><small>@UiText.F("Stand: {0}", SavedTitles!.ObservedAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-GB")))</small>
+            }
+            else if (ShowingSavedWings)
+            {
+                <strong>@UiText.T("Gespeicherter Flügelstand")</strong><small>@UiText.F("Stand: {0}", Time(SavedWings!.ObservedAt))</small>
+            }
+            else if (Key == "pets")
+            {
+                <strong>@(PetCollection.IsHistorical ? UiText.T("Gespeicherter Petstand") : CpUi.Status(PetCollectionStatus))</strong>
+                @if (PetCollection.ObservedAt is { } petAt) { <small>@UiText.F("Stand: {0}", Time(petAt))</small> }
+            }
+            else if (Key == "genus-insight")
+            {
+                <strong>@(GenusState.IsHistorical ? UiText.T("Gespeicherter Genus-Stand") : CpUi.Status(GenusObservationStatus))</strong>
+                @if (GenusState.ObservedAt is { } genusAt) { <small>@UiText.F("Stand: {0}", Time(genusAt))</small> }
+            }
+            else if (Key == "achievements")
+            {
+                <strong>@UiText.T(HasAchievementActivity ? "Fortschritt aktualisiert" : (AchievementState?.Progress ?? CombatAchievementProgressProjection.Create(Current, CombatAchievementDisplayCatalog.Default.MetadataBuild)).Families.Count > 0 ? "Fortschritt teilweise erkannt" : "Fortschritt noch nicht zugeordnet")</strong>
+            }
+            else
+            {
+                <strong>@CpUi.Status(ObservationStatus(Current, Key))</strong>
+                @if (ObservedAt(Current, Key) is { } observed) { <small>@UiText.F("Stand: {0}", Time(observed))</small> }
+            }
+        </div>
+    </header>
+
+    @if (Key == "gear")
+    {
+        <section class="cw-source-panel" data-source-observation="gear"><h3>@UiText.T("Beobachtete Ausrüstung")</h3>
+            @if (IsCurrent(Current, Current.Equipment) && Current.Equipment.Value is { } equipment)
+            {
+                <p class="cw-source-summary">@UiText.F("{0} Ausrüstungsteile erfasst", equipment.Items.Length)</p>
+                @if (equipment.Items.Length == 0) { @EmptyList() }
+                <div class="cw-source-grid">@foreach (var entry in equipment.Items.OrderBy(item => item.Detail.EquipSlot).Select((item, index) => (item, index))) { @GearCard(entry.item, entry.index) }</div>
+            }
+            else { @MissingObservation() }
+        </section>
+    }
+    else if (Key == "pets")
+    {
+        <CombatPetsView State="PetCollection" OpenPets="OpenPets" OpenPetCategory="OpenPetCategory" />
+    }
+    else if (Key == "genus-insight")
+    {
+        <CombatGenusInsightView State="GenusState" Favorites="GenusFavorites" ToggleFavorite="ToggleGenusFavorite" FavoriteError="@GenusFavoriteError" />
+    }
+    else if (Key == "titles")
+    {
+        <CombatTitlesView Snapshot="Current" SavedTitles="SavedTitles" AchievementState="AchievementState" Favorites="Favorites"
+            ToggleTitleFavorite="ToggleTitleFavorite" SelectedTitleId="SelectedTitleId" ShowAchievement="ShowAchievement" />
+    }
+    else if (Key == "achievements")
+    {
+        <CombatAchievementsView Snapshot="Current" AchievementState="AchievementState" Faction="@Faction" Favorites="Favorites" ToggleFavorite="ToggleFavorite"
+            Navigation="AchievementNavigation" ShowTitle="ShowTitle" />
+    }
+    else if (Key == "wings")
+    {
+        <CombatWingsView Snapshot="Current" SavedWings="SavedWings" Faction="@Faction" />
+    }
+    else if (Key == "pantheon")
+    {
+        <section class="cw-source-panel" data-source-observation="pantheon"><h3>@UiText.T("Eigener Pantheon-Ausbau")</h3><p class="cw-source-unknown">@UiText.T("Pantheon gehört zum Gildenausbau. Ein eigener bestätigter Ausbauzustand ist noch nicht zugeordnet.")</p>
+            <dl class="cw-source-stats"><div><dt>@UiText.T("Ausbauzustand")</dt><dd>—</dd></div><div><dt>@UiText.T("Anwendbare Boni")</dt><dd>@UiText.T("Unbekannt")</dd></div></dl>
+        </section>
+    }
+    else { <section class="cw-source-panel"><p class="cw-source-unknown">@UiText.T("Für diesen Bereich liegt noch keine Quellenzuordnung vor.")</p></section> }
+
+    @if (Supports(Key) && Key is not ("pantheon" or "titles" or "achievements" or "wings" or "pets" or "genus-insight"))
+    {
+        var reports = Reports(Current, Key);
+        <section class="cw-source-panel cw-source-model" data-source-model-section="@Key"><h3>@UiText.T("Modellaufschlüsselung dieser Quelle")</h3>
+            @if (reports.Count == 0) { <p class="cw-source-unknown">@UiText.T("Noch kein aktueller Modellbeitrag für diesen Bereich verfügbar.")</p> }
+            <div class="cw-source-grid">
+                @foreach (var entry in reports.Select((report, index) => (report, index)))
+                {
+                    var report = entry.report;
+                    var loss = ModelLoss(Current, Key, report);
+                    <article class="cw-source-entry" data-source-report-kind="@report.Kind"><header><h4>@SourceTitle(report, entry.index)</h4><small>@CpUi.Status(report.Status)</small></header>
+                        @if (report.Reason is { Length: > 0 } reason) { <p class="cw-source-note">@CpUi.Reason(reason)</p> }
+                        <ul class="cw-source-effects">
+                            @foreach (var effect in report.Effects) { <li><strong>@CpUi.StatName(effect.StatId)</strong><span>@EffectValue(effect)</span><small>@CpUi.Application(effect.Application)</small></li> }
+                            @foreach (var skill in report.Skills) { <li><strong>@SkillLabel(skill.SkillId)</strong><span>@Signed(skill.Level)</span><small>@CpUi.Application(skill.Application)</small></li> }
+                        </ul>
+                        @if (loss is not null && report.StatContributions.Count > 0)
+                        {
+                            <details class="cw-source-technical"><summary>@UiText.T("Modellvergleich der Statwerte")</summary><div class="cw-source-list"><table><thead><tr><th>@UiText.T("Wert")</th><th>@UiText.T("Ohne Quelle")</th><th>@UiText.T("Mit Quelle")</th><th>@UiText.T("Änderung")</th></tr></thead><tbody>@foreach (var stat in report.StatContributions) { <tr><th>@CpUi.StatName(stat.StatId)</th><td>@CpUi.Number(stat.WithoutSource)</td><td>@CpUi.Number(stat.WithSource)</td><td>@Signed(stat.Delta)</td></tr> }</tbody></table></div></details>
+                        }
+                    </article>
+                }
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    [Parameter] public string Section { get; set; } = "gear";
+    [Parameter] public AchievementViewState? AchievementState { get; set; }
+    [Parameter] public string? Faction { get; set; }
+    [Parameter] public AchievementFavoriteSnapshot? Favorites { get; set; }
+    [Parameter] public EventCallback<int> ToggleFavorite { get; set; }
+    [Parameter] public EventCallback<int> ToggleTitleFavorite { get; set; }
+    [Parameter] public int? SelectedTitleId { get; set; }
+    [Parameter] public CombatAchievementNavigationRequest? AchievementNavigation { get; set; }
+    [Parameter] public EventCallback<CombatAchievementNavigationRequest> ShowAchievement { get; set; }
+    [Parameter] public EventCallback<int> ShowTitle { get; set; }
+    [Parameter] public CharacterCombatSnapshot Snapshot { get; set; } = CharacterCombatSnapshot.Empty;
+    [Parameter] public ProfileTitleSnapshot? SavedTitles { get; set; }
+    [Parameter] public ProfileWingSnapshot? SavedWings { get; set; }
+    [Parameter] public CombatPetsSnapshot PetCollection { get; set; } = CombatPetsSnapshot.Empty;
+    [Parameter] public GenusInsightSnapshot GenusState { get; set; } = GenusInsightSnapshot.Empty;
+    [Parameter] public IReadOnlySet<GenusInsightFavoriteKey>? GenusFavorites { get; set; }
+    [Parameter] public EventCallback<GenusInsightFavoriteKey> ToggleGenusFavorite { get; set; }
+    [Parameter] public string? GenusFavoriteError { get; set; }
+    [Parameter] public EventCallback OpenPets { get; set; }
+    [Parameter] public EventCallback<string> OpenPetCategory { get; set; }
+    private NetworkCombatSourceStatus GenusObservationStatus => GenusState.IsHistorical ? NetworkCombatSourceStatus.Stale
+        : !GenusState.IsCurrent ? ObservationStatus(Current, "genus-insight")
+        : GenusState.AppliedEffectsStatus switch { CombatKnowledgeStatus.Complete => NetworkCombatSourceStatus.Complete,
+            CombatKnowledgeStatus.Partial => NetworkCombatSourceStatus.Partial, _ => NetworkCombatSourceStatus.Unknown };
+    private NetworkCombatSourceStatus PetCollectionStatus => PetCollection.IsHistorical ? NetworkCombatSourceStatus.Stale
+        : PetCollection.Status switch { CombatKnowledgeStatus.Complete => NetworkCombatSourceStatus.Complete,
+            CombatKnowledgeStatus.Partial => NetworkCombatSourceStatus.Partial, _ => NetworkCombatSourceStatus.Unknown };
+
+    private bool ShowingSavedTitles => Key == "titles" && SavedTitles is not null
+        && (string.IsNullOrWhiteSpace(Current.ProfileId) || string.Equals(Current.ProfileId, SavedTitles.ProfileId, StringComparison.Ordinal))
+        && !(IsCurrent(Current, Current.TitleOwnership) && Current.TitleOwnership.Status == NetworkCombatSourceStatus.Complete);
+    private bool ShowingSavedWings => Key == "wings" && SavedWings is not null
+        && (string.IsNullOrWhiteSpace(Current.ProfileId) || string.Equals(Current.ProfileId, SavedWings.ProfileId, StringComparison.Ordinal))
+        && !(IsCurrent(Current, Current.WingOwnership) && Current.WingOwnership.Status == NetworkCombatSourceStatus.Complete);
+    private bool HasAchievementActivity => AchievementState is { IsLive: true } state
+        && state.MetadataBuild == CombatAchievementDisplayCatalog.Default.MetadataBuild
+        && !string.IsNullOrWhiteSpace(state.ProfileId)
+        && (string.IsNullOrWhiteSpace(Current.ProfileId) || state.ProfileId == Current.ProfileId)
+        && state.Activities.Keys.Any(id => !AchievementContentPolicy.IsRetired(id, state.MetadataBuild));
+    private CharacterCombatSnapshot Current => Snapshot ?? CharacterCombatSnapshot.Empty;
+    private string Key => Section?.Trim().ToLowerInvariant() ?? "";
+    private RenderFragment MissingObservation() => @<div class="cw-source-unknown" data-source-awaiting-current><p>@UiText.T("Für diesen Bereich fehlt ein aktueller bestätigter Stand.")</p><small>@UiText.T("Die Anzeige aktualisiert sich mit passenden Charakterdaten automatisch.")</small></div>;
+    private RenderFragment EmptyList() => @<p class="cw-source-note">@UiText.T("Der beobachtete Stand enthält keine Einträge.")</p>;
+    private RenderFragment GearCard(CharacterEquipmentItem item, int index) => @<article class="cw-source-entry cw-source-equipment" data-source-equipment-entry>
+        @{ var detail = item.Detail; var options = GearOptions(detail); }
+        <h4>@ItemLabel(item.ItemId)</h4><small>@UiText.F("Ausrüstungsteil {0}", index + 1)</small>
+        <dl class="cw-source-stats"><div><dt>@UiText.T("Gegenstandsstufe")</dt><dd>@detail.ItemLevel</dd></div><div><dt>@UiText.T("Verzauberung")</dt><dd>+@detail.EnchantLevel</dd></div><div><dt>@UiText.T("Durchbruch")</dt><dd>+@detail.SurpassEnchantLevel</dd></div><div><dt>@UiText.T("Seelenbindungen")</dt><dd>@detail.SoulBindCount</dd></div><div><dt>@UiText.T("Manasteine")</dt><dd>@detail.Magicstones.Length</dd></div><div><dt>@UiText.T("Gottsteine")</dt><dd>@detail.Godstones.Length</dd></div></dl>
+        @if (detail.IsBroken) { <p class="cw-source-unknown">@UiText.T("Als beschädigt beobachtet")</p> }
+        <p class="cw-source-note">@UiText.F("{0} Statoptionen erfasst", options.Count)</p>
+        <ul class="cw-source-effects">
+            @foreach (var option in options)
+            {
+                var value = OptionValue(option.Value.StatType, option.Value.Value, CombatNativeValueDomain.EquipmentOptions);
+                @if (value is not null) { <li><strong>@CpUi.StatName(value.StatId)</strong><span>@OptionDisplay(value)</span><small>@UiText.T(option.Channel)</small></li> }
+            }
+            @foreach (var bonus in detail.SubSkills.Concat(detail.AdditionalSubSkills).Concat(detail.SoulAdditionalSubSkills)) { <li><strong>@SkillLabel(bonus.SkillId)</strong><span>+@bonus.Level</span><small>@UiText.T("Beobachtete Skilloption")</small></li> }
+        </ul>
+        @if (options.Any(option => OptionValue(option.Value.StatType, option.Value.Value, CombatNativeValueDomain.EquipmentOptions) is null)) { <p class="cw-source-unknown">@UiText.T("Einige Statoptionen haben noch keine bestätigte Zuordnung oder Skalierung.")</p> }
+        <details class="cw-source-technical"><summary>@UiText.T("Technische Details")</summary><p>@UiText.F("Slot {0} · Item {1}", detail.EquipSlot, item.ItemId)</p>
+            <div class="cw-source-list"><table><thead><tr><th>@UiText.T("Kanal")</th><th>@UiText.T("Stat-ID")</th><th>@UiText.T("Rohwert")</th></tr></thead><tbody>@foreach (var option in options) { <tr><td>@UiText.T(option.Channel)</td><td>@option.Value.StatType</td><td>@option.Value.Value</td></tr> }</tbody></table></div>
+            <p>@UiText.T("Manastein-IDs"): @string.Join(" · ", detail.Magicstones.Select(stone => stone.ItemId))</p><p>@UiText.T("Gottstein-IDs"): @string.Join(" · ", detail.Godstones)</p>
+            <p>@UiText.T("Skill-IDs"): @string.Join(" · ", detail.SubSkills.Concat(detail.AdditionalSubSkills).Concat(detail.SoulAdditionalSubSkills).Select(skill => skill.SkillId))</p>
+        </details>
+    </article>;
+}

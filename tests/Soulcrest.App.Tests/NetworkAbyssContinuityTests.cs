@@ -269,7 +269,7 @@ public sealed class NetworkAbyssContinuityTests
     [Fact]
     public void APreviouslyRejectedWalletCannotBeCarriedByAValidSoftTransition()
     {
-        using var f = new Fixture(); f.Baseline(); f.Send(Changes(new Change(99, Increase: 0, Decrease: 15)), 2);
+        using var f = new Fixture(); f.Baseline(); f.Send(Changes(new Change(99, Increase: 0, Decrease: 16)), 2);
         f.Transition("prepare"); f.Send(Changes(new Change(112)), 6);
         Assert.Empty(f.Gains); Assert.Equal(112, f.Network.AbyssSnapshot.AbyssPointBalance);
     }

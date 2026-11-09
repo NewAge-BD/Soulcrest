@@ -12,9 +12,9 @@
     var rules = descriptor.CanPlace ? OverlayVisibilityPolicy.Get(Settings.Current, _selected) : new OverlayVisibilityRules();
 }
 
-<div class="page overlay-page">
+<div class="@(Embedded ? "overlay-page" : "page overlay-page")">
     <header class="overlay-heading">
-        <div><span class="overlay-eyebrow">SOULCREST</span><h2>Overlay</h2><p>@UiText.T("Alle Einblendungen über dem Spiel an einem Ort.")</p></div>
+        <div><span class="overlay-eyebrow">SOULCREST</span><h2>@UiText.T(StaticOnly ? "Static Overlays" : "Overlay")</h2><p>@UiText.T("Alle Einblendungen über dem Spiel an einem Ort.")</p></div>
         <div class="overlay-place-actions">
             <label for="overlay-monitor">@UiText.T("Monitor")<select id="overlay-monitor" @bind="_monitorId" disabled="@Placement.Active"><option value="">@UiText.T("Automatisch (Spielmonitor)")</option>@foreach (var monitor in Placement.Monitors) { <option value="@monitor.Id">@monitor.Label</option> }</select></label>
             @if (Placement.Active)
@@ -37,7 +37,7 @@
 
     <div class="overlay-workspace">
         <nav class="overlay-list" aria-label="@UiText.T("Overlays auswählen")">
-            @foreach (var overlay in OverlayRegistry.All)
+            @foreach (var overlay in AvailableOverlays)
             {
                 <button type="button" class="@(_selected == overlay.Id ? "selected" : "")" data-overlay-select="@overlay.Id" aria-current="@(_selected == overlay.Id ? "true" : null)" disabled="@_saving" @onclick="@(() => SelectOverlay(overlay.Id))">
                     <span class="overlay-list-icon" aria-hidden="true">@Symbol(overlay.Id)</span><span><strong>@UiText.T(overlay.Title)</strong><small>@UiText.T(overlay.CanPlace ? "Frei platzierbar" : "An Spielinhalt gebunden")</small></span><i class="@(OverlayRegistry.IsEnabled(Settings.Current, overlay.Id) ? "enabled" : "")" aria-label="@UiText.T(OverlayRegistry.IsEnabled(Settings.Current, overlay.Id) ? "An" : "Aus")"></i>
@@ -50,11 +50,12 @@
                 @if (_selected != "notifications") { <label class="overlay-enabled"><input id="overlay-enabled" type="checkbox" role="switch" checked="@OverlayRegistry.IsEnabled(Settings.Current, _selected)" disabled="@_saving" @onchange="SetEnabled" />@UiText.T("Overlay anzeigen")</label> }
             </header>
 
-            @if (_selected != "daevanion") { <div class="overlay-preview" aria-label="@UiText.T("Overlay-Vorschau")"><span>@UiText.T("Vorschau")</span><img src="@PreviewSource" style="@(descriptor.CanPlace ? FormattableString.Invariant($"zoom:{layout!.Scale};") : null)" alt="@UiText.F("Vorschau: {0}", UiText.T(descriptor.Title))" /></div> }
+            @if (!StaticOnly && _selected != "daevanion") { <div class="overlay-preview" aria-label="@UiText.T("Overlay-Vorschau")"><span>@UiText.T("Vorschau")</span><img src="@PreviewSource" style="@(descriptor.CanPlace ? FormattableString.Invariant($"zoom:{layout!.Scale};") : null)" alt="@UiText.F("Vorschau: {0}", UiText.T(descriptor.Title))" /></div> }
             @if (!descriptor.CanPlace)
             {
                 <p class="overlay-bound-note">@UiText.T("Dieses Overlay folgt erkannten Spielinhalten. Seine Position und Größe werden automatisch daran ausgerichtet. Die Vorschau verändert keine Spiel- oder Trackingdaten.")</p>
             }
+            @if (StaticOnly) { <StaticOverlaySample OverlayId="@descriptor.Id" /> }
 
             @if (descriptor.CanPlace && layout is not null)
             {
@@ -78,35 +79,11 @@
                 case "loot":
                     <p class="overlay-data-note">@UiText.T("Erscheint bei neuen Souls und bestätigten Pet-Aufstiegen. Fokus und Sammlung verwaltest du unter Pets.")</p>
                     break;
-                case "farm-loot":
-                    <p class="overlay-data-note">@UiText.T("Zeigt die laufende Monster-Loot-Session und den Kina-Tagesstand des aktiven Charakters.")</p>
-                    <section class="overlay-settings-card">
-                        <h4>@UiText.T("Loot-Overlay")</h4>
-                        <label class="check"><input id="loot-overlay-auto-show" type="checkbox" checked="@Settings.Current.LootOverlayShowOnSessionStart" disabled="@_saving" @onchange="@(e => SavePreference(() => Settings.SetLootOverlayShowOnSessionStart(e.Value is true)))" />@UiText.T("Bei Sessionstart einblenden")</label>
-                        <label class="check"><input id="loot-overlay-session-only" type="checkbox" checked="@Settings.Current.LootOverlayOnlyDuringSession" disabled="@_saving" aria-describedby="loot-overlay-session-only-hint" @onchange="SetLootSessionOnly" />@UiText.T("Nur bei laufender Session anzeigen")</label>
-                        <p id="loot-overlay-session-only-hint">@UiText.T("Ohne laufende Session bleibt das Overlay ausgeblendet. Die Aufnahme läuft unabhängig davon weiter.")</p>
-                        <label for="loot-background-transparency">@UiText.T("Hintergrundtransparenz")<input id="loot-background-transparency" type="range" min="0" max="100" step="1" value="@Math.Round((1 - Settings.Current.LootOverlayBackgroundOpacity) * 100)" disabled="@_saving" @onchange="SetLootTransparency" /><output for="loot-background-transparency">@Math.Round((1 - Settings.Current.LootOverlayBackgroundOpacity) * 100) %</output></label>
-                        <p>@UiText.T("Nur der Hintergrund wird transparent. Text, Icons und Kina-Anzeige bleiben sichtbar.")</p>
-                    </section>
-                    <section class="overlay-settings-card"><LootDropAlertSettings Disabled="@_saving" /></section>
-                    <button type="button" class="btn" @onclick="@(() => Ui.Navigate("loot"))">@UiText.T("Loot Tracker öffnen") ↗</button>
+                case "achievements":
+                    <AchievementOverlayOptions Busy="@_saving" />
                     break;
                 case "boss":
                     <section class="overlay-settings-card"><h4>@UiText.T("Spawnliste")</h4><label class="check"><input id="boss-overlay-enabled" type="checkbox" checked="@Settings.Current.BossOverlayEnabled" @onchange="@(e => Save(s => s.BossOverlayEnabled = e.Value is true))" />@UiText.T("Spawnliste anzeigen")</label><label class="overlay-number-field" for="boss-overlay-count">@UiText.T("Anzahl der Spawns")<input id="boss-overlay-count" type="number" min="1" max="12" value="@Settings.Current.BossOverlayCount" @onchange="SetBossCount" /></label><p>@UiText.T("Boss Rush steuert die Wegführung. Vorwarnzeiten und Töne stellst du weiterhin bei den Boss-Erinnerungen ein.")</p></section>
-                    break;
-                case "abyss-rank":
-                    <p class="overlay-data-note">@UiText.T("Zeigt Rangpunktestand, nächste Punkte-Stufe und Rangpunkte netto für die laufende Abyss-Session sowie pro Stunde. Netto bedeutet Gewinne minus Verluste. Die Punkte-Stufe ist kein bestätigter Klassenrang.")</p>
-                    <section class="overlay-settings-card"><AbyssRankMotionSettings Disabled="@_saving" /></section>
-                    <section class="overlay-settings-card">
-                        <label class="check"><input id="abyss-killfeed-enabled" type="checkbox" checked="@Settings.Current.AbyssKillFeedEnabled" disabled="@_saving" @onchange="@(e => SavePreference(() => Settings.SetAbyssKillFeedEnabled(e.Value is true)))" />@UiText.T("Killfeed anzeigen")</label>
-                        <fieldset class="overlay-visibility-options" disabled="@_saving">
-                            <label><input id="abyss-killfeed-kills" type="checkbox" checked="@Settings.Current.AbyssKillFeedShowKills" @onchange="@(e => SavePreference(() => Settings.SetAbyssKillFeedShowKills(e.Value is true)))" />@UiText.T("Spielerkills")</label>
-                            <label><input id="abyss-killfeed-assists" type="checkbox" checked="@Settings.Current.AbyssKillFeedShowAssists" @onchange="@(e => SavePreference(() => Settings.SetAbyssKillFeedShowAssists(e.Value is true)))" />@UiText.T("Assists")</label>
-                            <label><input id="abyss-killfeed-deaths" type="checkbox" checked="@Settings.Current.AbyssKillFeedShowDeaths" @onchange="@(e => SavePreference(() => Settings.SetAbyssKillFeedShowDeaths(e.Value is true)))" />@UiText.T("Eigene Tode")</label>
-                        </fieldset>
-                        <p>@UiText.T("Zeigt die letzten zehn ausgewählten eigenen Kampfergebnisse ohne Zeitablauf. Klassenicon und Rangicon stehen auch bei eigenen Toden vor dem Gegnernamen. AP und Rangpunkte je Ergebnis benötigen eine eindeutige Zuordnung; — bedeutet unbekannt. Assists benötigen einen eindeutigen Beleg eigener Beteiligung. Abschalten oder ein Kontextwechsel leert den Feed; Gegnerdaten werden nicht gespeichert.")</p>
-                    </section>
-                    <button type="button" class="btn" @onclick="@(() => Ui.Navigate("loot"))">@UiText.T("Loot Tracker öffnen") ↗</button>
                     break;
                 case "leveling":
                     <p class="overlay-data-note">@UiText.T("Zeigt die aktive Leveling-Route. Route, Charakter und Fortschritt bleiben im Karten-Tab.")</p>
@@ -147,6 +124,11 @@
 </div>
 
 @code {
+    [Parameter] public bool Embedded { get; set; }
+    [Parameter] public bool StaticOnly { get; set; }
+    private static bool IsStaticOverlay(OverlayDescriptor overlay) => overlay.Id is "loot" or "achievements" or "boss" or "leveling" or "alerts"
+        or "notifications" or "event-timeline" or "map" or "merchant" or "daevanion";
+    private IEnumerable<OverlayDescriptor> AvailableOverlays => StaticOnly ? OverlayRegistry.All.Where(IsStaticOverlay) : OverlayRegistry.All;
     private static readonly (string Id, string Label)[] GuardMaps = [("altgard", "Altgard"), ("verteron", "Verteron")];
     private string _selected = "loot", _monitorId = "";
     private string? _feedback, _preview;
@@ -154,19 +136,34 @@
     private string PreviewSource => _preview ??= Preview.ToDataUri(_selected, Settings.Current, 620);
     protected override void OnInitialized()
     {
-        if (Ui.OverlaySection is { } id && OverlayRegistry.All.Any(item => item.Id == id)) _selected = id;
+        if (Ui.OverlaySection is { } id && AvailableOverlays.Any(item => item.Id == id)) _selected = id;
         if (OverlayRegistry.Get(_selected).CanPlace) Placement.SelectedOverlayId = _selected;
         Placement.RefreshMonitors();
         Settings.Changed += Refresh; Placement.Changed += Refresh; Ui.Changed += NavigateToSection;
     }
-    private void NavigateToSection() { if (Ui.Tab == "overlay" && Ui.OverlaySection is { } id && OverlayRegistry.All.Any(item => item.Id == id)) SelectOverlay(id); }
-    private void SelectOverlay(string id) { _selected = id; _preview = null; if (OverlayRegistry.Get(id).CanPlace) Placement.SelectedOverlayId = id; }
-    private void StartPlaceMode() { Placement.Start(string.IsNullOrEmpty(_monitorId) ? null : _monitorId); }
+    private void NavigateToSection()
+    {
+        if ((Ui.Tab is "overlay" or "overlay-editor") && Ui.OverlaySection is { } id && AvailableOverlays.Any(item => item.Id == id))
+        {
+            SelectOverlay(id);
+            Refresh();
+        }
+    }
+    private void SelectOverlay(string id)
+    {
+        if (!AvailableOverlays.Any(item => item.Id == id)) return;
+        _selected = id; _preview = null;
+        if (OverlayRegistry.Get(id).CanPlace) Placement.SelectedOverlayId = id;
+    }
+    private void StartPlaceMode()
+    {
+        var monitor = string.IsNullOrEmpty(_monitorId) ? null : _monitorId;
+        if (StaticOnly) Placement.StartEditor(monitor);
+        else Placement.Start(monitor);
+    }
     private void StopPlaceMode() => Placement.Stop();
     private void Refresh() { if (!_disposed) { _preview = null; _ = InvokeAsync(StateHasChanged); } }
-    private Task SetEnabled(ChangeEventArgs e) => _selected == "farm-loot"
-        ? SavePreference(() => Settings.SetLootOverlayEnabled(e.Value is true))
-        : Save(s => OverlayRegistry.SetEnabled(s, _selected, e.Value is true));
+    private Task SetEnabled(ChangeEventArgs e) => Save(s => OverlayRegistry.SetEnabled(s, _selected, e.Value is true));
     private Task SetTheme(ChangeEventArgs e)
     {
         var id = e.Value?.ToString();
@@ -178,9 +175,6 @@
     private Task SetBossCount(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) ? Save(s => s.BossOverlayCount = Math.Clamp(n, 1, 12)) : Task.CompletedTask;
     private Task SetTimelineHours(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) && n is 12 or 24 or 48 ? Save(s => s.EventTimelineHours = n) : Task.CompletedTask;
     private Task SetGuardRadius(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) ? Save(s => s.GuardRadiusMeters = Math.Clamp(n, 5, 60)) : Task.CompletedTask;
-    private Task SetLootTransparency(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var percent) && percent is >= 0 and <= 100
-        ? SavePreference(() => Settings.SetLootOverlayBackgroundOpacity(1 - percent / 100d)) : Task.CompletedTask;
-    private Task SetLootSessionOnly(ChangeEventArgs e) => SavePreference(() => Settings.SetLootOverlayOnlyDuringSession(e.Value is true));
     private Task SetGuardMap(string id, bool enabled) => Save(s => s.GuardZoneMaps = enabled ? s.GuardZoneMaps.Append(id).Distinct().ToArray() : s.GuardZoneMaps.Where(item => item != id).ToArray());
     private Task SetRule(string context, bool enabled) => Save(s =>
     {
@@ -215,6 +209,6 @@
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _feedback = UiText.T("Overlay-Einstellungen konnten nicht gespeichert werden."); }
         finally { _saving = false; }
     }
-    private static string Symbol(string id) => id switch { "loot" => "✦", "farm-loot" => "◇", "abyss-rank" => "△", "boss" => "◆", "leveling" => "➜", "alerts" => "◷", "notifications" => "◇", "event-timeline" => "↔", "map" => "⌖", _ => "▱" };
+    private static string Symbol(string id) => id switch { "loot" => "✦", "boss" => "◆", "leveling" => "➜", "alerts" => "◷", "notifications" => "◇", "event-timeline" => "↔", "map" => "⌖", _ => "▱" };
     public void Dispose() { _disposed = true; Settings.Changed -= Refresh; Placement.Changed -= Refresh; Ui.Changed -= NavigateToSection; Placement.Stop(); }
 }

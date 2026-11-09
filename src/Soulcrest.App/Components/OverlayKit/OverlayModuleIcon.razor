@@ -1,0 +1,47 @@
+@if (IsMarket)
+{
+    <span class="overlay-market-icon" aria-hidden="true">
+        <KitIcon Name="market" Class="overlay-market-glyph" />
+        @if (IsHourly)
+        {
+            <span class="overlay-hourly-icon">
+                <AssetImage Src="@OverlayCatalog.GameIconAsset(Kind)" Alt="" Class="icon overlay-currency-icon" Fallback="@Fallback" />
+                <span class="overlay-hourly-suffix">/h</span>
+            </span>
+        }
+        else
+        {
+            <AssetImage Src="@OverlayCatalog.GameIconAsset(Kind)" Alt="" Class="icon overlay-currency-icon" Fallback="@Fallback" />
+        }
+    </span>
+}
+else if (IsHourly)
+{
+    <span class="overlay-hourly-icon" aria-hidden="true">
+        @if (OverlayCatalog.GameIconAsset(Kind) is { } hourlyAsset)
+        {
+            <AssetImage Src="@hourlyAsset" Alt="" Class="icon overlay-currency-icon" Fallback="@Fallback" />
+        }
+        else
+        {
+            <KitIcon Name="@Fallback" />
+        }
+        <span class="overlay-hourly-suffix">/h</span>
+    </span>
+}
+else if (OverlayCatalog.GameIconAsset(Kind) is { } asset)
+{
+    <AssetImage Src="@asset" Alt="" Class="icon overlay-currency-icon" Fallback="@Fallback" />
+}
+else
+{
+    <KitIcon Name="@Fallback" />
+}
+
+@code {
+    [Parameter] public string? Kind { get; set; }
+    private bool IsMarket => Kind is "market-kina" or "market-kina-hour";
+    private bool IsHourly => Kind is "market-kina-hour" or "dropped-kina-hour" or "abyss-points-hour"
+        or "rank-net-hour" or "rank-gained-hour" or "rank-lost-hour";
+    private string Fallback => OverlayCatalog.Find(Kind ?? "")?.Icon ?? "live";
+}

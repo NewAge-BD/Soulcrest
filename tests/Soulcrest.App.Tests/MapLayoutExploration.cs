@@ -24,6 +24,10 @@ public sealed class MapLayoutExploration
         services.AddSingleton<GameCaptureService>();
         services.AddSingleton<ProgressService>();
         services.AddSingleton<NetworkLootService>();
+        services.AddSingleton<INetworkAchievementSource>(sp => sp.GetRequiredService<NetworkLootService>());
+        services.AddSingleton(_ => new AchievementStateStore(Path.Combine(AppPaths.DataDirectory, "achievement-render-tests")));
+        services.AddSingleton<AchievementStateService>();
+        services.AddSingleton(sp => new AchievementFavoriteService(Path.Combine(AppPaths.DataDirectory, "achievement-favorite-render-tests"), sp.GetRequiredService<ExplorationService>()));
         services.AddSingleton<TrackerService>();
         services.AddSingleton<MapTrackingService>();
         services.AddSingleton<MapTargetsService>();

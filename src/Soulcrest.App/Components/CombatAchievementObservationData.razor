@@ -1,0 +1,9 @@
+@if (Enabled && CombatAchievementObservationPresentation.Create(Snapshot) is { } observation)
+{
+    <script type="application/json" data-achievement-observation>@((MarkupString)CombatAchievementObservationPresentation.Serialize(observation))</script>
+}
+
+@code {
+    [Parameter] public CharacterCombatSnapshot Snapshot { get; set; } = CharacterCombatSnapshot.Empty;
+    [Parameter] public bool Enabled { get; set; }
+}

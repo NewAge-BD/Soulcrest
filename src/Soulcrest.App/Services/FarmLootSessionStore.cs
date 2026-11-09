@@ -379,7 +379,8 @@ public sealed class FarmLootSessionStore
         }
         var markerIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var combat in session.CombatEvents)
-            if (combat is null || !ValidId(combat.Id) || !markerIds.Add(combat.Id) || !Enum.IsDefined(combat.Kind)
+            if (combat is null || !ValidId(combat.Id) || !markerIds.Add(combat.Id)
+                || combat.Kind is not (LootTrackerCombatKind.Kill or LootTrackerCombatKind.Death) || combat.IsEstimated
                 || combat.At == default || combat.At < session.StartedAt || combat.At > session.LastPresenceAt
                 || combat.Elapsed < TimeSpan.Zero || combat.Elapsed > session.Elapsed
                 || combat.OpponentClassId is not null && LootTrackerTimelineFacts.ClassId(combat.OpponentClassId) != combat.OpponentClassId

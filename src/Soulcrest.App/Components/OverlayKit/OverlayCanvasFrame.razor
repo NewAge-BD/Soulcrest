@@ -1,0 +1,19 @@
+@using Soulcrest.App.OverlayEditorKit
+
+<img class="oe-canvas-frame" src="@_dataUri" width="@_size.Width" height="@_size.Height" alt="" aria-hidden="true" draggable="false" loading="eager" decoding="sync" />
+
+@code {
+    [Parameter] public string? ThemeId { get; set; }
+    [Parameter] public double Width { get; set; } = 360;
+    [Parameter] public double Height { get; set; } = 260;
+    [Parameter] public double BackgroundOpacity { get; set; } = 1;
+    [Parameter] public bool ShowBorder { get; set; } = true;
+    private System.Drawing.Size _size;
+    private string _dataUri = "";
+
+    protected override void OnParametersSet()
+    {
+        _size = OverlayEditorCanvasFrames.LogicalSize(Width, Height);
+        _dataUri = OverlayEditorCanvasFrames.GetDataUri(ThemeId, Width, Height, BackgroundOpacity, ShowBorder);
+    }
+}

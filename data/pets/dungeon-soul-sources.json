@@ -1,0 +1,1182 @@
+{
+  "schemaVersion": 1,
+  "pets": [
+    {
+      "petNumber": 1009,
+      "soulItemId": 534660008,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1009-dungeon-azure-breath-island",
+          "dungeonEn": "Azure Breath Island",
+          "dungeonDe": "Insel des Blauatems",
+          "category": "Expedition",
+          "mapIds": [
+            600141,
+            600142,
+            600143
+          ],
+          "npcs": [
+            {
+              "id": 2300265,
+              "en": "Keneire",
+              "de": "Keneire",
+              "mapIds": [
+                600142
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1009-dungeon-azure-breath-island-npc-2300265",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2300269,
+              "en": "Keneire",
+              "de": "Keneire",
+              "mapIds": [
+                600141
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1009-dungeon-azure-breath-island-npc-2300269",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2300273,
+              "en": "Keneire",
+              "de": "Keneire",
+              "mapIds": [
+                600143
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1009-dungeon-azure-breath-island-npc-2300273",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1009-dungeon-azure-breath-island",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600141,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1009-dungeon-azure-breath-island-map-600141-availability",
+                "https://aion2.run/en/astuces/donjons-guide"
+              ]
+            },
+            {
+              "mapId": 600142,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1009-dungeon-azure-breath-island-map-600142-availability",
+                "https://aion2.run/en/astuces/donjons-guide"
+              ]
+            },
+            {
+              "mapId": 600143,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1009-dungeon-azure-breath-island-map-600143-availability",
+                "https://aion2.run/en/astuces/donjons-guide"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1009",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1028,
+      "soulItemId": 534660027,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1028-dungeon-krao-cave",
+          "dungeonEn": "Krao Cave",
+          "dungeonDe": "Kraohöhle",
+          "category": "Expedition",
+          "mapIds": [
+            600001,
+            600002,
+            600004
+          ],
+          "npcs": [
+            {
+              "id": 2300107,
+              "en": "Krao Mutant",
+              "de": "Kraomutant",
+              "mapIds": [
+                600001
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1028-dungeon-krao-cave-npc-2300107",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2310107,
+              "en": "Krao Mutant",
+              "de": "Kraomutant",
+              "mapIds": [
+                600002
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1028-dungeon-krao-cave-npc-2310107",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2320107,
+              "en": "Krao Mutant",
+              "de": "Kraomutant",
+              "mapIds": [
+                600004
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1028-dungeon-krao-cave-npc-2320107",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1028-dungeon-krao-cave",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600001,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1028-dungeon-krao-cave-map-600001-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/670631196372241777",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600002,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1028-dungeon-krao-cave-map-600002-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/670631196372241777",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600004,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1028-dungeon-krao-cave-map-600004-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/670631196372241777",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1028",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1043,
+      "soulItemId": 534660044,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1043-dungeon-azure-breath-island",
+          "dungeonEn": "Azure Breath Island",
+          "dungeonDe": "Insel des Blauatems",
+          "category": "Expedition",
+          "mapIds": [
+            600141,
+            600142,
+            600143
+          ],
+          "npcs": [
+            {
+              "id": 2300191,
+              "en": "Azure Breath Ursus",
+              "de": "Ursus (Blauatem)",
+              "mapIds": [
+                600141
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1043-dungeon-azure-breath-island-npc-2300191",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2300192,
+              "en": "Azure Breath Ursus",
+              "de": "Ursus (Blauatem)",
+              "mapIds": [
+                600142
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1043-dungeon-azure-breath-island-npc-2300192",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2300196,
+              "en": "Azure Breath Ursus",
+              "de": "Ursus (Blauatem)",
+              "mapIds": [
+                600143
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1043-dungeon-azure-breath-island-npc-2300196",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1043-dungeon-azure-breath-island",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600141,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1043-dungeon-azure-breath-island-map-600141-availability",
+                "https://aion2.run/en/astuces/donjons-guide"
+              ]
+            },
+            {
+              "mapId": 600142,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1043-dungeon-azure-breath-island-map-600142-availability",
+                "https://aion2.run/en/astuces/donjons-guide"
+              ]
+            },
+            {
+              "mapId": 600143,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1043-dungeon-azure-breath-island-map-600143-availability",
+                "https://aion2.run/en/astuces/donjons-guide"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1043",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1068,
+      "soulItemId": 534660069,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1068-dungeon-krao-cave",
+          "dungeonEn": "Krao Cave",
+          "dungeonDe": "Kraohöhle",
+          "category": "Expedition",
+          "mapIds": [
+            600001,
+            600002,
+            600004
+          ],
+          "npcs": [
+            {
+              "id": 2300102,
+              "en": "Enhanced Krao Test Subject",
+              "de": "Verstärktes Kraoversuchsobjekt",
+              "mapIds": [
+                600001
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1068-dungeon-krao-cave-npc-2300102",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2310102,
+              "en": "Enhanced Krao Test Subject",
+              "de": "Verstärktes Kraoversuchsobjekt",
+              "mapIds": [
+                600002
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1068-dungeon-krao-cave-npc-2310102",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2320102,
+              "en": "Enhanced Krao Test Subject",
+              "de": "Verstärktes Kraoversuchsobjekt",
+              "mapIds": [
+                600004
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1068-dungeon-krao-cave-npc-2320102",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1068-dungeon-krao-cave",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600001,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1068-dungeon-krao-cave-map-600001-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/670631196372241777",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600002,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1068-dungeon-krao-cave-map-600002-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/670631196372241777",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600004,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1068-dungeon-krao-cave-map-600004-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/670631196372241777",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1068",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1078,
+      "soulItemId": 534660079,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1078-dungeon-urugugu-canyon",
+          "dungeonEn": "Urugugu Canyon",
+          "dungeonDe": "Uruguguschlucht",
+          "category": "Expedition",
+          "mapIds": [
+            600012,
+            600013
+          ],
+          "npcs": [
+            {
+              "id": 2300213,
+              "en": "Urugugu Brawler",
+              "de": "Streiter (Urugugu)",
+              "mapIds": [
+                600012
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1078-dungeon-urugugu-canyon-npc-2300213",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2320213,
+              "en": "Urugugu Brawler",
+              "de": "Streiter (Urugugu)",
+              "mapIds": [
+                600013
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1078-dungeon-urugugu-canyon-npc-2320213",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1078-dungeon-urugugu-canyon",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600012,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1078-dungeon-urugugu-canyon-map-600012-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136064593068108",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600013,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1078-dungeon-urugugu-canyon-map-600013-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136064593068108",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1078",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1080,
+      "soulItemId": 534660081,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1080-dungeon-cradle-of-nihility",
+          "dungeonEn": "Cradle of Nihility",
+          "dungeonDe": "Wiege des Nichts",
+          "category": "Expedition",
+          "mapIds": [
+            600121,
+            600122,
+            600123
+          ],
+          "npcs": [
+            {
+              "id": 2301309,
+              "en": "Bakarma Brigade Air Raiders Weapon",
+              "de": "Luftangriffstruppwaffe (Bakarmabrigade)",
+              "mapIds": [
+                600121
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1080-dungeon-cradle-of-nihility-npc-2301309",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2311309,
+              "en": "Bakarma Brigade Air Raiders Weapon",
+              "de": "Luftangriffstruppwaffe (Bakarmabrigade)",
+              "mapIds": [
+                600122
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1080-dungeon-cradle-of-nihility-npc-2311309",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2321309,
+              "en": "Bakarma Brigade Air Raiders Weapon",
+              "de": "Luftangriffstruppwaffe (Bakarmabrigade)",
+              "mapIds": [
+                600123
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1080-dungeon-cradle-of-nihility-npc-2321309",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1080-dungeon-cradle-of-nihility",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600121,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1080-dungeon-cradle-of-nihility-map-600121-availability",
+                "https://aion2.run/en/astuces/donjons-guide"
+              ]
+            },
+            {
+              "mapId": 600122,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1080-dungeon-cradle-of-nihility-map-600122-availability",
+                "https://aion2.run/en/astuces/donjons-guide"
+              ]
+            },
+            {
+              "mapId": 600123,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1080-dungeon-cradle-of-nihility-map-600123-availability",
+                "https://aion2.run/en/astuces/donjons-guide"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1080",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1082,
+      "soulItemId": 534660083,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1082-dungeon-fire-temple",
+          "dungeonEn": "Fire Temple",
+          "dungeonDe": "Feuertempel",
+          "category": "Expedition",
+          "mapIds": [
+            600021,
+            600022,
+            600023
+          ],
+          "npcs": [
+            {
+              "id": 2300308,
+              "en": "Merciless Flame Spirit",
+              "de": "Gnadenloser Flammengeist",
+              "mapIds": [
+                600022
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1082-dungeon-fire-temple-npc-2300308",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2310308,
+              "en": "Merciless Flame Spirit",
+              "de": "Gnadenloser Flammengeist",
+              "mapIds": [
+                600021
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1082-dungeon-fire-temple-npc-2310308",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2320308,
+              "en": "Merciless Flame Spirit",
+              "de": "Gnadenloser Flammengeist",
+              "mapIds": [
+                600023
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1082-dungeon-fire-temple-npc-2320308",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1082-dungeon-fire-temple",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600021,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1082-dungeon-fire-temple-map-600021-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174462589"
+              ]
+            },
+            {
+              "mapId": 600022,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1082-dungeon-fire-temple-map-600022-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174462589"
+              ]
+            },
+            {
+              "mapId": 600023,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1082-dungeon-fire-temple-map-600023-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174462589"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1082",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1090,
+      "soulItemId": 534660091,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1090-dungeon-shattered-arkanis",
+          "dungeonEn": "Shattered Arkanis",
+          "dungeonDe": "Zersplitterter Arkanis",
+          "category": "Transcendence",
+          "mapIds": [
+            600063,
+            600065,
+            600068,
+            610062
+          ],
+          "npcs": [
+            {
+              "id": 2330704,
+              "en": "Void Water Spirit",
+              "de": "Leerer Wassergeist",
+              "mapIds": [
+                600063
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090-dungeon-shattered-arkanis-npc-2330704",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2350704,
+              "en": "Void Water Spirit",
+              "de": "Leerer Wassergeist",
+              "mapIds": [
+                600065
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090-dungeon-shattered-arkanis-npc-2350704",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2353704,
+              "en": "Void Water Spirit",
+              "de": "Leerer Wassergeist",
+              "mapIds": [
+                600068
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090-dungeon-shattered-arkanis-npc-2353704",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2356704,
+              "en": "Void Water Spirit",
+              "de": "Leerer Wassergeist",
+              "mapIds": [
+                610062
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090-dungeon-shattered-arkanis-npc-2356704",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090-dungeon-shattered-arkanis",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600063,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090-dungeon-shattered-arkanis-map-600063-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/680761758839734417",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136064593068108",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600065,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090-dungeon-shattered-arkanis-map-600065-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/680761758839734417",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136064593068108",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600068,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090-dungeon-shattered-arkanis-map-600068-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/680761758839734417",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136064593068108",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 610062,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090-dungeon-shattered-arkanis-map-610062-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/680761758839734417",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136064593068108",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1090",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1100,
+      "soulItemId": 534660101,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1100-dungeon-vakron-sky-island",
+          "dungeonEn": "Vakron Sky Island",
+          "dungeonDe": "Vakrons Luftinsel",
+          "category": "Expedition",
+          "mapIds": [
+            600071,
+            600072,
+            600073
+          ],
+          "npcs": [
+            {
+              "id": 2300804,
+              "en": "Enraged Earth Spirit",
+              "de": "Wütender Bodengeist",
+              "mapIds": [
+                600072
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1100-dungeon-vakron-sky-island-npc-2300804",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2310804,
+              "en": "Enraged Earth Spirit",
+              "de": "Wütender Bodengeist",
+              "mapIds": [
+                600071
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1100-dungeon-vakron-sky-island-npc-2310804",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2320804,
+              "en": "Enraged Earth Spirit",
+              "de": "Wütender Bodengeist",
+              "mapIds": [
+                600073
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1100-dungeon-vakron-sky-island-npc-2320804",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1100-dungeon-vakron-sky-island",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600071,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1100-dungeon-vakron-sky-island-map-600071-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136064593068108",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600072,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1100-dungeon-vakron-sky-island-map-600072-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136064593068108",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600073,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1100-dungeon-vakron-sky-island-map-600073-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136064593068108",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1100",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1107,
+      "soulItemId": 534660108,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1107-dungeon-krao-cave",
+          "dungeonEn": "Krao Cave",
+          "dungeonDe": "Kraohöhle",
+          "category": "Expedition",
+          "mapIds": [
+            600001,
+            600002,
+            600004
+          ],
+          "npcs": [
+            {
+              "id": 2300106,
+              "en": "Krao Seal Guardian",
+              "de": "Krao-Siegelhüter",
+              "mapIds": [
+                600001
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1107-dungeon-krao-cave-npc-2300106",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2310106,
+              "en": "Krao Seal Guardian",
+              "de": "Krao-Siegelhüter",
+              "mapIds": [
+                600002
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1107-dungeon-krao-cave-npc-2310106",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2320106,
+              "en": "Krao Seal Guardian",
+              "de": "Krao-Siegelhüter",
+              "mapIds": [
+                600004
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1107-dungeon-krao-cave-npc-2320106",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1107-dungeon-krao-cave",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600001,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1107-dungeon-krao-cave-map-600001-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/670631196372241777",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600002,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1107-dungeon-krao-cave-map-600002-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/670631196372241777",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            },
+            {
+              "mapId": 600004,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1107-dungeon-krao-cave-map-600004-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/670631196372241777",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675135430408017339"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1107",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1167,
+      "soulItemId": 534660132,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1167-dungeon-fire-temple",
+          "dungeonEn": "Fire Temple",
+          "dungeonDe": "Feuertempel",
+          "category": "Expedition",
+          "mapIds": [
+            600021,
+            600022,
+            600023
+          ],
+          "npcs": [
+            {
+              "id": 2300313,
+              "en": "Flame Stone Guardian Statue",
+              "de": "Wächterstatue (Flammenstein)",
+              "mapIds": [
+                600022
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1167-dungeon-fire-temple-npc-2300313",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2310313,
+              "en": "Flame Stone Guardian Statue",
+              "de": "Wächterstatue (Flammenstein)",
+              "mapIds": [
+                600021
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1167-dungeon-fire-temple-npc-2310313",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2320313,
+              "en": "Flame Stone Guardian Statue",
+              "de": "Wächterstatue (Flammenstein)",
+              "mapIds": [
+                600023
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1167-dungeon-fire-temple-npc-2320313",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1167-dungeon-fire-temple",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600021,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1167-dungeon-fire-temple-map-600021-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174462589"
+              ]
+            },
+            {
+              "mapId": 600022,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1167-dungeon-fire-temple-map-600022-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174462589"
+              ]
+            },
+            {
+              "mapId": 600023,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1167-dungeon-fire-temple-map-600023-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174462589"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1167",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    },
+    {
+      "petNumber": 1199,
+      "soulItemId": 534660131,
+      "newSince": "2026-11-04",
+      "sources": [
+        {
+          "id": "pet-1199-dungeon-fire-temple",
+          "dungeonEn": "Fire Temple",
+          "dungeonDe": "Feuertempel",
+          "category": "Expedition",
+          "mapIds": [
+            600021,
+            600022,
+            600023
+          ],
+          "npcs": [
+            {
+              "id": 2300309,
+              "en": "Flame Barghest",
+              "de": "Flammenbalgest",
+              "mapIds": [
+                600022
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1199-dungeon-fire-temple-npc-2300309",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2310309,
+              "en": "Flame Barghest",
+              "de": "Flammenbalgest",
+              "mapIds": [
+                600021
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1199-dungeon-fire-temple-npc-2310309",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            },
+            {
+              "id": 2320309,
+              "en": "Flame Barghest",
+              "de": "Flammenbalgest",
+              "mapIds": [
+                600023
+              ],
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1199-dungeon-fire-temple-npc-2320309",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+              ]
+            }
+          ],
+          "mode": null,
+          "dropChance": null,
+          "sourceRefs": [
+            "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1199-dungeon-fire-temple",
+            "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+          ],
+          "globalAvailability": [
+            {
+              "mapId": 600021,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1199-dungeon-fire-temple-map-600021-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174462589"
+              ]
+            },
+            {
+              "mapId": 600022,
+              "status": "available",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1199-dungeon-fire-temple-map-600022-availability",
+                "https://aion2.ncsoft.jp/en/contents",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174462589"
+              ]
+            },
+            {
+              "mapId": 600023,
+              "status": "upcoming",
+              "checkedAt": "2026-11-05",
+              "sourceRefs": [
+                "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1199-dungeon-fire-temple-map-600023-availability",
+                "https://steamcommunity.com/games/3393110/announcements/detail/675136702174462589"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceRefs": [
+        "https://github.com/NewAge-BD/Soulcrest/blob/main/data/pets/dungeon-soul-sources.json#pet-1199",
+        "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957"
+      ]
+    }
+  ]
+}

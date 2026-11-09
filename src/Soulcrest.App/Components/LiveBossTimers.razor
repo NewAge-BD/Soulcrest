@@ -23,7 +23,7 @@
 <section class="@(Compact ? "event-boss-live boss-timers-compact" : "event-boss-live")" data-boss-list data-boss-searchable="@Searchable.ToString().ToLowerInvariant()" aria-label="@heading">
     <div class="alerts-section-heading"><div><span class="alerts-eyebrow">@UiText.T("Live aus dem Spiel")</span><h3>@heading</h3></div><div class="alerts-header-actions">
         <label class="opt-toggle" for="@_masterId"><input id="@_masterId" type="checkbox" role="switch" data-boss-alerts-master checked="@Settings.Current.BossAlertsEnabled" disabled="@Disabled" @onchange="ToggleAlerts" />@UiText.T("Alerts für ausgewählte Bosse")</label>
-        <span class="boss-alert-help"><InfoTip><p>@UiText.T("Jede gewählte Vorwarnzeit und jeder bestätigte Spawn lösen einen Alert aus. Alerts benötigen aktuelle Bossdaten und funktionieren auch bei ausgeschaltetem Boss Rush Mode.")</p></InfoTip></span>
+        <span class="boss-alert-help"><InfoTip><p>@UiText.T("Jede gewählte Vorwarnzeit und jeder bestätigte Spawn lösen einen Alert aus. Vorwarnungen nutzen auch gespeicherte Boss-Termine und funktionieren bei ausgeschaltetem Boss Rush Mode.")</p></InfoTip></span>
         <span class="event-schedule-badge">@UiText.T(IncludeCatalogue ? "Alle bekannten Bosse" : IncludeAllCaptured ? "Alle erfassten Bosse" : "Eigene Boss-Auswahl")</span></div></div>
     @if ((_savingKey == MasterKey || _savingKey == DurationKey)) { <p class="alerts-feedback" role="status" aria-busy="true">@UiText.T("Wird gespeichert …")</p> }
     else if ((_feedbackKey == MasterKey || _feedbackKey == DurationKey) && _feedback is not null) { <p class="@(_error ? "alerts-error" : "alerts-feedback")" role="@(_error ? "alert" : "status")">@_feedback</p> }
@@ -237,7 +237,7 @@
     }
     private static string CaptureStatus(BossRushEntry? row) => row is null ? UiText.T("Öffne die Bossliste im Spiel. Hier erscheinen die erfassten Timer deiner Auswahl.")
         : row.Calendar ? UiText.T("Fester Spielzeitplan in Europe/Berlin. Ein Spawn wird dadurch nicht bestätigt.")
-        : Provisional(row) ? UiText.T("Gespeicherte Timer bestätigen keinen Spawn und lösen keine Erinnerungen aus.")
+        : Provisional(row) ? UiText.T("Gespeicherte Timer laufen weiter und lösen Vorwarnungen aus. Ein Spawn wird dadurch nicht bestätigt.")
         : UiText.F("Letzter Stand vor {0} Sek.", Math.Max(0, (int)row.Age.TotalSeconds));
     private string ReminderStatus(BossReminderPreference preference) => !preference.Enabled ? UiText.T("Aus")
         : !Settings.Current.BossAlertsEnabled ? UiText.T("Global pausiert")

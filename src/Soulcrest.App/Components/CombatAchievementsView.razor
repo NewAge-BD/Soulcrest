@@ -1,0 +1,386 @@
+@using Soulcrest.App.Services
+@using Soulcrest.Core.Combat
+@using static Soulcrest.App.Components.CombatAchievementsPresentation
+@using static Soulcrest.App.Components.CombatSourceCategoryPresentation
+
+@{ var state = BoundAchievementState; var progress = AchievementState is null ? ProjectProgress() : state.Source == AchievementViewSource.Unknown ? AchievementViewState.Empty.Progress : state.Progress;
+    var scopeIds = CollectionScopeIds; var observedIds = AchievementState is null ? null : state.Source == AchievementViewSource.Unknown ? EmptyObservedIds : state.ObservedFamilyIds;
+    var knownFamilyCount = progress.Families.Keys.Count(id => scopeIds?.Contains(id) ?? true);
+    var catalogCount = scopeIds?.Count ?? Catalog.Achievements.Count; var observedCount = observedIds is null ? knownFamilyCount : observedIds.Count(id => scopeIds?.Contains(id) ?? true);
+    var numericFamilyCount = progress.Families.Count(pair => (scopeIds?.Contains(pair.Key) ?? true)
+        && pair.Value.Status != CombatKnowledgeStatus.Conflict && pair.Value.CurrentStageId is { } stageId
+        && pair.Value.Find(stageId) is { Current: >= 0, Target: > 0, Unit: not CombatAchievementProgressUnit.Unknown });
+    var allTargetsMapped = catalogCount > 0 && numericFamilyCount == catalogCount;
+    var activityIds = state.Activities.Keys.Where(id => !AchievementContentPolicy.IsRetired(id, Catalog.MetadataBuild)
+        && Activity(state, id) is not null && Catalog.Find(id) is { HasNativeName: true }).ToHashSet();
+    var recentCount = activityIds.Count(id => scopeIds?.Contains(id) ?? true); }
+
+<section class="ca-view" data-combat-achievements data-achievement-faction="@(Faction is Factions.Elyos or Factions.Asmodian ? Faction : "unknown")" data-achievement-category="@_category" data-achievement-group="@_group" data-achievement-view-source="@(AchievementState is null ? null : state.Source.ToString())" data-achievement-area="@(AchievementState is null ? null : AchievementArea.Normal.ToString())" data-achievement-progress-status="@(knownFamilyCount > 0 ? "Partial" : "Unknown")" data-achievement-known-family-count="@knownFamilyCount" data-achievement-catalog-count="@catalogCount">
+    <nav class="ca-categories" aria-label="@UiText.T("Erfolgskategorien")">
+        <button type="button" class="@(_category == "All" ? "selected" : "")" aria-pressed="@(_category == "All" ? "true" : "false")" data-achievement-category-filter="All" @onclick="@(() => SelectCategory("All"))">@UiText.T("Alle")</button>
+        @foreach (var category in Catalog.Categories)
+        {
+            <button type="button" class="@(_category == category.Id ? "selected" : "")" aria-pressed="@(_category == category.Id ? "true" : "false")" data-achievement-category-filter="@category.Id" @onclick="@(() => SelectCategory(category.Id))">
+                @if (category.IconPath is { } icon) { <img src="@icon" alt="" /> }
+                <span>@Label(category.NameDe, category.NameEn, UiText.Language)</span>
+            </button>
+        }
+    </nav>
+    <div class="ca-layout">
+        <aside class="ca-sidebar">
+            <nav class="ca-groups" aria-label="@UiText.T("Erfolgsgruppen")">
+                <button type="button" class="@(_group is null ? "selected" : "")" aria-pressed="@(_group is null ? "true" : "false")" data-achievement-group-filter="All" @onclick="@(() => SelectGroup(null))">@UiText.T("Alle Gruppen")</button>
+                @{ var groups = Groups(Catalog, _category, UiText.Language, scopeIds); var unknownGroups = groups.Where(group => !group.HasNativeName).ToArray(); }
+                @foreach (var group in groups.Where(group => group.HasNativeName)) { @GroupButton(group) }
+                @if (unknownGroups.Length > 0)
+                {
+                    <details class="ca-unmapped-groups" data-achievement-unmapped-groups="@unknownGroups.Length"><summary>@UiText.F("Weitere Gruppen ({0})", unknownGroups.Length)</summary><p>@UiText.T("Gruppennamen noch nicht zugeordnet.")</p>
+                        @foreach (var group in unknownGroups) { @GroupButton(group) }
+                    </details>
+                }
+            </nav>
+        </aside>
+        <div class="ca-browser">
+            <div class="ca-search" role="search">
+                <span aria-hidden="true">@UiText.T("Suche")</span>
+                <input type="search" value="@_search" maxlength="200" data-achievement-search aria-label="@UiText.T("Erfolge und Belohnungen suchen")" placeholder="@UiText.T("Name, Titel oder Belohnung…")" @oninput="SearchChanged" />
+                <button type="button" data-achievement-search-clear disabled="@(string.IsNullOrEmpty(_search))" title="@UiText.T("Suche löschen")" aria-label="@UiText.T("Suche löschen")" @onclick="ClearSearch"><span aria-hidden="true">×</span></button>
+            </div>
+            @if (_linkedFamily is { } linked && Catalog.Find(linked) is { } linkedAchievement)
+            {
+                <div class="ca-linked-selection" data-achievement-linked-family="@linked">
+                    <strong>@Label(linkedAchievement.NameDe, linkedAchievement.NameEn, UiText.Language)</strong>
+                    <button type="button" @onclick="ClearLinkedSelection">@UiText.T("Alle Erfolge anzeigen")</button>
+                </div>
+            }
+            <nav class="ca-progress-filters" aria-label="@UiText.T("Erfolgsumfang")"><button type="button" class="@(!_observedOnly && !_recentOnly ? "selected" : "")" aria-pressed="@(!_observedOnly && !_recentOnly ? "true" : "false")" data-achievement-progress-filter="All" @onclick="@(() => SelectProgressFilter(false))">@UiText.T("Alle Katalogeinträge") <span>@catalogCount</span></button><button type="button" class="@(_observedOnly ? "selected" : "")" aria-pressed="@(_observedOnly ? "true" : "false")" data-achievement-progress-filter="Observed" @onclick="@(() => SelectProgressFilter(true))">@UiText.T(state.IsSaved ? "Gespeicherter Erfolgsstand" : "Erkannter Stand") <span data-achievement-observed-family-count>@observedCount</span></button>
+                @if (AchievementState is not null) { <button type="button" class="@(_recentOnly ? "selected" : "")" aria-pressed="@(_recentOnly ? "true" : "false")" data-achievement-progress-filter="Recent" @onclick="SelectRecentFilter">@UiText.T("Zuletzt aktualisiert") <span data-achievement-recent-family-count>@recentCount</span></button> }
+            </nav>
+            @if (_favoriteSaving && _favoriteOperationBinding == state.Binding)
+            { <p class="ca-favorite-feedback" role="status" data-achievement-favorite-saving>@UiText.T("Favorit wird gespeichert…")</p> }
+            @if (_favoriteErrorBinding is not null && _favoriteErrorBinding == state.Binding)
+            { <p class="ca-favorite-feedback ca-favorite-error" role="alert" data-achievement-favorite-error>@UiText.T("Favorit konnte nicht gespeichert werden.")</p> }
+            <div class="ca-source-note" data-source-awaiting-current="@(!ObservationCurrent ? "true" : null)">
+                <span class="ca-source-dot" aria-hidden="true"></span><div><strong>@UiText.T(state.IsSaved ? "Gespeicherter Erfolgsstand" : "Freischaltbedingungen auf einen Blick")</strong>
+                    @if (state.IsSaved)
+                    {
+                        <p data-achievement-saved-source>@UiText.T("Dieser Stand ist gespeichert und keine aktuelle Spielbeobachtung.") @if (state.ObservedAt is { } savedAt) { <time datetime="@savedAt.ToString("O")" data-achievement-saved-at>@ObservationTime(savedAt, UiText.Language)</time> }</p>
+                    }
+                    else { <p data-achievement-target-coverage="@(allTargetsMapped ? "Complete" : numericFamilyCount > 0 ? "Partial" : "Unknown")">@UiText.T(allTargetsMapped ? "Deine Erfolge und ihre Freischaltbedingungen." : knownFamilyCount > 0 ? "Ein Teil deines Erfolgsstands ist bestätigt. Weitere Erfolgsreihen sind noch nicht zugeordnet."
+                        : recentCount > 0 ? "Fortschrittsänderungen werden direkt erkannt. Zielwerte und Abschlüsse sind teilweise noch ungeklärt."
+                        : "Die Bedingungen und Belohnungen stammen aus dem Spielkatalog. Dein aktueller Fortschritt ist noch nicht sicher zugeordnet.")</p> }
+                    @if (state.Saving) { <p role="status" data-achievement-saving>@UiText.T("Erfolgsstand wird gespeichert…")</p> }
+                    @if (!state.Issues.IsDefaultOrEmpty) { <p role="status" data-achievement-history-issue>@UiText.T("Ein Teil des gespeicherten Erfolgsstands konnte nicht bestätigt werden.")</p> }
+                </div>
+            </div>
+            @if (AchievementState is not null)
+            {
+                <details class="ca-history" data-achievement-history><summary>@UiText.T("Erfolgshistorie")</summary>
+                    <p>@UiText.T("Die Zeitangaben zeigen die erste Erkennung in Soulcrest, nicht den ursprünglichen Abschlusszeitpunkt im Spiel.")</p>
+                    @if (state.HistoryGap) { <p class="ca-history-gap" role="status" data-achievement-history-gap>@UiText.T("Die gespeicherte Historie enthält eine Datenlücke.")</p> }
+                    @{ var historyRows = state.Milestones.Where(milestone => milestone.Kind is AchievementMilestoneKind.Completed or AchievementMilestoneKind.RewardClaimed or AchievementMilestoneKind.PeriodChanged)
+                        .Select(milestone => (Milestone: milestone, Name: HistoryLabel(milestone, Catalog, UiText.Language)))
+                        .Where(row => row.Name is not null).OrderByDescending(row => row.Milestone.FirstObservedAt).Take(100).ToArray(); }
+                    @if (historyRows.Length == 0) { <p>@UiText.T("Noch keine bestätigten Einträge in dieser Historie.")</p> }
+                    else
+                    {
+                        <ol>@foreach (var entry in historyRows)
+                        {
+                            <li data-achievement-milestone-kind="@entry.Milestone.Kind.ToString()"><div><strong>@entry.Name</strong><span>@UiText.T(HistoryKind(entry.Milestone.Kind))</span></div><time datetime="@entry.Milestone.FirstObservedAt.ToString("O")">@ObservationTime(entry.Milestone.FirstObservedAt, UiText.Language)</time></li>
+                        }</ol>
+                    }
+                </details>
+            }
+            @{ var matchedRows = Rows(Catalog, _category, _group, UiText.Language, _observedOnly, progress, observedIds, scopeIds)
+                    .Where(row => SearchIndex.Matches(row.Id, _search)).ToArray();
+                IReadOnlyList<CombatAchievementDisplayDefinition> rows = _linkedFamily is { } linkedId ? matchedRows.Where(row => row.Id == linkedId).ToArray()
+                    : _recentOnly ? matchedRows.Where(row => activityIds.Contains(row.Id))
+                    .OrderByDescending(row => state.Activities[row.Id].ObservedAt).ThenBy(row => row.Id).ToArray() : matchedRows;
+                rows = rows.OrderBy(row => CompletedCard(row, progress)).ToArray();
+                var page = Math.Min(_page, Math.Max(0, (rows.Count - 1) / PageSize)); var pageRows = rows.Skip(page * PageSize).Take(PageSize).ToArray(); }
+            <div class="ca-grid" role="list" aria-label="@UiText.T("Erfolge")" data-achievement-visible-count="@pageRows.Length" data-achievement-match-count="@rows.Count">
+                @foreach (var achievement in pageRows)
+                {
+                    var family = progress.Find(achievement.Id);
+                    var selection = SelectedStage(achievement, family);
+                    var stage = achievement.Stages.FirstOrDefault(candidate => candidate.Id == selection.StageId);
+                    var facts = selection.StageId is { } stageId ? family?.Find(stageId) : null;
+                    var completedCard = IsCompletedCard(family, selection.StageId);
+                    var activity = achievement.HasNativeName ? Activity(state, achievement.Id) : null;
+                    var observedValue = achievement.HasNativeName ? ObservedValue(state, achievement.Id) : null;
+                    var unnamedLiveStage = selection.IsLive && stage is null;
+                    var name = unnamedLiveStage ? UiText.T("Stufenname noch nicht zugeordnet") : stage is null ? Label(achievement.NameDe, achievement.NameEn, UiText.Language) : Label(stage.NameDe, stage.NameEn, UiText.Language);
+                    var condition = unnamedLiveStage ? UiText.T("Die Bedingung dieser Stufe ist noch nicht zugeordnet.") : stage is null ? Label(achievement.ConditionDe, achievement.ConditionEn, UiText.Language) : Label(stage.ConditionDe, stage.ConditionEn, UiText.Language);
+                    var iconPath = stage?.IconPath ?? achievement.IconPath;
+                    var referenceContracts = CombatAchievementProgressContractCatalog.Default;
+                    var unit = facts?.Unit ?? (referenceContracts.MetadataBuild == Catalog.MetadataBuild ? referenceContracts.FindFamily(achievement.Id)?.Unit : null) ?? CombatAchievementProgressUnit.Count;
+                    var target = facts is not null ? facts.Target : unnamedLiveStage ? null : stage is null ? achievement.NativeTarget : stage.NativeTarget;
+                    var hasDisplayPair = facts is { Current: >= 0, Target: > 0 }
+                        && AchievementTrackerRow.IsValidDisplayPair(facts.DisplayCurrent, facts.DisplayTarget);
+                    var displayCurrent = hasDisplayPair ? facts!.DisplayCurrent : null;
+                    var displayTarget = hasDisplayPair ? facts!.DisplayTarget : null;
+                    var showCounter = unit != CombatAchievementProgressUnit.Unknown
+                        && (activity is null && observedValue is null || facts is { Current: not null, Target: not null });
+                    var rewards = unnamedLiveStage ? Array.Empty<CombatAchievementDisplayReward>() : stage is null ? achievement.Rewards : stage.Rewards;
+                    var stageScope = selection.IsLive ? state.IsSaved ? "Saved" : "Live" : "Catalogue";
+                    var candidateDefinition = AchievementState is not null && Definitions.Find(achievement.Id)?.Role == AchievementRole.Candidate;
+                    var favorite = BoundFavorites?.Contains(achievement.Id) == true;
+                    <article @key="achievement.Id" class="ca-card @(completedCard ? "ca-card-completed" : "") @(family?.Status == CombatKnowledgeStatus.Conflict ? "ca-card-conflict" : "")" role="listitem" data-achievement-card="@achievement.Id" data-achievement-card-category="@achievement.CategoryId" data-achievement-card-group="@achievement.GroupId" data-achievement-definition-role="@(candidateDefinition ? "Candidate" : null)" data-achievement-fact-source="@(AchievementState is null ? null : state.Source.ToString())" data-achievement-progress-unit="@(facts?.Unit.ToString())" data-achievement-family-status="@family?.Status" data-achievement-card-progress="@(family?.Status == CombatKnowledgeStatus.Conflict ? "Conflict" : facts?.Completed is true ? "Completed" : facts?.Completed is false ? "InProgress" : "Unknown")" data-achievement-completed="@(facts?.Completed?.ToString().ToLowerInvariant())" data-achievement-claimed="@(facts?.Claimed?.ToString().ToLowerInvariant())" data-current-stage-scope="@stageScope" data-achievement-native-name="@(achievement.HasNativeName ? "true" : "false")" data-achievement-stage="@selection.StageId" data-achievement-stage-scope="@(selection.StageId is null ? null : stageScope)">
+                        <header>
+                            <div class="ca-card-icon">@if (iconPath is { } icon) { <img src="@icon" alt="" loading="lazy" /> } else { <img src="@CombatWorkspaceCatalog.IconPath("achievements")" alt="" loading="lazy" /> }</div>
+                            <h4 title="@name">@name</h4><small class="ca-stage-origin">@UiText.T(selection.IsLive ? state.IsSaved ? "Gespeicherte Stufe" : "Aktuelle Stufe" : "Katalogreferenz")</small>
+                            @if (AchievementState is not null)
+                            {
+                                <button type="button" class="ca-favorite @(favorite ? "selected" : "")" data-achievement-favorite-family="@achievement.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-pressed="@(favorite ? "true" : "false")" disabled="@(!CanFavorite(achievement))" title="@UiText.T(_favoriteSaving ? "Favorit wird gespeichert…" : !CanFavorite(achievement) ? "Favoriten benötigen einen zugeordneten Charakter." : favorite ? "Aus Favoriten entfernen" : "Als Favorit merken")" aria-label="@UiText.T(favorite ? "Aus Favoriten entfernen" : "Als Favorit merken")" @onclick="@(() => ChangeFavorite(achievement))"><span aria-hidden="true">@(favorite ? "★" : "☆")</span></button>
+                            }
+                        </header>
+                        @if (candidateDefinition) { <p class="ca-definition-candidate">@UiText.T("Zuordnung ungeklärt")</p> }
+                        @if (achievement.Stages.Count > 1)
+                        {
+                            <label class="ca-stage-choice"><span>@UiText.T("Katalogstufe")</span><select data-achievement-stage-select="@achievement.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-label="@UiText.F("Katalogstufe für {0}", name)" @onchange="@(args => SelectStage(achievement, args))">
+                                @if (unnamedLiveStage) { <option value="" selected disabled>@UiText.T("Stufenname noch nicht zugeordnet")</option> }
+                                @foreach (var option in achievement.Stages) { <option value="@option.Id" selected="@(selection.StageId == option.Id)">@Label(option.NameDe, option.NameEn, UiText.Language)</option> }
+                            </select></label>
+                        }
+                        @if (_selectedStages.ContainsKey(achievement.Id)) { <button type="button" class="ca-follow-current" data-achievement-follow-current="@achievement.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)" @onclick="@(() => _selectedStages.Remove(achievement.Id))">@UiText.T("Automatische Stufenauswahl")</button> }
+                        <p class="ca-condition" data-achievement-condition title="@condition">@condition</p>
+                        @if (activity is not null)
+                        {
+                            <div class="ca-activity" data-achievement-activity="@achievement.Id" data-achievement-activity-source="Live">
+                                <strong>@UiText.T("Fortschritt aktualisiert")</strong><time datetime="@activity.ObservedAt.ToString("O")" data-achievement-activity-at>@ActivityTime(activity.ObservedAt, UiText.Language)</time>
+                            </div>
+                        }
+                        @if (family?.Status == CombatKnowledgeStatus.Conflict) { <p class="ca-conflict-note" role="status" data-achievement-conflict>@UiText.T("Zähler und Belohnungsstand widersprechen sich. Der Abschluss bleibt ungeklärt.")</p> }
+                        <div class="ca-card-progress">
+                            @if (showCounter)
+                            {
+                                <span><strong data-achievement-current data-achievement-current-value="@(facts?.Current?.ToString(System.Globalization.CultureInfo.InvariantCulture))">@ProgressDisplay(displayCurrent, facts?.Current, unit, UiText.Language)</strong><span aria-hidden="true"> / </span><span data-achievement-target="@target?.ToString(System.Globalization.CultureInfo.InvariantCulture)">@ProgressDisplay(displayTarget, target, unit, UiText.Language)</span></span>
+                            }
+                            <small>@UiText.T(facts?.Completed is true ? "Abgeschlossen" : facts?.Completed is false ? "In Arbeit" : facts is null && activity is null && observedValue is null ? "Fortschritt unbekannt" : "Abschlussstatus unbekannt")</small>
+                            @if (ClaimStatus(facts) is { } claimStatus) { <small class="ca-claim-status">@UiText.T(claimStatus)</small> }
+                            @if (facts?.RequirementsMetNow is { } requirementsMet) { <small class="ca-current-requirements">@UiText.T(requirementsMet ? "Voraussetzungen derzeit erfüllt" : "Voraussetzungen derzeit nicht erfüllt")</small> }
+                        </div>
+                        @if (showCounter || observedValue is not null)
+                        {
+                            @if (showCounter && facts is { Current: { } rawBarCurrent, Target: { } rawBarTarget }
+                                && rawBarCurrent >= 0 && rawBarTarget > 0)
+                            {
+                                var barCurrent = displayCurrent ?? rawBarCurrent;
+                                var barTarget = displayTarget ?? rawBarTarget;
+                                var percent = (Math.Clamp(barCurrent, 0m, barTarget) / barTarget * 100m).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) + "%";
+                                <div class="ca-progress ca-progress-known" role="progressbar" aria-label="@UiText.T("Fortschritt")" aria-valuemin="0" aria-valuemax="@barTarget.ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-valuenow="@Math.Clamp(barCurrent, 0m, barTarget).ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-valuetext="@UiText.F("{0} von {1}", ProgressDisplay(displayCurrent, facts.Current, unit, UiText.Language), ProgressDisplay(displayTarget, facts.Target, unit, UiText.Language))"><span style="width:@percent"></span></div>
+                            }
+                            else { <div class="ca-progress ca-progress-unknown" role="progressbar" aria-label="@UiText.T("Fortschritt")" aria-valuetext="@UiText.T(observedValue is null ? "Fortschritt unbekannt" : "Zielwert unbekannt")"></div> }
+                        }
+                        <footer class="ca-rewards" aria-label="@UiText.T("Belohnungen")">
+                            @if (rewards.Count == 0) { <span class="ca-reward-missing">@UiText.T("Keine zugeordnete Belohnung")</span> }
+                            else
+                            {
+                                <div class="ca-reward-items">
+                                    @for (var rewardIndex = 0; rewardIndex < rewards.Count; rewardIndex++)
+                                    {
+                                        var reward = rewards[rewardIndex];
+                                        var rewardName = Label(reward.NameDe, reward.NameEn, UiText.Language);
+                                        var rewardLabel = $"{rewardName} × {Number(reward.Quantity, UiText.Language)}";
+                                        var tooltipId = $"ca-reward-{achievement.Id}-{rewardIndex}";
+                                        <div class="ca-reward" data-achievement-reward tabindex="0" role="img" aria-label="@rewardLabel" aria-describedby="@tooltipId" title="@rewardLabel">
+                                            @if (reward.IconPath is { } rewardIcon) { <img src="@rewardIcon" alt="" loading="lazy" /> }
+                                            else { <span class="ca-reward-icon-missing" aria-hidden="true">◇</span> }
+                                            <strong data-achievement-reward-quantity="@reward.Quantity?.ToString(System.Globalization.CultureInfo.InvariantCulture)">@Number(reward.Quantity, UiText.Language)</strong>
+                                            <span id="@tooltipId" class="ca-reward-tooltip" role="tooltip">@rewardLabel</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            @if (stage is not null)
+                            {
+                                <CombatAchievementTitleRewards FamilyId="achievement.Id" StageId="stage.Id" MetadataBuild="Catalog.MetadataBuild"
+                                    Catalog="TitleCatalog" UnlockCatalog="TitleUnlockCatalog" ShowTitle="ShowTitle" />
+                            }
+                        </footer>
+                    </article>
+                }
+            </div>
+            @if (rows.Count == 0)
+            {
+                @if (!string.IsNullOrWhiteSpace(_search))
+                { <p class="ca-empty" role="status" data-achievement-search-empty>@UiText.T("Keine Erfolge für diese Suche in der aktuellen Auswahl.")</p> }
+                else { <p class="ca-empty">@UiText.T("Keine Katalogeinträge in dieser Auswahl.")</p> }
+            }
+            @if (rows.Count > PageSize)
+            {
+                <nav class="ca-pages" aria-label="@UiText.T("Erfolgsseiten")"><button type="button" data-achievement-page="previous" disabled="@(page == 0)" @onclick="@(() => _page = Math.Max(0, page - 1))">@UiText.T("Zurück")</button><span>@UiText.F("Seite {0} von {1}", page + 1, (rows.Count + PageSize - 1) / PageSize)</span><button type="button" data-achievement-page="next" disabled="@((page + 1) * PageSize >= rows.Count)" @onclick="@(() => _page = page + 1)">@UiText.T("Weiter")</button></nav>
+            }
+            <footer class="ca-browser-footer"><span>@UiText.F("{0} von {1} Katalogeinträgen angezeigt", pageRows.Length, rows.Count)</span><small>@UiText.T("Katalogeinträge bestätigen weder Verfügbarkeit noch Abschluss oder abgeholte Belohnungen.")</small></footer>
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter] public CharacterCombatSnapshot Snapshot { get; set; } = CharacterCombatSnapshot.Empty;
+    [Parameter] public CombatAchievementDisplayCatalog Catalog { get; set; } = CombatAchievementDisplayCatalog.Default;
+    [Parameter] public string? Faction { get; set; }
+    [Parameter] public CombatAchievementFactionCatalog FactionCatalog { get; set; } = CombatAchievementFactionCatalog.Default;
+    [Parameter] public AchievementViewState? AchievementState { get; set; }
+    [Parameter] public AchievementDefinitionCatalog Definitions { get; set; } = AchievementDefinitionCatalog.Default;
+    [Parameter] public AchievementFavoriteSnapshot? Favorites { get; set; }
+    [Parameter] public EventCallback<int> ToggleFavorite { get; set; }
+    [Parameter] public CombatAchievementNavigationRequest? Navigation { get; set; }
+    [Parameter] public EventCallback<int> ShowTitle { get; set; }
+    [Parameter] public CombatTitleDisplayCatalog TitleCatalog { get; set; } = CombatTitleDisplayCatalog.Default;
+    [Parameter] public CombatTitleUnlockCatalog TitleUnlockCatalog { get; set; } = CombatTitleUnlockCatalog.Default;
+    private CombatAchievementNavigationRequest? _appliedNavigation;
+    private int? _linkedFamily;
+    private string? _navigationProfile;
+    private static readonly IReadOnlySet<int> EmptyObservedIds = new HashSet<int>();
+    private string _category = "All";
+    private int? _group;
+    private int _page;
+    private string _search = string.Empty;
+    private string? _appliedFaction;
+    private CombatAchievementSearchIndex? _searchIndex;
+    private CombatAchievementDisplayCatalog? _searchCatalog;
+    private CombatTitleDisplayCatalog? _searchTitleCatalog;
+    private CombatTitleUnlockCatalog? _searchTitleUnlockCatalog;
+    private bool _observedOnly;
+    private bool _recentOnly;
+    private bool _favoriteSaving;
+    private AchievementProfileBinding? _favoriteOperationBinding;
+    private AchievementProfileBinding? _favoriteErrorBinding;
+    private readonly Dictionary<int, int> _selectedStages = [];
+    private const int PageSize = 24;
+    protected virtual CombatAchievementProgressSnapshot ProjectProgress() => CombatAchievementProgressProjection.Create(Snapshot, Catalog.MetadataBuild);
+    private AchievementViewState ProfileAchievementState => AchievementState is { } state
+        && state.MetadataBuild == Catalog.MetadataBuild && !string.IsNullOrWhiteSpace(state.ProfileId)
+        && (string.IsNullOrWhiteSpace(Snapshot.ProfileId) || string.Equals(state.ProfileId, Snapshot.ProfileId, StringComparison.Ordinal))
+            ? state : AchievementViewState.Empty;
+    private AchievementViewState BoundAchievementState => ProfileAchievementState is { IsLive: true } state
+        && (!Snapshot.IsFresh || Snapshot.Generation <= 0 || state.Generation != Snapshot.Generation)
+        ? state with { Source = AchievementViewSource.Unknown, Progress = AchievementViewState.Empty.Progress,
+            ObservedFamilyIds = [], ObservedValues = System.Collections.Immutable.ImmutableDictionary<int, int>.Empty,
+            Activities = System.Collections.Immutable.ImmutableDictionary<int, AchievementActivity>.Empty }
+        : ProfileAchievementState;
+    private CombatAchievementSearchIndex SearchIndex
+    {
+        get
+        {
+            if (_searchIndex is null || !ReferenceEquals(_searchCatalog, Catalog)
+                || !ReferenceEquals(_searchTitleCatalog, TitleCatalog) || !ReferenceEquals(_searchTitleUnlockCatalog, TitleUnlockCatalog))
+            {
+                _searchIndex = new(Catalog, TitleCatalog, TitleUnlockCatalog);
+                _searchCatalog = Catalog; _searchTitleCatalog = TitleCatalog; _searchTitleUnlockCatalog = TitleUnlockCatalog;
+            }
+            return _searchIndex;
+        }
+    }
+    private bool IncludesFaction(int familyId) => FactionCatalog.MetadataBuild != Catalog.MetadataBuild
+        || FactionCatalog.IncludesFamily(familyId, Faction);
+    private IReadOnlySet<int>? CollectionScopeIds
+    {
+        get
+        {
+            if (AchievementState is null)
+            {
+                var active = Catalog.Achievements.Where(row => !AchievementContentPolicy.IsRetired(row.Id, Catalog.MetadataBuild)
+                    && IncludesFaction(row.Id) && (Definitions.MetadataBuild != Catalog.MetadataBuild
+                        || Definitions.Find(row.Id) is not { } definition
+                        || definition is { Area: AchievementArea.Normal, Role: not AchievementRole.Reference }))
+                    .Select(row => row.Id).ToHashSet();
+                return active.Count == Catalog.Achievements.Count ? null : active;
+            }
+            return Definitions.MetadataBuild != Catalog.MetadataBuild ? EmptyObservedIds
+                : Definitions.Definitions.Where(definition => definition.Area == AchievementArea.Normal && definition.Role != AchievementRole.Reference
+                    && !AchievementContentPolicy.IsRetired(definition.Id, Catalog.MetadataBuild)
+                    && Catalog.Find(definition.Id) is not null && IncludesFaction(definition.Id)).Select(definition => definition.Id).ToHashSet();
+        }
+    }
+    private AchievementFavoriteSnapshot? BoundFavorites => ProfileAchievementState.Binding is { } binding
+        && string.Equals(binding.ProfileId, ProfileAchievementState.ProfileId, StringComparison.Ordinal)
+        && Favorites?.Binding == binding ? Favorites : null;
+    private bool CanFavorite(CombatAchievementDisplayDefinition achievement) => BoundFavorites is not null
+        && !_favoriteSaving && ToggleFavorite.HasDelegate && achievement.HasNativeName
+        && Definitions.MetadataBuild == Catalog.MetadataBuild
+        && Definitions.Find(achievement.Id) is { Area: AchievementArea.Normal, Role: not AchievementRole.Reference }
+        && IncludesFaction(achievement.Id)
+        && !AchievementContentPolicy.IsRetired(achievement.Id, Catalog.MetadataBuild);
+    private async Task ChangeFavorite(CombatAchievementDisplayDefinition achievement)
+    {
+        if (!CanFavorite(achievement) || BoundFavorites?.Binding is not { } binding) return;
+        _favoriteSaving = true; _favoriteOperationBinding = binding; _favoriteErrorBinding = null;
+        try { await ToggleFavorite.InvokeAsync(achievement.Id); }
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException
+            or InvalidOperationException or ArgumentException)
+        {
+            if (BoundAchievementState.Binding == binding) _favoriteErrorBinding = binding;
+        }
+        finally
+        {
+            _favoriteSaving = false; _favoriteOperationBinding = null;
+        }
+    }
+    private bool ObservationCurrent => AchievementState is null ? IsCurrent(Snapshot, Snapshot.Achievements) : BoundAchievementState.IsLive;
+    private CombatAchievementStageSelection SelectedStage(CombatAchievementDisplayDefinition achievement, CombatAchievementFamilyProgress? family) =>
+        StageSelection(achievement, family, _selectedStages.TryGetValue(achievement.Id, out var selected) ? selected
+            : SearchIndex.FindStage(achievement.Id, _search));
+    private bool CompletedCard(CombatAchievementDisplayDefinition achievement, CombatAchievementProgressSnapshot progress)
+    {
+        var family = progress.Find(achievement.Id);
+        return IsCompletedCard(family, SelectedStage(achievement, family).StageId);
+    }
+    private void SearchChanged(ChangeEventArgs args) => SetSearch(args.Value?.ToString() ?? string.Empty);
+    private void ClearSearch() => SetSearch(string.Empty);
+    private void SetSearch(string query)
+    {
+        if (string.Equals(_search, query, StringComparison.Ordinal)) return;
+        _search = query; _selectedStages.Clear(); ClearLinkedSelection();
+    }
+    private void ClearLinkedSelection() { _linkedFamily = null; _page = 0; }
+    private void SelectProgressFilter(bool observedOnly) { ClearLinkedSelection(); _observedOnly = observedOnly; _recentOnly = false; _page = 0; }
+    private void SelectRecentFilter() { ClearLinkedSelection(); _recentOnly = true; _observedOnly = false; _page = 0; }
+    private void SelectStage(CombatAchievementDisplayDefinition achievement, ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out var selected) && achievement.Stages.Any(stage => stage.Id == selected))
+            _selectedStages[achievement.Id] = selected;
+    }
+    private RenderFragment GroupButton(CombatAchievementGroupDefinition group) => @<button type="button" class="@(_group == group.Id ? "selected" : "")" aria-pressed="@(_group == group.Id ? "true" : "false")" data-achievement-group-filter="@group.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-achievement-group-option-kind="@(group.HasNativeName ? "Named" : "Unknown")" @onclick="@(() => SelectGroup(group.Id))">
+        @if (group.IconPath is { } icon) { <img src="@icon" alt="" /> }
+        <span class="ca-group-caption"><span>@Label(group.NameDe, group.NameEn, UiText.Language)</span>@if (Scope(group, UiText.Language) is { Length: > 0 } scope) { <small data-achievement-group-scope>@scope</small> }</span>
+    </button>;
+    private void SelectCategory(string category) { ClearLinkedSelection(); _category = category; _group = null; _page = 0; }
+    private void SelectGroup(int? group) { ClearLinkedSelection(); _group = group; _page = 0; }
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(_appliedFaction, Faction, StringComparison.Ordinal))
+        {
+            _appliedFaction = Faction; _page = 0;
+            if (_linkedFamily is { } linkedFamily && !IncludesFaction(linkedFamily)) _linkedFamily = null;
+        }
+        var profile = !string.IsNullOrWhiteSpace(BoundAchievementState.ProfileId) ? BoundAchievementState.ProfileId : Snapshot.ProfileId;
+        if (!string.IsNullOrWhiteSpace(profile) && _navigationProfile != profile)
+        {
+            if (_navigationProfile is not null) { _linkedFamily = null; _selectedStages.Clear(); }
+            _navigationProfile = profile;
+        }
+        if (Navigation is { } request && !ReferenceEquals(request, _appliedNavigation))
+        {
+            _appliedNavigation = request;
+            if (Catalog.Find(request.FamilyId) is { HasNativeName: true } requested
+                && !AchievementContentPolicy.IsRetired(request.FamilyId, Catalog.MetadataBuild) && IncludesFaction(request.FamilyId)
+                && (CollectionScopeIds?.Contains(request.FamilyId) ?? true)
+                && (AchievementState is null || Definitions.MetadataBuild == Catalog.MetadataBuild
+                    && Definitions.Find(request.FamilyId) is { Area: AchievementArea.Normal, Role: not AchievementRole.Reference }))
+            {
+                _category = "All"; _group = null; _observedOnly = false; _recentOnly = false; _page = 0; _search = string.Empty;
+                _linkedFamily = requested.Id;
+                _selectedStages.Remove(requested.Id);
+                if (request.StageId is { } stageId && requested.Stages.Any(stage => stage.Id == stageId))
+                    _selectedStages[requested.Id] = stageId;
+            }
+        }
+        if (_linkedFamily is { } selectedFamily && !(CollectionScopeIds?.Contains(selectedFamily) ?? true)) _linkedFamily = null;
+        if (_favoriteErrorBinding != BoundAchievementState.Binding) _favoriteErrorBinding = null;
+        if (_category != "All" && !Catalog.Categories.Any(category => category.Id == _category)) SelectCategory("All");
+        if (_group is { } id && !Groups(Catalog, _category, UiText.Language, CollectionScopeIds).Any(group => group.Id == id)) _group = null;
+    }
+}

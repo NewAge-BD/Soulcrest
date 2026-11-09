@@ -18,6 +18,7 @@ import numpy as np
 from fetch_gamingtools import decode
 from pet_source_markers import add_pet_source_markers, source_groups
 from exploration_network_ids import point_network_ids
+from monster_drops import load_monster_drop_catalog, monster_drop_payload, preflight_monster_drop_icons
 try:
     from hidden_cube_groups import apply_hidden_cube_groups  # private: own Hidden Cube spawn pools
 except ModuleNotFoundError:
@@ -370,7 +371,7 @@ def build_bosses(points, translated_points, map_details, config, size, icons):
     return bosses
 
 
-def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
+def build_map(mid, definition, icons, pets, numeric_to_catalog, sources, monster_catalog=None):
     en, de = data('interactive-map', mid), data('interactive-map', mid, 'de')
     map_details = data('maps', mid)
     exploration_ids = point_network_ids(en['points'], map_details, data('quests'))
@@ -383,13 +384,19 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
                'size': 8192 if mid == '1110' else 4096, 'groups': [], 'categories': [],
                'icons': [], 'markers': [], 'regions': []}
     cats = {}
+    marker_npc_ids = {}
+    monster_types = {t['id'] for c in index['categories'] if c['id'] == 'monsters'
+                     for t in c.get('types', [])} | {'boss'}
+    def monster_npc_id(row):
+        entity = row.get('entity') or {}
+        return entity.get('id') if entity.get('mainCategoryId') == 'npcs' and monster_types.intersection(row.get('types', [])) else None
     raw_cube_positions = []
     def icon_index(path):
         if not path: return -1
         rel = icons.get(path)
         if rel not in payload['icons']: payload['icons'].append(rel)
         return payload['icons'].index(rel)
-    def append(type_id, x, y, name, name_de, icon_path=None, pet=None, extra=None):
+    def append(type_id, x, y, name, name_de, icon_path=None, pet=None, extra=None, npc_id=None):
         group_name, t = types.get(type_id, ('NPCs', {'name': type_id}))
         if type_id not in cats:
             cats[type_id] = len(payload['categories'])
@@ -406,6 +413,8 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
         px, py = to_pixel(definition['map'], x, y)
         logical_scale = payload['size'] / (512*2**definition['map']['maximumZoom'])
         px, py = px*logical_scale, py*logical_scale
+        if npc_id is not None:
+            marker_npc_ids[len(payload['markers'])] = str(npc_id)
         payload['markers'].append([cat, round(px, 3), round(py, 3), name, name_de,
                                    icon_index(icon_path), pet, extra])
     def choose_type(type_ids):
@@ -416,7 +425,7 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
         append(choose_type(point['types']), point['x'], point['y'],
                point.get('name') or point.get('entity', {}).get('name'),
                translated.get('name') or translated.get('entity', {}).get('name'), point.get('iconPath'),
-               extra=exploration_ids.get(str(point['id'])))
+               extra=exploration_ids.get(str(point['id'])), npc_id=monster_npc_id(point))
     for label in en['labels']:
         append(label['type'], label['x'], label['y'], label.get('name'), de_points.get(label['id'], {}).get('name'))
     for group in en['groups']:
@@ -431,7 +440,8 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
         for i in range(0, len(positions), 2):
             append(type_id, positions[i], positions[i+1], entity.get('name'),
                    de_entities.get(entity.get('id'), {}).get('name'), kind_icon, pet=pet,
-                   extra={'npcId': entity.get('id'), 'derivedFrom': row.get('derivedFrom')} if row else None)
+                   extra={'npcId': entity.get('id'), 'derivedFrom': row.get('derivedFrom')} if row else None,
+                   npc_id=monster_npc_id(group))
     name_kibelisks_by_village(payload)
     payload['bosses'] = build_bosses(en['points'], de_points, map_details,
                                     definition['map'], payload['size'], icons)
@@ -440,6 +450,8 @@ def build_map(mid, definition, icons, pets, numeric_to_catalog, sources):
     # User request 2026-10-17: verified own client pools, bound to the unchanged source markers.
     if apply_hidden_cube_groups is not None:
         apply_hidden_cube_groups(payload, raw_cube_positions)
+    if monster_catalog is not None:
+        payload['monsterDrops'] = monster_drop_payload(mid, marker_npc_ids, monster_catalog, icons)
     for marker in payload['markers']:
         if marker[6]:
             field = 'spawns' if payload['categories'][marker[0]]['group'] == 'Pets' else 'monsters'
@@ -452,6 +464,8 @@ def main():
     parser.add_argument('--out', type=Path, default=ROOT/'imports/generated/mapdata')
     parser.add_argument('--skip-tiles', action='store_true')
     args = parser.parse_args()
+    monster_catalog = load_monster_drop_catalog(data, MAPS)
+    preflight_monster_drop_icons(monster_catalog, GAMINGTOOLS)
     args.out.mkdir(parents=True, exist_ok=True)
     icons = IconStore(args.out)
     summaries, pets, numeric = build_catalog(icons)
@@ -462,7 +476,7 @@ def main():
     for definition in data('interactive-map')['maps']:
         mid=definition['id']
         if mid not in MAPS: continue
-        payload=build_map(mid,definition,icons,pets,numeric,sources)
+        payload=build_map(mid,definition,icons,pets,numeric,sources,monster_catalog)
         resource_nodes.extend(build_resource_nodes(data('interactive-map', mid), data('interactive-map', mid, 'de'),
                               definition['map'], MAPS[mid], payload['size']))
         directory=args.out/MAPS[mid]; directory.mkdir(parents=True,exist_ok=True)

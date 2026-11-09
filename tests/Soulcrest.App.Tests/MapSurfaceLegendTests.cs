@@ -20,6 +20,92 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")]
 public sealed class MapSurfaceLegendTests
 {
+    [DiagnosticFact]
+    [Trait("Category", "Diagnostic")]
+    public async Task ExportActualMonsterDropLegend()
+    {
+        var json = File.ReadAllText(TestPrerequisites.RequiredValue("SOULCREST_MONSTER_DROP_LEGEND_JSON"));
+        var language = TestPrerequisites.RequiredValue("SOULCREST_MONSTER_DROP_LEGEND_LANGUAGE");
+        await using var fixture = new Fixture(language, mapJson: json);
+        var view = await fixture.Render();
+        await fixture.OpenGroup(view, "Pets");
+        await fixture.OpenGroup(view, "Locations");
+        await fixture.OpenGroup(view, "Resources");
+        await fixture.OpenGroup(view, "Monster Drops");
+        foreach (var category in language == "de" ? new[] { "Fleisch", "Früchte", "Leder" } : new[] { "Meat", "Fruit", "Leather" })
+            await fixture.Change(view, Label(language, category, MapSurface.Interactive), true);
+        await fixture.CollapseRight(view);
+        await fixture.Export(await fixture.Html(), "monster-drops-live");
+    }
+
+    [Theory]
+    [InlineData("de", MapSurface.Interactive)]
+    [InlineData("en", MapSurface.Interactive)]
+    [InlineData("de", MapSurface.Minimap)]
+    [InlineData("en", MapSurface.Minimap)]
+    [InlineData("de", MapSurface.Worldmap)]
+    [InlineData("en", MapSurface.Worldmap)]
+    public async Task MonsterDropItemsUseStableIdsAndIndependentPersistentSurfaceChoices(string language, MapSurface surface)
+    {
+        await using var fixture = new Fixture(language, includeDrops: true);
+        var view = await fixture.Render();
+        var initial = await fixture.Html();
+        Assert.DoesNotContain("Fresh Raw Meat", initial);
+        Assert.DoesNotContain("Frisches Rohfleisch", initial);
+        Assert.False(Assert.Single(await fixture.Controls(view), c => c.Label == Label(language, "Monster Drops", surface)).Checked);
+        await fixture.OpenGroup(view, "Monster Drops");
+        var meat = language == "de" ? "Frisches Rohfleisch" : "Fresh Raw Meat";
+        var balaur = language == "de" ? "Zartes Balaurfleisch" : "Soft Balaur Meat";
+        var fruit = language == "de" ? "Frische Frucht" : "Fresh Fruit";
+        var type = language == "de" ? "Fleisch" : "Meat";
+        var html = await fixture.Html();
+        Assert.Contains("Monster Drops</span><span class=\"count\">2</span>", html);
+        Assert.Contains(fruit, html); // a material type with just one item still has a selectable row
+        Assert.Contains("8 Marker", html); // drop metadata never creates additional map markers
+        foreach (var column in Surfaces)
+            foreach (var item in new[] { meat, balaur, fruit })
+                Assert.False(Assert.Single(await fixture.Controls(view), c => c.Label == Label(language, item, column)).Checked);
+
+        await fixture.Change(view, Label(language, meat, surface), true);
+        var reloaded = new SettingsService().Current;
+        Assert.True(MapLayerVisibility.KindVisible(reloaded, "altgard", surface, "Monster Drops", "Meat", "610531001"));
+        Assert.False(MapLayerVisibility.KindVisible(reloaded, "altgard", surface, "Monster Drops", "Meat", "610512002"));
+        Assert.Contains("Monster Drops/Meat/610512002", MapLayerVisibility.Selection(reloaded, "altgard", surface)!.HiddenKinds);
+        foreach (var other in Surfaces.Where(s => s != surface))
+            Assert.False(MapLayerVisibility.KindVisible(reloaded, "altgard", other, "Monster Drops", "Meat", "610531001"));
+        Assert.False(MapLayerVisibility.KindVisible(reloaded, "another-map", surface, "Monster Drops", "Meat", "610531001"));
+        Assert.False(Assert.Single(await fixture.Controls(view), c => c.Label == Label(language, type, surface)).Checked);
+
+        await fixture.ReloadMap(view);
+        Assert.True(Assert.Single(await fixture.Controls(view), c => c.Label == Label(language, meat, surface)).Checked);
+        Assert.False(Assert.Single(await fixture.Controls(view), c => c.Label == Label(language, balaur, surface)).Checked);
+        await fixture.ChangeNameLanguage(view, language == "de" ? "en" : "de");
+        await fixture.ReloadMap(view);
+        var translatedMeat = language == "de" ? "Fresh Raw Meat" : "Frisches Rohfleisch";
+        var translatedBalaur = language == "de" ? "Soft Balaur Meat" : "Zartes Balaurfleisch";
+        Assert.True(Assert.Single(await fixture.Controls(view), c => c.Label == Label(language, translatedMeat, surface)).Checked);
+        Assert.False(Assert.Single(await fixture.Controls(view), c => c.Label == Label(language, translatedBalaur, surface)).Checked);
+        await fixture.ChangeNameLanguage(view, language);
+        await fixture.Change(view, Label(language, type, surface), true);
+        Assert.True(Assert.Single(await fixture.Controls(view), c => c.Label == Label(language, balaur, surface)).Checked);
+        await fixture.Change(view, Label(language, "Monster Drops", surface), true);
+        Assert.True(Assert.Single(await fixture.Controls(view), c => c.Label == Label(language, fruit, surface)).Checked);
+        await fixture.Export(await fixture.Html(), "monster-drops");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MonsterDropEmptyAndOlderPackagesHaveDistinctLocalizedMessages(bool available)
+    {
+        await using var fixture = new Fixture("en", includeDrops: true, emptyDrops: true, dropsAvailable: available);
+        var view = await fixture.Render();
+        await fixture.OpenGroup(view, "Monster Drops");
+        var html = await fixture.Html();
+        Assert.Contains(available ? "No monster drops are confirmed for this map." : "Update the map data to use Monster Drops.", html);
+        Assert.DoesNotContain(available ? "Update the map data to use Monster Drops." : "No monster drops are confirmed for this map.", html);
+    }
+
     [Theory]
     [InlineData("de")]
     [InlineData("en")]
@@ -267,7 +353,7 @@ public sealed class MapSurfaceLegendTests
         private Func<string>? _html;
         public SettingsService Settings { get; }
 
-        public Fixture(string language, bool includeCubes = false)
+        public Fixture(string language, bool includeCubes = false, bool includeDrops = false, bool emptyDrops = false, bool dropsAvailable = true, string? mapJson = null)
         {
             _language = language;
             Directory.CreateDirectory(_folder);
@@ -293,7 +379,7 @@ public sealed class MapSurfaceLegendTests
             services.AddSingleton(new ExplorationService(Path.Combine(_folder, "exploration.json"), []));
             services.AddSingleton<UiState>();
             services.AddSingleton<UpdateService>();
-            services.AddSingleton<IJSRuntime>(new LegendJs(includeCubes));
+            services.AddSingleton<IJSRuntime>(new LegendJs(includeCubes, includeDrops, emptyDrops, dropsAvailable, mapJson));
             _provider = services.BuildServiceProvider();
             Settings = _provider.GetRequiredService<SettingsService>();
             Settings.Update(settings =>
@@ -325,6 +411,30 @@ public sealed class MapSurfaceLegendTests
             });
             return Assert.IsType<MapView>(view);
         }
+
+        public Task ChangeNameLanguage(MapView view, string language) => _renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            Settings.Update(settings => settings.NameLanguage = language);
+            await view.SetParametersAsync(ParameterView.Empty);
+        });
+
+        public Task CollapseRight(MapView view) => _renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            typeof(MapView).GetField("_rightCollapsed", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(view, true);
+            await view.SetParametersAsync(ParameterView.Empty);
+        });
+
+        public Task OpenGroup(MapView view, string group) => _renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            typeof(MapView).GetMethod("ToggleGroupOpen", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(view, [group]);
+            await view.SetParametersAsync(ParameterView.Empty);
+        });
+
+        public Task ReloadMap(MapView view) => _renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            await (Task)typeof(MapView).GetMethod("ShowMap", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(view, [null])!;
+            await view.SetParametersAsync(ParameterView.Empty);
+        });
 
         public Task<List<Checkbox>> Controls(MapView view, string labelClass = "legend-choice") =>
             _renderer.Dispatcher.InvokeAsync(() => ReadControls(view, labelClass));
@@ -420,7 +530,7 @@ public sealed class MapSurfaceLegendTests
         }
     }
 
-    private sealed class LegendJs(bool includeCubes) : IJSRuntime
+    private sealed class LegendJs(bool includeCubes, bool includeDrops, bool emptyDrops, bool dropsAvailable, string? mapJson) : IJSRuntime
     {
         private const string Map = """
             {"groups":[
@@ -438,8 +548,26 @@ public sealed class MapSurfaceLegendTests
             ", {\"name\":\"Collectibles\",\"categories\":["
             + "{\"index\":5,\"name\":\"Hidden Cube\",\"count\":5,\"hidden\":true,\"color\":\"#c084fc\"},"
             + "{\"index\":6,\"name\":\"Cube Groups\",\"de\":\"Cube Groups\",\"count\":2,\"hidden\":true,\"color\":\"#c084fc\"}]}],\"regions\":1,\"markers\":13}", StringComparison.Ordinal);
+        private static readonly string Drops = """
+            {"name":"Monster Drops","count":2,"categories":[
+              {"index":7,"name":"Meat","de":"Fleisch","count":2,"hidden":true,"color":"#f59e0b","icon":"/mapdata/icons/gamingtools/ui/resource/texture/item/etc/icon_item_craft_drop_meat_a_001.png","kinds":[
+                {"key":"610531001","name":"Fresh Raw Meat","de":"Frisches Rohfleisch","icon":"/mapdata/icons/gamingtools/ui/resource/texture/item/etc/icon_item_craft_drop_meat_a_001.png","count":2},
+                {"key":"610512002","name":"Soft Balaur Meat","de":"Zartes Balaurfleisch","icon":"/mapdata/icons/gamingtools/ui/resource/texture/item/etc/icon_item_craft_drop_meat_a_002.png","count":1}]},
+              {"index":8,"name":"Fruit","de":"Früchte","count":1,"hidden":true,"color":"#f59e0b","kinds":[
+                {"key":"610531002","name":"Fresh Fruit","de":"Frische Frucht","count":1}]}]}
+            """;
+        private string Response()
+        {
+            if (mapJson is not null) return mapJson;
+            var map = includeCubes ? CubeMap : Map;
+            if (!includeDrops) return map;
+            var root = System.Text.Json.Nodes.JsonNode.Parse(map)!;
+            root["groups"]!.AsArray().Add(System.Text.Json.Nodes.JsonNode.Parse(emptyDrops ? "{\"name\":\"Monster Drops\",\"count\":0,\"categories\":[]}" : Drops));
+            root["monsterDropsAvailable"] = dropsAvailable;
+            return root.ToJsonString();
+        }
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => typeof(TValue) == typeof(string)
-            ? ValueTask.FromResult((TValue)(object)(identifier == "soulcrestMap.show" ? (includeCubes ? CubeMap : Map) : "[]"))
+            ? ValueTask.FromResult((TValue)(object)(identifier == "soulcrestMap.show" ? Response() : "[]"))
             : ValueTask.FromResult(default(TValue)!);
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => InvokeAsync<TValue>(identifier, args);
     }

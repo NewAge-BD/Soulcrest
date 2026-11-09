@@ -1,0 +1,66 @@
+@using Soulcrest.App.Services
+@using static Soulcrest.App.Components.CombatAchievementsPresentation
+
+<section class="ct-unlock-cards" data-title-unlock-cards="@TitleId" data-title-unlock-card-status="@(Definition is null ? "Unknown" : Definition.Routes.Count > 0 ? "Referenced" : Definition.DirectGrantItemIds.Count > 0 ? "ItemOnly" : "Unknown")">
+    <h4>@UiText.T("Freischaltbedingungen")</h4>
+    @if (Definition is not { } definition || definition.DirectGrantItemIds.Count == 0)
+    {
+        <p class="ct-source-note">@UiText.T("Der Freischaltweg dieses Titels ist noch nicht zugeordnet.")</p>
+    }
+    else
+    {
+        @if (definition.Routes.Count == 0) { <p>@UiText.T("Der Titelgegenstand ist bekannt. Seine Bezugsquelle ist noch nicht zugeordnet.")</p> }
+        @foreach (var route in definition.Routes.DistinctBy(route => (route.Kind, route.SourceId, route.StageId)))
+        {
+            var family = route.Kind == "AchievementRewardItem" && AchievementCatalog.MetadataBuild == MetadataBuild ? AchievementCatalog.Find(route.SourceId) : null;
+            var stage = family?.Stages.FirstOrDefault(stage => stage.Id == route.StageId);
+            @if (family is { HasNativeName: true } && stage is not null)
+            {
+                var state = BoundState;
+                var facts = state?.Progress.Find(family.Id)?.Find(stage.Id);
+                var reported = state is null ? null : ObservedValue(state, family.Id);
+                var unit = facts?.Unit ?? CombatAchievementProgressUnit.Unknown;
+                <article class="ct-unlock-achievement" data-title-required-achievement="@family.Id" data-title-required-stage="@stage.Id" data-title-achievement-source="@(state?.Source.ToString() ?? "Unknown")">
+                    <header>@if ((stage.IconPath ?? family.IconPath) is { } icon) { <img src="@icon" alt="" loading="lazy" /> }<div><span>@UiText.T("Erfolgsbelohnung")</span><h5>@Label(stage.NameDe, stage.NameEn, UiText.Language)</h5></div></header>
+                    <p>@Label(stage.ConditionDe, stage.ConditionEn, UiText.Language)</p>
+                    @if (state?.IsSaved == true) { <small class="ct-unlock-saved" data-title-achievement-saved>@UiText.T("Gespeicherter Fortschritt") @if (state.ObservedAt is { } at) { <time datetime="@at.ToString("O")">@ObservationTime(at, UiText.Language)</time> }</small> }
+                    <div class="ct-unlock-status" data-title-achievement-completed="@facts?.Completed?.ToString().ToLowerInvariant()" data-title-achievement-claimed="@facts?.Claimed?.ToString().ToLowerInvariant()"><span>@UiText.T(facts?.Completed == true ? "Ziel erreicht" : facts?.Completed == false ? "Noch nicht abgeschlossen" : "Abschlussstatus unbekannt")</span>@if (facts?.Claimed == true) { <span>@UiText.T("Belohnung abgeholt")</span> }</div>
+                    @if (unit != CombatAchievementProgressUnit.Unknown && facts is { Current: { } current, Target: > 0 } && current >= 0)
+                    {
+                        <div class="ct-unlock-progress-values" data-title-achievement-current="@current" data-title-achievement-target="@facts.Target">@ProgressDisplay(facts.DisplayCurrent, current, unit, UiText.Language) / @ProgressDisplay(facts.DisplayTarget, facts.Target, unit, UiText.Language)</div>
+                        <div class="ct-unlock-progress" role="progressbar" aria-label="@UiText.T("Fortschritt")" aria-valuemin="0" aria-valuemax="@facts.Target" aria-valuenow="@Math.Clamp(current, 0L, facts.Target.Value)"><span style="width:@ProgressPercent(current, facts.Target.Value)"></span></div>
+                    }
+                    else if (reported is { } value) { <small class="ct-unlock-reported" data-title-achievement-reported="@value">@UiText.F(state?.IsSaved == true ? "Gespeicherter Wert: {0}" : "Gemeldeter Wert: {0}", Number(value, UiText.Language))</small> }
+                    <button type="button" data-title-show-achievement="@family.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-title-show-achievement-stage="@stage.Id" disabled="@(!ShowAchievement.HasDelegate)" @onclick="@(() => Navigate(family.Id, stage.Id))">@UiText.T("Zum Erfolg")</button>
+                </article>
+            }
+            else
+            {
+                <article class="ct-unlock-reference" data-title-unlock-kind="@route.Kind" data-title-unlock-source="@route.SourceId"><span>@UiText.T(Kind(route.Kind))</span>@if (Text(route.NameDe, route.NameEn) is { } name) { <h5>@name</h5> }@if (Text(route.ConditionDe, route.ConditionEn) is { } condition) { <p>@condition</p> }</article>
+            }
+        }
+        <p class="ct-unlock-use">@UiText.T("Die Belohnung liefert einen Titelgegenstand. Erst dessen Benutzung schaltet den Titel frei.")</p>
+        @if (definition.Routes.Any(route => route.Kind is "SeasonRankingRewardItem" or "RankingCatalogReference")) { <p class="ct-source-note">@UiText.T("Die erforderliche Saison und Rangplatzierung sind noch nicht bestätigt.")</p> }
+    }
+</section>
+
+@code {
+    [Parameter] public int TitleId { get; set; }
+    [Parameter] public int MetadataBuild { get; set; }
+    [Parameter] public string? ProfileId { get; set; }
+    [Parameter] public CombatTitleUnlockCatalog Catalog { get; set; } = CombatTitleUnlockCatalog.Default;
+    [Parameter] public CombatAchievementDisplayCatalog AchievementCatalog { get; set; } = CombatAchievementDisplayCatalog.Default;
+    [Parameter] public AchievementViewState? AchievementState { get; set; }
+    [Parameter] public EventCallback<CombatAchievementNavigationRequest> ShowAchievement { get; set; }
+    private CombatTitleUnlockDefinition? Definition => Catalog.MetadataBuild == MetadataBuild ? Catalog.Find(TitleId) : null;
+    private AchievementViewState? BoundState => AchievementState is { } state && state.MetadataBuild == MetadataBuild
+        && !string.IsNullOrWhiteSpace(ProfileId) && string.Equals(state.ProfileId, ProfileId, StringComparison.Ordinal)
+        && state.Source is AchievementViewSource.Live or AchievementViewSource.Saved ? state : null;
+    private Task Navigate(int family, int stage) => ShowAchievement.InvokeAsync(new(family, stage));
+    private static string? Text(string? de, string? en) => UiText.Language == "de" ? de : en;
+    private static string Kind(string kind) => kind switch
+    {
+        "AchievementRewardItem" => "Erfolgsbelohnung", "QuestRewardItem" => "Questbelohnung",
+        "SeasonRankingRewardItem" => "Ranglistenbelohnung", "RankingCatalogReference" => "Ranglistenkatalog", _ => "Freischaltweg"
+    };
+}

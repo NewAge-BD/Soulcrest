@@ -554,21 +554,28 @@ public sealed class BossUntilSpawnTests
     }
 
     [Fact]
-    public async Task CachedSnapshotsAloneStillCannotCreateEitherFixedWarningOrConfirmedSpawnNotice()
+    public async Task CachedFutureDeadlinesCanWarnButCachedSpawnFlagsCannotConfirmASpawn()
     {
         await using var fixture = new Fixture();
         fixture.Configure(until: false, duration: 13, lead: 900);
         fixture.RestoreCached(fixture.Upcoming(1, 600));
         fixture.Refresh();
         fixture.Alerts.Tick();
-        Assert.Empty(fixture.Bosses.Alerts);
-        Assert.Empty(fixture.Alerts.NotificationRows);
+        var warning = Assert.Single(fixture.Bosses.Alerts);
+        Assert.True(warning.Cached);
+        Assert.False(warning.Spawned);
+        Assert.Single(fixture.Alerts.NotificationRows);
         fixture.RestoreCached(new BossSpawn(111001, true, fixture.ServerNow));
+        fixture.Refresh();
+        fixture.Alerts.Tick();
+        Assert.False(Assert.Single(fixture.Bosses.Alerts).Spawned);
+        Assert.Single(fixture.Delivered);
+        fixture.Clock.Advance(TimeSpan.FromSeconds(13));
         fixture.Refresh();
         fixture.Alerts.Tick();
         Assert.Empty(fixture.Bosses.Alerts);
         Assert.Empty(fixture.Alerts.NotificationRows);
-        Assert.Empty(fixture.Delivered);
+        Assert.Single(fixture.Delivered);
     }
 
     [Theory]

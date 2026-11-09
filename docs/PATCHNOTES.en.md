@@ -2,6 +2,32 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.16.0 – 2026-11-09
+
+- **New:** Stat Overview with primary, god, main and sub stats from your own network data, plus
+  sections for the Daevanion Board with overlay planning, Wings, Gear, Pets, Genus Insight,
+  Pantheon, Achievements and Titles.
+- **New:** Achievements with progress and reward tiers, search, faction filter, favourites and an
+  achievement tracker overlay (notice duration adjustable).
+- **New:** Titles, wings and Pantheon as per-character collections with ownership, bonuses and
+  unlock paths; missing ownership bonuses can be filtered.
+- **New:** Genus Insight with live rolls and a favourites overlay.
+- **New:** **Overlay Editor** replaces the Overlay tab: build your own overlays from live modules
+  (drops, Kina, AP, rank points, kill feed, rank progress and more), presets and themes, placement
+  directly in game.
+- **New:** Optional online market prices from aion2.exchange (can be turned off): new loot gets a
+  net reference value after adjustable fees when it drops, and that value is frozen. Server
+  selectable per character.
+- **New:** Estimated PvP assists in the kill feed and Abyss sessions, labelled as estimated.
+  Further own deaths after a revival are counted.
+- **Fixed:** AP gains keep counting after spending AP; an additional AP reward form is recorded.
+- **New:** Monster drops as a material filter in the map legend; new dungeon soul sources for
+  twelve pets.
+- **New:** Boss pre-warnings from saved schedules; the invasion countdown targets the next start
+  on the half hour.
+- **Changed:** The loot overlay groups equipment drops by rarity; overlays no longer blink briefly
+  on data updates.
+
 ## 0.15.1 – 2026-10-28
 
 - **Fixed:** In the public download the Loot Tracker recorded no sessions, and the Abyss Rank

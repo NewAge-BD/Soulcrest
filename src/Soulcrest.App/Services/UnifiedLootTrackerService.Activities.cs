@@ -13,8 +13,11 @@ public sealed partial class UnifiedLootTrackerService
         RecorderPositionSnapshot? Position, long Amount = 0, NetworkFarmDrop? Drop = null,
         ImmutableArray<NetworkGatheringItem> Items = default, NetworkGatheringOutcome Outcome = NetworkGatheringOutcome.Harvested,
         int? GatherableId = null, bool InInstance = false, LootTrackerCombatKind? CombatKind = null,
-        string? OpponentClassId = null, int? OpponentAbyssRankGrade = null) : Command
-    { public override string ToString() => nameof(Activity); }
+        string? OpponentClassId = null, int? OpponentAbyssRankGrade = null, bool IsEstimated = false) : Command
+    {
+        public ExchangeMarketProfileSettings MarketProfile { get; init; } = new();
+        public override string ToString() => nameof(Activity);
+    }
 
     private bool EventTime(OwnCharacterContext own, DateTimeOffset at, long sequence) => sequence > 0 && at != default
         && at <= _time.GetUtcNow() && own.ObservedAt is { } entered && entered != default && entered <= at;
@@ -26,7 +29,8 @@ public sealed partial class UnifiedLootTrackerService
     private void QueueActivity(GainChannel channel, OwnCharacterContext own, DateTimeOffset at, long sequence,
         long amount = 0, NetworkFarmDrop? drop = null, ImmutableArray<NetworkGatheringItem> items = default,
         NetworkGatheringOutcome outcome = NetworkGatheringOutcome.Harvested, int? gatherableId = null,
-        bool inInstance = false, LootTrackerCombatKind? combatKind = null, string? classId = null, int? grade = null)
+        bool inInstance = false, LootTrackerCombatKind? combatKind = null, string? classId = null, int? grade = null,
+        bool isEstimated = false)
     {
         if (!EventTime(own, at, sequence) || !ReferenceEquals(CurrentOwn, own)) return;
         var world = _world();
@@ -34,9 +38,11 @@ public sealed partial class UnifiedLootTrackerService
         // Freeze the visual fix at completion, before a delayed profile lookup can observe a later frame.
         // The position getter releases its map lock before the binding is read.
         var position = _position();
-        Enqueue(new Activity(channel, own, _bind(own), world, at, stamp, sequence,
+        var character = _bind(own);
+        var marketProfile = _settings.GetExchangeMarketProfile(character?.ProfileId) with { };
+        Enqueue(new Activity(channel, own, character, world, at, stamp, sequence,
             ChannelEnabled(channel, world), position, amount, drop, items, outcome, gatherableId,
-            inInstance, combatKind, classId, grade));
+            inInstance, combatKind, classId, grade, isEstimated) { MarketProfile = marketProfile });
     }
 
     private void MonsterKina(NetworkKinaGain gain)
@@ -93,13 +99,20 @@ public sealed partial class UnifiedLootTrackerService
 
     private void CombatObserved(NetworkAbyssCombatEvent combat)
     {
-        if (_combat is not { Running: true } || !_combat.CombatCapabilities.Supports(combat.Kind)
+        if (_combat is not { Running: true } || !_combat.CombatCapabilities.Supports(combat.Kind, combat.IsEstimated)
             || !ReferenceEquals(_combat.OwnCharacter, combat.Character)
-            || combat.Kind is not (NetworkAbyssCombatKind.Kill or NetworkAbyssCombatKind.Death)) return;
+            || combat.Kind is not (NetworkAbyssCombatKind.Kill or NetworkAbyssCombatKind.Death or NetworkAbyssCombatKind.Assist)
+            || combat.IsEstimated && combat.Kind != NetworkAbyssCombatKind.Assist) return;
         QueueActivity(GainChannel.Combat, combat.Character, combat.At, combat.Sequence,
-            combatKind: combat.Kind == NetworkAbyssCombatKind.Kill ? LootTrackerCombatKind.Kill : LootTrackerCombatKind.Death,
+            combatKind: combat.Kind switch
+            {
+                NetworkAbyssCombatKind.Kill => LootTrackerCombatKind.Kill,
+                NetworkAbyssCombatKind.Death => LootTrackerCombatKind.Death,
+                _ => LootTrackerCombatKind.Assist
+            },
             classId: LootTrackerTimelineFacts.ClassId(combat.OpponentClassId),
-            grade: combat.OpponentAbyssRankGrade is >= 1 and <= 19 ? combat.OpponentAbyssRankGrade : null);
+            grade: combat.OpponentAbyssRankGrade is >= 1 and <= 19 ? combat.OpponentAbyssRankGrade : null,
+            isEstimated: combat.IsEstimated);
     }
 
     private bool CurrentChannel(Activity activity) => activity.Channel switch
@@ -107,7 +120,14 @@ public sealed partial class UnifiedLootTrackerService
         GainChannel.Harvest => _gathering.Running && _gathering.GatheringVerified && ReferenceEquals(_gathering.OwnCharacter, activity.Own),
         GainChannel.Drop => _farm.Running && ReferenceEquals(_farm.OwnCharacter, activity.Own),
         GainChannel.Combat => _combat is { Running: true } && ReferenceEquals(_combat.OwnCharacter, activity.Own)
-            && _combat.CombatCapabilities.Supports(activity.CombatKind == LootTrackerCombatKind.Kill ? NetworkAbyssCombatKind.Kill : NetworkAbyssCombatKind.Death),
+            && activity.CombatKind is LootTrackerCombatKind.Kill or LootTrackerCombatKind.Death or LootTrackerCombatKind.Assist
+            && (!activity.IsEstimated || activity.CombatKind == LootTrackerCombatKind.Assist)
+            && _combat.CombatCapabilities.Supports(activity.CombatKind switch
+            {
+                LootTrackerCombatKind.Kill => NetworkAbyssCombatKind.Kill,
+                LootTrackerCombatKind.Death => NetworkAbyssCombatKind.Death,
+                _ => NetworkAbyssCombatKind.Assist
+            }, activity.IsEstimated),
         GainChannel.AbyssPoints or GainChannel.RankPoints => _abyss.Running && ReferenceEquals(_abyss.OwnCharacter, activity.Own),
         _ => IsAbyss(activity.World) ? _kina.Running && ReferenceEquals(_kina.OwnCharacter, activity.Own)
             : _farm.Running && ReferenceEquals(_farm.OwnCharacter, activity.Own)
@@ -177,7 +197,8 @@ public sealed partial class UnifiedLootTrackerService
                 var placed = position is null ? null : new LootTrackerCombatPosition(position.MapId, _mapName(position.MapId), position.X, position.Y, position.At);
                 next = next with { CombatEvents = next.CombatEvents.Add(new(Guid.NewGuid().ToString("N"), activity.CombatKind!.Value,
                     activity.At, elapsed, placed) { Origin = LootTrackerActivityOrigin.Abyss,
-                    OpponentClassId = activity.OpponentClassId, OpponentAbyssRankGrade = activity.OpponentAbyssRankGrade }) };
+                    OpponentClassId = activity.OpponentClassId, OpponentAbyssRankGrade = activity.OpponentAbyssRankGrade,
+                    IsEstimated = activity.IsEstimated }) };
                 break;
             default:
                 next = AddIncome(next, activity, elapsed, origin);
@@ -187,6 +208,12 @@ public sealed partial class UnifiedLootTrackerService
         if (!abyss && QualifiedDaily(_daily, activity.Own, activity.At) && _daily.Total is { } total && total >= Overlay.LootOverlaySnapshot.DailyLimit)
             next = next with { Mode = LootTrackerSessionMode.LimitedKina };
         Save(next);
+        if (activity.Channel is GainChannel.Drop or GainChannel.Harvest && !rewards.IsDefaultOrEmpty)
+        {
+            var fact = next.TimelineEvents.Last();
+            SafeEvent.Raise(LootFactCommitted, new(next.Id, character.ProfileId!, fact, activity.MarketProfile),
+                "Gespeicherter Loot-Beleg");
+        }
         _lastActivityStamp = Math.Max(_lastActivityStamp, activity.Stamp);
         _lastActivityElapsedTicks = Math.Max(_lastActivityElapsedTicks, elapsed.Ticks);
         if (!abyss) Expire(_time.GetUtcNow(), _time.GetTimestamp());

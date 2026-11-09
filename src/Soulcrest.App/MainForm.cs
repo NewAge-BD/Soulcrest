@@ -4,6 +4,7 @@ using Microsoft.Web.WebView2.Core;
 using Soulcrest.App.Components;
 using Soulcrest.App.Overlay;
 using Soulcrest.App.Services;
+using Soulcrest.Core.Daevanion;
 
 namespace Soulcrest.App;
 
@@ -14,9 +15,7 @@ public sealed class MainForm : Form
 
     private readonly ServiceProvider _services;
     private readonly PetOverlayForm _overlay;
-    private readonly LootOverlayForm _lootOverlay;
-    private readonly UnifiedLootTrackerService _unifiedLoot;
-    private readonly AbyssRankOverlayForm _abyssRankOverlay;
+    private readonly OverlayLegacyAudioCoordinator _overlayAudio;
     private readonly AbyssRankSoundPlayer _abyssRankSounds;
     private readonly RareDropAlertService _dropAlerts;
     private readonly BossOverlayForm _bossOverlay;
@@ -32,8 +31,11 @@ public sealed class MainForm : Form
     private readonly SettingsService _settings;
     private readonly OverlayPlacementService _placement;
     private OverlayPlacementForm? _placementWindow;
-    private bool _placementPresented;
+    private bool _placementPresented, _placementTransition, _waitingPlacementShutdown;
     private readonly TrackerService _tracker;
+    private readonly Network.NetworkLootService _achievementSource;
+    private readonly AchievementStateService _achievementState;
+    private readonly AchievementOverlayForm _achievementOverlay;
     private readonly MapTrackingService _map;
     private readonly WorldContextService _worldContext;
     private readonly Capture.GameCaptureService _gameCapture;
@@ -48,7 +50,10 @@ public sealed class MainForm : Form
     private bool _lootContextSuppressed;
     private int _contextUpdatePending;
     private long _foregroundCheckedAt;
-    private bool _gameInForeground;
+    private bool _gameInForeground, _gameWindowAvailable;
+    private Rectangle? _editorGameBounds;
+    private OverlayEditorLiveHostCoordinator? _editorLive;
+    private Soulcrest.App.OverlayEditorKit.OverlayEditorLiveContext _editorContext = new(false, false, false, null, new());
 
     public IServiceProvider Services => _services;
 
@@ -71,6 +76,8 @@ public sealed class MainForm : Form
         services.AddSingleton<OverlayHotkeyService>();
         services.AddSingleton<OverlayPlacementService>();
         services.AddSingleton<OverlayPreviewRenderer>();
+        services.AddSingleton<Soulcrest.App.OverlayEditorKit.IOverlayEditorBitmapRenderer, Soulcrest.App.OverlayEditorKit.OverlayEditorBitmapRenderer>();
+        services.AddSingleton<Soulcrest.App.OverlayEditorKit.IOverlayEditorLiveRenderer, Soulcrest.App.OverlayEditorKit.OverlayEditorLiveRenderer>();
         services.AddSingleton<Capture.GameCaptureService>();
         services.AddSingleton<ProgressService>();
         services.AddSingleton<WorldContextService>();
@@ -82,8 +89,24 @@ public sealed class MainForm : Form
         services.AddSingleton<Network.INetworkFarmSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkAbyssSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkAbyssCombatSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkSkillSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkCharacterCombatSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkPantheonSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<MerchantService>();
         services.AddSingleton<DaevanionService>();
+        services.AddSingleton<OwnSkillStateService>();
+        services.AddSingleton<CharacterCombatStateService>();
+        services.AddSingleton<PantheonStateService>();
+        services.AddSingleton<DaevanionBoardEditService>();
+        services.AddSingleton<Network.INetworkAchievementSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton(_ => new AchievementStateStore(Path.Combine(AppPaths.DataDirectory, "achievements")));
+        services.AddSingleton<AchievementStateService>();
+        services.AddSingleton<IAchievementTrackerSource>(sp => sp.GetRequiredService<AchievementStateService>());
+        services.AddSingleton(sp => new AchievementFavoriteService(Path.Combine(AppPaths.DataDirectory, "achievements", "favorites"),
+            sp.GetRequiredService<ExplorationService>()));
+        services.AddSingleton<AchievementTrackerService>();
+        services.AddSingleton<IDaevanionOptimizer, DaevanionOptimizer>();
+        services.AddSingleton<DaevanionPlanService>();
         services.AddSingleton<TrackerService>();
         services.AddSingleton<ExplorationService>();
         services.AddSingleton<MapTrackingService>();
@@ -106,13 +129,15 @@ public sealed class MainForm : Form
         services.AddSingleton(sp => new AbyssRankOverlaySource(sp.GetRequiredService<UnifiedLootTrackerService>(),
             sp.GetRequiredService<AbyssProgressService>(), sp.GetRequiredService<SettingsService>(),
             sp.GetRequiredService<WorldContextService>(), sp.GetRequiredService<AbyssKillFeedService>()));
-        services.AddSingleton<UnifiedLootOverlaySource>();
+        services.AddSingleton<IExchangeMarketClient>(_ => new ExchangeMarketApiClient());
+        services.AddSingleton(_ => new ExchangeMarketCache(TimeProvider.System,
+            Path.Combine(AppPaths.DataDirectory, "cache", "exchange-market")));
+        services.AddSingleton<ExchangeLootValuationService>();
         services.AddSingleton(sp => new AbyssRankSoundPlayer(() =>
         {
             var settings = sp.GetRequiredService<SettingsService>().Current;
             return new(settings.AbyssRankSoundEnabled, settings.AbyssRankSoundVolume);
         }));
-        services.AddSingleton<ILootOverlaySource>(sp => sp.GetRequiredService<UnifiedLootOverlaySource>());
         services.AddSingleton<IAbyssRankOverlaySource>(sp => sp.GetRequiredService<AbyssRankOverlaySource>());
         services.AddSingleton(sp => new RareDropAlertService(sp.GetRequiredService<UnifiedLootTrackerService>(), () =>
         {
@@ -130,6 +155,12 @@ public sealed class MainForm : Form
         services.AddSingleton<DiagnosticsService>();
         services.AddSingleton<UpdateService>();
         services.AddSingleton<UiState>();
+        services.AddSingleton<Soulcrest.App.OverlayEditorKit.IOverlayService>(_ => new Soulcrest.App.OverlayEditorKit.OverlayService());
+        services.AddSingleton<OverlayEditorMarketService>();
+        services.AddSingleton<GenusMenuObservationService>();
+        services.AddSingleton<GenusInsightFavoriteService>();
+        services.AddSingleton<GenusInsightStateService>();
+        services.AddSingleton<Soulcrest.App.OverlayEditorKit.IOverlayEditorPresentationSource, Soulcrest.App.OverlayEditorKit.OverlayEditorPresentationSource>();
         _services = services.BuildServiceProvider();
         _settings = _services.GetRequiredService<SettingsService>();
         _hotkeys = _services.GetRequiredService<OverlayHotkeyService>();
@@ -143,7 +174,8 @@ public sealed class MainForm : Form
         _gameCapture = _services.GetRequiredService<Capture.GameCaptureService>();
         var progress = _services.GetRequiredService<ProgressService>();
         _merchantOverlay = new MerchantOverlayForm(_services.GetRequiredService<MerchantService>(), _settings, _gameCapture);
-        _daevanionOverlay = new DaevanionOverlayForm(_services.GetRequiredService<DaevanionService>(), _settings);
+        _daevanionOverlay = new DaevanionOverlayForm(_services.GetRequiredService<DaevanionService>(), _settings,
+            _services.GetRequiredService<DaevanionPlanService>(), _services.GetRequiredService<DaevanionBoardEditService>());
         RestoreWindowBounds();
 
         var webView = new BlazorWebView
@@ -186,16 +218,12 @@ public sealed class MainForm : Form
         // Resolve the session subscriber before TrackerService starts the one shared passive source.
         _dropAlerts = _services.GetRequiredService<RareDropAlertService>();
         _settings.Changed += _dropAlerts.ApplySettings;
-        _lootOverlay = new LootOverlayForm(_services.GetRequiredService<ILootOverlaySource>(), ReadLootOverlayOptions,
-            point => _settings.Update(settings => { settings.LootOverlayX = point.X; settings.LootOverlayY = point.Y; }),
-            _dropAlerts);
-        _unifiedLoot = _services.GetRequiredService<UnifiedLootTrackerService>();
-        _unifiedLoot.SessionStarted += ShowLootOverlayForSessionStart;
         _abyssRankSounds = _services.GetRequiredService<AbyssRankSoundPlayer>();
         _settings.Changed += _abyssRankSounds.ApplySettings;
-        _abyssRankOverlay = new AbyssRankOverlayForm(_services.GetRequiredService<IAbyssRankOverlaySource>(), ReadAbyssRankOverlayOptions,
-            point => _settings.Update(settings => { settings.AbyssRankOverlayX = point.X; settings.AbyssRankOverlayY = point.Y; }),
-            rankUpStarted: _abyssRankSounds.Start, motionCanceled: _abyssRankSounds.Stop);
+        _overlayAudio = new OverlayLegacyAudioCoordinator(_dropAlerts,
+            _services.GetRequiredService<IAbyssRankOverlaySource>(), _abyssRankSounds,
+            () => _settings.Current.AbyssRankReducedMotion);
+        _settings.Changed += _overlayAudio.ApplySettings;
         _ = _services.GetRequiredService<NavigationArrivalService>();
         _ = _services.GetRequiredService<FarmedTargetCleaner>(); // removes marks of pets farmed out of view
         _alerts = _services.GetRequiredService<AlertsService>();
@@ -208,7 +236,12 @@ public sealed class MainForm : Form
         _levelingOverlay = new LevelingOverlayForm(_services.GetRequiredService<MapTargetsService>(),
             _services.GetRequiredService<ExplorationService>(), _settings);
         _ = _services.GetRequiredService<CharacterDetectionService>(); // profile follows the character after loading screens
+        _ = _services.GetRequiredService<CharacterCombatStateService>(); // persists own-bound title observations even when the calculator is closed
+        _achievementState = _services.GetRequiredService<AchievementStateService>(); // ordered milestones before the shared receiver starts
+        _achievementSource = _services.GetRequiredService<Network.NetworkLootService>();
+        _achievementOverlay = new AchievementOverlayForm(_services.GetRequiredService<AchievementTrackerService>(), _settings);
         _ = _services.GetRequiredService<UnifiedLootTrackerService>(); // subscribes before the shared network source starts
+        _ = _services.GetRequiredService<ExchangeLootValuationService>(); // new committed facts only; construction performs no HTTP
         _ = _services.GetRequiredService<DiagnosticsService>(); // runs along, writes logs\diagnose.txt
         _routeOverlay = new RouteOverlayForm(
             _services.GetRequiredService<MapTrackingService>(),
@@ -231,38 +264,6 @@ public sealed class MainForm : Form
         if (_closing || _cleanupStarted || IsDisposed) return;
         if (InvokeRequired) { BeginInvoke(UpdateLanguage); return; }
         Text = UiText.F("Soulcrest – Aion 2 Pet-Begleiter (Tester {0})", AppPaths.Version);
-    }
-
-    private LootOverlayOptions ReadLootOverlayOptions() => new(_settings.Current.LootOverlayEnabled,
-        _settings.Current.LootOverlayX, _settings.Current.LootOverlayY, _settings.Current.LootOverlayScale,
-        _settings.Current.OverlayTheme, _settings.Current.OverlaysInRecordings,
-        AnimationsEnabled: _settings.Current.LootDropAnimationsEnabled)
-        { BackgroundOpacity = _settings.Current.LootOverlayBackgroundOpacity,
-            ShowOnSessionStart = _settings.Current.LootOverlayShowOnSessionStart,
-            OnlyDuringSession = _settings.Current.LootOverlayOnlyDuringSession };
-
-    private AbyssRankOverlayOptions ReadAbyssRankOverlayOptions() => new(_settings.Current.AbyssRankOverlayEnabled,
-        _settings.Current.AbyssRankOverlayX, _settings.Current.AbyssRankOverlayY, _settings.Current.AbyssRankOverlayScale,
-        _settings.Current.OverlayTheme, _settings.Current.OverlaysInRecordings)
-        {
-            Language = _settings.Current.LootNameLanguage,
-            ReducedMotion = _settings.Current.AbyssRankReducedMotion,
-            KillFeedEnabled = _settings.Current.AbyssKillFeedEnabled,
-            ShowKills = _settings.Current.AbyssKillFeedShowKills,
-            ShowDeaths = _settings.Current.AbyssKillFeedShowDeaths,
-            ShowAssists = _settings.Current.AbyssKillFeedShowAssists
-        };
-
-    private void ShowLootOverlayForSessionStart(string sessionId)
-    {
-        if (SmokeTest.Enabled || _closing || _cleanupStarted || IsDisposed) return;
-        try
-        {
-            _settings.TryShowLootOverlayForSessionStart();
-            _lootOverlay.PrepareAlertsForSessionStart();
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        { LogFile.Error("Loot-Overlay beim Sessionstart einblenden", error); }
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -294,13 +295,12 @@ public sealed class MainForm : Form
         UpdateOverlayState();
         if (_settings.Current.OverlayEnabled)
             _overlay.Show();
-        _ = _lootOverlay.Handle;
-        _ = _abyssRankOverlay.Handle;
         _ = _bossOverlay.Handle;
         _ = _alertsOverlay.Handle;
         _ = _eventTimelineOverlay.Handle;
         _ = _alertNotifications.Handle;
         _ = _levelingOverlay.Handle;
+        _ = _achievementOverlay.Handle;
         _ = _routeOverlay.Handle; // shown by itself while the map is tracked and targets are marked
         _merchantOverlay.Start();
         _daevanionOverlay.Start();
@@ -315,6 +315,20 @@ public sealed class MainForm : Form
         updates.StartAutomaticCheck();
         var ui = _services.GetRequiredService<UiState>();
         _watchdog = UiResponsiveness.Watch(this, () => $"Tab {ui.Tab}, Tracking {(_map.Running ? (_map.Found ? "gefunden" : "sucht") : "aus")}");
+        _editorLive = new OverlayEditorLiveHostCoordinator(this,
+            _services.GetRequiredService<Soulcrest.App.OverlayEditorKit.IOverlayService>(),
+            _services.GetRequiredService<Soulcrest.App.OverlayEditorKit.IOverlayEditorPresentationSource>(),
+            _services.GetRequiredService<Soulcrest.App.OverlayEditorKit.IOverlayEditorLiveRenderer>(),
+            (window, snapshot) => Soulcrest.App.OverlayEditorKit.OverlayEditorLivePolicy.IsVisible(window.Settings, snapshot, _editorContext),
+            preferredMonitor: () =>
+            {
+                var screen = Screen.FromRectangle(_editorGameBounds ?? Bounds);
+                return new OverlayMonitor(screen.DeviceName, screen.DeviceName, screen.Bounds, screen.WorkingArea);
+            },
+            visibleInRecordings: () => _settings.Current.OverlaysInRecordings && _gameCapture.CapturesGameWindowOnly);
+        UpdateEditorLiveContext();
+        _editorLive.Start();
+        _editorLive.SetPlacementActive(_placement.Active);
         _tracker.StartIfEnabled();
         if (_settings.Current.MapTrackingActive && _settings.Current.MapRegion is not null)
             _map.Start();
@@ -335,8 +349,7 @@ public sealed class MainForm : Form
     {
         if (_cleanupStarted) return;
         _overlay.SetInteractionEnabled(enabled);
-        _lootOverlay.SetInteractionEnabled(enabled);
-        _abyssRankOverlay.SetInteractionEnabled(enabled);
+        _achievementOverlay.SetInteractionEnabled(enabled);
         _bossOverlay.SetInteractionEnabled(enabled);
         _alertsOverlay.SetInteractionEnabled(enabled);
         _eventTimelineOverlay.SetInteractionEnabled(enabled);
@@ -363,16 +376,14 @@ public sealed class MainForm : Form
         bool Suppressed(string id) => OverlayVisibilityPolicy.IsSuppressed(_settings.Current, id, context);
         _lootContextSuppressed = Suppressed("loot");
         _overlay.SetSuppressed(_lootContextSuppressed);
-        _lootOverlay.SetSuppressed(Suppressed("farm-loot"));
-        _lootOverlay.ApplySettings();
-        _abyssRankOverlay.SetSuppressed(Suppressed("abyss-rank"));
-        _abyssRankOverlay.ApplySettings();
+        _achievementOverlay.SetSuppressed(Suppressed("achievements"));
         _levelingOverlay.SetSuppressed(Suppressed("leveling"));
         _bossOverlay.SetSuppressed(Suppressed("boss"));
         _alertsOverlay.SetSuppressed(Suppressed("alerts"));
         _alertNotifications.SetSuppressed(Suppressed("notifications"));
         _eventTimelineOverlay.SetSuppressed(Suppressed("event-timeline"));
         _routeOverlay.SetSuppressed(context.VisualObservationSuspended || _map.Running && _map.EscMenuOpen);
+        UpdateEditorLiveContext();
     }
 
     internal void UpdateOverlayInteractionState()
@@ -384,10 +395,14 @@ public sealed class MainForm : Form
             var now = Environment.TickCount64;
             if (_foregroundCheckedAt == 0 || now - _foregroundCheckedAt >= 100)
             {
-                _gameInForeground = Soulcrest.App.Capture.MonitorCapture.ForegroundGameWindowBounds() is not null;
+                var foreground = Soulcrest.App.Capture.MonitorCapture.ForegroundGameWindowBounds();
+                _gameInForeground = foreground is not null;
+                _editorGameBounds = foreground ?? Soulcrest.App.Capture.MonitorCapture.GameWindowBounds();
+                _gameWindowAvailable = _editorGameBounds is not null;
                 _foregroundCheckedAt = now;
             }
             UpdateForegroundVisibility(_gameInForeground);
+            UpdateEditorLiveContext();
         }
         var alt = OverlayInteraction.IsAltHeld;
         var shift = OverlayInteraction.IsShiftHeld;
@@ -400,12 +415,27 @@ public sealed class MainForm : Form
         }
     }
 
+    private void UpdateOverlayAudioContext(bool placementHidden = false) => _overlayAudio.SetContextAllowed(
+        _overlaysStarted && !_closing && !_cleanupStarted && !SmokeTest.Enabled
+        && !placementHidden && !_placementPresented && !_placement.Active
+        && !OverlayVisibilityPolicy.IsForegroundSuppressed(_settings.Current, _gameInForeground));
+
+    private void UpdateEditorLiveContext()
+    {
+        var next = new Soulcrest.App.OverlayEditorKit.OverlayEditorLiveContext(_gameWindowAvailable, _gameInForeground,
+            _settings.Current.OverlayShowMode == "always",
+            Soulcrest.App.OverlayEditorKit.OverlayEditorLivePolicy.Area(_settings.Current.LootTrackingEnabled && _worldContext.HasLocationFacts, _worldContext.Snapshot),
+            _map.OverlayVisualContext);
+        if (next == _editorContext) return;
+        _editorContext = next;
+        _editorLive?.Invalidate();
+    }
+
     internal void UpdateForegroundVisibility(bool gameInForeground)
     {
         var suppressed = OverlayVisibilityPolicy.IsForegroundSuppressed(_settings.Current, gameInForeground);
         _overlay.SetForegroundSuppressed(suppressed);
-        _lootOverlay.SetForegroundSuppressed(suppressed);
-        _abyssRankOverlay.SetForegroundSuppressed(suppressed);
+        _achievementOverlay.SetForegroundSuppressed(suppressed);
         _bossOverlay.SetForegroundSuppressed(suppressed);
         _levelingOverlay.SetForegroundSuppressed(suppressed);
         _alertsOverlay.SetForegroundSuppressed(suppressed);
@@ -414,6 +444,7 @@ public sealed class MainForm : Form
         _routeOverlay.SetForegroundSuppressed(suppressed);
         _merchantOverlay.SetForegroundSuppressed(suppressed);
         _daevanionOverlay.SetForegroundSuppressed(suppressed);
+        UpdateOverlayAudioContext();
     }
 
     private void ScheduleOverlayContext()
@@ -452,39 +483,72 @@ public sealed class MainForm : Form
             catch (InvalidOperationException) when (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) { }
             return;
         }
-        if (_placementPresented == _placement.Active) return;
-        _placementPresented = _placement.Active;
-        if (_placementPresented)
+        if (_placementTransition) return;
+        _placementTransition = true;
+        try
         {
-            try
+            if (_placement.Active)
             {
+                if (_placementWindow is { IsDisposed: false }) return;
+                _placementPresented = true;
                 SetOverlayPlacementHidden(true);
-                _placementWindow = new OverlayPlacementForm(_settings, _placement, _services.GetRequiredService<OverlayPreviewRenderer>());
-                _placementWindow.FormClosed += (_, _) => _placement.Stop();
-                _placementWindow.Show(this);
+                var window = new OverlayPlacementForm(_settings, _placement, _services.GetRequiredService<OverlayPreviewRenderer>(),
+                    _services.GetRequiredService<Soulcrest.App.OverlayEditorKit.IOverlayEditorPresentationSource>(),
+                    _services.GetRequiredService<Soulcrest.App.OverlayEditorKit.IOverlayEditorBitmapRenderer>());
+                _placementWindow = window;
+                window.FormClosed += PlacementWindowClosed;
+                window.Show(this);
             }
-            catch (Exception error) when (error is InvalidOperationException or ArgumentException
-                or System.Runtime.InteropServices.ExternalException or IOException or UnauthorizedAccessException or OutOfMemoryException)
+            else if (_placementWindow is { IsDisposed: false, PlacementClosing: false } window)
             {
-                LogFile.Append("overlay-placement.log", $"{DateTime.Now:O} placement startup: {error.GetType().Name}{Environment.NewLine}");
-                _placement.Fail("Place Mode konnte nicht geöffnet werden.");
+                // An asynchronous editor save may defer closing. Keep the live panels hidden
+                // and retain this window until its own FormClosed notification.
+                window.RequestEnd();
+                if (window.IsDisposed && ReferenceEquals(_placementWindow, window)) _placementWindow = null;
             }
         }
-        else
+        catch (Exception error) when (error is InvalidOperationException or ArgumentException
+            or System.Runtime.InteropServices.ExternalException or IOException or UnauthorizedAccessException or OutOfMemoryException)
         {
+            LogFile.Append("overlay-placement.log", $"{DateTime.Now:O} placement startup: {error.GetType().Name}{Environment.NewLine}");
             var window = _placementWindow;
             _placementWindow = null;
-            if (window is { IsDisposed: false, PlacementClosing: false }) { window.Close(); window.Dispose(); }
-            UpdateOverlayState();
-            SetOverlayPlacementHidden(false);
+            if (window is not null) { window.FormClosed -= PlacementWindowClosed; window.Dispose(); }
+            _placement.Fail("Place Mode konnte nicht geöffnet werden.");
         }
+        finally
+        {
+            _placementTransition = false;
+            if (!_placement.Active && _placementWindow is null) RestoreAfterPlacement();
+            else if (!_placement.Active && _placementWindow is { IsDisposed: false, PlacementClosing: false }) PlacementStateChanged();
+        }
+    }
+
+    private void PlacementWindowClosed(object? sender, FormClosedEventArgs e)
+    {
+        if (sender is not OverlayPlacementForm window) return;
+        window.FormClosed -= PlacementWindowClosed;
+        if (ReferenceEquals(_placementWindow, window)) _placementWindow = null;
+        window.Dispose();
+        if (_closing || _cleanupStarted) return;
+        _placement.Stop();
+        RestoreAfterPlacement();
+    }
+
+    private void RestoreAfterPlacement()
+    {
+        if (!_placementPresented || _closing || _cleanupStarted) return;
+        _placementPresented = false;
+        UpdateOverlayState();
+        SetOverlayPlacementHidden(false);
     }
 
     private void SetOverlayPlacementHidden(bool hidden)
     {
+        _editorLive?.SetPlacementActive(hidden);
+        UpdateOverlayAudioContext(hidden);
         _overlay.SetPlacementHidden(hidden);
-        _lootOverlay.SetPlacementHidden(hidden);
-        _abyssRankOverlay.SetPlacementHidden(hidden);
+        _achievementOverlay.SetPlacementHidden(hidden);
         _bossOverlay.SetPlacementHidden(hidden);
         _levelingOverlay.SetPlacementHidden(hidden);
         _alertsOverlay.SetPlacementHidden(hidden);
@@ -504,12 +568,7 @@ public sealed class MainForm : Form
         {
             case "loot.toggle": ToggleOverlay(); return;
             case "loot.unlock": if (_overlay.Visible) _overlay.ToggleManualInteractionFromHotkey(); return;
-            case "farm-loot.toggle":
-                _settings.SetLootOverlayEnabled(!_settings.Current.LootOverlayEnabled);
-                UpdateOverlayState();
-                return;
-            case "farm-loot.unlock": if (_lootOverlay.Visible) _lootOverlay.ToggleManualInteractionFromHotkey(); return;
-            case "abyss-rank.unlock": if (_abyssRankOverlay.Visible) _abyssRankOverlay.ToggleManualInteractionFromHotkey(); return;
+            case "achievements.unlock": if (_achievementOverlay.Visible) _achievementOverlay.ToggleManualInteractionFromHotkey(); return;
             case "alerts.unlock": if (_alertsOverlay.Visible) _alertsOverlay.ToggleManualInteractionFromHotkey(); return;
             case "notifications.unlock": if (_alertNotifications.Visible) _alertNotifications.ToggleManualInteractionFromHotkey(); return;
             case "event-timeline.unlock": if (_eventTimelineOverlay.Visible) _eventTimelineOverlay.ToggleManualInteractionFromHotkey(); return;
@@ -590,8 +649,23 @@ public sealed class MainForm : Form
         }
         base.OnFormClosing(e);
         if (e.Cancel || _cleanupStarted) return;
+        if (_placementWindow is { IsDisposed: false } placementWindow)
+        {
+            placementWindow.RequestEnd();
+            if (!placementWindow.PendingPlacementSave.IsCompleted)
+            {
+                e.Cancel = true;
+                if (!_waitingPlacementShutdown)
+                {
+                    _waitingPlacementShutdown = true;
+                    _ = FinishPlacementShutdownAsync(placementWindow.PendingPlacementSave);
+                }
+                return;
+            }
+        }
         _closing = true;
-        _placementWindow?.Close();
+        _overlayAudio.Dispose();
+        _editorLive?.Dispose();
         _placement.Stop();
         _overlaysStarted = false;
         _overlayInteractionTimer.Stop();
@@ -602,8 +676,7 @@ public sealed class MainForm : Form
         _hotkeys.Detach();
         StopTracking();
         _overlay.Close();
-        _lootOverlay.Close();
-        _abyssRankOverlay.Close();
+        _achievementOverlay.Close();
         _bossOverlay.Close();
         _alertsOverlay.Close();
         _eventTimelineOverlay.Close();
@@ -614,6 +687,17 @@ public sealed class MainForm : Form
         _daevanionOverlay.Close();
     }
 
+    private async Task FinishPlacementShutdownAsync(Task pendingSave)
+    {
+        try { await pendingSave; }
+        catch (Exception error) { LogFile.Append("overlay-placement.log", $"{DateTime.Now:O} placement shutdown: {error.GetType().Name}{Environment.NewLine}"); }
+        finally
+        {
+            _waitingPlacementShutdown = false;
+            if (!_closing && !_cleanupStarted && !IsDisposed) Close();
+        }
+    }
+
     private void StopWatchdog() => Interlocked.Exchange(ref _watchdog, null)?.Dispose();
 
     private void StopTracking()
@@ -621,6 +705,8 @@ public sealed class MainForm : Form
         if (_trackingStopped) return;
         _trackingStopped = true;
         _tracker?.Dispose();
+        _achievementSource.WaitForAchievementNotificationsAsync().GetAwaiter().GetResult();
+        _achievementState.FlushAsync().GetAwaiter().GetResult();
         _map?.Shutdown();
     }
 
@@ -640,6 +726,8 @@ public sealed class MainForm : Form
         _overlaysStarted = false;
         OverlayInteraction.Changed -= ScheduleOverlayInteraction;
         _placement.Changed -= PlacementStateChanged;
+        _overlayAudio.Dispose();
+        _editorLive?.Dispose();
         _placementWindow?.Dispose();
         _placement.Stop();
         _overlayInteractionTimer.Dispose();
@@ -648,9 +736,9 @@ public sealed class MainForm : Form
         _settings.Changed -= ScheduleOverlayContext;
         _settings.Changed -= _dropAlerts.ApplySettings;
         _settings.Changed -= _abyssRankSounds.ApplySettings;
+        _settings.Changed -= _overlayAudio.ApplySettings;
         _map.Changed -= ScheduleOverlayContext;
         _alerts.NoticeRaised -= DeliverAlertSound;
-        _unifiedLoot.SessionStarted -= ShowLootOverlayForSessionStart;
         _worldContext.Changed -= ScheduleOverlayContext;
         _hotkeys.Invoked -= ExecuteOverlayHotkey;
         _hotkeys.Detach();
@@ -659,8 +747,7 @@ public sealed class MainForm : Form
         {
             StopTracking();
             _overlay?.Dispose();
-            _lootOverlay?.Dispose();
-            _abyssRankOverlay?.Dispose();
+            _achievementOverlay?.Dispose();
             _bossOverlay?.Dispose();
             _alertsOverlay?.Dispose();
             _eventTimelineOverlay?.Dispose();

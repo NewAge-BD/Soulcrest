@@ -33,7 +33,7 @@ public sealed record MapResource(string Category, double X, double Y, string? Ic
 public static partial class MapPetMarkers
 {
     private sealed record MapMarkers(IReadOnlyList<PetSpawn> Pets, IReadOnlyList<MapResource> Resources, IReadOnlyList<PetSpawn> SoulMonsters,
-        IReadOnlyList<GuardPost> Guards, IReadOnlyDictionary<string, string>? CategoryIcons = null, IReadOnlyList<MapResource>? Symbols = null, IReadOnlyList<MapMonsterSpawn>? AllMonsters = null, IReadOnlyList<HiddenCubeGroup>? HiddenCubeGroups = null);
+        IReadOnlyList<GuardPost> Guards, IReadOnlyDictionary<string, string>? CategoryIcons = null, IReadOnlyList<MapResource>? Symbols = null, IReadOnlyList<MapMonsterSpawn>? AllMonsters = null, IReadOnlyList<HiddenCubeGroup>? HiddenCubeGroups = null, MapMonsterDropCatalog? MonsterDrops = null);
 
     private static readonly ConcurrentDictionary<string, MapMarkers> Cache = new();
 
@@ -151,6 +151,7 @@ public static partial class MapPetMarkers
         var monsters = new List<PetSpawn>();
         var guards = new List<GuardPost>();
         var allMonsters = new List<MapMonsterSpawn>();
+        var symbolsByMarker = new Dictionary<int, MapResource>();
         // Marker: [category, x, y, name, nameDe, iconIndex, petId]
         foreach (var (marker, markerIndex) in root.GetProperty("markers").EnumerateArray().Select((marker, index) => (marker, index)))
         {
@@ -188,11 +189,13 @@ public static partial class MapPetMarkers
                 var kind = category.Group == "Resources" && marker.GetArrayLength() > 3 && marker[3].ValueKind == JsonValueKind.String ? marker[3].GetString() : null;
                 var symbol = new MapResource(CategoryKey(category.Group, category.Name), marker[1].GetDouble(), marker[2].GetDouble(), icon, kind, cubeColors.GetValueOrDefault(markerIndex));
                 symbols.Add(symbol);
+                symbolsByMarker.Add(markerIndex, symbol);
                 if (ShownInGame(category.Group, category.Name)) resources.Add(symbol);
             }
         }
         var categoryIcons = categories.Where(c => c.Icon >= 0 && c.Icon < icons.Count && icons[c.Icon] is not null)
             .GroupBy(c => c.Name, StringComparer.Ordinal).ToDictionary(g => g.Key, g => icons[g.First().Icon]!, StringComparer.Ordinal);
-        return new(spawns, resources, monsters, guards, categoryIcons, symbols, allMonsters, cubeGroups);
+        return new(spawns, resources, monsters, guards, categoryIcons, symbols, allMonsters, cubeGroups,
+            ReadMonsterDrops(root, categories.Select(c => CategoryKey(c.Group, c.Name)).ToArray(), symbolsByMarker));
     }
 }

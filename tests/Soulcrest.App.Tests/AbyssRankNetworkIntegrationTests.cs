@@ -1,4 +1,5 @@
 using System.Text;
+using System.Reflection;
 using Soulcrest.App.Network;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Network;
@@ -434,6 +435,77 @@ public sealed class AbyssRankNetworkIntegrationTests
     }
 
     [Fact]
+    public async Task ValidatedSpendingPreservesTheUnifiedSessionAndStoresEverySubsequentGainWithoutRestoringCapBudget()
+    {
+        await using var f = new Fixture(seedTransport: true);
+        await f.Enter(900_000); await f.FarmTotal(717_422);
+        await f.Wallet(25_466); await f.Wallet(25_471);
+        var before = Assert.Single(f.Loot.Snapshot.Sessions);
+        var farm = f.Tracker.ProgressSnapshot;
+        var farmAt = f.Progress.Read(Fixture.Profile)!.FarmedAbyssPoints!.ObservedAt;
+        var priorApFacts = before.TimelineEvents.Count(fact => fact.Kind == LootTrackerTimelineEventKind.AbyssPoints);
+        await f.Wallet(471, increase: 0, decrease: 15);
+        var spent = Assert.Single(f.Loot.Snapshot.Sessions);
+        Assert.Equal(before.Id, spent.Id); Assert.Equal(before.StartedAt, spent.StartedAt);
+        Assert.True(spent.Elapsed >= before.Elapsed); Assert.Equal(5, spent.AbyssPoints);
+        Assert.Equal(priorApFacts, spent.TimelineEvents.Count(fact => fact.Kind == LootTrackerTimelineEventKind.AbyssPoints));
+        Assert.Equal(471, f.Progress.Read(Fixture.Profile)!.AbyssPointBalance!.Value);
+        Assert.Equal(farm.FarmedAbyssPoints, f.Tracker.ProgressSnapshot.FarmedAbyssPoints);
+        Assert.Equal(farm.Remaining, f.Tracker.ProgressSnapshot.Remaining);
+        Assert.Equal(farmAt, f.Progress.Read(Fixture.Profile)!.FarmedAbyssPoints!.ObservedAt);
+        await f.Wallet(471, increase: 0, decrease: 15); // Repeated expense facts never become income.
+        await f.Wallet(485); await f.Wallet(485);
+        await f.Wallet(0, increase: 0, decrease: 15); await f.Wallet(2);
+        var after = Assert.Single(f.Loot.Snapshot.Sessions);
+        Assert.Equal(before.Id, after.Id); Assert.Equal(before.StartedAt, after.StartedAt);
+        Assert.True(after.Elapsed > spent.Elapsed); Assert.Equal(21, after.AbyssPoints);
+        Assert.Equal(new long?[] { 5, 14, 2 }, after.TimelineEvents
+            .Where(fact => fact.Kind == LootTrackerTimelineEventKind.AbyssPoints).Select(fact => fact.Amount));
+        Assert.Equal(21, after.MinuteIncome.Sum(minute => minute.AbyssPoints ?? 0));
+        Assert.Equal(2, f.Progress.Read(Fixture.Profile)!.AbyssPointBalance!.Value);
+        Assert.Equal(farm.FarmedAbyssPoints, f.Tracker.ProgressSnapshot.FarmedAbyssPoints);
+        Assert.Equal(farm.Remaining, f.Tracker.ProgressSnapshot.Remaining);
+        var restored = Assert.Single(new UnifiedLootSessionStore(f.Sessions).Read().Sessions);
+        Assert.Equal(after.Id, restored.Id); Assert.Equal(21, restored.AbyssPoints);
+        Assert.Equal(after.TimelineEvents.ToArray(), restored.TimelineEvents.ToArray());
+        Assert.Equal(after.MinuteIncome.ToArray(), restored.MinuteIncome.ToArray());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task QualifiedRewardWalletVariantBooksApWithoutInventingCombatRankOrFarmFacts(bool openWorld)
+    {
+        await using var f = new Fixture(openWorld: openWorld, seedTransport: true);
+        await f.Enter(900_000);
+        if (!openWorld) await f.FarmTotal(717_422);
+        await f.Wallet(100); await f.Wallet(105);
+        var before = Assert.Single(f.Loot.Snapshot.Sessions);
+        var farm = f.Tracker.ProgressSnapshot;
+        await f.Wallet(1_325, increase: 2);
+        await f.Wallet(1_325, increase: 2); // Repeated absolute reward state is never another reward.
+        await f.Wallet(1_328);
+        var after = Assert.Single(f.Loot.Snapshot.Sessions);
+        Assert.Equal(before.Id, after.Id); Assert.Equal(before.StartedAt, after.StartedAt);
+        Assert.True(after.Elapsed > before.Elapsed); Assert.Equal(1_228, after.AbyssPoints);
+        Assert.Equal(new long?[] { 5, 1_220, 3 }, after.TimelineEvents
+            .Where(fact => fact.Kind == LootTrackerTimelineEventKind.AbyssPoints).Select(fact => fact.Amount));
+        Assert.Equal(1_228, after.MinuteIncome.Sum(minute => minute.AbyssPoints ?? 0));
+        Assert.Empty(after.CombatEvents);
+        Assert.Equal(before.RankPointsGained, after.RankPointsGained);
+        Assert.Equal(before.RankPointsLost, after.RankPointsLost);
+        Assert.DoesNotContain(after.TimelineEvents, fact => fact.Kind == LootTrackerTimelineEventKind.RankPoints);
+        Assert.Equal(1_328, f.Progress.Read(Fixture.Profile)!.AbyssPointBalance!.Value);
+        Assert.Equal(farm.FarmedAbyssPoints, f.Tracker.ProgressSnapshot.FarmedAbyssPoints);
+        Assert.Equal(farm.Remaining, f.Tracker.ProgressSnapshot.Remaining);
+        var restored = Assert.Single(new UnifiedLootSessionStore(f.Sessions).Read().Sessions);
+        Assert.Equal(after.Id, restored.Id); Assert.Equal(1_228, restored.AbyssPoints);
+        Assert.Equal(after.TimelineEvents.ToArray(), restored.TimelineEvents.ToArray());
+        Assert.Equal(after.MinuteIncome.ToArray(), restored.MinuteIncome.ToArray());
+        Assert.Empty(restored.CombatEvents);
+    }
+
+    [Fact]
     public async Task OpenWorldForeignStreamsAndApSpendingCannotCreateIncomeOrLendAnApBaseline()
     {
         await using var f = new Fixture(openWorld: true);
@@ -445,7 +517,7 @@ public sealed class AbyssRankNetworkIntegrationTests
         Assert.Empty(f.Loot.Snapshot.Sessions);
         await f.Wallet(105); await f.Total(900_002);
         var id = Assert.Single(f.Loot.Snapshot.Sessions).Id;
-        await f.Wallet(100, increase: 0, decrease: 15); // Unsupported spending revokes the AP base, never an acquisition.
+        await f.Wallet(100, increase: 0, decrease: 15); // A fixture without an observed transport still cannot authorize spending.
         Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance);
         Assert.False(f.Network.AbyssSnapshot.AbyssPointGainsQualified);
         await f.Wallet(100_000); // A later wallet cannot bridge that unqualified inventory transition.
@@ -471,14 +543,17 @@ public sealed class AbyssRankNetworkIntegrationTests
         public ManualClock Clock { get; } = new();
         private DateTimeOffset _worldObservedAt;
         private readonly bool _openWorld;
+        private readonly string _stream;
+        private static readonly CaptureConnection Connection = new(123, "192.0.2.10", 50001, "203.0.113.10", 443);
         public WorldContextSnapshot WorldSnapshot => _openWorld ? Network.WorldContext.Snapshot
             : new(WorldContextStatus.Confirmed, WorldContextKind.Instance, 10, null, "Abyss", null,
                 "Abyss", "Abyss", 1, _worldObservedAt, "synthetic")
                 { BindingGeneration = Network.OwnCharacter?.Generation, SoulcrestMapId = "synthetic-abyss" };
 
-        public Fixture(bool openWorld = false, bool abyssTracking = true)
+        public Fixture(bool openWorld = false, bool abyssTracking = true, bool seedTransport = false)
         {
             _openWorld = openWorld;
+            _stream = seedTransport ? Connection.StreamKey : "synthetic-rank-stream";
             Directory.CreateDirectory(_root);
             var catalog = InstanceCatalog.FromJson("""
                 { "schemaVersion": 1, "maps": [{ "id": 20, "names": {"en":"Synthetic Abyss"},
@@ -488,6 +563,12 @@ public sealed class AbyssRankNetworkIntegrationTests
                 """);
             Network = new(new ProgressService(Path.Combine(_root, "pets.json"), new PetCatalog([])), worldContext: new(catalog));
             typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Running))!.SetValue(Network, true);
+            if (seedTransport)
+            {
+                var streams = (Dictionary<CaptureConnection, (TcpReassembler Tcp, GameMessageStream Messages)>)
+                    typeof(NetworkLootService).GetField("_streams", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Network)!;
+                streams[Connection] = (new TcpReassembler(), new GameMessageStream(requireVerifiedSync: true));
+            }
             var settings = new SettingsService();
             settings.Current.AbyssTrackingEnabled = abyssTracking;
             settings.Current.LootTrackingEnabled = settings.Current.MonsterLootTrackingEnabled = true;
@@ -503,17 +584,17 @@ public sealed class AbyssRankNetworkIntegrationTests
         {
             Clock.Advance();
             _worldObservedAt = Clock.GetUtcNow();
-            Network.ProcessProgressMessage("synthetic-rank-stream", OwnPacket(total, _openWorld ? 21 : 20), Clock.GetUtcNow());
+            Network.ProcessProgressMessage(_stream, OwnPacket(total, _openWorld ? 21 : 20), Clock.GetUtcNow());
             await Drain();
         }
 
-        public async Task Total(long total, DateTimeOffset? at = null, string stream = "synthetic-rank-stream")
+        public async Task Total(long total, DateTimeOffset? at = null, string? stream = null)
         {
             Clock.Advance();
             using var bytes = new MemoryStream();
             using var writer = new BinaryWriter(bytes);
             writer.Write((ushort)0xE273); writer.Write((byte)0); writer.Write(total);
-            Network.ProcessProgressMessage(stream, bytes.ToArray(), at ?? Clock.GetUtcNow());
+            Network.ProcessProgressMessage(stream ?? _stream, bytes.ToArray(), at ?? Clock.GetUtcNow());
             await Drain();
         }
 
@@ -523,14 +604,14 @@ public sealed class AbyssRankNetworkIntegrationTests
             using var bytes = new MemoryStream();
             using var writer = new BinaryWriter(bytes);
             writer.Write((ushort)0xFFA9); writer.Write(total); writer.Write(123L); // Opaque tail, no reset semantics.
-            Network.ProcessProgressMessage("synthetic-rank-stream", bytes.ToArray(), Clock.GetUtcNow());
+            Network.ProcessProgressMessage(_stream, bytes.ToArray(), Clock.GetUtcNow());
             await Drain();
         }
 
         public Task KinaWallet(long total) => Wallet(total, itemId: CurrencyInventoryMessage.UnboundKinaItemId, key: 92);
 
         public async Task Wallet(long total, DateTimeOffset? at = null, int itemId = 930100003, long key = 91,
-            string stream = "synthetic-rank-stream", byte increase = 11, byte decrease = 0)
+            string? stream = null, byte increase = 11, byte decrease = 0)
         {
             Clock.Advance();
             using var bytes = new MemoryStream();
@@ -540,7 +621,7 @@ public sealed class AbyssRankNetworkIntegrationTests
             writer.Write((byte)1); writer.Write(0); writer.Write((byte)0); // Packed false booleans share this byte.
             V(writer, 0); writer.Write(0L);
             writer.Write(increase); writer.Write(decrease); writer.Write((byte)0);
-            Network.ProcessProgressMessage(stream, bytes.ToArray(), at ?? Clock.GetUtcNow());
+            Network.ProcessProgressMessage(stream ?? _stream, bytes.ToArray(), at ?? Clock.GetUtcNow());
             await Drain();
         }
 

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Soulcrest.App.Components;
 using Soulcrest.App.Network;
 using Soulcrest.App.Overlay;
+using Soulcrest.App.OverlayEditorKit;
 using Soulcrest.App.Services;
 using Xunit;
 
@@ -15,17 +16,34 @@ public sealed class FarmLootUiIntegrationTests : IDisposable
     private readonly string _language = UiText.Language;
 
     [Fact]
-    public void DefaultPveRecordingDoesNotEnableEitherOverlay()
+    public void DefaultPveRecordingPreservesLegacyLayoutsWithoutOfferingRetiredHuds()
     {
         var settings = new AppSettings();
         Assert.True(settings.MonsterLootTrackingEnabled);
         Assert.False(settings.LootOverlayEnabled);
+        Assert.False(settings.AbyssRankOverlayEnabled);
         Assert.True(settings.OverlayEnabled);
-        Assert.Equal(new OverlayLayout(48, 300, 1), OverlayRegistry.ReadLayout(settings, "farm-loot"));
-        OverlayRegistry.WriteLayout(settings, "farm-loot", new(-1500, 220, 1.4));
-        Assert.Equal(new OverlayLayout(-1500, 220, 1.4), OverlayRegistry.ReadLayout(settings, "farm-loot"));
-        Assert.Equal(new OverlayLayout(40, 200, 1), OverlayRegistry.ReadLayout(settings, "loot"));
-        Assert.Equal(new OverlayVisibilityRules(), OverlayVisibilityPolicy.Get(settings, "farm-loot"));
+        Assert.Equal((48, 300, 1d), (settings.LootOverlayX, settings.LootOverlayY, settings.LootOverlayScale));
+        settings.LootOverlayEnabled = true;
+        settings.LootOverlayX = -1500;
+        settings.LootOverlayY = 220;
+        settings.LootOverlayScale = 1.4;
+        settings.AbyssRankOverlayEnabled = true;
+        settings.AbyssRankOverlayX = -1100;
+        settings.AbyssRankOverlayY = 350;
+        settings.AbyssRankOverlayScale = 1.2;
+        JsonFile.Save(AppPaths.SettingsFile, settings);
+        var before = File.ReadAllBytes(AppPaths.SettingsFile);
+        var restored = new SettingsService().Current;
+        Assert.True(restored.LootOverlayEnabled);
+        Assert.True(restored.AbyssRankOverlayEnabled);
+        Assert.Equal((-1500, 220, 1.4), (restored.LootOverlayX, restored.LootOverlayY, restored.LootOverlayScale));
+        Assert.Equal((-1100, 350, 1.2), (restored.AbyssRankOverlayX, restored.AbyssRankOverlayY, restored.AbyssRankOverlayScale));
+        Assert.Equal(new Soulcrest.App.Services.OverlayLayout(40, 200, 1), OverlayRegistry.ReadLayout(restored, "loot"));
+        Assert.DoesNotContain(OverlayRegistry.All, overlay => overlay.Id is "farm-loot" or "abyss-rank");
+        Assert.Throws<ArgumentException>(() => OverlayRegistry.Get("farm-loot"));
+        Assert.Throws<ArgumentException>(() => OverlayRegistry.Get("abyss-rank"));
+        Assert.Equal(before, File.ReadAllBytes(AppPaths.SettingsFile));
     }
 
     [Theory]
@@ -80,7 +98,7 @@ public sealed class FarmLootUiIntegrationTests : IDisposable
     }
 
     [Fact]
-    public Task HostUsesOneSharedNetworkSourceAndCreatesAnIndependentOverlayWithoutStartingTheApp() => RunSta(() =>
+    public Task HostSharesEditorPresentationAndOneNetworkSourceWithoutRetiredHudsOrStartingTheApp() => RunSta(() =>
     {
         JsonFile.Save(AppPaths.SettingsFile, new AppSettings
         {
@@ -94,12 +112,24 @@ public sealed class FarmLootUiIntegrationTests : IDisposable
         Assert.Same(network, host.Services.GetRequiredService<INetworkAbyssCombatSource>());
         Assert.Same(network, host.Services.GetRequiredService<INetworkGatheringSource>());
         Assert.Same(network, host.Services.GetRequiredService<INetworkKinaSource>());
-        var adapter = host.Services.GetRequiredService<UnifiedLootOverlaySource>();
-        Assert.Same(adapter, host.Services.GetRequiredService<ILootOverlaySource>());
+        Assert.Null(host.Services.GetService<UnifiedLootOverlaySource>());
+        Assert.Null(host.Services.GetService<ILootOverlaySource>());
         Assert.Same(host.Services.GetRequiredService<AbyssRankOverlaySource>(), host.Services.GetRequiredService<IAbyssRankOverlaySource>());
         Assert.NotNull(host.Services.GetRequiredService<UnifiedLootTrackerService>());
         Assert.NotNull(host.Services.GetRequiredService<AbyssProgressService>());
-        Assert.False(adapter.Snapshot.SessionActive);
+        Assert.NotNull(host.Services.GetRequiredService<RareDropAlertService>());
+        var presentation = host.Services.GetRequiredService<IOverlayEditorPresentationSource>();
+        Assert.IsType<OverlayEditorPresentationSource>(presentation);
+        Assert.Same(presentation, host.Services.GetRequiredService<IOverlayEditorPresentationSource>());
+        var layouts = host.Services.GetRequiredService<IOverlayService>();
+        var windows = layouts.Overlays;
+        var live = presentation.Capture(false);
+        Assert.False(live.SessionActive);
+        Assert.False(live.TrackingAvailable);
+        Assert.Contains("clock", live.Metrics.Keys);
+        Assert.True(presentation.Capture(true).SessionActive);
+        Assert.False(presentation.Capture(false).SessionActive);
+        Assert.Same(windows, layouts.Overlays);
         Assert.False(network.Running);
         Assert.False(host.Visible);
     });

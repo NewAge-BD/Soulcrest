@@ -22,7 +22,8 @@ eine Bildschirmaufnahme- plus Overlay-Software.
 - Netzwerkverkehr des Spiels verändern oder senden; mitschneiden nur in der Ausnahme unten;
 - Tastatur- oder Mauseingaben an das Spiel senden oder Spielaktionen automatisieren;
 - Spieldateien verändern;
-- zur Laufzeit Daten von Drittseiten abrufen. Keine Telemetrie. Einzige Ausnahme ist die Update-Suche
+- zur Laufzeit Daten von Drittseiten außerhalb der unten ausdrücklich erlaubten Exchange-Preisabfrage
+  abrufen. Keine Telemetrie. Weitere Ausnahme ist die Update-Suche
   (Nutzerentscheidung 2026-10-07): nach dem Start (abschaltbar unter Info) und auf Knopfdruck eine Anfrage
   an die Releases von `NewAge-BD/Soulcrest` auf GitHub; der Installer wird nur auf ausdrücklichen Klick
   geladen, gegen die veröffentlichte SHA-256 geprüft und dann gestartet. Gesendet wird nur die Anfrage.
@@ -87,11 +88,14 @@ auswerten darf. Dafür gilt:
 ### Eigener flüchtiger PvP-Killfeed (Nutzerauftrag 2026-10-26)
 
 Der Nutzer beauftragt einen abschaltbaren Killfeed unter der Punkte-Stufe.
-Verarbeitet werden ausschließlich separat belegte eigene PvP-Kills, Assists und Tode,
+Verarbeitet werden separat belegte eigene PvP-Kills und Tode sowie die unten ausdrücklich
+zugelassenen geschätzten eigenen Assists,
 optional der zugehörige Gegnername und die Rangpunktänderung. Keine fremden
 Kämpfe, Gruppenanalyse oder Deutung von AP-/Rangdifferenzen als Kill/Assist.
-Assists benötigen einen expliziten eigenen Ergebnisbeleg; einzelne Treffer
-oder Gruppenzugehörigkeit genügen nicht. Alle drei Arten sind einzeln
+Die ursprüngliche Beschränkung auf einen expliziten Assist-Ergebnisbeleg ist durch
+die Nutzerentscheidung vom 29.10.2026 unten um eine sichtbar geschätzte Art erweitert.
+Einzelne Treffer ohne den dort beschriebenen vollständigen Todesbeleg oder
+Gruppenzugehörigkeit genügen nicht. Alle drei Arten sind einzeln
 abschaltbar; abgewählte Einträge werden entfernt und nicht nachträglich gezeigt.
 Die anfängliche Begrenzung auf fünf Einträge für zehn Sekunden ist durch die spätere
 Entscheidung unten ersetzt. Gegnernamen und native Identitäten bleiben ausschließlich
@@ -105,16 +109,47 @@ ohne eigenen Wirebeleg veröffentlicht der Provider keine Kampfergebnisse.
 Der ausdrücklich beauftragte Killnachweis benötigt eine flüchtige PC-Opferzuordnung
 im bereits autorisierten eigenen Serverstrom. Maximal 4.096 gleichzeitig lebende
 RAM-Einträge binden Entity, Name und Server an aktuelles Own, Welt und tatsächlichen
-Transport; Tombstones behalten nur ein Bit je Entity-Key ohne Name oder Server. Keine Speicherung, Netzwerkpositionen, Gruppen- oder Schadensanalyse.
+Transport; Tombstones behalten nur ein Bit je Entity-Key ohne Name oder Server. Keine Speicherung
+nativer Gegneridentitäten, Netzwerkpositionen oder Gruppenanalyse. Für die eng begrenzte
+eigene Schadensbeteiligung gilt ausschließlich die Ausnahme vom 29.10.2026 unten.
 Die Namen dienen ausschließlich der eigenen Killzuordnung und dem flüchtigen Feed.
 Entfernungs-/NPC-Signale dürfen Belege nur widerrufen; keine Lebensrekonstruktion.
-Assists bleiben ohne ausdrücklichen eigenen Ergebnisbeleg deaktiviert. Klassen-
-und Rangmetadaten werden in diesem Schritt nicht angezeigt.
+Ein als serverbestätigt bezeichneter Assist bleibt ohne ausdrücklichen eigenen Ergebnisbeleg
+deaktiviert. Die spätere Freigabe geschätzter Assists ist davon getrennt. Der damalige
+Schritt zeigte noch keine Klassen-/Rangmetadaten; deren spätere Anzeige ist unten beschrieben.
+
+### Geschätzte eigene Assists (Nutzerentscheidung 2026-10-29)
+
+Der Nutzer erlaubt ausdrücklich geschätzte Assists. Ausschließlich ein vollständig
+validierter eigener positiver Schadenseffekt an einem unabhängig bestätigten Spieler
+setzt im bestehenden flüchtigen PC-Register ein Beteiligungsmerkmal mit Faktzeit.
+Die Freigabe bleibt auf die positiv belegten Schadenseffektformen begrenzt; unbekannte,
+abgeschnittene oder widersprüchliche Varianten, Heilung und Nullschaden qualifizieren nicht.
+Nur ein vollständiger aktueller Tod desselben Spielerlebens durch einen anderen expliziten
+PC-Caster innerhalb von 30 Sekunden darf daraus einen geschätzten Assist erzeugen.
+Die Frist ist die ausdrücklich gewählte Heuristik, kein behaupteter Serververtrag.
+Eigener Todesstoß bleibt Kill; dasselbe verbrauchte Leben erzeugt keine doppelte Gutschrift.
+Aktuelle eigene Identität, Spieler-/Casterbelege, Lebenszyklus-, Transport- und Capturegrenzen
+gelten weiter. Bloße AP-/RP-Differenzen, Gruppenzugehörigkeit und zeitliche Nähe genügen nicht.
+
+Feed, Timeline und Marker kennzeichnen die Art sichtbar als „Assist · geschätzt“.
+Anonyme Sessiondaten dürfen `Assist` und `IsEstimated` dauerhaft speichern, einschließlich
+der bereits erlaubten validierten Klasse-/Rangkategorien sowie einer frischen eigenen
+Kartenposition. Keine Gegnernamen oder nativen Kennungen im Journal. Statistik führt
+Assists getrennt von Kills/Toden und weist den geschätzten Anteil aus. Die Aufzeichnung
+bleibt vom Feed-Schalter unabhängig; fehlende Position erzeugt nur einen zeitlichen Eintrag.
+
+Es werden keine Schadensbeträge, DPS-, Gruppen- oder Gegnerprofile gespeichert oder angezeigt.
+Der kurze RAM-Beleg dient ausschließlich der eigenen Assistentscheidung und verfällt mit
+seinem Kontext. Es entsteht keine neue Aufnahme, Spielanfrage oder Gruppen-Kampfauswertung.
+AP/RP bleiben eigenständige Fakten ohne Attribution an diesen Assist; seine Beträge bleiben
+ohne direkten Ergebnisbezug unbekannt. Der ausdrückliche Server-Assist-Credit bleibt offen.
 
 ### Verworfenes Feature: DPS-Meter (2026-10-19)
 
 Der Nutzer hat den DPS-Meter vollständig verworfen. Die dafür vorgesehene zusätzliche
-Verarbeitung von Gruppen-Kampfdaten ist kein Bestandteil der App.
+Verarbeitung von Gruppen-Kampfdaten ist kein Bestandteil der App. Die oben beschriebene
+eng begrenzte eigene Assistheuristik hebt diese Entscheidung nicht auf.
 
 Aufnahme: `scripts/Record-GameTraffic.ps1`.
 
@@ -173,3 +208,63 @@ oder geschätzt. Bewegung verlängert keine Farmzeit und der Nachlauf bleibt unp
 Replay und Anzeigeauswahl ändern keine gespeicherten Beute- oder Sessiongesamtwerte.
 Altdaten behalten ihre belegte Genauigkeit; unbekannte Mengen/Kanäle und fehlende
 Gegner- oder Bewegungsdaten werden nicht rückwirkend erfunden.
+
+## Eigener Alive-Fakt für weitere Tode (Nutzerhinweis und Umsetzung 2026-10-30)
+
+Der Hinweis „nur 1 Tod getrackt“ wird anhand der bestehenden eigenen Stundenaufnahme
+untersucht. Der bereits vollständig validierte eigene Welteintritt liefert zusätzlich
+nur ein flüchtiges boolesches Merkmal für positive konsistente Health und dessen
+ursprüngliche Own-Faktzeit; keine HP-Beträge, Netzwerkpositionen oder neue Erfassung.
+Unbekannte/inkonsistente Health-Skalare bleiben unbekannt. Optionale Reason-Codes werden
+nicht als unbewiesene Rebirth-Enums interpretiert. Identity-only-Diagnosehooks erhalten
+keine zusätzliche Alive-Autorität.
+
+Der nächste vollständige eigene PC-Tod derselben Entity benötigt dieses aktuelle
+positive Merkmal strikt nach dem letzten gezählten Tod sowie einen strikt späteren
+Todesfakt und passend aktuelle gerichtete Transportbindung. Soft-Own, Gap oder Timer
+allein löschen die Sperre nicht. Der begrenzte flüchtige Speicher behält alle gesehenen
+Schlüssel und Todeszeiten bis zur Capturegeneration, ohne Verdrängung oder Budgetrecycling.
+Doppelte/reentrante Tode zählen weiter einmal. Fremde PC-Tombstones bleiben unverändert.
+Bestehende Nutzerjournale werden aus der Aufnahme nicht nachträglich verändert.
+
+## Begrenzte AP-Basisaktualisierung nach Ausgaben (2026-10-31)
+
+Der ausdrückliche Folgeauftrag nutzt ausschließlich die vorhandenen geschlossenen
+eigenen Aufnahmen. Die vollständig gelesene beobachtete AP-Walletsenkung darf
+bei aktueller eigener Identitäts-, Generations- und tatsächlicher Transportbindung
+sowie gleicher bereits bestätigter Walletinstanz deren RAM-Vergleichsbasis ersetzen.
+Es entsteht kein Ausgabetracker, kein neues Inventarprofil, keine zusätzliche
+Erfassung oder Spielanfrage und keine allgemeine Deutung opaker Reasonwerte.
+Ausgaben werden weder als negativer Sessiongewinn noch als neues Farmbudget gewertet.
+Fehlende Identität, echte Lücken und unbekannte Formate bleiben entwertend;
+AP/RP erhalten weiterhin keinen gerateten Bezug zu einzelnen Kampfergebnissen.
+Bestehende Nutzerdaten bleiben unverändert; Tests und Replay verwenden isolierte Daten.
+
+## Ausnahme: Exchange-Marktpreisreferenzen (Nutzerentscheidung 2026-11-01)
+
+Für den Loot-Tracker sind lesende HTTPS-GET-Anfragen an `aion2.exchange` erlaubt:
+Serverliste und gebündelte Preisreferenzen nach expliziter Markt- und Itemkennung.
+Es werden keine Charakter-, Profil-, Sitzungs-, Kampf- oder Verbindungsdaten und
+keine Lootmengen übertragen. Keine Cookies, Zugangsdaten, Spielanmeldung oder
+Anfragen an Spieldienste; keine Weiterleitung an fremde Hosts.
+
+Der separate Schalter „Online-Marktpreise“ beendet HTTP-Zugriffe. Gespeicherte
+Preise und eingefrorene Schätzwerte bleiben lokal nutzbar. Ohne ausgewählten Markt
+werden keine Preise angefragt. Anfragen sind mengen- und zeitbegrenzt; Fehler
+und fehlende Preise werden nicht als null Kina interpretiert.
+
+Die Werte sind geschätzte Angebote desselben Basisartikels mit einem ausdrücklich
+konfigurierbaren Gebührenmodell. Sie werden je neuem Beutefakt getrennt gespeichert,
+nicht als tatsächlicher Verkauf oder Walletgewinn. Originalbeute, Sessionzeiten,
+Dropmeldungen und historische Belege werden durch Preisantworten nicht verändert.
+
+## Charakterwerte und Combat-Score-Modell (2026-11-02)
+
+Nutzerauftrag: denselben bereits autorisierten passiven eigenen Spielstrom für
+Stats, Skillstufen/-komponenten, Boards/Punkte, Titel, Erfolge, Gear und Pets/Genus
+lesend auswerten. Nur vollständig validierte Nachrichten und qualifizierte eigene
+Kontexte; vorbereitete Loginquellen erhalten vor Own keine Autoritaet. Keine neuen
+Spielanfragen, Speicherzugriffe, Eingaben, Entschluesselung oder Laufzeitabrufe externer Rechner.
+Automatische Charakterwerte bleiben im RAM. Benannte Routen speichern eine namenlose
+eingefrorene Rechenbasis; keine nativen Charakter-/Transportidentitaeten oder Makerdaten.
+Rohmitschnitte, Bibliothek, Generator und Herkunftsbericht bleiben privat.

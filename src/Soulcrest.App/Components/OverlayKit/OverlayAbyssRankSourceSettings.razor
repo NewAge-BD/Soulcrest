@@ -1,0 +1,16 @@
+@using Soulcrest.App.Services
+@inject IServiceProvider SourceServices
+
+@if (_available)
+{
+    <section class="oe-rank-source-settings" data-abyss-rank-source-settings="true">
+        <AbyssRankMotionSettings Disabled="Disabled" />
+    </section>
+}
+
+@code {
+    [Parameter] public bool Disabled { get; set; }
+    private bool _available;
+    protected override void OnInitialized() => _available = SourceServices.GetService(typeof(SettingsService)) is SettingsService
+        && SourceServices.GetService(typeof(AbyssRankSoundPlayer)) is AbyssRankSoundPlayer;
+}

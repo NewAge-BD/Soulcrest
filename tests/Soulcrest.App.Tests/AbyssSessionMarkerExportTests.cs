@@ -63,16 +63,18 @@ public sealed class AbyssSessionMarkerExportTests
             Assert.Contains("https://mapdata.soulcrest/abyss-reshanta-a/", html);
             Assert.Equal(2, Regex.Matches(html, "data-marker-kind=\"kill\"").Count);
             Assert.Single(Regex.Matches(html, "data-marker-kind=\"death\""));
+            Assert.Single(Regex.Matches(html, "data-marker-kind=\"assist\""));
             Assert.Equal(2, Regex.Matches(html, "data-marker-kind=\"odyle\"").Count);
             Assert.DoesNotContain("data-farm-stop-id", html);
-            html = Regex.Replace(html, "src=\"(loot-icons/[a-z0-9_-]+\\.png)\"", match =>
+            html = Regex.Replace(html, "src=\"((?:loot-icons|class-icons|abyss-rank-icons)/[A-Za-z0-9_-]+\\.png)\"", match =>
             {
                 var asset = Path.Combine(TestPrerequisites.RepositoryRoot, "src", "Soulcrest.App", "wwwroot", match.Groups[1].Value);
                 return "src=\"data:image/png;base64," + Convert.ToBase64String(File.ReadAllBytes(asset)) + "\"";
             });
             var cssDirectory = Path.Combine(TestPrerequisites.RepositoryRoot, "src", "Soulcrest.App", "wwwroot", "css");
             var css = await File.ReadAllTextAsync(Path.Combine(cssDirectory, "app.css")) + "\n" +
-                await File.ReadAllTextAsync(Path.Combine(cssDirectory, "loot-tracker.css"));
+                await File.ReadAllTextAsync(Path.Combine(cssDirectory, "loot-tracker.css")) + "\n" +
+                await File.ReadAllTextAsync(Path.Combine(cssDirectory, "loot-session-timeline.css"));
             Directory.CreateDirectory(output);
             await File.WriteAllTextAsync(Path.Combine(output, $"abyss-sessionmarkers-{language}.html"),
                 "<!doctype html><html lang=\"" + language + "\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>" + css +
@@ -102,6 +104,8 @@ public sealed class AbyssSessionMarkerExportTests
             CombatEvents = [Combat("preview-kill-1", LootTrackerCombatKind.Kill, 3, 2150, 1680, label),
                 Combat("preview-death-1", LootTrackerCombatKind.Death, 9, 2600, 2160, label),
                 Combat("preview-kill-2", LootTrackerCombatKind.Kill, 16, 2170, 2240, label),
+                Combat("preview-assist-1", LootTrackerCombatKind.Assist, 17, 2100, 2130, label) with
+                    { IsEstimated = true, OpponentClassId = "Cleric", OpponentAbyssRankGrade = 19 },
                 new("preview-unplaced-death", LootTrackerCombatKind.Death, At.AddMinutes(18), TimeSpan.FromMinutes(18))],
             GatherVisits = [Visit("preview-harvest-1", 5, 2370, 1860, "preview-odyle-1", label),
                 Visit("preview-harvest-2", 6, 2370, 1860, "preview-odyle-1", label),

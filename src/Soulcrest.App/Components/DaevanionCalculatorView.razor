@@ -1,0 +1,282 @@
+@implements IDisposable
+@using System.Globalization
+@using Soulcrest.Core.Daevanion
+@using static Soulcrest.App.Components.CombatScoreCalculatorPresentation
+@inject DaevanionPlanService Plans
+
+<section class="dc-calculator" data-daevanion-calculator>
+    <header class="dc-heading"><div><span class="dc-eyebrow">SOULCREST · DAEVANION</span><h2>Daevanion Board Calculator</h2><p>@UiText.T("Deine Prioritäten. Sechs Boards. Ein zusammenhängender Plan.")</p></div><span class="dc-offline"><i></i>@UiText.T("Offline-Rechner")</span></header>
+    <div class="dc-workspace">
+        <aside class="dc-panel dc-controls">
+            <h3>@UiText.T("Planung")</h3>
+            <div class="dc-fields">
+                <div class="dc-live-character" data-calculator-class><span>@UiText.T("Aktive Klasse")</span><strong>@ClassName(Snapshot.Character?.ClassId)</strong><small>@UiText.F("Charakterlevel: {0}", Snapshot.Character?.CharacterLevel?.ToString() ?? "—")</small></div>
+                <label>@UiText.T("Berechnungsmodus")<select @bind:get="Draft.Mode" @bind:set="ChangeMode" disabled="@Snapshot.IsBusy" data-calculator-mode><option value="@DaevanionOptimizationMode.Priority">@UiText.T("Nach Priorität")</option><option value="@DaevanionOptimizationMode.CombatScore">most combat score possible</option></select></label>
+            </div>
+            @if (Draft.Mode == DaevanionOptimizationMode.CombatScore)
+            { <p class="dc-warning" data-combat-score-model>@UiText.T("Eigene CP-Schätzung · noch ohne qualifizierte Gewichte. Keine exakte Spielformel.")</p> }
+            <div class="dc-divider"></div>
+            <h3>@UiText.T("Verfügbare Punkte")</h3>
+            <div class="dc-fields dc-budget" data-automatic-point-pools>
+                @foreach (var pool in Enum.GetValues<DaevanionBudgetPool>())
+                {
+                    var values = Snapshot.Character?.PointPools.FirstOrDefault(item => item.Pool == pool);
+                    <div class="dc-live-budget" data-budget="@pool.ToString().ToLowerInvariant()"><strong>@PoolName(pool)</strong><dl><div><dt>@UiText.T("Frei")</dt><dd>@NumberOrUnknown(values?.Free)</dd></div><div><dt>@UiText.T("Verteilt")</dt><dd>@NumberOrUnknown(values?.Spent)</dd></div><div><dt>@UiText.T("Erhalten")</dt><dd>@NumberOrUnknown(values?.Total)</dd></div><div><dt>@UiText.T("Bonus (beobachtet)")</dt><dd>@NumberOrUnknown(values?.Bonus)</dd></div><div><dt>@UiText.T("Kapazität")</dt><dd>@NumberOrUnknown(values?.Capacity)</dd></div></dl>@if (values?.Source == CharacterCombatStateService.DerivedPointBudgetSource) { <small data-derived-point-budget>@UiText.T("Abgeleitet aus Levelbasis, Bonus und verteilten Punkten")</small> }@if (values?.Status == Soulcrest.App.Network.NetworkCombatSourceStatus.Conflict) { <small>@Status(values.Status)</small> }</div>
+                }
+            </div>
+            <p class="dc-hint">@UiText.T("Punktdaten werden automatisch übernommen. Unbekannte Punktestände werden nicht als 0 angenommen; Kapazität ist kein Besitzstand.")</p>
+            <button class="btn primary dc-calculate @(Snapshot.IsBusy ? "busy" : "")" type="button" disabled="@(!Snapshot.CanCalculate)" @onclick="Calculate" data-calculate-route>@if (Snapshot.IsBusy) { <span class="spinner" aria-hidden="true"></span> }@UiText.T(Snapshot.IsBusy ? "Route wird berechnet …" : "Route berechnen")</button>
+            @if (Snapshot.IsBusy) { <button class="btn dc-calculate" type="button" @onclick="Plans.Cancel">@UiText.T("Abbrechen")</button> }
+            @if (Snapshot.MissingRequirements.Count > 0) { <ul class="dc-live-missing" data-live-requirements>@foreach (var requirement in Snapshot.MissingRequirements) { <li>@Reason(requirement)</li> }</ul> }
+            <p class="dc-hint" style="margin-top:.8rem">@UiText.T("Die Planung beginnt mit leeren Boards. Punkte dürfen übrig bleiben, wenn sie keinen zusätzlichen Nutzen bringen.")</p>
+        </aside>
+        <section class="dc-panel dc-board-panel" aria-label="@UiText.T("Board und Route")">
+            <nav class="dc-board-tabs" aria-label="@UiText.T("Board auswählen")">@foreach (var board in Boards) { <button type="button" class="@(board.FamilyId == _family ? "selected" : "")" aria-pressed="@(board.FamilyId == _family)" @onclick="@(() => ChangeBoard(board.FamilyId))">@board.Name.For(Language)</button> }</nav>
+            <div class="dc-board-toolbar"><strong>@CurrentBoard.Name.For(Language)</strong><label class="dc-hint"><input type="checkbox" @bind="_showOrder" /> @UiText.T("Kaufreihenfolge")</label></div>
+            <DaevanionBoardSvg Board="CurrentBoard" Plan="CurrentPlan" Language="Language" SelectedNodeId="_nodeId" ShowOrder="_showOrder" NodeSelected="SelectNode" />
+            <div class="dc-board-footer"><span>@UiText.F("Level {0}", CurrentRules.MinimumLevel)</span><span>@UiText.F("{0} / {1} Punkte", CurrentPlan?.Cost ?? 0, CurrentRules.MaximumCost)</span><span title="@UiText.T("CP hängt von Ausgangswerten und der gesamten Route ab.")">@UiText.T("CP je Node") · @UiText.T("Kontextabhängig")</span></div>
+            @if (SelectedNode is { } selected)
+            {
+                <div class="dc-node-detail" data-node-detail><strong>@selected.Title.For(Language)</strong><span> · @UiText.F("{0} Punkte", CurrentRules.Nodes.First(node => node.Node.Id == selected.Id).Cost)</span><div>@string.Join(" · ", selected.Effects.Select(effect => effect.ShortLabel.For(Language) + " " + effect.DisplayAmount.For(Language)))</div><span>@UiText.T("Prioritätswert"): @Number(NodeValues.GetValueOrDefault(selected.Id)?.Score ?? 0) · @UiText.T("Combat Score"): @UiText.T("Kontextabhängig")</span></div>
+            }
+        </section>
+        <aside class="dc-panel dc-summary" aria-label="@UiText.F("Ergebnis: {0}", PoolName(SelectedPool))" data-summary-pool="@SelectedPool">
+            <h3>@UiText.F("Ergebnis: {0}", PoolName(SelectedPool))</h3>
+            <span class="dc-hint">@UiText.T(Draft.Mode == DaevanionOptimizationMode.CombatScore ? "Geschätzter CP-Zuwachs" : "Prioritätswert")</span><div class="dc-result-hero" data-estimated-combat-score>@(Draft.Mode == DaevanionOptimizationMode.CombatScore ? EstimateNumber(Snapshot.Result?.ActualEstimatedCombatScore) : Number(SelectedPlans.Sum(board => board.Score)))</div>
+            @if (Draft.Mode == DaevanionOptimizationMode.CombatScore) { <p class="dc-hint">@UiText.T("Gesamte Route · alle drei Punktepools")</p> }
+            <div class="dc-summary-metrics"><div class="dc-result-metric"><span>@PoolName(SelectedPool)</span><strong>@SelectedPlans.Sum(board => board.Cost) / @Draft.Budgets.For(SelectedPool)</strong></div></div>
+            <div class="dc-divider"></div>
+            <div class="dc-result-metric"><span>@UiText.T("Geplante Nodes")</span><strong>@SelectedPlans.Sum(board => Math.Max(0, board.NodeIds.Count - 1))</strong></div>
+            <div class="dc-result-metric"><span>@UiText.T("Geschätzter Gesamt-CP")</span><strong data-estimated-total-combat-score title="@UiText.T("Benötigt einen vollständigen aktuellen Quellenvergleich.")">@EstimateNumber(Snapshot.Result?.EstimatedTotalCombatScore)</strong></div>
+            @if (Snapshot.Result is { EstimatedCombatScore: { } capped, ActualEstimatedCombatScore: { } actual } && capped != actual)
+            { <div class="dc-result-metric"><span>@UiText.T("Nutzen bis zu den Wunschleveln")</span><strong>@Number(capped)</strong></div> }
+            @if (Snapshot.IsBusy)
+            {
+                <progress class="dc-progress" aria-label="@UiText.T("Route wird berechnet …")"></progress>
+                @if (Snapshot.Progress is { } progress) { <p class="dc-hint">@(progress.GlobalObjective ? UiText.T("Gesamte Route") : PoolName(progress.Pool)) · @StageLabel(progress.Stage)<br />@UiText.F("{0:0} Sekunden", progress.Elapsed.TotalSeconds)</p>
+                    @if (progress.Stage == "Score" && progress.BestBound is double bound && double.IsFinite(bound)) { <p class="dc-hint" data-score-bound>@UiText.F("Obergrenze ({0}): {1}", progress.GlobalObjective ? UiText.T("Gesamte Route") : PoolName(progress.Pool), bound.ToString("0.##", CultureInfo.GetCultureInfo(Language == "de" ? "de-DE" : "en-US")))</p> }
+                }
+            }
+            @if (Snapshot.Status is { } status) { <p class="dc-status" role="status" data-calculator-status>@UiText.T(status)</p> }
+            @if (_localFeedback is { } feedback) { <p class="dc-status" role="status">@UiText.T(feedback)</p> }
+            @if (Snapshot.Result is { } result)
+            { <p class="dc-hint" style="margin-top:.7rem" data-optimality="@(result.Optimal ? "optimal" : "unproven")">@ResultLabel(result)</p> }
+            <p class="dc-estimate-route">@UiText.T("CP wird einmal über die gesamte Route gerundet. Pool- und Boardfilter ändern diesen Gesamtwert nicht.")</p>
+            <p class="dc-hint" style="margin-top:.8rem">@UiText.T("Die Schätzung verwendet eigene Gewichte und bestätigte lokale Effektregeln. Fehlende Quellen und ungeklärte Anwendungen bleiben sichtbar.")</p>
+        </aside>
+    </div>
+    <p class="dc-hint dc-auto-source" data-automatic-character-source>@UiText.T("Aktuelle Werte stammen automatisch aus deinem eigenen Charakterzustand. Wunschlevel bleiben in den Skill- und Passivtabellen einstellbar.")</p>
+    <section class="dc-plan-totals" aria-label="@UiText.T("Tatsächliche Boni der Route")" data-result-totals data-summary-pool="@SelectedPool">
+        <header><h3>@UiText.T("Tatsächliche Boni der Route")</h3><span>@SummaryContext</span></header>
+        @if (Snapshot.Result?.Status == DaevanionOptimizationStatus.Infeasible)
+        { <p class="dc-warning" role="alert" data-required-budget-conflict>@UiText.T("Die Pflicht-Nodes und ihre Verbindungen passen nicht in die verfügbaren Punkte. Erhöhe das Budget oder entferne Pflicht-Einträge.")</p> }
+        else if (Snapshot.Result?.Status == DaevanionOptimizationStatus.Cancelled && DisplayPlans.Count == 0)
+        { <p class="dc-hint">@UiText.T("Berechnung abgebrochen. Es liegt noch keine vollständige Route vor.")</p> }
+        else if (DisplayPlans.Count == 0)
+        { <p class="dc-hint">@UiText.T("Berechne eine Route, um die addierten Statboni und Skillstufen zu sehen.")</p> }
+        else
+        {
+            var totals = PlannedSummary;
+            <div class="dc-total-grid @(SelectedPool == DaevanionBudgetPool.Normal ? "" : "dc-pool-only")">
+                <div><h4>@UiText.T("Werte")</h4><dl>@foreach (var stat in totals.Stats.OrderBy(stat => Catalog.GetStat(stat.StatId)!.Name.For(Language), StringComparer.CurrentCulture)) { <div data-planned-stat="@stat.StatId"><dt>@Catalog.GetStat(stat.StatId)!.Name.For(Language)</dt><dd>@StatAmount(stat)</dd></div> }</dl>@if (totals.Stats.Count == 0) { <p class="dc-hint">@UiText.T("Keine Boni ausgewählt.")</p> }</div>
+                @foreach (var kind in SelectedPool == DaevanionBudgetPool.Normal ? new[] { DaevanionSkillKind.Active, DaevanionSkillKind.Passive } : [])
+                {
+                    var entries = totals.Skills.Where(skill => skill.Kind == kind).OrderBy(skill => Catalog.GetSkill(skill.SkillId)!.Name.For(Language), StringComparer.CurrentCulture).ToArray();
+                    <div><h4>@UiText.T(kind == DaevanionSkillKind.Active ? "Skillstufen" : "Passivstufen")</h4><dl>@foreach (var skill in entries) { <div data-planned-skill="@skill.SkillId"><dt>@Catalog.GetSkill(skill.SkillId)!.Name.For(Language)</dt><dd>@UiText.F(skill.Levels == 1 ? "+{0} Stufe" : "+{0} Stufen", skill.Levels)@if (SkillPreviews.FirstOrDefault(item => item.SkillId == skill.SkillId) is { PlannedLevel: { } level } preview) { <small class="dc-total-skill-level">@UiText.F("Geplante Gesamtstufe: {0}", level)@if (preview.ExcessLevels > 0) { <span class="dc-target-note"> · @UiText.F("{0} über Wunsch", preview.ExcessLevels)</span> }</small> }</dd></div> }</dl>@if (entries.Length == 0) { <p class="dc-hint">@UiText.T("Keine Boni ausgewählt.")</p> }</div>
+                }
+            </div>
+        }
+    </section>
+    <div class="dc-priorities-heading"><div><h3>@UiText.F("Prioritäten: {0}", PoolName(SelectedPool)) <InfoTip><p>@UiText.T("Die Startreihenfolge ist alphabetisch nach englischen Namen und keine Spielempfehlung.")</p><p>@UiText.T("Der Rangwert fällt linear: Kategoriegewicht × (Anzahl − Rang + 1) / Anzahl. Statmengen werden durch den kleinsten Bonus dieses Stats im jeweiligen Punktepool geteilt. Skillstufen zählen einzeln.")</p><p>@UiText.T("ignore if possible erhält einen weichen Malus von 5 % des Kategoriegewichts. Eine Verbindung oder ein zweiter Bonus kann die Node trotzdem sinnvoll machen.")</p><p>@UiText.T("Ariel und Azphel haben jeweils eigene Prioritäten, Ignore-Einträge und Gewichte.")</p></InfoTip></h3><p class="dc-hint">@UiText.T("Oben am wichtigsten. Ziehen oder mit den Pfeilen verschieben. Die Reihenfolge gilt für den gewählten Punktepool.")</p><p class="dc-hint">@UiText.T(SelectedPool == DaevanionBudgetPool.Normal ? "Nezekan, Zikel, Vaizel und Triniel teilen diese Tabellen." : "Dieser Punktepool hat eine eigene Wertetabelle.")</p></div>@if (SelectedPool == DaevanionBudgetPool.Normal) { <select @bind="TableFilter" aria-label="@UiText.T("Tabellenfilter")"><option value="all">@UiText.T("Alle vier Boards")</option><option value="current">@UiText.T("Aktuelles Board")</option></select> }</div>
+    <div class="dc-cost-legend" aria-label="@UiText.T("Nodekosten und Farben")"><span class="dc-cost-1">@UiText.T("Normal: 1 Punkt")</span><span class="dc-cost-2">@UiText.T("Grün: 2 Punkte")</span><span class="dc-cost-3">@UiText.T("Blau: 3 Punkte")</span><span class="dc-cost-4">@UiText.T("Orange: 4 Punkte")</span><small>@UiText.T("Mehrere Farben zeigen verschiedene Nodevarianten desselben Werts.")</small></div>
+    <p class="dc-hint dc-required-help" data-required-help>@UiText.T("must have erzwingt alle passenden Nodes im Punktepool samt Verbindungen. Ein Boardfilter schränkt diese Pflicht nicht ein.")</p>
+    @{ var tablePool = SelectedPool; var tableClassId = Draft.ClassId; }
+    <div class="dc-priority-grid @(SelectedPool == DaevanionBudgetPool.Normal ? "" : "dc-pool-only")" data-priority-pool="@SelectedPool">
+        <DaevanionPriorityTable Kind="DaevanionPriorityKind.Stat" Title="Werte" Rows="@RowsFor(DaevanionPriorityKind.Stat)" CategoryWeight="PoolPreferences.Weights.Stats" Busy="Snapshot.IsBusy" Moved="@(move => MovePriority(move, tablePool, tableClassId))" WeightChanged="@(weight => ChangeWeight(DaevanionPriorityKind.Stat, weight, tablePool, tableClassId))" @key="@($"{Draft.ClassId}:{SelectedPool}:stats")" />
+        @if (SelectedPool == DaevanionBudgetPool.Normal)
+        {
+            <DaevanionPriorityTable Kind="DaevanionPriorityKind.Skill" Title="Skills" Rows="@RowsFor(DaevanionPriorityKind.Skill)" SkillChanged="@(edit => ChangeSkill(edit, tablePool, tableClassId))" CategoryWeight="PoolPreferences.Weights.Skills" Busy="Snapshot.IsBusy" Moved="@(move => MovePriority(move, tablePool, tableClassId))" WeightChanged="@(weight => ChangeWeight(DaevanionPriorityKind.Skill, weight, tablePool, tableClassId))" @key="@($"{Draft.ClassId}:{SelectedPool}:skills")" />
+            <DaevanionPriorityTable Kind="DaevanionPriorityKind.Passive" Title="Passive" Rows="@RowsFor(DaevanionPriorityKind.Passive)" SkillChanged="@(edit => ChangeSkill(edit, tablePool, tableClassId))" CategoryWeight="PoolPreferences.Weights.Passives" Busy="Snapshot.IsBusy" Moved="@(move => MovePriority(move, tablePool, tableClassId))" WeightChanged="@(weight => ChangeWeight(DaevanionPriorityKind.Passive, weight, tablePool, tableClassId))" @key="@($"{Draft.ClassId}:{SelectedPool}:passives")" />
+        }
+    </div>
+    <div class="dc-bottom-grid">
+        <section class="dc-panel" aria-label="@UiText.T("Gespeicherte Routen")">
+            <h3>@UiText.T("Gespeicherte Routen")</h3>
+            <div class="dc-saved-controls"><input type="text" maxlength="100" @bind="_routeName" placeholder="@UiText.T("Routenname")" aria-label="@UiText.T("Routenname")" /><button class="btn" type="button" disabled="@(!CanSave)" @onclick="@(() => SaveRoute(false))">@UiText.T("Neu speichern")</button><button class="btn" type="button" disabled="@(!CanSave || SelectedRoute is null)" @onclick="@(() => SaveRoute(true))">@UiText.T("Auswahl aktualisieren")</button></div>
+            <div class="dc-saved-list">
+                @foreach (var route in ClassRoutes)
+                {
+                    <div class="dc-saved-row" data-saved-route="@route.Id"><label><input type="radio" name="dc-route-selection" checked="@(_selectedRouteId == route.Id)" @onchange="@(() => SelectRoute(route))" /> <strong>@route.Name</strong>@if (Snapshot.ActiveRouteId == route.Id) { <span class="dc-active-badge"> · @UiText.T("Overlay aktiv")</span> }<small>@UiText.T(route.Result.Optimal ? "Optimale Route" : "Gespeicherter Zwischenstand") · @UiText.F("{0} Punkte", route.Result.Boards.Sum(board => board.Cost))@if (!Plans.IsCompatible(route)) { <span> · @UiText.T("Neu berechnen")</span> }</small></label><div class="dc-inline"><button class="btn" type="button" disabled="@Snapshot.IsBusy" @onclick="@(() => LoadRoute(route))">@UiText.T("Laden")</button><button class="btn" type="button" disabled="@(!Plans.IsCompatible(route))" @onclick="@(() => Plans.ActivateRoute(route.Id))">@UiText.T("Im Overlay nutzen")</button><button class="btn" type="button" @onclick="@(() => _deleteRouteId = route.Id)" aria-label="@UiText.F("Route {0} löschen", route.Name)">×</button></div></div>
+                }
+                @if (!ClassRoutes.Any()) { <p class="dc-hint">@UiText.T("Noch keine Route für diese Klasse gespeichert.")</p> }
+            </div>
+            @if (_deleteRouteId is not null) { <div class="dc-delete-confirm"><span>@UiText.T("Diese Route löschen?")</span><button class="btn danger" type="button" @onclick="DeleteRoute">@UiText.T("Löschen")</button><button class="btn" type="button" @onclick="@(() => _deleteRouteId = null)">@UiText.T("Abbrechen")</button></div> }
+            @if (Snapshot.ActiveRouteId is not null) { <button class="btn link" type="button" style="margin-top:.7rem" @onclick="@(() => Plans.DeactivateRoute(Draft.ClassId))">@UiText.T("Overlay-Route ausschalten")</button> }
+        </section>
+        <details class="dc-panel dc-measurement" data-combat-score-measurements>
+            <summary>@UiText.T("Combat-Score-Messungen vorbereiten")<small>@UiText.T("Einzelne Node messen · vorher, nachher, Rücknahme")</small></summary>
+            <p class="dc-hint" style="margin-top:.8rem">@UiText.T("Nur eine Node ändern und auf einen stabilen Wert warten. Ausrüstung, Skills und Presets konstant halten. Diese Beobachtungen sind noch kein allgemeines Bewertungsmodell.")</p>
+            <div class="dc-measure-fields">
+                <label class="dc-wide">@UiText.T("Node auf dem aktuellen Board")<select @bind="_nodeId"><option value="0">@UiText.T("Node auswählen")</option>@foreach (var node in CurrentBoard.Nodes.Where(node => node.Kind != DaevanionNodeKind.Start)) { <option value="@node.Id">@node.Title.For(Language) · #@node.Id</option> }</select></label>
+                <label>@UiText.T("Spiel-Build")<input type="text" maxlength="64" @bind="_measurementBuild" /></label><label>@UiText.T("Charakterlevel")<input type="number" min="1" max="1000" @bind="_measurementLevel" /></label><label>@UiText.T("Skillstufe vorher")<input type="number" min="0" @bind="_skillLevelBefore" /></label>
+                <label>@UiText.T("CP vorher")<input type="number" min="0" @bind="_before" /></label><label>@UiText.T("CP nachher")<input type="number" min="0" @bind="_after" /></label><label>@UiText.T("CP nach Rücknahme")<input type="number" min="0" @bind="_restored" /></label>
+                <label>@UiText.T("CP bei Wiederholung")<input type="number" min="0" @bind="_repeatedAfter" /></label><label>@UiText.T("Skill ausgerüstet")<select @bind="_skillEquipped"><option value="">@UiText.T("Unbekannt")</option><option value="yes">@UiText.T("Ja")</option><option value="no">@UiText.T("Nein")</option></select></label>
+                <label class="dc-wide">@UiText.T("Kontext und unveränderte Ausrüstung")<textarea maxlength="4096" @bind="_measurementContext"></textarea></label>
+            </div>
+            <button class="btn" type="button" @onclick="SaveMeasurement">@UiText.T("Messung speichern")</button>
+            <div class="dc-measure-list">@foreach (var item in Snapshot.Measurements.Where(item => item.ClassId == Draft.ClassId).OrderByDescending(item => item.RecordedAt)) { <div class="dc-measure-row"><span>#@item.NodeId · @item.Before → @item.After <strong>(@Signed(item.Delta))</strong><small>@item.GameBuild · Lv. @item.CharacterLevel · @item.Context</small></span><button class="btn" type="button" aria-label="@UiText.T("Messung löschen")" @onclick="@(() => Plans.DeleteMeasurement(item.Id))">×</button></div> }</div>
+        </details>
+    </div>
+</section>
+
+@code {
+    private static DaevanionCatalog Catalog => DaevanionCatalog.Default;
+    private static DaevanionRuleCatalog Rules => DaevanionRuleCatalog.Default;
+    private DaevanionPlanSnapshot Snapshot = null!;
+    private DaevanionOptimizationRequest Draft => Snapshot.Draft;
+    private DaevanionCombatContext CombatContext => Draft.CombatContext ?? DaevanionCombatScoreModel.CreateContext(Draft.ClassId);
+    private IReadOnlyList<string> NeededStatIds => DaevanionCombatScoreModel.NeededStatIds(Draft.ClassId);
+    private int MissingStatBaselines => NeededStatIds.Count(id => CombatContext.GeneralStats.FirstOrDefault(item => item.StatId == id) is not { Value: not null, IncreasePercent: not null });
+    private int MissingSkillBaselines => Catalog.Skills.Where(skill => skill.ClassId == Draft.ClassId).Count(skill => CombatContext.Skills.FirstOrDefault(item => item.SkillId == skill.Id) is not { CurrentLevel: not null, CurrentBoardBonus: not null });
+    private IReadOnlyList<DaevanionSkillPreview> SkillPreviews => DaevanionCombatScoreModel.SkillPreviews(Draft, DisplayPlans.SelectMany(board => board.NodeIds));
+    private string SkillSourceLabel => Snapshot.CanApplyDetectedSkills && Snapshot.DetectedSkills is { } detected
+        ? UiText.T("Eigene Stufen erkannt") + (detected.ObservedAt is { } at ? " · " + at.ToLocalTime().ToString("g", CultureInfo.GetCultureInfo(Language == "de" ? "de-DE" : "en-US")) : "")
+        : UiText.T("Keine frischen passenden Skillstufen erkannt.");
+    private string Language => UiText.Language;
+    private string _family = "nezekan", _routeName = "", _measurementBuild = "", _measurementContext = "", _skillEquipped = "";
+    private string? _selectedRouteId, _deleteRouteId, _localFeedback;
+    private int? _nodeId, _measurementLevel, _skillLevelBefore;
+    private long? _before, _after, _restored, _repeatedAfter;
+    private bool _currentBoardOnly, _showOrder, _disposed;
+    private string TableFilter { get => _currentBoardOnly ? "current" : "all"; set => _currentBoardOnly = value == "current"; }
+    private IReadOnlyList<DaevanionBoard> Boards => Catalog.Boards.Where(board => board.ClassId == Draft.ClassId).OrderBy(board => Array.IndexOf(DaevanionCatalog.Families.ToArray(), board.FamilyId)).ToArray();
+    private DaevanionBoard CurrentBoard => Boards.First(board => board.FamilyId == _family);
+    private DaevanionBoardRules CurrentRules => Rules.GetBoardRules(CurrentBoard.Id)!;
+    private DaevanionBudgetPool SelectedPool => CurrentRules.Pool;
+    private DaevanionPoolPreferences PoolPreferences => DaevanionPoolSettings.ForPool(Draft, SelectedPool);
+    private IReadOnlyList<DaevanionBoardPlan> DisplayPlans => Snapshot.Result?.Boards ?? Snapshot.Progress?.Boards ?? [];
+    private IReadOnlyList<DaevanionBoardPlan> SelectedPlans => DisplayPlans.Where(board => board.Pool == SelectedPool
+        && (SelectedPool != DaevanionBudgetPool.Normal || !_currentBoardOnly || board.FamilyId == _family)).ToArray();
+    private DaevanionBoardPlan? CurrentPlan => DisplayPlans.FirstOrDefault(board => board.BoardId == CurrentBoard.Id);
+    private DaevanionNode? SelectedNode => CurrentBoard.Nodes.FirstOrDefault(node => node.Id == _nodeId);
+    private IReadOnlyDictionary<int, DaevanionNodeValue> NodeValues => DaevanionScoring.NodeValues(Draft);
+    private DaevanionPlanSummary PlannedSummary => DaevanionPlanSummary.Create(Draft.ClassId, SelectedPlans);
+    private string SummaryContext => SelectedPool == DaevanionBudgetPool.Normal
+        ? _currentBoardOnly ? CurrentBoard.Name.For(Language) : UiText.T("Alle vier normalen Boards") : CurrentBoard.Name.For(Language);
+    private IEnumerable<DaevanionSavedRoute> ClassRoutes => Snapshot.Routes.Where(route => route.ClassId == Draft.ClassId).OrderByDescending(route => route.UpdatedAt);
+    private DaevanionSavedRoute? SelectedRoute => ClassRoutes.FirstOrDefault(route => route.Id == _selectedRouteId);
+    private bool CanSave => !Snapshot.IsBusy && Snapshot.Result is { Boards.Count: 6, Status: DaevanionOptimizationStatus.Optimal or DaevanionOptimizationStatus.Cancelled } && !string.IsNullOrWhiteSpace(_routeName);
+    protected override void OnInitialized() { Snapshot = Plans.Snapshot; Plans.Changed += Refresh; }
+    private void Refresh()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(() => { if (_disposed) return; Snapshot = Plans.Snapshot; StateHasChanged(); });
+    }
+    private void ChangeClass(string? classId) { if (classId is not null && Plans.SetClass(classId)) { Snapshot = Plans.Snapshot; _nodeId = null; _selectedRouteId = _deleteRouteId = null; _routeName = ""; _localFeedback = null; } }
+    private void ChangeMode(DaevanionOptimizationMode mode) => Update(Draft with { Mode = mode });
+    private void ChangeBoard(string family) { _family = family; _nodeId = null; }
+    private void SelectNode(int nodeId) => _nodeId = nodeId;
+    private void Update(DaevanionOptimizationRequest request)
+    {
+        Plans.UpdateDraft(request); Snapshot = Plans.Snapshot; _localFeedback = null;
+    }
+    private void ChangeCombatContext(DaevanionCombatContext context, string classId)
+    {
+        if (Snapshot.IsBusy || classId != Draft.ClassId) return;
+        Update(Draft with { CombatContext = context });
+    }
+    private void ChangeSkill(DaevanionSkillEdit edit, DaevanionBudgetPool pool, string classId)
+    {
+        if (edit.Field != DaevanionSkillEditField.TargetLevel || Snapshot.IsBusy || pool != SelectedPool || classId != Draft.ClassId || !int.TryParse(edit.Key, CultureInfo.InvariantCulture, out var skillId)
+            || Catalog.GetSkill(skillId)?.ClassId != classId) return;
+        var context = CombatContext;
+        var current = context.Skills.FirstOrDefault(item => item.SkillId == skillId) ?? new(skillId);
+        var next = edit.Field switch
+        {
+            DaevanionSkillEditField.CurrentLevel => current with { CurrentLevel = edit.Value },
+            DaevanionSkillEditField.CurrentBoardBonus => current with { CurrentBoardBonus = edit.Value },
+            _ => current with { TargetLevel = edit.Value }
+        };
+        ChangeCombatContext(context with { Skills = context.Skills.Where(item => item.SkillId != skillId).Append(next).OrderBy(item => item.SkillId).ToArray() }, classId);
+    }
+    private void ApplyDetectedSkills() { Plans.ApplyDetectedSkills(); Snapshot = Plans.Snapshot; _localFeedback = null; }
+    private void ClearSkillOverrides() { Plans.ClearSkillOverrides(); Snapshot = Plans.Snapshot; _localFeedback = null; }
+    private void ChangeBudget(DaevanionBudgetPool pool, ChangeEventArgs args)
+    {
+        if (!int.TryParse(args.Value?.ToString(), out var value)) return;
+        value = Math.Max(0, value);
+        Update(Draft with { Budgets = pool switch { DaevanionBudgetPool.Normal => Draft.Budgets with { Normal = value }, DaevanionBudgetPool.Ariel => Draft.Budgets with { Ariel = value }, _ => Draft.Budgets with { Azphel = value } } });
+    }
+    private void ChangeWeight(DaevanionPriorityKind kind, int value, DaevanionBudgetPool pool, string classId)
+    {
+        if (pool != SelectedPool || classId != Draft.ClassId) return;
+        var preferences = DaevanionPoolSettings.ForPool(Draft, pool);
+        Update(DaevanionPoolSettings.WithPool(Draft, preferences with { Weights = kind switch
+        { DaevanionPriorityKind.Stat => preferences.Weights with { Stats = value }, DaevanionPriorityKind.Skill => preferences.Weights with { Skills = value }, _ => preferences.Weights with { Passives = value } } }));
+    }
+    private async Task Calculate() { _localFeedback = null; await Plans.CalculateAsync(); Snapshot = Plans.Snapshot; }
+    private IReadOnlyList<DaevanionPriorityDisplayRow> RowsFor(DaevanionPriorityKind kind)
+    {
+        var poolNodes = Rules.ForClass(Draft.ClassId).Where(board => board.Pool == SelectedPool).SelectMany(board => board.Nodes).ToArray();
+        var nodes = (SelectedPool == DaevanionBudgetPool.Normal && _currentBoardOnly ? new[] { CurrentRules }
+            : Rules.ForClass(Draft.ClassId).Where(board => board.Pool == SelectedPool)).SelectMany(board => board.Nodes).ToArray();
+        var rows = new List<DaevanionPriorityDisplayRow>(); var rank = 0;
+        foreach (var priority in PoolPreferences.Priorities.Where(priority => priority.Kind == kind).OrderByDescending(priority => priority.Required))
+        {
+            if (!priority.Ignored) rank++;
+            var skill = kind == DaevanionPriorityKind.Stat ? null : Catalog.GetSkill(int.Parse(priority.Key, CultureInfo.InvariantCulture));
+            bool Matches(DaevanionEffect effect) => kind == DaevanionPriorityKind.Stat ? effect.StatId == priority.Key : effect.SkillId == skill!.Id;
+            var matching = nodes.Where(node => node.Node.Effects.Any(Matches)).ToArray();
+            if (matching.Length == 0) continue;
+            var variants = matching.SelectMany(node => node.Node.Effects.Where(Matches)
+                .Select(effect => (node.Cost, Amount: effect.DisplayAmount.For(Language), NodeId: node.Node.Id)))
+                .GroupBy(item => (item.Cost, item.Amount)).OrderBy(group => group.Key.Cost)
+                .ThenBy(group => group.Key.Amount, StringComparer.Ordinal)
+                .Select(group => new DaevanionCostVariant(group.Key.Cost, group.Key.Amount, group.Select(item => item.NodeId).Distinct().Count())).ToArray();
+            var label = skill?.Name.For(Language) ?? Catalog.GetStat(priority.Key)!.Name.For(Language);
+            var state = skill is null ? null : CombatContext.Skills.FirstOrDefault(item => item.SkillId == skill.Id);
+            var live = Snapshot.Character is { IsFresh: true, SkillStatus: Soulcrest.App.Network.NetworkCombatSourceStatus.Complete } character
+                && character.ClassId == Draft.ClassId && skill is not null ? character.Skills.GetValueOrDefault(skill.Id) : null;
+            rows.Add(new(priority.Key, label, rank, DaevanionScoring.PriorityWeight(Draft, kind, priority.Key, SelectedPool), priority.Ignored, matching.Length, skill is null ? null : Catalog.GetAsset(skill.ImageAssetId)?.Path)
+                { CurrentLevel = live?.TotalLevel, CurrentBoardBonus = live?.AdditionalLevels?.Daevanion, TargetLevel = state?.TargetLevel, CostVariants = variants, Required = priority.Required, RequiredNodeCount = poolNodes.Count(node => node.Node.Effects.Any(Matches)) });
+        }
+        return rows;
+    }
+    private void MovePriority(DaevanionPriorityMove move, DaevanionBudgetPool pool, string classId)
+    {
+        if (pool != SelectedPool || classId != Draft.ClassId) return;
+        Update(DaevanionPriorityOrdering.Apply(Draft, move.Kind, move.Key, move.BeforeKey, move.AfterKey, move.Ignored, pool, move.Required));
+    }
+    private void SelectRoute(DaevanionSavedRoute route) { _selectedRouteId = route.Id; _routeName = route.Name; }
+    private void LoadRoute(DaevanionSavedRoute route) { SelectRoute(route); Plans.LoadRoute(route.Id); Snapshot = Plans.Snapshot; _nodeId = null; }
+    private void SaveRoute(bool overwrite)
+    {
+        var previousIds = Snapshot.Routes.Select(route => route.Id).ToHashSet(StringComparer.Ordinal);
+        if (!Plans.SaveRoute(_routeName, overwrite ? _selectedRouteId : null)) return;
+        Snapshot = Plans.Snapshot;
+        if (!overwrite) _selectedRouteId = ClassRoutes.FirstOrDefault(route => !previousIds.Contains(route.Id))?.Id;
+    }
+    private void DeleteRoute() { if (_deleteRouteId is null) return; Plans.DeleteRoute(_deleteRouteId); if (_selectedRouteId == _deleteRouteId) _selectedRouteId = null; _deleteRouteId = null; Snapshot = Plans.Snapshot; }
+    private void SaveMeasurement()
+    {
+        if (_before is null || _after is null || _measurementLevel is null || _nodeId is null)
+        { _localFeedback = "Bitte Klasse, Knoten, Build, Level und gültige Combat-Score-Werte eintragen."; return; }
+        if (Plans.AddMeasurement(new() { ClassId = Draft.ClassId, BoardId = CurrentBoard.Id, NodeId = _nodeId.Value,
+            GameBuild = _measurementBuild, CharacterLevel = _measurementLevel.Value, Before = _before.Value, After = _after.Value,
+            Restored = _restored, RepeatedAfter = _repeatedAfter, SkillLevelBefore = _skillLevelBefore,
+            SkillEquipped = _skillEquipped == "yes" ? true : _skillEquipped == "no" ? false : null, Context = _measurementContext }))
+        { _localFeedback = null; Snapshot = Plans.Snapshot; }
+    }
+    private static string PoolName(DaevanionBudgetPool pool) => pool switch { DaevanionBudgetPool.Normal => UiText.T("Daevanion-Punkte"), DaevanionBudgetPool.Ariel => "Ariel", _ => "Azphel" };
+    private string StageLabel(string stage) => UiText.T(stage switch { "Score" when Draft.Mode == DaevanionOptimizationMode.CombatScore => "CP-Schätzung optimieren", "Score" => "Prioritätswert optimieren", "Excess" => "Wunschlevel-Überschreitungen reduzieren", "Ignore" => "Ignorierte Werte reduzieren", "Cost" => "Punktekosten minimieren", _ => "Route wird berechnet …" });
+    private string ResultLabel(DaevanionOptimizationResult result) => UiText.T(result.Status switch
+    { DaevanionOptimizationStatus.Optimal when Draft.Mode == DaevanionOptimizationMode.CombatScore => "Optimal für die gewählte CP-Schätzung.", DaevanionOptimizationStatus.Optimal => "Optimal für deine gewählten Prioritäten.", DaevanionOptimizationStatus.Infeasible => "Pflichtauswahl und Punktebudget sind nicht vereinbar.",
+        DaevanionOptimizationStatus.Cancelled when result.Boards.Count == 0 => "Berechnung abgebrochen. Es liegt noch keine vollständige Route vor.",
+        DaevanionOptimizationStatus.Cancelled => "Zwischenstand · Optimalität nicht bestätigt.", DaevanionOptimizationStatus.Unavailable => "Combat-Score-Modell nicht verfügbar.", _ => "Kein gültiges Rechenergebnis." });
+    private static string NumberOrUnknown(int? value) => value?.ToString(CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US")) ?? "—";
+    private static string EstimateNumber(decimal? value) => value is { } number ? Number(number) : "—";
+    private static string Number(decimal value) => value.ToString("0.##", CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US"));
+    private static string StatAmount(DaevanionPlannedStat stat) => "+" + stat.Amount.ToString("0.############################", CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US")) + (stat.Unit == DaevanionStatUnit.Percent ? "%" : "");
+    private static string Signed(long value) => value.ToString("+0;-0;0", CultureInfo.InvariantCulture);
+    public void Dispose() { _disposed = true; Plans.Changed -= Refresh; }
+}

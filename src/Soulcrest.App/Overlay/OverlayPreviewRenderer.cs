@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
@@ -46,6 +47,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
         return id switch
         {
             "loot" => Loot(settings, theme),
+            "achievements" => AchievementOverlayRenderer.Render(AchievementExamples(), theme, language: settings.LootNameLanguage, icons: _lootIcons),
             "farm-loot" => LootOverlayRenderer.RenderPreview(FarmLootExample(settings.LootNameLanguage), theme.Id,
                 animationSeconds: 1.4, icons: _lootIcons, backgroundOpacity: settings.LootOverlayBackgroundOpacity),
             "abyss-rank" => AbyssRankOverlayRenderer.RenderPreview(AbyssRankExample(includeKillFeed: true) with
@@ -84,6 +86,28 @@ public sealed class OverlayPreviewRenderer : IDisposable
         PetOverlayForm.LootRow[] drops = [Row(1, 1), Row(2, 3)];
         return Surface(new(PetOverlayFormWidth, PetOverlayForm.LootLogicalHeight(1, 2, theme: theme)),
             graphics => PetOverlayForm.PaintLootPanel(graphics, focus, drops, running: true, locked: true, theme: theme));
+    }
+
+    internal static IReadOnlyList<AchievementTrackerRow> AchievementExamples()
+    {
+        var catalog = Soulcrest.App.Components.CombatAchievementDisplayCatalog.Default;
+        AchievementTrackerRow Row(int familyId, int ordinal, bool favorite, AchievementTrackerRowState state,
+            long? current, long? target, int raw, Soulcrest.App.Components.CombatAchievementProgressUnit unit)
+        {
+            var family = catalog.Find(familyId)!;
+            var stage = family.Stages[ordinal - 1];
+            return new()
+            {
+                FamilyId = familyId, StageId = stage.Id, NameDe = stage.NameDe, NameEn = stage.NameEn,
+                ConditionDe = stage.ConditionDe, ConditionEn = stage.ConditionEn, IconPath = stage.IconPath,
+                IsFavorite = favorite, State = state, Current = current, Target = target, RawValue = raw, Unit = unit,
+                Rewards = stage.Rewards.Select(reward => new AchievementTrackerReward(reward.NameDe, reward.NameEn, reward.IconPath, reward.Quantity)).ToImmutableArray(),
+            };
+        }
+        return [Row(420101200, 2, true, AchievementTrackerRowState.InProgress, 10, 30, 10, Soulcrest.App.Components.CombatAchievementProgressUnit.Minutes),
+            Row(441100900, 2, false, AchievementTrackerRowState.Celebrating, 5, 20, 5, Soulcrest.App.Components.CombatAchievementProgressUnit.Count)
+                with { CompletionProgress = .24, CelebratedStageId = catalog.Find(441100900)!.Stages[0].Id },
+            Row(411100100, 8, false, AchievementTrackerRowState.InProgress, 74600, 100000, 74600, Soulcrest.App.Components.CombatAchievementProgressUnit.Count)];
     }
 
     private const int PetOverlayFormWidth = 360;

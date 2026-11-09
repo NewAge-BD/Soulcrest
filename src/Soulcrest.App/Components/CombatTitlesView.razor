@@ -1,0 +1,248 @@
+@using Soulcrest.App.Network
+@using Soulcrest.App.Services
+@using Soulcrest.Core.Network
+@using Soulcrest.Core.Combat
+@using static Soulcrest.App.Components.CombatSourceCategoryPresentation
+@using static Soulcrest.App.Components.CombatTitlesPresentation
+
+<section class="ct-view" data-combat-titles data-source-observation="titles" data-title-category="@_category" data-title-origin="@_origin" data-title-estimate-status="@(EstimatedRoster is null ? "Unavailable" : "Estimated")" data-title-ownership-source="@OwnershipSource" data-saved-title-observed-at="@(UsingSavedOwnership ? SavedOwnership!.ObservedAt.ToString("O") : null)" data-source-observed-at="@(!UsingSavedOwnership && OwnershipCurrent ? Snapshot.TitleOwnership.ObservedAt?.ToString("O") : null)" data-title-slots-observed-at="@(SlotsCurrent ? Snapshot.Titles.ObservedAt?.ToString("O") : null)">
+    <header class="ct-collection-heading">
+        <div><h3>@UiText.T("Titelsammlung")</h3><p>@UiText.T("Besitzboni und ausgerüstete Effekte auf einen Blick.")</p></div>
+        @if (DisplayOwnedIds is { } owned)
+        {
+            <p class="ct-owned-total"><strong data-owned-title-count="@(!UsingSavedOwnership ? owned.Count : (int?)null)" data-saved-title-count="@(UsingSavedOwnership ? owned.Count : (int?)null)">@owned.Count</strong><span>@UiText.T(UsingSavedOwnership ? "gespeicherte Titel" : "bestätigte Titel")</span>@if (EstimatedRoster is { } estimate) { <small data-estimated-title-total="@estimate.TotalCount">@UiText.F("≈ {0} Titel im geschätzten Umfang", estimate.TotalCount)</small> }</p>
+        }
+        else { <p class="ct-owned-total ct-unknown"><strong>—</strong><span>@UiText.T("Besitz noch nicht bestätigt")</span></p> }
+    </header>
+    @if (UsingSavedOwnership)
+    {
+        <p class="ct-history-note" data-title-saved-stand><strong>@UiText.T("Gespeicherter Titelstand")</strong><time datetime="@(SavedOwnership!.ObservedAt.ToString("O"))">@UiText.F("Stand: {0}", SavedTime(SavedOwnership!.ObservedAt))</time><span>@UiText.T("Historischer Titelbesitz dieses Charakters. Aktuelle Netzwerkdaten sind noch nicht vollständig bestätigt.")</span></p>
+    }
+    @if (_favoriteErrorBinding is not null && _favoriteErrorBinding == BoundFavorites?.Binding)
+    {
+        <p class="ct-favorite-error" role="alert" data-title-favorite-error>@UiText.T("Favorit konnte nicht gespeichert werden.")</p>
+    }
+    @if (_favoriteSaving && _favoriteOperationBinding == BoundFavorites?.Binding)
+    {
+        <p class="ct-favorite-saving" role="status">@UiText.T("Favorit wird gespeichert…")</p>
+    }
+    @{ var passiveSummary = OwnedSummary; var missingPreview = MissingPreview; }
+    <div class="ct-passive-summaries">
+        <section class="ct-passive-panel" data-owned-passive-status="@passiveSummary.Status" data-owned-passive-source="@OwnershipSource">
+            <header><h4>@UiText.T("Vorhandene passive Effekte")</h4><span>@UiText.T(UsingSavedOwnership ? "Aus gespeichertem Besitzstand addiert" : passiveSummary.Status == CombatKnowledgeStatus.Complete ? "Aus bestätigten Besitzboni addiert" : "Noch nicht vollständig bestätigt")</span></header>
+            <div class="ct-passive-list">
+                @foreach (var effect in passiveSummary.Rows)
+                {
+                    <div class="ct-passive-total" data-owned-passive-stat="@effect.Key.StatId" data-passive-unit="@(effect.Key.Unit ?? "Unknown")" data-owned-passive-value="@effect.Value?.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-passive-status="@effect.Status">
+                        <span>@PassiveLabel(effect.LabelDe, effect.LabelEn, UiText.Language)</span><strong>@PassiveValue(effect.Value, effect.Key.Unit, UiText.Language)</strong>
+                        @if (effect.Status != CombatKnowledgeStatus.Complete) { <small>@UiText.T("teilweise")</small> }
+                    </div>
+                }
+            </div>
+            @if (passiveSummary.Rows.Count == 0) { <p class="ct-passive-note">@UiText.T(UsingSavedOwnership && passiveSummary.Status == CombatKnowledgeStatus.Complete ? "Keine Besitzboni im gespeicherten Stand." : passiveSummary.Status == CombatKnowledgeStatus.Complete ? "Keine passiven Effekte im bestätigten Bestand." : "Passive Effekte sind noch nicht vollständig bestätigt.")</p> }
+        </section>
+        <section class="ct-passive-panel ct-missing-passives" data-missing-passive-scope="@(EstimatedRoster is null ? "CatalogPreview" : "EstimatedRoster")" data-missing-passive-total="@(EstimatedRoster is null ? "Unknown" : "Estimated")">
+            <header><h4>@UiText.T("Fehlende Besitzboni")</h4><span>@UiText.T(EstimatedRoster is null ? "Katalogvorschau · Gesamtwerte unbekannt" : "Sammlungskatalog rekonstruiert · Schätzung")</span></header>
+            @if (EstimatedRoster is { } missingScope) { <p class="ct-estimate-count" data-estimated-missing-title-count="@missingScope.MissingIds.Count">@UiText.F("{0} fehlende Titel im geschätzten Umfang", missingScope.MissingIds.Count)</p> }
+            <div class="ct-passive-list">
+                @foreach (var effect in missingPreview)
+                {
+                    <button type="button" class="@(_passive == effect.Key ? "selected" : "")" aria-pressed="@(_passive == effect.Key ? "true" : "false")" data-title-passive-filter="@PassiveKeyText(effect.Key)" data-missing-passive-stat="@effect.Key.StatId" data-passive-unit="@(effect.Key.Unit ?? "Unknown")" data-missing-passive-estimated-value="@effect.EstimatedValue?.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-missing-passive-value-status="@effect.ValueStatus" @onclick="@(() => SelectPassive(effect.Key))">
+                        <span>@PassiveLabel(effect.LabelDe, effect.LabelEn, UiText.Language)</span><strong>@(EstimatedRoster is not null && effect.EstimatedValue is not null ? "≈ " + PassiveValue(effect.EstimatedValue, effect.Key.Unit, UiText.Language) : "—")</strong><small>@(EstimatedRoster is null ? UiText.F("{0} Katalogvarianten", effect.CatalogVariantCount) : UiText.F("{0} Titel (geschätzt)", effect.CatalogVariantCount))</small>
+                    </button>
+                }
+            </div>
+            <p class="ct-passive-note">@UiText.T(EstimatedRoster is null ? "Verfügbarkeit und vollständiger Titelumfang sind ungeklärt. Der Statfilter zeigt nur nicht beobachtete Katalogtitel; bei einer Teilliste ist ihr Besitz unbekannt." : "Geschätzt aus einem eindeutig passenden Sammlungskatalog. Freischaltbedingungen und weitere Sondertitel sind nicht vollständig bestätigt.")</p>
+        </section>
+    </div>
+    <div class="ct-layout">
+        <nav class="ct-categories" aria-label="@UiText.T("Titelkategorien")">
+            @foreach (var filter in CategoryFilters)
+            {
+                <button type="button" class="@(_category == filter.Id ? "selected" : "")" aria-pressed="@(_category == filter.Id ? "true" : "false")" data-title-category-filter="@filter.Id" @onclick="@(() => _category = filter.Id)">
+                    @if (CategoryIcon(filter.Id) is { } icon) { <img src="@icon" alt="" /> }
+                    else { <span class="ct-all-symbol" aria-hidden="true">@(filter.Id == "All" ? "ALL" : "◇")</span> }
+                    <span>@UiText.T(filter.Label)</span>
+                </button>
+            }
+        </nav>
+        <div class="ct-browser">
+            <nav class="ct-origins" aria-label="@UiText.T("Titelherkunft")">
+                @foreach (var filter in OriginFilters)
+                {
+                    <button type="button" class="@(_origin == filter.Id ? "selected" : "")" aria-pressed="@(_origin == filter.Id ? "true" : "false")" data-title-origin-filter="@filter.Id" @onclick="@(() => _origin = filter.Id)">@UiText.T(filter.Label)</button>
+                }
+            </nav>
+            @if (_passive is { } selected)
+            {
+                <div class="ct-passive-selection" data-title-passive-selection="@PassiveKeyText(selected)"><div><strong>@SelectedPassiveLabel</strong><span>@UiText.T(EstimatedRoster is null ? "Fehlender Besitzbonus · nicht beobachtete Katalogtitel" : "Fehlender Besitzbonus · fehlende Titel im geschätzten Umfang")</span></div><button type="button" data-title-clear-passive-filter="clear" @onclick="ClearPassive">@UiText.T("Statfilter aufheben")</button></div>
+            }
+            @if (DisplayOwnedIds is null && _passive is null)
+            {
+                <div class="ct-empty" data-source-awaiting-current><strong>—</strong><p>@UiText.T("Der Titelbesitz ist noch nicht aktuell bestätigt.")</p></div>
+            }
+            else
+            {
+                var rows = VisibleRows;
+                <div class="ct-title-grid" role="list" aria-label="@UiText.T(EstimatedRoster is not null ? "Sammlungskatalog (geschätzt)" : _passive is not null ? "Katalogvarianten" : UsingSavedOwnership ? "Gespeicherte Titel" : "Bestätigte Titel")" data-title-visible-count="@rows.Count" data-title-roster-scope="@RosterScope">
+                    @foreach (var row in rows)
+                    {
+                        var definition = Catalog.Find(row.Id);
+                        var equipped = SlotsCurrent && Snapshot.Titles.Value!.EquippedByCategory.Values.Contains(row.Id);
+                        var observedOwned = !UsingSavedOwnership && OwnershipCurrent && Snapshot.TitleOwnership.Value!.Contains(row.Id);
+                        var savedOwned = UsingSavedOwnership && DisplayOwnedIds!.Contains(row.Id);
+                        var ownershipStatus = savedOwned ? "SavedOwned" : observedOwned ? "Owned" : UsingSavedOwnership ? "SavedNotOwned" : OwnershipComplete ? "NotOwned" : "Unknown";
+                        <article class="ct-title-card @GradeClass(definition?.Grade) @(equipped ? "equipped" : "") @(_selectedTitleId == row.Id ? "selected" : "")" role="listitem" data-title-id="@row.Id" data-owned-title="@(observedOwned ? row.Id : (int?)null)" data-saved-owned-title="@(savedOwned ? row.Id : (int?)null)" data-title-ownership="@ownershipStatus" data-title-card-category="@definition?.EquipCategory" data-title-card-origin="@definition?.Origin" data-title-grade="@definition?.Grade" data-title-select-id="@row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)" @onclick="@(() => SelectTitle(row.Id))">
+                            <button type="button" class="ct-favorite @(BoundFavorites?.ContainsTitle(row.Id) == true ? "selected" : "")" data-title-favorite-id="@row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-pressed="@(BoundFavorites?.ContainsTitle(row.Id) == true ? "true" : "false")" disabled="@(!CanFavorite(row.Id))" title="@FavoriteLabel(row.Id)" aria-label="@FavoriteLabel(row.Id)" @onclick="@(() => ChangeFavorite(row.Id))" @onclick:stopPropagation="true"><span aria-hidden="true">@(BoundFavorites?.ContainsTitle(row.Id) == true ? "★" : "☆")</span></button>
+                            @if (definition?.IconPath is { } icon) { <img class="ct-card-emblem" src="@icon" alt="" loading="lazy" /> }
+                            <header><h4 data-title-name><button type="button" class="ct-title-select" aria-pressed="@(_selectedTitleId == row.Id ? "true" : "false")" @onclick="@(() => SelectTitle(row.Id))" @onclick:stopPropagation="true">@row.Name</button></h4><div class="ct-card-badges">@if (equipped) { <span class="ct-equipped-badge">@UiText.T("Ausgerüstet")</span> }@if (_passive is not null || EstimatedRoster is not null || UsingSavedOwnership) { <span class="ct-ownership-badge @((observedOwned || savedOwned) ? "owned" : ownershipStatus == "Unknown" ? "unknown" : "notowned")">@UiText.T(savedOwned ? "Gespeicherter Besitz" : observedOwned ? "Im Besitz" : UsingSavedOwnership ? "Im gespeicherten Stand fehlend" : OwnershipComplete ? "Nicht im Besitz" : "Besitz ungeklärt")</span> }</div></header>
+                            <div class="ct-card-equipped"><span class="ct-effect-label">@UiText.T("Beim Ausrüsten")</span>@Effects(definition?.EquippedEffects, "Equipped")</div>
+                            <footer class="ct-card-owned"><span class="ct-effect-label">@UiText.T("Besitzbonus")</span>@Effects(definition?.OwnedEffects, "Owned")</footer>
+                        </article>
+                    }
+                </div>
+                @if (rows.Count == 0) { <p class="ct-empty-filter">@UiText.T(_passive is not null ? "Keine passenden Katalogvarianten in dieser Auswahl." : UsingSavedOwnership ? "Keine gespeicherten Titel in dieser Auswahl." : "Keine bestätigten Titel in dieser Auswahl.")</p> }
+                <footer class="ct-browser-footer"><span>@(EstimatedRoster is { } scope ? UiText.F("{0} von {1} Titeln im geschätzten Umfang angezeigt", rows.Count, scope.TotalCount) : _passive is null ? UiText.F(UsingSavedOwnership ? "{0} von {1} gespeicherten Titeln angezeigt" : "{0} von {1} bestätigten Titeln angezeigt", rows.Count, DisplayOwnedIds!.Count) : UiText.F("{0} Katalogvarianten angezeigt", rows.Count))</span><small>@UiText.T(EstimatedRoster is not null ? "Der geschätzte Umfang ist kein bestätigter Verfügbarkeitsstand." : _passive is null ? "Die verfügbare Gesamtzahl ist noch nicht bestätigt." : "Katalogvarianten sind kein bestätigter verfügbarer Titelumfang.")</small></footer>
+            }
+        </div>
+        <aside class="ct-equipped-panel @(_selectedTitleId is null ? "" : "ct-detail-panel")" aria-label="@UiText.T(_selectedTitleId is null ? "Ausgerüstete Titeleffekte" : "Titeldetails")">
+            @if (_selectedTitleId is { } selectedTitle)
+            {
+                <header><h4>@UiText.T("Ausgewählter Titel")</h4><button type="button" class="ct-detail-close" data-title-close-detail="close" @onclick="@(() => _selectedTitleId = null)">@UiText.T("Ausgerüstete Effekte anzeigen")</button></header>
+                <CombatTitleDetailCard TitleId="selectedTitle" Catalog="Catalog" Favorite="@(BoundFavorites?.ContainsTitle(selectedTitle) == true)" CanFavorite="@CanFavorite(selectedTitle)" FavoriteLabel="@FavoriteLabel(selectedTitle)" ToggleFavorite="ChangeFavorite" />
+                <CombatTitleUnlockCards TitleId="selectedTitle" MetadataBuild="Catalog.MetadataBuild" Catalog="UnlockCatalog" AchievementCatalog="AchievementCatalog" AchievementState="BoundAchievementState" ProfileId="@CurrentProfileId" ShowAchievement="ShowAchievement" />
+            }
+            else
+            {
+            <header><h4>@UiText.T("Ausgerüstete Effekte")</h4><span>@UiText.T("Aktueller Charakter")</span></header>
+            @foreach (var slot in EffectSlots)
+            {
+                var known = SlotsCurrent && Snapshot.Titles.Value!.EquippedByCategory.TryGetValue(slot.Key, out _);
+                var titleId = known ? Snapshot.Titles.Value!.EquippedByCategory[slot.Key] : (int?)null;
+                var definition = titleId is > 0 ? Catalog.Find(titleId.Value) : null;
+                <section class="ct-equipped-slot @GradeClass(definition?.Grade)" data-title-slot="@slot.Key" data-equipped-title="@titleId" data-title-slot-status="@(known ? "Current" : "Unknown")">
+                    <div class="ct-slot-category">@if (CategoryIcon(slot.Category) is { } icon) { <img src="@icon" alt="" /> }<h5>@UiText.T(slot.Label)</h5></div>
+                    @if (!known) { <p class="ct-slot-missing" data-title-slots-awaiting-current>@UiText.T("Noch nicht aktuell bestätigt")</p> }
+                    else if (titleId == 0) { <p class="ct-slot-empty">@UiText.T("Kein Titel ausgerüstet")</p> }
+                    else
+                    {
+                        <h4 class="ct-slot-title">@Name(Catalog, titleId!.Value, UiText.Language)</h4>
+                        @Effects(definition?.EquippedEffects, "Equipped")
+                    }
+                </section>
+            }
+            <p class="ct-source-note">@UiText.T("Titelbesitz und ausgerüstete Effekte sind charaktergebunden.")</p>
+            }
+        </aside>
+    </div>
+</section>
+
+@code {
+    [Parameter] public CharacterCombatSnapshot Snapshot { get; set; } = CharacterCombatSnapshot.Empty;
+    [Parameter] public ProfileTitleSnapshot? SavedTitles { get; set; }
+    [Parameter] public CombatTitleDisplayCatalog Catalog { get; set; } = CombatTitleDisplayCatalog.Default;
+    [Parameter] public CombatTitleRosterEstimate RosterEstimator { get; set; } = CombatTitleRosterEstimate.Default;
+    [Parameter] public CombatTitleUnlockCatalog UnlockCatalog { get; set; } = CombatTitleUnlockCatalog.Default;
+    [Parameter] public CombatAchievementDisplayCatalog AchievementCatalog { get; set; } = CombatAchievementDisplayCatalog.Default;
+    [Parameter] public AchievementViewState? AchievementState { get; set; }
+    [Parameter] public AchievementFavoriteSnapshot? Favorites { get; set; }
+    [Parameter] public EventCallback<int> ToggleTitleFavorite { get; set; }
+    [Parameter] public EventCallback<CombatAchievementNavigationRequest> ShowAchievement { get; set; }
+    [Parameter] public int? SelectedTitleId { get; set; }
+    private int? _selectedTitleId, _lastExternalTitleId;
+    private bool _favoriteSaving;
+    private AchievementProfileBinding? _favoriteOperationBinding, _favoriteErrorBinding;
+    private string? CurrentProfileId => string.IsNullOrWhiteSpace(Snapshot.ProfileId) ? SavedOwnership?.ProfileId : Snapshot.ProfileId;
+    private AchievementViewState? BoundAchievementState => AchievementState is { } state
+        && state.MetadataBuild == Catalog.MetadataBuild && !string.IsNullOrWhiteSpace(CurrentProfileId)
+        && string.Equals(state.ProfileId, CurrentProfileId, StringComparison.Ordinal)
+        && (state.IsSaved || state.IsLive && Snapshot.IsFresh && state.Generation > 0 && state.Generation == Snapshot.Generation) ? state : null;
+    private AchievementFavoriteSnapshot? BoundFavorites => AchievementState is { } state && state.MetadataBuild == Catalog.MetadataBuild
+        && state.Binding is { } binding && !string.IsNullOrWhiteSpace(CurrentProfileId)
+        && string.Equals(state.ProfileId, CurrentProfileId, StringComparison.Ordinal)
+        && string.Equals(binding.ProfileId, CurrentProfileId, StringComparison.Ordinal) && Favorites?.Binding == binding ? Favorites : null;
+    private bool CanFavorite(int id) => !_favoriteSaving && BoundFavorites is not null && ToggleTitleFavorite.HasDelegate && Catalog.Find(id) is not null;
+    private string FavoriteLabel(int id) => UiText.T(_favoriteSaving ? "Favorit wird gespeichert…" : BoundFavorites is null ? "Favoriten benötigen einen zugeordneten Charakter." : BoundFavorites.ContainsTitle(id) ? "Aus Favoriten entfernen" : "Als Favorit merken");
+    private void SelectTitle(int id) => _selectedTitleId = id;
+    private async Task ChangeFavorite(int id)
+    {
+        if (!CanFavorite(id) || BoundFavorites?.Binding is not { } binding) return;
+        _favoriteSaving = true; _favoriteOperationBinding = binding; _favoriteErrorBinding = null;
+        try { await ToggleTitleFavorite.InvokeAsync(id); }
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        { if (BoundFavorites?.Binding == binding) _favoriteErrorBinding = binding; }
+        finally { _favoriteSaving = false; _favoriteOperationBinding = null; }
+    }
+    private string _category = "All", _origin = "All";
+    private CombatTitlePassiveKey? _passive;
+    private object? _estimateOwnedIds;
+    private CombatTitleDisplayCatalog? _estimateCatalog;
+    private CombatTitleRosterEstimate? _estimateEstimator;
+    private CombatTitleRosterEstimateResult? _estimateResult;
+    private bool _estimateCached, _estimateCurrent, _estimateComplete;
+    private string? _lastProfileId;
+    private bool OwnershipCurrent => IsCurrent(Snapshot, Snapshot.TitleOwnership);
+    private bool OwnershipComplete => OwnershipCurrent && Snapshot.TitleOwnership.Status == NetworkCombatSourceStatus.Complete;
+    private ProfileTitleSnapshot? SavedOwnership => SavedTitles is { } saved
+        && (string.IsNullOrWhiteSpace(Snapshot.ProfileId) || string.Equals(Snapshot.ProfileId, saved.ProfileId, StringComparison.Ordinal)) ? saved : null;
+    private bool UsingSavedOwnership => !OwnershipComplete && SavedOwnership is not null;
+    private System.Collections.Immutable.ImmutableHashSet<int>? DisplayOwnedIds => UsingSavedOwnership ? SavedOwnership!.OwnedTitleIds : OwnershipCurrent ? Snapshot.TitleOwnership.Value : null;
+    private bool DisplayOwnershipComplete => UsingSavedOwnership || OwnershipComplete;
+    private string OwnershipSource => UsingSavedOwnership ? "Saved" : OwnershipCurrent ? "Live" : "Unknown";
+    private bool SlotsCurrent => IsCurrent(Snapshot, Snapshot.Titles);
+    private CombatTitlePassiveSummary OwnedSummary => OwnedPassives(Catalog, DisplayOwnedIds, DisplayOwnershipComplete, UiText.Language);
+    private CombatTitleRosterEstimateResult? EstimatedRoster
+    {
+        get
+        {
+            var current = DisplayOwnedIds is not null; var complete = DisplayOwnershipComplete;
+            if (_estimateCached && ReferenceEquals(_estimateOwnedIds, DisplayOwnedIds)
+                && ReferenceEquals(_estimateCatalog, Catalog) && ReferenceEquals(_estimateEstimator, RosterEstimator)
+                && _estimateCurrent == current && _estimateComplete == complete) return _estimateResult;
+            _estimateCached = true; _estimateOwnedIds = DisplayOwnedIds; _estimateCatalog = Catalog;
+            _estimateEstimator = RosterEstimator; _estimateCurrent = current; _estimateComplete = complete;
+            _estimateResult = null;
+            if (RosterEstimator.MetadataBuild != Catalog.MetadataBuild) return null;
+            var candidate = RosterEstimator.Estimate(DisplayOwnedIds, complete);
+            if (candidate.IsEstimated && candidate.RosterIds.All(id => Catalog.Find(id) is not null)
+                && candidate.MissingIds.All(candidate.RosterIds.Contains)) _estimateResult = candidate;
+            return _estimateResult;
+        }
+    }
+    private string RosterScope => EstimatedRoster is not null ? "EstimatedRoster" : _passive is not null ? "CatalogPreview" : UsingSavedOwnership ? "SavedOwned" : "ObservedOwned";
+    private IReadOnlyList<CombatTitleMissingPassive> MissingPreview => EstimatedRoster is { } candidate
+        ? EstimatedMissingPassives(Catalog, candidate.MissingIds, UiText.Language)
+        : MissingPassivePreview(Catalog, DisplayOwnedIds, UiText.Language);
+    private IReadOnlyList<CombatTitleListRow> VisibleRows => _passive is not null || DisplayOwnedIds is not null
+        ? Rows(Catalog, VisibleIds, UiText.Language, _category, _origin, _passive) : [];
+    private IEnumerable<int> VisibleIds => _passive is not null
+        ? EstimatedRoster is { } missing ? missing.MissingIds : Catalog.Titles.Keys.Where(id => DisplayOwnedIds?.Contains(id) != true)
+        : EstimatedRoster is { } collection ? collection.RosterIds : DisplayOwnedIds ?? System.Collections.Immutable.ImmutableHashSet<int>.Empty;
+    private static string SavedTime(DateTimeOffset at) => at.ToLocalTime().ToString("g", System.Globalization.CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-GB"));
+    protected override void OnParametersSet()
+    {
+        var profileId = string.IsNullOrWhiteSpace(Snapshot.ProfileId) ? SavedOwnership?.ProfileId : Snapshot.ProfileId;
+        if (_favoriteErrorBinding != BoundFavorites?.Binding) _favoriteErrorBinding = null;
+        if (SelectedTitleId != _lastExternalTitleId)
+        { _lastExternalTitleId = SelectedTitleId; if (SelectedTitleId is > 0 && Catalog.Find(SelectedTitleId.Value) is not null) SelectTitle(SelectedTitleId.Value); }
+        if (string.IsNullOrWhiteSpace(profileId)) return;
+        if (_lastProfileId is not null && !string.Equals(profileId, _lastProfileId, StringComparison.Ordinal)) { ClearPassive(); _selectedTitleId = null; }
+        _lastProfileId = profileId;
+    }
+    private string SelectedPassiveLabel => _passive is { } key && Catalog.Titles.Values.SelectMany(title => title.OwnedEffects ?? []).FirstOrDefault(candidate => Key(candidate) == key) is { } selectedEffect
+        ? EffectLabel(selectedEffect, UiText.Language) : "—";
+    private void SelectPassive(CombatTitlePassiveKey key) { _passive = key; _category = "All"; _origin = "All"; }
+    private void ClearPassive() { _passive = null; _category = "All"; _origin = "All"; }
+
+    private RenderFragment Effects(IReadOnlyList<CombatTitleDisplayEffect>? effects, string channel) => @<div class="ct-effects" data-title-effects="@channel" data-title-effects-status="@(effects is null ? "Unknown" : "Known")">
+        @if (effects is null) { <p class="ct-effect-unknown">@UiText.T("Effektwerte noch nicht zugeordnet")</p> }
+        else if (effects.Count == 0) { <p class="ct-effect-empty">@UiText.T("Keine Effekte")</p> }
+        else
+        {
+            <dl>@foreach (var effect in effects)
+            {
+                <div class="@(channel == "Owned" && _passive == Key(effect) ? "ct-effect-selected" : "")" data-title-matched-passive="@(channel == "Owned" && _passive == Key(effect) ? PassiveKeyText(Key(effect)) : null)"><dt>@EffectLabel(effect, UiText.Language)</dt><dd data-title-effect-value="@MachineValue(effect)">@EffectValue(effect, UiText.Language)</dd></div>
+            }</dl>
+        }
+    </div>;
+}

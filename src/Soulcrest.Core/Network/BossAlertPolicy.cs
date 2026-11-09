@@ -19,13 +19,15 @@ public sealed class BossAlertPolicy
 
     /// <summary>Null pauses the boss; an empty list still permits confirmed spawn delivery.</summary>
     public IReadOnlyList<BossAlertTrigger> EvaluateMany(BossRushSnapshot snapshot, IReadOnlySet<string> selected,
-        Func<string, int[]?> leadSecondsFor)
+        Func<string, int[]?> leadSecondsFor, bool allowCachedWarnings = false)
     {
-        if (snapshot.Cached) return [];
+        // User request 2026-11-09: saved future deadlines may warn without a new map/list.
+        // A saved Spawned flag must never produce a fresh confirmed-spawn notification.
+        if (snapshot.Cached && !allowCachedWarnings) return [];
         var alerts = new List<BossAlertTrigger>();
         foreach (var boss in snapshot.Bosses.OrderBy(b => b.SpawnUnixMs).ThenBy(b => b.SpawnId))
         {
-            if (boss.SpawnUnixMs is not { } at) continue;
+            if (boss.SpawnUnixMs is not { } at || snapshot.Cached && boss.Spawned) continue;
             var bossKey = $"{snapshot.MapId}:{boss.SpawnId}";
             if (!selected.Contains(bossKey) || leadSecondsFor(bossKey) is not { } leads) continue;
             var remaining = at - snapshot.ServerUnixMs;

@@ -4,6 +4,8 @@
 @inject TrackerService Tracker
 @inject MapTrackingService Tracking
 @inject ProgressService Progress
+@inject AchievementStateService Achievements
+@inject AchievementFavoriteService AchievementFavorites
 
 <div class="shell">
     <header class="topbar" inert="@Ui.TutorialOpen">
@@ -14,8 +16,9 @@
             <button type="button" class="@Active("exploration")" aria-current="@Current("exploration")" title="@UiText.T("Fortschritt für Dungeons, Garnisonen und Kibelisken verwalten")" @onclick="@(() => Ui.Navigate("exploration"))">@UiText.T("Erkundungsfortschritt")</button>
             <button type="button" class="@Active("bossrush")" aria-current="@Current("bossrush")" @onclick="@(() => Ui.Navigate("bossrush"))">Boss Rush</button>
             <button type="button" class="@Active("loot")" aria-current="@Current("loot")" @onclick="@(() => Ui.Navigate("loot"))">Loot Tracker</button>
+            <button type="button" class="@Active("combat-score")" aria-current="@Current("combat-score")" @onclick="@(() => Ui.Navigate("combat-score"))">Combat Score Calculator</button>
             <button type="button" class="@Active("alerts")" aria-current="@Current("alerts")" @onclick="@(() => Ui.Navigate("alerts"))">Alerts</button>
-            <button type="button" class="@Active("overlay")" aria-current="@Current("overlay")" @onclick="@(() => Ui.Navigate("overlay"))">Overlay</button>
+            <button type="button" class="@Active("overlay-editor")" aria-current="@Current("overlay-editor")" @onclick="@(() => Ui.Navigate("overlay-editor"))">Overlay Editor</button>
             <span class="tabs-sep" aria-hidden="true"></span>
             <button type="button" class="@Active("options")" aria-current="@Current("options")" @onclick="@(() => Ui.Navigate("options"))">@UiText.T("Optionen")</button>
             <button type="button" class="@Active("patchnotes")" aria-current="@Current("patchnotes")" @onclick="@(() => Ui.Navigate("patchnotes"))">@UiText.T("Patchnotes")</button>
@@ -62,13 +65,20 @@
         {
             <LootTrackerLiveView />
         }
+        else if (Ui.Tab == "combat-score")
+        {
+            var achievementState = Achievements.View;
+            <CombatScoreWorkspaceView Section="@Ui.CombatScoreSection" SectionChanged="Ui.ShowCombatScoreSection" AchievementState="achievementState" Faction="@Settings.Current.Faction"
+                Favorites="AchievementFavorites.Get(achievementState.Binding)" ToggleFavorite="@((int familyId) => ToggleAchievementFavorite(achievementState.Binding, familyId))"
+                ToggleTitleFavorite="@((int titleId) => ToggleTitleFavorite(achievementState.Binding, titleId))" OpenPets="@(() => Ui.Navigate("pets"))" OpenPetCategory="@((string genus) => { Ui.ShowPetCategory(genus); })" />
+        }
         else if (Ui.Tab == "alerts")
         {
             <AlertsView />
         }
-        else if (Ui.Tab == "overlay")
+        else if (Ui.Tab == "overlay-editor")
         {
-            <OverlayView />
+            <Soulcrest.App.Components.OverlayKit.OriginalKitOverlayEditor Section="@Ui.OverlayEditorSection" SectionChanged="Ui.ShowOverlayEditorSection" />
         }
         else if (Ui.Tab == "options")
         {
@@ -89,6 +99,9 @@
     }
     <UpdateNotice />
 </div>
+
+<OverlayLiveDiagnosticsData />
+<AchievementTrackerObservationData />
 
 @code {
     private string Active(string tab) => Ui.Tab == tab ? "active" : "";
@@ -116,6 +129,8 @@
         Ui.Changed += Refresh;
         Tracker.Changed += Refresh;
         Tracking.Changed += RefreshTracking;
+        Achievements.Changed += Refresh;
+        AchievementFavorites.Changed += Refresh;
     }
 
     protected override void OnAfterRender(bool firstRender)
@@ -123,6 +138,12 @@
         if (firstRender)
             SmokeTest.UiRendered = true;
     }
+
+    private Task ToggleAchievementFavorite(AchievementProfileBinding? binding, int familyId) => binding is null
+        ? Task.CompletedTask : Task.Run(() => AchievementFavorites.Toggle(binding, familyId));
+
+    private Task ToggleTitleFavorite(AchievementProfileBinding? binding, int titleId) => binding is null
+        ? Task.CompletedTask : Task.Run(() => AchievementFavorites.ToggleTitle(binding, titleId));
 
     private void Refresh() => InvokeAsync(StateHasChanged);
 
@@ -147,5 +168,7 @@
         Ui.Changed -= Refresh;
         Tracker.Changed -= Refresh;
         Tracking.Changed -= RefreshTracking;
+        Achievements.Changed -= Refresh;
+        AchievementFavorites.Changed -= Refresh;
     }
 }

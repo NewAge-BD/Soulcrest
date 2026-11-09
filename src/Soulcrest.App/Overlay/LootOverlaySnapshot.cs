@@ -45,6 +45,19 @@ public sealed record LootOverlaySnapshot(string? SessionId, bool SessionActive, 
     /// <summary>Confirmed AP income of the current session, never a wallet or cap baseline.</summary>
     public bool HasAbyssPointActivity { get; init; }
     public bool HasLifeskillActivity { get; init; }
+    public bool ExchangeMarketDisplay { get; init; }
+    public long? ExchangeNetKina { get; init; }
+    public long? ExchangeReferenceGrossKina { get; init; }
+    public long? ExchangeReferenceNetKina { get; init; }
+    public int ExchangePricedRows { get; init; }
+    public int ExchangeEligibleRows { get; init; }
+    public int ExchangePendingRows { get; init; }
+    public DateTimeOffset? ExchangeOldestObservedAt { get; init; }
+    public DateTimeOffset? ExchangeNewestObservedAt { get; init; }
+    public long? ExchangePricedQuantity { get; init; }
+    public long? ExchangeEligibleQuantity { get; init; }
+    public long? ExchangeUnknownQuantity { get; init; }
+    public IReadOnlyList<ExchangeLootValuationBasis> ExchangeBases { get; init; } = [];
     public long? HarvestCount { get; init; }
     public long? FailedHarvestCount { get; init; }
     /// <summary>Successful harvests divided by the entire shared session duration; null remains unknown.</summary>

@@ -1,0 +1,115 @@
+@implements IDisposable
+@inject SettingsService Settings
+
+<details class="exchange-market-settings" data-testid="exchange-market-settings">
+    <summary><span>@UiText.T("Online-Marktpreise")</span><small>@UiText.T(Settings.Current.OnlineMarketPricesEnabled ? "Aktiv" : "Ausgeschaltet") · <a href="https://aion2.exchange" target="_blank" rel="noopener noreferrer" @onclick:stopPropagation="true">aion2.exchange ↗</a></small></summary>
+    <div class="exchange-market-controls" aria-busy="@_busy">
+        <label class="exchange-market-toggle"><input id="exchange-market-enabled" type="checkbox" checked="@Settings.Current.OnlineMarketPricesEnabled" disabled="@_saving" @onchange="ChangeEnabled" />@UiText.T("Online-Marktpreise verwenden")</label>
+        <label for="exchange-market-profile">@UiText.T("Einstellungen für Charakterprofil")<select id="exchange-market-profile" value="@_profileId" disabled="@_saving" @onchange="ChangeProfile"><option value="">@UiText.T("Profil wählen")</option>@foreach (var profile in Profiles) { <option value="@profile.Id">@profile.Name</option> }</select></label>
+        <button id="exchange-market-load-servers" type="button" class="btn" disabled="@(_busy || !Settings.Current.OnlineMarketPricesEnabled || !LoadServers.HasDelegate)" @onclick="LoadServerList">@UiText.T(_loading ? "Server werden geladen …" : "Serverliste laden")</button>
+        <label for="exchange-market-region">@UiText.T("Marktregion")<select id="exchange-market-region" value="@Profile.Region" disabled="@SelectionDisabled" @onchange="ChangeRegion"><option value="">@UiText.T("Region wählen")</option>@foreach (var region in Servers.GroupBy(row => row.Region).OrderBy(group => group.Key, StringComparer.Ordinal)) { <option value="@region.Key">@(region.First().RegionName)</option> }</select></label>
+        <label for="exchange-market-faction">@UiText.T("Marktfraktion")<select id="exchange-market-faction" value="@Profile.Faction" disabled="@(SelectionDisabled || Profile.Region is null)" @onchange="ChangeFaction"><option value="">@UiText.T("Fraktion wählen")</option>@foreach (var faction in Servers.Where(row => row.Region == Profile.Region).Select(row => row.Faction).Distinct().Order(StringComparer.Ordinal)) { <option value="@faction">@ExchangeMarketPresentation.Faction(faction)</option> }</select></label>
+        <label for="exchange-market-server">@UiText.T("Marktserver")<select id="exchange-market-server" value="@Profile.ServerId?.ToString(System.Globalization.CultureInfo.InvariantCulture)" disabled="@(SelectionDisabled || Profile.Faction is null)" @onchange="ChangeServer"><option value="">@UiText.T("Server wählen")</option>@foreach (var server in Servers.Where(row => row.Region == Profile.Region && row.Faction == Profile.Faction).OrderBy(row => row.Name, StringComparer.Ordinal)) { <option value="@server.ServerId">@server.Name@(!server.HasData ? " · " + UiText.T("Noch keine Preise") : "")</option> }</select></label>
+        <label for="exchange-market-sales-tax">@UiText.T("Verkaufsgebühr (%)")<input id="exchange-market-sales-tax" type="number" min="0" max="100" step="0.01" inputmode="decimal" value="@_salesTax" disabled="@FeeDisabled" @onchange="ChangeSalesTax" /></label>
+        <label for="exchange-market-listing-fee">@UiText.T("Einstellgebühr (%)")<input id="exchange-market-listing-fee" type="number" min="0" max="100" step="0.01" inputmode="decimal" value="@_listingFee" disabled="@FeeDisabled" @onchange="ChangeListingFee" /></label>
+    </div>
+    <p class="exchange-market-note">@UiText.T("Markt und Gebühren gelten für neue Beute dieses lokalen Profils. Bestehende Bewertungen bleiben eingefroren; ältere Sessions werden nicht nachbewertet.")</p>
+    <p class="exchange-market-note">@UiText.T("Ohne gewählten Marktserver werden keine Preise abgefragt. Ein Preis fehlt, wenn kein frischer Beleg vorliegt. Ausrüstung erhält nur einen Basispreis-Richtwert für die Item-ID.")</p>
+    <p class="exchange-market-note">@ExchangeMarketPresentation.TradeabilityHint</p>
+    @if (!string.IsNullOrWhiteSpace(SourceStatus)) { <p class="exchange-market-status @(SourceStatusIsError ? "error" : "")" role="status">@UiText.T(SourceStatus)</p> }
+    @if (_feedback is not null) { <p class="exchange-market-status @(_failed ? "error" : "")" role="status">@UiText.T(_feedback)</p> }
+</details>
+
+@code {
+    [Parameter] public IReadOnlyList<(string Id, string Name)> Profiles { get; set; } = [];
+    [Parameter] public string? ActiveProfileId { get; set; }
+    [Parameter] public IReadOnlyList<ExchangeMarketServer> Servers { get; set; } = [];
+    [Parameter] public EventCallback LoadServers { get; set; }
+    [Parameter] public string? SourceStatus { get; set; }
+    [Parameter] public bool SourceStatusIsError { get; set; }
+    private string? _profileId, _lastActive, _feedback;
+    private string _salesTax = "10", _listingFee = "2";
+    private bool _saving, _loading, _failed, _disposed;
+    private bool _busy => _saving || _loading;
+    private bool SelectionDisabled => _busy || _profileId is null || !Settings.Current.OnlineMarketPricesEnabled || Servers.Count == 0;
+    private bool FeeDisabled => _saving || _profileId is null;
+    private ExchangeMarketProfileSettings Profile => Settings.GetExchangeMarketProfile(_profileId);
+
+    protected override void OnInitialized() => Settings.Changed += Refresh;
+    protected override void OnParametersSet()
+    {
+        if (_lastActive != ActiveProfileId || _profileId is not null && Profiles.All(row => row.Id != _profileId))
+        {
+            _lastActive = ActiveProfileId;
+            _profileId = Profiles.Any(row => row.Id == ActiveProfileId) ? ActiveProfileId : null;
+            SyncFees();
+        }
+    }
+    private void SyncFees()
+    {
+        _salesTax = Profile.SalesTaxPercent.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture);
+        _listingFee = Profile.RegistrationFeePercent.ToString("0.############################", System.Globalization.CultureInfo.InvariantCulture);
+    }
+    private void ChangeProfile(ChangeEventArgs e)
+    {
+        _profileId = Profiles.Any(row => row.Id == e.Value?.ToString()) ? e.Value?.ToString() : null;
+        _feedback = null; SyncFees();
+    }
+    private Task ChangeEnabled(ChangeEventArgs e) => Save(() => Settings.SetOnlineMarketPricesEnabled(e.Value is true));
+    private Task ChangeRegion(ChangeEventArgs e)
+    {
+        var region = e.Value?.ToString();
+        return SaveProfile(Profile with { Region = Servers.Any(row => row.Region == region) ? region : null, Faction = null, ServerId = null });
+    }
+    private Task ChangeFaction(ChangeEventArgs e)
+    {
+        var faction = e.Value?.ToString(); var profile = Profile;
+        return SaveProfile(profile with { Faction = Servers.Any(row => row.Region == profile.Region && row.Faction == faction) ? faction : null, ServerId = null });
+    }
+    private Task ChangeServer(ChangeEventArgs e)
+    {
+        var profile = Profile;
+        var found = int.TryParse(e.Value?.ToString(), out var id) && Servers.Any(row => row.ServerId == id && row.Region == profile.Region && row.Faction == profile.Faction);
+        return SaveProfile(profile with { ServerId = found ? id : null });
+    }
+    private Task ChangeSalesTax(ChangeEventArgs e) { _salesTax = e.Value?.ToString() ?? ""; return SaveFees(); }
+    private Task ChangeListingFee(ChangeEventArgs e) { _listingFee = e.Value?.ToString() ?? ""; return SaveFees(); }
+    private Task SaveFees()
+    {
+        const System.Globalization.NumberStyles style = System.Globalization.NumberStyles.AllowDecimalPoint;
+        if (!decimal.TryParse(_salesTax, style, System.Globalization.CultureInfo.InvariantCulture, out var sales)
+            || !decimal.TryParse(_listingFee, style, System.Globalization.CultureInfo.InvariantCulture, out var listing)
+            || !(Profile with { SalesTaxPercent = sales, RegistrationFeePercent = listing }).HasValidFees)
+        { _failed = true; _feedback = "Gebühren müssen zusammen zwischen 0 und 100 Prozent liegen."; return Task.CompletedTask; }
+        return SaveProfile(Profile with { SalesTaxPercent = sales, RegistrationFeePercent = listing });
+    }
+    private Task SaveProfile(ExchangeMarketProfileSettings value)
+    {
+        var id = _profileId;
+        return id is null ? Task.CompletedTask : Save(() => Settings.SetExchangeMarketProfile(id, value));
+    }
+    private async Task Save(Action action)
+    {
+        if (_saving) return;
+        _saving = true; _feedback = null; _failed = false;
+        try { await Task.Run(action); _feedback = "Markteinstellungen gespeichert."; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        { _failed = true; _feedback = "Markteinstellungen konnten nicht gespeichert werden."; }
+        finally { _saving = false; }
+    }
+    private async Task LoadServerList()
+    {
+        if (_busy || !Settings.Current.OnlineMarketPricesEnabled) return;
+        _loading = true; _feedback = null;
+        try { await LoadServers.InvokeAsync(); }
+        catch (OperationCanceledException) { }
+        catch (Exception error) when (error is ExchangeMarketApiException or HttpRequestException or IOException)
+        { _failed = true; _feedback = "Serverliste konnte nicht geladen werden."; }
+        finally { _loading = false; }
+    }
+    private void Refresh()
+    {
+        if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
+    }
+    public void Dispose() { _disposed = true; Settings.Changed -= Refresh; }
+}

@@ -12,6 +12,9 @@ public sealed record RareDropNotice(string Id, string Name, long Quantity, LootI
     string? IconPath, DateTimeOffset StartedAt)
 {
     public double ElapsedSeconds { get; init; }
+    /// <summary>Local receipt ownership for read-only projections, never a native character identifier.</summary>
+    public string? SessionId { get; init; }
+    public string? ProfileId { get; init; }
 }
 
 /// <summary>Ephemeral receipt notifications only. No journal replay, price change or snapshot creates an alert.</summary>
@@ -29,6 +32,7 @@ public sealed class RareDropAlertService : IDisposable
     private CancellationTokenSource? _audioRequest;
     private PlaybackPlan? _audioPlan;
     private readonly List<(RareDropNotice Notice, long Stamp)> _notices = [];
+    private (RareDropNotice Notice, long Stamp)? _latestVisual;
     private bool _visible, _disposed;
     private long _revision;
     private string? _status;
@@ -51,6 +55,24 @@ public sealed class RareDropAlertService : IDisposable
     public string? Status { get { lock (_gate) return _status; } }
 
     public RareDropNotice? Current => CurrentNotices.LastOrDefault();
+
+    /// <summary>
+    /// Latest durable exceptional receipt for independent editor modules. Native
+    /// visibility and legacy sound/notice preferences never create or replay it.
+    /// </summary>
+    public RareDropNotice? LatestVisualNotice
+    {
+        get
+        {
+            lock (_gate)
+            {
+                if (_disposed || _latestVisual is not { } latest) return null;
+                if (!_options().ForRarity(latest.Notice.Rarity).Enabled) { _latestVisual = null; return null; }
+                var elapsed = Math.Max(0, _time.GetElapsedTime(latest.Stamp, _time.GetTimestamp()).TotalSeconds);
+                return elapsed < DurationSeconds ? latest.Notice with { ElapsedSeconds = elapsed } : null;
+            }
+        }
+    }
 
     public IReadOnlyList<RareDropNotice> CurrentNotices
     {
@@ -93,6 +115,8 @@ public sealed class RareDropAlertService : IDisposable
             var options = _options();
             if (!options.Enabled && _notices.Count != 0) { _notices.Clear(); changed = true; }
             if (_notices.RemoveAll(entry => !options.ForRarity(entry.Notice.Rarity).Enabled) != 0) changed = true;
+            if (_latestVisual is { } latest && !options.ForRarity(latest.Notice.Rarity).Enabled)
+            { _latestVisual = null; changed = true; }
             if (_audioPlan is { } plan && !PlaybackAllowed(plan, options))
             { StopAudio(); _status = null; changed = true; }
         }
@@ -105,20 +129,31 @@ public sealed class RareDropAlertService : IDisposable
         if (drop.Quantity <= 0 || !MonsterLootItemCatalog.IsExceptional(rarity)) return;
         lock (_gate)
         {
-            if (_disposed || !_visible) return;
+            if (_disposed) return;
             var options = _options();
             var tier = options.ForRarity(rarity);
-            if (!options.Enabled || !tier.Enabled) return;
-            // The source emits once after durable acceptance. Equal-looking receipts can be real repeats.
-            // At most three simultaneous notices, each expiring from its actual receipt. Never queue delayed alerts.
-            if (_notices.Count == MaximumVisibleNotices) _notices.RemoveAt(0);
-            _notices.Add((new(Guid.NewGuid().ToString("N"), drop.Name, drop.Quantity, rarity,
+            if (!tier.Enabled) return;
+            var notice = new RareDropNotice(Guid.NewGuid().ToString("N"), drop.Name, drop.Quantity, rarity,
                 MonsterLootIconCatalog.Default.DropAsset(drop.LootKey), _time.GetUtcNow())
             {
-            }, _time.GetTimestamp()));
-            StopAudio();
-            if (options.SoundEnabled && tier.SoundEnabled && NormalizeVolume(options.Volume) > 0)
-                _ = StartAudio(new(rarity, tier, NormalizeVolume(options.Volume), Preview: false));
+                SessionId = drop.SessionId, ProfileId = drop.ProfileId,
+            };
+            var stamp = _time.GetTimestamp();
+            // An independent visual projection records one latest receipt even
+            // while the old native HUD is hidden. It never changes audio gates.
+            _latestVisual = (notice, stamp);
+            if (_visible)
+            {
+                if (options.Enabled && tier.Enabled)
+                {
+                    // Preserve the original three-notice queue and sound policy.
+                    if (_notices.Count == MaximumVisibleNotices) _notices.RemoveAt(0);
+                    _notices.Add((notice, stamp));
+                    StopAudio();
+                    if (options.SoundEnabled && tier.SoundEnabled && NormalizeVolume(options.Volume) > 0)
+                        _ = StartAudio(new(rarity, tier, NormalizeVolume(options.Volume), Preview: false));
+                }
+            }
         }
         SafeEvent.Raise(Changed, "Rare drop receipt");
     }
@@ -258,7 +293,7 @@ public sealed class RareDropAlertService : IDisposable
         lock (_gate)
         {
             if (_disposed) return;
-            _disposed = true; _notices.Clear(); StopAudio();
+            _disposed = true; _notices.Clear(); _latestVisual = null; StopAudio();
         }
         if (_unifiedSource is not null) _unifiedSource.DropAccepted -= Accept;
         GC.SuppressFinalize(this);

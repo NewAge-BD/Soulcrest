@@ -4,6 +4,32 @@ Stand der Recherche: 2026-10-02. Öffentliche Quellen widersprechen sich in Deta
 **unbestätigt**, bis es ingame geprüft wurde. Soulcrest hält Schwellenwerte deshalb in Daten
 (`data/pets/`), nicht im Code.
 
+## Owned Effects im Combat Score Calculator (09.11.2026)
+
+Die Übersicht verwendet dieselbe globale, verifizierte Pet-Sammlung wie der
+Haupt-Pet-Tab. Jede erworbene Stufe liefert einen vollständigen Besitzbonus:
+
+| Gattung | Stufe 1 | Stufe 2 | Stufe 3 (maximal, vom Nutzer bestätigt) |
+| --- | --- | --- | --- |
+| Cogni | 10 LP | 20 LP, 1 kritischer Treffer | 30 LP, 2 kritischer Treffer, 1 Macht |
+| Fera | 1 Boden-Tempo (Reittier) | 2 Tempo, 1 Zusatzpräzision | 3 Tempo, 2 Zusatzpräzision, 1 Agilität |
+| Natura | 3 SP | 6 SP, 1 Krit.-Widerstand | 9 SP, 2 Krit.-Widerstand, 1 Präzision |
+| Varian | 0,1 % Sprint-SP-Kostenreduktion (Reittier) | 0,2 %, 1 Zusatzausweichen | 0,3 %, 2 Zusatzausweichen, 1 Vitalität |
+
+Nur der aktuelle Stufenvektor zählt, frühere Vektoren werden nicht erneut addiert.
+Owned Effects summiert die erworbenen Boni; Missing Owned Effects zeigt die
+Differenz zum maximalen Bonus des vorhandenen Katalogs, einschließlich weiterer
+Stufen bereits freigeschalteter Pets. Special und Genus-Insight-Analyse gehören
+nicht zu diesen vier Kategorien und ihren Basisbonis.
+
+Die Completion Rate je Gattung ist `Summe erworbener Stufen / (Petanzahl × 3)`.
+Verfügbare oder historisch gesammelte Souls verleihen keine weitere erworbene Stufe.
+Manuelle Korrekturen bleiben erhalten und sichtbar gekennzeichnet. Gespeicherte
+Stände bleiben unbestätigt; fehlende Levelbelege werden nicht als Level 0 ausgegeben.
+
+Fehlende Statboni öffnen direkt die entsprechende Gattung im Haupt-Pet-Tab.
+Der allgemeine Link öffnet die Pet-Sammlung ohne Fortschrittsänderung.
+
 ## Aktueller Netzwerkabgleich (2026-10-13)
 
 Die nachfolgende Recherche ist historisch; Pet-/Loot-OCR ist entfernt. Soulcrest speichert eine

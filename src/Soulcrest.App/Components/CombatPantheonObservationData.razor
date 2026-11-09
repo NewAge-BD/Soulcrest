@@ -1,0 +1,17 @@
+@using System.Text.Json
+@if (Enabled)
+{
+    <script type="application/json" data-pantheon-observation>@((MarkupString)JsonSerializer.Serialize(new
+    {
+        schema = 1, sourceKind = Snapshot.SourceKind.ToString(), observedAt = Snapshot.ObservedAt,
+        isOwnershipKnown = Snapshot.IsOwnershipKnown, ownedIds = Snapshot.OwnedIds.Order().ToArray(),
+        slots = Snapshot.Slots.Select(slot => new { slotId = slot.SlotId, category = slot.Category.ToString(), isKnown = slot.IsKnown, decorId = slot.DecorId }).ToArray(),
+        areEffectsKnown = Snapshot.AreEffectsKnown, effects = Snapshot.EquippedEffects.Select(effect => new { statId = effect.StatId, amount = effect.Amount }).ToArray(),
+        activePreset = Snapshot.ActivePreset, knownPresets = Snapshot.KnownPresets
+    }))</script>
+}
+
+@code {
+    [Parameter] public PantheonSnapshot Snapshot { get; set; } = PantheonSnapshot.Empty;
+    [Parameter] public bool Enabled { get; set; }
+}

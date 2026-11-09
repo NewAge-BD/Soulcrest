@@ -373,6 +373,7 @@ public sealed class DaevanionBoardLocatorTests
         using var image = ReadAnimation("peak");
         var preferred = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns));
         var node = Assert.Single(preferred.Nodes, n => n.Row == 5 && n.Column == 8);
+        Assert.True(preferred.StartVisible);
         var covered = new Rect(node.Bounds.X + node.Bounds.Width / 8, node.Bounds.Y + node.Bounds.Height / 8,
             node.Bounds.Width * 3 / 4, node.Bounds.Height * 3 / 4);
         Cv2.Rectangle(image, covered, new Scalar(30, 33, 35), -1);
@@ -388,6 +389,7 @@ public sealed class DaevanionBoardLocatorTests
         Cv2.Rectangle(image, new Rect(center.X - radius, center.Y - radius, radius * 2, radius * 2), new Scalar(30, 33, 35), -1);
         // A covered start only keeps the confirmed raster; the covered node is still not painted.
         var covering = Assert.IsType<DaevanionBoardDetection>(DaevanionBoardLocator.Find(image, Patterns, result));
+        Assert.False(covering.StartVisible);
         Assert.DoesNotContain(covering.Nodes, n => n.Row == node.Row && n.Column == node.Column);
         Assert.Null(DaevanionBoardLocator.Find(menu, Patterns, covering));
         Assert.Null(DaevanionBoardLocator.Find(image, Patterns));

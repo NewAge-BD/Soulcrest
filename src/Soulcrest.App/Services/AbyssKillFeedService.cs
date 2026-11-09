@@ -66,7 +66,7 @@ public sealed class AbyssKillFeedService : IDisposable
             var capabilities = _source.CombatCapabilities;
             return new(_settings.Current.AbyssKillFeedShowKills && capabilities.KillQualified,
                 _settings.Current.AbyssKillFeedShowDeaths && capabilities.DeathQualified,
-                _settings.Current.AbyssKillFeedShowAssists && capabilities.AssistQualified);
+                _settings.Current.AbyssKillFeedShowAssists && (capabilities.AssistQualified || capabilities.EstimatedAssistSupported));
         }
     }
 
@@ -96,6 +96,7 @@ public sealed class AbyssKillFeedService : IDisposable
         var own = _source.OwnCharacter; var running = _source.Running; var enabled = Enabled;
         var filters = SelectedKinds;
         var now = _time.GetUtcNow(); bool changed;
+        var supported = _source.CombatCapabilities.Supports(observation.Kind, observation.IsEstimated);
         lock (_gate)
         {
             if (_disposed != 0) return;
@@ -109,7 +110,7 @@ public sealed class AbyssKillFeedService : IDisposable
                 // A delayed current-own callback must consume its sequence before display policy;
                 // otherwise a later echo could resurrect the cleared event after re-enabling.
                 _sequence = observation.Sequence;
-                if (order >= _contextOrder && _enabled && _filters.Allows(observation.Kind)
+                if (supported && order >= _contextOrder && _enabled && _filters.Allows(observation.Kind)
                     && order >= _kindFilterOrders[(int)observation.Kind]
                     && observation.At != default && observation.At <= now
                     && own.ObservedAt is { } ownAt && ownAt != default && observation.At >= ownAt)
@@ -119,6 +120,7 @@ public sealed class AbyssKillFeedService : IDisposable
                             NetworkAbyssCombatKind.Death => AbyssKillFeedKind.Death, _ => AbyssKillFeedKind.Assist },
                         DisplayName(observation.OpponentName), DisplayRankDelta(observation.Kind, observation.RankPointDelta))
                     {
+                        IsEstimated = observation.IsEstimated,
                         Generation = observation.Character.Generation, Sequence = observation.Sequence,
                         AbyssPointGain = observation.Kind != NetworkAbyssCombatKind.Death && observation.AbyssPointGain is >= 0
                             ? observation.AbyssPointGain : null,

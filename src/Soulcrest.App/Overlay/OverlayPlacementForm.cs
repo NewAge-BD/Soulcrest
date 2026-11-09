@@ -3,13 +3,15 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Soulcrest.App.Services;
+using Soulcrest.App.OverlayEditorKit;
+using OverlayLayout = Soulcrest.App.Services.OverlayLayout;
 
 namespace Soulcrest.App.Overlay;
 
 [Flags]
 internal enum OverlayPlacementGrip { None = 0, Left = 1, Top = 2, Right = 4, Bottom = 8, Width = 16 }
 
-internal sealed record OverlayPlacementPreview(string Id, string Title, Bitmap Image, OverlayLayout Layout);
+internal sealed record OverlayPlacementPreview(string Id, string Title, Bitmap Image, OverlayLayout Layout, OverlayInstance? Editor = null);
 
 /// <summary>One active, alpha-composited placement surface. Only example images receive pointer input.</summary>
 public sealed class OverlayPlacementForm : Form
@@ -18,6 +20,16 @@ public sealed class OverlayPlacementForm : Form
     private readonly SettingsService _settings;
     private readonly OverlayPlacementService _placement;
     private readonly OverlayPreviewRenderer _renderer;
+    private readonly IOverlayEditorPresentationSource? _presentation;
+    private readonly IOverlayEditorBitmapRenderer? _editorRenderer;
+    private CancellationTokenSource? _renderCancellation;
+    private long _renderEpoch;
+    private bool _refreshAgain, _savingEditor, _endAfterSave;
+    private int _listPage;
+    private string? _listSelection;
+    private OverlayMonitor? _gestureMonitor;
+    private OverlaySettings? _gestureEditorSettings;
+    private Task _pendingSave = Task.CompletedTask;
     private readonly List<OverlayPlacementPreview> _previews = [];
     private readonly List<(Rectangle Bounds, Action Invoke)> _buttons = [];
     private readonly System.Windows.Forms.Timer _monitorTimer = new() { Interval = 500 };
@@ -28,15 +40,20 @@ public sealed class OverlayPlacementForm : Form
     private OverlayLayout? _gestureLayout;
     private Rectangle _gestureBounds;
     private OverlayPlacementGrip _grip;
-    private bool _finishingGesture, _closing, _refreshing, _gestureChanged;
+    private bool _finishingGesture, _closing, _refreshing, _gestureChanged, _resourcesDisposed;
 
-    internal bool PlacementClosing => _closing;
+    internal bool PlacementClosing => _closing || _endAfterSave;
+    internal Task PendingPlacementSave => _pendingSave;
+    internal void RequestEnd() => EndPlacement();
 
-    public OverlayPlacementForm(SettingsService settings, OverlayPlacementService placement, OverlayPreviewRenderer renderer)
+    public OverlayPlacementForm(SettingsService settings, OverlayPlacementService placement, OverlayPreviewRenderer renderer,
+        IOverlayEditorPresentationSource? presentation = null, IOverlayEditorBitmapRenderer? editorRenderer = null)
     {
         _settings = settings;
         _placement = placement;
         _renderer = renderer;
+        _presentation = presentation;
+        _editorRenderer = editorRenderer;
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
         ShowInTaskbar = false;
@@ -85,15 +102,34 @@ public sealed class OverlayPlacementForm : Form
         else RefreshState();
     }
 
-    private void RefreshState()
+    private async void RefreshState() => await RefreshStateAsync();
+
+    private async Task RefreshStateAsync()
     {
-        if (_closing || IsDisposed || Disposing || _refreshing) return;
+        if (_closing || IsDisposed || Disposing) return;
+        if (_gestureId is not null && _gestureEditorSettings is not null)
+        {
+            var current = _placement.Items.FirstOrDefault(item => item.Id == _gestureId)?.Editor?.Settings;
+            if (!ReferenceEquals(current, _gestureEditorSettings)) CancelGesture();
+        }
+        if (_refreshing || _savingEditor)
+        {
+            _refreshAgain = true;
+            _renderCancellation?.Cancel();
+            return;
+        }
         if (!_placement.Active || _placement.Monitor is not { } monitor)
         {
             Close();
             return;
         }
         _refreshing = true;
+        var epoch = ++_renderEpoch;
+        _renderCancellation?.Dispose();
+        _renderCancellation = new();
+        var token = _renderCancellation.Token;
+        var created = new List<OverlayPlacementPreview>();
+        var promotedNativePreviews = false;
         try
         {
             _monitorBounds = monitor.Bounds;
@@ -101,22 +137,62 @@ public sealed class OverlayPlacementForm : Form
             if (Bounds != monitor.Bounds) Bounds = monitor.Bounds;
             if (_gestureId is null)
             {
-                DisposePreviews();
                 _renderSettings = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(_settings.Current))!;
-                foreach (var descriptor in OverlayRegistry.All.Where(item => item.CanPlace))
+                var items = _placement.Items.Where(item => item.CanPlace).ToArray();
+                var snapshot = items.Any(item => item.IsEditor)
+                    ? _presentation?.Capture(true) ?? throw new InvalidOperationException(UiText.T("Die Editor-Vorschau ist nicht verfügbar.")) : null;
+                foreach (var item in items)
                 {
-                    var layout = OverlayRegistry.NormalizeLayout(descriptor.Id, OverlayRegistry.ReadLayout(_settings.Current, descriptor.Id));
-                    var maximumWidth = MaximumLogicalWidth(_layoutBounds, layout.Scale);
-                    var image = _renderer.Render(descriptor.Id, _renderSettings, maximumWidth);
-                    layout = FitLayout(layout, image.Size, _layoutBounds, descriptor.MinScale);
-                    _previews.Add(new(descriptor.Id, descriptor.Title, image, layout));
+                    token.ThrowIfCancellationRequested();
+                    Bitmap image;
+                    OverlayLayout layout;
+                    if (item.Editor is { } window)
+                    {
+                        if (_previews.Count == 0 && !promotedNativePreviews)
+                        {
+                            _previews.AddRange(created);
+                            created.Clear();
+                            promotedNativePreviews = true;
+                            NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings
+                                && !items.Any(target => target.Editor?.Settings.CaptureExcluded == true));
+                            PresentFrame();
+                        }
+                        if (_editorRenderer is null) throw new InvalidOperationException(UiText.T("Die Editor-Vorschau ist nicht verfügbar."));
+                        image = await _editorRenderer.RenderAsync(window, snapshot!, token);
+                        var savedMonitor = _placement.Monitors.FirstOrDefault(value => value.Id == window.Settings.PositionMonitorId) ?? monitor;
+                        layout = OverlayEditorPlacementGeometry.Read(window.Settings, image.Size, savedMonitor);
+                    }
+                    else
+                    {
+                        layout = OverlayRegistry.NormalizeLayout(item.Id, OverlayRegistry.ReadLayout(_settings.Current, item.Id));
+                        image = _renderer.Render(item.Id, _renderSettings, MaximumLogicalWidth(_layoutBounds, layout.Scale));
+                    }
+                    layout = FitLayout(layout, image.Size, _layoutBounds, item.MinScale);
+                    created.Add(new(item.Id, item.Title, image, layout, item.Editor));
                 }
+                token.ThrowIfCancellationRequested();
+                if (_closing || IsDisposed || epoch != _renderEpoch || !_placement.Active || _gestureId is not null) return;
+                if (!promotedNativePreviews) DisposePreviews();
+                _previews.AddRange(created);
+                created.Clear();
             }
-            NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings);
+            NativeMethods.SetCaptureVisibility(Handle, _settings.Current.OverlaysInRecordings
+                && !_previews.Any(item => item.Editor?.Settings.CaptureExcluded == true));
             PresentFrame();
         }
+        catch (OperationCanceledException) { }
         catch (Exception error) when (IsPlacementError(error)) { Fail(error); }
-        finally { _refreshing = false; }
+        finally
+        {
+            foreach (var preview in created) preview.Image.Dispose();
+            _refreshing = false;
+            if (!_closing && !IsDisposed && !Disposing && _placement.Active && IsHandleCreated) PresentFrame();
+            if (_refreshAgain && !_closing && !IsDisposed && !_savingEditor && _gestureId is null)
+            {
+                _refreshAgain = false;
+                if (IsHandleCreated) BeginInvoke(RefreshState);
+            }
+        }
     }
 
     private void PresentFrame()
@@ -159,7 +235,7 @@ public sealed class OverlayPlacementForm : Form
             using var font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Pixel);
             using var ink = new SolidBrush(selected ? Color.FromArgb(237, 223, 255) : Color.FromArgb(228, 233, 240));
             using var label = new SolidBrush(Color.FromArgb(245, 23, 28, 39));
-            var text = UiText.T(preview.Title);
+            var text = preview.Editor is null ? UiText.T(preview.Title) : preview.Title;
             var labelSize = graphics.MeasureString(text, font);
             var labelBounds = new RectangleF(bounds.Left, Math.Max(0, bounds.Top - 21), Math.Min(size.Width - bounds.Left, labelSize.Width + 16), 21);
             graphics.FillRectangle(label, labelBounds);
@@ -184,8 +260,19 @@ public sealed class OverlayPlacementForm : Form
         var top = 16;
         var selected = _previews.FirstOrDefault(item => item.Id == _placement.SelectedOverlayId);
         var outside = selected is not null && SavedOutsideMonitor(selected);
+        var targets = _placement.Items.Where(item => item.CanPlace).ToArray();
+        var pageSize = ListPageSize(ClientSize.Height);
+        var pages = Math.Max(1, (int)Math.Ceiling(targets.Length / (double)pageSize));
+        if (_listSelection != _placement.SelectedOverlayId)
+        {
+            _listSelection = _placement.SelectedOverlayId;
+            var selectedIndex = Array.FindIndex(targets, item => item.Id == _listSelection);
+            if (selectedIndex >= 0) _listPage = selectedIndex / pageSize;
+        }
+        _listPage = Math.Clamp(_listPage, 0, pages - 1);
+        var visible = targets.Skip(_listPage * pageSize).Take(pageSize).ToArray();
         var contentTop = top + 44 + (outside ? 26 : 0);
-        var panelHeight = contentTop - top + 6 * 34 + 42 + 40 + (selected?.Layout.Width is null ? 0 : 40) + (outside ? 40 : 0) + 40;
+        var panelHeight = contentTop - top + visible.Length * 34 + (pages > 1 ? 34 : 0) + 42 + 40 + (selected?.Layout.Width is null ? 0 : 40) + (outside ? 40 : 0) + 40;
         using var panel = new SolidBrush(Color.FromArgb(253, 17, 24, 35));
         using var edge = new Pen(Color.FromArgb(110, 167, 139, 250));
         graphics.FillRectangle(panel, left, top, width, panelHeight);
@@ -193,12 +280,19 @@ public sealed class OverlayPlacementForm : Form
         TextAt(graphics, "Place Mode", new(left + 14, top + 10, width - 28, 26), 17, true);
         if (outside) TextAt(graphics, UiText.T("Außerhalb des gewählten Monitors"), new(left + 14, top + 38, width - 28, 22), 10);
         var y = contentTop;
-        foreach (var descriptor in OverlayRegistry.All.Where(item => item.CanPlace))
+        foreach (var descriptor in visible)
         {
             var id = descriptor.Id;
-            Button(graphics, new(left + 10, y, width - 20, 30), UiText.T(descriptor.Title)
+            Button(graphics, new(left + 10, y, width - 20, 30), (descriptor.IsEditor ? descriptor.Title : UiText.T(descriptor.Title))
                 + (_previews.FirstOrDefault(item => item.Id == id) is { } preview && SavedOutsideMonitor(preview) ? "  ↗" : ""),
                 () => _placement.SelectedOverlayId = id, id == _placement.SelectedOverlayId);
+            y += 34;
+        }
+        if (pages > 1)
+        {
+            Button(graphics, new(left + 10, y, 40, 30), "‹", () => { _listPage = Math.Max(0, _listPage - 1); PresentFrame(); });
+            TextAt(graphics, $"{_listPage + 1} / {pages}", new(left + 62, y + 7, width - 124, 24));
+            Button(graphics, new(left + width - 50, y, 40, 30), "›", () => { _listPage = Math.Min(pages - 1, _listPage + 1); PresentFrame(); });
             y += 34;
         }
         Button(graphics, new(left + 10, y + 4, (width - 26) / 2, 30), UiText.T("Raster"),
@@ -226,16 +320,22 @@ public sealed class OverlayPlacementForm : Form
             Button(graphics, new(left + 10, y, width - 20, 30), UiText.T("Auf Monitor holen"), BringToMonitor);
             y += 40;
         }
-        Button(graphics, new(left + 10, y, width - 20, 30), UiText.T("Fertig") + " · Esc", EndPlacement);
+        Button(graphics, new(left + 10, y, width - 20, 30), UiText.T(_savingEditor ? "Speichert …" : "Fertig") + " · Esc", EndPlacement);
         var hintWidth = Math.Min(730, ClientSize.Width - 32);
         var hintY = Math.Max(0, ClientSize.Height - 53);
         graphics.FillRectangle(panel, 16, hintY, hintWidth, 37);
-        TextAt(graphics, UiText.T("Ziehen zum Verschieben · Ecken zum Skalieren · Änderungen werden sofort gespeichert."),
+        TextAt(graphics, UiText.T(_refreshing ? "Vorschau wird geladen …" : "Ziehen zum Verschieben · Ecken zum Skalieren · Änderungen werden sofort gespeichert."),
             new(27, hintY + 10, hintWidth - 22, 24), 12);
     }
 
     private bool SavedOutsideMonitor(OverlayPlacementPreview preview)
     {
+        if (preview.Editor is { } window)
+        {
+            if (window.Settings.PositionMonitorId is { } monitorId && monitorId != _placement.Monitor?.Id) return true;
+            return _placement.Monitor is { } current && !current.Bounds.Contains(new Rectangle(
+                new Point(preview.Layout.X, preview.Layout.Y), ScaledSize(preview.Image.Size, window.Settings.Scale)));
+        }
         var saved = OverlayRegistry.ReadLayout(_settings.Current, preview.Id);
         return !_monitorBounds.Contains(new Rectangle(new Point(saved.X, saved.Y), ScaledSize(preview.Image.Size, saved.Scale)));
     }
@@ -262,6 +362,11 @@ public sealed class OverlayPlacementForm : Form
     {
         if (_previews.FirstOrDefault(item => item.Id == _placement.SelectedOverlayId) is not { } selected) return;
         // Explicit relocation saves the shown position, retaining independently chosen width and scale.
+        if (selected.Editor is not null)
+        {
+            QueueEditorSave(selected);
+            return;
+        }
         var saved = OverlayRegistry.ReadLayout(_settings.Current, selected.Id);
         _placement.UpdateLayout(selected.Id, RelocateLayout(saved, selected.Layout));
     }
@@ -272,6 +377,13 @@ public sealed class OverlayPlacementForm : Form
     private void ChangeScale(double delta)
     {
         if (_previews.FirstOrDefault(item => item.Id == _placement.SelectedOverlayId) is not { } selected) return;
+        if (selected.Editor is not null)
+        {
+            var updated = selected.Layout with { Scale = Math.Clamp(selected.Layout.Scale + delta, .5, 2) };
+            updated = FitLayout(updated, selected.Image.Size, _layoutBounds, .5);
+            if (updated != selected.Layout) QueueEditorSave(selected with { Layout = updated });
+            return;
+        }
         var layout = OverlayRegistry.NormalizeLayout(selected.Id, selected.Layout with { Scale = selected.Layout.Scale + delta });
         var imageSize = selected.Image.Size;
         if (selected.Id == "alerts")
@@ -295,7 +407,7 @@ public sealed class OverlayPlacementForm : Form
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
-        if (e.Button != MouseButtons.Left || _closing) return;
+        if (e.Button != MouseButtons.Left || _closing || _savingEditor || _endAfterSave) return;
         var button = _buttons.LastOrDefault(button => button.Bounds.Contains(e.Location));
         if (button.Invoke is not null)
         {
@@ -315,6 +427,8 @@ public sealed class OverlayPlacementForm : Form
         _gestureChanged = false;
         _gesturePointer = PointToScreen(e.Location);
         _gestureLayout = selected.Layout;
+        _gestureEditorSettings = selected.Editor?.Settings;
+        _gestureMonitor = _placement.Monitor;
         _gestureBounds = new Rectangle(new Point(selected.Layout.X, selected.Layout.Y), ScaledSize(selected.Image.Size, selected.Layout.Scale));
         _grip = GripAt(PreviewBounds(selected, _monitorBounds.Location), e.Location, selected.Layout.Width is not null);
         Capture = true;
@@ -357,7 +471,8 @@ public sealed class OverlayPlacementForm : Form
         else if (_grip == OverlayPlacementGrip.None)
             layout = DragLayout(_gestureLayout, delta, _monitorBounds, _placement.SnapToGrid);
         else
-            layout = ResizeLayout(_gestureLayout, _gestureBounds, delta, _grip, OverlayRegistry.Get(item.Id), _monitorBounds, _placement.SnapToGrid);
+            layout = ResizeLayout(_gestureLayout, _gestureBounds, delta, _grip,
+                item.Editor is null ? OverlayRegistry.Get(item.Id) : new OverlayDescriptor(item.Id, item.Title, true, .5, 2), _monitorBounds, _placement.SnapToGrid);
         if (item.Id == "alerts" && _grip != OverlayPlacementGrip.None)
         {
             // Scaling changes the logical wrapping width before screen fitting, just like the live strip.
@@ -368,7 +483,7 @@ public sealed class OverlayPlacementForm : Form
             if (_grip.HasFlag(OverlayPlacementGrip.Left)) layout = layout with { X = _gestureBounds.Right - size.Width };
             if (_grip.HasFlag(OverlayPlacementGrip.Top)) layout = layout with { Y = _gestureBounds.Bottom - size.Height };
         }
-        layout = FitLayout(layout, item.Image.Size, _layoutBounds, OverlayRegistry.Get(item.Id).MinScale);
+        layout = FitLayout(layout, item.Image.Size, _layoutBounds, item.Editor is null ? OverlayRegistry.Get(item.Id).MinScale : .5);
         _gestureChanged = ShouldSaveGesture(_gestureLayout, layout);
         _previews[index] = item with { Layout = layout };
         PresentFrame();
@@ -394,18 +509,75 @@ public sealed class OverlayPlacementForm : Form
         {
             var item = _previews.FirstOrDefault(preview => preview.Id == _gestureId);
             var changed = _gestureChanged;
+            if (item?.Editor is not null && !ReferenceEquals(_gestureEditorSettings,
+                _placement.Items.FirstOrDefault(target => target.Id == item.Id)?.Editor?.Settings)) changed = false;
+            var monitor = _gestureMonitor;
+            _gestureMonitor = null;
+            _gestureEditorSettings = null;
             _gestureChanged = false;
             _gestureId = null;
             _gestureLayout = null;
             _grip = OverlayPlacementGrip.None;
             Capture = false;
-            if (changed && item is not null) _placement.UpdateLayout(item.Id, item.Layout);
+            if (changed && item is not null)
+            {
+                if (item.Editor is not null) QueueEditorSave(item, monitor);
+                else _placement.UpdateLayout(item.Id, item.Layout);
+            }
             // A setting may have changed during a no-op gesture; apply its pending presentation now.
-            if (!_closing && IsHandleCreated) RefreshState();
+            if (!_closing && IsHandleCreated && !_savingEditor) RefreshState();
         }
         catch (Exception error) when (IsPlacementError(error)) { Fail(error); }
         finally { _finishingGesture = false; }
     }
+
+    private void CancelGesture()
+    {
+        _finishingGesture = true;
+        try
+        {
+            _gestureId = null; _gestureLayout = null; _gestureMonitor = null; _gestureEditorSettings = null;
+            _gestureChanged = false; _grip = OverlayPlacementGrip.None;
+            Capture = false;
+        }
+        finally { _finishingGesture = false; }
+    }
+
+    private void QueueEditorSave(OverlayPlacementPreview preview, OverlayMonitor? monitor = null)
+    {
+        if (_savingEditor) return;
+        if (preview.Editor is null || !ReferenceEquals(preview.Editor.Settings,
+            _placement.Items.FirstOrDefault(target => target.Id == preview.Id)?.Editor?.Settings))
+        {
+            RefreshState();
+            return;
+        }
+        monitor ??= _placement.Monitor;
+        if (monitor is null) return;
+        _savingEditor = true;
+        _pendingSave = SaveEditorAsync(preview, monitor);
+    }
+
+    private async Task SaveEditorAsync(OverlayPlacementPreview preview, OverlayMonitor monitor)
+    {
+        try
+        {
+            var result = await _placement.SaveEditorPlacementAsync(preview.Id, preview.Layout, preview.Image.Size, monitor);
+            if (!result.Succeeded) _placement.Fail(result.Error ?? UiText.T("Place Mode konnte nicht angezeigt oder gespeichert werden."));
+        }
+        catch (Exception error) when (IsPlacementError(error)) { Fail(error); }
+        finally
+        {
+            _savingEditor = false;
+            if (!IsDisposed && !Disposing)
+            {
+                if (_endAfterSave || !_placement.Active) EndPlacement();
+                else RefreshState();
+            }
+        }
+    }
+
+    internal static int ListPageSize(int height) => Math.Clamp((height - 380) / 34, 1, 10);
 
     protected override bool ProcessCmdKey(ref Message message, Keys keyData)
     {
@@ -415,18 +587,36 @@ public sealed class OverlayPlacementForm : Form
 
     private void EndPlacement()
     {
+        _placement.SetEnding(true);
         FinishGesture();
+        if (_savingEditor) { _endAfterSave = true; PresentFrame(); return; }
+        _endAfterSave = false;
         _placement.Stop();
-        if (!IsDisposed && !_closing) Close();
+        if (!IsDisposed && !_closing)
+        {
+            var hadHandle = IsHandleCreated;
+            Close();
+            if (!hadHandle) _placement.SetEnding(false);
+        }
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        _placement.SetEnding(false);
+        base.OnFormClosed(e);
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
         if (!_closing)
         {
-            _closing = true;
-            _monitorTimer.Stop();
+            _placement.SetEnding(true);
             FinishGesture();
+            if (_savingEditor) { _endAfterSave = true; e.Cancel = true; base.OnFormClosing(e); return; }
+            _closing = true;
+            _renderEpoch++;
+            _renderCancellation?.Cancel();
+            _monitorTimer.Stop();
             _placement.Stop();
         }
         base.OnFormClosing(e);
@@ -442,7 +632,7 @@ public sealed class OverlayPlacementForm : Form
     }
 
     private static bool IsPlacementError(Exception error) => error is IOException or UnauthorizedAccessException
-        or ExternalException or ArgumentException or InvalidOperationException or OutOfMemoryException;
+        or ExternalException or ArgumentException or InvalidOperationException or OutOfMemoryException or TimeoutException;
 
     private void Fail(Exception error)
     {
@@ -587,8 +777,17 @@ public sealed class OverlayPlacementForm : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
+        if (disposing && !_resourcesDisposed)
         {
+            // FormClosed may dispose this window before its caller's using scope ends.
+            // Mark cleanup first because cancelling a render may also pump UI callbacks.
+            _resourcesDisposed = true;
+            _closing = true;
+            _renderEpoch++;
+            var cancellation = _renderCancellation;
+            _renderCancellation = null;
+            cancellation?.Cancel();
+            cancellation?.Dispose();
             _placement.Changed -= PlacementChanged;
             _monitorTimer.Stop();
             _monitorTimer.Dispose();

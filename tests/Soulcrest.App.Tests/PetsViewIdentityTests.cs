@@ -152,6 +152,203 @@ public sealed class PetsViewIdentityTests
         Assert.Equal(0, fixture.Count("_done"));
     }
 
+    [Theory]
+    [InlineData("de", "Soul-Quellen", "Insel des Blauatems", "Dropchance nicht bekannt.")]
+    [InlineData("en", "Soul sources", "Azure Breath Island", "Drop rate unknown.")]
+    public async Task DungeonSoulSourcesAreVisibleWithoutInventingMapPositionsOrChangingProgress(
+        string language, string heading, string dungeon, string chanceNote)
+    {
+        var pet = Sourced(1009);
+        await using var fixture = new Fixture([pet], language: language);
+        var before = fixture.ProfileBytes;
+
+        var html = await fixture.Render();
+
+        Assert.Contains("data-pet-acquisition=\"1009\"", html);
+        Assert.Contains("data-pet-dungeon-source=\"true\"", html);
+        Assert.Contains(heading, html);
+        Assert.Contains(dungeon, html);
+        Assert.Contains(chanceNote, html);
+        Assert.Empty(fixture.Progress.Catalog.Find(pet.Id)!.Maps);
+        AssertMapAction(html, enabled: false);
+        Assert.Equal(before, fixture.ProfileBytes);
+        Assert.Equal(0, fixture.Progress.Souls(pet.Id));
+    }
+
+    [Theory]
+    [InlineData("de", 1009, "Zukünftige Quelle", "Zukünftige Varianten · noch nicht freigeschaltet")]
+    [InlineData("en", 1009, "Future source", "Future variants · not released yet")]
+    [InlineData("de", 1043, "Zukünftige Quelle", "Zukünftige Varianten · noch nicht freigeschaltet")]
+    [InlineData("en", 1080, "Future source", "Future variants · not released yet")]
+    public async Task FutureSourcesRemainVisibleWithoutBeingAdvertisedAsCurrentGlobalFarmLocations(
+        string language, int number, string badge, string explanation)
+    {
+        await using var fixture = new Fixture([Sourced(number)], language: language);
+        var before = fixture.ProfileBytes;
+
+        var html = await fixture.Render();
+
+        Assert.Contains("data-pet-global-availability=\"upcoming\"", html);
+        Assert.Contains(badge, html);
+        Assert.Contains(explanation, html);
+        Assert.Contains("data-pet-source-status=\"upcoming\"", html);
+        Assert.DoesNotContain("data-pet-source-status=\"available\"", html);
+        Assert.DoesNotContain("data-pet-source-status=\"unconfirmed\"", html);
+        Assert.Contains("2026-11-05", html);
+        AssertMapAction(html, enabled: false);
+        Assert.Equal(before, fixture.ProfileBytes);
+    }
+
+    [Theory]
+    [InlineData("de", "Auf Global verfügbare Varianten", "Zukünftige Varianten · noch nicht freigeschaltet")]
+    [InlineData("en", "Variants available on Global", "Future variants · not released yet")]
+    public async Task AnOpenDungeonDoesNotPromoteItsFutureVariantToAvailable(
+        string language, string currentLabel, string futureLabel)
+    {
+        await using var fixture = new Fixture([Sourced(1082)], language: language);
+        var before = fixture.ProfileBytes;
+
+        var html = await fixture.Render();
+
+        Assert.Contains("data-pet-global-availability=\"available\"", html);
+        Assert.Contains("data-pet-source-status=\"available\"", html);
+        Assert.Contains("data-pet-source-status=\"upcoming\"", html);
+        Assert.Contains(currentLabel, html);
+        Assert.Contains(futureLabel, html);
+        Assert.Equal(before, fixture.ProfileBytes);
+    }
+
+    [Theory]
+    [InlineData("de", "Azure Breath")]
+    [InlineData("en", "Insel des Blauatems")]
+    public async Task SourceDungeonSearchFindsPetsInEitherOriginalLanguage(string language, string query)
+    {
+        var kernon = Sourced(1009);
+        var pinopi = Sourced(1146);
+        await using var fixture = new Fixture([kernon, pinopi], language: language);
+        var before = fixture.ProfileBytes;
+        await fixture.Render();
+
+        await fixture.SetState("_query", query);
+        var html = await fixture.Html();
+
+        Assert.Contains($"data-pet-id=\"{kernon.Id}\"", html);
+        Assert.DoesNotContain($"data-pet-id=\"{pinopi.Id}\"", html);
+        Assert.Equal(before, fixture.ProfileBytes);
+    }
+
+    [Theory]
+    [InlineData("de", "Keneire", 1009)]
+    [InlineData("en", "Keneire", 1009)]
+    [InlineData("de", "Air Raiders", 1080)]
+    [InlineData("en", "Luftangriffstruppwaffe", 1080)]
+    public async Task SourceMonsterSearchUsesTheProvenDropperRatherThanThePetName(
+        string language, string query, int petNumber)
+    {
+        var pet = Sourced(petNumber);
+        var pinopi = Sourced(1146);
+        await using var fixture = new Fixture([pet, pinopi], language: language);
+        var before = fixture.ProfileBytes;
+        await fixture.Render();
+
+        await fixture.SetState("_query", query);
+        var html = await fixture.Html();
+
+        Assert.DoesNotContain(query, pet.En, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"data-pet-id=\"{pet.Id}\"", html);
+        Assert.DoesNotContain($"data-pet-id=\"{pinopi.Id}\"", html);
+        Assert.Equal(before, fixture.ProfileBytes);
+    }
+
+    [Fact]
+    public async Task LegacyPetAliasesShowOneAcquisitionPanelAndOldPackagesResolveTheSoulIdentity()
+    {
+        var primary = Sourced(1009);
+        var legacy = primary with { Id = "synthetic-legacy-kernon", LegacyDuplicate = true };
+        await using (var fixture = new Fixture([primary, legacy]))
+        {
+            var before = fixture.ProfileBytes;
+            var html = await fixture.Render();
+            Assert.Single(fixture.Progress.VerifiedPets);
+            Assert.Single(Regex.Matches(html, "data-pet-acquisition=\"1009\"").Cast<Match>());
+            Assert.DoesNotContain($"data-pet-id=\"{legacy.Id}\"", html);
+            Assert.Equal(before, fixture.ProfileBytes);
+        }
+
+        await using (var fixture = new Fixture([primary with { NumericId = null }]))
+        {
+            var before = fixture.ProfileBytes;
+            var html = await fixture.Render();
+            Assert.Equal(1009, fixture.Progress.SoulId(primary.Id));
+            Assert.Contains("data-pet-acquisition=\"1009\"", html);
+            Assert.Equal(before, fixture.ProfileBytes);
+        }
+    }
+
+    [Fact]
+    public async Task DungeonSourceFilterAndResetKeepOrdinaryPetsAndProgressIntact()
+    {
+        var kernon = Sourced(1009);
+        var pinopi = Sourced(1146);
+        await using var fixture = new Fixture([kernon, pinopi]);
+        var before = fixture.ProfileBytes;
+        await fixture.Render();
+
+        await fixture.SetState("_source", "dungeon");
+        var filtered = await fixture.Html();
+        Assert.Contains($"data-pet-id=\"{kernon.Id}\"", filtered);
+        Assert.DoesNotContain($"data-pet-id=\"{pinopi.Id}\"", filtered);
+        Assert.Single(Regex.Matches(filtered, "data-pet-id=\"").Cast<Match>());
+
+        await fixture.Invoke("ResetFilters");
+        var reset = await fixture.Html();
+        Assert.Contains($"data-pet-id=\"{kernon.Id}\"", reset);
+        Assert.Contains($"data-pet-id=\"{pinopi.Id}\"", reset);
+        Assert.Equal("", fixture.State("_source"));
+        Assert.Equal(before, fixture.ProfileBytes);
+    }
+
+    [Theory]
+    [InlineData(1, true, true)]
+    [InlineData(1, false, false)]
+    [InlineData(0, true, false)]
+    public async Task MapActionRequiresPositivePositionsOnAnAvailableMap(
+        int positions, bool mapAvailable, bool expectedEnabled)
+    {
+        var pet = Sourced(1009) with { Spawns = new() { ["synthetic-map"] = positions } };
+        IReadOnlyList<MapInfo> maps = mapAvailable ? [new("synthetic-map", "Synthetic map", "Synthetic")] : [];
+        await using var fixture = new Fixture([pet], maps: maps);
+        var before = fixture.ProfileBytes;
+
+        var html = await fixture.Render();
+
+        AssertMapAction(html, expectedEnabled);
+        Assert.Equal(positions, fixture.Progress.Catalog.Find(pet.Id)!.Spawns["synthetic-map"]);
+        Assert.Equal(before, fixture.ProfileBytes);
+    }
+
+    [Fact]
+    public async Task UnlistedPetsDoNotReceiveAnotherPetsDungeonSource()
+    {
+        var pinopi = Sourced(1146);
+        await using var fixture = new Fixture([pinopi]);
+        var before = fixture.ProfileBytes;
+
+        var html = await fixture.Render();
+
+        Assert.DoesNotContain("data-pet-acquisition=", html);
+        Assert.DoesNotContain("data-pet-dungeon-source=", html);
+        AssertMapAction(html, enabled: false);
+        Assert.Equal(before, fixture.ProfileBytes);
+    }
+
+    private static void AssertMapAction(string html, bool enabled)
+    {
+        var action = Regex.Match(html, "<button\\b[^>]*data-pet-map-action=\"true\"[^>]*>");
+        Assert.True(action.Success, "The map action needs an explicit testable button.");
+        Assert.Equal(!enabled, Regex.IsMatch(action.Value, "\\bdisabled(?:\\s|=|>)"));
+    }
+
     private static PetDefinition Sourced(int soulId)
     {
         var source = PetIdTable.Find(soulId);
@@ -178,11 +375,14 @@ public sealed class PetsViewIdentityTests
             (Dictionary<string, (int Total, int Unlocked)>)typeof(PetsView)
                 .GetField("_genusCounts", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_view)!;
 
-        public Fixture(IReadOnlyList<PetDefinition> pets, ProgressProfile? profile = null, IReadOnlyList<PetDefinition>? learned = null, string language = "de")
+        public Fixture(IReadOnlyList<PetDefinition> pets, ProgressProfile? profile = null, IReadOnlyList<PetDefinition>? learned = null, string language = "de", IReadOnlyList<MapInfo>? maps = null)
         {
             Assert.StartsWith(Path.GetTempPath(), AppPaths.DataDirectory, StringComparison.OrdinalIgnoreCase);
             Directory.CreateDirectory(_folder);
-            File.WriteAllText(Path.Combine(_folder, "manifest.json"), """{"maps":[]}""");
+            File.WriteAllText(Path.Combine(_folder, "manifest.json"), JsonSerializer.Serialize(new
+            {
+                maps = (maps ?? []).Select(map => new { id = map.Id, label = map.Label, group = map.Group }).ToArray(),
+            }));
             File.WriteAllText(Path.Combine(_folder, "pets.json"), JsonSerializer.Serialize(pets));
             _backups = new[] { AppPaths.SettingsFile, AppPaths.ProgressFile, AppPaths.LearnedPetsFile, AppPaths.LearnedNamesFile }
                 .ToDictionary(path => path, path => File.Exists(path) ? File.ReadAllBytes(path) : null);
@@ -220,6 +420,21 @@ public sealed class PetsViewIdentityTests
         public async Task SelectUnverified(string id) => await _renderer.Dispatcher.InvokeAsync(() =>
         {
             typeof(PetsView).GetField("_selectedId", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_view, id);
+            typeof(ComponentBase).GetMethod("StateHasChanged", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_view, null);
+        });
+
+        public object? State(string field) =>
+            typeof(PetsView).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_view);
+
+        public Task SetState(string field, object value) => _renderer.Dispatcher.InvokeAsync(() =>
+        {
+            typeof(PetsView).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_view, value);
+            typeof(ComponentBase).GetMethod("StateHasChanged", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_view, null);
+        });
+
+        public Task Invoke(string method) => _renderer.Dispatcher.InvokeAsync(() =>
+        {
+            typeof(PetsView).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_view, null);
             typeof(ComponentBase).GetMethod("StateHasChanged", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_view, null);
         });
 

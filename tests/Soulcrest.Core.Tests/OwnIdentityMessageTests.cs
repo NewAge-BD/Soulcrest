@@ -7,6 +7,30 @@ namespace Soulcrest.Core.Tests;
 public sealed class OwnIdentityMessageTests
 {
     [Theory]
+    [InlineData(false, 0UL, 300UL, false)] [InlineData(true, 128UL, 300UL, true)]
+    [InlineData(true, 300UL, 300UL, true)] [InlineData(false, 301UL, 300UL, null)]
+    [InlineData(false, 1UL, 0UL, null)] [InlineData(true, ulong.MaxValue, ulong.MaxValue, null)]
+    public void HealthFactUsesOnlyTheCompletelyValidatedOwnAndKeepsInconsistentScalarsUnknown(
+        bool optional, ulong health, ulong maximumHealth, bool? expected)
+    {
+        var message = OwnMessage(optional, health: health, maximumHealth: maximumHealth, appearReason: 4);
+        var world = Assert.IsType<OwnWorldObservation>(OwnIdentityMessage.TryParseWorld(message));
+        Assert.Equal(expected, world.HasPositiveHealth);
+        Assert.Equal(optional ? (byte?)4 : null, world.AppearReasonCode);
+        NetworkProgressMessageTests.EveryCutRejected(message, data => OwnIdentityMessage.TryParseWorld(data));
+        Assert.Null(OwnIdentityMessage.TryParseWorld([.. message, 0]));
+    }
+
+    [Theory]
+    [InlineData(0)] [InlineData(3)] [InlineData(4)] [InlineData(5)] [InlineData(255)]
+    public void NativeAppearanceReasonIsAnOptionalObservationAndDoesNotInventItsLifeMeaning(byte reason)
+    {
+        var world = Assert.IsType<OwnWorldObservation>(OwnIdentityMessage.TryParseWorld(OwnMessage(true, appearReason: reason)));
+        Assert.Equal(reason, world.AppearReasonCode);
+        Assert.True(world.HasPositiveHealth);
+        Assert.Equal(123456789, world.Identity.CharacterId);
+    }
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void ReadsOnlyTheOwnStableIdentityAfterValidatingTheWholeMessage(bool optionalFields)
@@ -158,7 +182,7 @@ public sealed class OwnIdentityMessageTests
         return w.Bytes;
     }
 
-    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0, int pcId = 0, int gearScore = 0, int highestGearScore = 0, long combatScore = 0, long highestCombatScore = 0, long? abyssRankPoints = null, bool? abyssRankPointsPresent = null)
+    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0, int pcId = 0, int gearScore = 0, int highestGearScore = 0, long combatScore = 0, long highestCombatScore = 0, long? abyssRankPoints = null, bool? abyssRankPointsPresent = null, ulong health = 128, ulong maximumHealth = 300, byte appearReason = 0, int characterLevel = 0, int combatLevel = 0, int conquerorLevel = 0, int maximumMana = 0, int? wingId = null, byte? wingLevel = null, int? wingSkinId = null)
     {
         using var w = new Packet(0x3633);
         var hasAbyssRankPoints = abyssRankPointsPresent ?? optional;
@@ -167,17 +191,25 @@ public sealed class OwnIdentityMessageTests
         w.V(300); w.I(flags);
         w.B(optional ? (byte)63 : (byte)1); w.S(name); w.U(server); w.I(pcId);
         if (optional) w.B(1);
-        w.I(0); w.I(gearScore); w.I(highestGearScore); w.Z(24);
+        w.I(characterLevel); w.I(gearScore); w.I(highestGearScore); w.Z(12); w.I(combatLevel); w.Z(8);
         if (optional) w.B(1);
         w.V(optional ? 1u : 0u); if (optional) w.Z(14);
         w.V(optional ? 1u : 0u); if (optional) w.Z(13);
         w.Z(16); w.B(0);
         if (optional) { w.B(1); Points(w); Points(w); }
 
-        w.U(optional ? ushort.MaxValue : (ushort)0); w.Z(18);
+        var stateFlags = optional ? ushort.MaxValue : (ushort)0;
+        if (wingId is not null) stateFlags |= 4096;
+        if (wingLevel is not null) stateFlags |= 8192;
+        if (wingSkinId is not null) stateFlags |= 16384;
+        w.U(stateFlags); w.Z(18);
         if (optional) w.Z(12 + 4 + 2 + 12 + 12 + 4);
-        w.B(1); w.V(128); w.V(300); w.Z(52);
-        if (optional) { w.Z(1 + 4 + 1 + 1); w.V(300); w.Z(4 + 4 + 1 + 4 + 4); }
+        w.B(1); Var64(w, health); Var64(w, maximumHealth); w.I(0); w.I(maximumMana); w.Z(44);
+        if (optional) { w.Z(1 + 4 + 1 + 1); w.V(300); w.Z(4); }
+        if ((stateFlags & 4096) != 0) w.I(wingId ?? 0);
+        if ((stateFlags & 8192) != 0) w.B(wingLevel ?? 0);
+        if ((stateFlags & 16384) != 0) w.I(wingSkinId ?? 0);
+        if (optional) w.I(0);
         if (optional) { w.L(1); w.S(""); w.U(0); w.B(0); w.I(0); w.L(0); w.U(0); w.S(""); }
         w.V(optional ? 1u : 0u); if (optional) w.Z(6);
         w.V(optional ? 1u : 0u);
@@ -195,7 +227,7 @@ public sealed class OwnIdentityMessageTests
                 w.V(1); w.I(0); w.Bool(true); w.Bool(false); w.Bool(true); w.V(300);
             }
         }
-        if (optional) w.B(0);
+        if (optional) w.B(appearReason);
         w.L(mapKey); w.I(mapId);
         if (optional) w.Z(4 + 4 + 12 + 2);
         w.L(characterId);
@@ -214,7 +246,7 @@ public sealed class OwnIdentityMessageTests
             w.Z(10); w.S("SkippedText"); w.Z(5);
             w.U(42);
         }
-        w.Z(16);
+        w.I(conquerorLevel); w.Z(12);
         if (optional) { w.Bool(true); w.Z(8 + 4 + 16); }
         w.L(combatScore); w.L(highestCombatScore); Points(w); Points(w);
         if (optional) { w.V(1); w.Z(8); w.V(1); w.Z(8); }
@@ -222,4 +254,9 @@ public sealed class OwnIdentityMessageTests
     }
 
     private static void Points(Packet w) { w.V(1); w.B(1); w.U(2); }
+    private static void Var64(Packet w, ulong value)
+    {
+        while (value >= 128) { w.B((byte)(value | 128)); value >>= 7; }
+        w.B((byte)value);
+    }
 }
