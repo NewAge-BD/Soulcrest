@@ -671,6 +671,13 @@ manuell gewählte Diagnose. Pakete enthalten `diagnose.txt`, ein versioniertes M
 begrenzte Featureprojektionen und gegebenenfalls die vorhandene Kartenvorschau.
 Es gibt keinen pauschalen Export vollständiger Einstellungen oder sämtlicher Logs.
 
+`overlay-merchant` bindet die Händlerquelle und Capture ein. Ein atomarer, erlaubnisgefilterter
+`MerchantOverlayHealth`-Snapshot liefert eigene Analyse-/Bildfrische, Worker- und
+Präsentationszustand, aktive Sperren, Zeilen-/Badgezahlen und begrenzte Zustandswechsel.
+Die generische Host-Fensterbeobachtung ersetzt diese Funktionsbelege nicht: ein aktuell
+beobachtetes verborgenes Händlerfenster ist allein kein Healthy-Nachweis. Die Projektion
+startet keine Quelle und enthält weder Angebots-/Petkennungen noch Ausnahmetexte.
+
 `NetworkDiagnosticRecorder` ist ein separat gestarteter, zeit-/größenbegrenzter Tap der
 laufenden produktiven Quelle. Exact-Ownership, Capturegeneration und Gerätezuordnung
 werden vor der Aufnahme geprüft; unbekannte eingehende Verbindungen erst nach dem

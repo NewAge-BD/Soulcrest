@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Soulcrest.App.Capture;
 using Soulcrest.App.Network;
+using Soulcrest.App.Overlay;
 using Soulcrest.App.OverlayEditorKit;
 
 namespace Soulcrest.App.Services;
@@ -12,6 +13,83 @@ namespace Soulcrest.App.Services;
 /// </summary>
 public static class DiagnosticContributors
 {
+    internal static DiagnosticResult MerchantOverlaySnapshot(bool enabled, DiagnosticOverlayRuntimeState? runtime,
+        MerchantOverlayHealthSnapshot health, DateTimeOffset now,
+        IReadOnlyList<(string Key, object? Value)>? contextFacts = null)
+    {
+        var status = MerchantOverlayStatus(enabled, runtime, health, now);
+        var facts = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["enabled"] = enabled, ["nativeVisibilityKnown"] = runtime is not null,
+            ["nativeVisible"] = runtime?.Visible, ["handleCreated"] = runtime?.HandleCreated,
+            ["disposed"] = runtime?.Disposed, ["runtimeObservedAtUtc"] = runtime?.ObservedAt.ToUniversalTime(),
+            ["runtimeAgeMs"] = runtime is null ? null : (now - runtime.ObservedAt).TotalMilliseconds,
+            ["serviceAvailable"] = null, ["hasOfferSnapshot"] = null, ["offers"] = null, ["petRowCount"] = null
+        };
+        foreach (var (key, value) in contextFacts ?? []) facts[key] = value;
+        foreach (var (key, value) in MerchantOverlayFacts(health)) facts[key] = value;
+        if (status == DiagnosticStatus.Healthy && (facts["serviceAvailable"] is not true || facts["hasOfferSnapshot"] is not true
+            || facts["offers"] is not 10 || facts["petRowCount"] is not int or <= 0
+            || health.PetRows == 0 || health.BadgeCount == 0)) status = DiagnosticStatus.Waiting;
+        return new("overlay-merchant", status, now.ToUniversalTime(), status switch
+        {
+            DiagnosticStatus.Healthy => "Zustand verfügbar, keine Auffälligkeit erkannt.",
+            DiagnosticStatus.Warning => "Unvollständige oder veraltete Daten; Details prüfen.",
+            DiagnosticStatus.Error => "Ein Fehler wurde erkannt; Details prüfen.",
+            DiagnosticStatus.Disabled => "Diese Funktion ist ausgeschaltet.",
+            _ => "Die Funktion wartet auf passende Daten."
+        }, new ReadOnlyDictionary<string, object?>(facts));
+    }
+
+    internal static DiagnosticStatus MerchantOverlayStatus(bool enabled, DiagnosticOverlayRuntimeState? runtime,
+        MerchantOverlayHealthSnapshot health, DateTimeOffset now)
+    {
+        if (!enabled) return DiagnosticStatus.Disabled;
+        if (runtime?.Disposed == true || health.WorkerState == "faulted" || health.Observation == "capture-error"
+            || health.Presentation == "presentation-error") return DiagnosticStatus.Error;
+        if (runtime is null) return DiagnosticStatus.Waiting;
+        var runtimeAge = (now - runtime.ObservedAt).TotalMilliseconds;
+        if (runtimeAge is < 0 or > 5000 || health.AnalysisAgeMilliseconds > 1000 || health.FrameAgeMilliseconds > 1000
+            || health.WorkerState == "unknown" || health.Observation == "unknown" || health.Presentation == "unknown")
+            return DiagnosticStatus.Warning;
+        // A successful native transfer may be old while unchanged badges use new accepted frames.
+        // Presentation time is informational; analysis/frame freshness and current visibility decide.
+        return runtime.Visible && runtime.HandleCreated && health.WorkerState == "running"
+            && !health.PlacementHidden && !health.ForegroundSuppressed && health.Presentation == "shown"
+            && health.Observation is "layout-ready" or "capture-held"
+            && health.AnalysisAgeMilliseconds is >= 0 and <= 1000 && health.FrameAgeMilliseconds is >= 0 and <= 1000
+                ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting;
+    }
+
+    private static IEnumerable<(string Key, object? Value)> MerchantOverlayFacts(MerchantOverlayHealthSnapshot health)
+    {
+        yield return ("analysisReason", health.Observation);
+        yield return ("presentationState", health.Presentation);
+        yield return ("workerState", health.WorkerState);
+        yield return ("placementHidden", health.PlacementHidden);
+        yield return ("foregroundSuppressed", health.ForegroundSuppressed);
+        yield return ("totalOffers", health.TotalOffers);
+        yield return ("petRows", health.PetRows);
+        yield return ("badgeCount", health.BadgeCount);
+        yield return ("analysisObservedAtUtc", health.AnalysisObservedAtUtc);
+        yield return ("presentationObservedAtUtc", health.PresentationObservedAtUtc);
+        yield return ("analysisAgeMs", health.AnalysisAgeMilliseconds);
+        yield return ("analysisFrameAgeMs", health.FrameAgeMilliseconds);
+        yield return ("analysisFresh", health.AnalysisAgeMilliseconds is >= 0 and <= 1000);
+        yield return ("analysisFrameFresh", health.FrameAgeMilliseconds is >= 0 and <= 1000);
+        yield return ("layoutMisses", health.LayoutMisses);
+        yield return ("captureMisses", health.CaptureMisses);
+        yield return ("heldFrames", health.Held);
+        yield return ("renders", health.Renders);
+        yield return ("errors", health.Errors);
+        yield return ("transitionCount", health.Transitions.Count);
+        for (var index = 0; index < health.Transitions.Count; index++)
+        {
+            yield return ($"transition{index}AtUtc", health.Transitions[index].At);
+            yield return ($"transition{index}Reason", health.Transitions[index].Reason);
+        }
+    }
+
     internal static DiagnosticResult LootSessionSnapshot(LootTrackerSnapshot snapshot, bool sourceAvailable,
         bool statusError, long? itemThreshold, long automaticallyDeleted, bool cleanupIncomplete, DateTimeOffset now,
         bool? trackingEnabled)
@@ -292,10 +370,12 @@ public static class DiagnosticContributors
         {
             if (Existing<MerchantService>() is not { } merchant) return Missing();
             var snapshot = merchant.Snapshot;
+            var petRows = merchant.Rows.Count;
             return Result(Settings?.LootTrackingEnabled == false ? DiagnosticStatus.Disabled
                 : snapshot is null ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy,
                 ("hasOfferSnapshot", snapshot is not null), ("offerCount", snapshot?.Offers.Count),
-                ("observedAtUtc", snapshot?.At.ToUniversalTime()), ("counterEnabled", Settings?.MerchantOverlayEnabled));
+                ("observedAtUtc", snapshot?.At.ToUniversalTime()), ("petRowCount", petRows),
+                ("counterEnabled", Settings?.MerchantOverlayEnabled));
         }
 
         private DiagnosticResult Bosses()
@@ -600,6 +680,7 @@ public static class DiagnosticContributors
                 facts.Add(("scale", layout.Scale)); facts.Add(("width", layout.Width));
             }
             facts.Add(("playerTrackingRunning", Existing<MapTrackingService>()?.Running));
+            MerchantOverlayHealthSnapshot? merchantHealth = null;
             switch (overlayId)
             {
                 case "loot":
@@ -638,14 +719,23 @@ public static class DiagnosticContributors
                     facts.Add(("showRoutes", settings.ShowRoutesInGame));
                     break;
                 case "merchant":
-                    facts.Add(("offers", Existing<MerchantService>()?.Snapshot?.Offers.Count));
-                    facts.Add(("lastOfferAtUtc", Existing<MerchantService>()?.Snapshot?.At.ToUniversalTime()));
+                    var merchant = Existing<MerchantService>();
+                    var offers = merchant?.Snapshot;
+                    facts.Add(("serviceAvailable", merchant is not null));
+                    facts.Add(("hasOfferSnapshot", offers is not null));
+                    facts.Add(("petRowCount", merchant?.Rows.Count));
+                    facts.Add(("offers", offers?.Offers.Count));
+                    facts.Add(("lastOfferAtUtc", offers?.At.ToUniversalTime()));
+                    // Read already collected anonymous state; never create a Form or start a source.
+                    merchantHealth = (Existing<MerchantOverlayHealth>() ?? MerchantOverlayForm.Health).Snapshot();
                     break;
                 case "daevanion":
                     facts.Add(("boardObservationAvailable", Existing<DaevanionService>()?.Snapshot is not null));
                     facts.Add(("boardSourceStatus", Existing<CharacterCombatStateService>() is { } character ? EnumValue(character.Snapshot.ActivatedBoards.Status) : null));
                     break;
             }
+            if (merchantHealth is not null)
+                return MerchantOverlaySnapshot(enabled, runtime, merchantHealth, DateTimeOffset.UtcNow, facts);
             return Result(!enabled ? DiagnosticStatus.Disabled : runtime is null ? DiagnosticStatus.Waiting
                 : runtime.Disposed ? DiagnosticStatus.Error : age > 5000 ? DiagnosticStatus.Warning : DiagnosticStatus.Healthy, facts.ToArray());
         }

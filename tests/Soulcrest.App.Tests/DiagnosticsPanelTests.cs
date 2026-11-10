@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Soulcrest.App.Capture;
 using Soulcrest.App.Components;
+using Soulcrest.App.Overlay;
 using Soulcrest.App.Services;
 using Xunit;
 
@@ -81,6 +82,28 @@ public sealed class DiagnosticsPanelTests
         var changed = await fixture.Html();
         Assert.DoesNotContain("data-diagnostic-result=", changed);
         Assert.Contains("Auswahl geändert.", changed);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task MerchantCheckShowsItsActualAnalysisReasonAndRequiredSourceWithoutStartingCapture(string language)
+    {
+        await using var fixture = new Fixture(language);
+        await fixture.Render();
+        await fixture.Invoke("SelectNone");
+        await fixture.Invoke("SelectFeature", "overlay-merchant", true);
+        await fixture.Invoke("CheckNow");
+        var html = await fixture.Html();
+        Assert.Contains("data-diagnostic-result=\"overlay-merchant\"", html);
+        Assert.Contains("diagnostics-result-waiting", html);
+        Assert.Contains("data-diagnostic-result=\"merchant\"", html);
+        Assert.Contains("data-diagnostic-result=\"capture\"", html);
+        Assert.Contains("analysisReason", html);
+        Assert.Contains("layout-missing", html);
+        Assert.DoesNotContain("data-diagnostic-result=\"loot-killfeed\"", html);
+        Assert.Equal(0, fixture.Capture.Diagnostics.Grabs);
+        fixture.ExportPreview("merchant-missing", language, html);
     }
 
     private sealed class Fixture : IAsyncDisposable
@@ -163,12 +186,30 @@ public sealed class DiagnosticsPanelTests
     private sealed class SyntheticContributor : IDiagnosticContributor
     {
         public IReadOnlySet<string> FeatureIds { get; } = DiagnosticFeatureCatalog.All.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
-        public DiagnosticResult Collect(string featureId) => new(featureId,
+        public DiagnosticResult Collect(string featureId)
+        {
+            if (featureId == "overlay-merchant")
+            {
+                var now = new DateTimeOffset(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
+                var stamp = System.Diagnostics.Stopwatch.Frequency * 100;
+                var health = new MerchantOverlayHealth(() => stamp, () => now);
+                health.SetWorkerState("running");
+                health.ObserveOffers(10, null, null);
+                health.Observe("layout-missing", stamp);
+                return DiagnosticContributors.MerchantOverlaySnapshot(true, new(false, true, false, now), health.Snapshot(), now,
+                    [("serviceAvailable", true), ("hasOfferSnapshot", true), ("offers", 10), ("petRowCount", 10)]);
+            }
+            if (featureId == "merchant")
+                return new(featureId, DiagnosticStatus.Healthy, new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero),
+                    "Zustand verfügbar, keine Auffälligkeit erkannt.", new Dictionary<string, object?>
+                    { ["hasOfferSnapshot"] = true, ["offerCount"] = 10, ["petRowCount"] = 10, ["counterEnabled"] = true });
+            return new(featureId,
             featureId == "loot-killfeed" ? DiagnosticStatus.Waiting : featureId == "loot-abyss" ? DiagnosticStatus.Warning : DiagnosticStatus.Healthy,
             new DateTimeOffset(2026, 11, 9, 12, 0, 0, TimeSpan.Zero),
             featureId == "loot-killfeed" ? "Die Funktion wartet auf passende Daten."
                 : featureId == "loot-abyss" ? "Unvollständige oder veraltete Daten; Details prüfen." : "In Ordnung",
             new Dictionary<string, object?> { ["sourceAvailable"] = featureId != "loot-killfeed", ["observedAtUtc"] = null });
+        }
     }
 
     private sealed class CapturePanel : ComponentBase

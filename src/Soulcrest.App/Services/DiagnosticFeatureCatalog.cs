@@ -53,7 +53,7 @@ public static class DiagnosticFeatureCatalog
         Feature("overlay-notifications", "Overlays", "Benachrichtigungen", "alerts"),
         Feature("overlay-event-timeline", "Overlays", "Event-Timeline", "alerts", "boss-rush"),
         Feature("overlay-map", "Overlays", "Karten-Overlay", "map"),
-        Feature("overlay-merchant", "Overlays", "Händler-Soulcounter", "network", "capture"),
+        Feature("overlay-merchant", "Overlays", "Händler-Soulcounter", "merchant", "capture"),
         Feature("overlay-daevanion", "Overlays", "Daevanion-Overlay", "combat-daevanion", "capture"),
         Feature("widget-drop-grid", "Overlays", "Widget: Drop-Raster", "overlay-editor", "loot-pve"),
         Feature("widget-drop-strip", "Overlays", "Widget: Drop-Leiste", "overlay-editor", "loot-pve"),

@@ -2,6 +2,12 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.17.1 – 2026-11-10
+
+- **Fixed:** Diagnostics for the merchant soul counter show again why the overlay is hidden: no
+  offers, layout not detected, outdated image, capture dropouts or rendering errors. It only reports
+  "healthy" when the overlay is actually visible and has current data.
+
 ## 0.17.0 – 2026-11-09
 
 - **Changed:** Loot sessions outside the Abyss pause after 20 seconds without new loot, and the pause

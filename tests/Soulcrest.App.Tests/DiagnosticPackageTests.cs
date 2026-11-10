@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Soulcrest.App.Capture;
 using Soulcrest.App.Network;
+using Soulcrest.App.Overlay;
 using Soulcrest.App.Services;
 using Xunit;
 
@@ -110,6 +111,40 @@ public sealed class DiagnosticPackageTests
             Assert.Equal(0, fixture.Capture.Diagnostics.Grabs);
         }
         finally { release.Set(); await finished.Task.WaitAsync(TimeSpan.FromSeconds(5)); }
+    }
+
+    [Fact]
+    public async Task MerchantOverlaySelectionPackagesItsSourceAndAnonymousCurrentGateWithoutCapture()
+    {
+        var health = new MerchantOverlayHealth();
+        health.SetWorkerState("running");
+        health.ObserveOffers(10, null, null);
+        health.Observe("layout-missing", System.Diagnostics.Stopwatch.GetTimestamp());
+        await using var fixture = new Fixture(new Contributor(id => id == "overlay-merchant"
+            ? DiagnosticContributors.MerchantOverlaySnapshot(true, new(false, true, false, DateTimeOffset.UtcNow),
+                health.Snapshot(), DateTimeOffset.UtcNow) : Result(id)));
+        var file = await fixture.Diagnostics.CreatePackageAtAsync(["overlay-merchant"], fixture.Directory);
+        using var zip = ZipFile.OpenRead(file);
+        Assert.NotNull(zip.GetEntry("features/merchant.json"));
+        Assert.NotNull(zip.GetEntry("features/network.json"));
+        Assert.NotNull(zip.GetEntry("features/capture.json"));
+        Assert.Null(zip.GetEntry("features/pets.json"));
+        using var overlay = JsonDocument.Parse(await Read(zip, "features/overlay-merchant.json"));
+        Assert.Equal("Waiting", overlay.RootElement.GetProperty("Status").GetString());
+        var facts = overlay.RootElement.GetProperty("Facts");
+        Assert.Equal("layout-missing", facts.GetProperty("analysisReason").GetString());
+        Assert.False(facts.GetProperty("nativeVisible").GetBoolean());
+        Assert.Equal(10, facts.GetProperty("totalOffers").GetInt32());
+        Assert.Equal(JsonValueKind.Null, facts.GetProperty("petRows").ValueKind);
+        Assert.Equal(1, facts.GetProperty("layoutMisses").GetInt64());
+        var text = await Read(zip, "diagnose.txt");
+        Assert.Contains("analysisReason: layout-missing", text);
+        Assert.DoesNotContain("SourceGeneration", text);
+        Assert.DoesNotContain("ServerId", text);
+        Assert.DoesNotContain("GoodsId", text);
+        Assert.Equal(0, fixture.Capture.Diagnostics.Grabs);
+        Assert.False(fixture.Network.Running);
+        Assert.Equal(NetworkDiagnosticRecorderState.Idle, fixture.Diagnostics.Recording.State);
     }
 
     [Fact]

@@ -66,6 +66,7 @@ public sealed class MerchantOverlayForm : Form
 
     private void ApplyPresentationVisibility()
     {
+        Health.SetPresentationSuppression(_placementHidden, _foregroundSuppressed);
         if (PresentationHidden) Hide();
         else if (IsHandleCreated && !_closed) Present(Volatile.Read(ref _latestPicture));
     }
@@ -95,7 +96,14 @@ public sealed class MerchantOverlayForm : Form
         if (_closed || _worker is not null) return;
         _ = Handle; // Only the UI thread creates this window; the worker never touches controls.
         _visibility.Start();
+        Health.SetPresentationSuppression(_placementHidden, _foregroundSuppressed);
+        Health.SetWorkerState("running");
         _worker = Task.Run(() => Run(_stop.Token));
+        _ = _worker.ContinueWith(completed =>
+        {
+            Health.SetWorkerState(completed.IsFaulted ? "faulted" : "stopped");
+            if (completed.IsFaulted) _ = completed.Exception;
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 
     private async Task Run(CancellationToken token)
@@ -108,6 +116,7 @@ public sealed class MerchantOverlayForm : Form
             try
             {
                 var snapshot = _merchant.Snapshot;
+                Health.ObserveOffers(snapshot?.Offers.Count, null, null);
                 var bounds = CurrentGameBounds();
                 if (!_settings.Current.MerchantOverlayEnabled || snapshot is null || snapshot.Offers.Count != 10 || bounds is null)
                 {
@@ -159,8 +168,9 @@ public sealed class MerchantOverlayForm : Form
                             if (ReferenceEquals(snapshot, _merchant.Snapshot))
                             {
                                 var badges = BuildBadges(bounds.Value.Size, stability.StableAnchors, rows);
+                                Health.ObserveOffers(snapshot.Offers.Count, rows.Count, badges.Count);
                                 if (badges.Count > 0) picture = new(snapshot, bounds.Value, frameAt, badges);
-                                else Health.Observe("no-pet-offers", frameAt);
+                                else Health.Observe(rows.Count == 0 ? "no-pet-offers" : "badge-bounds-invalid", frameAt);
                             }
                         }
                     }

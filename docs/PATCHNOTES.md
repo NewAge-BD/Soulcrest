@@ -2,6 +2,12 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.17.1 – 2026-11-10
+
+- **Behoben:** Die Diagnose für den Händler-Soulcounter zeigt wieder, warum das Overlay ausgeblendet
+  ist: keine Angebote, Layout nicht erkannt, altes Bild, Aufnahme-Aussetzer oder Darstellungsfehler.
+  Sie meldet nur noch „in Ordnung“, wenn das Overlay tatsächlich sichtbar ist und aktuelle Daten hat.
+
 ## 0.17.0 – 2026-11-09
 
 - **Geändert:** Loot-Sessions außerhalb des Abyss pausieren nach 20 Sekunden ohne neuen Loot, die Pause

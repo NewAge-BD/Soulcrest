@@ -111,6 +111,27 @@ public sealed class DiagnosticContributorCoverageTests
     }
 
     [Fact]
+    public void MerchantSourceProjectsPetRowCountWithoutStartingReception()
+    {
+        var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = true;
+        settings.Current.MerchantOverlayEnabled = true;
+        var progress = new ProgressService();
+        using var network = new NetworkLootService(progress);
+        using var merchant = new MerchantService(network, progress);
+        var contributors = DiagnosticContributors.Create(new ExistingOnlyProvider(settings, network, merchant));
+        var result = contributors.Single(contributor => contributor.FeatureIds.Contains("merchant")).Collect("merchant");
+        Assert.Equal(DiagnosticStatus.Waiting, result.Status);
+        Assert.Equal(false, result.Facts["hasOfferSnapshot"]);
+        Assert.Null(result.Facts["offerCount"]);
+        Assert.Equal(0, result.Facts["petRowCount"]);
+        Assert.False(network.Running);
+        settings.Current.LootTrackingEnabled = false;
+        Assert.Equal(DiagnosticStatus.Disabled, contributors.Single(contributor => contributor.FeatureIds.Contains("merchant"))
+            .Collect("merchant").Status);
+    }
+
+    [Fact]
     public void OverlayConfigurationDoesNotClaimRenderingUntilTheHostHasObservedIt()
     {
         var settings = new SettingsService();

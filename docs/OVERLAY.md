@@ -371,11 +371,25 @@ sofort aus; ausschließlich sein vollständiges passendes Zweierpaar darf die Re
 identischen vorherigen Seite wiederverwenden. Generation, Server-/Streamkontext und die
 Zwei-Sekunden-Grenze bleiben strikt, globale Pet-Zählung und Quellenbestätigung unverändert.
 
-Der Diagnosebericht enthält nun anonymisierte Händlergründe (z. B. keine Angebote, Layout
-nicht bestätigt, Capture-Aussetzer, altes Bild, Darstellungsfehler), Zähler und höchstens 24
-Zustandswechsel mit UTC-Zeit. Keine Angebote, Paketdaten oder Identitäten werden protokolliert.
-Ein fehlgeschlagener nativer Fenstertransfer wird als Fehler behandelt, nicht als sichtbare
-Darstellung verbucht.
+Der auswählbare Diagnosebeitrag `overlay-merchant` enthält anonymisierte Händlergründe
+(z. B. keine Angebote, Layout nicht bestätigt, Capture-Aussetzer, altes Bild, ungültige Badge-
+Flächen oder Darstellungsfehler), Workerzustand, Platzierungs-/Vordergrundsperren, Zähler und
+höchstens 24 Zustandswechsel mit UTC-Zeit. `merchant` wird als benötigte Quelle mitgeprüft;
+Angebotszahl und zugeordnete Pet-Zeilen bleiben getrennt. Keine Angebote, Paketdaten,
+Kennungen, Ausnahmetexte oder Bilder werden protokolliert.
+
+Eine frische Beobachtung des nativen Fensters beweist noch keine frische Händleranalyse.
+`Healthy` setzt eine sichtbare, ungesperrte Anzeige mit laufendem Worker und aktuell gültigem
+Layout-/Analysebild voraus. Eine verborgene Anzeige wartet; fehlende Werte bleiben unbekannt,
+veraltete Analyse und aktuelle Fehler werden gesondert ausgewiesen. Das Bildalter wird beim
+Lesen aus dem monotonen Originalzeitstempel neu berechnet, ohne Frische zu verlängern.
+Ein alter Fenstertransfer allein ist kein Fehler: unveränderte Badges dürfen mit neuen
+bestätigten Bildern weiter sichtbar bleiben. Ein fehlgeschlagener nativer Fenstertransfer
+wird als Fehler behandelt, nicht als sichtbare Darstellung verbucht.
+
+Die Funktionsdiagnose vom 2026-11-09 enthielt diese vorhandenen Händlergründe vorübergehend
+nicht mehr. Der Nachfix vom 2026-11-10 stellt sie strukturiert wieder bereit und ändert
+weder Locator-Schwellen noch Capture-, Fokus-, Kaufdialog- oder Click-through-Verhalten.
 
 ## Pet-Aufstiegsanimation (2026-10-16)
 
