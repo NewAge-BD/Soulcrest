@@ -24,7 +24,7 @@ public sealed class ExplorationTests
         loaded.SetDone(first, ["a"], false);
         loaded.Select(first); Assert.Empty(loaded.Completed);
     }
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void StrongholdsUseTheirOwnMapAndCategoryCatalog()
     {
         var service = new ExplorationService(new ProgressService());

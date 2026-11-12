@@ -74,7 +74,7 @@ public sealed class QuestMonsterTests
         Assert.Empty(catalog.ResolveRoute(all, "en")); // not accepted yet / rewound
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void LiveOfflineCatalogIncludesTheExactClawGuardObjective()
     {
         var data = AppPaths.FindMapData();

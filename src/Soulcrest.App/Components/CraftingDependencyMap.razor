@@ -1,13 +1,14 @@
 @using System.Collections.Immutable
 @using Soulcrest.Core.Crafting
 @using static Soulcrest.App.Services.CraftingCalculatorPresentation
+@inject IServiceProvider Services
 
-<section class="craft-map" data-crafting-dependency-map data-crafting-map-stock-source="manual" data-crafting-live-events="unavailable" data-crafting-loss-source="unavailable" aria-label="@UiText.T("Abhängigkeitskarte")">
+<section class="craft-map" data-crafting-dependency-map data-crafting-map-stock-source="@(State.Stock.Available ? "observed-and-overrides" : "manual")" data-crafting-live-events="@(Services.GetService(typeof(CraftingProgressService)) is not null ? "qualified-receipts" : "unavailable")" data-crafting-loss-source="unavailable" aria-label="@UiText.T("Abhängigkeitskarte")">
     <div class="craft-map-toolbar">
-        <div><strong>@UiText.T("Abhängigkeitskarte")</strong><InfoTip>@UiText.T("Jedes Teil erscheint einmal. Der Bedarf und die Restkosten sind Erwartungswerte aus dem gewählten Plan. Die Balken zeigen die Abdeckung durch deinen manuellen Bestand, keine erkannten Craft-Erfolge.")</InfoTip></div>
+        <div><strong>@UiText.T("Abhängigkeitskarte")</strong><InfoTip>@UiText.T("Jedes Teil erscheint einmal. Bedarf und Restkosten sind Erwartungswerte. Die Balken verwenden erkannte Bestände oder geschützte manuelle Korrekturen. Ein angeheftetes Ziel zählt neue bestätigte Zugänge separat.")</InfoTip></div>
         <div><span>@UiText.F("{0} Teile ausgewählt", _checked.Count)</span><button type="button" data-crafting-map-select-all @onclick="ToggleAll">@UiText.T("Alle Vorprodukte auswählen")</button><button type="button" data-crafting-map-bulk-buy disabled="@(_checked.Count == 0)" @onclick="@(() => ChangeBatch(false))">@UiText.T("Auswahl kaufen")</button><button type="button" data-crafting-map-bulk-craft disabled="@(_checked.Count == 0)" @onclick="@(() => ChangeBatch(true))">@UiText.T("Auswahl herstellen")</button></div>
     </div>
-    <p class="craft-map-caption">@UiText.T("Manueller Planbestand · Bedarf im Mittel") · @UiText.T("Gold: Durchschnittsbedarf gedeckt")</p>
+    <p class="craft-map-caption">@UiText.T(State.Stock.Available ? "Erkannter Bestand und Korrekturen · Bedarf im Mittel" : "Manueller Planbestand · Bedarf im Mittel") · @UiText.T("Gold: Durchschnittsbedarf gedeckt")</p>
     @if (!_main.IsEmpty)
     {
         <div class="craft-map-chain">
@@ -60,7 +61,7 @@
     }
     @if (_map.Truncated) { <p class="craft-map-empty" role="status">@UiText.T("Die Herstellungskette endet hier. Prüfe eine andere Zutatenquelle.")</p> }
     @if (!string.IsNullOrEmpty(_feedback)) { <p class="craft-map-caption" role="status">@UiText.T(_feedback)</p> }
-    <p class="craft-map-live-status"><strong>@UiText.T("Craft-Erkennung nicht verfügbar")</strong><span>@UiText.T("Bestätigte Craft-Ergebnisse und tatsächliche Fehlcraft-Verluste liegen noch nicht vor. Bestände werden manuell gepflegt; Preise und Prognosen aktualisieren sich automatisch.")</span></p>
+    <p class="craft-map-live-status"><strong>@UiText.T("Craft-Erkennung nicht verfügbar")</strong><span>@UiText.T("Bestätigte Sammel- und Lootzugänge können dem angehefteten Ziel zugeordnet werden. Craft-, Marktkauf- und Fehlcraft-Belege bleiben bis zur Bestätigung unbekannt.")</span></p>
 </section>
 
 @code {

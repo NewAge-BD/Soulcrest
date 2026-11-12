@@ -2,6 +2,14 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.18.1 – 2026-11-12
+
+- **Geändert:** Das Daevanion-Brett ist wieder besser lesbar: große Werte auf dem runden Hintergrund,
+  Kürzel unter dem Rahmen und Doppelboni in getrennten Spalten. Die sparsamere Erkennung und Animation
+  bleiben erhalten.
+- **Behoben:** In der Monstersuche der Karte wird die aktive Kartenschaltfläche wieder markiert.
+- **Behoben:** Das Daevanion-Brett war in der deutschen Oberfläche teilweise englisch beschriftet.
+- **Behoben:** Die Diagnose der Loot-Sessions meldet Speicherfehler der Aufzeichnung jetzt mit.
 ## 0.18.0 – 2026-11-12
 
 - **Neu:** Genus Insight als eigenes Static Overlay: Eine verschiebbare Seitenleiste neben der Statliste

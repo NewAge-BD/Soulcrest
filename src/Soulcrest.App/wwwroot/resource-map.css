@@ -1,0 +1,8 @@
+.resource-map-backdrop{position:fixed;inset:0;z-index:1800;display:grid;place-items:center;background:#080b12b8;backdrop-filter:blur(5px);padding:24px}
+.resource-map-dialog{width:min(470px,100%);border:1px solid #a78b5090;border-radius:18px;background:linear-gradient(145deg,#252c39,#151b25);box-shadow:0 26px 90px #0009;padding:22px;color:#e8e9ed}
+.resource-map-dialog-head{display:flex;align-items:center;justify-content:space-between;color:#e8c57e;font-size:27px}.resource-map-dialog-head button{border:0;background:transparent;color:#aeb6c4;cursor:pointer;font-size:24px}
+.resource-map-dialog h2{font-size:22px;line-height:1.3;font-weight:600;margin:10px 0}.resource-map-dialog p{line-height:1.5;color:#b7c1ce}.resource-map-options{display:grid;gap:10px;margin:22px 0}
+.resource-map-options label{display:grid;grid-template-columns:20px 1fr;align-items:center;gap:12px;padding:15px;border:1px solid #53607160;background:#11182380;border-radius:10px;cursor:pointer}.resource-map-options small{grid-column:2;color:#c5a86e}.resource-map-options input,.resource-map-remember input{accent-color:#d9b66f;width:17px;height:17px}
+.resource-map-remember{display:flex;gap:12px;align-items:center;font-size:13px;color:#cbd1dc}.resource-map-note{font-size:12px}.resource-map-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+.craft-map-resource-button{width:100%;margin-top:8px;border:1px solid #56776b70;background:#1d353080;color:#b6dbc9;border-radius:6px;padding:7px;cursor:pointer;font-size:11px}.craft-map-resource-button:disabled{opacity:.5;cursor:default}
+.craft-track-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 0}.craft-track-controls input{width:70px}.craft-track-status{color:#cdb374;font-size:12px}

@@ -6,16 +6,17 @@ using Soulcrest.Ocr.Daevanion;
 
 namespace Soulcrest.App.Overlay;
 
-/// <summary>The same native material, round content and exact values serve live presentation and previews.</summary>
+/// <summary>The same masked content and native-style fittings serve live presentation and previews.</summary>
 public sealed partial class DaevanionOverlayRenderer : IDisposable
 {
     private readonly string _root;
     private readonly Dictionary<string, Bitmap> _images = new(StringComparer.Ordinal);
     private readonly DaevanionNodeMask _mask = new();
+    private readonly Bitmap _background = ReadBackground();
     private readonly DaevanionCatalog _catalog;
     private const string RuneFont = "Palatino Linotype";
-    private static readonly Color Ink = Color.FromArgb(252, 240, 207);
-    private static readonly Color MutedInk = Color.FromArgb(187, 184, 165);
+    // Visible alpha bounds of the user's original 1254px background. Ignore hidden RGB outside it.
+    private static readonly Rectangle BackgroundCrop = new(230, 242, 793, 769);
 
     public DaevanionOverlayRenderer(string? assetRoot = null, DaevanionCatalog? catalog = null)
     { _root = Path.GetFullPath(assetRoot ?? Path.Combine(AppContext.BaseDirectory, "wwwroot")); _catalog = catalog ?? DaevanionCatalog.Default; }
@@ -38,12 +39,21 @@ public sealed partial class DaevanionOverlayRenderer : IDisposable
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
             graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+            spacing = ResolveSpacing(anchors, spacing);
+            Span<int> cells = stackalloc int[225];
+            cells.Fill(-1);
+            for (var index = 0; index < board.Nodes.Count; index++)
+            {
+                var cell = CellIndex(board.Nodes[index].Row, board.Nodes[index].Column);
+                if (cell >= 0) cells[cell] = index;
+            }
             foreach (var anchor in anchors)
             {
-                var node = board.Nodes.FirstOrDefault(n => n.Row == anchor.Row && n.Column == anchor.Column);
+                var cell = CellIndex(anchor.Row, anchor.Column);
+                var node = cell >= 0 && cells[cell] >= 0 ? board.Nodes[cells[cell]] : null;
                 if (node is null || node.Kind == DaevanionNodeKind.Start || node.Effects.Count == 0) continue;
                 var outer = new Rectangle(anchor.Bounds.X - origin.X, anchor.Bounds.Y - origin.Y, anchor.Bounds.Width, anchor.Bounds.Height);
-                var artwork = GetArtwork(board, node, outer.Size, language, anchor.Appearance, out var cached);
+                var artwork = GetArtwork(board, node, outer.Size, language, anchor.Appearance, spacing, out var cached);
                 try
                 {
                     graphics.DrawImageUnscaled(artwork.Image, outer.X - artwork.Padding, outer.Y - artwork.Padding);
@@ -54,13 +64,19 @@ public sealed partial class DaevanionOverlayRenderer : IDisposable
         finally { graphics.Restore(saved); }
     }
 
-    private void PaintNode(Graphics graphics, DaevanionNode node, Rectangle bounds,
-        string language, DaevanionNodeAppearance appearance)
+    private void PaintNode(Graphics graphics, DaevanionBoard board, DaevanionNode node, Rectangle outer,
+        string language, DaevanionNodeAppearance appearance, double? spacing)
     {
-        // User request 2026-11-12: native engraving (proposal 1). Keep all content
-        // inside the original round cutout; native frames and activation rings remain visible.
+        // User request 2026-11-12: restore the large numbers and colored exterior fitting.
+        // Register the user's 156x154 reference against the native outer frame. Its circular
+        // opening covers about 65% of the node; the activation ring and corner colors stay native.
+        var canvasWidth = Math.Max(1, (int)Math.Round(outer.Width * .99));
+        var canvasHeight = Math.Max(1, (int)Math.Round(outer.Height * .98));
+        var bounds = new Rectangle(outer.X + (int)Math.Round((outer.Width - canvasWidth) / 2d),
+            outer.Y + (int)Math.Round((outer.Height - canvasHeight) / 2d), canvasWidth, canvasHeight);
         var inside = _mask.ContentBounds(bounds.Size);
         if (inside.Width < 12 || inside.Height < 12) return;
+        var extended = node.Kind == DaevanionNodeKind.Stat && DaevanionNodeFitting.CanExtend(outer, spacing);
         Bitmap? skillImage = null;
         if (node.Kind == DaevanionNodeKind.Skill)
         {
@@ -71,6 +87,23 @@ public sealed partial class DaevanionOverlayRenderer : IDisposable
             // A missing image must leave the original game symbol visible.
             if (skillImage is null) return;
         }
+        if (extended)
+        {
+            var fittingState = graphics.Save();
+            try
+            {
+                // Decoration uses only the gaps. The original frame, activation ring,
+                // start ornament and even unconfirmed neighboring frames stay untouched.
+                graphics.ExcludeClip(outer);
+                if (spacing is { } step)
+                    foreach (var neighbor in board.Nodes.Where(n => n.Id != node.Id
+                        && Math.Abs(n.Row - node.Row) <= 1 && Math.Abs(n.Column - node.Column) <= 1))
+                        graphics.SetClip(new RectangleF(outer.X + (float)((neighbor.Column - node.Column) * step),
+                            outer.Y + (float)((neighbor.Row - node.Row) * step), outer.Width, outer.Height), CombineMode.Exclude);
+                DaevanionNodeFitting.PaintOutside(graphics, node, outer, language, spacing);
+            }
+            finally { graphics.Restore(fittingState); }
+        }
         using var surface = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppPArgb);
         using (var canvas = Graphics.FromImage(surface))
         {
@@ -80,36 +113,38 @@ public sealed partial class DaevanionOverlayRenderer : IDisposable
             canvas.InterpolationMode = InterpolationMode.HighQualityBicubic;
             canvas.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             canvas.SetClip(inside);
-            var area = new RectangleF(inside.X, inside.Y, inside.Width, inside.Height);
             if (node.Kind == DaevanionNodeKind.Skill)
             {
                 canvas.DrawImage(skillImage!, inside);
-                var badge = Box(area, .47f, .64f, .48f, .30f);
-                using var shade = new SolidBrush(Color.FromArgb(185, 13, 18, 23));
-                canvas.FillEllipse(shade, badge);
-                Text(canvas, "+1", badge, inside.Height * .27f, Ink);
+                var badge = new RectangleF(inside.X + inside.Width * .35f, inside.Y + inside.Height * .61f,
+                    inside.Width * .45f, inside.Height * .28f);
+                Text(canvas, "+1", badge, inside.Height * .29f, Color.FromArgb(255, 249, 232, 180));
             }
             else
             {
-                PaintBackground(canvas, new Rectangle(Point.Empty, bounds.Size), inside, node.Quality,
-                    appearance, node.Effects.Count > 1);
-                if (node.Effects.Count == 1)
+                PaintBackground(canvas, inside, node.Quality, appearance, extended);
+                if (extended)
+                {
+                    DaevanionNodeFitting.PaintCenter(canvas, node, inside, language);
+                }
+                // Keep glyphs within the circle's chords, rather than the rectangular alpha bbox.
+                else if (node.Effects.Count == 1)
                 {
                     var effect = node.Effects[0];
-                    Text(canvas, effect.ShortLabel.For(language), Box(area, .02f, .12f, .96f, .25f),
-                        inside.Height * .19f, MutedInk);
-                    Text(canvas, effect.DisplayAmount.For(language), Box(area, .01f, .39f, .98f, .43f),
-                        inside.Height * .34f, Ink);
-                    DaevanionNativeArtwork.Dot.Paint(canvas, Box(area, .41f, .84f, .18f, .18f));
+                    Text(canvas, Label(board, effect, language), new(inside.X + inside.Width * .08f,
+                        inside.Y + inside.Height * .13f, inside.Width * .84f, inside.Height * .33f),
+                        inside.Height * .26f, Color.FromArgb(255, 230, 223, 187));
+                    Text(canvas, effect.DisplayAmount.For(language), new(inside.X + inside.Width * .08f,
+                        inside.Y + inside.Height * .44f, inside.Width * .84f, inside.Height * .36f),
+                        inside.Height * .35f, Color.FromArgb(255, 253, 240, 196));
                 }
-                else for (var index = 0; index < node.Effects.Count; index++)
+                else for (var i = 0; i < node.Effects.Count; i++)
                 {
-                    var effect = node.Effects[index];
-                    var row = Box(area, .01f, .04f + index * .46f, .98f, .44f);
-                    Text(canvas, effect.ShortLabel.For(language), Box(row, .02f, 0, .96f, .45f),
-                        inside.Height * .13f, MutedInk);
-                    Text(canvas, effect.DisplayAmount.For(language), Box(row, .02f, .40f, .96f, .60f),
-                        inside.Height * .23f, Ink);
+                    var effect = node.Effects[i];
+                    var line = Label(board, effect, language) + " " + effect.DisplayAmount.For(language);
+                    Text(canvas, line, new(inside.X + inside.Width * .06f,
+                        inside.Y + (i == 0 ? .18f : .49f) * inside.Height, inside.Width * .88f, inside.Height * .32f),
+                        inside.Height * .24f, Color.FromArgb(255, 253, 240, 196));
                 }
             }
         }
@@ -117,8 +152,68 @@ public sealed partial class DaevanionOverlayRenderer : IDisposable
         graphics.DrawImageUnscaled(surface, bounds.Location);
     }
 
-    private static RectangleF Box(RectangleF box, float x, float y, float width, float height) =>
-        new(box.X + box.Width * x, box.Y + box.Height * y, box.Width * width, box.Height * height);
+    private static int CellIndex(int row, int column) => row is >= 1 and <= 15 && column is >= 1 and <= 15
+        ? (row - 1) * 15 + column - 1 : -1;
+
+    internal static double? ResolveSpacing(IReadOnlyList<DaevanionNodeAnchor> anchors, double? spacing)
+    {
+        // Live presentation always supplies the complete confirmed raster pitch. Never
+        // replace it with a value inferred from the currently unoccluded subset.
+        if (spacing is { } supplied && double.IsFinite(supplied) && supplied > 0) return supplied;
+        Span<int> cells = stackalloc int[225];
+        cells.Fill(-1);
+        for (var index = 0; index < anchors.Count; index++)
+        {
+            var anchor = anchors[index];
+            var cell = CellIndex(anchor.Row, anchor.Column);
+            if (cell >= 0 && anchor.Bounds.Width > 0 && anchor.Bounds.Height > 0
+                && (cells[cell] < 0 || anchor.Confidence > anchors[cells[cell]].Confidence)) cells[cell] = index;
+        }
+        // One predecessor in each native row and column suffices, even across holes.
+        // Input work is linear; the remaining raster and sample sort have a fixed 15x15 bound.
+        Span<int> previousColumns = stackalloc int[15];
+        previousColumns.Fill(-1);
+        Span<double> candidates = stackalloc double[420];
+        var count = 0;
+        for (var row = 0; row < 15; row++)
+        {
+            var previousRow = -1;
+            for (var column = 0; column < 15; column++)
+            {
+                var index = cells[row * 15 + column];
+                if (index < 0) continue;
+                var anchor = anchors[index];
+                if (previousRow >= 0)
+                {
+                    var other = anchors[previousRow];
+                    var pitch = Math.Abs((anchor.Bounds.X + anchor.Bounds.Width / 2d
+                        - other.Bounds.X - other.Bounds.Width / 2d) / (anchor.Column - other.Column));
+                    if (double.IsFinite(pitch) && pitch > 0) candidates[count++] = pitch;
+                }
+                if (previousColumns[column] >= 0)
+                {
+                    var other = anchors[previousColumns[column]];
+                    var pitch = Math.Abs((anchor.Bounds.Y + anchor.Bounds.Height / 2d
+                        - other.Bounds.Y - other.Bounds.Height / 2d) / (anchor.Row - other.Row));
+                    if (double.IsFinite(pitch) && pitch > 0) candidates[count++] = pitch;
+                }
+                previousRow = index;
+                previousColumns[column] = index;
+            }
+        }
+        if (count == 0) return null;
+        var samples = candidates[..count];
+        samples.Sort();
+        return samples[count / 2];
+    }
+
+    private static string Label(DaevanionBoard board, DaevanionEffect effect, string language)
+    {
+        var label = effect.ShortLabel.For(language);
+        // Azphel is the PvP board. Avoid repeating that prefix in its small node interiors;
+        // the full, qualified stat names remain available in the settings legend.
+        return board.FamilyId == "azphel" && label.StartsWith("PvP ", StringComparison.Ordinal) ? label[4..] : label;
+    }
 
     private static void Text(Graphics graphics, string text, RectangleF area, float size, Color ink)
     {
@@ -211,5 +306,13 @@ public sealed partial class DaevanionOverlayRenderer : IDisposable
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or System.Runtime.InteropServices.ExternalException) { return null; }
     }
 
-    public void Dispose() { ClearArtwork(); foreach (var image in _images.Values) image.Dispose(); _images.Clear(); _mask.Dispose(); }
+    private static Bitmap ReadBackground()
+    {
+        using var stream = typeof(DaevanionOverlayRenderer).Assembly.GetManifestResourceStream("Soulcrest.DaevanionNodeBackground.png")
+            ?? throw new InvalidDataException("Missing embedded Daevanion node background.");
+        using var source = new Bitmap(stream);
+        return new Bitmap(source);
+    }
+
+    public void Dispose() { ClearArtwork(); foreach (var image in _images.Values) image.Dispose(); _images.Clear(); _mask.Dispose(); _background.Dispose(); }
 }

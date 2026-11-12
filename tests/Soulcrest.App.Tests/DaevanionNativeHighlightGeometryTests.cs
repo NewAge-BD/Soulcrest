@@ -17,19 +17,13 @@ public sealed class DaevanionNativeHighlightGeometryTests
     [InlineData(90, 114)]
     [InlineData(100, 116)]
     [InlineData(60, 62)]
-    public void TheNativeContourHasEqualMarginsAndFitsTheExistingPruningEnvelope(int size, int spacing)
+    public void TheFittingEnvelopeKeepsItsExtendedLabelFrameInsideTheMeasuredGap(int size, int spacing)
     {
         var frame = new RectangleF(24, 24, size, size);
-        var actual = DaevanionHighlightRenderer.ContourBounds(frame, spacing);
-        var conservative = DaevanionNodeFitting.Bounds(frame, spacing);
-        var padding = frame.Left - actual.Left;
-        Assert.True(padding > 0);
-        Assert.Equal(padding, actual.Right - frame.Right, 4);
-        Assert.Equal(padding, frame.Top - actual.Top, 4);
-        Assert.Equal(padding, actual.Bottom - frame.Bottom, 4);
-        const float tolerance = .0001f;
-        Assert.True(actual.Left >= conservative.Left - tolerance && actual.Top >= conservative.Top - tolerance
-            && actual.Right <= conservative.Right + tolerance && actual.Bottom <= conservative.Bottom + tolerance);
+        var actual = DaevanionNodeFitting.Bounds(frame, spacing);
+        Assert.True(frame.Left - actual.Left > 0);
+        Assert.Equal(frame.Left - actual.Left, actual.Right - frame.Right, 4);
+        Assert.Equal((frame.Top - actual.Top) * 3, actual.Bottom - frame.Bottom, 4);
         Assert.True(actual.Width < spacing && actual.Height < spacing);
     }
 
@@ -38,13 +32,13 @@ public sealed class DaevanionNativeHighlightGeometryTests
     [InlineData("ariel", 60, 76)]
     [InlineData("azphel", 60, 76)]
     [InlineData("azphel", 100, 116)]
-    public void EveryPhaseFollowsTheNativeFrameWithoutTheFormerFooter(string family, int size, int spacing)
+    public void EveryPhaseFollowsTheRestoredFittingIncludingItsFooterAndKeepsTheNativeFrameClear(string family, int size, int spacing)
     {
         var original = DaevanionCatalog.Default.GetBoard("Cleric", family)!;
         var node = original.Nodes.First(item => item.Kind == DaevanionNodeKind.Stat);
         var board = original with { Nodes = [node] };
         var frame = new Rectangle(24, 24, size, size);
-        var envelope = DaevanionHighlightRenderer.ContourBounds(frame, spacing);
+        var envelope = DaevanionNodeFitting.Bounds(frame, spacing);
         var anchors = new[] { new DaevanionNodeAnchor(node.Row, node.Column,
             new(frame.X, frame.Y, frame.Width, frame.Height), 1) };
         var selected = new HashSet<string>([node.Effects[0].StatId!], StringComparer.Ordinal);
@@ -55,13 +49,16 @@ public sealed class DaevanionNativeHighlightGeometryTests
                 spacing: spacing, phase: phase / 8d);
             var alpha = Alpha(image);
             Assert.Contains(alpha, value => value > 180);
+            var footerPainted = false;
             for (var y = 0; y < image.Height; y++)
             for (var x = 0; x < image.Width; x++)
             {
                 if (alpha[y * image.Width + x] == 0) continue;
                 Assert.False(frame.Contains(x, y));
                 Assert.True(envelope.IntersectsWith(new RectangleF(x, y, 1, 1)));
+                if (y >= frame.Bottom + size * .08f) footerPainted = true;
             }
+            Assert.True(footerPainted, "The restored light trail must still follow the outer label fitting.");
         }
     }
 
@@ -70,8 +67,13 @@ public sealed class DaevanionNativeHighlightGeometryTests
     [InlineData(61)]
     public void AGapWithNoReservedMarginReceivesNoContour(int spacing)
     {
-        var frame = new RectangleF(24, 24, 60, 60);
-        Assert.Equal(frame, DaevanionHighlightRenderer.ContourBounds(frame, spacing));
+        var original = DaevanionCatalog.Default.GetBoard("Cleric", "ariel")!;
+        var node = original.Nodes.First(item => item.Kind == DaevanionNodeKind.Stat);
+        var board = original with { Nodes = [node] };
+        var anchors = new[] { new DaevanionNodeAnchor(node.Row, node.Column, new(24, 24, 60, 60), 1) };
+        var selected = new HashSet<string>([node.Effects[0].StatId!], StringComparer.Ordinal);
+        using var image = new DaevanionHighlightRenderer().Render(new(128, 128), board, anchors, selected, spacing: spacing);
+        Assert.All(Alpha(image), value => Assert.Equal(0, value));
     }
 
     private static byte[] Alpha(Bitmap image)

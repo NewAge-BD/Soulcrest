@@ -95,6 +95,13 @@ public sealed class AppSettings
     public int? AchievementOverlayY { get; set; }
     public double AchievementOverlayScale { get; set; } = 1;
     public int AchievementOverlayDisplaySeconds { get; set; } = 20;
+    public bool CraftingProgressOverlayEnabled { get; set; } = true;
+    public int? CraftingProgressOverlayX { get; set; }
+    public int? CraftingProgressOverlayY { get; set; }
+    public double CraftingProgressOverlayScale { get; set; } = 1;
+    public bool CraftingProgressOverlayPersistentGoal { get; set; } = true;
+    public int CraftingProgressOverlayDisplaySeconds { get; set; } = 20;
+    public bool CraftingProgressOverlayReducedMotion { get; set; }
     /// <summary>User request 2026-11-12: the freely placed Genus Insight sidebar starts enabled.</summary>
     public bool GenusInsightOverlayEnabled { get; set; } = true;
     public int? GenusInsightOverlayX { get; set; }
@@ -202,6 +209,9 @@ public sealed class AppSettings
 
     /// <summary>Independent per-map legend selection for the in-game world map; an empty selection hides all base symbols.</summary>
     public Dictionary<string, MapLayerSelection> MapWorldmapLayers { get; set; } = [];
+    public ResourceMapSelection ResourceMapDefaultSelection { get; set; } = ResourceMapSelection.Default;
+    public bool ResourceMapDontShowAgain { get; set; }
+    public int[] TargetedResourceMapItems { get; set; } = [];
 
     /// <summary>Player tracking rests in instances without a world map and comes back by itself (saves power).</summary>
     public bool PauseTrackingInInstances { get; set; } = true;
@@ -441,10 +451,14 @@ public sealed class SettingsService
         NormalizeProgressionPetGenera(Current);
         Current.MapMinimapLayers = MapLayerVisibility.Normalize(Current.MapMinimapLayers);
         Current.MapWorldmapLayers = MapLayerVisibility.Normalize(Current.MapWorldmapLayers);
+        Current.ResourceMapDefaultSelection = Current.ResourceMapDefaultSelection is { Any: true } selection ? selection : ResourceMapSelection.Default;
+        Current.TargetedResourceMapItems = (Current.TargetedResourceMapItems ?? []).Where(id => id > 0).Distinct().Take(2048).ToArray();
         Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
         OverlayHotkeys.Normalize(Current);
         Current.OverlayScale = double.IsFinite(Current.OverlayScale) ? Math.Clamp(Current.OverlayScale, .6, 2.5) : 1;
         Current.AchievementOverlayScale = double.IsFinite(Current.AchievementOverlayScale) ? Math.Clamp(Current.AchievementOverlayScale, .6, 2.5) : 1;
+        Current.CraftingProgressOverlayScale = double.IsFinite(Current.CraftingProgressOverlayScale) ? Math.Clamp(Current.CraftingProgressOverlayScale, .8, 2.5) : 1;
+        Current.CraftingProgressOverlayDisplaySeconds = NormalizeAchievementOverlayDisplaySeconds(Current.CraftingProgressOverlayDisplaySeconds);
         Current.GenusInsightOverlayScale = double.IsFinite(Current.GenusInsightOverlayScale) ? Math.Clamp(Current.GenusInsightOverlayScale, .6, 2) : 1;
         Current.AchievementOverlayDisplaySeconds = NormalizeAchievementOverlayDisplaySeconds(Current.AchievementOverlayDisplaySeconds);
         Current.LootOverlayScale = LootOverlayRenderer.NormalizedScale(Current.LootOverlayScale);

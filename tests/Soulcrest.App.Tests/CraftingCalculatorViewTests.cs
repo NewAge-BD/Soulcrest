@@ -22,9 +22,9 @@ namespace Soulcrest.App.Tests;
 public sealed class CraftingCalculatorViewTests
 {
     [Theory]
-    [InlineData("de", "Beispielklinge", "Zielmenge", "Erwarteter Profit")]
-    [InlineData("en", "Example blade", "Target quantity", "Expected profit")]
-    public async Task LocalizedPureViewShowsTargetQuantitySeparateComboAndWholePlanMetrics(string language,
+    [InlineData("de", "Beispielklinge", "Ziel-Craftvorgänge", "Erwarteter Profit")]
+    [InlineData("en", "Example blade", "Target crafting attempts", "Expected profit")]
+    public async Task LocalizedPureViewShowsTargetAttemptsSeparateComboAndWholePlanMetrics(string language,
         string item, string quantityLabel, string profitLabel)
     {
         await using var fixture = new Fixture(language);
@@ -33,9 +33,9 @@ public sealed class CraftingCalculatorViewTests
             Result = new()
             {
                 Status = CraftingPlanStatus.Complete, Samples = 100_000, ExpectedCost = 100, P90Cost = 300,
-                TargetNetRevenue = 880, ExpectedProfit = 780,
+                ExpectedNetRevenue = 880, ExpectedProfit = 780,
                 Shopping = [new(2, 2, 50, 100, CraftingPriceSource.Manual)],
-                Steps = [new(1, 2, 1, 1, .5m, .25m)], Byproducts = [new(3, .5m, 44m)]
+                Steps = [new(1, 2, 1, 1, .5m, .25m)], Outputs = [new(1, .6m, 528m), new(4, .4m, 352m)], Byproducts = [new(3, .5m, 44m)]
             },
             ProfileId = "SYNTHETIC-PRIVATE-PROFILE-NEVER-RENDER", SimulatedLevels = new Dictionary<string, int> { ["Blacksmithing"] = 50 }.ToImmutableDictionary()
         };
@@ -52,11 +52,14 @@ public sealed class CraftingCalculatorViewTests
         // COMBO stays automatic. Checkboxes only select parts for the requested batch source edit.
         Assert.All(Regex.Matches(html, "<input(?=[^>]*type=\"checkbox\")[^>]*>").Cast<Match>(),
             checkbox => Assert.Contains("data-crafting-map-selection", checkbox.Value));
+        Assert.Contains("data-crafting-output=\"1\"", html); Assert.Contains("data-crafting-output=\"4\"", html);
+        Assert.Contains(language == "de" ? "Fehlschläge zählen mit" : "Failures count", html);
+        Assert.DoesNotContain(language == "de" ? ">Zielmenge<" : ">Target quantity<", html);
         Assert.Contains("value=\"50\"", html); // Simulation is displayed separately from observed proficiency.
     }
 
     [Fact]
-    public async Task PureViewEventsDeliverRecipeTargetQuantitySearchAndSimulatedLevel()
+    public async Task PureViewEventsDeliverRecipeTargetAttemptsSearchAndSimulatedLevel()
     {
         await using var fixture = new Fixture("de");
         CraftingCalculatorView? component = null;
@@ -69,7 +72,7 @@ public sealed class CraftingCalculatorViewTests
             [nameof(CraftingCalculatorView.ProfessionChanged)] = EventCallback.Factory.Create<string>(this, value => profession = value),
             [nameof(CraftingCalculatorView.RecipeSelected)] = EventCallback.Factory.Create<int>(this, value => selected = value),
             [nameof(CraftingCalculatorView.TargetChanged)] = EventCallback.Factory.Create<int>(this, value => target = value),
-            [nameof(CraftingCalculatorView.QuantityChanged)] = EventCallback.Factory.Create<int>(this, value => quantity = value),
+            [nameof(CraftingCalculatorView.AttemptsChanged)] = EventCallback.Factory.Create<int>(this, value => quantity = value),
             [nameof(CraftingCalculatorView.SimulationSamplesChanged)] = EventCallback.Factory.Create<int>(this, value => samples = value),
             [nameof(CraftingCalculatorView.QueryChanged)] = EventCallback.Factory.Create<string>(this, value => query = value),
             [nameof(CraftingCalculatorView.LevelChanged)] = EventCallback.Factory.Create<CraftingLevelSelection>(this, value => level = value)
@@ -149,7 +152,7 @@ public sealed class CraftingCalculatorViewTests
             prices = prices.SetItem(combo.OutputItemId, new(combo.OutputItemId, 70_000m, CraftingPriceSource.Manual));
         var request = new CraftingPlanRequest
         {
-            RecipeId = recipe.Id, TargetQuantity = 3, Faction = "Asmodians", ProficiencyLevels = levels,
+            RecipeId = recipe.Id, TargetAttempts = 100, Samples = 50_000, Faction = "Asmodians", ProficiencyLevels = levels,
             BuyPrices = prices, SellPrices = prices
         };
         var result = new CraftingCalculator(catalog).Calculate(request);
@@ -160,7 +163,7 @@ public sealed class CraftingCalculatorViewTests
             [nameof(CraftingCalculatorView.Catalog)] = catalog,
             [nameof(CraftingCalculatorView.State)] = new CraftingCalculatorSnapshot
             {
-                SelectedRecipeId = recipe.Id, TargetItemId = recipe.OutputItemId, TargetQuantity = 3,
+                SelectedRecipeId = recipe.Id, TargetItemId = recipe.OutputItemId, TargetAttempts = 100,
                 Faction = "Asmodians", ObservedLevels = levels, SimulatedLevels = levels, BuyPrices = prices, SellPrices = prices,
                 ServerName = language == "de" ? "Beispielmarkt" : "Example market", Result = result, Status = "Beispielrechnung mit manuellen Preisen."
             }

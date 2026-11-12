@@ -83,6 +83,74 @@ public sealed class OverlayEditorLiveDiagnosticsTests
     }
 
     [Fact]
+    public void FrameCountersDistinguishPendingCapturesFromPresentedRankValuesWithoutLeakingData()
+    {
+        var now = 10d;
+        var buffer = new OverlayLiveDiagnosticBuffer(() => now);
+        var settings = Settings with { Widgets = [OverlayCatalog.CreateWidget("rank-net"),
+            OverlayCatalog.CreateWidget("rank-net-hour"), new() { Kind = "private-widget-name" }] };
+        var snapshot = new OverlaySnapshot { SessionId = "private-session", Metrics = new Dictionary<string, OverlayMetric>
+        {
+            ["rank-net"] = new("private-caption", "—"),
+            ["rank-net-hour"] = new("private-caption", "—"),
+            ["private-widget-name"] = new("private-caption", "private-value"),
+        } };
+        buffer.FrameStarted(settings);
+        var pending = Assert.Single(buffer.Capture().Frames);
+        Assert.Equal(1, pending.Started);
+        Assert.Equal(0, pending.Captured);
+        Assert.Equal(0, pending.Presented);
+        Assert.Null(pending.LastPresentedAtMs);
+        now = 20;
+        buffer.FrameCaptured(settings);
+        buffer.FramePresented(settings, snapshot, 1);
+        var first = buffer.Capture();
+        var shown = Assert.Single(first.Frames);
+        Assert.Equal(20, shown.LastPresentedAtMs);
+        Assert.False(shown.PresentedRankInputsKnown!["rank-net"]);
+        now = 30;
+        buffer.FrameStarted(settings);
+        buffer.FrameCaptured(settings); // A completed obsolete capture is never a presentation.
+        var obsolete = Assert.Single(buffer.Capture().Frames);
+        Assert.Equal(2, obsolete.Captured);
+        Assert.Equal(1, obsolete.Presented);
+        Assert.Equal(20, obsolete.LastPresentedAtMs);
+        var values = snapshot.Metrics.ToDictionary(pair => pair.Key, pair => pair.Value);
+        values["rank-net"] = values["rank-net"] with { Value = "-1234567" };
+        values["rank-net-hour"] = values["rank-net-hour"] with { Value = "0" };
+        now = 40;
+        buffer.FrameStarted(settings);
+        buffer.FrameCaptured(settings);
+        buffer.FramePresented(settings, snapshot with { Metrics = values }, 3);
+        var latest = buffer.Capture();
+        var frame = Assert.Single(latest.Frames);
+        Assert.Equal(3, frame.Started);
+        Assert.Equal(3, frame.Captured);
+        Assert.Equal(2, frame.Presented);
+        Assert.Equal(3, frame.LastPresentedEpoch);
+        Assert.All(frame.PresentedRankInputsKnown!, pair => Assert.True(pair.Value));
+        Assert.False(shown.PresentedRankInputsKnown["rank-net"]); // Earlier captures stay immutable.
+        Assert.True(latest.Version > first.Version);
+        Assert.Empty(latest.Entries);
+        var json = OverlayEditorLiveDiagnostics.Serialize(latest);
+        Assert.DoesNotContain("private-", json);
+        Assert.DoesNotContain("1234567", json);
+    }
+
+    [Fact]
+    public void FrameDiagnosticsAreBoundedAndDoNotEvictLifecycleEvents()
+    {
+        var now = 0d;
+        var buffer = new OverlayLiveDiagnosticBuffer(() => ++now);
+        buffer.Add(null, "hide", "fixture", "lifecycle", 1);
+        for (var i = 0; i < 100; i++) buffer.FrameStarted(Settings);
+        var snapshot = buffer.Capture();
+        Assert.Equal(32, snapshot.Frames.Count);
+        Assert.Equal(69, snapshot.Frames[0].Window);
+        Assert.Equal("hide", Assert.Single(snapshot.Entries).Action);
+    }
+
+    [Fact]
     public void UnknownObservationsAndAllSimultaneouslyFailedGatesRemainDistinct()
     {
         var settings = Settings with

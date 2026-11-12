@@ -55,7 +55,7 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         return reference;
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void WorldMapAtTheSavedMinimapZoomCannotPublishAPlayerPosition()
     {
         var progress = new ProgressService();
@@ -89,7 +89,7 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         Assert.True(tracking.Placement!.WorldMap);
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void OpeningAndMovingWorldMapKeepsLastConfirmedPlayerAndZoom()
     {
         var progress = new ProgressService();
@@ -138,7 +138,7 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         Assert.InRange(Math.Abs(tracking.Position.Y - player.Y), 0, 3);
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void UnrecognizedHeaderCannotRepeatedlyHideAMatchedWorldMap()
     {
         using var capture = new GameCaptureService();
@@ -165,7 +165,7 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         Assert.Null(tracking.Placement);
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void RecognizedHeaderStillClosesQuicklyAfterTwoConsecutiveMisses()
     {
         using var capture = new GameCaptureService();
@@ -186,7 +186,7 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         Assert.Null(tracking.DetectedMap);
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void ReopenedWorldMapRequiresItsOwnPositiveHeaderObservation()
     {
         using var capture = new GameCaptureService();
@@ -206,7 +206,7 @@ public sealed class WorldMapDetectionTests(ITestOutputHelper output)
         Assert.NotNull(tracking.Placement);
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void OldContextCannotArmOrCloseTheCurrentWorldMapHeaderCheck()
     {
         using var capture = new GameCaptureService();

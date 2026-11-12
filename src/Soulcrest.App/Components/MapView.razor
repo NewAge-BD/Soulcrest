@@ -1,4 +1,5 @@
 @implements IAsyncDisposable
+@using System.Collections.Immutable
 @inject IJSRuntime JS
 @inject ProgressService Progress
 @inject SettingsService Settings
@@ -41,7 +42,7 @@
         }
         @if (_monsterFocus is not null)
         {
-            <MonsterSearchCard Monster="_monsterFocus" SpawnMaps="MonsterFarmMaps" MapId="_mapId" SpawnNote="@(_focusNote ?? "")" Busy="_searchBusy" MapChanged="SwitchMonsterMap" Clear="ClearFocus" />
+            <MonsterSearchCard Monster="_monsterFocus" SpawnMaps="MonsterFarmMaps" MapId="@_mapId" SpawnNote="@(_focusNote ?? "")" Busy="_searchBusy" MapChanged="SwitchMonsterMap" Clear="ClearFocus" />
         }
         else if (_focus is not null)
         {
@@ -625,6 +626,7 @@
             _mapId = initialMap;
             if (Settings.Current.LastMap != initialMap) Settings.Update(s => s.LastMap = initialMap);
         }
+        _resourceCategories = Settings.Current.MapCategories; _resourceKinds = Settings.Current.MapHiddenKinds; _resourceTargets = Settings.Current.TargetedResourceMapItems;
         Settings.Changed += OnSettingsChanged;
     }
 
@@ -685,8 +687,15 @@
     }
 
     private string? _language, _nameLanguage;
+    private object? _resourceCategories, _resourceKinds, _resourceTargets;
+    private bool _legendWrite;
+    private void UpdateLegend(Action<AppSettings> update)
+    { _legendWrite = true; try { Settings.Update(update); } finally { _legendWrite = false; } }
     private void OnSettingsChanged()
     {
+        var layersChanged = !_legendWrite && (!ReferenceEquals(_resourceCategories, Settings.Current.MapCategories) || !ReferenceEquals(_resourceKinds, Settings.Current.MapHiddenKinds));
+        var targetsChanged = !ReferenceEquals(_resourceTargets, Settings.Current.TargetedResourceMapItems);
+        _resourceCategories = Settings.Current.MapCategories; _resourceKinds = Settings.Current.MapHiddenKinds; _resourceTargets = Settings.Current.TargetedResourceMapItems;
         var languageChanged = _language != Settings.Current.UiLanguage || _nameLanguage != Settings.Current.NameLanguage;
         _language = Settings.Current.UiLanguage;
         _nameLanguage = Settings.Current.NameLanguage;
@@ -701,6 +710,8 @@
         _ = InvokeAsync(async () =>
         {
             if (_disposed) return;
+            if (_ready && targetsChanged) await ShowMap();
+            else if (_ready && layersChanged) await RestoreCategories();
             _relayout |= Ui.ObserveExclusivePetFilter(Settings.Current.ExclusivePetsOnly);
             if (synchronizeMap) await FollowNetworkMap(force: true);
             if (languageChanged && _ready)
@@ -1332,7 +1343,8 @@
             if (!Current()) return;
             var json = await JS.InvokeAsync<string>("soulcrestMap.show", shownMap, Settings.Current.NameLanguage,
                 keepAt is null ? null : new { x = keepAt.X, y = keepAt.Y },
-                new { savedView = Settings.Current.MapViewports.GetValueOrDefault(shownMap), revision });
+                new { savedView = Settings.Current.MapViewports.GetValueOrDefault(shownMap), revision,
+                });
             if (!Current()) return;
             var result = JsonSerializer.Deserialize<ShowResult>(json, Json)!;
             if (result.Cancelled) return;
@@ -1419,7 +1431,7 @@
                 .Select(c => MapPetMarkers.CategoryKey(g.Name, c.Name))).Distinct(StringComparer.Ordinal).ToArray(),
             settings.MapHiddenKinds.GetValueOrDefault(_mapId) ?? []);
         var mini = Snapshot(MapSurface.Minimap); var world = Snapshot(MapSurface.Worldmap); var map = _mapId;
-        Settings.Update(s => {
+        UpdateLegend(s => {
             if (!s.MapMinimapLayers.ContainsKey(map)) s.MapMinimapLayers = new(s.MapMinimapLayers) { [map] = mini };
             if (!s.MapWorldmapLayers.ContainsKey(map)) s.MapWorldmapLayers = new(s.MapWorldmapLayers) { [map] = world };
         });
@@ -1486,7 +1498,7 @@
         var categories = selection.Categories.ToHashSet(StringComparer.Ordinal); var hidden = selection.HiddenKinds.ToHashSet(StringComparer.Ordinal);
         change(categories, hidden);
         var next = new MapLayerSelection(categories.Order(StringComparer.Ordinal).ToArray(), hidden.Order(StringComparer.Ordinal).ToArray()); var map = _mapId;
-        Settings.Update(s => { if (surface == MapSurface.Minimap) s.MapMinimapLayers = new(s.MapMinimapLayers) { [map] = next }; else s.MapWorldmapLayers = new(s.MapWorldmapLayers) { [map] = next }; });
+        UpdateLegend(s => { if (surface == MapSurface.Minimap) s.MapMinimapLayers = new(s.MapMinimapLayers) { [map] = next }; else s.MapWorldmapLayers = new(s.MapWorldmapLayers) { [map] = next }; });
     }
 
     private async Task ShowCategory(int index, bool visible)
@@ -1504,7 +1516,7 @@
         var shown = _groups.SelectMany(g => g.Categories.Where(c => _visible.Contains(c.Index)).Select(c => MapPetMarkers.CategoryKey(g.Name, c.Name)))
             .Distinct().ToArray();
         var map = _mapId;
-        Settings.Update(s => s.MapCategories = new Dictionary<string, string[]>(s.MapCategories) { [map] = shown });
+        UpdateLegend(s => s.MapCategories = new Dictionary<string, string[]>(s.MapCategories) { [map] = shown });
     }
 
     /// <summary>Shows or hides one resource kind; showing it also shows its category.</summary>
@@ -1533,7 +1545,7 @@
         EnsureNativeSelections();
         var hidden = _hiddenKinds.Order(StringComparer.Ordinal).ToArray();
         var map = _mapId;
-        Settings.Update(s => s.MapHiddenKinds = new Dictionary<string, string[]>(s.MapHiddenKinds) { [map] = hidden });
+        UpdateLegend(s => s.MapHiddenKinds = new Dictionary<string, string[]>(s.MapHiddenKinds) { [map] = hidden });
     }
 
     [JSInvokable]
@@ -1561,9 +1573,9 @@
                     {
                         if (!Current()) return;
                         var key = KindKey(group, cat, KindIdentity(kind));
-                        if (!hiddenKinds.Contains(key)) continue;
-                        _hiddenKinds.Add(key);
-                        await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, KindIdentity(kind), false);
+                        var isHidden = hiddenKinds.Contains(key);
+                        if (isHidden) _hiddenKinds.Add(key);
+                        await JS.InvokeVoidAsync("soulcrestMap.setKindVisible", cat.Index, KindIdentity(kind), !isHidden);
                         if (!Current()) return;
                     }
         }

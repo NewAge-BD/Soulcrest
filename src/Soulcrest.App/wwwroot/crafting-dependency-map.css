@@ -675,3 +675,5 @@ button.craft-map-name:hover,
         animation: none;
     }
 }
+
+.craft-map-node.recent-progress{outline:1px solid #d5b877;box-shadow:0 0 18px #b9924028}.craft-map-receipt{display:block;color:#e9d29b;font-size:11px;margin:6px 0;padding:5px 7px;background:#cba54a12;border-radius:4px}

@@ -33,6 +33,7 @@
     <EmbeddedResource Include="..\..\data\achievements\progress-thresholds.json" LogicalName="Soulcrest.AchievementProgressThresholds.json" Link="Data\achievement-progress-thresholds.json" />
     <EmbeddedResource Include="..\..\data\achievements\reward-prefix-scopes.json" LogicalName="Soulcrest.CombatAchievementRewardScopes.json" Link="Data\achievement-reward-scopes.json" />
     <EmbeddedResource Include="Assets\lifeskill-item-names.json" LogicalName="Soulcrest.LifeskillItemNames.json" />
+    <EmbeddedResource Include="..\..\data\crafting\resource-sources.json" LogicalName="Soulcrest.ResourceItemSources.json" Link="Data\resource-sources.json" />
     <EmbeddedResource Include="..\..\data\loot-items.json" LogicalName="Soulcrest.LootItems.json" Link="Data\loot-items.json" />
     <EmbeddedResource Include="..\..\data\loot-icons.json" LogicalName="Soulcrest.LootIcons.json" Link="Data\loot-icons.json" />
     <EmbeddedResource Include="..\..\data\item-name-appearance.json" LogicalName="Soulcrest.ItemNameAppearance.json" Link="Data\item-name-appearance.json" />

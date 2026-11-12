@@ -1,6 +1,7 @@
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
@@ -63,6 +64,8 @@ public sealed class MapMonsterNavigationTests
         Assert.DoesNotContain(fixture.Js.Calls, call => call.Name is "soulcrestMap.flyToMarker" or "soulcrestMap.flyToTarget");
         html = await fixture.Html();
         Assert.Contains("data-monster-search=\"Twin East\"", html);
+        // Regression: MapId="_mapId" passed the literal text, so no farm-map button was ever marked as active.
+        Assert.Equal(expectedMap == "altgard" ? "Altgard" : "Verteron", Assert.Single(PressedMapButtons(html)));
         Assert.DoesNotContain("class=\"searchresults\"", html);
         await fixture.Export(html, "selected-" + expectedMap);
         await fixture.Renderer.Dispatcher.InvokeAsync(() =>
@@ -88,6 +91,7 @@ public sealed class MapMonsterNavigationTests
         html = await fixture.Html();
         Assert.Contains("data-monster-search=\"Twin East\"", html);
         Assert.Contains("2 Pet-Spawns · 3 Quellmonster auf Abyss", html);
+        Assert.Equal("Abyss", Assert.Single(PressedMapButtons(html)));
         await fixture.Export(html, "variant-abyss");
         fixture.Js.Calls.Clear();
         await fixture.ChangeMonsterMap(view, "unrelated");
@@ -108,6 +112,16 @@ public sealed class MapMonsterNavigationTests
         Assert.Equal(42, Assert.Single(fly.Arguments));
         Assert.DoesNotContain(fixture.Js.Calls, call => call.Name is "soulcrestMap.focusMonster" or "soulcrestMap.focusPet");
         Assert.DoesNotContain("data-monster-search", await fixture.Html());
+    }
+
+    private static string[] PressedMapButtons(string html)
+    {
+        var maps = Regex.Match(html, "<div class=\"monster-search-maps\".*?</div>", RegexOptions.Singleline);
+        Assert.True(maps.Success, "The monster card must render its farm-map buttons.");
+        var buttons = Regex.Matches(maps.Value, "<button[^>]*>([^<]*)</button>").ToArray();
+        Assert.True(buttons.Length >= 2, "The fixture must offer several farm maps to distinguish the active one.");
+        return buttons.Where(button => button.Value.Contains("aria-pressed=\"true\"") && button.Value.Contains("class=\"is-active\""))
+            .Select(button => button.Groups[1].Value).ToArray();
     }
 
     private static void Property(object target, string name, object value) => target.GetType().GetProperty(name)!.SetValue(target, value);

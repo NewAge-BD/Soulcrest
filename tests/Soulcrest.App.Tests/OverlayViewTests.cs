@@ -23,7 +23,8 @@ public sealed class OverlayViewTests
 {
     private static readonly (string Id, string File)[] StaticSamples =
     [
-        ("loot", "pet-tracker.png"), ("boss", "boss-spawns.png"), ("leveling", "leveling.png"),
+        ("loot", "pet-tracker.png"),
+        ("boss", "boss-spawns.png"), ("leveling", "leveling.png"),
         ("alerts", "timer-strip.png"), ("notifications", "notification.png"), ("event-timeline", "timeline.png"),
         ("map", "map-overlay.png"), ("merchant", "merchant-soul-counters.png"), ("daevanion", "daevanion-board.png"),
     ];
@@ -125,7 +126,7 @@ public sealed class OverlayViewTests
         var html = await fixture.Render();
         foreach (var overlay in OverlayRegistry.All)
             Assert.Contains($"data-overlay-select=\"{overlay.Id}\"", html);
-        Assert.Equal(11, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
+        Assert.Equal(OverlayRegistry.All.Count, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
         Assert.Contains(shared, html);
         Assert.Contains(place, html);
         Assert.Contains(language == "de" ? "Pet-Fortschritt" : "Pet progress", html);
@@ -360,12 +361,13 @@ public sealed class OverlayViewTests
     }
 
     [Fact]
-    public async Task EmbeddedStaticManagementListsTheElevenNativeFamiliesWithoutChangingSettings()
+    public async Task EmbeddedStaticManagementListsTheTwelveNativeFamiliesWithoutChangingSettings()
     {
         await using var fixture = new Fixture("en");
         var before = JsonSerializer.Serialize(fixture.Settings.Current);
         var html = await fixture.Render(staticOnly: true, embedded: true);
-        string[] families = ["loot", "achievements", "genus-insight", "boss", "leveling", "alerts", "notifications", "event-timeline", "map", "merchant", "daevanion"];
+        string[] families = ["loot", "achievements",
+            "genus-insight", "boss", "leveling", "alerts", "notifications", "event-timeline", "map", "merchant", "daevanion"];
         foreach (var id in families) Assert.Contains($"data-overlay-select=\"{id}\"", html);
         Assert.Equal(families.Length, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
         Assert.Contains("Static Overlays", html);

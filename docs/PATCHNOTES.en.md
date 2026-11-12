@@ -2,6 +2,14 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.18.1 – 2026-11-12
+
+- **Changed:** The Daevanion board is easier to read again: large values on the round background,
+  abbreviations below the frame and double bonuses in separate columns. The lighter detection and
+  animation stay.
+- **Fixed:** The monster search on the map highlights the active map button again.
+- **Fixed:** The Daevanion board was partly labelled in English in the German interface.
+- **Fixed:** Loot session diagnostics now also report save errors of the recording.
 ## 0.18.0 – 2026-11-12
 
 - **New:** Genus Insight as its own static overlay: a movable sidebar next to the stat list in the pet

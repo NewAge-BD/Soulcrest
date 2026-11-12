@@ -1,0 +1,37 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@if (_json is not null)
+{
+    <script type="application/json" data-loot-recording-observation>@((MarkupString)_json)</script>
+}
+
+@code {
+    private UnifiedLootTrackerService? _source;
+    private string? _json;
+    private bool _disposed;
+    protected override void OnInitialized()
+    {
+        if (!Soulcrest.App.OverlayEditorKit.OverlayEditorLiveDiagnostics.ValidPort(Environment.GetEnvironmentVariable("SOULCREST_WEBVIEW_DEBUG_PORT"))) return;
+        // Resolve only the passive registry. An observation must not create the recorder or its worker.
+        var existing = Services.GetService(typeof(DiagnosticServiceRegistry)) as DiagnosticServiceRegistry;
+        _source = existing?.GetService(typeof(UnifiedLootTrackerService)) as UnifiedLootTrackerService;
+        if (_source is null) return;
+        _source.Changed += Refresh;
+        Capture();
+    }
+    private void Capture()
+    {
+        if (_source is null) return;
+        var fault = _source.RecordingFault;
+        _json = JsonSerializer.Serialize(new
+        {
+            trackingAvailable = _source.SourceAvailable,
+            statusIsError = _source.StatusIsError,
+            sessionActive = _source.OverlayState.Session is not null,
+            fault = fault is null ? null : new { fault.At, Stage = fault.Stage.ToString(), Kind = fault.Kind.ToString(), fault.ExceptionType, fault.HResult }
+        });
+    }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(() => { if (_disposed) return; Capture(); StateHasChanged(); }); }
+    public void Dispose() { _disposed = true; if (_source is not null) _source.Changed -= Refresh; }
+}

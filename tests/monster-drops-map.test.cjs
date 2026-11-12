@@ -315,6 +315,20 @@ test('a valid older package containing only retired drops produces an empty cata
     assert.match(saved[0].options.icon.options.html, /refining\.png/);
 });
 
+test('an explicit resource request exposes only its selected retired material and reload restores the default filter', async () => {
+    const f = fixture(legacyPayload());
+    const selected = JSON.parse(await f.api.show('first', 'en', null, { targetedResourceItems: [60] }));
+    const legend = selected.groups.at(-1);
+    assert(legend.categories.some(c => c.name === 'Balaur Materials' && c.kinds.some(k => k.key === '60')));
+    assert(!legend.categories.some(c => c.name === 'Refining Stones' || c.name === 'Other Materials'));
+    const active = f.api.state();
+    assert(active.monsterDrops.items.has('60'));
+    assert(!active.monsterDrops.items.has('50'));
+    assert(!active.monsterDrops.items.has('70'));
+    const reset = await f.show();
+    assert(!reset.groups.at(-1).categories.some(c => ['Balaur Materials', 'Other Materials', 'Refining Stones'].includes(c.name)));
+});
+
 for (const [name, modify] of [
     ['a duplicate retired item', data => data.monsterDrops.items.push({ ...data.monsterDrops.items.at(-1) })],
     ['a wrong NPC on a retired-only source', data => { data.monsterDrops.spawns[1].npcId = '99'; }],

@@ -129,7 +129,8 @@
 @code {
     [Parameter] public bool Embedded { get; set; }
     [Parameter] public bool StaticOnly { get; set; }
-    private static bool IsStaticOverlay(OverlayDescriptor overlay) => overlay.Id is "loot" or "achievements" or "boss" or "leveling" or "alerts"
+    private static bool IsStaticOverlay(OverlayDescriptor overlay) => overlay.Id is "loot" or "achievements"
+        or "boss" or "leveling" or "alerts"
         or "notifications" or "event-timeline" or "map" or "merchant" or "daevanion" or "genus-insight";
     private IEnumerable<OverlayDescriptor> AvailableOverlays => StaticOnly ? OverlayRegistry.All.Where(IsStaticOverlay) : OverlayRegistry.All;
     private static readonly (string Id, string Label)[] GuardMaps = [("altgard", "Altgard"), ("verteron", "Verteron")];

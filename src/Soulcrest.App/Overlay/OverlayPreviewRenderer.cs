@@ -113,6 +113,30 @@ public sealed class OverlayPreviewRenderer : IDisposable
             Row(411100100, 8, false, AchievementTrackerRowState.InProgress, 74600, 100000, 74600, Soulcrest.App.Components.CombatAchievementProgressUnit.Count)];
     }
 
+    internal static CraftingProgressSnapshot CraftingProgressExample()
+    {
+        var catalog = Soulcrest.Core.Crafting.CraftingCatalog.Default;
+        var target = catalog.FindItem(110730019)!;
+        CraftingProgressRow Row(int itemId, long received, long stock, decimal needed, CraftingProgressSource source)
+        {
+            var item = catalog.FindItem(itemId)!;
+            return new() { ItemId = itemId, NameDe = item.NameDe ?? item.NameEn, NameEn = item.NameEn,
+                Icon = item.Icon, Quantity = received, LastReceivedAt = DateTimeOffset.UnixEpoch,
+                RequiredQuantity = needed, KnownQuantity = stock, InventoryFresh = true, InventoryComplete = true,
+                EventAgeSeconds = 2, SourceQuantities = ImmutableDictionary<CraftingProgressSource, long>.Empty.Add(source, received) };
+        }
+        return new()
+        {
+            Pinned = new() { ProfileId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PinId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                TargetItemId = target.Id, TargetQuantity = 1, PinnedAt = DateTimeOffset.UnixEpoch },
+            TargetNameDe = target.NameDe ?? target.NameEn, TargetNameEn = target.NameEn, TargetIcon = target.Icon,
+            IsFresh = true, PersistentGoal = true,
+            Rows = [Row(110740014, 1, 1, 1, CraftingProgressSource.Craft),
+                Row(610620013, 12, 26, 40, CraftingProgressSource.Gathering),
+                Row(610620016, 3, 9, 9, CraftingProgressSource.Other)]
+        };
+    }
+
     private const int PetOverlayFormWidth = 360;
     internal static AbyssRankOverlaySnapshot AbyssRankExample(bool includeKillFeed = false) => new(12_500, CharacterBound: true, Confirmed: true)
     {

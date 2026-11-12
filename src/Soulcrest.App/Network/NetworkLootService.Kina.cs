@@ -103,7 +103,11 @@ public sealed partial class NetworkLootService
         if (!ReferenceEquals(ownBeforeAbyss, _ownCharacter) || revisionBeforeAbyss != _kinaAppliedRevision) return;
         var ownBeforeFarm = _ownCharacter;
         var revisionBeforeFarm = _kinaAppliedRevision;
+        ProcessStockInventoryChanges(stream, update, at);
         ProcessFarmInventoryChanges(stream, update, at);
+        if (!ReferenceEquals(ownBeforeFarm, _ownCharacter) || revisionBeforeFarm != _kinaAppliedRevision) return;
+        DispatchStockReceipts();
+        SafeEvent.Raise(StockChanged, "Items in Stock");
         if (!ReferenceEquals(ownBeforeFarm, _ownCharacter) || revisionBeforeFarm != _kinaAppliedRevision) return;
         if (update is null)
         {
@@ -188,6 +192,7 @@ public sealed partial class NetworkLootService
 
     private void ResetKinaContext()
     {
+        ResetStockContext();
         ResetAbyssKinaContext(rejected: true);
         _kinaContextRevision++;
         _unboundKina = _boundKina = null;

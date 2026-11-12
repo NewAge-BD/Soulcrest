@@ -53,6 +53,21 @@ public sealed class MapMonsterDropMarkersTests
         Assert.DoesNotContain(fixture.Prepare().Resources, candidate => candidate.Symbol.DropIcons is not null);
     }
 
+    [Theory]
+    [InlineData("Refining Stones")]
+    [InlineData("Balaur Materials")]
+    [InlineData("Other Materials")]
+    public void ExplicitResourceRequestRevealsOnlyItsRetiredMaterialAndKeepsTheDefaultCatalogHidden(string type)
+    {
+        using var fixture = new Fixture(removedType: type);
+        var all = MapPetMarkers.AllMonsterDropCatalogFor(fixture.Directory, "map");
+        Assert.Contains(all.Items, item => item.Id == "105" && item.Type == type);
+        var requested = MapPetMarkers.MonsterDropsFor(fixture.Directory, "map", [105]);
+        Assert.Contains(requested.SelectMany(spawn => spawn.Items), item => item.Id == "105" && item.Type == type);
+        Assert.DoesNotContain(MapPetMarkers.MonsterDropCatalogFor(fixture.Directory, "map").Items, item => item.Type == type);
+        Assert.DoesNotContain(MapPetMarkers.MonsterDropsFor(fixture.Directory, "map", []).SelectMany(spawn => spawn.Items), item => item.Type == type);
+    }
+
     [Fact]
     public void MaterialSpritesLeaveTransparentAreasAndOverflowBackgroundUnpainted()
     {

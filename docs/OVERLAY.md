@@ -588,22 +588,27 @@ ausblendung und Sichtbarkeitsregeln gelten auch für Leiste und Animation. Beide
 weder Snapshot, Erkennungsrevision noch Node-Grafikcache; Speicherfehler nehmen die Auswahl
 zurück und zeigen eine Rückmeldung. Hauptschalter/Hotkey verbergen sämtliche Fenster.
 
-Nutzerentscheidung vom 2026-11-12: Der ausgewählte Entwurf 1 „Native Prägung“ ersetzt die
-äußere Fassung vom 21.10. Zahlen und Skillbilder bleiben vollständig in der runden Nutzermaske
-(etwa 65% des Node-Durchmessers); originaler Aktivierungsring, quadratischer Rahmen und farbige
-Ecken bleiben frei. Stat-Nodes zeigen das lokale originale Statmaterial mit kurzem Kürzel,
-großem exaktem Wert und einem kleinen Dekopunkt. Doppelboni stehen gleichzeitig in zwei
-getrennten Zeilen mit jeweils eigenem Kürzel und Wert. Palatino Linotype Bold mit dunkler
-Kontur wird anhand der tatsächlichen Glyphgrenzen passend skaliert. Skillbilder tragen eine
-kleine dunkle +1-Plakette. Alle Farben erhalten ihre ausdrücklichen Bonusbezeichnungen.
+Nutzerkorrektur vom 2026-11-12: Wegen der schwer lesbaren Innentexte auf dichten Boards
+wieder die größere Darstellung vom 21.10. verwenden. Stat-Nodes erhalten große Werte auf
+dem gelieferten runden Stein und kurze Bonusbezeichnungen unter dem nativen Rahmen.
+Doppelboni stehen in getrennten Spalten mit jeweils eigenem Außenkürzel. Die umlaufende
+Fassung ist schieferfarben, grün, blau oder orange entsprechend der nativen Qualität;
+Bonus und Node-Typ kommen ausschließlich aus dem Katalog. Enge Abstände begrenzen die
+Außenflächen; bei fehlendem Beschriftungsplatz bleibt eine kompakte Innenfassung.
 
-An/Aus-Schalter und Stat-Leiste verwenden dieselben eingebetteten Schieferbuttons und
-Checkboxen. Maße, Platzierung, Durchlässigkeit der Zwischenräume, NoActivate-Bedienung und
-getrennte Anzeigeschalter bleiben erhalten. Die umlaufende Lichtspur folgt symmetrisch dem
-nativen Außenrahmen ohne verlängerten Sockel; native Rahmen und Nachbarn sind ausgeschlossen.
-Nicht bestätigte Nodes bleiben frei. Die konservative stabile Fenster- und Prüfhülle umfasst
-weiterhin das vollständige Board, unabhängig von Verdeckungen. Kein Laufzeitzugriff auf
-Spieldateien oder einen Datenkatalog außerhalb des Apppakets.
+Die runde Nutzermaske begrenzt Zahlen und Skillbilder auf etwa 65% des Node-Durchmessers.
+Originaler Aktivierungsring, quadratischer Außenrahmen, farbige Ecken und Start bleiben frei.
+Palatino Linotype Bold mit dunkler Kontur; Skillbilder zeigen den kleinen +1-Bonus. An/Aus-
+Schalter und Stat-Leiste verwenden wieder die frühere Schiefer-/Goldgestaltung. Maße,
+Platzierung, Durchlässigkeit, NoActivate-Bedienung und getrennte Schalter bleiben erhalten.
+Die animierte Lichtspur folgt der äußeren Fassung; native und benachbarte Rahmen sind
+weiter ausgeschlossen. Nicht bestätigte Nodes bleiben frei. Die stabile Fensterhülle
+umfasst das vollständige Board, unabhängig von Verdeckungen.
+
+Die schnellere Erkennung, wiederverwendete Animationsfläche, Rasterindizes und Frische-
+prüfungen bleiben erhalten. Der begrenzte Node-Cache berücksichtigt die wirksame Fassung
+statt unnötiger Rasterabstandsvarianten. Kein Laufzeitzugriff auf Spieldateien oder einen
+Datenkatalog außerhalb des Apppakets.
 
 Wie beim Shop wird ein bestätigtes Raster anschließend als bevorzugte Suchhypothese verwendet.
 Jedes neue Bild prüft Rahmen, Startkontur und belegte/leere Felder erneut; alte Geometrie ist

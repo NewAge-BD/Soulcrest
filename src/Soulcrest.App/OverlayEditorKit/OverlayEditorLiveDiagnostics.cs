@@ -35,7 +35,15 @@ public sealed record OverlayLiveDiagnosticEntry(long Sequence, double AtMs, int?
     OverlayLiveAuthorityChanges AuthorityChanges = OverlayLiveAuthorityChanges.None,
     string? ExceptionType = null, int? HResult = null);
 
-public sealed record OverlayLiveDiagnosticSnapshot(long Version, IReadOnlyList<OverlayLiveDiagnosticEntry> Entries, double NowMs = 0);
+/// <summary>Accepted render inputs and handoff times; availability flags do not inspect native pixels.</summary>
+public sealed record OverlayLiveFrameObservation(int Window, long Started, long Captured, long Presented,
+    double? LastStartedAtMs = null, double? LastCapturedAtMs = null, double? LastPresentedAtMs = null,
+    long? LastPresentedEpoch = null, IReadOnlyDictionary<string, bool>? PresentedRankInputsKnown = null);
+
+public sealed record OverlayLiveDiagnosticSnapshot(long Version, IReadOnlyList<OverlayLiveDiagnosticEntry> Entries, double NowMs = 0)
+{
+    public IReadOnlyList<OverlayLiveFrameObservation> Frames { get; init; } = [];
+}
 
 /// <summary>Opt-in, anonymous, bounded RAM diagnostics. No source reads, file writes or game identifiers.</summary>
 public static class OverlayEditorLiveDiagnostics
@@ -81,6 +89,21 @@ public static class OverlayEditorLiveDiagnostics
     internal static void Error(OverlaySettings? settings, Exception error, string phase, long epoch)
     {
         if (Enabled) Buffer.Add(settings, "error", "exception", phase, epoch, error: error);
+    }
+
+    internal static void FrameStarted(OverlaySettings settings)
+    {
+        if (Enabled) Buffer.FrameStarted(settings);
+    }
+
+    internal static void FrameCaptured(OverlaySettings settings)
+    {
+        if (Enabled) Buffer.FrameCaptured(settings);
+    }
+
+    internal static void FramePresented(OverlaySettings settings, OverlaySnapshot snapshot, long epoch)
+    {
+        if (Enabled) Buffer.FramePresented(settings, snapshot, epoch);
     }
 
     internal static OverlayLiveAuthorityChanges AuthorityChanges(OverlaySnapshot previous, OverlaySnapshot current)
@@ -146,6 +169,7 @@ internal sealed class OverlayLiveDiagnosticBuffer
     private readonly object _gate = new();
     private readonly ConditionalWeakTable<OverlaySettings, WindowState> _windows = new();
     private readonly OverlayLiveDiagnosticEntry?[] _entries = new OverlayLiveDiagnosticEntry[128];
+    private readonly Dictionary<int, OverlayLiveFrameObservation> _frames = [];
     private readonly Func<double> _elapsed;
     private int _next, _count, _ordinal;
     private long _version;
@@ -175,6 +199,57 @@ internal sealed class OverlayLiveDiagnosticBuffer
             epoch, AuthorityChanges: changes, ExceptionType: error?.GetType().Name, HResult: error?.HResult));
     }
 
+    // Separate frame counters keep routine painting from evicting policy/lifecycle events.
+    // Record only availability flags, never values, labels, source IDs or session identities.
+    internal void FrameStarted(OverlaySettings settings)
+    {
+        lock (_gate)
+        {
+            var frame = Frame(settings);
+            Store(frame with { Started = frame.Started + 1, LastStartedAtMs = Now() });
+        }
+    }
+
+    internal void FrameCaptured(OverlaySettings settings)
+    {
+        lock (_gate)
+        {
+            var frame = Frame(settings);
+            Store(frame with { Captured = frame.Captured + 1, LastCapturedAtMs = Now() });
+        }
+    }
+
+    internal void FramePresented(OverlaySettings settings, OverlaySnapshot snapshot, long epoch)
+    {
+        lock (_gate)
+        {
+            var known = new Dictionary<string, bool>(StringComparer.Ordinal);
+            foreach (var widget in settings.Widgets)
+                if (widget.Kind is "rank-net" or "rank-gained" or "rank-lost" or "rank-net-hour" or "rank-gained-hour" or "rank-lost-hour")
+                    known[widget.Kind] = snapshot.Metrics.TryGetValue(widget.Kind, out var metric)
+                        && !string.IsNullOrWhiteSpace(metric.Value) && metric.Value != "—";
+            var frame = Frame(settings);
+            Store(frame with { Presented = frame.Presented + 1, LastPresentedAtMs = Now(), LastPresentedEpoch = epoch,
+                PresentedRankInputsKnown = new System.Collections.ObjectModel.ReadOnlyDictionary<string, bool>(known) });
+        }
+    }
+
+    private OverlayLiveFrameObservation Frame(OverlaySettings settings)
+    {
+        var ordinal = Window(settings).Ordinal;
+        return _frames.GetValueOrDefault(ordinal) ?? new(ordinal, 0, 0, 0);
+    }
+
+    private void Store(OverlayLiveFrameObservation frame)
+    {
+        _frames[frame.Window] = frame;
+        if (_frames.Count > 32)
+            _frames.Remove(_frames.Values.MinBy(value => value.LastStartedAtMs ?? value.LastCapturedAtMs ?? value.LastPresentedAtMs ?? 0)!.Window);
+        _version++;
+    }
+
+    private double Now() => _lastTime = Math.Max(_lastTime, _elapsed());
+
     internal OverlayLiveDiagnosticSnapshot Capture()
     {
         lock (_gate)
@@ -182,7 +257,8 @@ internal sealed class OverlayLiveDiagnosticBuffer
             var entries = new OverlayLiveDiagnosticEntry[_count];
             for (var i = 0; i < _count; i++) entries[i] = _entries[(_next - _count + i + _entries.Length) % _entries.Length]!;
             _lastTime = Math.Max(_lastTime, _elapsed());
-            return new(_version, Array.AsReadOnly(entries), _lastTime);
+            return new(_version, Array.AsReadOnly(entries), _lastTime)
+                { Frames = Array.AsReadOnly(_frames.Values.OrderBy(frame => frame.Window).ToArray()) };
         }
     }
 

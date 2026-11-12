@@ -15,7 +15,7 @@ public sealed class DaevanionFittingTests
     [InlineData(DaevanionNodeQuality.Rare)]
     [InlineData(DaevanionNodeQuality.Legend)]
     [InlineData(DaevanionNodeQuality.Unique)]
-    public void NativeEngravingKeepsEveryQualityInsideTheOriginalFrame(DaevanionNodeQuality quality)
+    public void OutsideFittingUsesTheNativeQualityColor(DaevanionNodeQuality quality)
     {
         var board = DaevanionCatalog.Default.GetBoard("Cleric", "ariel")!;
         var node = board.Nodes.First(n => n.Kind == DaevanionNodeKind.Stat) with { Quality = quality };
@@ -24,9 +24,15 @@ public sealed class DaevanionFittingTests
         using var renderer = new DaevanionOverlayRenderer();
         using var image = renderer.Render(new(140, 140), board,
             [new(node.Row, node.Column, new(frame.X, frame.Y, frame.Width, frame.Height), 1)], "en", spacing: 76);
-        var painted = ReadPixels(image).Where(pixel => pixel.Color.A > 0).ToArray();
-        Assert.NotEmpty(painted);
-        Assert.All(painted, pixel => Assert.True(frame.Contains(pixel.X, pixel.Y)));
+        var exterior = ReadPixels(image).Where(p => !frame.Contains(p.X, p.Y) && p.Color.A > 160).Select(p => p.Color).ToArray();
+        Assert.NotEmpty(exterior);
+        Assert.Contains(exterior, color => quality switch
+        {
+            DaevanionNodeQuality.Rare => color.G > color.R * 1.18 && color.G > color.B * 1.05,
+            DaevanionNodeQuality.Legend => color.B > color.R * 1.15 && color.B > color.G * 1.02,
+            DaevanionNodeQuality.Unique => color.R > color.G * 1.18 && color.G > color.B * 1.1,
+            _ => color.B >= color.R && color.G >= color.R && color.B - color.R is >= 4 and < 55 && color.G > 55
+        });
     }
 
     [Theory]
@@ -59,7 +65,7 @@ public sealed class DaevanionFittingTests
     }
 
     [Fact]
-    public void MissingNeighborAnchorAndTheGapReceiveNoPaintFromNativeEngraving()
+    public void MissingNeighborAnchorReceivesNoPaintFromTheAdjacentFitting()
     {
         var board = DaevanionCatalog.Default.GetBoard("Cleric", "ariel")!;
         var node = board.Nodes.First(n => n.Kind == DaevanionNodeKind.Stat) with { Row = 3, Column = 3 };
@@ -70,11 +76,11 @@ public sealed class DaevanionFittingTests
         using var image = renderer.Render(new(130, 190), board,
             [new(node.Row, node.Column, new(30, 30, 60, 60), 1)], "en", spacing: 76);
         Assert.DoesNotContain(ReadPixels(image), p => missingFrame.Contains(p.X, p.Y) && p.Color.A != 0);
-        Assert.DoesNotContain(ReadPixels(image), p => p.Y >= 90 && p.Y < missingFrame.Top && p.Color.A > 0);
+        Assert.Contains(ReadPixels(image), p => p.Y >= 90 && p.Y < missingFrame.Top && p.Color.A > 0);
     }
 
     [Fact]
-    public void NativeEngravingIsIdenticalOnTightAndWideGrids()
+    public void ExtremelyTightGridFallsBackToTheRoundInteriorWithoutOutsidePaint()
     {
         var board = DaevanionCatalog.Default.GetBoard("Cleric", "ariel")!;
         var node = board.Nodes.First(n => n.Kind == DaevanionNodeKind.Stat);
@@ -82,10 +88,7 @@ public sealed class DaevanionFittingTests
         using var renderer = new DaevanionOverlayRenderer();
         using var image = renderer.Render(new(120, 120), board,
             [new(node.Row, node.Column, new(frame.X, frame.Y, frame.Width, frame.Height), 1)], "en", spacing: 62);
-        using var widerGrid = renderer.Render(new(120, 120), board,
-            [new(node.Row, node.Column, new(frame.X, frame.Y, frame.Width, frame.Height), 1)], "en", spacing: 114);
-        Assert.Equal(ReadPixels(image).Select(pixel => pixel.Color.ToArgb()),
-            ReadPixels(widerGrid).Select(pixel => pixel.Color.ToArgb()));
+        Assert.False(DaevanionNodeFitting.CanExtend(frame, 62));
         var painted = ReadPixels(image).Where(p => p.Color.A > 0).ToArray();
         Assert.NotEmpty(painted);
         Assert.All(painted, p => Assert.True(frame.Contains(p.X, p.Y)));

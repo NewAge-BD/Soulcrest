@@ -3,6 +3,9 @@ namespace Soulcrest.App.Services;
 /// <summary>Navigation shared between views (e.g. "show this pet on the map").</summary>
 public sealed class UiState
 {
+    private ResourceMapFocus? _pendingResourceFocus;
+    public void ShowResourceOnMap(ResourceMapFocus focus) { _pendingResourceFocus = focus; Navigate("map"); }
+    public ResourceMapFocus? TakePendingResourceFocus() { var pending = _pendingResourceFocus; _pendingResourceFocus = null; return pending; }
     public string Tab { get; private set; } = "map";
     public string? OverlaySection { get; private set; }
     public string OverlayEditorSection { get; private set; } = "layout";

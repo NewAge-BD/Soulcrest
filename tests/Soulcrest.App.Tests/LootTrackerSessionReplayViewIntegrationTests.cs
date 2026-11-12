@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.Extensions.DependencyInjection;
@@ -73,6 +75,19 @@ public sealed class LootTrackerSessionReplayViewIntegrationTests
         Assert.Equal(renders, replay.RenderCount);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ReplayRouteMapReceivesTheReplayMapValueInsteadOfTheLiteralExpressionText(bool hasRoute)
+    {
+        // Regression: MapId="replay.MapId" passed the text "replay.MapId" to the string parameter. With a map the
+        // replay still won through DisplayMapId; without one the literal reached the map as a fake map id.
+        await using var fixture = new Fixture();
+        var session = Session("replay-map", "sample-map", 20);
+        await fixture.Render(hasRoute ? session : session with { RouteSegments = [] });
+        Assert.Equal(hasRoute ? "sample-map" : null, await fixture.ReplayRouteMapId());
+    }
+
     private static LootTrackerSession Session(string id, string mapId, int duration) => new()
     {
         Id = id, Kind = LootTrackerSessionKind.Grind, Status = LootTrackerSessionStatus.Completed,
@@ -127,6 +142,20 @@ public sealed class LootTrackerSessionReplayViewIntegrationTests
             return await Markup();
         }
         public Task Dispatch(Action action) => _renderer.Dispatcher.InvokeAsync(action);
+#pragma warning disable BL0006 // Read the parameter the production view passes to its replay map.
+        public Task<string?> ReplayRouteMapId() => _renderer.Dispatcher.InvokeAsync(() =>
+        {
+            using var tree = new RenderTreeBuilder();
+            typeof(LootTrackerSessionReplayView).GetMethod("BuildRenderTree", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(Host.Replay, [tree]);
+            var frames = tree.GetFrames();
+            var maps = Enumerable.Range(0, frames.Count).Where(i => frames.Array[i].FrameType == RenderTreeFrameType.Component
+                && frames.Array[i].ComponentType == typeof(LootTrackerRouteMap)).Select(i => Enumerable.Range(i + 1, frames.Array[i].ComponentSubtreeLength - 1)
+                    .Select(j => frames.Array[j]).TakeWhile(frame => frame.FrameType == RenderTreeFrameType.Attribute).ToArray())
+                .Where(attributes => attributes.Any(frame => frame.AttributeName == nameof(LootTrackerRouteMap.Replay))).ToArray();
+            var mapId = Assert.Single(Assert.Single(maps), frame => frame.AttributeName == nameof(LootTrackerRouteMap.MapId));
+            return (string?)mapId.AttributeValue;
+        });
+#pragma warning restore BL0006
         public Task<string> Markup() => _renderer.Dispatcher.InvokeAsync(_root.ToHtmlString);
         public async Task<string> WaitForElapsed(Func<double, bool> condition)
         {

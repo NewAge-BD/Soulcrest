@@ -42,19 +42,20 @@ public sealed class CraftingCalculatorTests
     }
 
     [Fact]
-    public void SameItemComboYieldUsesTheExactTargetAndKeepsOvershootSeparate()
+    public void SameItemComboYieldCountsEveryStartingAttemptAndValuesAllProducedUnits()
     {
         var basic = Recipe(1, 1, 1, [(2, 1)]) with { ComboRecipeId = 2, ComboActivationChance = .5m };
         var combo = Recipe(2, 1, 2, []);
         var calculator = new CraftingCalculator(Catalog([basic, combo]));
-        var request = Request(1, 1) with { TargetQuantity = 3, BuyPrices = Prices((2, 10)) };
+        var request = Request(1, 1) with { TargetAttempts = 3, BuyPrices = Prices((2, 10)) };
         var result = calculator.Calculate(request);
         Assert.Equal(CraftingPlanStatus.Complete, result.Status);
-        Assert.InRange(result.Steps.Single(row => row.RecipeId == 1).ExpectedAttempts, 2.24m, 2.26m);
-        Assert.InRange(result.ExpectedCost!.Value, 22.4m, 22.6m); // E3=1+.5 E2+.5 E1=2.25.
-        Assert.InRange(Assert.Single(result.Byproducts).ExpectedQuantity, .365m, .385m);
-        Assert.Equal(264m, result.TargetNetRevenue);
-        Assert.Equal(264m - result.ExpectedCost, result.ExpectedProfit);
+        Assert.Equal(3m, result.Steps.Single(row => row.RecipeId == 1).ExpectedAttempts);
+        Assert.Equal(30m, result.ExpectedCost); Assert.Equal(30m, result.P90Cost);
+        Assert.InRange(Assert.Single(result.Outputs).ExpectedQuantity, 4.48m, 4.52m);
+        Assert.Empty(result.Byproducts);
+        Assert.InRange(result.ExpectedNetRevenue!.Value, 394m, 398m);
+        Assert.Equal(result.ExpectedNetRevenue - result.ExpectedCost, result.ExpectedProfit);
         var repeat = calculator.Calculate(request);
         Assert.Equal(result.ExpectedCost, repeat.ExpectedCost); Assert.Equal(result.P90Cost, repeat.P90Cost);
         Assert.Equal(result.Shopping.ToArray(), repeat.Shopping.ToArray());
@@ -62,28 +63,103 @@ public sealed class CraftingCalculatorTests
     }
 
     [Fact]
-    public void SeparateComboSuccessRollIncludesItsFailuresInFullCostDistribution()
+    public void SeparateComboFailureCountsAsOneStartingAttemptWithoutFallbackOrRetry()
     {
         var basic = Recipe(1, 1, 1, [(2, 1)]) with { ComboRecipeId = 2, ComboActivationChance = .4m };
         var combo = Recipe(2, 3, 1, []) with { SuccessRates = [.5m] };
-        var result = new CraftingCalculator(Catalog([basic, combo])).Calculate(Request(2, 3) with { BuyPrices = Prices((2, 10)) });
+        var result = new CraftingCalculator(Catalog([basic, combo])).Calculate(Request(2, 3) with { BuyPrices = Prices((2, 10)), SellPrices = Prices((1, 100), (3, 100)) });
         Assert.Equal(CraftingPlanStatus.Complete, result.Status);
-        Assert.InRange(result.ExpectedCost!.Value, 49.5m, 50.5m); // p=.4*.5=.2, E=5 attempts.
-        Assert.Equal(110m, result.P90Cost); // 1-.8^10<.9 and 1-.8^11>.9.
-        Assert.InRange(result.Steps.Single(row => row.RecipeId == 2).ExpectedAttempts, 1.98m, 2.02m);
-        Assert.InRange(result.Byproducts.Single(row => row.ItemId == 1).ExpectedQuantity, 2.95m, 3.05m);
-        Assert.Equal(88m - result.ExpectedCost, result.ExpectedProfit); // No byproduct credit in primary profit.
+        Assert.Equal(10m, result.ExpectedCost); Assert.Equal(10m, result.P90Cost);
+        Assert.Equal(1m, result.Steps.Single(row => row.RecipeId == 1).ExpectedAttempts);
+        Assert.InRange(result.Steps.Single(row => row.RecipeId == 2).ExpectedAttempts, .395m, .405m);
+        Assert.InRange(result.Steps.Single(row => row.RecipeId == 2).ExpectedFailures, .195m, .205m);
+        Assert.InRange(result.Outputs.Single(row => row.ItemId == 1).ExpectedQuantity, .595m, .605m);
+        Assert.InRange(result.Outputs.Single(row => row.ItemId == 3).ExpectedQuantity, .195m, .205m);
+        Assert.InRange(result.ExpectedNetRevenue!.Value, 69.5m, 71.3m);
+        Assert.Equal(result.Outputs.Sum(row => row.NetValue), result.ExpectedNetRevenue);
+        Assert.Equal(result.ExpectedNetRevenue - 10m, result.ExpectedProfit);
+        Assert.Empty(result.Byproducts);
     }
 
     [Fact]
     public void QualifiedProtectedTransferInputIsReusedAfterFailedAttempts()
     {
         var recipe = Recipe(1, 1, 1, [(2, 1), (3, 1)]) with { SuccessRates = [.5m], TransferItemIds = [2] };
-        var result = new CraftingCalculator(Catalog([recipe])).Calculate(Request(1, 1) with { BuyPrices = Prices((2, 100), (3, 10)) });
+        var result = new CraftingCalculator(Catalog([recipe])).Calculate(Request(1, 1) with { TargetAttempts = 4, BuyPrices = Prices((2, 100), (3, 10)) });
         Assert.Equal(CraftingPlanStatus.Complete, result.Status);
-        Assert.Equal(1m, result.Shopping.Single(row => row.ItemId == 2).ExpectedQuantity);
-        Assert.InRange(result.ExpectedCost!.Value, 119.7m, 120.3m);
-        Assert.Equal(140m, result.P90Cost);
+        Assert.InRange(result.Shopping.Single(row => row.ItemId == 2).ExpectedQuantity, 2.48m, 2.52m);
+        Assert.Equal(4m, result.Shopping.Single(row => row.ItemId == 3).ExpectedQuantity);
+        Assert.InRange(result.ExpectedCost!.Value, 288m, 292m);
+        Assert.Equal(440m, result.P90Cost);
+    }
+
+    [Fact]
+    public void FailedStartingAttemptsConsumeOrdinaryMaterialsAndFeesWithoutAnOutputGuarantee()
+    {
+        var recipe = Recipe(1, 1, 2, [(2, 3)]) with { SuccessRates = [.5m], CraftingFee = 7 };
+        var result = new CraftingCalculator(Catalog([recipe])).Calculate(Request(1, 1) with
+        { TargetAttempts = 4, BuyPrices = Prices((2, 10)) });
+        Assert.Equal(CraftingPlanStatus.Complete, result.Status);
+        Assert.Equal(148m, result.ExpectedCost); Assert.Equal(148m, result.P90Cost);
+        Assert.Equal(12m, Assert.Single(result.Shopping).ExpectedQuantity);
+        var step = Assert.Single(result.Steps);
+        Assert.Equal(4m, step.ExpectedAttempts);
+        Assert.InRange(step.ExpectedFailures, 1.98m, 2.02m);
+        Assert.InRange(Assert.Single(result.Outputs).ExpectedQuantity, 3.96m, 4.04m);
+        Assert.Equal(result.ExpectedNetRevenue - result.ExpectedCost, result.ExpectedProfit);
+    }
+
+    [Fact]
+    public void ZeroSuccessChanceStillCompletesTheRequestedAttemptsAndConsumesMaterials()
+    {
+        var recipe = Recipe(1, 1, 1, [(2, 1)]) with { SuccessRates = [0m] };
+        var result = new CraftingCalculator(Catalog([recipe])).Calculate(Request(1, 1) with
+        { TargetAttempts = 3, Samples = 10, BuyPrices = Prices((2, 10)), SellPrices = ImmutableDictionary<int, CraftingPrice>.Empty });
+        Assert.Equal(CraftingPlanStatus.Complete, result.Status);
+        Assert.Equal(30m, result.ExpectedCost); Assert.Equal(30m, result.P90Cost);
+        Assert.Equal(3m, Assert.Single(result.Steps).ExpectedFailures);
+        Assert.Equal(0m, Assert.Single(result.Outputs).ExpectedQuantity);
+        Assert.Equal(0m, result.ExpectedNetRevenue); Assert.Equal(-30m, result.ExpectedProfit);
+    }
+
+    [Fact]
+    public void IntermediateFailuresAreRetriedWhileStartingAttemptsStayFixed()
+    {
+        var catalog = Catalog([Recipe(1, 1, 1, [(2, 1)]), Recipe(2, 2, 1, [(3, 1)]) with { SuccessRates = [.5m] }]);
+        var result = new CraftingCalculator(catalog).Calculate(Request(1, 1) with
+        {
+            TargetAttempts = 2, BuyPrices = Prices((3, 10)),
+            Acquisition = ImmutableDictionary<int, CraftingAcquisition>.Empty.Add(2, CraftingAcquisition.Craft)
+        });
+        Assert.Equal(CraftingPlanStatus.Complete, result.Status);
+        Assert.Equal(2m, result.Steps.Single(row => row.RecipeId == 1).ExpectedAttempts);
+        Assert.InRange(result.Steps.Single(row => row.RecipeId == 2).ExpectedAttempts, 3.97m, 4.03m);
+        Assert.Equal(2m, Assert.Single(result.Outputs).ExpectedQuantity);
+        Assert.InRange(result.ExpectedCost!.Value, 39.7m, 40.3m);
+        Assert.Equal(70m, result.P90Cost);
+    }
+
+    [Fact]
+    public void EveryPossibleStartingOutputNeedsItsOwnQualifiedSalePrice()
+    {
+        var basic = Recipe(1, 1, 1, [(2, 1)]) with { ComboRecipeId = 2, ComboActivationChance = .5m };
+        var result = new CraftingCalculator(Catalog([basic, Recipe(2, 3, 1, [])])).Calculate(Request(1, 1) with
+        { Samples = 1, BuyPrices = Prices((2, 10)) });
+        Assert.Equal(CraftingPlanStatus.Unknown, result.Status);
+        Assert.Equal(new("OutputPriceMissing", 3), Assert.Single(result.Issues));
+        Assert.Null(result.ExpectedNetRevenue); Assert.Null(result.ExpectedProfit);
+        Assert.Empty(result.Outputs);
+    }
+
+    [Fact]
+    public void FeesAreAveragedAfterRoundingEachSimulatedOutputBatch()
+    {
+        var recipe = Recipe(1, 1, 1, []) with { SuccessRates = [.5m] };
+        var result = new CraftingCalculator(Catalog([recipe])).Calculate(Request(1, 1) with
+        { SellPrices = Prices((1, 1m)), SalesTaxPercent = 10, RegistrationFeePercent = 0 });
+        Assert.Equal(CraftingPlanStatus.Complete, result.Status);
+        Assert.Equal(0m, result.ExpectedNetRevenue);
+        Assert.InRange(result.ExpectedFees!.Value, .49m, .51m);
     }
 
     [Fact]

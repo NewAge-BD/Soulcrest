@@ -1,0 +1,15 @@
+@using Soulcrest.Core.Network
+@using static Soulcrest.App.Services.CraftingCalculatorPresentation
+
+<details class="craft-stock-panel" data-items-in-stock data-stock-complete="@State.IsComplete.ToString().ToLowerInvariant()">
+    <summary>Items in Stock <span>· @UiText.T(State.IsFresh ? "Aktuell beobachtet" : State.ObservedAt is not null ? "Gespeicherter Itembestand" : "Warte auf Inventarbeobachtung")</span></summary>
+    <div class="craft-stock-scopes">
+        @foreach (var scope in State.Scopes)
+        { <span data-stock-scope="@scope.Scope" data-stock-completeness="@scope.Completeness">@UiText.T(scope.Scope switch { StockScope.Bag => "Inventar", StockScope.CharacterStorage => "Charakterlager", _ => "Serverlager" }) · @UiText.T(scope.Completeness switch { StockCompleteness.Complete => "Vollständig bestätigt", StockCompleteness.Partial => "Teilweise bestätigt", _ => "Unbekannt" })</span> }
+    </div>
+    <p>@UiText.T("Erkannte Bestände reduzieren die benötigten Nachkäufe. Unbekannte Lagerbereiche gelten nicht als leer. Manuelle Korrekturen bleiben geschützt.")</p>
+    @if (State.ObservedAt is { } at) { <small>@UiText.T("Zuletzt beobachtet") · @Time(at)</small> }
+    @if (State.StorageError is { } error) { <p role="status">@UiText.T(error)</p> }
+</details>
+
+@code { [Parameter, EditorRequired] public CraftingStockSnapshot State { get; set; } = CraftingStockSnapshot.Empty; }

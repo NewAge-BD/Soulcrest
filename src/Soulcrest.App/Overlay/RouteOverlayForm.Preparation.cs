@@ -124,7 +124,8 @@ public sealed partial class RouteOverlayForm
             // or hide a pet, a neighbouring NPC or a same-position marker from another category.
             var replacedSymbols = new HashSet<MapResource>(ReferenceEqualityComparer.Instance);
             var dropGroups = new Dictionary<string, Lazy<MonsterDropIcons>>(StringComparer.Ordinal);
-            foreach (var spawn in MapPetMarkers.MonsterDropsFor(mapdata, map))
+            int[] targetedResourceItems = [];
+            foreach (var spawn in MapPetMarkers.MonsterDropsFor(mapdata, map, targetedResourceItems))
             {
                 var selected = spawn.Items.Where(item => MapLayerVisibility.KindVisible(settings, map, surface,
                     "Monster Drops", item.Type, item.Id)).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray();

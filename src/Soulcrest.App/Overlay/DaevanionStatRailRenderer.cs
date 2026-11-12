@@ -3,7 +3,7 @@ using System.Drawing.Imaging;
 
 namespace Soulcrest.App.Overlay;
 
-/// <summary>Native slate buttons and checkboxes, with alpha-clear spaces between the actual buttons.</summary>
+/// <summary>Fixed slate/gold rune controls, with alpha-clear spaces between the actual buttons.</summary>
 public static class DaevanionStatRailRenderer
 {
     public static Bitmap Render(DaevanionStatRailLayout layout, string? hoverId = null, string? pressedId = null)
@@ -53,26 +53,36 @@ public static class DaevanionStatRailRenderer
         try
         {
             var scale = item.Bounds.Height / 28f;
+            // Border antialiasing must not spill into the click-through row gaps at high DPI.
+            graphics.SetClip(item.Bounds, CombineMode.Intersect);
             graphics.TranslateTransform(item.Bounds.X, item.Bounds.Y);
             graphics.ScaleTransform(scale, scale);
             var width = item.Bounds.Width / scale;
             hover &= item.Enabled; pressed &= item.Enabled;
-            var ink = item.Selected ? Color.FromArgb(252, 240, 207) : item.Enabled ? Color.FromArgb(187, 184, 165) : Color.FromArgb(130, 139, 141);
+            var top = pressed ? Color.FromArgb(52, 57, 55) : hover ? Color.FromArgb(75, 80, 76) : Color.FromArgb(52, 62, 68);
+            var bottom = Color.FromArgb(20, 28, 33);
+            var edge = item.Selected ? Color.FromArgb(238, 221, 170) : Color.FromArgb(143, 155, 162);
+            var ink = item.Selected ? Color.FromArgb(255, 248, 219) : item.Enabled ? Color.FromArgb(226, 229, 222) : Color.FromArgb(130, 139, 141);
             using var shape = Shape(new(.5f, .5f, width - 1, 27));
-            DaevanionToggleRenderer.PaintNativeButton(graphics, new(0, 0, width, 28), shape, item.Selected, item.Enabled, hover, pressed);
+            using var fill = new LinearGradientBrush(new RectangleF(0, 0, width, 28), top, bottom, 90);
+            using var border = new Pen(edge, item.Selected ? 1.15f : .8f);
+            graphics.FillPath(fill, shape); graphics.DrawPath(border, shape);
+            using var inset = Shape(new(2.5f, 2.5f, width - 5, 23));
+            using var insetPen = new Pen(Color.FromArgb(90, edge), .65f); graphics.DrawPath(insetPen, inset);
             var labelArea = new RectangleF(8, 4, width - 16, 20);
             if (item.Kind == DaevanionStatRailItemKind.Stat)
             {
-                DaevanionToggleRenderer.PaintNativeCheckbox(graphics, new(7, 4, 20, 20), item.Selected);
-                labelArea = new(32, 4, width - 40, 20);
+                using var mark = new Pen(ink, 1.1f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round };
+                graphics.DrawRectangle(mark, 10, 9, 9, 9);
+                if (item.Selected) graphics.DrawLines(mark, [new(11, 13), new(14, 16), new(20, 9)]);
+                labelArea = new(28, 4, width - 36, 20);
             }
-            Text(graphics, item.Label, labelArea, ink, item.Kind is DaevanionStatRailItemKind.Previous or DaevanionStatRailItemKind.Next ? 19 : 12,
-                item.Kind == DaevanionStatRailItemKind.Stat ? StringAlignment.Near : StringAlignment.Center);
+            Text(graphics, item.Label, labelArea, ink, item.Kind is DaevanionStatRailItemKind.Previous or DaevanionStatRailItemKind.Next ? 19 : 12);
         }
         finally { graphics.Restore(saved); }
     }
 
-    private static void Text(Graphics graphics, string text, RectangleF area, Color ink, float emSize, StringAlignment alignment)
+    private static void Text(Graphics graphics, string text, RectangleF area, Color ink, float emSize)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         using var family = new FontFamily("Palatino Linotype");
@@ -82,7 +92,7 @@ public static class DaevanionStatRailRenderer
         if (bounds.Width <= 0 || bounds.Height <= 0) return;
         var factor = Math.Min(1, Math.Min(area.Width / bounds.Width, area.Height / bounds.Height));
         using var move = new Matrix(factor, 0, 0, factor,
-            area.Left + (alignment == StringAlignment.Near ? 0 : (area.Width - bounds.Width * factor) / 2) - bounds.Left * factor,
+            area.Left + (area.Width - bounds.Width * factor) / 2 - bounds.Left * factor,
             area.Top + (area.Height - bounds.Height * factor) / 2 - bounds.Top * factor);
         path.Transform(move);
         using var shadow = new Pen(Color.FromArgb(240, 5, 8, 9), .9f) { LineJoin = LineJoin.Round };

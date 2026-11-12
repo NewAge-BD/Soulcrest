@@ -219,7 +219,9 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
                         if (slot.Failed) continue;
                         if (!ReferenceEquals(slot.Settings, window.Settings)) slot.PlacementError = null;
                         slot.Settings = window.Settings;
+                        OverlayEditorLiveDiagnostics.FrameStarted(window.Settings);
                         using var bitmap = await slot.Session.UpdateAndCaptureAsync(window, snapshot, token);
+                        OverlayEditorLiveDiagnostics.FrameCaptured(window.Settings);
                         if (token.IsCancellationRequested || epoch != Volatile.Read(ref _epoch) || _disposed || _paused) break;
                         var current = _layouts.Overlays.FirstOrDefault(value => value.Id == window.Id);
                         if (current is null || !ReferenceEquals(current.Settings, window.Settings) || !Eligible(current, snapshot))
@@ -233,6 +235,7 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
                         slot.Window.ConfigureInteraction(current, bitmap.Size, monitor, snapshot.ThemeId, layout.Scale);
                         slot.Window.ShowFrame(bitmap, new(new Point(layout.X, layout.Y), size),
                             _recordings() && !current.Settings.CaptureExcluded);
+                        OverlayEditorLiveDiagnostics.FramePresented(current.Settings, snapshot, epoch);
                         CompletePresentation(window.Id, slot, current.Settings, snapshot, epoch);
                     }
                     catch (OperationCanceledException) { }

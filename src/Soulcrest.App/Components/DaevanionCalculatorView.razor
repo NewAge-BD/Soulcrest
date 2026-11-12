@@ -33,7 +33,7 @@
         <section class="dc-panel dc-board-panel" aria-label="@UiText.T("Board und Route")">
             <nav class="dc-board-tabs" aria-label="@UiText.T("Board auswählen")">@foreach (var board in Boards) { <button type="button" class="@(board.FamilyId == _family ? "selected" : "")" aria-pressed="@(board.FamilyId == _family)" @onclick="@(() => ChangeBoard(board.FamilyId))">@board.Name.For(Language)</button> }</nav>
             <div class="dc-board-toolbar"><strong>@CurrentBoard.Name.For(Language)</strong><label class="dc-hint"><input type="checkbox" @bind="_showOrder" /> @UiText.T("Kaufreihenfolge")</label></div>
-            <DaevanionBoardSvg Board="CurrentBoard" Plan="CurrentPlan" Language="Language" SelectedNodeId="_nodeId" ShowOrder="_showOrder" NodeSelected="SelectNode" />
+            <DaevanionBoardSvg Board="CurrentBoard" Plan="CurrentPlan" Language="@Language" SelectedNodeId="_nodeId" ShowOrder="_showOrder" NodeSelected="SelectNode" />
             <div class="dc-board-footer"><span>@UiText.F("Level {0}", CurrentRules.MinimumLevel)</span><span>@UiText.F("{0} / {1} Punkte", CurrentPlan?.Cost ?? 0, CurrentRules.MaximumCost)</span><span title="@UiText.T("CP hängt von Ausgangswerten und der gesamten Route ab.")">@UiText.T("CP je Node") · @UiText.T("Kontextabhängig")</span></div>
             @if (SelectedNode is { } selected)
             {

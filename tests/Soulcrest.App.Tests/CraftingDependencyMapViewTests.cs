@@ -275,7 +275,7 @@ public sealed class CraftingDependencyMapViewTests
         };
     }
 
-    private static CraftingCalculatorSnapshot CreateMaceExample()
+    internal static CraftingCalculatorSnapshot CreateMaceExample()
     {
         var catalog = CraftingCatalog.Default;
         var producers = new[] { 141064001, 141065001, 141066001 }

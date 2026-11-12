@@ -17,6 +17,7 @@
 .craft-title-line :is(h1,h2) { min-width: 0; }
 .craft-title-line>.info-tip { flex: none; }
 .craft-plan-title h2 { margin: 0; }
+.craft-plan-title .info-tip-body .craft-attempt-note { margin: 8px 0 0; color: inherit; }
 .craft-eyebrow { font-size: 11px; letter-spacing: 1.3px; color: var(--craft-soft); font-weight: 650; }
 .craft-heading h1 { font-size: 23px; font-weight: 650; letter-spacing: -.5px; margin: 3px 0; }
 .craft-heading p { font-size: 12px; color: var(--craft-soft); margin: 0; line-height: 1.5; }
@@ -130,7 +131,8 @@
 .craft-qualification-note { margin: 7px 16px; color: var(--warn); font-size: 12px; line-height: 1.6; }
 .craft-price-coverage { margin: 3px 16px 0; color: var(--craft-soft); font-size: 12px; line-height: 1.6; }
 .craft-input-error { margin: 10px 16px; color: var(--error); font-size: 12px; line-height: 1.6; }
-.craft-target-quantity input { width: 115px; }
+.craft-attempt-note { margin: 10px 16px; color: var(--craft-soft); font-size: 12px; line-height: 1.6; }
+.craft-target-attempts input { width: 115px; }
 .craft-plan-columns { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 20px; padding: 16px; }
 .craft-schema,.craft-shopping { min-width: 0; }
 .craft-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
@@ -256,3 +258,5 @@
 .craft-card-ingredients .item-tooltip-body { font-size:12px; }
 
 .craft-card-materials.item-tooltip { display:block; width:100%; }
+
+.craft-stock-source{display:flex;gap:5px;flex-wrap:wrap;color:#8fbba9;font-size:10px;margin-top:4px}.craft-stock-source.historical{color:#d4b16e}.craft-stock-auto{border:0;background:transparent;color:#a9c8bc;text-decoration:underline;cursor:pointer;font-size:10px;padding:4px 0}.craft-stock-panel{padding:12px;border:1px solid #47556a65;border-radius:9px;background:#10182380}.craft-stock-panel summary{cursor:pointer;font-weight:600}.craft-stock-scopes{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;font-size:11px}.craft-stock-scopes span{padding:5px 9px;background:#273343;border-radius:5px}

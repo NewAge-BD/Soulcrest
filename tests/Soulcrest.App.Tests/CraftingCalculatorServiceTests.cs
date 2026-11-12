@@ -17,6 +17,35 @@ public sealed class CraftingCalculatorServiceTests
     private static readonly ExchangeMarketServer OtherMarket = Market with { ServerId = 11302, GameServerKey = 1302 };
 
     [Fact]
+    public async Task ConstructionEditsAndExplicitRefreshWithoutAnAcquiredViewNeverQueryTheMarket()
+    {
+        using var f = new Fixture(cacheServers: false);
+        f.Service.SetAttempts(2); f.Service.SetProficiency("Blacksmithing", 10);
+        await f.Service.RefreshAsync();
+        Assert.Empty(f.Client.Requests); Assert.Equal(0, f.Client.ServerCalls);
+        Assert.False(f.Service.Snapshot.Busy); Assert.Null(f.Service.Snapshot.Result);
+    }
+
+    [Fact]
+    public async Task FixedStartingAttemptsReachTheCalculatorAndRemainStableAcrossOutputVariants()
+    {
+        using var f = new Fixture();
+        f.Service.SetAttempts(3); f.Service.SetAttempts(0); f.Service.SetAttempts(100_001);
+        Assert.Equal(3, f.Service.Snapshot.TargetAttempts);
+        using var lease = f.Service.Acquire(); await f.Service.Pending.WaitAsync(TimeSpan.FromSeconds(10));
+        var result = f.Service.Snapshot.Result!;
+        Assert.Equal(CraftingPlanStatus.Complete, result.Status);
+        Assert.Equal(3m, result.Steps.Single(row => row.RecipeId == 100).ExpectedAttempts);
+        Assert.Equal(3m, Assert.Single(result.Outputs).ExpectedQuantity);
+        Assert.Equal(75m, result.ExpectedCost); Assert.Equal(75m, result.P90Cost);
+        Assert.Equal(264m, result.ExpectedNetRevenue); Assert.Equal(189m, result.ExpectedProfit);
+        f.Service.SetTarget(101, 6); await f.Service.Pending.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal(3, f.Service.Snapshot.TargetAttempts);
+        Assert.Equal(result.ExpectedNetRevenue, f.Service.Snapshot.Result!.ExpectedNetRevenue);
+        Assert.Equal(3m, f.Service.Snapshot.Result.Steps.Single(row => row.RecipeId == 100).ExpectedAttempts);
+    }
+
+    [Fact]
     public void DependencyMapBatchEditsTheScenarioOnceAndRejectsAnInvalidBatchAtomically()
     {
         using var f = new Fixture(cacheServers: false);
@@ -36,17 +65,6 @@ public sealed class CraftingCalculatorServiceTests
         Assert.Equal(1, changes);
         Assert.Empty(f.Client.Requests);
         Assert.Equal(0, f.Client.ServerCalls);
-    }
-
-
-    [Fact]
-    public async Task ConstructionEditsAndExplicitRefreshWithoutAnAcquiredViewNeverQueryTheMarket()
-    {
-        using var f = new Fixture(cacheServers: false);
-        f.Service.SetQuantity(2); f.Service.SetProficiency("Blacksmithing", 10);
-        await f.Service.RefreshAsync();
-        Assert.Empty(f.Client.Requests); Assert.Equal(0, f.Client.ServerCalls);
-        Assert.False(f.Service.Snapshot.Busy); Assert.Null(f.Service.Snapshot.Result);
     }
 
     [Fact]

@@ -36,7 +36,7 @@
             <div class="lt-replay-map" data-testid="session-replay-map">
                 @if (Session.Kind == LootTrackerSessionKind.Lifeskill && !LootTrackerPresentation.UsesFarmRoute(Session)) { <p class="lt-panel-subtitle" data-testid="legacy-route-note">@UiText.T("Altaufzeichnung: Laufweg ohne gespeicherte Sammelpositionen.")</p> }
                 else if (Session.Kind == LootTrackerSessionKind.Lifeskill && Session.RouteSegments.IsDefaultOrEmpty) { <p class="lt-panel-subtitle" data-testid="legacy-route-note">@UiText.T("Altaufzeichnung: Sammelstellen ohne aufgezeichneten Laufweg.")</p> }
-                <LootTrackerRouteMap Session="DisplaySession" MapId="replay.MapId" Replay="replay" IsExample="IsExample" />
+                <LootTrackerRouteMap Session="DisplaySession" MapId="@replay.MapId" Replay="replay" IsExample="IsExample" />
                 <button id="loot-show-route-on-map" type="button" class="btn" disabled="@(IsExample || !CanShowOnMap || replay.MapId is null || LootTrackerMapFocus.Create(DisplaySession, replay.MapId) is null)" @onclick="@(() => ShowOnMap.InvokeAsync(replay.MapId))">@UiText.T("Auf Karte anzeigen") ↗</button>
             </div>
             <LootTrackerSessionTimeline Embedded="true" Session="DisplaySession" Elapsed="replay.Elapsed" FollowEnd="_playback.FollowingEnd" IsExample="IsExample" Seek="Seek" JumpToEnd="FollowEnd" IsPlaying="_playback.IsPlaying" TogglePlayback="TogglePlay" />

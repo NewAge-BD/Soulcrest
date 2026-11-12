@@ -17,6 +17,8 @@ public sealed record MapMonsterDropSpawn(int MarkerIndex, string NpcId, double X
 public sealed record MapMonsterDropCatalog(bool Available, IReadOnlyList<MapMonsterDropItem> Items, IReadOnlyList<MapMonsterDropSpawn> Spawns)
 {
     public static MapMonsterDropCatalog Unknown { get; } = new(false, [], []);
+    internal IReadOnlyList<MapMonsterDropItem> AllItems { get; init; } = [];
+    internal IReadOnlyList<MapMonsterDropSpawn> AllSpawns { get; init; } = [];
 }
 
 public static partial class MapPetMarkers
@@ -37,6 +39,20 @@ public static partial class MapPetMarkers
 
     public static IReadOnlyList<MapMonsterDropSpawn> MonsterDropsFor(string mapDataDirectory, string mapId) =>
         MonsterDropCatalogFor(mapDataDirectory, mapId).Spawns;
+
+    public static MapMonsterDropCatalog AllMonsterDropCatalogFor(string directory, string mapId)
+    {
+        var catalog = MonsterDropCatalogFor(directory, mapId);
+        return new(catalog.Available, catalog.AllItems, catalog.AllSpawns);
+    }
+
+    public static IReadOnlyList<MapMonsterDropSpawn> MonsterDropsFor(string directory, string mapId, IReadOnlyCollection<int> targetedItems)
+    {
+        var catalog = AllMonsterDropCatalogFor(directory, mapId);
+        var targeted = targetedItems.Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
+        return catalog.Spawns.Select(spawn => spawn with { Items = spawn.Items.Where(item => VisibleMonsterDropTypes.Contains(item.Type) || targeted.Contains(item.Id)).ToArray() })
+            .Where(spawn => spawn.Items.Count > 0).ToArray();
+    }
 
     internal static MapMonsterDropCatalog LoadMonsterDropCatalog(string path) => Read(path).MonsterDrops ?? MapMonsterDropCatalog.Unknown;
 
@@ -64,6 +80,7 @@ public static partial class MapPetMarkers
 
         var markers = root.GetProperty("markers");
         var spawns = new List<MapMonsterDropSpawn>();
+        var allSpawns = new List<MapMonsterDropSpawn>();
         var seen = new HashSet<int>();
         foreach (var row in spawnRows.EnumerateArray())
         {
@@ -95,12 +112,14 @@ public static partial class MapPetMarkers
             var de = marker.GetArrayLength() > 4 && marker[4].ValueKind == JsonValueKind.String ? marker[4].GetString() : null;
             if (string.IsNullOrWhiteSpace(en) || !double.IsFinite(symbol.X) || !double.IsFinite(symbol.Y))
                 return MapMonsterDropCatalog.Unknown;
+            allSpawns.Add(new(markerIndex, npcId, symbol.X, symbol.Y, new(en, de), selected.OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(), symbol));
             var visible = selected.Where(item => VisibleMonsterDropTypes.Contains(item.Type)).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray();
             if (visible.Length > 0)
                 spawns.Add(new(markerIndex, npcId, symbol.X, symbol.Y, new(en, de), visible, symbol));
         }
         return new(true, items.Values.Where(item => VisibleMonsterDropTypes.Contains(item.Type))
-            .OrderBy(i => i.Id, StringComparer.Ordinal).ToArray(), spawns);
+            .OrderBy(i => i.Id, StringComparer.Ordinal).ToArray(), spawns)
+            { AllItems = items.Values.OrderBy(i => i.Id, StringComparer.Ordinal).ToArray(), AllSpawns = allSpawns };
     }
 
     private static bool RequiredText(JsonElement row, string name, out string value)

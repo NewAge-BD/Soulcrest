@@ -70,7 +70,7 @@ public static class OverlayHotkeys
         new OverlayHotkeyAction("map.toggle", "Karten-Overlay"),
         new OverlayHotkeyAction("daevanion.toggle", "Daevanion-Board"),
         new OverlayHotkeyAction("genus-insight.toggle", "Genus Insight"),
-        new OverlayHotkeyAction("genus-insight.unlock", "Genus Insight", true)
+        new OverlayHotkeyAction("genus-insight.unlock", "Genus Insight", true),
     });
 
     public static Dictionary<string, OverlayHotkey?> Defaults() => new(StringComparer.Ordinal)

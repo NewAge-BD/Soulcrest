@@ -32,7 +32,7 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.False(tracking.Running);
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void RealMinimapAndWorldMapPublishDifferentKindsOfEvidenceWithoutMovingThePlayer()
     {
         using var capture = new GameCaptureService();
@@ -75,7 +75,7 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.Null(tracking.DetectedMap);
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void HeldMinimapDoesNotRefreshItsEvidenceAndLoadImmediatelyInvalidatesIt()
     {
         var context = new WorldContextService();
@@ -97,7 +97,7 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.Equal(1, notifications);
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public void MenuInvalidFrameAndInstanceClearIdentityWithoutStartingCapture()
     {
         using var capture = new GameCaptureService();
@@ -121,7 +121,7 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.False(tracking.Running);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData(false)]
     [InlineData(true)]
     public void LoadingOrStopDuringACompletedMatchCannotRepublishItsCapturedPosition(bool stop)
@@ -153,7 +153,7 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.Equal(0, capture.Diagnostics.Grabs);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData(false)]
     [InlineData(true)]
     public void FrameCapturedBeforeLoadingCannotRefreshMinimapOrWorldMapEvidence(bool worldMap)
@@ -173,7 +173,7 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.Same(position, tracking.Position);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData(false)]
     [InlineData(true)]
     public void BackgroundScreenCaptureClearsEvidenceAndRejectsAnAlreadyRunningMatch(bool worldMap)
@@ -221,7 +221,7 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.Equal(0, capture.Diagnostics.Grabs);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData(true, false)] // isolated game-window capture stays usable while Soulcrest has focus
     [InlineData(true, true)]
     [InlineData(false, true)] // monitor/GDI fallback remains usable with the game in front
@@ -240,7 +240,7 @@ public sealed class DetectedMapContextTests : IDisposable
         Assert.Equal(0, capture.Diagnostics.Grabs);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData(true)]
     [InlineData(false)]
     public void OldOrUnknownCaptureCannotRefreshPlayerEvidence(bool gameWindowOnly)

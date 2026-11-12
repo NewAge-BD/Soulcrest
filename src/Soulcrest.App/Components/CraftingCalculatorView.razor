@@ -2,7 +2,7 @@
 @using static Soulcrest.App.Services.CraftingCalculatorPresentation
 
 <section class="page craft-page @(TransferMode ? "" : "craft-map-layout")" data-crafting-calculator data-crafting-build="@Catalog.MetadataBuild" aria-busy="@State.Busy">
-    <header class="craft-heading"><div class="craft-title-line"><h1>Crafting Calculator</h1><InfoTip>@UiText.T("Plane dein Zielprodukt mit vollständiger Rezeptkette, COMBO und aktuellen Kina-Preisen.")</InfoTip></div>
+    <header class="craft-heading"><div class="craft-title-line"><h1>Crafting Calculator</h1><InfoTip>@UiText.T("Plane deine Craftvorgänge mit vollständiger Rezeptkette, COMBO und aktuellen Kina-Preisen.")</InfoTip></div>
         <div class="craft-market-badge"><span class="craft-live-dot @(State.ServerName is null ? "unknown" : "")"></span><div><strong>@(State.ServerName ?? UiText.T("Marktserver noch unbekannt"))</strong><small>@if (TransferMode) { @UiText.T("Nur Herstellungskosten") } else { @UiText.F("Gebühren: {0} % + {1} %", Number(State.SalesTaxPercent, "0.##"), Number(State.RegistrationFeePercent, "0.##")) } · <a href="https://aion2.exchange" target="_blank" rel="noopener noreferrer">aion2.exchange ↗</a></small></div></div>
     </header>
     <div class="craft-proficiencies">
@@ -84,7 +84,7 @@
     @if (State.SelectedRecipeId is { } transferId && Catalog.FindRecipe(transferId) is { } transferRecipe
         && TransferCraftingRules.IsTransfer(Catalog, transferRecipe))
     {
-        <TransferCraftingView Catalog="Catalog" State="State" Quantity="State.TargetQuantity" QuantityChanged="QuantityChanged"
+        <TransferCraftingView Catalog="Catalog" State="State" Quantity="State.TargetAttempts" QuantityChanged="AttemptsChanged"
             SourceChanged="SourceChanged" ReplacementChanged="ReplacementChanged" OwnershipChanged="OwnershipChanged"
             OwnedQuantityChanged="OwnedQuantityChanged" Refresh="Refresh" />
     }
@@ -94,11 +94,11 @@
         var root = Catalog.FindBaseRecipe(recipeId) ?? selectedRecipe;
         var result = State.Result;
         <section class="craft-plan" data-crafting-selected="@recipeId">
-            <header class="craft-plan-heading"><div class="craft-title-line craft-plan-title"><h2><ItemName ItemId="selectedRecipe.OutputItemId" Text="@Name(Catalog.FindItem(selectedRecipe.OutputItemId))" /></h2><InfoTip><strong>@UiText.T("DEIN HERSTELLUNGSPLAN")</strong>@if (IsComboEquipmentTarget(Catalog, recipeId)) { <p class="craft-attempt-note">@UiText.F("{0} COMBO-Zielitems: Versuche bis zur Zielmenge; Basis- und COMBO-Fehlschläge werden berücksichtigt.", Number(State.TargetQuantity))</p> }</InfoTip></div><div class="craft-plan-inputs"><ItemSelect Class="craft-variant-select" Label="@UiText.T("Zielprodukt")" Value="recipeId" Options="@(Variants(root).Select(variant => new ItemSelectOption(variant.Id, variant.OutputItemId, Name(Catalog.FindItem(variant.OutputItemId)), "× " + variant.OutputQuantity + (variant.Id != root.Id ? " · COMBO" : ""))).ToArray())" ValueChanged="@(id => ChangeTarget(new ChangeEventArgs { Value = id }))" data-crafting-target-variant /><label class="craft-target-quantity">@UiText.T(IsComboEquipmentTarget(Catalog, recipeId) ? "Zielmenge COMBO" : "Zielmenge")<input data-crafting-target-quantity="true" type="number" min="1" max="100000" value="@State.TargetQuantity" @onchange="ChangeQuantity" /></label><button type="button" disabled="@State.Busy" @onclick="Refresh">@UiText.T("Aktualisieren")</button></div></header>
+            <header class="craft-plan-heading"><div class="craft-title-line craft-plan-title"><h2><ItemName ItemId="selectedRecipe.OutputItemId" Text="@Name(Catalog.FindItem(selectedRecipe.OutputItemId))" /></h2><InfoTip><strong>@UiText.T("DEIN HERSTELLUNGSPLAN")</strong><p class="craft-attempt-note">@if (IsComboEquipmentTarget(Catalog, recipeId)) { @UiText.F("{0} COMBO-Zielitems: Versuche bis zur Zielmenge; Basis- und COMBO-Fehlschläge werden berücksichtigt.", Number(State.TargetAttempts)) } else { @BaseAttemptSummary(root) }</p></InfoTip></div><div class="craft-plan-inputs"><ItemSelect Class="craft-variant-select" Label="@UiText.T("Ergebnisvariante")" Value="recipeId" Options="@(Variants(root).Select(variant => new ItemSelectOption(variant.Id, variant.OutputItemId, Name(Catalog.FindItem(variant.OutputItemId)), "× " + variant.OutputQuantity + (variant.Id != root.Id ? " · COMBO" : ""))).ToArray())" ValueChanged="@(id => ChangeTarget(new ChangeEventArgs { Value = id }))" data-crafting-target-variant /><label class="craft-target-attempts">@UiText.T(IsComboEquipmentTarget(Catalog, recipeId) ? "Zielmenge COMBO" : "Ziel-Craftvorgänge")<input data-crafting-target-quantity="true" type="number" min="1" max="100000" value="@State.TargetAttempts" @onchange="ChangeAttempts" /></label><button type="button" disabled="@State.Busy" @onclick="Refresh">@UiText.T("Aktualisieren")</button></div></header>
             <div class="craft-metrics craft-map-metrics">
                 <div><span>@UiText.T("Erwartete Gesamtkosten")</span><strong>@Number(result?.ExpectedCost) <small>Kina</small></strong><small>@UiText.T("Materialien und Herstellungsgebühren")</small></div>
-                <div><span>@UiText.T("Erwarteter Nettoerlös")</span><strong>@Number(IsComboEquipmentTarget(Catalog, recipeId) ? result?.TargetOutput?.NetValue : result?.TargetNetRevenue) <small>Kina</small></strong><small>@UiText.F("Marktgebühren: {0} Kina", Number(result?.ExpectedFees))</small></div>
-                <div class="craft-profit @(result?.ExpectedProfit >= 0 ? "positive" : "negative")"><span>@UiText.T("Erwarteter Profit")</span><strong>@Number(result?.ExpectedProfit) <small>Kina</small></strong><small>@UiText.T(IsComboEquipmentTarget(Catalog, recipeId) ? "COMBO-Ziel · Nebenprodukte separat" : "Nebenprodukte separat ausgewiesen")</small></div>
+                <div><span>@UiText.T("Erwarteter Nettoerlös")</span><strong>@Number(IsComboEquipmentTarget(Catalog, recipeId) ? result?.TargetOutput?.NetValue : result?.ExpectedNetRevenue) <small>Kina</small></strong><small>@UiText.F("Marktgebühren: {0} Kina", Number(result?.ExpectedFees))</small></div>
+                <div class="craft-profit @(result?.ExpectedProfit >= 0 ? "positive" : "negative")"><span>@UiText.T("Erwarteter Profit")</span><strong>@Number(result?.ExpectedProfit) <small>Kina</small></strong><small>@UiText.T(IsComboEquipmentTarget(Catalog, recipeId) ? "COMBO-Ziel · Nebenprodukte separat" : "Basis und COMBO · Vorproduktreste separat")</small></div>
                 <div class="craft-map-observed-loss" data-crafting-observed-loss="unavailable"><span>@UiText.T("Tatsächliche Fehlcraft-Verluste")</span><strong>— <small>Kina</small></strong><small>@UiText.T("Noch nicht beobachtet")</small></div>
             </div>
             <div class="craft-status @(State.IsError ? "error" : "")" role="status"><span class="@(State.Busy ? "craft-spinner" : "")" aria-hidden="true">@(State.Busy ? "" : result?.Status == CraftingPlanStatus.Complete ? "✓" : "◇")</span><span>@UiText.T(State.Status)</span></div>
@@ -148,6 +148,11 @@
                     <h3>@UiText.T("COMBO-Ziel")</h3>
                     <div class="craft-step" data-crafting-output="@targetOutput.ItemId" data-crafting-combo-output><strong><ItemName ItemId="targetOutput.ItemId" Text="@Name(Catalog.FindItem(targetOutput.ItemId))" /> × @Number(targetOutput.ExpectedQuantity, "N2")</strong><span>@UiText.T("Erwarteter Nettoerlös") @Number(targetOutput.NetValue) Kina</span></div>
                 }
+                else if (result?.Outputs.Length > 0)
+                {
+                    <h3>@UiText.T("Erwartete Ergebnisse")</h3>
+                    @foreach (var output in result.Outputs) { <div class="craft-step" data-crafting-output="@output.ItemId"><strong><ItemName ItemId="output.ItemId" Text="@Name(Catalog.FindItem(output.ItemId))" /> × @Number(output.ExpectedQuantity, "N2")</strong><span>@UiText.T("Erwarteter Nettoerlös") @Number(output.NetValue) Kina</span></div> }
+                }
                 @if (result?.Steps.Length > 0)
                 {
                     <h3>@UiText.T("Herstellungsschritte")</h3>
@@ -159,7 +164,7 @@
                     @foreach (var output in result.Byproducts) { <div class="craft-step"><strong><ItemName ItemId="output.ItemId" Text="@Name(Catalog.FindItem(output.ItemId))" /> × @Number(output.ExpectedQuantity, "N2")</strong><span>@UiText.T("Möglicher zusätzlicher Nettoerlös") @Number(output.NetValue) Kina</span></div> }
                 }
             </aside></div>
-            <footer class="craft-assumptions"><InfoTip>@UiText.T("Die Simulation berücksichtigt Fehlschläge, automatische COMBO und gemeinsame Vorprodukte. Level und Preise bleiben während der Rechnung konstant; Angriffe und Marktbewegungen werden nicht simuliert. Aktuelle Angebote bestätigen weder Verkaufserfolg noch verfügbare Stückzahlen. Unbekannte Preise und Regeln bleiben unbekannt.") @ExchangeMarketPresentation.TradeabilityHint</InfoTip><span>@UiText.T(IsComboEquipmentTarget(Catalog, recipeId) ? "Die Anzahl der Versuche ist variabel; die Rechnung zielt auf die gewählte COMBO-Menge." : "Erwartungswerte können Bruchteile enthalten. Tatsächliche Kosten und Ergebnisse schwanken.")</span>@if (result?.Samples > 0) { <small>@UiText.F("{0} Simulationsläufe", Number(result.Samples))</small> }</footer>
+            <footer class="craft-assumptions"><InfoTip>@UiText.T("Die Simulation berücksichtigt Fehlschläge, automatische COMBO und gemeinsame Vorprodukte. Level und Preise bleiben während der Rechnung konstant; Angriffe und Marktbewegungen werden nicht simuliert. Aktuelle Angebote bestätigen weder Verkaufserfolg noch verfügbare Stückzahlen. Unbekannte Preise und Regeln bleiben unbekannt.") @ExchangeMarketPresentation.TradeabilityHint</InfoTip><span>@UiText.T(IsComboEquipmentTarget(Catalog, recipeId) ? "Die Anzahl der Versuche ist variabel; die Rechnung zielt auf die gewählte COMBO-Menge." : "Erwartungswerte können Bruchteile enthalten. Eine erfolgreiche Zielmenge ist nicht garantiert.")</span>@if (result?.Samples > 0) { <small>@UiText.F("{0} Simulationsläufe", Number(result.Samples))</small> }</footer>
         </section>
     }
     @if (State.SelectedRecipeId is not { } emptyRecipeId || Catalog.FindRecipe(emptyRecipeId) is null)
@@ -178,7 +183,7 @@
     [Parameter] public EventCallback<string> QueryChanged { get; set; }
     [Parameter] public EventCallback<int> RecipeSelected { get; set; }
     [Parameter] public EventCallback<int> TargetChanged { get; set; }
-    [Parameter] public EventCallback<int> QuantityChanged { get; set; }
+    [Parameter] public EventCallback<int> AttemptsChanged { get; set; }
     [Parameter] public EventCallback<int> SimulationSamplesChanged { get; set; }
     [Parameter] public EventCallback<CraftingLevelSelection> LevelChanged { get; set; }
     [Parameter] public EventCallback ResetLevels { get; set; }
@@ -218,12 +223,25 @@
         { _inputError = null; return LevelChanged.InvokeAsync(new(profession, level)); }
         _inputError = "Das Rechenlevel muss eine ganze Zahl zwischen 0 und 100 sein."; return Task.CompletedTask;
     }
-    private Task ChangeQuantity(ChangeEventArgs args)
+    private Task ChangeAttempts(ChangeEventArgs args)
     {
         if (int.TryParse(args.Value?.ToString(), out var amount) && amount is >= 1 and <= 100_000)
-        { _inputError = null; return QuantityChanged.InvokeAsync(amount); }
-        _inputError = "Die Zielmenge muss eine ganze Zahl zwischen 1 und 100.000 sein."; return Task.CompletedTask;
+        { _inputError = null; return AttemptsChanged.InvokeAsync(amount); }
+        _inputError = "Die Zahl der Ziel-Craftvorgänge muss eine ganze Zahl zwischen 1 und 100.000 sein."; return Task.CompletedTask;
     }
+    private RenderFragment BaseAttemptSummary(CraftingRecipe recipe) => builder =>
+    {
+        const string marker = "\uE000";
+        var text = UiText.F("{0} Herstellungsversuche mit dem Basisrezept {1}. Fehlschläge zählen mit; COMBO wird automatisch berücksichtigt.", Number(State.TargetAttempts), marker);
+        var offset = text.IndexOf(marker, StringComparison.Ordinal);
+        if (offset < 0) { builder.AddContent(0, text); return; }
+        builder.AddContent(0, text[..offset]);
+        builder.OpenComponent<ItemName>(1);
+        builder.AddAttribute(2, nameof(ItemName.ItemId), recipe.OutputItemId);
+        builder.AddAttribute(3, nameof(ItemName.Text), Name(Catalog.FindItem(recipe.OutputItemId)));
+        builder.CloseComponent();
+        builder.AddContent(4, text[(offset + marker.Length)..]);
+    };
     private Task ChangeTarget(ChangeEventArgs args) => int.TryParse(args.Value?.ToString(), out var id) ? TargetChanged.InvokeAsync(id) : Task.CompletedTask;
     private Task ChangeSimulationSamples(ChangeEventArgs args)
     {

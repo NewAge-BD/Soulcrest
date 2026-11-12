@@ -16,6 +16,7 @@ public sealed class CraftingCalculatorService : IDisposable
     private readonly TimeProvider _time;
     private readonly ITimer _timer;
     private readonly CraftingScenarioStore? _scenarioStore;
+    private readonly CraftingStockService? _stock;
     private readonly CraftingScenarioDraft _defaultDraft;
     private Action? _detach;
     private CancellationTokenSource? _pending;
@@ -32,14 +33,15 @@ public sealed class CraftingCalculatorService : IDisposable
     public event Action? Changed;
 
     public CraftingCalculatorService(SettingsService settings, IExchangeMarketClient client, ExchangeMarketCache cache,
-        CraftingProficiencyStateService proficiency, INetworkFarmSource source, ExplorationService profiles, CraftingScenarioStore scenarios)
+        CraftingProficiencyStateService proficiency, INetworkFarmSource source, ExplorationService profiles, CraftingScenarioStore scenarios,
+        CraftingStockService? stock = null)
         : this(settings, client, cache, CraftingCatalog.Default, () => proficiency.Snapshot, () =>
         {
             var own = source.Running ? source is NetworkLootService native ? native.OwnCharacterSnapshot : source.OwnCharacter : null;
             var bound = own is null ? null : profiles.TryGetBoundCharacter(own);
             var selected = bound?.ProfileId ?? proficiency.Snapshot.ProfileId ?? profiles.ActiveId;
             return (selected, bound?.ProfileId == selected ? own?.Identity.ServerId : null);
-        }, TimeProvider.System, scenarios)
+        }, TimeProvider.System, scenarios, stock)
     {
         proficiency.Changed += SourcesChanged; profiles.Changed += SourcesChanged; profiles.CharacterRemoved += ProfileRemoved;
         _detach = () => { proficiency.Changed -= SourcesChanged; profiles.Changed -= SourcesChanged; profiles.CharacterRemoved -= ProfileRemoved; };
@@ -47,10 +49,13 @@ public sealed class CraftingCalculatorService : IDisposable
 
     internal CraftingCalculatorService(SettingsService settings, IExchangeMarketClient client, ExchangeMarketCache cache,
         CraftingCatalog catalog, Func<CraftingProficiencySnapshot> proficiency,
-        Func<(string? ProfileId, int? OwnServer)> context, TimeProvider? time = null, CraftingScenarioStore? store = null)
+        Func<(string? ProfileId, int? OwnServer)> context, TimeProvider? time = null, CraftingScenarioStore? store = null,
+        CraftingStockService? stock = null)
     {
         _settings = settings; _client = client; _cache = cache; Catalog = catalog;
         _proficiency = proficiency; _context = context; _time = time ?? TimeProvider.System; _scenarioStore = store;
+        _stock = stock;
+        if (_stock is not null) _stock.Changed += StockChanged;
         if (_scenarioStore is not null) _scenarioStore.Changed += ScenarioStorageChanged;
         _timer = _time.CreateTimer(_ => RefreshTick(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         _settings.Changed += SourcesChanged;
@@ -58,7 +63,7 @@ public sealed class CraftingCalculatorService : IDisposable
             && row.Subcategory == "Greatsword" && row.MechanicsQualified)
             .OrderBy(row => row.RequiredProficiency).ThenBy(row => row.Id).FirstOrDefault();
         if (first is not null) _snapshot = _snapshot with { SelectedRecipeId = first.Id, TargetItemId = first.OutputItemId };
-        _defaultDraft = CraftingScenarioDraft.Capture(_snapshot, _snapshot.TargetQuantity);
+        _defaultDraft = CraftingScenarioDraft.Capture(_snapshot, _snapshot.TargetAttempts);
         UpdateSources();
     }
 
@@ -125,7 +130,7 @@ public sealed class CraftingCalculatorService : IDisposable
     public void SelectRecipe(int id)
     {
         if (Catalog.FindRecipe(id) is not { } recipe || !CraftingCalculatorPresentation.MatchesFaction(recipe.Faction, Snapshot.Faction)) return;
-        Edit(state => state with { SelectedRecipeId = id, TargetItemId = recipe.OutputItemId, TargetQuantity = 1,
+        Edit(state => state with { SelectedRecipeId = id, TargetItemId = recipe.OutputItemId, TargetAttempts = 1,
             Profession = TransferCraftingRules.IsTransfer(Catalog, recipe) ? CraftingCalculatorPresentation.TransferCategory : recipe.Profession,
             Subcategory = recipe.Subcategory,
             Acquisition = ImmutableDictionary<int, CraftingAcquisition>.Empty,
@@ -138,10 +143,10 @@ public sealed class CraftingCalculatorService : IDisposable
             || !CraftingCalculatorPresentation.MatchesFaction(recipe.Faction, Snapshot.Faction)) return;
         Edit(state => state with { SelectedRecipeId = recipeId, TargetItemId = itemId });
     }
-    public void SetQuantity(int value)
+    public void SetAttempts(int value)
     {
         if (value < 1 || value > 100_000) return;
-        Edit(state => state with { TargetQuantity = value });
+        Edit(state => state with { TargetAttempts = value });
     }
     public void SetSimulationSamples(int value)
     {
@@ -158,12 +163,22 @@ public sealed class CraftingCalculatorService : IDisposable
     public void SetOwnership(int itemId, bool owned)
     {
         if (!TransferCraftingRules.IsEquipment(Catalog, itemId)) return;
+        if (_stock is not null) { SetOwnedQuantity(itemId, owned ? 1 : 0); return; }
         Edit(state => state with { OwnedItems = owned ? state.OwnedItems.SetItem(itemId, 1) : state.OwnedItems.Remove(itemId) });
     }
     public void SetOwnedQuantity(int itemId, long quantity)
     {
         if (Catalog.FindItem(itemId) is null || quantity is < 0 or > 1_000_000_000) return;
+        if (_stock is not null)
+        {
+            if (_stock.Snapshot.ProfileId == Snapshot.ProfileId) _stock.SetOverride(itemId, quantity);
+            return;
+        }
         Edit(state => state with { OwnedItems = quantity > 0 ? state.OwnedItems.SetItem(itemId, quantity) : state.OwnedItems.Remove(itemId) });
+    }
+    public void UseAutomaticStock(int itemId)
+    {
+        if (Catalog.FindItem(itemId) is not null && _stock?.Snapshot.ProfileId == Snapshot.ProfileId) _stock?.UseAutomatic(itemId);
     }
     public void SetAcquisition(int itemId, CraftingAcquisition value, int? recipeId = null)
     {
@@ -231,7 +246,7 @@ public sealed class CraftingCalculatorService : IDisposable
     }
 
     private void Remember(CraftingCalculatorSnapshot state) => _scenarioStore?.Stage(state.ProfileId,
-        CraftingScenarioDraft.Capture(state, state.TargetQuantity));
+        CraftingScenarioDraft.Capture(state, state.TargetAttempts));
     private void ScenarioStorageChanged()
     {
         if (Volatile.Read(ref _disposed) != 0 || _scenarioStore is null) return;
@@ -239,6 +254,20 @@ public sealed class CraftingCalculatorService : IDisposable
         Raise();
     }
     private void ProfileRemoved(string profileId) => _scenarioStore?.DeleteProfile(profileId);
+    private void StockChanged()
+    {
+        if (Volatile.Read(ref _disposed) != 0 || _stock is null) return;
+        var stock = _stock.Read(Snapshot.ProfileId);
+        var recalculate = false;
+        lock (_gate)
+        {
+            if (_snapshot.ProfileId != stock.ProfileId || !stock.Available) return;
+            var items = stock.EffectiveItems.ToImmutableDictionary(pair => pair.Key, pair => pair.Value.Quantity);
+            recalculate = items.Count != _snapshot.OwnedItems.Count || items.Any(pair => !_snapshot.OwnedItems.TryGetValue(pair.Key, out var value) || value != pair.Value);
+            PublishLocked(_snapshot with { Stock = stock, OwnedItems = items });
+        }
+        if (recalculate) Queue(); else Raise();
+    }
     private CraftingScenarioStorageState StorageState(string? profileId) => _scenarioStore is not null
         && Guid.TryParse(profileId, out var profile) && profile != Guid.Empty ? _scenarioStore.State : CraftingScenarioStorageState.Unavailable;
 
@@ -264,7 +293,7 @@ public sealed class CraftingCalculatorService : IDisposable
             {
                 Remember(_snapshot);
                 var draft = (_scenarioStore.Read(key.Profile) ?? _defaultDraft).Sanitize(Catalog, model.Faction);
-                _snapshot = draft.RestoreInto(_snapshot) with { TargetQuantity = draft.Quantity };
+                _snapshot = draft.RestoreInto(_snapshot) with { TargetAttempts = draft.Quantity };
             }
             _sources = key;
             var server = FindSelectedServer(key);
@@ -280,6 +309,7 @@ public sealed class CraftingCalculatorService : IDisposable
                     .OrderBy(row => row.RequiredProficiency).ThenBy(row => row.Id).FirstOrDefault();
             var invalidRoutes = _snapshot.RecipeChoices.Where(row => Catalog.FindRecipe(row.Value) is not { } producer
                 || !CraftingCalculatorPresentation.MatchesFaction(producer.Faction, model.Faction)).Select(row => row.Key).ToArray();
+            var stock = _stock?.Read(key.Profile) ?? CraftingStockSnapshot.Empty;
             PublishLocked(_snapshot with
             {
                 ProfileId = key.Profile, ObservedLevels = levels, ProficiencyFresh = key.Fresh,
@@ -287,7 +317,10 @@ public sealed class CraftingCalculatorService : IDisposable
                 ReferenceLevels = ImmutableDictionary<string, int>.Empty,
                 RequiredProficiencyLevels = ImmutableDictionary<string, int>.Empty,
                 SimulatedLevels = changedProfile && _scenarioStore is null ? ImmutableDictionary<string, int>.Empty : _snapshot.SimulatedLevels,
-                OwnedItems = changedProfile && _scenarioStore is null ? ImmutableDictionary<int, long>.Empty : _snapshot.OwnedItems,
+                Stock = stock,
+                OwnedItems = stock.Available && stock.ProfileId == key.Profile
+                    ? stock.EffectiveItems.ToImmutableDictionary(pair => pair.Key, pair => pair.Value.Quantity)
+                    : changedProfile && _scenarioStore is null ? ImmutableDictionary<int, long>.Empty : _snapshot.OwnedItems,
                 ScenarioStorage = StorageState(key.Profile),
                 ServerName = server?.Name, Faction = model.Faction, Servers = _cache.GetServers(),
                 SalesTaxPercent = model.SalesTaxPercent, RegistrationFeePercent = model.RegistrationFeePercent,
@@ -321,7 +354,7 @@ public sealed class CraftingCalculatorService : IDisposable
         lock (_gate)
         {
             old = _pending;
-            var reference = CraftingReferenceProjection.Resolve(Catalog, _snapshot, _snapshot.TargetQuantity);
+            var reference = CraftingReferenceProjection.Resolve(Catalog, _snapshot, _snapshot.TargetAttempts);
             _snapshot = _snapshot with { ReferenceLevels = reference.ReferenceLevels, RequiredProficiencyLevels = reference.RequiredLevels };
             var revision = _snapshot.Revision + 1;
             var active = _consumers > 0;
@@ -418,10 +451,10 @@ public sealed class CraftingCalculatorService : IDisposable
             }
             var request = new CraftingPlanRequest
             {
-                RecipeId = state.SelectedRecipeId!.Value, TargetItemId = state.TargetItemId, TargetQuantity = state.TargetQuantity,
+                RecipeId = state.SelectedRecipeId!.Value, TargetItemId = state.TargetItemId, TargetAttempts = state.TargetAttempts,
                 Faction = faction, ProficiencyLevels = state.ObservedLevels.SetItems(state.SimulatedLevels).SetItems(state.ReferenceLevels),
                 TargetOutputQuantity = CraftingCalculatorPresentation.IsComboEquipmentTarget(Catalog, state.SelectedRecipeId)
-                    ? state.TargetQuantity : null,
+                    ? state.TargetAttempts : null,
                 // A native three-precursor COMBO chain can exceed 100 million rolls across 100k complete runs.
                 MaximumTotalAttempts = CraftingCalculatorPresentation.IsComboEquipmentTarget(Catalog, state.SelectedRecipeId)
                     ? 200_000_000 : 50_000_000,
@@ -429,7 +462,8 @@ public sealed class CraftingCalculatorService : IDisposable
                 OwnedItems = state.OwnedItems,
                 BuyPrices = buy.ToImmutable(), SellPrices = sell.ToImmutable(),
                 SalesTaxPercent = state.SalesTaxPercent, RegistrationFeePercent = state.RegistrationFeePercent,
-                Samples = state.SimulationSamples
+                Samples = state.SimulationSamples,
+                MaximumAttemptsPerSample = 1_000_000
             };
             stage = CraftingFailureStage.Calculation;
             // Edits and source changes already invalidate Result. An identical scenario with identical
@@ -443,7 +477,7 @@ public sealed class CraftingCalculatorService : IDisposable
                     ? previous : transfer
                         ? new TransferCraftingCalculator(Catalog).Calculate(new TransferCraftingPlanRequest
                         {
-                            RecipeId = request.RecipeId, TargetItemId = request.TargetItemId, TargetQuantity = state.TargetQuantity, Faction = faction,
+                            RecipeId = request.RecipeId, TargetItemId = request.TargetItemId, TargetQuantity = state.TargetAttempts, Faction = faction,
                             ProficiencyLevels = request.ProficiencyLevels, Acquisition = request.Acquisition,
                             RecipeChoices = request.RecipeChoices, ReplacementChoices = request.ReplacementChoices,
                             OwnedItems = state.OwnedItems.ToImmutableDictionary(row => row.Key,
@@ -523,7 +557,7 @@ public sealed class CraftingCalculatorService : IDisposable
                     // Only prune the guaranteed root transfer's selected protected copy. Deeper routes
                     // can need more stock after normal failures or because sibling branches share it.
                     if (selectedRoot?.Id == transferRoot?.Id && recipe.Id == transferRoot?.Id && TransferCraftingRules.IsTransferIngredient(recipe, row)
-                        && state.TargetQuantity == 1 && state.OwnedItems.GetValueOrDefault(id) >= transferRoot.Ingredients
+                        && state.TargetAttempts == 1 && state.OwnedItems.GetValueOrDefault(id) >= transferRoot.Ingredients
                             .Where(input => state.ReplacementChoices.GetValueOrDefault(new(recipe.Id, input.ItemId), input.ItemId) == id)
                             .Sum(input => (long)input.Quantity)) continue;
                     var candidates = TransferCraftingRules.ProducerChoices(Catalog, id, state.Faction ?? recipe.Faction);
@@ -560,6 +594,7 @@ public sealed class CraftingCalculatorService : IDisposable
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         _settings.Changed -= SourcesChanged; _detach?.Invoke(); _timer.Dispose();
+        if (_stock is not null) _stock.Changed -= StockChanged;
         lock (_gate) { _consumers = 0; Cancel(_pending); }
         if (_scenarioStore is not null) { _scenarioStore.Changed -= ScenarioStorageChanged; _scenarioStore.Flush(); }
     }

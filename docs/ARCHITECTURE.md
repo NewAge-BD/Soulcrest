@@ -4,16 +4,34 @@
 
 Der Haupttab `crafting` verwendet einen gebündelten Rezept- und Itemkatalog mit
 Originalicons, Unterrezepten, Materialalternativen und belegten NPC-Angeboten.
-`Core.Crafting` berechnet ein konkretes Zielprodukt einschließlich der getrennten
-Basis-/COMBO-Erfolgsrollen. Standardmäßig 1.000 deterministische Gesamtdurchläufe (einstellbar von 1 bis
-100.000) teilen Zwischenbestände und liefern erwartete Kosten sowie das 90-%-Bruttobudget.
+Für normales Crafting simuliert `CraftingCalculator` eine feste Zahl von
+Startrezeptversuchen (`TargetAttempts`): Jeder Versuch zählt einschließlich
+Fehlschlag; automatische COMBO-Rollen und die Beschaffung von Vorprodukten erhöhen
+nicht diese Zielversuchszahl. Der gesamte mögliche Endausgabekorb aus Basis- und
+COMBO-Ergebnissen trägt zu erwartetem Nettoerlös und Profit bei. Hergestellte
+Vorproduktreste bleiben separat; sie werden nicht nochmals dem Enderlös zugerechnet.
+Fehlt für ein mögliches Endergebnis ein qualifizierter Verkaufspreis, bleibt die
+Bewertung unvollständig, statt nur den bekannten Teil als Gesamterlös auszugeben.
+
+Davon getrennt simuliert `CraftingOutputTargetCalculator` bis zur exakten neu
+erzeugten Menge einer konkreten COMBO-Ausgabe-ID. Transfercrafting behält seine
+reine Kostenrechnung. Diese drei Rechenverträge dürfen nicht durch dieselbe
+UI-Zielmenge oder einen Fortschritts-Pin miteinander gleichgesetzt werden.
+
+Standardmäßig 1.000 deterministische Gesamtdurchläufe (einstellbar von 1 bis
+100.000) teilen Zwischenbestände und liefern erwartete Kosten. Intern berechnete
+Kostenquantile, etwa `P90Cost`, bleiben Rechenergebnisse und Testverträge. Sie sind
+keine sichtbare Budgetkennzahl: Die Anzeige „Estimated 90% budget“ ist seit der
+Nutzerentscheidung vom 11.11.2026 aus normalem Crafting und Transfercrafting entfernt.
 Unvollständige Regeln, Preise, Fraktionsbindungen und abgebrochene Simulationen
 liefern keinen behaupteten Profit.
 
 `CraftingCalculatorService` hält das aktive Rechenszenario im RAM.
 `CraftingScenarioStore` speichert ausschließlich die manuelle Auswahl pro lokaler
 Profil-GUID atomar in `crafting-scenarios.json`: Bereich, Unterkategorie, Suche,
-Rezept/Variante, Menge, Simulationszahl, Bezugswege, Alternativen, Bestände und manuelle Rechenlevel.
+Rezept/Variante, Zielversuchszahl, Simulationszahl, Bezugswege, Alternativen,
+manuelle Bestandsangaben und manuelle Rechenlevel. Die Zielstückzahl eines
+angehefteten Fortschrittsziels gehört zu dessen getrenntem Vertrag.
 500-ms-Debounce und serieller Writer fassen Eingaben zusammen; letzte Lease und
 Dispose sichern verbleibende Änderungen. Profilwechsel restaurieren getrennte
 Szenarien, gelöschte Profile können durch verspätete Schreibvorgänge nicht
@@ -51,10 +69,14 @@ Simulationsschritten. Der bereits bestandsbereinigte Einkaufsrest wird nicht
 erneut um denselben Bestand vermindert. Mehrdeutige Herstellungswege erfordern
 eine explizite Auswahl. Sammeländerungen werden als eine Szenarioänderung gebucht.
 
-Die Mengenbalken zeigen ausdrücklich manuellen Planbestand. Gold mit dem bestehenden
-Unique-Glanz bedeutet gedeckten Durchschnittsbedarf ohne offenen Einkaufs- oder
-Produktionsanteil. Ein neu zu produzierendes Ziel hat ohne Ergebnisbeleg keinen
-behaupteten Fortschritt. Bestätigte Craft-Ereignisse, tatsächliche Ausgaben und
+Die Mengenbalken projizieren den wirksamen Planbestand. Der getrennte private
+Bestandsdienst ergänzt beobachtete eigene Teilmengen, deren Historie und geschützte
+manuelle Korrekturen; unbekannte Inventar-/Lagerbereiche gelten nicht als leer.
+Gold mit dem bestehenden Unique-Glanz bedeutet gedeckten Durchschnittsbedarf ohne
+offenen Einkaufs- oder Produktionsanteil. Diese Planabdeckung ist kein beobachteter
+Herstellungserfolg. Ein getrennt angeheftetes Ziel darf nur neue bestätigte und
+bereits journalisierte Zugänge zählen; die Zielstückzahl bleibt unabhängig von
+normalen Craftversuchen. Bestätigte Craft-Ereignisse, tatsächliche Ausgaben und
 Fehlcraft-Verluste sind noch nicht qualifiziert. Die eigene auswählbare Diagnose
 `crafting-dependency-map` weist diese Quellenlücke aus und aktiviert keine Quelle.
 Transfercrafting behält seine getrennte Kostenansicht und Beschaffungsregeln.
@@ -101,8 +123,9 @@ Bereich/Slot, andernfalls durch ein passendes Basisrezept oder eine leere Auswah
 Ungültige Herstellerwahlen werden entfernt; manuelle Bestände desselben Profils
 bleiben erhalten. Die passive Diagnose nennt Einstellungen- und Rezeptfraktion
 sowie die Zahl kompatibler Basisrezepte.
-`TransferCraftingCalculator` berechnet ausschließlich Bruttoherstellungskosten,
-Einkaufsmengen und das 90-%-Gesamtbudget. Es gibt keine Verkaufsbewertung von
+`TransferCraftingCalculator` berechnet ausschließlich Bruttoherstellungskosten
+und Einkaufsmengen. Intern berechnete Gesamtquantile werden nicht als
+90-%-Budgetkachel angezeigt. Es gibt keine Verkaufsbewertung von
 Transferausgaben oder Marktpreisabfragen für deren Ausrüstungsvorstufen.
 
 Eine exakt ausgewählte Transferausrüstung kann als vorhandene einzelne Kopie

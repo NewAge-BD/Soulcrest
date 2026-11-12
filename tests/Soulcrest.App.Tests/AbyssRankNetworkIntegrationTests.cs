@@ -1,6 +1,7 @@
 using System.Text;
 using System.Reflection;
 using Soulcrest.App.Network;
+using Soulcrest.App.OverlayEditorKit;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Network;
 using Soulcrest.Core.Instances;
@@ -391,6 +392,41 @@ public sealed class AbyssRankNetworkIntegrationTests
         Assert.Equal(5, restored.AbyssPoints); Assert.Equal(12, restored.RankPointsGained); Assert.Equal(15, restored.RankPointsLost);
         Assert.Equal(session.TimelineEvents.Select(fact => fact.Id), restored.TimelineEvents.Select(fact => fact.Id));
         Assert.All(restored.TimelineEvents, fact => Assert.Equal(LootTrackerActivityOrigin.Pve, fact.Origin));
+    }
+
+    [Fact]
+    public async Task OpenWorldTypedRankMessagesReachEverySessionWidgetWithAbyssTrackingDisabled()
+    {
+        await using var f = new Fixture(openWorld: true, abyssTracking: false);
+        await f.Enter(900_000);
+        Assert.Equal(WorldContextKind.OpenWorld, f.Network.WorldContext.Snapshot.Kind);
+        Assert.Equal(WorldContextStatus.Confirmed, f.Network.WorldContext.Snapshot.Status);
+        Assert.Empty(f.Loot.Snapshot.Sessions);
+        await f.Total(900_030);
+        await f.Total(900_050);
+        await f.Total(899_980);
+        await f.Total(899_980); // An echoed absolute total must not add another receipt.
+
+        var session = Assert.Single(f.Loot.Snapshot.Sessions);
+        Assert.Equal(LootTrackerSessionKind.Mixed, session.Kind);
+        Assert.Equal(TimeSpan.FromSeconds(3), session.Elapsed);
+        Assert.Equal(new long?[] { 30, 20, -70 }, session.TimelineEvents
+            .Where(fact => fact.Kind == LootTrackerTimelineEventKind.RankPoints).Select(fact => fact.Amount));
+        Assert.All(session.TimelineEvents, fact => Assert.Equal(LootTrackerActivityOrigin.Pve, fact.Origin));
+        Assert.Null(session.AbyssPoints);
+        Assert.Empty(session.CombatEvents); // Typed rank totals establish no combat cause.
+
+        var overlay = OverlayEditorPresentation.Project(f.Loot.OverlayState, null, null,
+            f.Clock.GetUtcNow(), TimeZoneInfo.Utc, "en");
+        Assert.True(overlay.SessionActive);
+        Assert.True(overlay.TrackingAvailable);
+        Assert.Equal(session.Id, overlay.SessionId);
+        Assert.Equal("-20", overlay.Metrics["rank-net"].Value);
+        Assert.Equal("50", overlay.Metrics["rank-gained"].Value);
+        Assert.Equal("70", overlay.Metrics["rank-lost"].Value);
+        Assert.Equal("-24,000", overlay.Metrics["rank-net-hour"].Value);
+        Assert.Equal("60,000", overlay.Metrics["rank-gained-hour"].Value);
+        Assert.Equal("84,000", overlay.Metrics["rank-lost-hour"].Value);
     }
 
     [Fact]

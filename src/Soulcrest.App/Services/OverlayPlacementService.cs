@@ -46,7 +46,8 @@ public sealed class OverlayPlacementService : IDisposable
     public static string EditorKey(string overlayId) => "kit:" + overlayId;
     public static bool IsEditorKey(string id) => id.StartsWith("kit:", StringComparison.Ordinal);
     internal static string EditorId(string key) => IsEditorKey(key) ? key[4..] : throw new ArgumentException("This is not an editor window.", nameof(key));
-    private static readonly string[] StaticFamilies = ["loot", "achievements", "genus-insight", "boss", "leveling", "alerts", "notifications", "event-timeline", "map", "merchant", "daevanion"];
+    private static readonly string[] StaticFamilies = ["loot", "achievements",
+        "genus-insight", "boss", "leveling", "alerts", "notifications", "event-timeline", "map", "merchant", "daevanion"];
     public string? Error { get; private set; }
     public string? PreferredMonitorId { get; private set; }
     public bool GridVisible

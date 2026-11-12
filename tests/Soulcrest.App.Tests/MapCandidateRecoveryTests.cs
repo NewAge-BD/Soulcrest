@@ -19,7 +19,7 @@ public sealed class MapCandidateRecoveryTests : IDisposable
         else File.WriteAllBytes(AppPaths.SettingsFile, _settings);
     }
 
-    [Theory]
+    [RequiresTheory(TestRequirement.MapData)]
     [InlineData(true)]
     [InlineData(false)]
     public void WeakCoarseMapSwitchNeedsStrongFineConfirmationBeforeLeavingInstance(bool strongFine)
@@ -90,7 +90,7 @@ public sealed class MapCandidateRecoveryTests : IDisposable
         }
     }
 
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public async Task MissingFineReferenceDoesNotBlockProbeOrPublishWeakPosition()
     {
         var pixels = new byte[300 * 300 * 3];

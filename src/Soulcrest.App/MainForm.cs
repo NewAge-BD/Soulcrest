@@ -42,6 +42,7 @@ public sealed class MainForm : Form
     private readonly Network.NetworkLootService _achievementSource;
     private readonly AchievementStateService _achievementState;
     private readonly AchievementOverlayForm _achievementOverlay;
+    private readonly UnifiedLootTrackerService _lootSessions;
     private readonly GenusInsightOverlayForm _genusInsightOverlay;
     private readonly MapTrackingService _map;
     private readonly WorldContextService _worldContext;
@@ -110,7 +111,6 @@ public sealed class MainForm : Form
         services.AddSingleton<CraftingProficiencyStore>();
         services.AddSingleton<CraftingProficiencyStateService>();
         services.AddSingleton<CraftingScenarioStore>();
-        services.AddSingleton<CraftingCalculatorService>();
         services.AddSingleton<PantheonStateService>();
         services.AddSingleton<DaevanionBoardEditService>();
         services.AddSingleton<Network.INetworkAchievementSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
@@ -137,6 +137,7 @@ public sealed class MainForm : Form
             combat: sp.GetRequiredService<Network.INetworkAbyssCombatSource>(),
             deleteLegacy: sp.GetRequiredService<UnifiedLootLegacyHistory>().Delete,
             readLegacyHistory: sp.GetRequiredService<UnifiedLootLegacyHistory>().ReadSessions));
+        services.AddSingleton<ICommittedLootFactSource>(sp => sp.GetRequiredService<UnifiedLootTrackerService>());
         services.AddSingleton(sp => new AbyssProgressService(sp.GetRequiredService<SettingsService>(),
             sp.GetRequiredService<Network.INetworkAbyssSource>(), sp.GetRequiredService<ExplorationService>(),
             sp.GetRequiredService<WorldContextService>()));
@@ -288,7 +289,7 @@ public sealed class MainForm : Form
         _achievementSource = _services.GetRequiredService<Network.NetworkLootService>();
         _achievementOverlay = new AchievementOverlayForm(_services.GetRequiredService<AchievementTrackerService>(), _settings);
         _genusInsightOverlay = new GenusInsightOverlayForm(_services.GetRequiredService<GenusInsightStateService>(), _settings);
-        _ = _services.GetRequiredService<UnifiedLootTrackerService>(); // subscribes before the shared network source starts
+        _lootSessions = _services.GetRequiredService<UnifiedLootTrackerService>(); // subscribes before the shared network source starts
         _ = _services.GetRequiredService<ExchangeLootValuationService>(); // new committed facts only; construction performs no HTTP
         _ = _services.GetRequiredService<ExchangeMarketAutoSelectionService>(); // user request 2026-11-10: follow the existing own-character binding
         _ = _services.GetRequiredService<DiagnosticsService>(); // runs along, writes logs\diagnose.txt
@@ -841,6 +842,10 @@ public sealed class MainForm : Form
         _tracker?.Dispose();
         _achievementSource.WaitForAchievementNotificationsAsync().GetAwaiter().GetResult();
         _achievementState.FlushAsync().GetAwaiter().GetResult();
+        // Drain already accepted loot before progress unsubscribes during DI disposal. No capture
+        // or new receipt is started here; a recovered journal never reannounces its old rewards.
+        try { _lootSessions.FlushAsync().GetAwaiter().GetResult(); }
+        catch (ObjectDisposedException) { /* An already disposed recorder has drained its worker. */ }
         _map?.Shutdown();
     }
 

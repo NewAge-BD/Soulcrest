@@ -18,7 +18,7 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")] // writes targets.json, routes.soulroute and settings.json of the test data folder
 public sealed class RouteTileRenderTests
 {
-    [Fact]
+    [RequiresFact(TestRequirement.MapData)]
     public async Task RouteTileShowsSaveButtonAndSavedRoutes()
     {
         File.Delete(AppPaths.TargetsFile);

@@ -59,7 +59,7 @@ public sealed class OverlayPlacementServiceTests : IDisposable
         placement.Stop();
         Assert.Same(OverlayRegistry.All, placement.Overlays);
         Assert.True(placement.Start());
-        Assert.Equal(8, placement.PlaceableOverlays.Count());
+        Assert.Equal(OverlayRegistry.All.Count(item => item.CanPlace), placement.PlaceableOverlays.Count());
         Assert.Contains(placement.PlaceableOverlays, overlay => overlay.Id == "achievements");
         Assert.Contains(placement.PlaceableOverlays, overlay => overlay.Id == "genus-insight");
         Assert.DoesNotContain(placement.PlaceableOverlays, overlay => overlay.Id is "farm-loot" or "abyss-rank");
@@ -153,8 +153,12 @@ public sealed class OverlayPlacementServiceTests : IDisposable
         Assert.Throws<ArgumentException>(() => OverlayRegistry.NormalizeLayout("merchant", new(0, 0, 1)));
         Assert.Equal(240, OverlayRegistry.NormalizeLayout("notifications", new(0, 0, 1, 10)).Width);
         Assert.Equal(1600, OverlayRegistry.NormalizeLayout("event-timeline", new(0, 0, 1, 9999)).Width);
-        Assert.Equal(11, OverlayRegistry.All.Count);
-        Assert.Equal(8, OverlayRegistry.All.Count(item => item.CanPlace));
+        string[] families = ["loot", "achievements",
+            "genus-insight", "boss", "leveling", "alerts", "notifications", "event-timeline", "map", "merchant", "daevanion"];
+        Assert.Equal(families, OverlayRegistry.All.Select(item => item.Id));
+        Assert.Equal(families.Length, OverlayRegistry.All.Count);
+        Assert.Equal(families.Count(id => id is not ("map" or "merchant" or "daevanion")),
+            OverlayRegistry.All.Count(item => item.CanPlace));
     }
 
     [Theory]

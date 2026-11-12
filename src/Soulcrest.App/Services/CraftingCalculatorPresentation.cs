@@ -104,6 +104,7 @@ public static class CraftingCalculatorPresentation
     {
         "InputPriceMissing" => "Für eine Zutat fehlt ein Kaufpreis.",
         "TargetPriceMissing" => "Für das Zielprodukt fehlt ein Verkaufspreis.",
+        "OutputPriceMissing" => "Für ein mögliches Ergebnis fehlt ein Verkaufspreis.",
         "ProficiencyUnknown" or "ProficiencyMissing" => "Das Proficiency Level ist noch unbekannt. Trage ein Rechenlevel ein oder bestätige den eigenen Welteintritt.",
         "ProficiencyTooLow" => "Das Rechenlevel liegt unter der Proficiency-Anforderung dieses Rezepts.",
         "SuccessRateUnknown" or "SuccessRateUnavailable" or "ProbabilityUnqualified" => "Die Erfolgswahrscheinlichkeit ist für diesen Proficiency-Abstand noch nicht belegt.",
@@ -111,7 +112,7 @@ public static class CraftingCalculatorPresentation
         "RecipeCycle" => "Die ausgewählte Herstellungskette enthält einen Kreis.",
         "TargetUnreachable" => "Das gewählte Zielprodukt ist mit diesem Plan nicht erreichbar.",
         "FactionUnavailable" or "MarketMismatch" => "Rezept und gewählte Marktfraktion passen nicht zusammen.",
-        "SimulationLimit" => "Die Berechnung hat ihre Grenze erreicht. Reduziere die Zielmenge oder kaufe ein Vorprodukt.",
+        "SimulationLimit" => "Die Berechnung hat ihre Grenze erreicht. Reduziere die Ziel-Craftvorgänge oder kaufe ein Vorprodukt.",
         "TradeabilityUnqualified" => "Die Handelbarkeit dieses Items ist noch nicht belegt.",
         "TargetTradeabilityUnknown" => "Die Handelbarkeit dieses Items ist noch nicht belegt.",
         "TargetNotTradable" => "Dieses Zielprodukt ist nicht am Markt handelbar. Ein Marktprofit ist deshalb nicht berechenbar.",
@@ -134,7 +135,7 @@ public sealed record CraftingCalculatorSnapshot
     public int SimulationSamples { get; init; } = 1000;
     public int? SelectedRecipeId { get; init; }
     public int? TargetItemId { get; init; }
-    public int TargetQuantity { get; init; } = 1;
+    public int TargetAttempts { get; init; } = 1;
     public string? ProfileId { get; init; }
     public bool ProficiencyFresh { get; init; }
     public bool UsingSavedProficiency { get; init; }
@@ -144,6 +145,7 @@ public sealed record CraftingCalculatorSnapshot
     public ImmutableDictionary<string, int> ReferenceLevels { get; init; } = ImmutableDictionary<string, int>.Empty;
     public ImmutableDictionary<string, int> RequiredProficiencyLevels { get; init; } = ImmutableDictionary<string, int>.Empty;
     public CraftingScenarioStorageState ScenarioStorage { get; init; } = CraftingScenarioStorageState.Unavailable;
+    public CraftingStockSnapshot Stock { get; init; } = CraftingStockSnapshot.Empty;
     public ImmutableDictionary<int, CraftingAcquisition> Acquisition { get; init; } = ImmutableDictionary<int, CraftingAcquisition>.Empty;
     public ImmutableDictionary<int, int> RecipeChoices { get; init; } = ImmutableDictionary<int, int>.Empty;
     public ImmutableDictionary<CraftingIngredientKey, int> ReplacementChoices { get; init; } = ImmutableDictionary<CraftingIngredientKey, int>.Empty;

@@ -46,7 +46,7 @@
             </div>
             @if (current.IsKnown)
             {
-                <DaevanionBoardSvg Board="current.Board" Language="Language" EditMode="true" CanEdit="current.CanEdit" ActualNodeIds="current.ActualNodeIds" DesiredNodeIds="current.DesiredNodeIds" AddedNodeIds="current.AddedNodeIds" RemovedNodeIds="current.RemovedNodeIds" SelectedNodeId="_nodeId" NodeSelected="@(id => ToggleNode(id, current.Board.Id, rendered.ProfileId, rendered.Generation))" />
+                <DaevanionBoardSvg Board="current.Board" Language="@Language" EditMode="true" CanEdit="current.CanEdit" ActualNodeIds="current.ActualNodeIds" DesiredNodeIds="current.DesiredNodeIds" AddedNodeIds="current.AddedNodeIds" RemovedNodeIds="current.RemovedNodeIds" SelectedNodeId="_nodeId" NodeSelected="@(id => ToggleNode(id, current.Board.Id, rendered.ProfileId, rendered.Generation))" />
             }
             else
             {

@@ -37,7 +37,8 @@ public sealed record CraftingScenarioDraft
         SimulatedLevels = state.SimulatedLevels, Acquisition = state.Acquisition, RecipeChoices = state.RecipeChoices,
         ReplacementChoices = state.ReplacementChoices.OrderBy(row => row.Key.RecipeId).ThenBy(row => row.Key.IngredientItemId)
             .Select(row => new CraftingScenarioReplacement(row.Key.RecipeId, row.Key.IngredientItemId, row.Value)).ToImmutableArray(),
-        OwnedItems = state.OwnedItems
+        // Automatic minima belong to stock history, never to manual scenario preferences.
+        OwnedItems = state.Stock.Available && state.Stock.ProfileId == state.ProfileId ? state.Stock.ManualItems : state.OwnedItems
     };
 
     public CraftingScenarioDraft Sanitize(CraftingCatalog catalog, string? faction)

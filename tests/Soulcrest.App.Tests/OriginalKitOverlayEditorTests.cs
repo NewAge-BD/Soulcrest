@@ -360,7 +360,8 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Equal(OverlayPlacementService.EditorKey(selected), placement.SelectedOverlayId);
         Assert.Equal(512, placement.Items.Single(item => item.Editor?.Id == selected).Editor!.Settings.Width);
         Assert.Equal(fixture.Service.Overlays.Count, placement.Items.Count(item => item.IsEditor));
-        Assert.Equal(new[] { "achievements", "alerts", "boss", "event-timeline", "genus-insight", "leveling", "loot", "notifications" },
+        Assert.Equal(new[] { "achievements", "alerts", "boss",
+            "event-timeline", "genus-insight", "leveling", "loot", "notifications" },
             placement.Items.Where(item => item.Native is not null && item.CanPlace).Select(item => item.Id).Order().ToArray());
         Assert.DoesNotContain(placement.Items, item => item.Native?.Id is "farm-loot" or "abyss-rank");
     }

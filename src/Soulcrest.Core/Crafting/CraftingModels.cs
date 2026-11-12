@@ -67,7 +67,8 @@ public sealed record CraftingPlanRequest
     public int? TargetItemId { get; init; }
     /// <summary>Exact newly crafted COMBO target quantity. Null preserves the normal scenario.</summary>
     public int? TargetOutputQuantity { get; init; }
-    public int TargetQuantity { get; init; } = 1;
+    /// <summary>Fixed number of attempts of the starting recipe, including failures and automatic COMBO rolls.</summary>
+    public int TargetAttempts { get; init; } = 1;
     public string? Faction { get; init; }
     public ImmutableDictionary<string, int> ProficiencyLevels { get; init; } = ImmutableDictionary<string, int>.Empty;
     public ImmutableDictionary<int, CraftingAcquisition> Acquisition { get; init; } = ImmutableDictionary<int, CraftingAcquisition>.Empty;
@@ -100,11 +101,12 @@ public sealed record CraftingPlanResult
     public int Seed { get; init; }
     public decimal? ExpectedCost { get; init; }
     public decimal? P90Cost { get; init; }
-    public decimal? TargetNetRevenue { get; init; }
+    public decimal? ExpectedNetRevenue { get; init; }
     public CraftingOutputResult? TargetOutput { get; init; }
     public decimal? ExpectedProfit { get; init; }
     public decimal? ExpectedFees { get; init; }
     public ImmutableArray<CraftingShoppingRow> Shopping { get; init; } = [];
     public ImmutableArray<CraftingStepResult> Steps { get; init; } = [];
+    public ImmutableArray<CraftingOutputResult> Outputs { get; init; } = [];
     public ImmutableArray<CraftingOutputResult> Byproducts { get; init; } = [];
 }

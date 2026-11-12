@@ -43,6 +43,17 @@ public sealed class DaevanionBoardViewTests
         Assert.False(fixture.Edits.Snapshot.IsActive);
     }
 
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task BoardSvgReceivesTheUiLanguageValueInsteadOfTheLiteralParameterName(string language)
+    {
+        // Regression: Language="Language" passed the text "Language" to the string parameter, so German showed English.
+        await using var fixture = new Fixture(language);
+        var html = await fixture.Render();
+        RazorStringParameterBindingTests.AssertDaevanionSvgLanguage(html, fixture.Board, language);
+    }
+
     [Fact]
     public async Task ClickingUnownedNodeAddsItLocallyAndSecondClickRollsBackWithoutChangingActualFacts()
     {

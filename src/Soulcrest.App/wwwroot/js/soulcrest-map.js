@@ -29,6 +29,7 @@ window.soulcrestMap = (() => {
     let kindLayers = [];
     let nameColors = Object.freeze({});
     let monsterDrops = null; // additive, per-spawn material presentation; original markers stay unchanged
+    let targetedResourceItems = new Set();
     let cubeGroups = null; // optional offline group presentation, isolated in soulcrest-cube-groups.js
     let petRefs = [], huntingGroundRefs = [];
     let bossTimerRows = new Map(), bossTimerRefs = new Map(), bossMarkerBySpawn = new Map(), bossTimerInterval = null;
@@ -268,6 +269,7 @@ window.soulcrestMap = (() => {
         playerNavigationValid = false;
         current = window.SoulcrestMaps[mapId];
         current.def = def;
+        targetedResourceItems = new Set((viewOptions?.targetedResourceItems || []).map(String));
 
         map.eachLayer(l => map.removeLayer(l));
         const size = def.size / scale();
@@ -523,6 +525,7 @@ window.soulcrestMap = (() => {
     // Older packages remain schema-1 compatible. Validate these legacy types before excluding
     // them from the displayed catalog (user request 2026-11-02).
     const RETIRED_DROP_TYPES = new Set(['Refining Stones', 'Balaur Materials', 'Other Materials']);
+    const TARGETED_DROP_TYPES = [['Refining Stones', 'Veredelungssteine'], ['Balaur Materials', 'Balaur-Materialien'], ['Other Materials', 'Andere Materialien']];
     const localDropIcon = icon => typeof icon === 'string'
         && /^icons\/[A-Za-z0-9_./-]+\.png$/.test(icon) && !icon.split('/').includes('..') ? icon : null;
     const dropId = id => typeof id === 'string' && /^[1-9][0-9]*$/.test(id);
@@ -556,9 +559,9 @@ window.soulcrestMap = (() => {
             monsterDrops.spawns.set(source.marker, { marker: source.marker, npcId: source.npcId, m,
                 items: [...ids].map(id => monsterDrops.items.get(id)).sort(itemOrder), selected: [], signature: '', layer: null, activeLayer: null });
         }
-        for (const [id, item] of monsterDrops.items) if (RETIRED_DROP_TYPES.has(item.type)) monsterDrops.items.delete(id);
+        for (const [id, item] of monsterDrops.items) if (RETIRED_DROP_TYPES.has(item.type) && !targetedResourceItems.has(id)) monsterDrops.items.delete(id);
         for (const [marker, spawn] of monsterDrops.spawns) {
-            spawn.items = spawn.items.filter(item => !RETIRED_DROP_TYPES.has(item.type));
+            spawn.items = spawn.items.filter(item => !RETIRED_DROP_TYPES.has(item.type) || targetedResourceItems.has(item.id));
             if (!spawn.items.length) monsterDrops.spawns.delete(marker);
         }
         for (const spawn of monsterDrops.spawns.values()) {
@@ -567,7 +570,7 @@ window.soulcrestMap = (() => {
             monsterDrops.byPosition.get(key).push(spawn);
         }
         const used = new Set([...monsterDrops.spawns.values()].flatMap(spawn => spawn.items.map(item => item.id)));
-        for (const [type, de] of DROP_TYPES) {
+        for (const [type, de] of [...DROP_TYPES, ...TARGETED_DROP_TYPES]) {
             const items = [...monsterDrops.items.values()].filter(item => item.type === type && used.has(item.id)).sort(itemOrder);
             if (!items.length) continue;
             const index = catLayers.length;
@@ -1286,6 +1289,20 @@ window.soulcrestMap = (() => {
 
     // Explicit monster selection fits every matching spawn without enabling a whole category.
     // Several exact English keys can share a localized display name in the information card.
+    function focusResource(points) {
+        cancelMarkerPopup();
+        if (!current || !map || !focusLayer || !Array.isArray(points)) return 0;
+        const seen = new Set();
+        const hits = points.filter(p => Number.isFinite(p?.x) && Number.isFinite(p?.y) && !seen.has(p.x + ',' + p.y) && seen.add(p.x + ',' + p.y));
+        focusLayer.clearLayers();
+        for (const p of hits) L.circleMarker(toLatLng(p.x, p.y), { renderer: canvas, radius: 7, color: '#f4d17c', weight: 2, fillColor: '#73bca0', fillOpacity: .3, interactive: false }).addTo(focusLayer);
+        if (hits.length) {
+            followPausedUntil = Date.now() + 6000;
+            map.fitBounds(L.latLngBounds(hits.map(p => toLatLng(p.x, p.y))).pad(.15), { maxZoom: current.def.maxNativeZoom, animate: false });
+        }
+        return hits.length;
+    }
+
     function focusMonster(name) {
         cancelMarkerPopup();
         if (!current || !map || !focusLayer) return 0;
@@ -1483,5 +1500,5 @@ window.soulcrestMap = (() => {
 
     const debugState = () => ({ center: map.getCenter(), zoom: map.getZoom(), focus: focusLayer ? focusLayer.getLayers().length : 0, map });
 
-    return { debugState, init, show, setNavigationContext, setBossTimers, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, focusMonster, flyToMarker, focusPet, toggleKibelisk, clearFocus, setLootRoute, clearLootRoute, invalidate, keptZoom };
+    return { debugState, init, show, setNavigationContext, setBossTimers, setLanguage, setPlayer, centerOnPlayer, elementSize, setTargets, flyToTarget, setExploration, setProgression, flyToProgression, setCategoryVisible, setKindVisible, setDone, search, focusMonster, focusResource, flyToMarker, focusPet, toggleKibelisk, clearFocus, setLootRoute, clearLootRoute, invalidate, keptZoom };
 })();

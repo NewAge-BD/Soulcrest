@@ -2,11 +2,27 @@
 @inject CraftingCalculatorService Calculator
 @inject ExplorationService Profiles
 @inject ExchangeMarketAutoSelectionService Automatic
+@inject CraftingProgressService Progress
+@inject ResourceMapService ResourceMaps
 
 <div class="craft-live-wrap">
+    <CraftingStockPanel State="Calculator.Snapshot.Stock" />
+    <div class="craft-track-controls" data-crafting-track-controls>
+        <label>@UiText.T("Zielstückzahl") <input type="number" min="1" max="100000" @bind="_targetQuantity" /></label>
+        <button type="button" class="btn primary" disabled="@(Calculator.Snapshot.SelectedRecipeId is null || Calculator.Snapshot.ProfileId is null)" @onclick="Pin">@UiText.T("Dieses Ziel verfolgen")</button>
+        @if (Progress.Snapshot.Pinned is { } pinned)
+        {
+            <span class="craft-track-status"><ItemName ItemId="pinned.TargetItemId" Text="@CraftingCalculatorPresentation.Name(Calculator.Catalog.FindItem(pinned.TargetItemId))" /> · @pinned.ConfirmedQuantity / @pinned.TargetQuantity</span>
+            <button type="button" class="btn" disabled="@(Calculator.Snapshot.TargetItemId != pinned.TargetItemId)" @onclick="UpdatePin">@UiText.T("Verfolgtes Ziel aktualisieren")</button>
+            <button type="button" class="btn" @onclick="Progress.Clear">@UiText.T("Verfolgung beenden")</button>
+        }
+        <button type="button" class="btn link" @onclick="ResourceMaps.EditDefaults">@UiText.T("Ressourcen-Kartenanzeige bearbeiten")</button>
+        @if (_pinFeedback is not null) { <span role="status">@UiText.T(_pinFeedback)</span> }
+    </div>
+    @if (ResourceMaps.Feedback is { } resourceFeedback) { <p class="craft-track-status" role="status">@UiText.T(resourceFeedback)</p> }
     <CraftingCalculatorView Catalog="Calculator.Catalog" State="Calculator.Snapshot"
         ProfessionChanged="Calculator.SetProfession" SubcategoryChanged="Calculator.SetSubcategory" QueryChanged="Calculator.SetQuery"
-        RecipeSelected="Calculator.SelectRecipe" TargetChanged="ChangeTarget" QuantityChanged="Calculator.SetQuantity"
+        RecipeSelected="Calculator.SelectRecipe" TargetChanged="ChangeTarget" AttemptsChanged="Calculator.SetAttempts"
         SimulationSamplesChanged="Calculator.SetSimulationSamples"
         LevelChanged="ChangeLevel" ResetLevels="Calculator.ResetProficiencies" SourceChanged="ChangeSource" SourcesChanged="Calculator.SetAcquisitions"
         ReplacementChanged="ChangeReplacement" OwnershipChanged="ChangeOwnership" OwnedQuantityChanged="ChangeOwnedQuantity" Refresh="Calculator.RefreshAsync" />
@@ -22,11 +38,24 @@
 @code {
     private IDisposable? _lease;
     private bool _disposed;
+    private int _targetQuantity = 1;
+    private int? _quantityRecipe;
+    private string? _pinFeedback;
     protected override void OnInitialized()
     {
-        Calculator.Changed += Refresh; Automatic.Changed += Refresh;
+        Calculator.Changed += Refresh; Automatic.Changed += Refresh; Progress.Changed += Refresh; ResourceMaps.Changed += Refresh;
         _lease = Calculator.Acquire();
+        ReadQuantity();
     }
+    private void ReadQuantity()
+    {
+        var state = Calculator.Snapshot;
+        if (_quantityRecipe == state.SelectedRecipeId) return;
+        _quantityRecipe = state.SelectedRecipeId;
+        _targetQuantity = CraftingCalculatorPresentation.IsComboEquipmentTarget(Calculator.Catalog, state.SelectedRecipeId) ? Math.Clamp(state.TargetAttempts, 1, 100000) : 1;
+    }
+    private void Pin() => _pinFeedback = Progress.Pin(Calculator.Snapshot, _targetQuantity) ? "Crafting-Ziel angeheftet." : "Das Ziel konnte noch nicht angeheftet werden. Prüfe Charakter und Rezeptplan.";
+    private void UpdatePin() => _pinFeedback = Progress.UpdatePinnedPlan(Calculator.Snapshot) ? "Verfolgter Rezeptplan aktualisiert." : "Öffne das angeheftete Ziel, um dessen Plan zu aktualisieren.";
     private void ChangeTarget(int id)
     {
         if (Calculator.Catalog.FindRecipe(id) is { } recipe) Calculator.SetTarget(id, recipe.OutputItemId);
@@ -37,6 +66,6 @@
     private void ChangeReplacement(CraftingReplacementSelection value) => Calculator.SetReplacement(value.RecipeId, value.IngredientId, value.SelectedId);
     private void ChangeOwnership(CraftingOwnershipSelection value) => Calculator.SetOwnership(value.ItemId, value.Owned);
     private void ChangeOwnedQuantity(CraftingOwnedQuantitySelection value) => Calculator.SetOwnedQuantity(value.ItemId, value.Quantity);
-    private void Refresh() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
-    public void Dispose() { _disposed = true; Calculator.Changed -= Refresh; Automatic.Changed -= Refresh; _lease?.Dispose(); }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(() => { ReadQuantity(); StateHasChanged(); }); }
+    public void Dispose() { _disposed = true; Calculator.Changed -= Refresh; Automatic.Changed -= Refresh; Progress.Changed -= Refresh; ResourceMaps.Changed -= Refresh; _lease?.Dispose(); }
 }

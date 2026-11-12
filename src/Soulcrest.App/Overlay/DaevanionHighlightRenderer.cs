@@ -61,8 +61,8 @@ public sealed class DaevanionHighlightRenderer
                 var state = graphics.Save();
                 try
                 {
-                    // User request 2026-11-12: follow the native frame, without the former extended footer.
-                    var envelope = ContourBounds(frame, spacing);
+                    // The same measured envelope as the node fitting bounds every antialiased fringe.
+                    var envelope = DaevanionNodeFitting.Bounds(frame, spacing);
                     graphics.SetClip(envelope, CombineMode.Intersect);
                     graphics.SetClip(frame, CombineMode.Exclude);
                     foreach (var native in nativeFrames)
@@ -89,7 +89,7 @@ public sealed class DaevanionHighlightRenderer
 
     private static (Bitmap Image, Point Offset) CreateStamp(Size size, double? spacing, double phase)
     {
-        var envelope = ContourBounds(new RectangleF(PointF.Empty, size), spacing);
+        var envelope = DaevanionNodeFitting.Bounds(new RectangleF(PointF.Empty, size), spacing);
         var left = (int)Math.Floor(envelope.Left); var top = (int)Math.Floor(envelope.Top);
         var image = new Bitmap(Math.Max(1, (int)Math.Ceiling(envelope.Right) - left),
             Math.Max(1, (int)Math.Ceiling(envelope.Bottom) - top), PixelFormat.Format32bppPArgb);
@@ -100,7 +100,7 @@ public sealed class DaevanionHighlightRenderer
             graphics.PageUnit = GraphicsUnit.Pixel;
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             var frame = new RectangleF(-left, -top, size.Width, size.Height);
-            var localEnvelope = ContourBounds(frame, spacing);
+            var localEnvelope = DaevanionNodeFitting.Bounds(frame, spacing);
             graphics.SetClip(localEnvelope, CombineMode.Intersect);
             graphics.SetClip(frame, CombineMode.Exclude);
             PaintContour(graphics, frame, localEnvelope, phase);
@@ -109,36 +109,21 @@ public sealed class DaevanionHighlightRenderer
         catch { image.Dispose(); throw; }
     }
 
-    internal static RectangleF ContourBounds(RectangleF frame, double? spacing = null)
-    {
-        var padding = Math.Min(frame.Width, frame.Height) * .06f;
-        if (spacing is { } pitch)
-        {
-            if (!double.IsFinite(pitch) || pitch <= 0) return frame;
-            var margin = Math.Max(1f, Math.Min(frame.Width, frame.Height) / 60f);
-            // Remain inside the conservative presentation/pruning envelope and reserve the neighboring frame.
-            padding = (float)Math.Max(0, Math.Min(padding,
-                Math.Min((pitch - frame.Width - margin) / 2, (pitch - frame.Height - margin) / 4)));
-        }
-        frame.Inflate(padding, padding);
-        return frame;
-    }
-
     private static void PaintContour(Graphics graphics, RectangleF frame, RectangleF envelope, double phase)
     {
-        var available = Math.Min(frame.Left - envelope.Left, frame.Top - envelope.Top);
-        if (available <= 0) return;
-        var distance = available * .72f;
-        var outside = RectangleF.Inflate(frame, distance, distance);
-        var bevel = distance;
+        var horizontal = Math.Clamp((frame.Left - envelope.Left) / (frame.Width * .09f), 0, 1);
+        var vertical = Math.Clamp((frame.Top - envelope.Top) / (frame.Height * .06f), 0, 1);
+        if (horizontal <= 0 || vertical <= 0) return;
+        static float Outside(float value, float scale) => value < 0 ? value * scale : value > 1 ? 1 + (value - 1) * scale : value;
+        PointF At(float x, float y) => new(frame.X + frame.Width * Outside(x, horizontal),
+            frame.Y + frame.Height * Outside(y, vertical));
         PointF[] points = [
-            new(outside.Left + bevel, outside.Top), new(outside.Right - bevel, outside.Top),
-            new(outside.Right, outside.Top + bevel), new(outside.Right, outside.Bottom - bevel),
-            new(outside.Right - bevel, outside.Bottom), new(outside.Left + bevel, outside.Bottom),
-            new(outside.Left, outside.Bottom - bevel), new(outside.Left, outside.Top + bevel)];
+            At(.075f, -.030f), At(.925f, -.030f), At(1.068f, .07f), At(1.068f, .925f),
+            At(.94f, 1.16f), At(.06f, 1.16f), At(-.068f, .925f), At(-.068f, .07f)];
         using var contour = new GraphicsPath();
         contour.AddPolygon(points);
         var scale = Math.Min(frame.Width, frame.Height) / 60f;
+        var available = Math.Min(frame.Width * .09f * horizontal, frame.Height * .06f * vertical);
         using var foundation = new Pen(Color.FromArgb(100, 211, 205, 177), Math.Min(.75f * scale, Math.Max(.2f, available)))
             { LineJoin = LineJoin.Round };
         graphics.DrawPath(foundation, contour);

@@ -738,6 +738,40 @@ public sealed class OverlayEditorLiveHostTests
         DrainRender(fixture);
     });
 
+    [Fact]
+    public Task NativeRankPresentationIsRecordedOnlyAfterAFrameReachesTheSurface() => RunSta(() =>
+    {
+        using var diagnosis = OverlayEditorLiveDiagnostics.BeginDiagnosticCollection();
+        using var fixture = new Fixture();
+        fixture.Editor.SaveAsync(fixture.Editor.Settings with { Widgets = [OverlayCatalog.CreateWidget("rank-net")] })
+            .GetAwaiter().GetResult();
+        var values = fixture.Source.Frame.Metrics.ToDictionary(pair => pair.Key, pair => pair.Value);
+        values["rank-net"] = values["rank-net"] with { Value = "—" };
+        fixture.Source.Frame = fixture.Source.Frame with { Metrics = values, Drops = [] };
+        fixture.Host.Start();
+        var initial = OverlayEditorLiveDiagnostics.CaptureRecorded().Frames.Last(frame =>
+            frame.PresentedRankInputsKnown?.ContainsKey("rank-net") == true);
+        Assert.Equal(1, initial.Presented);
+        Assert.False(initial.PresentedRankInputsKnown!["rank-net"]);
+        var pending = new TaskCompletionSource<Bitmap>(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Renderer.Pending = pending;
+        values = values.ToDictionary(pair => pair.Key, pair => pair.Value);
+        values["rank-net"] = values["rank-net"] with { Value = "-321" };
+        fixture.Source.Frame = fixture.Source.Frame with { Metrics = values };
+        fixture.Source.Publish();
+        var waiting = OverlayEditorLiveDiagnostics.CaptureRecorded().Frames.Single(frame => frame.Window == initial.Window);
+        Assert.Equal(2, waiting.Started);
+        Assert.Equal(1, waiting.Captured);
+        Assert.Equal(1, waiting.Presented);
+        fixture.Renderer.Pending = null;
+        pending.SetResult(new Bitmap(360, 260));
+        DrainRender(fixture);
+        var presented = OverlayEditorLiveDiagnostics.CaptureRecorded().Frames.Single(frame => frame.Window == initial.Window);
+        Assert.Equal(2, presented.Presented);
+        Assert.True(presented.PresentedRankInputsKnown!["rank-net"]);
+        Assert.Equal(2, Assert.Single(fixture.Surfaces).Shows);
+    });
+
     private static void WaitFor(Func<bool> condition)
     {
         var deadline = Environment.TickCount64 + 5000;

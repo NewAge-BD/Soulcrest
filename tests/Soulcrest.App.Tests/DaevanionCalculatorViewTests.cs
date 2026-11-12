@@ -50,6 +50,17 @@ public sealed class DaevanionCalculatorViewTests
         Assert.Equal(0, fixture.Optimizer.Calls);
     }
 
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task BoardSvgReceivesTheUiLanguageValueInsteadOfTheLiteralParameterName(string language)
+    {
+        // Regression: Language="Language" passed the text "Language" to the string parameter, so German showed English.
+        await using var fixture = new Fixture(language);
+        var html = await fixture.Render();
+        RazorStringParameterBindingTests.AssertDaevanionSvgLanguage(html, await fixture.CurrentBoard(), language);
+    }
+
     [Theory(Skip = PendingOwnWeights.Reason)]
     [InlineData("de")]
     [InlineData("en")]
@@ -489,6 +500,8 @@ public sealed class DaevanionCalculatorViewTests
             return WebUtility.HtmlDecode(_root.ToHtmlString());
         });
         public Task<string> Html() => Renderer.Dispatcher.InvokeAsync(() => WebUtility.HtmlDecode(_root.ToHtmlString()));
+        public Task<DaevanionBoard> CurrentBoard() => Renderer.Dispatcher.InvokeAsync(() => (DaevanionBoard)typeof(DaevanionCalculatorView)
+            .GetProperty("CurrentBoard", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_view)!);
 #pragma warning disable BL0006 // Extract only the callbacks emitted by the production Razor view.
         public Task MovePriority(DaevanionPriorityMove move) => Renderer.Dispatcher.InvokeAsync(async () =>
         {

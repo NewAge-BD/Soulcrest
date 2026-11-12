@@ -14,7 +14,7 @@ Beispieldaten/*.gif
 Beispieldaten/frames/
 Beispieldaten/*.png
 
-# Generierte Kartendaten (per scripts/Import-OpenMapData.ps1 reproduzierbar)
+# Generierte Kartendaten (aktiver Aufbereiter: scripts/build_tester_data.py)
 data/maps/*/tiles/
 data/maps/*/reference.webp
 data/maps/*/*.features.bin

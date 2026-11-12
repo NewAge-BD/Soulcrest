@@ -1,0 +1,55 @@
+@implements IDisposable
+@inject IServiceProvider Services
+@inject IJSRuntime JS
+
+@if (Resources?.Pending is { } request)
+{
+    <div class="resource-map-backdrop" @onclick="Cancel">
+        <section class="resource-map-dialog" role="dialog" aria-modal="true" aria-labelledby="resource-map-title" @onclick:stopPropagation="true" @onkeydown="KeyDown">
+            <div class="resource-map-dialog-head"><span aria-hidden="true">⌖</span><button type="button" aria-label="@UiText.T("Schließen")" @onclick="Cancel">×</button></div>
+            <h2 id="resource-map-title">Choose where to show the Ressources</h2>
+            @if (!request.EditingDefaults) { <p><ItemName ItemId="@(request.ItemId ?? 0)" Text="@request.ItemName" /></p> }
+            else { <p>@UiText.T("Standardauswahl für alle Ressourcen")</p> }
+            <div class="resource-map-options">
+                <label><input id="resource-map-world" type="checkbox" checked="@_world" @onchange="@(e => Change(MapSurface.Worldmap, e.Value is true))" /><span>Ingame Worldmap</span>@MixedNote(MapSurface.Worldmap)</label>
+                <label><input id="resource-map-mini" type="checkbox" checked="@_mini" @onchange="@(e => Change(MapSurface.Minimap, e.Value is true))" /><span>Ingame Minimap</span>@MixedNote(MapSurface.Minimap)</label>
+                <label><input id="resource-map-soulcrest" type="checkbox" checked="@_soulcrest" @onchange="@(e => Change(MapSurface.Interactive, e.Value is true))" /><span>Soulcrest Map</span>@MixedNote(MapSurface.Interactive)</label>
+            </div>
+            <label class="resource-map-remember"><input type="checkbox" @bind="_remember" /><span>dont show me again</span></label>
+            <p class="resource-map-note">@UiText.T("Die Auswahl gilt für diese Ressource auf allen bestätigten Fundkarten.")</p>
+            @if (!_world && !_mini && !_soulcrest) { <p role="status">@UiText.T("Wähle mindestens eine Karte aus.")</p> }
+            <div class="resource-map-dialog-actions"><button type="button" class="btn" @onclick="Cancel">@UiText.T("Abbrechen")</button><button type="button" class="btn primary" disabled="@(!_world && !_mini && !_soulcrest)" @onclick="Confirm">@UiText.T(request.EditingDefaults ? "Speichern" : "Auf Karte anzeigen")</button></div>
+        </section>
+    </div>
+}
+
+@code {
+    private ResourceMapDialogRequest? _shown;
+    private ResourceMapService? Resources;
+    private bool _world, _mini, _soulcrest, _remember;
+    private readonly HashSet<MapSurface> _mixed = [];
+    protected override void OnInitialized() { Resources = Services.GetService(typeof(ResourceMapService)) as ResourceMapService; if (Resources is not null) Resources.Changed += Refresh; Read(); }
+    private void Read()
+    {
+        if (ReferenceEquals(_shown, Resources?.Pending)) return;
+        _shown = Resources?.Pending; _mixed.Clear();
+        if (_shown is null) return;
+        _world = _shown.Selection.Worldmap; _mini = _shown.Selection.Minimap; _soulcrest = _shown.Selection.Soulcrest; _remember = _shown.DontShowAgain;
+        _mixed.UnionWith(_shown.Mixed);
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shown is not null) await JS.InvokeVoidAsync("soulcrestResourceMap.dialog", _mixed.Select(surface => surface switch { MapSurface.Worldmap => "resource-map-world", MapSurface.Minimap => "resource-map-mini", _ => "resource-map-soulcrest" }).ToArray());
+    }
+    private RenderFragment MixedNote(MapSurface surface) => builder => { if (_mixed.Contains(surface)) { builder.OpenElement(0, "small"); builder.AddContent(1, UiText.T("Je nach Karte unterschiedlich")); builder.CloseElement(); } };
+    private void Change(MapSurface surface, bool value)
+    {
+        _mixed.Remove(surface);
+        if (surface == MapSurface.Worldmap) _world = value; else if (surface == MapSurface.Minimap) _mini = value; else _soulcrest = value;
+    }
+    private void Confirm() => Resources?.Confirm(new(_world, _mini, _soulcrest), _remember);
+    private void Cancel() => Resources?.Cancel();
+    private void KeyDown(KeyboardEventArgs e) { if (e.Key == "Escape") Cancel(); }
+    private void Refresh() => _ = InvokeAsync(() => { Read(); StateHasChanged(); });
+    public void Dispose() { if (Resources is not null) Resources.Changed -= Refresh; }
+}

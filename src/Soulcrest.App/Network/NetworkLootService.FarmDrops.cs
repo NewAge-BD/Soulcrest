@@ -20,6 +20,7 @@ public sealed partial class NetworkLootService
     /// <summary>Called only after the common entry transaction has qualified this list and Own.</summary>
     private void BindFarmDropBaseline(CurrencyInventoryList? list)
     {
+        BindStockBaseline(list, _kinaBaselineAt);
         ResetFarmDropContext();
         var character = _ownCharacter;
         if (character is null) return;

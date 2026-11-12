@@ -1,9 +1,11 @@
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using Soulcrest.App.Capture;
 using Soulcrest.App.Network;
 using Soulcrest.App.Overlay;
 using Soulcrest.App.OverlayEditorKit;
 using Soulcrest.Core.GenusInsight;
+using Soulcrest.Core.Network;
 
 namespace Soulcrest.App.Services;
 
@@ -14,6 +16,82 @@ namespace Soulcrest.App.Services;
 /// </summary>
 public static class DiagnosticContributors
 {
+    internal static DiagnosticResult CraftingStockState(CraftingStockSnapshot snapshot, DateTimeOffset now)
+    {
+        ImmutableArray<NetworkStockScope> scopes = snapshot.Scopes.IsDefault ? [] : snapshot.Scopes;
+        var status = snapshot.StorageError is not null ? DiagnosticStatus.Error
+            : !snapshot.Available ? DiagnosticStatus.Waiting
+            : snapshot.IsFresh && snapshot.IsComplete ? DiagnosticStatus.Healthy : DiagnosticStatus.Warning;
+        return AnonymousState("crafting-stock", status, now,
+            ("profileBound", snapshot.Available), ("fresh", snapshot.IsFresh), ("complete", snapshot.IsComplete),
+            ("effectiveItemKinds", snapshot.EffectiveItems.Count), ("observedItemKinds", snapshot.ObservedItems.Count),
+            ("observedMinimumItemKinds", snapshot.ObservedMinimumItems.Count), ("manualItemKinds", snapshot.ManualItems.Count),
+            ("manualOverrideItemKinds", snapshot.EffectiveItems.Count(row => row.Value.Origin == StockOrigin.ManualOverride)),
+            ("legacyManualItemKinds", snapshot.EffectiveItems.Count(row => row.Value.Origin == StockOrigin.LegacyManual)),
+            ("freshItemKinds", snapshot.EffectiveItems.Count(row => row.Value.Freshness == StockFreshness.Fresh)),
+            ("historicalItemKinds", snapshot.EffectiveItems.Count(row => row.Value.Freshness == StockFreshness.Historical)),
+            ("scopeCount", scopes.Length), ("knownScopeCount", scopes.Count(scope => scope.Completeness is StockCompleteness.Partial or StockCompleteness.Complete)),
+            ("completeScopeCount", scopes.Count(scope => scope.Completeness == StockCompleteness.Complete)),
+            ("bagScopeKnown", scopes.Any(scope => scope.Scope == StockScope.Bag && scope.Completeness is StockCompleteness.Partial or StockCompleteness.Complete)),
+            ("characterStorageScopeKnown", scopes.Any(scope => scope.Scope == StockScope.CharacterStorage && scope.Completeness is StockCompleteness.Partial or StockCompleteness.Complete)),
+            ("serverStorageScopeKnown", scopes.Any(scope => scope.Scope == StockScope.ServerStorage && scope.Completeness is StockCompleteness.Partial or StockCompleteness.Complete)),
+            ("storageError", snapshot.StorageError is not null));
+    }
+
+    internal static DiagnosticResult ResourceMapLinksState(ResourceMapSources sources, AppSettings settings,
+        bool serviceAvailable, bool dialogOpen, DateTimeOffset now)
+    {
+        var defaults = settings.ResourceMapDefaultSelection;
+        return AnonymousState("resource-map-links", sources.UnavailableMaps.Length > 0 ? DiagnosticStatus.Warning
+            : sources.ItemCount == 0 ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy, now,
+            ("serviceAvailable", serviceAvailable), ("sourceItemKinds", sources.ItemCount),
+            ("unavailableMapCount", sources.UnavailableMaps.Length),
+            ("defaultWorldmap", defaults.Worldmap), ("defaultMinimap", defaults.Minimap), ("defaultSoulcrest", defaults.Soulcrest),
+            ("dontShowAgain", settings.ResourceMapDontShowAgain), ("targetedItemKinds", settings.TargetedResourceMapItems.Length),
+            ("dialogOpen", dialogOpen));
+    }
+
+    internal static DiagnosticResult CraftingProgressOverlayState(bool enabled, DiagnosticOverlayRuntimeState? runtime,
+        CraftingProgressSnapshot? snapshot, bool stockAvailable, bool committedLootAvailable, bool networkStockAvailable,
+        DateTimeOffset now, IReadOnlyList<(string Key, object? Value)>? contextFacts = null)
+    {
+        var age = runtime is null ? (double?)null : (now - runtime.ObservedAt).TotalMilliseconds;
+        var status = !enabled ? DiagnosticStatus.Disabled
+            : runtime?.Disposed == true || snapshot?.Error is not null ? DiagnosticStatus.Error
+            : runtime is null || snapshot is null ? DiagnosticStatus.Waiting
+            : age is < 0 or > 5000 ? DiagnosticStatus.Warning : DiagnosticStatus.Healthy;
+        var rows = snapshot?.Rows ?? [];
+        var facts = contextFacts?.ToList() ?? [];
+        void Set(string key, object? value) { facts.RemoveAll(row => row.Key == key); facts.Add((key, value)); }
+        Set("enabled", enabled); Set("nativeVisibilityKnown", runtime is not null);
+        Set("nativeVisible", runtime?.Visible); Set("handleCreated", runtime?.HandleCreated);
+        Set("disposed", runtime?.Disposed); Set("runtimeAgeMs", age);
+        Set("progressServiceAvailable", snapshot is not null); Set("goalPinned", snapshot?.Pinned is not null);
+        Set("targetQuantity", snapshot?.Pinned?.TargetQuantity); Set("confirmedQuantity", snapshot?.Pinned?.ConfirmedQuantity);
+        Set("rowCount", snapshot is null ? null : rows.Length); Set("planItemCount", snapshot?.Pinned?.PlanItems.Length);
+        Set("planFresh", snapshot?.PlanIsFresh); Set("planBusy", snapshot?.PlanBusy);
+        Set("fresh", snapshot?.IsFresh); Set("historical", snapshot?.IsHistorical);
+        Set("hasContent", snapshot?.HasContent); Set("error", snapshot?.Error is not null);
+        Set("ignoredReceiptCount", snapshot?.IgnoredReceipts);
+        Set("stockSourceAvailable", stockAvailable); Set("committedLootSourceAvailable", committedLootAvailable);
+        Set("networkStockSourceAvailable", networkStockAvailable);
+        Set("availableSourceCount", (stockAvailable ? 1 : 0) + (committedLootAvailable ? 1 : 0) + (networkStockAvailable ? 1 : 0));
+        foreach (var source in Enum.GetValues<CraftingProgressSource>())
+            Set(char.ToLowerInvariant(source.ToString()[0]) + source.ToString()[1..] + "SourceRows",
+                snapshot is null ? null : rows.Count(row => row.SourceQuantities.GetValueOrDefault(source) > 0));
+        return AnonymousState("overlay-crafting-progress", status, now, facts.ToArray());
+    }
+
+    private static DiagnosticResult AnonymousState(string id, DiagnosticStatus status, DateTimeOffset now,
+        params (string Key, object? Value)[] facts) => new(id, status, now.ToUniversalTime(), status switch
+        {
+            DiagnosticStatus.Healthy => "Zustand verfügbar, keine Auffälligkeit erkannt.",
+            DiagnosticStatus.Warning => "Unvollständige oder veraltete Daten; Details prüfen.",
+            DiagnosticStatus.Error => "Ein Fehler wurde erkannt; Details prüfen.",
+            DiagnosticStatus.Disabled => "Diese Funktion ist ausgeschaltet.",
+            _ => "Die Funktion wartet auf passende Daten."
+        }, new ReadOnlyDictionary<string, object?>(facts.ToDictionary(row => row.Key, row => row.Value, StringComparer.Ordinal)));
+
     internal static DiagnosticResult GenusInsightOverlaySnapshot(bool enabled, DiagnosticOverlayRuntimeState? runtime,
         GenusInsightSnapshot? source, GenusMenuSnapshot? menu, DateTimeOffset now,
         IReadOnlyList<(string Key, object? Value)>? contextFacts = null)
@@ -136,12 +214,12 @@ public static class DiagnosticContributors
 
     internal static DiagnosticResult LootSessionSnapshot(LootTrackerSnapshot snapshot, bool sourceAvailable,
         bool statusError, long? itemThreshold, long automaticallyDeleted, bool cleanupIncomplete, DateTimeOffset now,
-        bool? trackingEnabled, bool? waitingForWorldContext = null)
+        bool? trackingEnabled, bool? waitingForWorldContext = null, LootRecordingFaultSnapshot? recordingFault = null)
     {
         var sessions = snapshot.Sessions;
         var age = snapshot.At is { } observed ? now - observed : (TimeSpan?)null;
         var fresh = age is { } elapsed ? elapsed >= TimeSpan.Zero && elapsed <= TimeSpan.FromSeconds(5) : (bool?)null;
-        var status = statusError || cleanupIncomplete ? DiagnosticStatus.Error
+        var status = statusError || cleanupIncomplete || recordingFault is not null ? DiagnosticStatus.Error
             : trackingEnabled == false ? DiagnosticStatus.Disabled
             : trackingEnabled is null || !sourceAvailable || fresh != true || itemThreshold is null
                 ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy;
@@ -168,7 +246,13 @@ public static class DiagnosticContributors
                 ["automaticallyDeletedSmallSessions"] = Math.Max(0, automaticallyDeleted),
                 ["smallSessionCleanupIncomplete"] = cleanupIncomplete,
                 ["abyssSessionsExcludedFromIdleAndAutomaticDeletion"] = true,
-                ["observedAtUtc"] = snapshot.At?.ToUniversalTime()
+                ["observedAtUtc"] = snapshot.At?.ToUniversalTime(),
+                ["recordingFaultPresent"] = recordingFault is not null,
+                ["recordingFaultAtUtc"] = recordingFault?.At.ToUniversalTime(),
+                ["recordingFaultStage"] = recordingFault?.Stage.ToString(),
+                ["recordingFaultKind"] = recordingFault?.Kind.ToString(),
+                ["recordingFaultExceptionType"] = recordingFault?.ExceptionType,
+                ["recordingFaultHResult"] = recordingFault?.HResult
             }));
     }
 
@@ -364,6 +448,7 @@ public static class DiagnosticContributors
                 ("transferGuaranteeSource", transfer ? Soulcrest.Core.Crafting.TransferCraftingRules.PolicyGuaranteeSource : null),
                 ("ownedItemKinds", state.OwnedItems.Count),
                 ("ownedEquipmentKinds", state.OwnedItems.Count(row => Soulcrest.Core.Crafting.TransferCraftingRules.IsEquipment(service.Catalog, row.Key))),
+                ("targetMode", CraftingCalculatorPresentation.IsComboEquipmentTarget(service.Catalog, state.SelectedRecipeId) ? "exact-combo-output" : "starting-recipe-attempts"), ("targetAttempts", state.TargetAttempts),
                 ("exactComboTarget", CraftingCalculatorPresentation.IsComboEquipmentTarget(service.Catalog, state.SelectedRecipeId)),
                 ("referenceSimulation", !state.ReferenceLevels.IsEmpty), ("referenceProfessionCount", state.ReferenceLevels.Count),
                 ("simulationSamples", state.SimulationSamples),
@@ -394,7 +479,20 @@ public static class DiagnosticContributors
                 ("calculationStatus", result?.Status.ToString()), ("calculationIssueCount", result?.Issues.Length),
                 ("completedSimulationCount", result?.Samples), ("hasExpectedCost", result?.ExpectedCost is not null),
                 ("hasP90Budget", result?.P90Cost is not null), ("hasProfit", result?.ExpectedProfit is not null),
-                ("hasExactTargetOutput", result?.TargetOutput is not null));
+                ("hasExactTargetOutput", result?.TargetOutput is not null),
+                ("expectedOutputKinds", result?.Outputs.Length),
+                ("expectedOutputQuantity", result?.Outputs.Sum(row => row.ExpectedQuantity)),
+                ("hasExpectedNetRevenue", result?.ExpectedNetRevenue is not null));
+        }
+
+        private DiagnosticResult CraftingStock() => Existing<CraftingStockService>() is { } stock
+            ? CraftingStockState(stock.Snapshot, DateTimeOffset.UtcNow) : Missing();
+
+        private DiagnosticResult ResourceMapLinks()
+        {
+            if (Existing<ResourceMapSources>() is not { } sources || Settings is not { } settings) return Missing();
+            var service = Existing<ResourceMapService>();
+            return ResourceMapLinksState(sources, settings, service is not null, service?.Pending is not null, DateTimeOffset.UtcNow);
         }
 
         private DiagnosticResult System()
@@ -590,6 +688,7 @@ public static class DiagnosticContributors
             if (Existing<UnifiedLootTrackerService>() is not { } tracker) return Missing();
             var snapshot = tracker.Snapshot;
             var sessions = snapshot.Sessions;
+            var fault = tracker.RecordingFault;
             if (id == "loot-statistics") return Result(DiagnosticStatus.Healthy,
                 ("sessions", sessions.Length), ("timelineEvents", sessions.Sum(session => session.TimelineEvents.Length)),
                 ("minuteBins", sessions.Sum(session => session.MinuteIncome.Length)),
@@ -598,7 +697,7 @@ public static class DiagnosticContributors
             if (id == "loot-sessions") return LootSessionSnapshot(snapshot, tracker.SourceAvailable,
                 tracker.StatusIsError, Existing<SettingsService>()?.GetLootTrackerSmallSessionItemThreshold(),
                 tracker.AutomaticallyDeletedSmallSessionCount, tracker.SmallSessionCleanupIncomplete, DateTimeOffset.UtcNow,
-                Settings?.LootTrackingEnabled, tracker.OverlayState.WaitingForWorldContext);
+                Settings?.LootTrackingEnabled, tracker.OverlayState.WaitingForWorldContext, fault);
             var enabled = id == "loot-pve" ? Settings?.MonsterLootTrackingEnabled : Settings?.LifeskillTrackingEnabled;
             return Result(enabled == false ? DiagnosticStatus.Disabled : tracker.StatusIsError ? DiagnosticStatus.Error
                 : tracker.SourceAvailable ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting,
@@ -608,7 +707,10 @@ public static class DiagnosticContributors
                 ("sessionsWithActivity", id == "loot-pve" ? sessions.Count(session => session.MonsterCount > 0)
                     : sessions.Count(session => session.HarvestCount > 0 || session.FailedHarvestCount > 0)),
                 ("idlePauseSeconds", LootTrackerPresentation.IdlePauseSeconds),
-                ("idleCloseSeconds", LootTrackerPresentation.IdleCloseSeconds), ("observedAtUtc", snapshot.At?.ToUniversalTime()));
+                ("idleCloseSeconds", LootTrackerPresentation.IdleCloseSeconds), ("observedAtUtc", snapshot.At?.ToUniversalTime()),
+                ("recordingFaultPresent", fault is not null), ("recordingFaultAtUtc", fault?.At.ToUniversalTime()),
+                ("recordingFaultStage", fault?.Stage.ToString()), ("recordingFaultKind", fault?.Kind.ToString()),
+                ("recordingFaultExceptionType", fault?.ExceptionType), ("recordingFaultHResult", fault?.HResult));
         }
 
         private DiagnosticResult Abyss()
