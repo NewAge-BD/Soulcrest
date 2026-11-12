@@ -18,6 +18,37 @@ namespace Soulcrest.App.Tests;
 public sealed class OriginalKitOverlayEditorTests
 {
     [Theory]
+    [InlineData("de", "Warte auf bestätigten Kartenkontext", "Teleportiere deinen Charakter einmal")]
+    [InlineData("en", "Waiting for confirmed map context", "Teleport your character once")]
+    public async Task MissingWorldContextNoticeUsesLiveMetadataAndClearsWithoutChangingLayoutsOrSourceLeases(string language, string heading, string action)
+    {
+        await using var fixture = await Fixture.Create(language: language, seedLegacy: false);
+        var acquisitions = fixture.Source.Acquisitions.ToArray();
+        fixture.Source.WaitingForWorldContext = true; fixture.Source.Publish(); await fixture.Refresh();
+        var html = await fixture.Html();
+        Assert.Contains("data-overlay-world-context-warning=\"true\"", html);
+        Assert.Contains(heading, html);
+        Assert.Contains(action, html);
+        Assert.Contains("role=\"status\"", html);
+        Assert.False(Directory.Exists(fixture.Directory));
+        Assert.Equal(acquisitions, fixture.Source.Acquisitions);
+        await fixture.Invoke("ShowModulePreview", "duration");
+        var popup = (await fixture.Html()).Split("class=\"oe-module-preview\"", 2)[1].Split("class=\"oe-workbench\"", 2)[0];
+        Assert.DoesNotContain(heading, popup);
+        fixture.Source.WaitingForWorldContext = false; fixture.Source.Publish(); await fixture.Refresh();
+        Assert.DoesNotContain("data-overlay-world-context-warning", await fixture.Html());
+        Assert.Equal(acquisitions, fixture.Source.Acquisitions);
+        fixture.Source.WaitingForWorldContext = true; fixture.Source.Publish(); await fixture.Refresh();
+        await fixture.Invoke("ChangePreviewMode", new ChangeEventArgs { Value = true });
+        Assert.DoesNotContain("data-overlay-world-context-warning", await fixture.Html());
+        await fixture.Invoke("ChangePreviewMode", new ChangeEventArgs { Value = false });
+        Assert.Contains("data-overlay-world-context-warning", await fixture.Html());
+        await fixture.SetSection("presets");
+        Assert.DoesNotContain("data-overlay-world-context-warning", await fixture.Html());
+        Assert.False(Directory.Exists(fixture.Directory));
+    }
+
+    [Theory]
     [InlineData("de", "Overlay aktivieren", "Overlay deaktivieren")]
     [InlineData("en", "Activate Overlay", "Deactivate Overlay")]
     public async Task HeaderActivationWorksWithoutNativePlacementAndPersistsOnlyItsSelectedWindow(string language, string activate, string deactivate)
@@ -329,7 +360,7 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Equal(OverlayPlacementService.EditorKey(selected), placement.SelectedOverlayId);
         Assert.Equal(512, placement.Items.Single(item => item.Editor?.Id == selected).Editor!.Settings.Width);
         Assert.Equal(fixture.Service.Overlays.Count, placement.Items.Count(item => item.IsEditor));
-        Assert.Equal(new[] { "achievements", "alerts", "boss", "event-timeline", "leveling", "loot", "notifications" },
+        Assert.Equal(new[] { "achievements", "alerts", "boss", "event-timeline", "genus-insight", "leveling", "loot", "notifications" },
             placement.Items.Where(item => item.Native is not null && item.CanPlace).Select(item => item.Id).Order().ToArray());
         Assert.DoesNotContain(placement.Items, item => item.Native?.Id is "farm-loot" or "abyss-rank");
     }
@@ -1128,6 +1159,28 @@ public sealed class OriginalKitOverlayEditorTests
     }
 
     [Fact]
+    public async Task SelectedAndVirtualizedItemNamesUseExactIdentityWithoutChangingPickerKeys()
+    {
+        await using var fixture = await Fixture.Create(seedLegacy: false);
+        var known = new OverlayLootItem("Item:610530005", "Recorded picker name", "0");
+        var unknown = new OverlayLootItem("Item:1999999999", "Recorded unknown picker", "0", Rarity: LootItemRarity.Unique);
+        fixture.Source.CatalogOverride = [known, unknown];
+        await fixture.Invoke("AddModuleAt", "drop-grid", 8d, 8d);
+        await fixture.Invoke("AddItem", known.Key);
+        var html = await fixture.Html();
+        var selected = System.Text.RegularExpressions.Regex.Match(html, "class=\"oe-selected-items\".*?<p class=\"oe-help\"", System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+        Assert.Contains("color:" + ItemNamePresentation.ForDropKey(known.Key).CssColor, selected);
+        Assert.Contains(known.Name, selected); Assert.Contains("role=\"tooltip\"", selected);
+        var itemRow = await fixture.VirtualizedItemMarkup(unknown);
+        Assert.Contains("data-item-name=\"true\"", itemRow);
+        Assert.Contains(unknown.Name, itemRow); Assert.DoesNotContain("data-item-grade=", itemRow);
+        Assert.DoesNotContain("color:", itemRow);
+        Assert.Equal(new[] { known.Key }, fixture.Service.Settings.Widgets.Single().ItemKeys);
+        await fixture.Invoke("AddItem", unknown.Key);
+        Assert.Equal(new[] { known.Key, unknown.Key }, fixture.Service.Settings.Widgets.Single().ItemKeys);
+    }
+
+    [Fact]
     public async Task LargeItemPickerVirtualizesItsRowsKeepsItsCacheAndFindsTheLastItem()
     {
         await using var fixture = await Fixture.Create(seedLegacy: false);
@@ -1589,6 +1642,12 @@ public sealed class OriginalKitOverlayEditorTests
         }
     }
 
+    public sealed class PickerTemplateHost : ComponentBase
+    {
+        [Parameter] public RenderFragment? Content { get; set; }
+        protected override void BuildRenderTree(RenderTreeBuilder builder) => builder.AddContent(0, Content);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly string _language = UiText.Language;
@@ -1642,6 +1701,19 @@ public sealed class OriginalKitOverlayEditorTests
             return fixture;
         }
         public Task<string> Html() => _renderer.Dispatcher.InvokeAsync(() => WebUtility.HtmlDecode(_root.ToHtmlString()));
+        public Task<string> VirtualizedItemMarkup(OverlayLootItem item) => _renderer.Dispatcher.InvokeAsync(async () =>
+        {
+#pragma warning disable BL0006
+            using var tree = new RenderTreeBuilder();
+            typeof(OriginalKitOverlayEditor).GetMethod("BuildRenderTree", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_editor, [tree]);
+            var frames = tree.GetFrames();
+            var template = Enumerable.Range(0, frames.Count).Select(index => frames.Array[index])
+                .Where(frame => frame.FrameType == Microsoft.AspNetCore.Components.RenderTree.RenderTreeFrameType.Attribute)
+                .Select(frame => frame.AttributeValue).OfType<RenderFragment<OverlayLootItem>>().Single();
+#pragma warning restore BL0006
+            return (await _renderer.RenderComponentAsync<PickerTemplateHost>(ParameterView.FromDictionary(new Dictionary<string, object?>
+                { [nameof(PickerTemplateHost.Content)] = template(item) }))).ToHtmlString();
+        });
         public Task Refresh() => _renderer.Dispatcher.InvokeAsync(() => _editor.Refresh());
         public Task SetSection(string section) => _renderer.Dispatcher.InvokeAsync(() => _editor.SetParametersAsync(
             ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(OriginalKitOverlayEditor.Section)] = section })));
@@ -1786,10 +1858,12 @@ public sealed class OriginalKitOverlayEditorTests
         public int ActiveLeases { get; private set; }
         public int ActiveMarketLeases { get; private set; }
         public bool DistinctModes { get; set; }
+        public bool WaitingForWorldContext { get; set; }
         public IReadOnlyList<OverlayLootItem>? CatalogOverride { get; set; }
         public OverlaySnapshot Capture(bool examples=false,string? language=null)
         {
             var snapshot = OverlaySnapshot.DemoFor(language);
+            if (!examples) snapshot = snapshot with { WaitingForWorldContext = WaitingForWorldContext };
             if (CatalogOverride is { } catalog) snapshot = snapshot with { ItemCatalog = catalog };
             if (!DistinctModes) return snapshot;
             var metrics = snapshot.Metrics.ToDictionary(entry => entry.Key, entry => entry.Value);

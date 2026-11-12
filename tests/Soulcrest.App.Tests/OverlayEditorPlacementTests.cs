@@ -15,7 +15,7 @@ public sealed class OverlayEditorPlacementTests
     private static readonly OverlayMonitor Left = new("left", "Left", new(-1920, -120, 1920, 1080), new(-1880, -100, 1880, 1020));
 
     [Fact]
-    public async Task SharedStartIncludesSixStaticPanelsAndEveryKitWindowWithoutActivatingOrSavingThem()
+    public async Task SharedStartIncludesEightStaticPanelsAndEveryKitWindowWithoutActivatingOrSavingThem()
     {
         using var fixture = new Fixture();
         Assert.True((await fixture.Editor.CreateOverlayAsync("Leer")).Succeeded);
@@ -24,7 +24,7 @@ public sealed class OverlayEditorPlacementTests
         var nativeBefore = System.Text.Json.JsonSerializer.Serialize(fixture.Settings.Current);
         using var service = fixture.Placement();
         Assert.True(service.StartEditor("left", selected));
-        Assert.Equal(7, service.Items.Count(item => item.CanPlace && !item.IsEditor));
+        Assert.Equal(8, service.Items.Count(item => item.CanPlace && !item.IsEditor));
         Assert.Equal(2, service.Items.Count(item => item.IsEditor));
         Assert.Equal(OverlayPlacementService.EditorKey(selected), service.SelectedOverlayId);
         Assert.DoesNotContain(service.Items, item => item.Id is "farm-loot" or "abyss-rank");
@@ -152,7 +152,7 @@ public sealed class OverlayEditorPlacementTests
         Assert.Equal(1, presentation.Reads);
         Assert.Equal(2, raster.Reads);
         var previews = (List<OverlayPlacementPreview>)Field("_previews").GetValue(form)!;
-        Assert.Equal(9, previews.Count);
+        Assert.Equal(10, previews.Count);
         Assert.All(previews.Where(item => item.Editor is not null), item => Assert.Equal(360, item.Image.Width));
         Assert.Equal(1.5, previews.Single(item => item.Id == OverlayPlacementService.EditorKey("default")).Layout.Scale);
     });

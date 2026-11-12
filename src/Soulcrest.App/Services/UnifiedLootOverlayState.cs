@@ -6,5 +6,7 @@ namespace Soulcrest.App.Services;
 public sealed record UnifiedLootOverlayState(LootTrackerSession? Session, bool TrackingAvailable,
     NetworkDailyMonsterKinaSnapshot Daily, SavedDailyMonsterKina? CachedDaily, bool DailyConfirmed, DateTimeOffset At)
 {
+    /// <summary>The enabled, bound running source is waiting only for a confirmed own map context.</summary>
+    public bool WaitingForWorldContext { get; init; }
     public static UnifiedLootOverlayState Empty { get; } = new(null, false, new(null, null, null, 0), null, false, default);
 }

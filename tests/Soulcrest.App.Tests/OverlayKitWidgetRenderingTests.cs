@@ -155,7 +155,9 @@ public sealed class OverlayKitWidgetRenderingTests : IDisposable
         var widget = OverlayCatalog.CreateWidget("rare-notice");
         var snapshot = Items() with { RareNotice = new("sample", "Current sample receipt", 2, "2", null, LootItemRarity.Unique, 1) };
         var html = await Render(widget, snapshot);
-        Assert.Contains("Current sample receipt ×2", html);
+        Assert.Contains("data-item-name=\"true\"", html);
+        var text = WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", ""));
+        Assert.Contains("Current sample receipt ×2", text);
         Assert.DoesNotContain("Sample item A", html);
         var empty = await Render(widget, snapshot with { RareNotice = null });
         Assert.DoesNotContain("Current sample receipt", empty);

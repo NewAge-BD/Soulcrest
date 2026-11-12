@@ -1,4 +1,5 @@
 @inherits KitLocalizedComponentBase
+@using Soulcrest.App.Components
 
 <div class="overlay-widget-viewport" data-reflow="@OverlayContentLayout.Reflows(Widget).ToString().ToLowerInvariant()"
      data-grid-count="@(IsLoot ? Loot.VisibleItems.Count : 0)" data-grid-size="@Css(Widget.ItemSize)" data-grid-font="@Css(Widget.FontScale)"
@@ -25,11 +26,18 @@
                 <div class="overlay-widget-items is-@Widget.ItemView @(Widget.ShowIcon ? "" : "without-icons")">
                     @foreach (var item in Loot.VisibleItems)
                     {
-                        <div class="overlay-widget-item @(item.IsRare ? "is-rare" : "") @(item.IsEquipmentGroup ? "is-equipment-group" : "")" data-rarity="@item.Rarity" style="@ItemStyle(item)" title="@(item.Tooltip ?? item.Name + " · " + item.QuantityText)" @key="item.Key">
+                        <div class="overlay-widget-item @(item.IsRare ? "is-rare" : "") @(item.IsEquipmentGroup ? "is-equipment-group" : "")" data-rarity="@item.Rarity" style="@ItemStyle(item)" @key="item.Key">
                             <OverlayRarityBackground Rarity="item.Rarity" AnimationsEnabled="Snapshot.ItemAnimationsEnabled" ClockUtcNow="Snapshot.ClockUtcNow" />
                             @if (Widget.ShowIcon) { <AssetImage Src="@item.IconPath" Alt="" Class="overlay-item-icon" /> }
-                            <span class="overlay-item-name" data-overlay-fit>@item.Name</span>
+                            @if (item.IsEquipmentGroup) { <ItemName Class="overlay-item-name" Rarity="item.Rarity" Text="@item.Name" data-overlay-fit /> }
+                            else { <ItemName Class="overlay-item-name" DropKey="@item.Key" Text="@item.Name" data-overlay-fit /> }
                             <strong class="overlay-item-quantity" data-overlay-fit>@item.QuantityText</strong>
+                            <ItemTooltip Class="overlay-item-tooltip-target" DropKey="@(item.IsEquipmentGroup ? null : item.Key)" Rarity="@(item.IsEquipmentGroup ? item.Rarity : (LootItemRarity?)null)" Text="@item.Name" Label="@(item.Tooltip ?? item.Name + " ×" + item.QuantityText)">
+                                <TooltipContent>
+                                    <span class="overlay-item-tooltip-line">@if (item.IsEquipmentGroup) { <ItemName Rarity="item.Rarity" Text="@item.Name" /> } else { <ItemName DropKey="@item.Key" Text="@item.Name" /> }<span class="overlay-item-tooltip-quantity"> ×@item.QuantityText</span></span>
+                                    @if (TooltipDetail(item) is { } detail) { <span class="overlay-item-tooltip-detail">@detail</span> }
+                                </TooltipContent>
+                            </ItemTooltip>
                         </div>
                     }
                 </div>
@@ -68,11 +76,11 @@
     {
         @if (Snapshot.RareNotice is { } notice)
         {
-            <div class="overlay-rare-notice rarity-@notice.Rarity.ToString().ToLowerInvariant()" data-rarity="@notice.Rarity" style="--notice-rarity-color:@(Soulcrest.App.Overlay.LootRarityVisuals.NameCssColor(notice.Rarity) ?? "var(--text)")" @key="notice.Id">
+            <div class="overlay-rare-notice rarity-@notice.Rarity.ToString().ToLowerInvariant()" data-rarity="@notice.Rarity" style="--notice-rarity-color:@(EffectColor(notice.Rarity) ?? "var(--text)")" @key="notice.Id">
                 <OverlayRarityBackground Rarity="notice.Rarity" AnimationsEnabled="Snapshot.ItemAnimationsEnabled" ClockUtcNow="Snapshot.ClockUtcNow" />
                 @if (Widget.ShowIcon) { <AssetImage Src="@notice.IconPath" Alt="" Class="overlay-rare-icon" /> }
                 <div class="overlay-rare-text">
-                    <strong data-overlay-fit>@notice.Name ×@notice.QuantityText</strong>
+                    <strong data-overlay-fit><ItemName Class="overlay-notice-item-name" DropKey="@(notice.LootKey ?? "")" Text="@notice.Name" /> ×@notice.QuantityText</strong>
                     <span class="overlay-rare-grade" data-overlay-fit>@notice.Rarity</span>
                 </div>
             </div>
@@ -128,7 +136,24 @@
         var countSize = Math.Max(.1, Math.Min(13 * Loot.FontScale, Math.Max(1, countWidth) / Math.Max(1, item.QuantityText.Length * .65)));
         return $"--loot-card-icon-size:{Css(iconSize)}px;--loot-card-count-size:{Css(fontSize)}px;--loot-count-size:{Css(countSize)}px;--loot-list-icon-size:{Css(listIconSize)}px"
             + (item.IsEquipmentGroup ? ";--loot-group-color:" + (item.Rarity == LootItemRarity.Common ? "#FFFFFF"
-                : Soulcrest.App.Overlay.LootRarityVisuals.NameCssColor(item.Rarity) ?? "#FFFFFF") : "");
+                : EffectColor(item.Rarity) ?? "#FFFFFF") : "");
+    }
+    // Item names use native colours. Existing count badges and grade effects retain their independent design palette.
+    private static string? EffectColor(LootItemRarity rarity) => rarity != LootItemRarity.Unknown && Enum.IsDefined(rarity)
+        ? ColorCss(Soulcrest.App.Overlay.LootRarityVisuals.Accent(rarity)) : null;
+    private static string ColorCss(System.Drawing.Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    private static string? TooltipDetail(OverlayLootItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Tooltip) || item.Tooltip == item.Name) return null;
+        var detail = item.Tooltip;
+        if (detail.StartsWith(item.Name, StringComparison.Ordinal))
+        {
+            detail = detail[item.Name.Length..];
+            foreach (var amount in new[] { " ×" + item.QuantityText, " × " + item.QuantityText, " · " + item.QuantityText })
+                if (detail.StartsWith(amount, StringComparison.Ordinal)) { detail = detail[amount.Length..]; break; }
+            detail = detail.TrimStart(' ', '·', '\r', '\n');
+        }
+        return string.IsNullOrWhiteSpace(detail) ? null : detail;
     }
     private static string Css(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
 }

@@ -50,12 +50,12 @@
                 @if (_selected != "notifications") { <label class="overlay-enabled"><input id="overlay-enabled" type="checkbox" role="switch" checked="@OverlayRegistry.IsEnabled(Settings.Current, _selected)" disabled="@_saving" @onchange="SetEnabled" />@UiText.T("Overlay anzeigen")</label> }
             </header>
 
-            @if (!StaticOnly && _selected != "daevanion") { <div class="overlay-preview" aria-label="@UiText.T("Overlay-Vorschau")"><span>@UiText.T("Vorschau")</span><img src="@PreviewSource" style="@(descriptor.CanPlace ? FormattableString.Invariant($"zoom:{layout!.Scale};") : null)" alt="@UiText.F("Vorschau: {0}", UiText.T(descriptor.Title))" /></div> }
+            @if ((!StaticOnly || _selected == "genus-insight") && _selected != "daevanion") { <div class="overlay-preview" aria-label="@UiText.T("Overlay-Vorschau")"><span>@UiText.T("Vorschau")</span><img src="@PreviewSource" style="@(descriptor.CanPlace ? FormattableString.Invariant($"zoom:{layout!.Scale};") : null)" alt="@UiText.F("Vorschau: {0}", UiText.T(descriptor.Title))" /></div> }
             @if (!descriptor.CanPlace)
             {
                 <p class="overlay-bound-note">@UiText.T("Dieses Overlay folgt erkannten Spielinhalten. Seine Position und Größe werden automatisch daran ausgerichtet. Die Vorschau verändert keine Spiel- oder Trackingdaten.")</p>
             }
-            @if (StaticOnly) { <StaticOverlaySample OverlayId="@descriptor.Id" /> }
+            @if (StaticOnly && _selected != "genus-insight") { <StaticOverlaySample OverlayId="@descriptor.Id" /> }
 
             @if (descriptor.CanPlace && layout is not null)
             {
@@ -81,6 +81,9 @@
                     break;
                 case "achievements":
                     <AchievementOverlayOptions Busy="@_saving" />
+                    break;
+                case "genus-insight":
+                    <p class="overlay-data-note">@UiText.T("Zeigt die neun Slots der im Spiel geöffneten Gattung und des aktiven Presets. Wunschstats markierst du unter Genus Insight.")</p>
                     break;
                 case "boss":
                     <section class="overlay-settings-card"><h4>@UiText.T("Spawnliste")</h4><label class="check"><input id="boss-overlay-enabled" type="checkbox" checked="@Settings.Current.BossOverlayEnabled" @onchange="@(e => Save(s => s.BossOverlayEnabled = e.Value is true))" />@UiText.T("Spawnliste anzeigen")</label><label class="overlay-number-field" for="boss-overlay-count">@UiText.T("Anzahl der Spawns")<input id="boss-overlay-count" type="number" min="1" max="12" value="@Settings.Current.BossOverlayCount" @onchange="SetBossCount" /></label><p>@UiText.T("Boss Rush steuert die Wegführung. Vorwarnzeiten und Töne stellst du weiterhin bei den Boss-Erinnerungen ein.")</p></section>
@@ -127,7 +130,7 @@
     [Parameter] public bool Embedded { get; set; }
     [Parameter] public bool StaticOnly { get; set; }
     private static bool IsStaticOverlay(OverlayDescriptor overlay) => overlay.Id is "loot" or "achievements" or "boss" or "leveling" or "alerts"
-        or "notifications" or "event-timeline" or "map" or "merchant" or "daevanion";
+        or "notifications" or "event-timeline" or "map" or "merchant" or "daevanion" or "genus-insight";
     private IEnumerable<OverlayDescriptor> AvailableOverlays => StaticOnly ? OverlayRegistry.All.Where(IsStaticOverlay) : OverlayRegistry.All;
     private static readonly (string Id, string Label)[] GuardMaps = [("altgard", "Altgard"), ("verteron", "Verteron")];
     private string _selected = "loot", _monitorId = "";
@@ -209,6 +212,6 @@
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { _feedback = UiText.T("Overlay-Einstellungen konnten nicht gespeichert werden."); }
         finally { _saving = false; }
     }
-    private static string Symbol(string id) => id switch { "loot" => "✦", "boss" => "◆", "leveling" => "➜", "alerts" => "◷", "notifications" => "◇", "event-timeline" => "↔", "map" => "⌖", _ => "▱" };
+    private static string Symbol(string id) => id switch { "loot" => "✦", "genus-insight" => "✧", "boss" => "◆", "leveling" => "➜", "alerts" => "◷", "notifications" => "◇", "event-timeline" => "↔", "map" => "⌖", _ => "▱" };
     public void Dispose() { _disposed = true; Settings.Changed -= Refresh; Placement.Changed -= Refresh; Ui.Changed -= NavigateToSection; Placement.Stop(); }
 }

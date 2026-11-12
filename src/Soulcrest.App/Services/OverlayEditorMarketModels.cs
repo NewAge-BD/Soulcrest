@@ -1,6 +1,6 @@
 namespace Soulcrest.App.Services;
 
-/// <summary>A current asking-price estimate of the active session, separate from frozen loot receipts.</summary>
+/// <summary>Current lowest-unit-price estimate with 24-hour averages for missing offers, separate from frozen receipts.</summary>
 public sealed record OverlayEditorMarketSnapshot
 {
     public string? SessionId { get; init; }
@@ -9,6 +9,13 @@ public sealed record OverlayEditorMarketSnapshot
     public string? ServerName { get; init; }
     public bool Available { get; init; }
     public bool OnlineEnabled { get; init; }
+    public bool AverageFallbackEnabled { get; init; }
+    public int CurrentRows { get; init; }
+    public int AverageRows { get; init; }
+    public bool Uses24HourAverage { get; init; }
+    public DateTimeOffset? AverageWindowStart { get; init; }
+    public DateTimeOffset? AverageWindowEnd { get; init; }
+    public long AverageSamples { get; init; }
     public long? NetKina { get; init; }
     public long? PartialNetKina { get; init; }
     public long? KnownEstimateNetKina { get; init; }
@@ -48,7 +55,7 @@ internal readonly record struct OverlayEditorMarketItemFacts(bool Excluded, bool
     }
 }
 
-/// <summary>Pure current-price arithmetic: it never creates or changes a journal or valuation receipt.</summary>
+/// <summary>Pure current/fallback price arithmetic: it never creates or changes a journal or valuation receipt.</summary>
 internal static class OverlayEditorMarketProjection
 {
     internal sealed record Item(int? Id, long Quantity, OverlayEditorMarketItemFacts Facts);
@@ -75,69 +82,74 @@ internal static class OverlayEditorMarketProjection
 
     internal static OverlayEditorMarketSnapshot Project(LootTrackerSession session,
         ExchangeMarketProfileSettings model, bool online, ExchangeMarketServer? server,
-        Func<int, ExchangeMarketQuote?> quoteFor, DateTimeOffset asOf, Func<int, OverlayEditorMarketItemFacts> facts,
-        Func<int, ExchangeMarketHistoricalQuote?>? historicalFor = null)
+        Func<int, ExchangeMarketAveragePrice?> averageFor, DateTimeOffset asOf, Func<int, OverlayEditorMarketItemFacts> facts) =>
+        Project(session, model, online, server, _ => null, averageFor, asOf, facts);
+
+    internal static OverlayEditorMarketSnapshot Project(LootTrackerSession session,
+        ExchangeMarketProfileSettings model, bool online, ExchangeMarketServer? server,
+        Func<int, ExchangeMarketQuote?> quoteFor, Func<int, ExchangeMarketAveragePrice?> averageFor,
+        DateTimeOffset asOf, Func<int, OverlayEditorMarketItemFacts> facts)
     {
         var snapshot = new OverlayEditorMarketSnapshot
         {
             SessionId = session.Id, SourceProfileId = session.Character?.ProfileId,
             MarketProfile = model, ServerName = server?.Name, Available = true, OnlineEnabled = online,
+            AverageFallbackEnabled = true,
         };
         try
         {
             var items = Items(session, facts);
-            long eligibleQuantity = 0, pricedQuantity = 0, net = 0, equipmentNet = 0;
-            var pricedRows = 0; var pricedEquipment = false; var stale = false;
-            DateTimeOffset? oldest = null, newest = null;
-            long estimate = 0, historicalQuantity = 0;
-            var historicalRows = 0;
-            DateTimeOffset? oldestHistorical = null, newestHistorical = null;
+            long eligibleQuantity = 0, pricedQuantity = 0, net = 0, equipmentNet = 0, samples = 0;
+            var pricedRows = 0; var currentRows = 0; var averageRows = 0; var pricedEquipment = false; var stale = false;
+            DateTimeOffset? oldest = null, newest = null, windowStart = null, windowEnd = null;
             var validModel = server is not null && model.HasServerSelection && model.HasValidFees
-                && server.ServerId == model.ServerId && server.Region == model.Region && server.Faction == model.Faction;
+                && server.ServerId == model.ServerId && server.Region == model.Region && server.Faction == model.Faction
+                && (!model.AutomaticServerSelection || model.GameServerKey is null || server.GameServerKey == model.GameServerKey);
             foreach (var item in items)
             {
                 eligibleQuantity = checked(eligibleQuantity + item.Quantity);
                 if (!validModel || item.Id is not { } id || !item.Facts.TradeKnown) continue;
                 var quote = quoteFor(id);
-                if (quote is null || quote.ItemId != id || quote.ServerId != model.ServerId
-                    || !ExchangeMarketCache.IsUsable(quote, asOf))
+                decimal unitPrice; DateTimeOffset observedAt;
+                // User refinement 2026-11-10: current offers take priority. History
+                // is queried and used only when no valid current offer is available.
+                if (quote is not null && quote.ItemId == id && quote.ServerId == model.ServerId
+                    && ExchangeMarketCache.IsUsable(quote, asOf))
                 {
-                    // User request 2026-11-08: explicitly historical estimates are
-                    // separate from current quotes and never authorize a receipt.
-                    var history = historicalFor?.Invoke(id);
-                    if (history is null || history.ItemId != id || history.ServerId != model.ServerId
-                        || !ExchangeMarketCache.HistoryIsUsable(history, asOf)) continue;
-                    var historicalValue = checked((long)decimal.Floor(checked(history.UnitPrice * item.Quantity)
-                        * (1m - model.SalesTaxPercent / 100m - model.RegistrationFeePercent / 100m)));
-                    estimate = checked(estimate + historicalValue);
-                    historicalQuantity = checked(historicalQuantity + item.Quantity); historicalRows++;
-                    oldestHistorical = oldestHistorical is null || history.LastSeenAt < oldestHistorical ? history.LastSeenAt : oldestHistorical;
-                    newestHistorical = newestHistorical is null || history.LastSeenAt > newestHistorical ? history.LastSeenAt : newestHistorical;
-                    continue;
+                    unitPrice = quote.UnitPrice; observedAt = quote.CapturedAt; currentRows++;
+                    stale |= !ExchangeMarketCache.IsFresh(quote, asOf);
                 }
-                var value = checked((long)decimal.Floor(checked(quote.UnitPrice * item.Quantity)
+                else
+                {
+                    var average = averageFor(id);
+                    if (average is null || average.ItemId != id || average.ServerId != model.ServerId
+                        || !ExchangeMarketCache.AverageIsUsable(average, asOf)) continue;
+                    unitPrice = average.UnitPrice; observedAt = average.RangeEnd; averageRows++;
+                    samples = checked(samples + average.Samples);
+                    stale |= !ExchangeMarketCache.AverageIsFresh(average, asOf);
+                    windowStart = windowStart is null || average.RangeStart < windowStart ? average.RangeStart : windowStart;
+                    windowEnd = windowEnd is null || average.RangeEnd > windowEnd ? average.RangeEnd : windowEnd;
+                }
+                var value = checked((long)decimal.Floor(checked(unitPrice * item.Quantity)
                     * (1m - model.SalesTaxPercent / 100m - model.RegistrationFeePercent / 100m)));
                 net = checked(net + value); pricedQuantity = checked(pricedQuantity + item.Quantity); pricedRows++;
-                estimate = checked(estimate + value);
                 if (item.Facts.Equipment) { equipmentNet = checked(equipmentNet + value); pricedEquipment = true; }
-                stale |= !ExchangeMarketCache.IsFresh(quote, asOf);
-                oldest = oldest is null || quote.CapturedAt < oldest ? quote.CapturedAt : oldest;
-                newest = newest is null || quote.CapturedAt > newest ? quote.CapturedAt : newest;
+                oldest = oldest is null || observedAt < oldest ? observedAt : oldest;
+                newest = newest is null || observedAt > newest ? observedAt : newest;
             }
             var complete = items.Count == pricedRows;
             return snapshot with
             {
                 NetKina = complete ? net : null, PartialNetKina = net,
-                KnownEstimateNetKina = pricedRows + historicalRows > 0 || complete ? estimate : null,
-                HistoricalRows = historicalRows, HistoricalQuantity = historicalQuantity,
-                OldestHistoricalSeenAt = oldestHistorical, NewestHistoricalSeenAt = newestHistorical,
+                KnownEstimateNetKina = pricedRows > 0 || complete ? net : null,
+                AverageWindowStart = windowStart, AverageWindowEnd = windowEnd, AverageSamples = samples,
+                Uses24HourAverage = averageRows > 0, CurrentRows = currentRows, AverageRows = averageRows,
                 EligibleRows = items.Count, PricedRows = pricedRows,
                 EligibleQuantity = eligibleQuantity, PricedQuantity = pricedQuantity,
                 HasEquipmentReference = items.Any(item => item.Facts.Equipment),
                 EquipmentReferenceNetKina = pricedEquipment ? equipmentNet : null,
                 OldestObservedAt = oldest, NewestObservedAt = newest, Stale = stale,
                 Status = !online ? "Online-Marktpreise ausgeschaltet."
-                    : historicalRows > 0 ? "Marktwert enthält historische Ersatzpreise."
                     : !complete ? "Marktpreise sind teilweise unbekannt." : "Marktpreise bereit.",
             };
         }

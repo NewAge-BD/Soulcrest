@@ -1,0 +1,166 @@
+@using System.Collections.Immutable
+@using Soulcrest.Core.Crafting
+@using static Soulcrest.App.Services.CraftingCalculatorPresentation
+
+@if (Depth >= 12 || Ancestors.Contains(Recipe.Id))
+{
+    <p class="craft-tree-note" data-transfer-tree-boundary>@UiText.T("Die Herstellungskette endet hier. Prüfe eine andere Zutatenquelle.")</p>
+}
+else
+{
+    var transfer = TransferCraftingRules.IsTransfer(Catalog, Recipe);
+    <section class="craft-node tc-node" data-transfer-node="@Recipe.Id">
+        <header class="craft-node-heading">
+            @if (Catalog.FindItem(Recipe.OutputItemId)?.Icon is { } icon) { <img src="@icon" alt="" loading="lazy" /> }
+            <div><strong><ItemName ItemId="Recipe.OutputItemId" Text="@Name(Catalog.FindItem(Recipe.OutputItemId))" /> <span>× @Recipe.OutputQuantity</span></strong><small>@Recipe.Profession · @Faction(Recipe.Faction)</small></div>
+            <span class="craft-node-chance" data-transfer-success="@Recipe.Id">@Chance(transfer ? 1m : SuccessChance(Recipe, State))</span>
+        </header>
+        @if (!transfer && !PreviewOnly && ProficiencyHint(Recipe, State) is { } hint) { <p class="tc-requirement">@hint</p> }
+        @foreach (var ingredient in Recipe.Ingredients
+            .OrderByDescending(row => TransferCraftingRules.IsTransferIngredient(Recipe, row))
+            .ThenByDescending(row => TransferCraftingRules.IsEquipment(Catalog, row.ItemId)))
+        {
+            var key = new CraftingIngredientKey(Recipe.Id, ingredient.ItemId);
+            var protectedInput = Recipe.TransferItemIds.Contains(ingredient.ItemId) || ingredient.ReplacementItemIds.Any(Recipe.TransferItemIds.Contains);
+            var explicitlySelected = State.ReplacementChoices.TryGetValue(key, out var chosenId)
+                && (chosenId == ingredient.ItemId || ingredient.ReplacementItemIds.Contains(chosenId));
+            var needsChoice = protectedInput && ingredient.ReplacementItemIds.Length > 0 && !explicitlySelected;
+            var itemId = explicitlySelected ? chosenId : ingredient.ItemId;
+            var equipment = protectedInput || TransferCraftingRules.IsEquipment(Catalog, itemId);
+            <div class="craft-ingredient tc-ingredient @(equipment ? "tc-equipment" : "")" data-transfer-ingredient="@ingredient.ItemId" data-transfer-selected-item="@(needsChoice ? null : (int?)itemId)" data-transfer-protected="@(protectedInput ? "true" : "false")">
+                @if (ingredient.ReplacementItemIds.Length > 0)
+                {
+                    <ItemSelect Class="tc-replacement" Label="@UiText.T(protectedInput ? "Transferteil auswählen" : "Materialalternative")" Value="@(needsChoice ? null : (int?)itemId)" Placeholder="@UiText.T("Exaktes Ausrüstungsteil auswählen …")" Options="@(new[] { ingredient.ItemId }.Concat(ingredient.ReplacementItemIds).Select(id => new ItemSelectOption(id, id, Name(Catalog.FindItem(id)), EquipmentOptionDetail(id))).ToArray())" ValueChanged="@(id => SelectReplacement(ingredient.ItemId, new ChangeEventArgs { Value = id }))" data-transfer-replacement="@($"{Recipe.Id}:{ingredient.ItemId}")" />
+                }
+                @if (needsChoice)
+                {
+                    @if (!PreviewOnly) { <p class="tc-selection-needed" data-transfer-selection-required>@UiText.T("Wähle zuerst das genaue Transferteil. Besitz und Herstellungsweg gelten nur für diese Auswahl.")</p> }
+                }
+                else if (equipment)
+                {
+                    var item = Catalog.FindItem(itemId);
+                    var owned = State.OwnedItems.GetValueOrDefault(itemId) > 0;
+                    var needsManufacture = !owned || Quantity > 1 || ingredient.Quantity > 1;
+                    var candidates = Producers(itemId);
+                    var selected = candidates.Length == 1 ? candidates[0] : State.RecipeChoices.TryGetValue(itemId, out var producerId)
+                        ? candidates.FirstOrDefault(candidate => candidate.Id == producerId) : null;
+                    <div class="craft-ingredient-main tc-equipment-heading">
+                        @if (item?.Icon is { } equipmentIcon) { <img src="@equipmentIcon" alt="" loading="lazy" /> }
+                        <div class="craft-ingredient-label"><strong><ItemName ItemId="itemId" Text="@Name(item)" /></strong><small>@UiText.T(protectedInput ? "Geschützte Transferausrüstung" : "Verbrauchte Ausrüstung")</small></div><span class="craft-ingredient-quantity">× @ingredient.Quantity</span>
+                    </div>
+                    <div class="tc-ownership"><label><input type="checkbox" data-transfer-owned="@itemId" checked="@owned" @onchange="@(args => SelectOwnership(itemId, args))" />@UiText.T("Bereits vorhanden (1×)")</label><small>@UiText.T(protectedInput ? "Bleibt bei einem Fehlschlag erhalten." : "Dieses Ausrüstungsteil wird bei der Herstellung verbraucht.")</small></div>
+                    @if (owned) { <p class="tc-owned-note">@UiText.T("Die vorhandene Kopie wird zuerst verwendet. Weitere benötigte Kopien folgen dem Herstellungsweg.")</p> }
+                    @if (!needsManufacture)
+                    {
+                        var previews = selected is { } chosen ? new[] { chosen } : candidates;
+                        @foreach (var preview in previews)
+                        {
+                            <details class="craft-subrecipe tc-subrecipe" data-transfer-owned-preview="@preview.Id"><summary>@UiText.T("Nur Schema · vorhandene Kopie wird verwendet") · <ItemName ItemId="preview.OutputItemId" Text="@Name(Catalog.FindItem(preview.OutputItemId))" /> · @ProducerDetail(preview)</summary><TransferCraftingTree Catalog="Catalog" Recipe="@(Catalog.FindBaseRecipe(preview.Id) ?? preview)" State="State" Quantity="Quantity" Depth="@(Depth + 1)" Ancestors="@(Ancestors.Add(Recipe.Id))" PreviewOnly="true" SourceChanged="SourceChanged" ReplacementChanged="ReplacementChanged" OwnershipChanged="OwnershipChanged" OwnedQuantityChanged="OwnedQuantityChanged" /></details>
+                        }
+                    }
+                    else
+                    {
+                    @if (candidates.Length == 0 && !PreviewOnly)
+                    {
+                        <p class="tc-selection-needed" data-transfer-producer-missing>@UiText.T("Kein Herstellungsweg belegt; Ausrüstung muss vorhanden sein.")</p>
+                    }
+                    else if (candidates.Length > 1 && !PreviewOnly)
+                    {
+                        <ItemSelect Class="tc-producer" Label="@UiText.F("Herstellungsweg für {0}", Name(item))" Value="@(selected?.Id)" Placeholder="@UiText.T("Herstellungsweg auswählen …")" Options="@ProducerOptions(candidates)" OptionContent="ProducerOption" ValueChanged="@(id => SelectSource(itemId, new ChangeEventArgs { Value = id }))" data-transfer-producer="@itemId" ><LabelContent><ItemNameFormat FormatKey="Herstellungsweg für {0}" ItemId="itemId" Text="@Name(item)" /></LabelContent></ItemSelect>
+                    }
+                    else if (selected is not null) { <p class="tc-automatic-route" data-transfer-automatic-producer="@selected.Id">@UiText.T(PreviewOnly ? "Unterrezept" : "Wird bei Bedarf hergestellt") · <ItemName ItemId="selected.OutputItemId" Text="@Name(Catalog.FindItem(selected.OutputItemId))" /> · @ProducerDetail(selected)</p> }
+                    @if (selected is not null)
+                    {
+                        <details class="craft-subrecipe tc-subrecipe" open="@(!PreviewOnly)"><summary>@UiText.T("Unterrezept") · <ItemName ItemId="selected.OutputItemId" Text="@Name(Catalog.FindItem(selected.OutputItemId))" /></summary><TransferCraftingTree Catalog="Catalog" Recipe="@(Catalog.FindBaseRecipe(selected.Id) ?? selected)" State="State" Quantity="Quantity" Depth="@(Depth + 1)" Ancestors="@(Ancestors.Add(Recipe.Id))" PreviewOnly="PreviewOnly" SourceChanged="SourceChanged" ReplacementChanged="ReplacementChanged" OwnershipChanged="OwnershipChanged" OwnedQuantityChanged="OwnedQuantityChanged" /></details>
+                    }
+                    }
+                }
+                else
+                {
+                    var item = Catalog.FindItem(itemId);
+                    var candidates = Producers(itemId);
+                    var crafting = State.Acquisition.GetValueOrDefault(itemId) == CraftingAcquisition.Craft;
+                    var selected = State.RecipeChoices.TryGetValue(itemId, out var producerId)
+                        ? candidates.FirstOrDefault(candidate => candidate.Id == producerId) : null;
+                    var preview = selected ?? (candidates.Length == 1 ? candidates[0] : null);
+                    var price = State.BuyPrices.GetValueOrDefault(itemId);
+                    <div class="craft-ingredient-main">
+                        @if (item?.Icon is { } materialIcon) { <img src="@materialIcon" alt="" loading="lazy" /> }
+                        <div class="craft-ingredient-label"><strong><ItemName ItemId="itemId" Text="@Name(item)" /></strong><small>@(price is not null ? Source(price.Source) : UiText.T("Preis noch unbekannt"))</small></div><span class="craft-ingredient-quantity">× @ingredient.Quantity</span><span class="craft-ingredient-price">@Number(price?.UnitPrice) <small>Kina</small></span>
+                        <label class="craft-owned-quantity">@UiText.T("Bereits vorhanden")<input data-transfer-owned-quantity="@itemId" type="number" min="0" max="1000000000" aria-label="@UiText.F("Bereits vorhanden für {0}", Name(item))" aria-invalid="@(_ownedQuantityErrors.Contains(itemId) ? "true" : null)" value="@State.OwnedItems.GetValueOrDefault(itemId)" @onchange="@(args => SelectOwnedQuantity(itemId, args))" /></label>
+                    </div>
+                    @if (_ownedQuantityErrors.Contains(itemId)) { <p class="craft-owned-error" role="alert" data-transfer-owned-error="@itemId">@UiText.T("Die vorhandene Menge muss eine ganze Zahl zwischen 0 und 1.000.000.000 sein.")</p> }
+                    @if (candidates.Length > 0)
+                    {
+                        <details class="craft-subrecipe tc-subrecipe" open="@(crafting && !PreviewOnly)"><summary>@UiText.T("Unterrezept") · <ItemName ItemId="itemId" Text="@Name(item)" /> @if (!crafting) { <small>@UiText.T("Nur Schema · Fehlmenge wird gekauft")</small> }</summary>
+                            <div class="craft-subrecipe-actions">
+                                @if (candidates.Length > 1)
+                                {
+                                    <ItemSelect Label="@UiText.F("Herstellungsweg für {0}", Name(item))" Value="@(selected?.Id)" Placeholder="@UiText.T("Herstellungsweg auswählen …")" Options="@ProducerOptions(candidates)" OptionContent="ProducerOption" ValueChanged="@(id => SelectSource(itemId, new ChangeEventArgs { Value = id }))" data-transfer-material-producer="@itemId" ><LabelContent><ItemNameFormat FormatKey="Herstellungsweg für {0}" ItemId="itemId" Text="@Name(item)" /></LabelContent></ItemSelect>
+                                }
+                                @if (crafting) { <button type="button" data-transfer-buy-deficit="@itemId" @onclick="@(() => SourceChanged.InvokeAsync(new(itemId, null)))">@UiText.T("Fehlmenge kaufen")</button> }
+                                else if (preview is not null) { <button type="button" data-transfer-use-subrecipe="@itemId" @onclick="@(() => SourceChanged.InvokeAsync(new(itemId, preview.Id)))">@UiText.T("Dieses Unterrezept verwenden")</button> }
+                            </div>
+                            @if (preview is not null)
+                            {
+                                <TransferCraftingTree Catalog="Catalog" Recipe="@(Catalog.FindBaseRecipe(preview.Id) ?? preview)" State="State" Quantity="Quantity" Depth="@(Depth + 1)" Ancestors="@(Ancestors.Add(Recipe.Id))" PreviewOnly="@(PreviewOnly || !crafting)" SourceChanged="SourceChanged" ReplacementChanged="ReplacementChanged" OwnershipChanged="OwnershipChanged" OwnedQuantityChanged="OwnedQuantityChanged" />
+                            }
+                        </details>
+                    }
+                }
+            </div>
+        }
+        @if (Recipe.ComboRecipeId is { } comboId && Catalog.FindRecipe(comboId) is { } combo)
+        {
+            <div class="craft-combo-link" data-transfer-combo="@combo.Id"><span aria-hidden="true">↳</span>@if (Catalog.FindItem(combo.OutputItemId)?.Icon is { } comboIcon) { <img src="@comboIcon" alt="" loading="lazy" /> }<div><strong>COMBO · <ItemName ItemId="combo.OutputItemId" Text="@Name(Catalog.FindItem(combo.OutputItemId))" /> × @combo.OutputQuantity</strong><small>@UiText.T("Aktivierung nach Basiserfolg") @ActivationChance(Recipe.ComboActivationChance) · @UiText.T("COMBO-Erfolg") @Chance(TransferCraftingRules.IsTransfer(Catalog, combo) ? 1m : SuccessChance(combo, State))</small></div></div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public CraftingCatalog Catalog { get; set; } = null!;
+    [Parameter, EditorRequired] public CraftingRecipe Recipe { get; set; } = null!;
+    [Parameter, EditorRequired] public CraftingCalculatorSnapshot State { get; set; } = new();
+    [Parameter] public int Quantity { get; set; } = 1;
+    [Parameter] public int Depth { get; set; }
+    [Parameter] public bool PreviewOnly { get; set; }
+    [Parameter] public ImmutableHashSet<int> Ancestors { get; set; } = [];
+    [Parameter] public EventCallback<CraftingSourceSelection> SourceChanged { get; set; }
+    [Parameter] public EventCallback<CraftingReplacementSelection> ReplacementChanged { get; set; }
+    [Parameter] public EventCallback<CraftingOwnershipSelection> OwnershipChanged { get; set; }
+    [Parameter] public EventCallback<CraftingOwnedQuantitySelection> OwnedQuantityChanged { get; set; }
+    private readonly HashSet<int> _ownedQuantityErrors = [];
+    private CraftingRecipe[] Producers(int itemId) => Catalog.Recipes.Where(candidate => candidate.OutputItemId == itemId
+        && MatchesFaction(candidate.Faction, State.Faction) && !Ancestors.Contains(candidate.Id) && candidate.Id != Recipe.Id)
+        .OrderBy(candidate => candidate.Id).ToArray();
+    private string? EquipmentOptionDetail(int itemId)
+    {
+        var recipes = TransferCraftingRules.ProducerChoices(Catalog, itemId, State.Faction);
+        var suffix = recipes.Length > 0 && recipes.All(recipe => TransferCraftingRules.IsTransfer(Catalog, recipe)) ? UiText.T("aus Transferherstellung")
+            : recipes.Length > 0 && recipes.All(recipe => !TransferCraftingRules.IsTransfer(Catalog, recipe)) ? UiText.T("aus normaler Herstellung") : null;
+        return suffix;
+    }
+    private string ProducerDetail(CraftingRecipe recipe) => UiText.T(TransferCraftingRules.IsTransfer(Catalog, recipe) ? "Transferherstellung" : "Normale Herstellung") + " · " + recipe.Profession
+        + " · " + (recipe.RequiredProficiency?.ToString() ?? "—") + " · " + Faction(recipe.Faction);
+    private ItemSelectOption[] ProducerOptions(IEnumerable<CraftingRecipe> recipes) => recipes.Select(recipe =>
+        new ItemSelectOption(recipe.Id, recipe.OutputItemId, Name(Catalog.FindItem(recipe.OutputItemId)), ProducerDetail(recipe))).ToArray();
+    private RenderFragment<ItemSelectOption> ProducerOption => option => @<span><ItemName ItemId="option.ItemId" Text="@option.Text" /><small>@option.Detail</small>
+        @if (Catalog.FindRecipe(option.Value) is { } candidate)
+        {
+            <span class="item-select-option-materials">@foreach (var ingredient in candidate.Ingredients.Take(2)) { <span><ItemName ItemId="ingredient.ItemId" Text="@Name(Catalog.FindItem(ingredient.ItemId))" /> × @ingredient.Quantity </span> }</span>
+        }
+    </span>;
+    private Task SelectSource(int itemId, ChangeEventArgs args) => int.TryParse(args.Value?.ToString(), out var recipeId)
+        && Producers(itemId).Any(candidate => candidate.Id == recipeId)
+            ? SourceChanged.InvokeAsync(new(itemId, recipeId)) : Task.CompletedTask;
+    private Task SelectOwnedQuantity(int itemId, ChangeEventArgs args)
+    {
+        if (!long.TryParse(args.Value?.ToString(), out var quantity) || quantity is < 0 or > 1_000_000_000)
+        { _ownedQuantityErrors.Add(itemId); return Task.CompletedTask; }
+        _ownedQuantityErrors.Remove(itemId);
+        return OwnedQuantityChanged.InvokeAsync(new(itemId, quantity));
+    }
+    private Task SelectReplacement(int original, ChangeEventArgs args) => int.TryParse(args.Value?.ToString(), out var selected)
+        ? ReplacementChanged.InvokeAsync(new(Recipe.Id, original, selected)) : Task.CompletedTask;
+    private Task SelectOwnership(int itemId, ChangeEventArgs args) => OwnershipChanged.InvokeAsync(new(itemId, args.Value is true));
+}

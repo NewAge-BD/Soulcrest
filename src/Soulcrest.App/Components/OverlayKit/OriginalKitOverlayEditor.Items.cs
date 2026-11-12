@@ -8,6 +8,8 @@ public partial class OriginalKitOverlayEditor
     private IReadOnlyList<string>? _filteredSelection;
     private string? _filteredSearch, _filteredLanguage;
     private IList<OverlayLootItem> _filteredItems = Array.Empty<OverlayLootItem>();
+    private readonly string _itemTooltipPrefix = "overlay-item-choice-" + Guid.NewGuid().ToString("N");
+    private string ItemTooltipId(string key, bool selected) => _itemTooltipPrefix + (selected ? "-selected-" : "-available-") + Uri.EscapeDataString(key);
     private IReadOnlyList<OverlayLootItem> ItemCatalog => PreviewSnapshot.ItemCatalog;
     private OverlayLootItem CatalogItem(string key) => ItemCatalog.FirstOrDefault(item =>
         string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase)) ?? new(key, key, "0");

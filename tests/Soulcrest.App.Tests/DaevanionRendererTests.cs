@@ -52,7 +52,7 @@ public sealed class DaevanionRendererTests
     [Theory]
     [InlineData("ariel")]
     [InlineData("azphel")]
-    public void DoubleValuesAndTheirLabelsPaintInSeparateColumns(string family)
+    public void DoubleValuesAndTheirLabelsPaintInSeparateNativeInteriorRows(string family)
     {
         var board = DaevanionCatalog.Default.GetBoard("Cleric", family)!;
         var node = board.Nodes.First(n => n.Effects.Count == 2);
@@ -61,10 +61,15 @@ public sealed class DaevanionRendererTests
             [new(node.Row, node.Column, new(20, 20, 90, 90), 1)], "en", spacing: 114);
         bool HasText(Rectangle area) => Enumerable.Range(area.Top, area.Height).Any(y => Enumerable.Range(area.Left, area.Width).Any(x =>
         { var pixel = image.GetPixel(x, y); return pixel.R > 200 && pixel.G > 190 && pixel.B > 130; }));
-        Assert.True(HasText(new(40, 60, 23, 25)));
-        Assert.True(HasText(new(67, 60, 24, 25)));
-        Assert.True(HasText(new(25, 111, 38, 12)));
-        Assert.True(HasText(new(67, 111, 39, 12)));
+        using var mask = new DaevanionNodeMask();
+        var inside = mask.ContentBounds(new(90, 90));
+        inside.Offset(20, 20);
+        // Both exact values are visible at once, each beneath its qualified label.
+        Assert.True(HasText(new(inside.X + 2, inside.Y + (int)(inside.Height * .20), inside.Width - 4,
+            (int)(inside.Height * .30))));
+        Assert.True(HasText(new(inside.X + 2, inside.Y + (int)(inside.Height * .66), inside.Width - 4,
+            (int)(inside.Height * .30))));
+        Assert.DoesNotContain(Pixels(image).Skip(110 * image.Width), value => value != 0);
     }
 
     [Fact]
@@ -94,8 +99,8 @@ public sealed class DaevanionRendererTests
                 [new(node.Row, node.Column, new(10, 10, nodeSize, nodeSize), 1)], "en");
             var center = 10 + nodeSize / 2d;
             Assert.True(image.GetPixel((int)center, (int)center).A > 0);
-            // The chosen exterior fitting is allowed outside the native frame. Its
-            // circular activation ring and corners inside that frame remain untouched.
+            // Native engraving stays in the round interior. The original circular
+            // activation ring and corners remain untouched for stats and skill pictures.
             for (var y = 10; y < nodeSize + 10; y++)
             for (var x = 10; x < nodeSize + 10; x++)
             {

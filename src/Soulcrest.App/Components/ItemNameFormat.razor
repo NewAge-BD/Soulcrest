@@ -1,0 +1,15 @@
+@{
+    var parts = UiText.F(FormatKey, Marker).Split(Marker, StringSplitOptions.None);
+}
+@for (var index = 0; index < parts.Length; index++)
+{
+    @parts[index]
+    @if (index + 1 < parts.Length) { <ItemName ItemId="ItemId" Text="@Text" /> }
+}
+
+@code {
+    private const string Marker = "\uE000";
+    [Parameter, EditorRequired] public string FormatKey { get; set; } = "";
+    [Parameter] public int? ItemId { get; set; }
+    [Parameter] public string? Text { get; set; }
+}

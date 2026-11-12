@@ -48,8 +48,10 @@ das Kina-Tagesziel von 1.000.000 und die neueste Rare-Drop-Meldung. Livewerte un
 Beispieldaten sind im Canvas sowie in der App-Vollansicht verfügbar; die Bibliothek
 zeigt immer Beispiele. Die neuen Fenster erscheinen noch nicht im Spiel.
 
-Market Kina zeigt den aktuellen potenziellen Netto-Marktwert der Sessionitems,
-mit vorhandener Server-/Gebührenkonfiguration. Preiszeit, Abdeckung und unbekannte
+Market Kina zeigt seit 10.11.2026 den Netto-Richtwert der Sessionitems aus dem
+aktuellen niedrigsten Stückpreisen und verwendet nur für fehlende aktuelle Preise
+den 24h-Durchschnitt als Ersatzwert, mit vorhandener Server-/Gebührenkonfiguration.
+Preiszeit, Abdeckung und unbekannte
 Werte bleiben erkennbar; eingefrorene historische Bewertungen werden nicht geändert.
 Dropped Kina zählt ungebundene Zugänge. Sessiondauer einschließlich stiller Phasen
 ist die gemeinsame Grundlage der Stundenraten. Die lokale Uhr verwendet HH:mm.
@@ -586,23 +588,22 @@ ausblendung und Sichtbarkeitsregeln gelten auch für Leiste und Animation. Beide
 weder Snapshot, Erkennungsrevision noch Node-Grafikcache; Speicherfehler nehmen die Auswahl
 zurück und zeigen eine Rückmeldung. Hauptschalter/Hotkey verbergen sämtliche Fenster.
 
-Die runde Nutzermaske begrenzt Zahlen und Skillbilder auf etwa 65% des Node-Durchmessers.
-Originaler Aktivierungsring, quadratischer Außenrahmen und farbige Ecken bleiben frei. Statwerte
-liegen auf dem gelieferten Stein-Hintergrund, mit Palatino Linotype Bold und dunkler Kontur;
-Skillbilder verwenden dieselbe runde Alphaform.
+Nutzerentscheidung vom 2026-11-12: Der ausgewählte Entwurf 1 „Native Prägung“ ersetzt die
+äußere Fassung vom 21.10. Zahlen und Skillbilder bleiben vollständig in der runden Nutzermaske
+(etwa 65% des Node-Durchmessers); originaler Aktivierungsring, quadratischer Rahmen und farbige
+Ecken bleiben frei. Stat-Nodes zeigen das lokale originale Statmaterial mit kurzem Kürzel,
+großem exaktem Wert und einem kleinen Dekopunkt. Doppelboni stehen gleichzeitig in zwei
+getrennten Zeilen mit jeweils eigenem Kürzel und Wert. Palatino Linotype Bold mit dunkler
+Kontur wird anhand der tatsächlichen Glyphgrenzen passend skaliert. Skillbilder tragen eine
+kleine dunkle +1-Plakette. Alle Farben erhalten ihre ausdrücklichen Bonusbezeichnungen.
 
-Nutzerentscheidung vom 2026-10-21: Stat-Nodes verwenden die umlaufende Fassung (Entwurf 4).
-Das Kürzel sitzt unter dem nativen Rahmen; der runde Innenraum bietet größere Zahlen und bei
-Doppelboni zwei passende Spalten. Common/None-Fassungen sind schieferfarben, Rare grün,
-Legend blau und Unique orange. Die Kategorie bestimmt nur das Material, niemals Bonus oder
-Node-Typ. Die Beschriftung nennt auch grüne, blaue und orange Boni ausdrücklich.
-
-Die Außenfassung wird aus dem nativen Rahmen und dem tatsächlich erkannten Rasterabstand
-berechnet. Engere Zwischenräume verkürzen nur die zusätzlichen Außenflächen; native Rahmen
-werden nicht verschoben oder übermalt. Unter fünf Pixeln nutzbarer Beschriftungshöhe bleibt
-die kompakte Innenbeschriftung erhalten. Nicht bestätigte Nodes erhalten keine Ergänzung;
-Nachbarrahmen einschließlich Start bleiben auch von Außenflächen ausgenommen. Die stabile
-Fensterfläche umfasst die Fassungen des vollständigen Boards, unabhängig von Verdeckungen.
+An/Aus-Schalter und Stat-Leiste verwenden dieselben eingebetteten Schieferbuttons und
+Checkboxen. Maße, Platzierung, Durchlässigkeit der Zwischenräume, NoActivate-Bedienung und
+getrennte Anzeigeschalter bleiben erhalten. Die umlaufende Lichtspur folgt symmetrisch dem
+nativen Außenrahmen ohne verlängerten Sockel; native Rahmen und Nachbarn sind ausgeschlossen.
+Nicht bestätigte Nodes bleiben frei. Die konservative stabile Fenster- und Prüfhülle umfasst
+weiterhin das vollständige Board, unabhängig von Verdeckungen. Kein Laufzeitzugriff auf
+Spieldateien oder einen Datenkatalog außerhalb des Apppakets.
 
 Wie beim Shop wird ein bestätigtes Raster anschließend als bevorzugte Suchhypothese verwendet.
 Jedes neue Bild prüft Rahmen, Startkontur und belegte/leere Felder erneut; alte Geometrie ist
@@ -618,10 +619,10 @@ Verdeckte oder inhaltlich geänderte Nodes werden daraus entfernt, zurückgekehr
 die gemeinsame sichtbare Teilmenge bleibt ohne Ausblenden des gesamten Fensters erhalten.
 Ein begrenzter Grafikcache verwendet dieselben Node-Grafiken auch bei wechselnden Tooltipmasken.
 
-Aktivierte Stat-Nodes zeigen einen helleren Stein mit dezenter Tönung ihrer Node-Farbe.
+Aktivierte Stat-Nodes zeigen ein helleres Statmaterial mit dezenter Tönung ihrer Node-Farbe.
 Die Erscheinung wird pro sichtbarem Node aus den aktiven und abgedunkelten Originalmotiven des
 aktuellen Bildes verglichen. Unbekannt bleibt dunkel; blaues Level-Leuchten allein bedeutet keine
-Aktivierung. Masken, Schrift, Außenfassung und Original-Skillbilder bleiben dabei unverändert.
+Aktivierung. Masken, Schrift, Rahmenkontur und Original-Skillbilder bleiben dabei unverändert.
 
 Die blaue Animation levelbarer Nodes wird als Darstellungsvariante erkannt. Jeder Node kann
 sein Originalmotiv im aktuellen Grauwertbild oder im aktuellen Rotkanal nachweisen; für beide
@@ -1045,12 +1046,68 @@ Achievement-Belohnung beweist für sich allein keinen Titelbesitz.
 
 ### Genus Insight (09.11.2026)
 
+Seit dem Nutzerauftrag vom 12.11.2026 gibt es zusätzlich die freigegebene schmale
+Seitenleiste als eigene Familie **Overlay Editor → Static Overlays → Genus Insight**.
+Sie ist bei neuen und bestehenden Einstellungen ohne bisherige Genus-Präferenz
+standardmäßig aktiviert. Eine gespeicherte Abschaltung bleibt erhalten.
+Die 340×510-Pixel-Ansicht zeigt neun nummerierte Slots mit Stat und Wert oben,
+Wertebereich und Rollmarker darunter sowie echten Wunschstat-Sternen und exakten
+MAX-Rolls. Sie verwendet die gemeinsamen Overlay-Themes und die Overlay-Sprache.
+
+Das Schloss oder Alt gibt das Fenster zum Verschieben und proportionalen Skalieren
+frei; auch der gemeinsame Place Mode unterstützt es. Position und Skalierung werden
+nach der Geste gespeichert. Startposition links neben der nativen Statliste,
+Skalierung 60–200 Prozent. Standardmäßig erlauben die Kontextregeln das Genus-Menü;
+die eigenständige Prüfung auf frisches Menü, Preset und eigene Charakterbindung
+bleibt zwingend. Menüschluss oder Quellenverlust blendet das Fenster aus.
+
+Die native Familie teilt die vorhandene Genus-Beobachtung. Konstruktion und
+Selbsttest starten keine Aufnahme; erst der reguläre Fensterhost aktiviert die
+Beobachtungslease. Ausschalten, Platzierung, Unterdrückung und Beenden geben sie
+wieder frei. Die Diagnose `overlay-genus-insight` liest nur vorhandene anonyme
+Quell-/Menü- und Fensterzustände und meldet versteckte oder fehlende Quellen nicht
+als gesunde Liveanzeige. Ein bestehendes frei konfiguriertes Genus-Widget bleibt
+unabhängig erhalten.
+
+Korrektur vom 12.11.2026: Die bereits global akzeptierte frische Petliste versorgt
+Genus zusätzlich über eine eigene flüchtige RAM-Quelle. Sie darf vor der vollen
+Charakterbindung oder auf einer anderen eigenen Spielverbindung eintreffen und
+geht dadurch nicht mehr an der engeren Combat-Zuordnung verloren. Eine aktuelle
+eigene Charakterbindung sowie ein frisch bestätigtes Genus-Menü mit Preset bleiben
+separate Pflichtbedingungen. Das aktive Preset wird nicht aus der gemeinsamen
+Liste auf einen Charakter übertragen. Quellenlücken, Stop und ungültige Änderungen
+entziehen die Liveautorität; gespeicherte Rolls bleiben ausschließlich historisch.
+
 Das Widget „Genus Insight“ zeigt neun Rolls der im Spiel geöffneten Kategorie
 und des dort betrachteten Presets. Die Auswahl im Combat Score Calculator
 verändert das Overlay nicht. Links stehen Wertebereich und Rollmarker, daneben
 Stat und aktueller Wert in der Seltenheitsfarbe. Sterne markieren die im
 Genus-Tab je Kategorie und Slot gespeicherten Wunschstats. Ein bestätigter
 exakter Höchstwert zeigt „MAX ROLL!“.
+
+Nutzerauftrag vom 12.11.2026: Im Genus-Insight-Tab steht zusätzlich die zentrale
+Tabelle „Favorit Stats“ mit allen89 Katalogstats, lokalisierter Suche und Anzahl
+der passenden Slotpools. Ein dort gewählter Stat wird in sämtlichen zulässigen
+Slots aller Kategorien als Favorit übernommen. Die Auswahl ist unabhängig vom
+Charakter, Preset, Spielmenü und einer laufenden Netzwerkquelle editierbar.
+Manuelle Zu- und Abwahlen je Kategorie/Slot/Stat haben Vorrang und bleiben auch
+bei späteren globalen Änderungen erhalten. Die Tabellen verwenden ausschließlich
+die Favoritensterne; ein zusätzlicher Resetlink entfällt auf Nutzerwunsch.
+Beide Overlayvarianten übernehmen dieselben
+effektiven Sterne; beobachtete Rolls, Werte, Bereiche und Boni ändern sich nicht.
+Die vorhandene Favoritdatei wird erst bei einer erfolgreichen Änderung auf
+Schema2 mit globalStats und expliziten booleschen slotOverrides geschrieben.
+Alte positive Slotfavoriten bleiben als lokale Ausnahmen erhalten. Der separat
+wählbare Diagnosebeitrag „Genus Insight: Favorit Stats“ liest ausschließlich
+anonyme Zähler und Speicherstatus, ohne Spiel- oder Aufnahmeabhängigkeit.
+
+Nutzerauftrag vom 12.11.2026: Gemeinsame Statnamen-Erkennung mit dem Stats-Tab;
+87 der89 Katalognamen sind durch beobachtete Anker, begrenzte numerische Namen
+und Abgleich mit den aktuellen Slot-Rolltabellen zugeordnet. Jeder angezeigte Roll
+muss weiterhin zu Slot, Rang und exaktem skalierten Wert passen. Die beiden noch
+unbelegten numerischen IDs für AmplifyFrontAttack und FrontAttackCriticalResist
+bleiben offen. Ein explizites Nulltripel aus Stat-ID, Rang und Wert erscheint als
+„Nicht analysiert“; fehlende oder ungültige Daten bleiben unbekannt.
 
 Die Kategorie- und Preseterkennung nutzt ausschließlich vorhandene Fensterbilder.
 Zwei unabhängige frische Bilder müssen die Menügeometrie und Auswahl bestätigen.
@@ -1139,3 +1196,55 @@ Der Place Mode zeichnet eine gemeinsame temporäre Fläche. Enthält sie ein nic
 freigegebenes Editorfenster oder nicht freigegebene statische Overlays, bleibt
 die gesamte Fläche aus Aufnahmen ausgeschlossen. Ausschließlich freigegebene
 Editorfenster benötigen dort keine zusätzliche globale Static-Freigabe.
+
+## Fehlender Kartenkontext nach dem Start (2026-11-10)
+
+Der Overlay Editor zeigt in seiner Liveansicht einen Hinweis zum einmaligen
+Teleportieren, solange eine laufende freigegebene Lootquelle und der eigene
+gebundene Charakter vorhanden sind, der aktuelle Kartenkontext aber noch nicht
+bestätigt wurde. Er verschwindet bei bestätigtem Kontext automatisch. Eine leere
+oder pausierte Session, abgeschaltetes Tracking und bestätigte normale Instanzen
+lösen ihn nicht aus. Bibliothek, Beispieldaten, Presets und statische Overlays
+bleiben davon unabhängig. Der Hinweis startet keine Erfassung und holt keine
+zuvor unbelegten Drops nach.
+
+Im Loot-Tracker folgt die Exchange-Konfiguration dem tatsächlich erkannten
+Spielcharakter. Die Option „Marktserver automatisch erkennen“ ordnet dessen
+Serverkennung anhand des ausdrücklichen Spielschlüssels der Exchange-Liste zu;
+die separate Markt-ID wird für Preise verwendet. Alte Katalogcaches werden dafür
+einmalig regulär erneuert, vorhandene Preisbelege bleiben erhalten.
+Bestehende Profile werden ebenfalls
+automatisch zugeordnet. Onlinepreise werden beim Start aktiviert; der separate
+Schalter entfällt. Region, Fraktion und Server lassen sich nach
+Abschalten der Automatik weiterhin selbst wählen; Gebühren sind unabhängig davon.
+„Serverliste laden“ wiederholt auch eine fehlgeschlagene automatische Zuordnung.
+
+## Dungeon-Souls im Shop (2026-11-11)
+
+Das Black-Cloud-Merchant-Overlay verwendet denselben Dungeonquellen-Katalog wie
+der Pet-Katalog. Ein belegter Dungeonbezug färbt Kartenfuß, Kontur und Quellenzeile
+violett. Die Quellenzeile zeigt „Dungeon“, bei ausschließlich zukünftigen Quellen
+„Dungeon (zukünftig)“ und bei ungeklärter Global-Verfügbarkeit „Dungeon (?)“.
+Bestehende Farmkarten mit ihren bekannten Monsterplatzierungen bleiben zusätzlich
+erhalten. „Special“ beschreibt weiterhin nur das Fehlen von Quellen auf Abyss,
+Altgard und Verteron; bei einem Dungeonbeleg ersetzt die genauere Kennzeichnung
+diesen Text im Shop. Für Dungeons werden keine Spawnzahlen erfunden.
+
+Das violette Material hat Vorrang vor dem goldenen Special- bzw. grünen MAX-Fuß.
+Der MAX-Counter bleibt grün, der 0/5-Counter behält seinen warmen Akzent. Petgattung
+über dem Namen und Soul-Counter unter dem Preis behalten ihre Position. Bei
+Dungeon plus Weltkarten stehen Dungeonlabel und Kartenanzahlen in zwei kurzen
+Zeilen; nur dieser Quellenfuß wächst um sechzehn logische Pixel. Die einmalige
+Skalierung bleibt erhalten. Die Offline-Vorschau prüft alle fünf UI-Skalierungen
+und 96/144/192 DPI. Netzwerkbestätigung, Zählung, Capture, Fokus,
+Click-through und Wiederanzeige nach Kaufdialogen werden nicht geändert.
+
+Die bestehende auswählbare Händlerdiagnose ergänzt die Zahl aktuell projizierter
+Dungeonzeilen. Die Pet-Diagnose enthält die anonymen Bestandszahlen des gemeinsamen
+Quellenkatalogs.
+
+Sind die ursprünglichen Temp-Referenzen nicht mehr vorhanden, erlaubt das
+Offline-Werkzeug ausdrücklich gekennzeichnete archivierte Vorschauen. Manifest
+und Einzelberichte speichern Eingabehash und vorhandene Overlaypixel; das sind
+keine unveränderten Originalscreenshots. Zusätzlich wird das aktuelle transparente
+Overlay separat ausgegeben. Dieser Modus startet weder App noch Capture.

@@ -1,0 +1,64 @@
+@implements IDisposable
+@inject SettingsService Settings
+
+<section class="card sv-card app-theme-settings" aria-labelledby="app-theme-heading">
+    <h3 id="app-theme-heading">@UiText.T("Themes")</h3>
+    <p class="sv-hint" id="app-theme-description">@UiText.T("Wähle dein bevorzugtes Design.")</p>
+    <div class="app-theme-choices" role="radiogroup" aria-labelledby="app-theme-heading" aria-describedby="app-theme-description" aria-busy="@_saving">
+        @foreach (var theme in AppThemeDefinition.All)
+        {
+            var selected = Settings.Current.AppTheme == theme.Id;
+            <label class="app-theme-choice @(selected ? "is-selected" : "")" for="app-theme-@theme.Id">
+                <input id="app-theme-@theme.Id" type="radio" name="app-theme" value="@theme.Id" checked="@selected" disabled="@_saving" @onchange="() => ChangeTheme(theme.Id)" />
+                <span class="app-theme-preview" data-preview-theme="@theme.Id" style="@theme.CssVariables" aria-hidden="true">
+                    <span class="app-theme-preview-sidebar"></span>
+                    <span class="app-theme-preview-body"><span class="app-theme-preview-toolbar"></span><span class="app-theme-preview-line"></span><span class="app-theme-preview-card"><span class="app-theme-preview-button"></span></span></span>
+                </span>
+                <span class="app-theme-name">@UiText.T(theme.Label)</span>
+                <span class="app-theme-description">@UiText.T(theme.Description)</span>
+                @if (selected) { <span class="app-theme-selected">@UiText.T("Ausgewählt")</span> }
+            </label>
+        }
+    </div>
+    @if (_feedback is not null)
+    {
+        <p class="app-theme-feedback @(_saveFailed ? "error" : "")" role="@(_saveFailed ? "alert" : "status")" aria-live="polite">@UiText.T(_feedback)</p>
+    }
+</section>
+
+@code {
+    private bool _saving, _saveFailed, _disposed;
+    private string? _feedback;
+
+    protected override void OnInitialized() => Settings.Changed += Refresh;
+
+    private async Task ChangeTheme(string theme)
+    {
+        if (_saving || _disposed) return;
+        _saving = true;
+        _saveFailed = false;
+        _feedback = "Wird gespeichert …";
+        try
+        {
+            await Task.Run(() => Settings.SetAppTheme(theme));
+            _feedback = "Theme gespeichert.";
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            _saveFailed = true;
+            _feedback = "Das Theme konnte nicht gespeichert werden.";
+        }
+        finally { _saving = false; }
+    }
+
+    private void Refresh()
+    {
+        if (!_disposed) _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Settings.Changed -= Refresh;
+    }
+}

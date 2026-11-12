@@ -30,6 +30,20 @@
         { <p class="cgi-note" data-genus-partial>@UiText.T(State.IsHistorical ? "Teilstand: Einige gespeicherte Effekte sind noch nicht vollständig zugeordnet." : State.IsCurrent ? State.Preset is null ? "Öffne Genus Insight im Spiel, um das aktive Preset zu bestätigen." : "Teilstand: Einige aktive Effekte sind noch nicht bestätigt." : "Warte auf aktuelle Genus-Daten deines Charakters.")</p> }
         else if (State.AppliedEffects.Count == 0) { <p class="cgi-note">@UiText.T(State.IsHistorical ? "Keine angewendeten Effekte im gespeicherten Preset." : "Keine angewendeten Effekte im aktuellen Preset.")</p> }
     </section>
+    <section class="cgi-global-favorites" data-genus-global-favorites>
+        <header><div><h3>@UiText.T("Favorit Stats")</h3><p class="cgi-note">@UiText.T("Wähle Stats für alle passenden Slots. Einzelne Slots kannst du unten abweichend markieren.")</p></div><span class="cgi-count" data-genus-global-count>@UiText.F("{0} von {1} Favoriten", GlobalFavoriteCount, Catalog.Stats.Count)</span></header>
+        <label class="cgi-favorite-search"><span>@UiText.T("Stats suchen")</span><input type="search" data-genus-favorite-search="global" @bind="_favoriteSearch" @bind:event="oninput" placeholder="@UiText.T("Stats suchen")" /></label>
+        @if (!string.IsNullOrEmpty(FavoriteError)) { <p class="cgi-error" role="alert">@FavoriteError</p> }
+        <div class="cgi-global-scroll"><table><thead><tr><th>@UiText.T("Stat")</th><th>@UiText.T("Verfügbare Slots")</th><th><span class="cgi-star" aria-label="@UiText.T("Favorit")">★</span></th></tr></thead><tbody>
+            @foreach (var stat in GlobalStats)
+            {
+                var favorite = GlobalFavoriteStats?.Contains(stat.StatId) == true;
+                <tr class="@(favorite ? "favorite" : "")" data-genus-global-stat="@stat.StatId"><th scope="row">@Label(stat.LabelDe, stat.LabelEn)</th><td data-genus-global-slots="@stat.StatId">@FavoriteSlotCounts[stat.StatId]</td><td><button type="button" class="cgi-favorite" aria-pressed="@(favorite ? "true" : "false")" aria-label="@UiText.F("{0} als Favorit markieren", Label(stat.LabelDe, stat.LabelEn))" data-genus-global-favorite="@stat.StatId" disabled="@(!ToggleGlobalFavorite.HasDelegate)" @onclick="@(() => ToggleGlobalFavorite.InvokeAsync(stat.StatId))">@(favorite ? "★" : "☆")</button></td></tr>
+            }
+        </tbody></table>
+        @if (!GlobalStats.Any()) { <p class="cgi-note cgi-search-empty" role="status">@UiText.T("Keine Stats gefunden.")</p> }
+        </div>
+    </section>
     <nav class="cgi-categories" aria-label="@UiText.T("Genus-Kategorien")">
         @foreach (var genus in GenusInsightPresentation.Genera)
         {
@@ -82,17 +96,26 @@
             <p class="cgi-catalog-note">@UiText.T("Wertebereiche aus dem Genus-Katalog. Unbestätigte aktuelle Rolls bleiben als unbekannt markiert.")</p>
         </section>
     </div>
-    <p class="cgi-overlay-note">@UiText.T("Das Genus-Overlay folgt automatisch der im Spiel geöffneten Kategorie. Füge es im Overlay-Editor als Widget hinzu.")</p>
+    <p class="cgi-overlay-note">@UiText.T("Das Genus-Overlay folgt automatisch der im Spiel geöffneten Kategorie. Du findest es unter Overlay Editor → Static Overlays → Genus Insight.")</p>
 </section>
 
 @code {
     [Parameter] public GenusInsightSnapshot State { get; set; } = GenusInsightSnapshot.Empty;
     [Parameter] public IReadOnlySet<GenusInsightFavoriteKey>? Favorites { get; set; }
     [Parameter] public EventCallback<GenusInsightFavoriteKey> ToggleFavorite { get; set; }
+    [Parameter] public IReadOnlySet<string>? GlobalFavoriteStats { get; set; }
+    [Parameter] public EventCallback<string> ToggleGlobalFavorite { get; set; }
     [Parameter] public string? FavoriteError { get; set; }
+    private static readonly IReadOnlyDictionary<string, int> FavoriteSlotCounts = GenusInsightCatalog.Default.Stats.Keys.ToDictionary(
+        stat => stat, stat => GenusInsightCatalog.Default.Slots.Count(slot => slot.Options.Any(option => option.StatId == stat)), StringComparer.Ordinal);
     private string _genus = "cogni";
     private byte _slot = 1;
+    private string _favoriteSearch = "";
     private GenusInsightCatalog Catalog => GenusInsightCatalog.Default;
+    private int GlobalFavoriteCount => Catalog.Stats.Keys.Count(stat => GlobalFavoriteStats?.Contains(stat) == true);
+    private IEnumerable<GenusInsightStatDefinition> GlobalStats => Catalog.Stats.Values
+        .Where(stat => string.IsNullOrWhiteSpace(_favoriteSearch) || Culture.CompareInfo.IndexOf(Label(stat.LabelDe, stat.LabelEn), _favoriteSearch.Trim(), CompareOptions.IgnoreCase) >= 0)
+        .OrderBy(stat => Label(stat.LabelDe, stat.LabelEn), StringComparer.Create(Culture, ignoreCase: false));
     private GenusInsightBoardView? CurrentBoard => State.Boards.FirstOrDefault(board => board.Genus == _genus);
     private IEnumerable<GenusInsightStatDefinition> OptionStats => Catalog.Options(_genus, _slot).Select(option => option.StatId).Distinct(StringComparer.Ordinal).Select(id => Catalog.FindStat(id)!).OrderBy(stat => Label(stat.LabelDe, stat.LabelEn), StringComparer.CurrentCulture);
     private CultureInfo Culture => CultureInfo.GetCultureInfo(UiText.Language == "de" ? "de-DE" : "en-US");

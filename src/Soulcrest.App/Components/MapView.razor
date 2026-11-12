@@ -149,8 +149,8 @@
                                 @foreach (var kind in cat.Kinds ?? [])
                                 {
                                     var label = Settings.Current.NameLanguage == "de" ? kind.De ?? kind.Name : kind.Name;
-                                    <div class="cat kind legend-row" title="@label">
-                                        <div class="legend-name">@if (kind.Icon is not null) { <img src="@kind.Icon" alt="" /> }<span class="label">@label</span><span class="count">@kind.Count</span></div>
+                                    <div class="cat kind legend-row">
+                                        <div class="legend-name">@if (kind.Icon is not null) { <img src="@kind.Icon" alt="" /> }<span class="label"><ItemName ItemId="kind.ItemId" Text="@label" /></span><span class="count">@kind.Count</span></div>
                                         @foreach (var surface in LegendSurfaces)
                                         {
                                             <label class="legend-choice" title="@SurfaceLabel(surface)"><input type="checkbox" aria-label="@UiText.F("{0} auf {1} anzeigen", label, SurfaceLabel(surface))" checked="@KindVisible(group, cat, KindIdentity(kind), surface)" @onchange="@(e => SetSurfaceKind(group, cat, KindIdentity(kind), surface, (bool)e.Value!))" /></label>
@@ -563,7 +563,7 @@
     private string CategoryLabel(Category category) => Settings.Current.NameLanguage == "de" ? category.De ?? category.Name : category.Name;
     private sealed record Category(int Index, string Name, int Count, bool Hidden, string Color, string? Icon, string? De = null, List<Kind>? Kinds = null);
     /// <summary>Resource kind of a category (Gem: Sapphire, Diamond, Ruby), with its item icon.</summary>
-    private sealed record Kind(string Name, string? De, string? Icon, int Count, string? Key = null);
+    private sealed record Kind(string Name, string? De, string? Icon, int Count, string? Key = null, int? ItemId = null);
     private static string KindIdentity(Kind kind) => kind.Key ?? kind.Name;
     // Hidden resource kinds of the shown map, keys as MapPetMarkers.KindKey.
     private readonly HashSet<string> _hiddenKinds = [];
@@ -1199,7 +1199,7 @@
         if (firstRender)
         {
             _self = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("soulcrestMap.init", "map", ReadManifest(), BaseUrl, _self);
+            await JS.InvokeVoidAsync("soulcrestMap.init", "map", ReadManifest(), BaseUrl, _self, ItemNamePresentation.CssColorsByItemId);
             string requestedMap;
             do
             {

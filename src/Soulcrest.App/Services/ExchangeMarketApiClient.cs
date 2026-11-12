@@ -10,7 +10,7 @@ namespace Soulcrest.App.Services;
 /// User request 2026-11-01: optional anonymous GET access to the documented Exchange API only.
 /// One shared application instance serializes requests; it never accesses a game/session API.
 /// </summary>
-public sealed class ExchangeMarketApiClient : IExchangeMarketDetailsClient, IDisposable
+public sealed class ExchangeMarketApiClient : IExchangeMarketDetailsClient, IExchangeMarketAverageClient, IDisposable
 {
     public const string ApiBase = "https://aion2.exchange/api/";
     public static readonly TimeSpan MinimumInterval = TimeSpan.FromSeconds(5);
@@ -52,7 +52,8 @@ public sealed class ExchangeMarketApiClient : IExchangeMarketDetailsClient, IDis
                 var id = PositiveInt(row, "server_id");
                 if (!seen.Add(id)) throw Invalid();
                 result.Add(new(id, Text(row, "name", false), Text(row, "region", true),
-                    Text(row, "region_name", true), Text(row, "faction", true), Boolean(row, "has_data")));
+                    Text(row, "region_name", true), Text(row, "faction", true), Boolean(row, "has_data"))
+                    { GameServerKey = OptionalPositiveInt(row, "game_server_key") });
             }
             return result.ToImmutable();
         }
@@ -110,7 +111,85 @@ public sealed class ExchangeMarketApiClient : IExchangeMarketDetailsClient, IDis
         return new(result.ToImmutable(), historical.ToImmutable());
     }
 
-    private async Task<JsonDocument> GetAsync(string relativePath, CancellationToken cancellationToken)
+    public async Task<ImmutableArray<ExchangeMarketAveragePrice>> GetAveragePricesAsync(int serverId,
+        IReadOnlyCollection<int> itemIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(itemIds);
+        if (serverId <= 0) throw new ArgumentOutOfRangeException(nameof(serverId));
+        if (itemIds.Count > 20_000 || itemIds.Any(id => id <= 0)) throw new ArgumentOutOfRangeException(nameof(itemIds));
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = ImmutableArray.CreateBuilder<ExchangeMarketAveragePrice>();
+        foreach (var id in itemIds.Distinct().Order())
+        {
+            DateTimeOffset requestedStart = default, requestedEnd = default;
+            using var document = await GetAsync(now =>
+            {
+                requestedEnd = now.ToUniversalTime();
+                if (requestedEnd <= DateTimeOffset.UnixEpoch.AddDays(1)) throw Invalid();
+                requestedStart = requestedEnd.AddHours(-24);
+                // The history endpoint canonicalizes to an hourly UTC start without 'to'.
+                // Request that URL directly: production intentionally never follows redirects.
+                var transportStart = new DateTimeOffset(requestedStart.Year, requestedStart.Month, requestedStart.Day,
+                    requestedStart.Hour, 0, 0, TimeSpan.Zero);
+                return $"items/{id.ToString(CultureInfo.InvariantCulture)}/prices?server={serverId.ToString(CultureInfo.InvariantCulture)}"
+                    + "&from=" + Uri.EscapeDataString(transportStart.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture))
+                    + "&bucket=raw";
+            }, cancellationToken).ConfigureAwait(false);
+            var fetchedAt = _clock.GetUtcNow();
+            try
+            {
+                var root = document.RootElement;
+                if (PositiveInt(root, "item_key") != id || Text(root, "bucket", false) != "raw" || Boolean(root, "auto")) throw Invalid();
+                var points = Required(root, "points", JsonValueKind.Array);
+                if (points.GetArrayLength() > 20_000) throw Invalid();
+                var start = Timestamp(root, "range_start");
+                var end = Timestamp(root, "range_end");
+                var rounding = TimeSpan.FromSeconds(1);
+                // The provider also caches history responses. Use its actual fresh endpoint
+                // for a complete rolling day; never label missing upper coverage as current.
+                var windowEnd = end < requestedEnd ? end : requestedEnd;
+                var windowStart = windowEnd.AddHours(-24);
+                if (start - windowStart > rounding || windowStart - start > TimeSpan.FromHours(1)
+                    || end - requestedEnd > ExchangeMarketCache.FutureSkew || end <= start
+                    || end - fetchedAt > ExchangeMarketCache.FutureSkew || fetchedAt - end > ExchangeMarketCache.FetchTtl
+                    || fetchedAt <= DateTimeOffset.UnixEpoch) throw Invalid();
+                var summary = Required(root, "summary", JsonValueKind.Object);
+                var samples = Required(summary, "samples", JsonValueKind.Number).GetInt32();
+                if (samples < 0) throw Invalid();
+                var average = summary.GetProperty("avg");
+                if (average.ValueKind == JsonValueKind.Null) continue;
+                var amount = average.GetDecimal();
+                if (samples == 0 || amount <= 0) throw Invalid();
+                if (points.GetArrayLength() != samples) throw Invalid();
+                var timestamps = new HashSet<DateTimeOffset>();
+                decimal sum = 0;
+                var included = 0;
+                foreach (var point in points.EnumerateArray())
+                {
+                    var at = Timestamp(point, "ts");
+                    var low = Required(point, "low", JsonValueKind.Number).GetDecimal();
+                    if (!timestamps.Add(at) || at < start || at >= end || at - fetchedAt > ExchangeMarketCache.FutureSkew
+                        || PositiveInt(point, "samples") != 1 || PositiveInt(point, "listings") <= 0
+                        || low <= 0 || Required(point, "high", JsonValueKind.Number).GetDecimal() != low
+                        || Required(point, "avg", JsonValueKind.Number).GetDecimal() != low
+                        || Required(point, "close", JsonValueKind.Number).GetDecimal() != low) throw Invalid();
+                    if (at < windowStart || at >= windowEnd) continue;
+                    sum = checked(sum + low);
+                    included++;
+                }
+                if (included != 0)
+                    result.Add(new(serverId, id, sum / included, included, windowStart, windowEnd, fetchedAt));
+            }
+            catch (Exception error) when (error is InvalidOperationException or FormatException or KeyNotFoundException or OverflowException)
+            { throw Invalid(error); }
+        }
+        return result.ToImmutable();
+    }
+
+    private Task<JsonDocument> GetAsync(string relativePath, CancellationToken cancellationToken) =>
+        GetAsync(_ => relativePath, cancellationToken);
+
+    private async Task<JsonDocument> GetAsync(Func<DateTimeOffset, string> relativePath, CancellationToken cancellationToken)
     {
         await _requests.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -125,10 +204,11 @@ public sealed class ExchangeMarketApiClient : IExchangeMarketDetailsClient, IDis
                     await Task.Delay(remaining, _clock, cancellationToken).ConfigureAwait(false);
             }
             cancellationToken.ThrowIfCancellationRequested();
+            var path = relativePath(_clock.GetUtcNow());
             _lastRequest = _clock.GetTimestamp();
             using var deadline = new CancellationTokenSource(RequestTimeout, _clock);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
-            using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(ApiBase), relativePath));
+            using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(ApiBase), path));
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.UserAgent.Add(new ProductInfoHeaderValue("Soulcrest", "1.0"));
             try
@@ -210,6 +290,13 @@ public sealed class ExchangeMarketApiClient : IExchangeMarketDetailsClient, IDis
         var result = Required(value, key, JsonValueKind.Number).GetInt32();
         return result > 0 ? result : throw Invalid();
     }
+    /// <summary>
+    /// The native game-server key only bridges the own server to a market row. A missing, null or unusable key keeps
+    /// that single row unmapped (unknown) instead of rejecting the whole catalogue and backing off price requests.
+    /// </summary>
+    private static int? OptionalPositiveInt(JsonElement value, string key) =>
+        value.TryGetProperty(key, out var element) && element.ValueKind == JsonValueKind.Number
+            && element.TryGetInt32(out var result) && result > 0 ? result : null;
     private static bool Boolean(JsonElement value, string key) => value.GetProperty(key).GetBoolean();
     private static string Text(JsonElement value, string key, bool nullable)
     {

@@ -125,7 +125,7 @@ public sealed class OverlayViewTests
         var html = await fixture.Render();
         foreach (var overlay in OverlayRegistry.All)
             Assert.Contains($"data-overlay-select=\"{overlay.Id}\"", html);
-        Assert.Equal(10, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
+        Assert.Equal(11, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
         Assert.Contains(shared, html);
         Assert.Contains(place, html);
         Assert.Contains(language == "de" ? "Pet-Fortschritt" : "Pet progress", html);
@@ -360,12 +360,12 @@ public sealed class OverlayViewTests
     }
 
     [Fact]
-    public async Task EmbeddedStaticManagementListsTheTenNativeFamiliesWithoutChangingSettings()
+    public async Task EmbeddedStaticManagementListsTheElevenNativeFamiliesWithoutChangingSettings()
     {
         await using var fixture = new Fixture("en");
         var before = JsonSerializer.Serialize(fixture.Settings.Current);
         var html = await fixture.Render(staticOnly: true, embedded: true);
-        string[] families = ["loot", "achievements", "boss", "leveling", "alerts", "notifications", "event-timeline", "map", "merchant", "daevanion"];
+        string[] families = ["loot", "achievements", "genus-insight", "boss", "leveling", "alerts", "notifications", "event-timeline", "map", "merchant", "daevanion"];
         foreach (var id in families) Assert.Contains($"data-overlay-select=\"{id}\"", html);
         Assert.Equal(families.Length, System.Text.RegularExpressions.Regex.Matches(html, "data-overlay-select=").Count);
         Assert.Contains("Static Overlays", html);
@@ -386,6 +386,30 @@ public sealed class OverlayViewTests
         Assert.Equal(before, JsonSerializer.Serialize(fixture.Settings.Current));
         Assert.False(fixture.Placement.Active);
         Assert.Empty(fixture.Alerts.Items);
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task GenusStaticSidebarHasItsOwnPreviewAndPositionControlsWithoutCreatingAnEditorWindow(string language)
+    {
+        await using var fixture = new Fixture(language);
+        var settingsBefore = JsonSerializer.Serialize(fixture.Settings.Current);
+        var editorBefore = JsonSerializer.Serialize(fixture.EditorService.Overlays);
+        await fixture.Render(staticOnly: true, embedded: true);
+        var html = await fixture.Invoke("SelectOverlay", "genus-insight");
+        Assert.Contains("data-overlay-detail=\"genus-insight\"", html);
+        Assert.Contains("Genus Insight", html);
+        Assert.Contains("data:image/png;base64,", html);
+        Assert.Contains("id=\"overlay-enabled\"", html);
+        Assert.Contains("id=\"overlay-x\"", html);
+        Assert.Contains("id=\"overlay-y\"", html);
+        Assert.Contains("id=\"overlay-scale\"", html);
+        Assert.DoesNotContain("id=\"overlay-width\"", html);
+        Assert.DoesNotContain("static-overlay-sample-missing", html);
+        Assert.Equal(settingsBefore, JsonSerializer.Serialize(fixture.Settings.Current));
+        Assert.Equal(editorBefore, JsonSerializer.Serialize(fixture.EditorService.Overlays));
+        Assert.False(fixture.Placement.Active);
     }
 
     [Theory]

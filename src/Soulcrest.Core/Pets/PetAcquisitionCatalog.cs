@@ -6,7 +6,7 @@ using Soulcrest.Core.Network;
 
 namespace Soulcrest.Core.Pets;
 
-public enum PetAcquisitionCategory { Expedition, Transcendence }
+public enum PetAcquisitionCategory { Expedition, Transcendence, Dungeon, Raid }
 public enum PetGlobalAvailability { Available, Upcoming, Unconfirmed }
 
 public sealed record PetAcquisitionMapAvailability
@@ -66,14 +66,18 @@ public sealed record PetAcquisitionSource
 
 public sealed record PetAcquisitionEntry
 {
-    internal PetAcquisitionEntry(int petNumber, int soulItemId, string newSince,
+    internal PetAcquisitionEntry(int petNumber, int soulItemId, string? newSince,
         IReadOnlyList<PetAcquisitionSource> sources, IReadOnlyList<string> sourceRefs) =>
         (PetNumber, SoulItemId, NewSince, Sources, SourceRefs) = (petNumber, soulItemId, newSince, sources, sourceRefs);
 
     public int PetNumber { get; }
     public int SoulItemId { get; }
-    public string NewSince { get; }
+    public string? NewSince { get; }
     public IReadOnlyList<PetAcquisitionSource> Sources { get; }
+    public PetGlobalAvailability Availability => Sources.Any(source => source.HasAvailableVariants)
+        ? PetGlobalAvailability.Available
+        : Sources.All(source => !source.HasUnconfirmedVariants && source.HasUpcomingVariants)
+            ? PetGlobalAvailability.Upcoming : PetGlobalAvailability.Unconfirmed;
     public IReadOnlyList<string> SourceRefs { get; }
 }
 
@@ -113,8 +117,7 @@ public static class PetAcquisitionCatalog
             {
                 if (pet is null || PetIdTable.Find(pet.PetNumber) is null || pet.SoulItemId <= 0
                     || !itemIds.Add(pet.SoulItemId) || pet.Sources is not { Length: > 0 }
-                    || pet.NewSince is null || !DateOnly.TryParseExact(pet.NewSince, "yyyy-MM-dd",
-                        CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                    || pet.NewSince is not null && !ValidDate(pet.NewSince))
                     throw Invalid();
                 var sources = new List<PetAcquisitionSource>();
                 foreach (var source in pet.Sources)
@@ -127,6 +130,8 @@ public static class PetAcquisitionCatalog
                     {
                         "Expedition" => PetAcquisitionCategory.Expedition,
                         "Transcendence" => PetAcquisitionCategory.Transcendence,
+                        "Dungeon" => PetAcquisitionCategory.Dungeon,
+                        "Raid" => PetAcquisitionCategory.Raid,
                         _ => throw Invalid()
                     };
                     var maps = PositiveIds(source.MapIds);

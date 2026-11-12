@@ -12,6 +12,87 @@ public sealed class ExchangeMarketCacheRefreshTests
     private static readonly DateTimeOffset Start = new(2026, 11, 6, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void CurrentCatalogueWithASingleUnmappedRowKeepsItsFetchTime()
+    {
+        // A current provider catalogue may leave one row without a native key; only a key-less one is a legacy cache.
+        using var directory = new CacheDirectory();
+        Directory.CreateDirectory(directory.Root);
+        object unmapped = new { ServerId = 11301, Name = "Example", Region = "eu", RegionName = "Europe", Faction = "Elyos", HasData = true };
+        File.WriteAllText(Path.Combine(directory.Root, "exchange-market-cache.json"), JsonSerializer.Serialize(new
+        {
+            SchemaVersion = 1, Provider = "aion2.exchange", ServersFetchedAt = Start,
+            Servers = new object[] { unmapped, Server() with { ServerId = 11302, GameServerKey = 1302 } },
+            Quotes = Array.Empty<object>(), HistoricalQuotes = Array.Empty<object>(), Lookups = Array.Empty<object>(),
+        }));
+        var cache = new ExchangeMarketCache(new Clock(), directory.Root);
+        Assert.Equal(Start, cache.ServersFetchedAt);
+        Assert.Null(Assert.Single(cache.GetServers(), server => server.ServerId == 11301).GameServerKey);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    public async Task LegacyCatalogueWithoutNativeKeysRefreshesOnceAndPreservesAllPriceEvidence(bool mixedCatalogue)
+    {
+        using var directory = new CacheDirectory();
+        Directory.CreateDirectory(directory.Root);
+        var clock = new Clock();
+        var quote = Quote(clock, 1);
+        var historical = new ExchangeMarketHistoricalQuote(11301, 2, 7.25m, Start.AddHours(-5), Start);
+        object legacy = new { ServerId = 11301, Name = "Example", Region = "eu", RegionName = "Europe", Faction = "Elyos", HasData = true };
+        object[] servers = mixedCatalogue ? [legacy, Server() with { ServerId = 11302, GameServerKey = 1302 }] : [legacy];
+        File.WriteAllText(Path.Combine(directory.Root, "exchange-market-cache.json"), JsonSerializer.Serialize(new
+        {
+            SchemaVersion = 1, Provider = "aion2.exchange", ServersFetchedAt = Start,
+            Servers = servers, Quotes = new[] { quote }, HistoricalQuotes = new[] { historical },
+            Lookups = new[] { new { ServerId = 11301, ItemId = 3, FetchedAt = Start } },
+        }));
+        var cache = new ExchangeMarketCache(clock, directory.Root);
+        Assert.Null(cache.ServersFetchedAt);
+        Assert.Equal(servers.Length, cache.GetServers().Length);
+        Assert.Equal(quote, cache.GetQuote(11301, 1));
+        Assert.Equal(historical, cache.GetHistoricalQuote(11301, 2));
+        Assert.True(cache.IsQuoteLookupFresh(11301, 3, Start));
+        var client = new Client(clock);
+        await Task.WhenAll(cache.GetServersAsync(client, CancellationToken.None), cache.GetServersAsync(client, CancellationToken.None));
+        Assert.Equal(1, client.ServerCalls);
+        Assert.Empty(client.QuoteCalls);
+        var restored = new ExchangeMarketCache(clock, directory.Root);
+        Assert.Equal(Start, restored.ServersFetchedAt);
+        Assert.Equal(1301, Assert.Single(restored.GetServers()).GameServerKey);
+        Assert.Equal(quote, restored.GetQuote(11301, 1));
+        Assert.Equal(historical, restored.GetHistoricalQuote(11301, 2));
+        Assert.True(restored.IsQuoteLookupFresh(11301, 3, Start));
+        await restored.GetServersAsync(client, CancellationToken.None);
+        Assert.Equal(1, client.ServerCalls);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void InvalidNativeKeysCannotReplaceAValidCatalogue(int invalid)
+    {
+        using var directory = new CacheDirectory();
+        var cache = new ExchangeMarketCache(new Clock(), directory.Root);
+        cache.SaveServers([Server()]);
+        var before = File.ReadAllBytes(Path.Combine(directory.Root, "exchange-market-cache.json"));
+        Assert.Throws<ArgumentException>(() => cache.SaveServers([Server() with { GameServerKey = invalid }]));
+        Assert.Equal(1301, Assert.Single(cache.GetServers()).GameServerKey);
+        Assert.Equal(before, File.ReadAllBytes(Path.Combine(directory.Root, "exchange-market-cache.json")));
+    }
+
+    [Fact]
+    public void AmbiguousNativeKeysRemainInTheCatalogueForExplicitServerSelection()
+    {
+        using var directory = new CacheDirectory();
+        var cache = new ExchangeMarketCache(new Clock(), directory.Root);
+        cache.SaveServers([Server(), Server() with { ServerId = 21301, Region = "other" }]);
+        var restored = new ExchangeMarketCache(new Clock(), directory.Root);
+        Assert.Equal(2, restored.GetServers().Length);
+        Assert.All(restored.GetServers(), row => Assert.Equal(1301, row.GameServerKey));
+        Assert.Equal(Start, restored.ServersFetchedAt);
+    }
+
+    [Fact]
     public async Task ParallelMissesRecheckAfterTheSharedGateAndFetchOnlyOnce()
     {
         var clock = new Clock();
@@ -331,7 +412,7 @@ public sealed class ExchangeMarketCacheRefreshTests
     }
 
     private static ExchangeMarketQuote Quote(Clock clock, int item, int server = 11301) => new(server, item, 12.5m, 2, clock.GetUtcNow().AddMinutes(-1), clock.GetUtcNow());
-    private static ExchangeMarketServer Server() => new(11301, "Example", "eu", "Europe", "Elyos", true);
+    private static ExchangeMarketServer Server() => new(11301, "Example", "eu", "Europe", "Elyos", true) { GameServerKey = 1301 };
 
     private sealed class Client(Clock clock) : IExchangeMarketClient
     {

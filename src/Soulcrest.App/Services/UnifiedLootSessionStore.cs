@@ -50,6 +50,12 @@ public sealed class UnifiedLootSessionStore
 
     internal void Append(LootTrackerSession snapshot)
     {
+        try { AppendCore(snapshot); }
+        catch (Exception error) { LootRecordingFaults.Mark(error, LootRecordingFaultStage.JournalPrepare); throw; }
+    }
+
+    private void AppendCore(LootTrackerSession snapshot)
+    {
         ArgumentNullException.ThrowIfNull(snapshot);
         ValidateSnapshot(snapshot);
         lock (_gate)
@@ -78,10 +84,16 @@ public sealed class UnifiedLootSessionStore
             Directory.CreateDirectory(directory); ValidateLocalPath(directory);
             var journal = Path.Combine(directory, "events-0001.jsonl"); ValidateLocalPath(journal);
             try { _append(journal, line); }
-            catch { _failedAppends.Add(snapshot.Id); throw; }
+            catch (Exception error)
+            {
+                _failedAppends.Add(snapshot.Id);
+                LootRecordingFaults.Mark(error, LootRecordingFaultStage.JournalAppend);
+                throw;
+            }
             // The journal commit happened even if the following checkpoint write fails.
             _cursors[snapshot.Id] = new(sequence, totalBytes, snapshot) { SchemaVersion = schema };
-            _save(Path.Combine(directory, "summary-v1.json"), Checkpoint.From(sequence, snapshot));
+            try { _save(Path.Combine(directory, "summary-v1.json"), Checkpoint.From(sequence, snapshot)); }
+            catch (Exception error) { LootRecordingFaults.Mark(error, LootRecordingFaultStage.Checkpoint); throw; }
         }
     }
 
@@ -195,9 +207,10 @@ public sealed class UnifiedLootSessionStore
                     {
                         TimelineEvents = (result?.Snapshot.TimelineEvents ?? []).AddRange(timeline),
                         CombatEvents = (result?.Snapshot.CombatEvents ?? []).AddRange(combat),
-                        GatherVisits = (result?.Snapshot.GatherVisits ?? []).AddRange(harvest),
-                        RouteSegments = ApplyRouteChange(result?.Snapshot, snapshot, delta)
+                        GatherVisits = (result?.Snapshot.GatherVisits ?? []).AddRange(harvest)
                     };
+                    // Live legacy tail trims depend on the fully reconstructed nonproductive facts.
+                    snapshot = snapshot with { RouteSegments = ApplyRouteChange(result?.Snapshot, snapshot, delta) };
                     ValidateSnapshot(snapshot);
                     if (result is not null) ValidateTransition(result.Snapshot, snapshot);
                     result = new(entry.Sequence, consumed, snapshot) { SchemaVersion = entry.SchemaVersion }; line.Clear();
@@ -283,7 +296,7 @@ public sealed class UnifiedLootSessionStore
             return new(false, before.Length,
                 before.IsEmpty ? [] : after[before.Length - 1].Points.Skip(before[^1].Points.Length).ToImmutableArray(),
                 after.Skip(before.Length).ToImmutableArray());
-        if (previous is null || next.Status == LootTrackerSessionStatus.Live || next.EndedAt is not { } end
+        if (previous is null || RouteTrimEnd(previous, next) is not { } end
             || !SameRoute(after, TrimRoute(previous, end, next.Elapsed)))
             throw new InvalidDataException("A recorded route cannot be rewritten.");
         return new(true, 0, [], after);
@@ -298,7 +311,7 @@ public sealed class UnifiedLootSessionStore
         if (delta.Replace)
         {
             if (delta.ExistingSegments != 0 || !delta.LastSegmentPoints.IsEmpty || previous is null
-                || next.Status == LootTrackerSessionStatus.Live || next.EndedAt is not { } end
+                || RouteTrimEnd(previous, next) is not { } end
                 || !SameRoute(delta.Segments, TrimRoute(previous, end, next.Elapsed)))
                 throw new InvalidDataException("Invalid route truncation.");
             return delta.Segments;
@@ -317,6 +330,33 @@ public sealed class UnifiedLootSessionStore
             && pair.First.MapId == pair.Second.MapId && pair.First.MapName == pair.Second.MapName
             && pair.First.StartsAfterPause == pair.Second.StartsAfterPause
             && !pair.First.Points.IsDefault && !pair.Second.Points.IsDefault && pair.First.Points.SequenceEqual(pair.Second.Points));
+
+    private static DateTimeOffset? RouteTrimEnd(LootTrackerSession previous, LootTrackerSession next)
+    {
+        if (next.Status != LootTrackerSessionStatus.Live) return next.EndedAt;
+        // Compatibility for already committed pre-fix jitter tails. A running productive event
+        // cannot rewrite a route: only an exact pause/nonproductive cutoff is permitted.
+        if (previous.Kind != LootTrackerSessionKind.Mixed || next.Kind != LootTrackerSessionKind.Mixed
+            || previous.Status != LootTrackerSessionStatus.Live || next.Elapsed != previous.Elapsed
+            || previous.IsPaused && !next.IsPaused || next.LastLootAt is not { } end
+            || previous.TimelineEvents.IsDefault || next.TimelineEvents.IsDefault
+            || previous.Loot.IsDefault || next.Loot.IsDefault || previous.CombatEvents.IsDefault || next.CombatEvents.IsDefault
+            || next.LastLootAt < previous.LastLootAt || next.TimelineEvents.Length < previous.TimelineEvents.Length
+            || !previous.TimelineEvents.SequenceEqual(next.TimelineEvents.Take(previous.TimelineEvents.Length))
+            || !previous.Loot.SequenceEqual(next.Loot) || !previous.CombatEvents.SequenceEqual(next.CombatEvents)
+            || previous.ItemCount != next.ItemCount || previous.SoulCount != next.SoulCount
+            || previous.HarvestCount != next.HarvestCount || previous.MonsterCount != next.MonsterCount
+            || previous.KinaBound != next.KinaBound || previous.KinaUnbound != next.KinaUnbound
+            || previous.AbyssPoints != next.AbyssPoints || previous.RankPointsGained != next.RankPointsGained)
+            return null;
+        var facts = next.TimelineEvents.Skip(previous.TimelineEvents.Length).ToArray();
+        if (facts.Any(row => row is null || row.Kind is not (LootTrackerTimelineEventKind.HarvestFailure or LootTrackerTimelineEventKind.Availability)
+                && !(row.Kind == LootTrackerTimelineEventKind.RankPoints && row.Amount < 0))) return null;
+        var pause = !previous.IsPaused && next.IsPaused && next.LastLootAt == previous.LastLootAt;
+        var nonproductive = facts.Any(row => row.Kind == LootTrackerTimelineEventKind.HarvestFailure
+            || row.Kind == LootTrackerTimelineEventKind.RankPoints && row.Amount < 0);
+        return pause || nonproductive ? end : null;
+    }
 
     private static void ValidateSnapshot(LootTrackerSession session)
     {

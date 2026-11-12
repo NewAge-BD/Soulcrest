@@ -582,6 +582,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         internal List<string> Journal { get; } = [];
         internal bool Bound = true, FailAppend;
         internal Action? BeforeBind;
+        internal Action? BeforeAppend;
         internal Func<RecorderPositionSnapshot?> Position = () => null;
         internal WorldContextKind WorldKind = WorldContextKind.OpenWorld;
         internal WorldContextStatus WorldStatus = WorldContextStatus.Confirmed;
@@ -600,6 +601,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
             if (abyss) { WorldKind = WorldContextKind.Instance; Category = "Abyss"; Source.InInstance = true; }
             var store = new UnifiedLootSessionStore(SessionRoot, (path, line) =>
             {
+                Interlocked.Exchange(ref BeforeAppend, null)?.Invoke();
                 if (FailAppend) throw new IOException("Synthetic append failure.");
                 File.AppendAllText(path, line, new UTF8Encoding(false)); Journal.Add(line);
             }, (path, value) => JsonFile.Save(path, value));

@@ -116,7 +116,7 @@ internal sealed class AchievementTrackerStageResolver
         var stage = stageId is { } id ? definition?.Stages.FirstOrDefault(item => item.Id == id) : null;
         var named = definition?.HasNativeName == true;
         var rewards = (stage?.Rewards ?? definition?.Rewards ?? []).Select(reward =>
-            new AchievementTrackerReward(reward.NameDe, reward.NameEn, reward.IconPath, reward.Quantity)).ToImmutableArray();
+            new AchievementTrackerReward(reward.NameDe, reward.NameEn, reward.IconPath, reward.Quantity) { ItemId = reward.ItemId }).ToImmutableArray();
         return _labels[(familyId, stageId)] = new()
         {
             FamilyId = familyId, StageId = stageId,

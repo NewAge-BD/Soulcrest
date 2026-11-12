@@ -111,6 +111,23 @@ public sealed class DiagnosticContributorCoverageTests
     }
 
     [Fact]
+    public void PetDungeonDiagnosticsExposeOnlyAnonymousCatalogCountsWithoutStartingSources()
+    {
+        var progress = new ProgressService();
+        using var network = new NetworkLootService(progress);
+        var contributors = DiagnosticContributors.Create(new ExistingOnlyProvider(progress, network));
+        var result = contributors.Single(item => item.FeatureIds.Contains("pets")).Collect("pets");
+        var sources = Soulcrest.Core.Pets.PetAcquisitionCatalog.All.Values.ToArray();
+        Assert.Equal(sources.Length, result.Facts["dungeonPets"]);
+        Assert.Equal(sources.Count(pet => pet.Sources.Any(source => source.HasAvailableVariants)), result.Facts["dungeonAvailablePets"]);
+        Assert.Equal(sources.Count(pet => pet.Sources.Any(source => source.HasUpcomingVariants)), result.Facts["dungeonUpcomingPets"]);
+        Assert.Equal(sources.Count(pet => pet.Sources.Any(source => source.HasUnconfirmedVariants)), result.Facts["dungeonUnconfirmedPets"]);
+        Assert.False(network.Running);
+        Assert.All(result.Facts.Where(pair => pair.Key.StartsWith("dungeon", StringComparison.Ordinal)),
+            pair => Assert.IsType<int>(pair.Value));
+    }
+
+    [Fact]
     public void MerchantSourceProjectsPetRowCountWithoutStartingReception()
     {
         var settings = new SettingsService();

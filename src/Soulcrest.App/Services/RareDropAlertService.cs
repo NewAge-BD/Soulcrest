@@ -11,6 +11,8 @@ public sealed record RareDropAlertOptions(bool Enabled = true, bool SoundEnabled
 public sealed record RareDropNotice(string Id, string Name, long Quantity, LootItemRarity Rarity,
     string? IconPath, DateTimeOffset StartedAt)
 {
+    /// <summary>Exact received item identity for foreground presentation; absent legacy notices remain neutral.</summary>
+    public string? LootKey { get; init; }
     public double ElapsedSeconds { get; init; }
     /// <summary>Local receipt ownership for read-only projections, never a native character identifier.</summary>
     public string? SessionId { get; init; }
@@ -150,7 +152,7 @@ public sealed class RareDropAlertService : IDisposable
             var notice = new RareDropNotice(Guid.NewGuid().ToString("N"), drop.Name, drop.Quantity, rarity,
                 MonsterLootIconCatalog.Default.DropAsset(drop.LootKey), _time.GetUtcNow())
             {
-                SessionId = drop.SessionId, ProfileId = drop.ProfileId,
+                SessionId = drop.SessionId, ProfileId = drop.ProfileId, LootKey = drop.LootKey,
             };
             var stamp = _time.GetTimestamp();
             // An independent visual projection records one latest receipt even

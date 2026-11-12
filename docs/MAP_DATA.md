@@ -318,3 +318,32 @@ Der Boss-Rush-Filter verbindet eigene Poolmitgliedschaft und Unique-Seltenheit m
 bereits gebündelten exakten Ausrüstungsklassifikation. Allgemeine Unique-Drops und
 Unique-Materialien zählen nicht. Alte Kartenpakete bleiben ohne aktivierten Filter
 kompatibel; der Testeraufbereiter erzeugt die zusätzliche Metainformation offline.
+
+## Dungeon-Petkarten (2026-11-12)
+
+Die separate Dungeonansicht im Pet-Katalog verwendet vollständige Kartenbilder
+und die geprüfte Produktprojektion `data/pets/dungeon-map-pins.json`. Sie umfasst
+65 Pets, 46 Kartenvarianten und 3.341 bekannte Quellmonsterpositionen auf 15 Bildern.
+Jede Position benötigt die exakte Pet-, NPC- und Kartenbindung des Soulquellenkatalogs.
+NPC-Präsenz allein, Namensgleichheit oder ein fehlender Koordinatenwert erzeugen
+keinen Pin. Geteilte Bilder verschmelzen die Spawnlisten verschiedener Varianten nicht.
+
+Die Projektion verwendet natürliche Bildpixel mit Ursprung links oben. Die gleiche
+gleichförmige, zentrierte Bounds-Umrechnung wie beim bestehenden Kartenimport
+geschieht einmalig während der Vorbereitung. Die eigene Leaflet-Instanz verwendet
+danach ausschließlich `[-y, x]`, ohne Weltkarten-Referenzzoom oder DPI-Skalierung.
+Die Ansichten beruhen auf der vorhandenen Kartenkalibrierung; Livegenauigkeit und
+separate Etagen sind nicht zusätzlich belegt. Es werden keine Z-Schwellen erfunden.
+
+`scripts/dungeon_pet_maps.py` prüft Bildhash, tatsächliche Bildabmessungen,
+Quellenbindung und Koordinaten, bevor der Offline-Builder Dateien schreibt.
+`data/maps/dungeon-images/` enthält die vollständigen aufbereiteten Produktbilder.
+Im Kartenpaket liegen sie getrennt unter `dungeon-maps/`, die Metadaten unter
+`dungeon-maps.json`. Der zusätzliche Manifestabschnitt `dungeonPetMaps` enthält
+einen Fingerprint über Katalog und Bilder. Er beteiligt sich an Paket-/Testerupdates.
+Die neun bisherigen Einträge in `manifest.maps` und deren Tracking bleiben gleich.
+
+Die App bindet Bilder per SHA-256 an ihre eingebetteten Positionen. Fehlende oder
+veraltete Bilder werden ausdrücklich gemeldet. Kein Download, Clientzugriff,
+Spielertracking oder Speichern von Weltkartenansichten wird durch den Dialog ausgelöst.
+Private Herkunft und Werkzeuge bleiben vom öffentlichen Produktvertrag getrennt.

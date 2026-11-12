@@ -37,7 +37,7 @@
                     var owned = Snapshot.IsOwnershipKnown && Snapshot.OwnedIds.Contains(item.Id);
                     var equipped = Snapshot.Slots.Any(slot => slot.IsKnown && slot.DecorId == item.Id);
                     <article class="pt-card @(Snapshot.IsOwnershipKnown && !owned ? "missing" : "") @(equipped ? "equipped" : "")" role="listitem" data-pantheon-decor="@item.Id" data-ownership="@(Snapshot.IsOwnershipKnown ? owned ? "owned" : "missing" : "unknown")" @key="item.Id">
-                        <div class="pt-card-head">@if (!string.IsNullOrWhiteSpace(item.IconPath)) { <img src="@item.IconPath" alt="" loading="lazy" /> } else { <span class="pt-icon-missing" aria-hidden="true">◇</span> }<div><h4>@item.Name(Language)</h4><small>@CategoryLabel(item.Category)</small></div></div>
+                        <div class="pt-card-head">@if (!string.IsNullOrWhiteSpace(item.IconPath)) { <img src="@item.IconPath" alt="" loading="lazy" /> } else { <span class="pt-icon-missing" aria-hidden="true">◇</span> }<div><h4><ItemName ItemId="item.ItemId" Text="@item.Name(Language)" /></h4><small>@CategoryLabel(item.Category)</small></div></div>
                         <ul class="pt-card-effects">@foreach (var effect in item.Effects.OrderBy(effect => GodOrder(effect.StatId)))
                             { <li>@if (CombatWorkspaceCatalog.IconPath(effect.StatId) is { } icon) { <img src="@icon" alt="" /> }<span>@StatLabel(effect.StatId)</span><strong>+@effect.Amount</strong></li> }</ul>
                         <div class="pt-card-status"><span>@(Snapshot.IsOwnershipKnown ? owned ? UiText.T("Vorhanden") : UiText.T("Fehlend") : UiText.T("Besitz unbekannt"))</span>@if (equipped) { <span class="pt-equipped-badge">@UiText.T("Ausgerüstet")</span> }</div>
@@ -60,9 +60,14 @@
                                 var slot = Snapshot.Slots.SingleOrDefault(row => row.SlotId == definition.Id && row.Category == category);
                                 var known = slot?.IsKnown == true;
                                 var item = known && slot!.DecorId is > 0 ? Catalog.Find(slot.DecorId.Value) : null;
-                                <div class="pt-slot @(item is not null ? "equipped" : "")" data-pantheon-slot="@definition.Id" data-slot-known="@known.ToString().ToLowerInvariant()" title="@(item?.Name(Language) ?? (known && slot!.DecorId is not > 0 ? UiText.T("Leer") : UiText.T("Nicht erkannt")))">
-                                    @if (item is not null && !string.IsNullOrWhiteSpace(item.IconPath)) { <img src="@item.IconPath" alt="@item.Name(Language)" /> }
-                                    else if (item is not null) { <span class="pt-icon-missing" aria-label="@item.Name(Language)">◇</span> }
+                                <div class="pt-slot @(item is not null ? "equipped" : "")" data-pantheon-slot="@definition.Id" data-slot-known="@known.ToString().ToLowerInvariant()" tabindex="@(item is not null ? "0" : null)" aria-label="@(item?.Name(Language) ?? (known && slot!.DecorId is not > 0 ? UiText.T("Leer") : UiText.T("Nicht erkannt")))">
+                                    @if (item is not null)
+                                    {
+                                        <ItemTooltip ItemId="item.ItemId" Text="@item.Name(Language)" Focusable="false" ParentFocus="true">
+                                            @if (!string.IsNullOrWhiteSpace(item.IconPath)) { <img src="@item.IconPath" alt="" /> }
+                                            else { <span class="pt-icon-missing" aria-hidden="true">◇</span> }
+                                        </ItemTooltip>
+                                    }
                                     else { <span class="pt-slot-empty">@(known && slot!.DecorId is not > 0 ? "–" : "?")</span> }
                                     <small>@definition.Id</small>
                                 </div>

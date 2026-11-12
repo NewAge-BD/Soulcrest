@@ -3,7 +3,7 @@ using System.Threading.Channels;
 namespace Soulcrest.App.Services;
 
 /// <summary>
-/// Revalues all items of the qualified current session using current public asking prices and profile fees.
+/// Revalues the qualified current session using current public unit prices, with 24-hour means for missing prices.
 /// A shared activation lease owns refreshes; capture is read-only and never writes frozen valuation sidecars.
 /// </summary>
 public sealed class OverlayEditorMarketService : IDisposable, IAsyncDisposable
@@ -34,8 +34,13 @@ public sealed class OverlayEditorMarketService : IDisposable, IAsyncDisposable
     private sealed record Refresh(TaskCompletionSource? Completion = null, bool Coalesced = false);
 
     public OverlayEditorMarketService(SettingsService settings, UnifiedLootTrackerService source,
-        IExchangeMarketClient client, ExchangeMarketCache cache, TimeProvider? time = null)
-        : this(() => source.OverlayState, settings.GetExchangeMarketProfile,
+        IExchangeMarketClient client, ExchangeMarketCache cache, TimeProvider? time = null, Soulcrest.App.Network.INetworkFarmSource? ownSource = null)
+        : this(() => source.OverlayState, profileId =>
+        {
+            var own = ownSource?.Running == true ? ownSource is Soulcrest.App.Network.NetworkLootService native
+                ? native.OwnCharacterSnapshot : ownSource.OwnCharacter : null;
+            return settings.GetExchangeMarketProfileForOwnServer(profileId, own?.Identity.ServerId);
+        },
             () => settings.Current.OnlineMarketPricesEnabled, client, cache, time ?? TimeProvider.System)
     {
         source.Changed += SourcesChanged; settings.Changed += SourcesChanged;
@@ -78,8 +83,8 @@ public sealed class OverlayEditorMarketService : IDisposable, IAsyncDisposable
         if (Volatile.Read(ref _disposed) != 0) return Unavailable();
         var model = _profile(session.Character?.ProfileId);
         var value = OverlayEditorMarketProjection.Project(session, model, _online(), FindServer(model),
-            id => model.ServerId is { } server ? _cache.GetQuote(server, id) : null, asOf, _facts,
-            id => model.ServerId is { } server ? _cache.GetHistoricalQuote(server, id) : null);
+            id => model.ServerId is { } server ? _cache.GetQuote(server, id) : null,
+            id => model.ServerId is { } server ? _cache.GetAveragePrice(server, id) : null, asOf, _facts);
         return value with
         {
             Loading = _loading, StatusIsError = value.StatusIsError || _requestError,
@@ -87,7 +92,7 @@ public sealed class OverlayEditorMarketService : IDisposable, IAsyncDisposable
         };
     }
 
-    private OverlayEditorMarketSnapshot Unavailable() => new() { OnlineEnabled = _online() };
+    private OverlayEditorMarketSnapshot Unavailable() => new() { OnlineEnabled = _online(), AverageFallbackEnabled = true };
     private static LootTrackerSession? Qualified(UnifiedLootOverlayState state, DateTimeOffset now) =>
         state.TrackingAvailable && state.At != default && state.At <= now
             && state.Session is { } session && ValidSession(session, now) ? session : null;
@@ -172,7 +177,20 @@ public sealed class OverlayEditorMarketService : IDisposable, IAsyncDisposable
     }
 
     private ExchangeMarketServer? FindServer(ExchangeMarketProfileSettings model) => _cache.GetServers().FirstOrDefault(server =>
-        server.ServerId == model.ServerId && server.Region == model.Region && server.Faction == model.Faction);
+        server.ServerId == model.ServerId && server.Region == model.Region && server.Faction == model.Faction
+        && (!model.AutomaticServerSelection || model.GameServerKey is null || server.GameServerKey == model.GameServerKey));
+
+    private bool NeedsCurrentPrice(int serverId, int itemId, DateTimeOffset now)
+    {
+        var quote = _cache.GetQuote(serverId, itemId);
+        // A shared positive or negative fallback lookup also holds off widget polling for ten minutes.
+        // The receipt cache keeps its independent one-minute missing-current-price lifetime.
+        return !ExchangeMarketCache.IsFresh(quote, now) && !_cache.IsQuoteLookupFresh(serverId, itemId, now)
+            && (quote is not null || !_cache.IsAveragePriceLookupFresh(serverId, itemId, now));
+    }
+
+    private bool NeedsAveragePrice(int serverId, int itemId, DateTimeOffset now) =>
+        _cache.GetQuote(serverId, itemId) is null && !_cache.IsAveragePriceLookupFresh(serverId, itemId, now);
 
     private bool Current(Context context, long generation)
     {
@@ -220,14 +238,12 @@ public sealed class OverlayEditorMarketService : IDisposable, IAsyncDisposable
         var now = _time.GetUtcNow();
         var needsServer = FindServer(context.Model) is null;
         if (needsServer && now < _nextServerAttempts.GetValueOrDefault(serverId)) return;
-        var needed = items.Where(id => !ExchangeMarketCache.IsFresh(_cache.GetQuote(serverId, id), now)
-            && !_cache.IsQuoteLookupFresh(serverId, id, now)
+        var needed = items.Where(id => (NeedsCurrentPrice(serverId, id, now) || NeedsAveragePrice(serverId, id, now))
             && _nextAttempts.GetValueOrDefault((serverId, id)) <= now).ToArray();
         if (!needsServer && needed.Length == 0)
         {
             // Another consumer can complete the shared lookup while this worker is backing off.
-            if (items.All(id => ExchangeMarketCache.IsFresh(_cache.GetQuote(serverId, id), now)
-                || _cache.IsQuoteLookupFresh(serverId, id, now))) _requestError = false;
+            if (items.All(id => !NeedsCurrentPrice(serverId, id, now) && !NeedsAveragePrice(serverId, id, now))) _requestError = false;
             return;
         }
         using var request = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
@@ -247,16 +263,30 @@ public sealed class OverlayEditorMarketService : IDisposable, IAsyncDisposable
                 if (FindServer(context.Model) is null) return;
             }
             now = _time.GetUtcNow();
-            needed = items.Where(id => !ExchangeMarketCache.IsFresh(_cache.GetQuote(serverId, id), now)
-                && !_cache.IsQuoteLookupFresh(serverId, id, now)
+            needed = items.Where(id => NeedsCurrentPrice(serverId, id, now)
                 && _nextAttempts.GetValueOrDefault((serverId, id)) <= now).ToArray();
             foreach (var batch in needed.Chunk(100))
             {
                 if (!Current(context, generation) || request.IsCancellationRequested) return;
-                // The injected production client is the existing singleton and owns the shared five-second rate gate.
                 await _cache.GetQuotesAsync(_client, serverId, batch, request.Token).ConfigureAwait(false);
                 if (!Current(context, generation) || request.IsCancellationRequested) return;
                 _requestError = false;
+                Publish();
+            }
+            now = _time.GetUtcNow();
+            needed = items.Where(id => NeedsAveragePrice(serverId, id, now)
+                && _nextAttempts.GetValueOrDefault((serverId, id)) <= now).ToArray();
+            foreach (var id in needed)
+            {
+                if (!Current(context, generation) || request.IsCancellationRequested) return;
+                // Only missing current prices need individual history requests; both paths
+                // share the provider gate and publish each cached result incrementally.
+                if (_client is not IExchangeMarketAverageClient averages)
+                    throw new InvalidDataException("The market source does not provide 24-hour mean prices.");
+                await _cache.GetAveragePricesAsync(averages, serverId, [id], request.Token).ConfigureAwait(false);
+                if (!Current(context, generation) || request.IsCancellationRequested) return;
+                _requestError = false;
+                Publish();
             }
         }
         catch (OperationCanceledException) when (request.IsCancellationRequested) { }

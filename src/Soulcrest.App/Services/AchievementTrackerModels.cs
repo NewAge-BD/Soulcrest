@@ -4,7 +4,10 @@ using Soulcrest.App.Components;
 namespace Soulcrest.App.Services;
 
 public enum AchievementTrackerRowState { Unknown, InProgress, Celebrating, AwaitingClaim }
-public sealed record AchievementTrackerReward(string NameDe, string NameEn, string? IconPath, long? Quantity);
+public sealed record AchievementTrackerReward(string NameDe, string NameEn, string? IconPath, long? Quantity)
+{
+    public int? ItemId { get; init; }
+}
 
 /// <summary>One frozen family row. Catalogue labels do not qualify a goal or live completion.</summary>
 public sealed record AchievementTrackerRow

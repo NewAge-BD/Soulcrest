@@ -31,6 +31,10 @@ public sealed class MainForm : Form
     private readonly MerchantOverlayForm _merchantOverlay;
     private readonly DaevanionOverlayForm _daevanionOverlay;
     private readonly SettingsService _settings;
+    private readonly AppThemeRuntime _appThemes;
+    private Microsoft.Web.WebView2.WinForms.WebView2? _themeBrowser;
+    private bool _themePageReady, _themeApplying;
+    private nint _appThemeHandle;
     private readonly OverlayPlacementService _placement;
     private OverlayPlacementForm? _placementWindow;
     private bool _placementPresented, _placementTransition, _waitingPlacementShutdown;
@@ -38,6 +42,7 @@ public sealed class MainForm : Form
     private readonly Network.NetworkLootService _achievementSource;
     private readonly AchievementStateService _achievementState;
     private readonly AchievementOverlayForm _achievementOverlay;
+    private readonly GenusInsightOverlayForm _genusInsightOverlay;
     private readonly MapTrackingService _map;
     private readonly WorldContextService _worldContext;
     private readonly Capture.GameCaptureService _gameCapture;
@@ -75,6 +80,7 @@ public sealed class MainForm : Form
         var services = new ServiceCollection();
         services.AddWindowsFormsBlazorWebView();
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<AppThemeRuntime>();
         services.AddSingleton<OverlayHotkeyService>();
         services.AddSingleton(_diagnosticOverlayRuntime);
         services.AddSingleton<OverlayPlacementService>();
@@ -83,9 +89,11 @@ public sealed class MainForm : Form
         services.AddSingleton<Soulcrest.App.OverlayEditorKit.IOverlayEditorLiveRenderer, Soulcrest.App.OverlayEditorKit.OverlayEditorLiveRenderer>();
         services.AddSingleton<Capture.GameCaptureService>();
         services.AddSingleton<ProgressService>();
+        services.AddSingleton<PetDungeonMapService>();
         services.AddSingleton<WorldContextService>();
         services.AddSingleton<Network.NetworkLootService>();
         services.AddSingleton<Network.INetworkLootSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
+        services.AddSingleton<Network.INetworkGenusInsightSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkMerchantSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkGatheringSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
         services.AddSingleton<Network.INetworkKinaSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
@@ -99,6 +107,10 @@ public sealed class MainForm : Form
         services.AddSingleton<DaevanionService>();
         services.AddSingleton<OwnSkillStateService>();
         services.AddSingleton<CharacterCombatStateService>();
+        services.AddSingleton<CraftingProficiencyStore>();
+        services.AddSingleton<CraftingProficiencyStateService>();
+        services.AddSingleton<CraftingScenarioStore>();
+        services.AddSingleton<CraftingCalculatorService>();
         services.AddSingleton<PantheonStateService>();
         services.AddSingleton<DaevanionBoardEditService>();
         services.AddSingleton<Network.INetworkAchievementSource>(sp => sp.GetRequiredService<Network.NetworkLootService>());
@@ -136,6 +148,7 @@ public sealed class MainForm : Form
         services.AddSingleton(_ => new ExchangeMarketCache(TimeProvider.System,
             Path.Combine(AppPaths.DataDirectory, "cache", "exchange-market")));
         services.AddSingleton<ExchangeLootValuationService>();
+        services.AddSingleton<ExchangeMarketAutoSelectionService>();
         services.AddSingleton(sp => new AbyssRankSoundPlayer(() =>
         {
             var settings = sp.GetRequiredService<SettingsService>().Current;
@@ -173,6 +186,9 @@ public sealed class MainForm : Form
         diagnosticServices.ObserveSingletons(services);
         _services = services.BuildServiceProvider();
         _settings = _services.GetRequiredService<SettingsService>();
+        _appThemes = _services.GetRequiredService<AppThemeRuntime>();
+        UpdateAppTheme();
+        _settings.Changed += UpdateAppTheme;
         // User request 2026-11-09: attach automatic audio before controls and native handles are initialized.
         _alerts = _services.GetRequiredService<AlertsService>();
         _alertSounds = _services.GetRequiredService<AlertSoundPlayer>();
@@ -214,6 +230,25 @@ public sealed class MainForm : Form
         {
             if (_closing || _cleanupStarted) return;
             if (_overlaysStarted) StartOverlayKeyboard();
+            _themeBrowser = e.WebView;
+            _themeBrowser.Visible = false;
+            _themeBrowser.DefaultBackgroundColor = AppThemeDefinition.ForId(_settings.Current.AppTheme).Background;
+            _themeBrowser.CoreWebView2.NavigationStarting += (_, _) =>
+            {
+                _themePageReady = false;
+                _appThemes.InvalidateWeb();
+            };
+            _themeBrowser.CoreWebView2.NavigationCompleted += (_, navigation) =>
+            {
+                if (_closing || _cleanupStarted) return;
+                _themePageReady = navigation.IsSuccess;
+                if (_themePageReady) UpdateAppTheme();
+                else
+                {
+                    _appThemes.ObserveWeb(_appThemes.Snapshot.Revision, null, "NavigationFailed");
+                    _themeBrowser.Visible = true;
+                }
+            };
             // No browser suggestion lists over Soulcrest's own: WebView2 drew its autofill popup over
             // the map search as a box of dots (user report 2026-10-06).
             e.WebView.CoreWebView2.Settings.IsGeneralAutofillEnabled = false;
@@ -248,11 +283,14 @@ public sealed class MainForm : Form
             _services.GetRequiredService<ExplorationService>(), _settings);
         _ = _services.GetRequiredService<CharacterDetectionService>(); // profile follows the character after loading screens
         _ = _services.GetRequiredService<CharacterCombatStateService>(); // persists own-bound title observations even when the calculator is closed
+        _ = _services.GetRequiredService<CraftingProficiencyStateService>(); // passive own-entry proficiency history, independent of the selected tab
         _achievementState = _services.GetRequiredService<AchievementStateService>(); // ordered milestones before the shared receiver starts
         _achievementSource = _services.GetRequiredService<Network.NetworkLootService>();
         _achievementOverlay = new AchievementOverlayForm(_services.GetRequiredService<AchievementTrackerService>(), _settings);
+        _genusInsightOverlay = new GenusInsightOverlayForm(_services.GetRequiredService<GenusInsightStateService>(), _settings);
         _ = _services.GetRequiredService<UnifiedLootTrackerService>(); // subscribes before the shared network source starts
         _ = _services.GetRequiredService<ExchangeLootValuationService>(); // new committed facts only; construction performs no HTTP
+        _ = _services.GetRequiredService<ExchangeMarketAutoSelectionService>(); // user request 2026-11-10: follow the existing own-character binding
         _ = _services.GetRequiredService<DiagnosticsService>(); // runs along, writes logs\diagnose.txt
         _routeOverlay = new RouteOverlayForm(
             _services.GetRequiredService<MapTrackingService>(),
@@ -270,6 +308,76 @@ public sealed class MainForm : Form
         ApplyOverlayContext();
     }
 
+    private void UpdateAppTheme()
+    {
+        if (_closing || _cleanupStarted || IsDisposed) return;
+        if (InvokeRequired)
+        {
+            try { BeginInvoke(UpdateAppTheme); }
+            catch (InvalidOperationException) when (_closing || _cleanupStarted || IsDisposed || !IsHandleCreated) { }
+            return;
+        }
+        var theme = AppThemeDefinition.ForId(_settings.Current.AppTheme);
+        var request = _appThemes.Request(theme.Id);
+        try
+        {
+            BackColor = theme.Background;
+            if (_themeBrowser is not null && _themeBrowser.DefaultBackgroundColor != theme.Background)
+                _themeBrowser.DefaultBackgroundColor = theme.Background;
+            if (IsHandleCreated && (_appThemeHandle != Handle || request.NativeAppliedId != theme.Id || request.NativeError is not null))
+            {
+                _appThemeHandle = Handle;
+                _appThemes.ObserveNative(request.Revision, DarkTitleBar.Apply(Handle, theme) ? null : "TitleBarApplicationFailed");
+            }
+        }
+        catch (Exception error) when (error is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            _appThemes.ObserveNative(request.Revision, error.GetType().Name);
+        }
+        if (_themePageReady && _appThemes.Snapshot.WebAppliedId != theme.Id)
+            _ = ApplyWebThemeAsync();
+    }
+
+    private async Task ApplyWebThemeAsync()
+    {
+        if (_themeApplying) return;
+        _themeApplying = true;
+        try
+        {
+            while (!_closing && !_cleanupStarted && _themePageReady && _themeBrowser?.CoreWebView2 is { } browser)
+            {
+                var request = _appThemes.Snapshot;
+                var theme = AppThemeDefinition.ForId(request.RequestedId);
+                try
+                {
+                    var script = "window.soulcrestAppTheme?.apply(" + System.Text.Json.JsonSerializer.Serialize(theme.Id)
+                        + "," + System.Text.Json.JsonSerializer.Serialize(theme.CssVariables) + ") ?? null";
+                    var result = await browser.ExecuteScriptAsync(script);
+                    var applied = System.Text.Json.JsonSerializer.Deserialize<string>(result);
+                    _appThemes.ObserveWeb(request.Revision, applied);
+                }
+                catch (Exception error) when (error is InvalidOperationException or System.Runtime.InteropServices.COMException
+                    or System.Text.Json.JsonException)
+                {
+                    _appThemes.ObserveWeb(request.Revision, null, error.GetType().Name);
+                }
+                if (_closing || _cleanupStarted) break;
+                if (SmokeTest.Enabled)
+                {
+                    var observed = _appThemes.Snapshot;
+                    SmokeTest.Theme = observed.RequestedId;
+                    SmokeTest.ThemeApplied = observed.NativeAppliedId == observed.RequestedId
+                        && observed.WebAppliedId == observed.RequestedId && observed.NativeError is null && observed.WebError is null;
+                    if (observed.NativeError is not null || observed.WebError is not null)
+                        SmokeTest.Error = "Main-window theme: " + (observed.NativeError ?? observed.WebError);
+                }
+                _themeBrowser.Visible = true;
+                if (_appThemes.Snapshot.Revision == request.Revision) break;
+            }
+        }
+        finally { _themeApplying = false; }
+    }
+
     private void UpdateLanguage()
     {
         if (_closing || _cleanupStarted || IsDisposed) return;
@@ -280,7 +388,7 @@ public sealed class MainForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        DarkTitleBar.Apply(Handle);
+        UpdateAppTheme();
         if (_overlaysStarted && !_closing && !_cleanupStarted)
         {
             StartOverlayKeyboard();
@@ -312,6 +420,7 @@ public sealed class MainForm : Form
         _ = _alertNotifications.Handle;
         _ = _levelingOverlay.Handle;
         _ = _achievementOverlay.Handle;
+        _genusInsightOverlay.Start();
         _ = _routeOverlay.Handle; // shown by itself while the map is tracked and targets are marked
         _merchantOverlay.Start();
         _daevanionOverlay.Start();
@@ -362,6 +471,7 @@ public sealed class MainForm : Form
         if (_cleanupStarted) return;
         _overlay.SetInteractionEnabled(enabled);
         _achievementOverlay.SetInteractionEnabled(enabled);
+        _genusInsightOverlay.SetInteractionEnabled(enabled);
         _bossOverlay.SetInteractionEnabled(enabled);
         _alertsOverlay.SetInteractionEnabled(enabled);
         _eventTimelineOverlay.SetInteractionEnabled(enabled);
@@ -389,6 +499,7 @@ public sealed class MainForm : Form
         _lootContextSuppressed = Suppressed("loot");
         _overlay.SetSuppressed(_lootContextSuppressed);
         _achievementOverlay.SetSuppressed(Suppressed("achievements"));
+        _genusInsightOverlay.SetSuppressed(Suppressed("genus-insight"));
         _levelingOverlay.SetSuppressed(Suppressed("leveling"));
         _bossOverlay.SetSuppressed(Suppressed("boss"));
         _alertsOverlay.SetSuppressed(Suppressed("alerts"));
@@ -441,6 +552,7 @@ public sealed class MainForm : Form
             !form.IsDisposed && form.Visible, form.IsHandleCreated, form.IsDisposed);
         Observe("loot", _overlay);
         Observe("achievements", _achievementOverlay);
+        Observe("genus-insight", _genusInsightOverlay);
         Observe("boss", _bossOverlay);
         Observe("leveling", _levelingOverlay);
         Observe("alerts", _alertsOverlay);
@@ -467,6 +579,7 @@ public sealed class MainForm : Form
         var suppressed = OverlayVisibilityPolicy.IsForegroundSuppressed(_settings.Current, gameInForeground);
         _overlay.SetForegroundSuppressed(suppressed);
         _achievementOverlay.SetForegroundSuppressed(suppressed);
+        _genusInsightOverlay.SetForegroundSuppressed(suppressed);
         _bossOverlay.SetForegroundSuppressed(suppressed);
         _levelingOverlay.SetForegroundSuppressed(suppressed);
         _alertsOverlay.SetForegroundSuppressed(suppressed);
@@ -580,6 +693,7 @@ public sealed class MainForm : Form
         UpdateOverlayAudioContext(hidden);
         _overlay.SetPlacementHidden(hidden);
         _achievementOverlay.SetPlacementHidden(hidden);
+        _genusInsightOverlay.SetPlacementHidden(hidden);
         _bossOverlay.SetPlacementHidden(hidden);
         _levelingOverlay.SetPlacementHidden(hidden);
         _alertsOverlay.SetPlacementHidden(hidden);
@@ -600,6 +714,7 @@ public sealed class MainForm : Form
             case "loot.toggle": ToggleOverlay(); return;
             case "loot.unlock": if (_overlay.Visible) _overlay.ToggleManualInteractionFromHotkey(); return;
             case "achievements.unlock": if (_achievementOverlay.Visible) _achievementOverlay.ToggleManualInteractionFromHotkey(); return;
+            case "genus-insight.unlock": if (_genusInsightOverlay.Visible) _genusInsightOverlay.ToggleManualInteractionFromHotkey(); return;
             case "alerts.unlock": if (_alertsOverlay.Visible) _alertsOverlay.ToggleManualInteractionFromHotkey(); return;
             case "notifications.unlock": if (_alertNotifications.Visible) _alertNotifications.ToggleManualInteractionFromHotkey(); return;
             case "event-timeline.unlock": if (_eventTimelineOverlay.Visible) _eventTimelineOverlay.ToggleManualInteractionFromHotkey(); return;
@@ -695,6 +810,7 @@ public sealed class MainForm : Form
         StopTracking();
         _overlay.Close();
         _achievementOverlay.Close();
+        _genusInsightOverlay.Close();
         _bossOverlay.Close();
         _alertsOverlay.Close();
         _eventTimelineOverlay.Close();
@@ -752,6 +868,7 @@ public sealed class MainForm : Form
         _overlayInteractionTimer.Dispose();
         StopOverlayKeyboard();
         _settings.Changed -= UpdateLanguage;
+        _settings.Changed -= UpdateAppTheme;
         _settings.Changed -= ScheduleOverlayContext;
         _settings.Changed -= _dropAlerts.ApplySettings;
         _settings.Changed -= _abyssRankSounds.ApplySettings;
@@ -766,6 +883,7 @@ public sealed class MainForm : Form
             StopTracking();
             _overlay?.Dispose();
             _achievementOverlay?.Dispose();
+            _genusInsightOverlay?.Dispose();
             _bossOverlay?.Dispose();
             _alertsOverlay?.Dispose();
             _eventTimelineOverlay?.Dispose();

@@ -298,7 +298,7 @@ public static class CombatStatOverviewCatalog
     }
 
     private static CombatStatOverviewRowDefinition R(string id, string de, string en, CombatStatUnit unit, string? output) =>
-        new(id, de, en, unit, output) { IconKey = id };
+        new(id, de, en, unit, output ?? (CharacterDisplayRollStatRules.CanBind(id, unit) ? id : null)) { IconKey = id };
 
     private static CombatStatOverviewGroupDefinition G(CombatStatOverviewGroup group, string de, string en,
         params CombatStatOverviewRowDefinition[] rows)

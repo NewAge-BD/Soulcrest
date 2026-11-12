@@ -1,0 +1,1016 @@
+/* Application appearance only. Overlay canvases keep their own independent palette. */
+.app-theme-settings .app-theme-choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .85rem;
+}
+.app-theme-choice {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: start;
+    gap: .45rem .6rem;
+    padding: .85rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    cursor: pointer;
+}
+.app-theme-choice:hover { border-color: var(--muted); }
+.app-theme-choice:has(input:checked) {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+.app-theme-choice:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+.app-theme-choice > input[type=radio] { grid-column: 1; grid-row: 2; margin: .2rem 0 0; accent-color: var(--accent); }
+.app-theme-name { grid-column: 2; grid-row: 2; font-weight: 600; color: var(--text); }
+.app-theme-description { grid-column: 2; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.app-theme-selected { grid-column: 2; color: var(--accent); font-size: .75rem; font-weight: 600; }
+.app-theme-preview {
+    --preview-bg: var(--bg);
+    --preview-panel: var(--panel);
+    --preview-raised: var(--panel-2);
+    --preview-line: var(--line);
+    --preview-text: var(--text);
+    --preview-accent: var(--accent);
+    grid-column: 1 / -1;
+    grid-row: 1;
+    position: relative;
+    isolation: isolate;
+    height: 82px;
+    margin-bottom: .3rem;
+    overflow: hidden;
+    border: 1px solid var(--preview-line);
+    border-radius: 6px;
+    background: var(--preview-bg);
+    color: var(--preview-text);
+    pointer-events: none;
+}
+.app-theme-preview-sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 23%;
+    border-right: 1px solid var(--preview-line);
+    background: var(--preview-panel);
+}
+.app-theme-preview-body {
+    position: absolute;
+    inset: 11px 11px 11px 29%;
+}
+.app-theme-preview-toolbar { display: block; width: 52%; height: 5px; margin-bottom: 7px; border-radius: 2px; background: var(--preview-text); opacity: .8; }
+.app-theme-preview-line { display: block; width: 75%; height: 3px; margin-bottom: 8px; border-radius: 2px; background: var(--preview-text); opacity: .3; }
+.app-theme-preview-card {
+    display: block;
+    height: 31px;
+    padding: 9px;
+    border: 1px solid var(--preview-line);
+    border-radius: 4px;
+    background: var(--preview-raised);
+}
+.app-theme-preview-button { display: block; width: 24px; height: 10px; border-radius: 2px; background: var(--preview-accent); }
+.app-theme-settings [role=status] { margin: 0; font-size: .8rem; }
+.app-theme-feedback.error { color: var(--error); }
+@media (max-width: 560px) {
+    .app-theme-settings .app-theme-choices { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Basic colors are supplied by AppThemeDefinition on the document root.
+   These aliases also cover feature styles that predate application themes. */
+html[data-app-theme="graphite-dark"] {
+    --surface: var(--panel);
+    --border: var(--line);
+    --app-surface: var(--panel);
+    --app-surface-raised: var(--panel-2);
+    --app-surface-hover: #383838;
+    --app-surface-selected: #3b3b3b;
+    --app-line-strong: #686868;
+    --app-text-soft: #d0d0d0;
+    --app-accent-soft: #ffffff0d;
+    --app-accent-line: #ffffff42;
+    --app-functional-accent: #5eead4;
+}
+html[data-app-theme="graphite-dark"] .overlay-editor {
+    --bg: #212121; --panel: #171717; --panel-raised: #2f2f2f;
+    --line: #424242; --muted: #b4b4b4; --dim: #959595; --text: #ececec;
+    --gold: #f4f4f4; --gold-bright: #ffffff; --teal: #72cbb7;
+    color: var(--text);
+    background: var(--bg);
+}
+
+/* Preview surfaces retain the editor foundations they had before app themes.
+   Each inner canvas still supplies its selected overlay palette inline. */
+:where(html[data-app-theme="graphite-dark"]) {
+    .overlay-editor .oe-stage-viewport,
+    .overlay-editor .oe-module-preview-stage,
+    .overlay-editor .browser-overlay-stage {
+        --bg: #101318; --panel: #181d24; --panel-raised: #1d232c;
+        --line: #2b323d; --muted: #929daa; --dim: #687483; --text: #e6e8ed;
+        --gold: #ddb76b; --gold-bright: #efce91; --teal: #72cbb7; --red: #ef9898;
+        color: var(--text);
+    }
+}
+
+/* The zero-specificity scope preserves existing semantic state rules.
+   Only application chrome is recolored; geometry and feature palettes remain owned by each view. */
+:where(html[data-app-theme="graphite-dark"]) {
+    /* css/alerts.css */
+    .alerts-card-switch input { border: 1px solid var(--app-line-strong); }
+    .alerts-editor { border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); }
+    .alerts-feedback { border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); background: color-mix(in srgb, var(--panel-2) 3.92%, transparent); }
+    .event-region-badge { background: color-mix(in srgb, var(--panel-2) 7.84%, transparent); border: 1px solid color-mix(in srgb, var(--app-line-strong) 20%, transparent); }
+    .alerts-filter-buttons button.selected { border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .alerts-card-switch input:checked { background: var(--app-surface-selected); }
+    .alerts-template:hover { border-color: var(--app-line-strong); }
+    .alerts-weekdays label.selected { border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .event-range-switch .selected { background: var(--app-surface-selected); }
+
+    /* css/app.css */
+    .tabs::-webkit-scrollbar-thumb,
+    .pets-badge,
+    .boss-page input[role=switch]::before,
+    .route-card-actions > .route-start { background: var(--panel-2); }
+    .pets-view { background: radial-gradient(ellipse 70% 60% at 50% 0%, var(--panel-2) 0%, var(--bg) 100%); }
+    .pets-card { background: linear-gradient(180deg, color-mix(in srgb, var(--pets-genus) 16%, var(--panel-2)) 0%, var(--panel) 72%); }
+    .pets-card.is-locked { background: linear-gradient(180deg, var(--panel) 0%, var(--panel) 72%); }
+    .boss-page input[role=switch] { border: 1px solid var(--app-line-strong); background: var(--panel-2); }
+
+    .boss-data-state strong,
+    .route-stop-title,
+    .routes-tile .route-marked-more > summary,
+    .routes-tile .route-repeat,
+    .route-radius > span,
+    .route-overlay-settings > label,
+    .route-overlay-controls > label,
+    .route-faction-percent,
+    .overlay-hotkey-row > span,
+    .exploration-profile-note,
+    .exploration-manual-list label,
+    .exploration-total > span:last-child,
+    .exploration-category-heading strong { color: var(--app-text-soft); }
+
+    .boss-row-rank,
+    .route-save-state,
+    .route-group > summary::before,
+    .route-card-meta,
+    .route-faction-group > summary::before,
+    .route-faction-label small,
+    .exploration-category h3 small,
+    .character-picker-compact > label,
+    .exploration-map-field,
+    .exploration-map-source,
+    .exploration-total > strong small,
+    .exploration-category-value small,
+    .exploration-next-copy > span:last-child:not(.exploration-eyebrow),
+    .exploration-place-copy > span,
+    .exploration-place.done .exploration-place-copy > strong,
+    .exploration-place-distance,
+    .exploration-checklist-note,
+    .exploration-list-empty { color: var(--muted); }
+
+    .boss-row-time > b,
+    .route-progress-copy strong,
+    .route-card-heading > strong,
+    .route-faction-label strong,
+    .overlay-hotkey-group > strong,
+    .overlay-hotkey-heading > strong,
+    .exploration-total > strong,
+    .exploration-category-value,
+    .exploration-next-copy > strong,
+    .exploration-place-copy > strong { color: var(--text); }
+    .boss-setting-grid { background: color-mix(in srgb, var(--panel) 16.08%, transparent); }
+    .boss-hotkey-hint kbd { border: 1px solid var(--app-line-strong); color: var(--app-text-soft); }
+
+    .routes-tile { background: linear-gradient(155deg, var(--panel-2) 0%, var(--panel) 55%); border-color: var(--line); }
+
+    .route-character > select { border-color: var(--app-line-strong); background: var(--panel); }
+    .route-active { border: 1px solid color-mix(in srgb, var(--objective-color) 24%, var(--line)); background: linear-gradient(145deg, color-mix(in srgb, var(--objective-color) 5%, var(--panel)), var(--panel)); }
+    .routes-tile .leveling-navigation .route-next { border-color: var(--app-line-strong); background: var(--panel-2); color: var(--text); }
+
+    .route-marked-running,
+    .route-search,
+    .route-card,
+    .route-overlay-settings,
+    .route-faction-group,
+    .overlay-hotkey-group { background: var(--panel); }
+    .route-card.running { border-color: var(--app-line-strong); background: var(--panel-2); }
+
+    .route-card-menu-content,
+    .exploration-category-chip { border: 1px solid var(--line); background: var(--panel-2); }
+    .route-status { border-left: 2px solid var(--app-line-strong); color: var(--app-text-soft); }
+    .hotkey-record { border: 1px solid var(--app-line-strong); background: var(--panel-2); color: var(--text); }
+    .hotkey-record:focus-visible { outline: 2px solid color-mix(in srgb, var(--app-line-strong) 14.51%, transparent); }
+    .hotkey-record.recording { background: color-mix(in srgb, var(--panel-2) 5.1%, transparent); }
+
+    .character-picker-compact select,
+    .exploration-map-field select { background: var(--panel); border-color: var(--app-line-strong); }
+    .character-profile-tools > div { background: var(--panel-2); border: 1px solid var(--app-line-strong); }
+    .exploration-total { border: 1px solid var(--line); background: linear-gradient(130deg,var(--panel-2),var(--panel-2)); }
+    .exploration-next { border-color: var(--app-line-strong); background: linear-gradient(115deg,var(--panel-2),var(--panel-2)); }
+
+    .exploration-filters .exploration-search { border: 1px solid var(--app-line-strong); background: var(--panel); }
+
+    .pets-step.on { background: radial-gradient(circle at 50% 35%, var(--app-surface-selected), var(--app-surface-selected)); }
+    .mapside .pet-exclusive-option.is-active { border: 1px solid var(--app-line-strong); background: var(--app-surface-selected); color: var(--text); }
+    .progression-genera .chip-check:has(input:checked) { background: var(--app-surface-selected); }
+    .boss-page input[role=switch]:checked { background: var(--app-surface-selected); border-color: var(--app-line-strong); }
+    .boss-page input[role=switch]:checked::before { background: var(--app-surface-selected); }
+    .boss-command-footer .btn:hover { background: var(--app-surface-hover); }
+    .routes-tile .leveling-navigation .route-next:hover { border-color: var(--app-line-strong); background: var(--app-surface-hover); }
+    .route-card-actions > .route-start:hover { border-color: var(--app-line-strong); }
+    .routes-tile .route-repeat.on { border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .routes-tile .route-repeat:hover { border-color: var(--app-line-strong); }
+
+    .hotkey-record:hover { outline: 2px solid var(--app-line-strong); }
+    .exploration-follow .following { border-color: var(--app-line-strong); color: var(--text); background: var(--app-surface-selected); }
+    .exploration-category-chip:hover { border-color: var(--app-line-strong); background: var(--app-surface-hover); }
+    .exploration-category-chip.selected { border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+
+/* css/boss-rush.css */
+
+    /* css/boss-timers.css */
+    .boss-timer-search { border: 1px solid var(--line); }
+    .boss-timer-search:focus-within { outline: 2px solid color-mix(in srgb, var(--app-line-strong) 16.86%, transparent); }
+    .boss-timer-strip { border: 1px solid color-mix(in srgb, var(--app-line-strong) 16.47%, transparent); background: color-mix(in srgb, var(--panel-2) 1.96%, transparent); }
+    .boss-timer-strip label { color: var(--app-text-soft); }
+    /* css/exploration.css */
+    .exploration-overview { background: radial-gradient(ellipse at 88% 0, color-mix(in srgb, var(--panel-2) 16.08%, transparent), transparent 48%), var(--bg); }
+    .exploration-overview .exploration-eyebrow,
+    .exploration-overview .exploration-heading p,
+    .exploration-overview .exploration-headline-count strong small,
+    .exploration-overview .exploration-headline-count > span,
+    .exploration-overview .exploration-completion-ring small,
+    .exploration-overview .character-picker-compact > label,
+    .exploration-overview .exploration-map-field,
+    .exploration-overview .character-profile-tools > summary,
+    .exploration-overview .exploration-context-note,
+    .exploration-overview .exploration-category-value small,
+    .exploration-overview .exploration-category-chip > small,
+    .exploration-overview .exploration-state-summary,
+    .exploration-overview .exploration-reset,
+    .exploration-overview .exploration-place-distance,
+    .exploration-overview .exploration-saved-label,
+    .exploration-overview .exploration-kibelisk-toggle,
+    .exploration-overview .exploration-place-focus > span:last-child,
+    .exploration-overview .exploration-edit-symbol,
+    .exploration-overview .exploration-list-empty > span,
+    .exploration-overview .exploration-list-empty > strong,
+    .exploration-overview .exploration-checklist-note { color: var(--muted); }
+    .exploration-overview .exploration-completion-ring { background: conic-gradient(var(--exploration-accent) var(--completion), var(--panel-2) 0); }
+    .exploration-overview .exploration-completion-ring::before,
+    .exploration-overview .card.exploration-context,
+    .exploration-overview .exploration-status-details,
+    .exploration-overview .exploration-status-details .network-progress,
+    .exploration-overview .card.exploration-checklist { background: var(--panel); }
+    .exploration-overview .exploration-completion-ring > span,
+    .exploration-overview .exploration-category-value,
+    .exploration-overview .exploration-place-copy > strong,
+    .exploration-overview .exploration-next > .btn { color: var(--text); }
+    .exploration-overview .character-picker-compact select,
+    .exploration-overview .exploration-map-field select { border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+    .exploration-overview .exploration-follow .btn { border-color: var(--line); background: var(--panel-2); }
+    .exploration-overview .exploration-status-details > summary,
+    .exploration-overview .exploration-category-heading strong,
+    .exploration-overview .exploration-manual-label,
+    .exploration-overview .exploration-next-copy > strong,
+    .exploration-overview .exploration-state-guide h3 { color: var(--app-text-soft); }
+    .exploration-overview .exploration-disclosure-arrow { border: solid var(--app-line-strong); }
+    .exploration-overview .exploration-category-chip { background: linear-gradient(125deg, var(--panel-2), var(--panel)); }
+    .exploration-overview .exploration-state-summary i { background: var(--panel-2); }
+    .exploration-overview .exploration-result-count { border: 1px solid var(--line); color: var(--muted); background: var(--panel-2); }
+    .exploration-overview .exploration-filters .exploration-search,
+    .exploration-overview .exploration-status-filter select { border: 1px solid var(--line); background: var(--panel); color: var(--app-text-soft); }
+    .exploration-overview .exploration-active-filter { border: 1px solid var(--app-line-strong); background: var(--panel-2); color: var(--app-text-soft); }
+    .exploration-overview .exploration-place:first-child { border-top-color: var(--line); }
+    .exploration-overview .exploration-state { border: 1px solid var(--line); background: var(--panel-2); color: var(--app-text-soft); }
+    .exploration-overview .exploration-place-focus { border-color: var(--line); color: var(--muted); background: var(--panel-2); }
+    .exploration-overview .exploration-checklist-footer { border-top: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+    .exploration-overview .card.exploration-next { border-color: var(--line); background: radial-gradient(ellipse at 0 0, color-mix(in srgb, var(--panel-2) 18.82%, transparent), transparent 75%), var(--panel-2); }
+    .exploration-overview .exploration-guide-unknown { border-top: 1px solid var(--line); color: var(--muted); }
+    .exploration-overview :is(button, select, input, summary):focus-visible { outline: 2px solid var(--app-line-strong); }
+    .exploration-overview .exploration-follow .following { color: var(--text); border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .exploration-overview .exploration-category-chip:hover { border-color: var(--app-line-strong); background: var(--app-surface-hover); }
+    .exploration-overview .exploration-category-chip.selected { border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .exploration-overview .exploration-place-focus:hover { border-color: var(--app-line-strong); background: var(--app-surface-hover); color: var(--text); }
+    .exploration-overview .exploration-next > .btn:hover { background: var(--app-surface-hover); border-color: var(--app-line-strong); }
+    /* css/hunting-grounds.css */
+    .hunting-ground-name { color: var(--text); }
+    /* css/loot-session-timeline.css */
+    .lst-root .lst-text-button,
+    .lst-root .lst-loot-list strong,
+    .lst-root .lst-time-button { color: var(--text); }
+    .lst-root button:focus-visible,
+    .lst-root input:focus-visible,
+    .lst-root select:focus-visible { outline: 2px solid var(--app-line-strong); }
+    .lst-root .lst-track:focus-visible { outline: 1px solid var(--app-line-strong); }
+    .lst-root .lst-event,
+    .lst-root .lst-head>i { background: var(--panel-2); }
+    .lst-root .lst-loot-icon { background: var(--panel-2); border: 1px solid var(--app-line-strong); color: var(--text); }
+    .lst-root .lst-loot-icon strong { background: var(--panel); color: var(--text); }
+    .lst-root .lst-head-grip { border: 1px solid var(--app-line-strong); background: var(--panel-2); color: var(--muted); }
+    /* css/loot-tracker.css */
+    .loot-page { background: radial-gradient(ellipse at 85% 0, color-mix(in srgb, var(--panel-2) 16.86%, transparent), transparent 48%), var(--bg); }
+    .lt-emblem { background: linear-gradient(145deg, #393327, var(--panel)); }
+    .lt-unavailable { background: var(--panel-2); border: 1px solid var(--line); color: var(--app-text-soft); }
+    .lt-sessions,
+    .lt-panel,
+    .lt-table th { background: var(--panel); }
+    .lt-small-threshold,
+    .lt-day-title,
+    .lt-limited-label,
+    .lt-character-tag,
+    .lt-breakdown b,
+    .lt-timeline-selection button,
+    .lt-replay-feedback { color: var(--app-text-soft); }
+    .lt-day-group,
+    .lt-timeline-lane-track,
+    .lt-session-replay .lt-session-timeline { border-top: 1px solid var(--line); }
+    .lt-day-heading,
+    .lt-drop-options > div,
+    .lt-mob-bar,
+    .lt-replay-state .btn,
+    .lt-replay-heading .btn { background: var(--panel-2); }
+    .lt-day-small { border: 1px solid var(--line); color: var(--muted); }
+    .lt-session-delete,
+    .lt-session-character,
+    .lt-empty-features span,
+    .lt-timeline-scale { color: var(--muted); }
+    .lt-delete-confirm button { background: var(--panel-2); color: var(--app-text-soft); }
+    .lt-abyss-cap { border: 1px solid var(--app-line-strong); background: linear-gradient(110deg, color-mix(in srgb, var(--panel-2) 40%, transparent), var(--panel)); }
+    .lt-abyss-cap strong,
+    .lt-session-marker.assist,
+    .lt-session-marker.odyle,
+    .lt-timeline-position strong { color: var(--text); }
+    .lt-metric { background: linear-gradient(150deg, var(--panel-2), var(--panel)); }
+    .lt-market-summary { background: linear-gradient(105deg, #352f2533, var(--panel-2)); }
+    .lt-table td { border-bottom: 1px solid var(--line); }
+    .lt-session-views button { border: 1px solid var(--line); background: var(--panel); color: var(--app-text-soft); }
+    .lt-empty-detail { border: 1px dashed var(--line); background: color-mix(in srgb, var(--panel) 23.14%, transparent); }
+    .lt-map-preview { border: 1px solid var(--line); background: var(--panel); }
+    .lt-map-preview-credit { color: var(--text); background: color-mix(in srgb, var(--panel) 85.1%, transparent); }
+    .lt-kill-icon-choice select { border: 1px solid var(--app-line-strong); background: var(--panel-2); }
+    .lt-timeline-actions .btn[aria-pressed="true"] { border-color: var(--app-line-strong); }
+    .lt-timeline-plot { background: linear-gradient(180deg, color-mix(in srgb, var(--panel-2) 21.96%, transparent), color-mix(in srgb, var(--panel) 12.55%, transparent)); }
+    .lt-timeline-scale span { background: color-mix(in srgb, var(--panel) 78.82%, transparent); }
+    .lt-timeline-event { border: 1px solid color-mix(in srgb, var(--event-color) 45%, var(--line)); background: var(--panel-2); }
+    .lt-timeline-selection { border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 40%, transparent); }
+    .lt-statistic-grouping button { background: var(--panel-2); border: 1px solid var(--line); }
+    .lt-replay-transport { border-top: 1px solid var(--line); background: color-mix(in srgb, var(--panel-2) 96.08%, transparent); }
+    .lt-replay-transport button { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); }
+    .lt-replay-transport button[aria-pressed="true"] { color: var(--text); border-color: var(--app-line-strong); background: var(--panel-2); }
+    .lt-map-zoom { border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 90.2%, transparent); }
+    .lt-map-zoom button { border-bottom: 1px solid var(--line); color: var(--text); }
+    .exchange-market-settings { border: 1px solid var(--border, var(--line)); }
+    .exchange-market-controls select,
+    .exchange-market-controls input[type=number] { background: var(--panel); border: 1px solid var(--line); }
+    .lt-filter button.active { background: var(--app-surface-selected); }
+    .lt-session-delete:hover:not(:disabled) { color: var(--text); border-color: var(--app-line-strong); background: var(--app-surface-hover); }
+    .lt-session:hover { background: var(--app-surface-hover); }
+    .lt-session.selected { background: linear-gradient(110deg, var(--app-surface-selected), var(--app-surface-selected)); border-color: var(--app-line-strong); }
+    .lt-session-views button.active { color: var(--text); border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .lt-map-preview-credit:hover { color: var(--text); }
+    .lt-timeline-event:hover { background: var(--app-surface-hover); }
+    .lt-statistic-grouping button.active { background: var(--app-surface-selected); border-color: var(--app-line-strong); }
+    .lt-replay-transport button:hover { background: var(--app-surface-hover); border-color: var(--app-line-strong); }
+    .lt-map-zoom button:hover:not(:disabled) { background: var(--app-surface-hover); }
+    /* css/monster-search.css */
+    .monster-search-card { background: linear-gradient(145deg, var(--panel), var(--panel-2)); }
+    .monster-search-icon { background: var(--panel); }
+    .monster-search-pet-name { color: var(--app-text-soft); }
+    .monster-search-numbers > strong { color: var(--text); }
+    .monster-search-maps > button { color: var(--muted); background: var(--panel); }
+    .monster-search-maps > button.is-active { border-color: var(--app-line-strong); background: var(--app-surface-selected); color: var(--text); }
+    /* css/overlay.css */
+    .overlay-eyebrow,
+    .overlay-placement-card p,
+    .overlay-placement-card small,
+    .overlay-list-icon,
+    .overlay-list small,
+    .overlay-bound-note,
+    .overlay-data-note,
+    .overlay-layout-controls > label,
+    .overlay-settings-card > label:has(input[type=range]),
+    .overlay-position-fields label,
+    .overlay-number-field,
+    .overlay-settings-link { color: var(--muted); }
+    .overlay-placement-card { border: 1px solid var(--line); background: linear-gradient(115deg,var(--panel-2),var(--panel-2)); }
+    .overlay-placement-card strong,
+    .overlay-detail-heading h3 { color: var(--text); }
+    .overlay-placement-switches,
+    .overlay-list button,
+    .overlay-enabled,
+    .overlay-settings-card h4,
+    .overlay-layout-controls output,
+    .overlay-settings-card output,
+    .overlay-visibility-options,
+    .overlay-common-settings h3 { color: var(--app-text-soft); }
+    .overlay-list { border: 1px solid var(--line); background: var(--panel); }
+    .overlay-list i { background: var(--panel-2); }
+    .overlay-detail,
+    .overlay-common-settings,
+    .alerts-overlay-shortcuts { border: 1px solid var(--line); background: var(--panel-2); }
+    .overlay-settings-card,
+    .overlay-detail .overlay-hotkeys,
+    .overlay-detail .timer-overlay-settings { border-top: 1px solid var(--line); }
+    .overlay-placement-card.active { border-color: var(--app-line-strong); }
+    .overlay-list button:hover { background: var(--app-surface-hover); }
+    .overlay-list button.selected { border-color: var(--app-line-strong); background: var(--app-surface-selected); color: var(--text); }
+    .overlay-settings-link:hover { color: var(--text); }
+    /* css/patchnotes.css */
+    .patchnotes .pn-installed-summary strong,
+    .patchnotes .pn-sidebar-head h3,
+    .patchnotes .pn-version,
+    .patchnotes .pn-nav-installed,
+    .patchnotes .pn-label.installed,
+    .patchnotes .pn-step { color: var(--app-text-soft); }
+    .patchnotes .btn.pn-latest { border-color: var(--app-line-strong); background: var(--panel-2); color: var(--text); }
+    .patchnotes .pn-sidebar,
+    .patchnotes .pn-release-footer { background: var(--panel); }
+    .patchnotes .pn-search,
+    .patchnotes .pn-release { border: 1px solid var(--line); }
+    .patchnotes .pn-search input::placeholder,
+    .patchnotes .pn-version time,
+    .patchnotes .pn-label,
+    .patchnotes .pn-release-title time,
+    .patchnotes .pn-release-meta { color: var(--muted); }
+    .patchnotes .pn-search:focus-within { outline: 2px solid color-mix(in srgb, var(--app-line-strong) 18.04%, transparent); }
+    .patchnotes .pn-release-head { background: linear-gradient(125deg, var(--panel-2), var(--panel-2) 65%, var(--panel)); }
+    .patchnotes .pn-label.latest { border-color: color-mix(in srgb, var(--app-line-strong) 23.92%, transparent); background: color-mix(in srgb, var(--panel-2) 4.31%, transparent); color: var(--app-text-soft); }
+    .patchnotes .pn-release-title h3,
+    .patchnotes .pn-grouped-list li,
+    .patchnotes .pn-text b,
+    .patchnotes .pn-text code,
+    .patchnotes .pn-step small,
+    .patchnotes .pn-empty h3 { color: var(--text); }
+    .patchnotes .pn-grouped-list li::before { background: var(--panel-2); }
+    .patchnotes .pn-empty { border: 1px dashed var(--line); background: var(--panel); }
+    .patchnotes .pn-mobile-version select { border-color: var(--line); }
+    .patchnotes .btn.pn-latest:hover:not(:disabled) { background: var(--app-surface-hover); }
+    .patchnotes .pn-version.active { border-color: var(--app-line-strong); background: var(--app-surface-selected); color: var(--text); }
+    .patchnotes .pn-version.active time { color: var(--text); }
+    /* combat-score-calculator.css */
+    .cc-live,
+    .cw-live { border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); }
+    .cc-panel,
+    .cw-stat-group,
+    .cw-legacy-details,
+    .cw-source-panel { border: 1px solid var(--border,var(--line)); }
+    .cc-native { background: linear-gradient(130deg,var(--panel-2),var(--panel)); border-color: color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); }
+    .cc-native>strong,
+    .cc-source>summary:before,
+    .cc-loss>strong,
+    .cc-footer a,
+    .cc-stat-details>summary:before,
+    .cw-observed-cp>strong,
+    .cw-stat-row[open]>summary,
+    .cw-source-model,
+    .ct-effects dt,
+    .ct-passive-panel h4,
+    .ct-passive-selection strong,
+    .ca-card h4,
+    .ct-unlock li>strong,
+    .ct-unlock-achievement h5,
+    .ct-unlock-reference h5,
+    .ct-unlock-progress-values,
+    .ca-source-note time,
+    .ca-history>summary,
+    .ca-history li strong,
+    .ca-activity>strong,
+    .ca-activity>span,
+    .ca-search>input,
+    .cpet-completion>header>h4,
+    .cpet-percent { color: var(--text); }
+    .cc-tabs,
+    .cw-tabs { background: var(--panel); border: 1px solid var(--border,var(--line)); }
+    .cc-pool { background: color-mix(in srgb, var(--panel) 46.67%, transparent); border: 1px solid color-mix(in srgb, var(--app-line-strong) 14.51%, transparent); }
+    .cc-source-entry,
+    .cc-observed-sources>details { border-top: 1px solid var(--border,var(--line)); }
+    .cc-calculator th,
+    .cc-calculator td { border-bottom: 1px solid var(--border,var(--line)); }
+    .cc-equipment,
+    .ca-history li { border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 13.33%, transparent); }
+    .cc-raw-chip { background: color-mix(in srgb, var(--panel-2) 13.33%, transparent); }
+    .cc-model-formula { background: color-mix(in srgb, var(--panel-2) 8.24%, transparent); border: 1px solid color-mix(in srgb, var(--app-line-strong) 20%, transparent); color: var(--text); }
+    .cc-score-sums>div { background: color-mix(in srgb, var(--panel) 46.67%, transparent); }
+    .cc-score-sums .cc-score-result { border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); color: var(--text); }
+    .cc-details-button,
+    .cpet-open-pets { border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); background: color-mix(in srgb, var(--panel-2) 12.55%, transparent); color: var(--text); }
+    .cc-display-counts>span,
+    .cw-source-summary>span,
+    .cw-source-status { border: 1px solid color-mix(in srgb, var(--app-line-strong) 26.67%, transparent); }
+    .cc-display-badge { border: 1px solid color-mix(in srgb, var(--app-line-strong) 26.67%, transparent); background: color-mix(in srgb, var(--panel-2) 8.63%, transparent); color: var(--app-text-soft); }
+    .cw-eyebrow,
+    .cw-stat-group h4,
+    .ct-owned-total>strong,
+    .ct-effect-label,
+    .ct-effects dd,
+    .ct-effect-unknown,
+    .ct-passive-total>span,
+    .ct-passive-list>button>span,
+    .ct-passive-total>strong,
+    .ca-source-note strong,
+    .ca-condition,
+    .ca-card-progress,
+    .ca-card-progress strong,
+    .ca-reward>span,
+    .ca-reward>strong,
+    .ca-pages,
+    .ct-unlock>summary,
+    .ct-unlock .ct-unlock-use,
+    .ct-unlock-achievement>p,
+    .ct-unlock-reference>p,
+    .ct-unlock-saved,
+    .ct-unlock-reported,
+    .ct-favorite-saving,
+    .ca-follow-current,
+    .ca-current-requirements,
+    .ca-favorite-feedback,
+    .ca-view .ca-reward-icon-missing,
+    .cpet-effects .ct-missing-passives .ct-passive-total>strong { color: var(--app-text-soft); }
+    .cw-live i,
+    .ca-source-dot,
+    .ct-unlock-progress>span { background: var(--panel-2); }
+    .cw-data-summary>span:nth-last-of-type(1) { border-left: 1px solid color-mix(in srgb, var(--app-line-strong) 26.67%, transparent); }
+    .cw-neutral-icon { border: 1px solid var(--app-line-strong); }
+    .cw-attribute-values>.cw-stat-row { background: color-mix(in srgb, var(--panel) 40%, transparent); border: 1px solid color-mix(in srgb, var(--app-line-strong) 14.9%, transparent); }
+    .cw-main-values .cw-stat-row,
+    .cw-sub-group .cw-stat-row,
+    .cw-main-values .cw-stat-row:nth-child(5n),
+    .cw-source-list th,
+    .cw-source-list td { border-bottom: 1px solid color-mix(in srgb, var(--app-line-strong) 13.33%, transparent); }
+    .cw-stat-row:focus-within { outline: 1px solid color-mix(in srgb, var(--app-line-strong) 46.67%, transparent); }
+    .cw-details-toggle { border: 1px solid var(--border,var(--line)); background: var(--panel); }
+    .cw-source-entry { border: 1px solid color-mix(in srgb, var(--app-line-strong) 16.86%, transparent); background: color-mix(in srgb, var(--panel) 33.33%, transparent); }
+    .cw-source-stats>span { background: color-mix(in srgb, var(--panel-2) 7.06%, transparent); }
+    .cw-tabs>button:focus-visible,
+    .cw-details-toggle:focus-visible,
+    .ct-categories>button:focus-visible,
+    .ct-origins>button:focus-visible,
+    .ct-passive-list>button:focus-visible,
+    .ct-passive-selection>button:focus-visible,
+    .ca-categories button:focus-visible,
+    .ca-groups button:focus-visible,
+    .ca-pages button:focus-visible,
+    .ca-stage-choice>select:focus-visible,
+    .ct-unlock>summary:focus-visible,
+    .ct-title-select:focus-visible,
+    .ct-favorite:focus-visible,
+    .ct-detail-close:focus-visible,
+    .ct-unlock-achievement>button:focus-visible,
+    .ca-unmapped-groups>summary:focus-visible,
+    .ca-follow-current:focus-visible,
+    .ca-progress-filters>button:focus-visible,
+    .ca-areas>button:focus-visible,
+    .ca-favorite:focus-visible,
+    .ca-title-rewards button:focus-visible,
+    .ca-linked-selection>button:focus-visible,
+    .ca-reward:focus-visible,
+    .ca-search:focus-within,
+    .ca-search>button:focus-visible,
+    .cpet-open-pets:focus-visible,
+    .cpet-effect-list>.cpet-missing-link:focus-visible { outline: 2px solid var(--app-line-strong); }
+    .cw-source-stats>div { background: color-mix(in srgb, var(--panel-2) 6.27%, transparent); }
+    .ct-view,
+    .ca-view { background: linear-gradient(145deg,var(--panel),var(--panel) 68%); }
+    .ct-categories>button,
+    .ct-origins>button,
+    .ct-card-owned .ct-effect-label,
+    .ct-effect-empty,
+    .ct-browser-footer,
+    .ct-browser-footer>small,
+    .ct-empty,
+    .ct-empty>p,
+    .ct-empty-filter,
+    .ct-equipped-panel>header>span,
+    .ct-slot-category>h5,
+    .ct-slot-empty,
+    .ct-slot-missing,
+    .ct-source-note,
+    .ct-passive-panel>header>span,
+    .ct-passive-list>button>strong,
+    .ct-passive-total>small,
+    .ct-passive-list>button>small,
+    .ct-passive-note,
+    .ct-passive-selection span,
+    .ca-categories>button,
+    .ca-groups button,
+    .ca-source-note p,
+    .ca-card-progress small,
+    .ca-reward-label,
+    .ca-reward-missing,
+    .ca-empty,
+    .ca-browser-footer,
+    .ca-browser-footer>small,
+    .ca-group-caption>small,
+    .ca-stage-choice>span,
+    .ct-unlock>small,
+    .ct-unlock li>span,
+    .ct-unlock-cards>p,
+    .ct-unlock-cards>.ct-unlock-use,
+    .ct-unlock-achievement>header span,
+    .ct-unlock-reference>span,
+    .ct-unlock-status,
+    .ca-unmapped-groups>summary,
+    .ca-unmapped-groups>p,
+    .ca-stage-origin,
+    .ca-card-progress .ca-claim-status,
+    .ca-progress-filters>button>span,
+    .ca-areas>button,
+    .ca-history>p,
+    .ca-history li span,
+    .ca-history li time,
+    .ca-activity>time,
+    .ca-favorite,
+    .ca-title-rewards>span,
+    .ca-title-rewards>small,
+    .ca-search>input::placeholder,
+    .cw-wing-catalog-note,
+    .cpet-manual-note,
+    .cpet-completion>header>p,
+    .cpet-category>header>div>span,
+    .cpet-stage-count { color: var(--muted); }
+    .ct-title-card { border: 1px solid color-mix(in srgb, var(--app-line-strong) 23.14%, transparent); background: linear-gradient(145deg,var(--panel-2),var(--panel-2) 69%); }
+    .ct-equipped-badge { color: var(--text); background: color-mix(in srgb, var(--panel-2) 41.96%, transparent); border: 1px solid color-mix(in srgb, var(--app-line-strong) 23.14%, transparent); }
+    .ct-card-owned { background: color-mix(in srgb, var(--panel) 40%, transparent); border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 7.84%, transparent); }
+    .ct-equipped-panel>header { border-bottom: 1px solid color-mix(in srgb, var(--app-line-strong) 16.08%, transparent); }
+    .ct-equipped-slot { border: 1px solid color-mix(in srgb, var(--app-line-strong) 16.86%, transparent); background: linear-gradient(145deg,var(--panel-2),var(--panel)); }
+    .ct-passive-panel { background: color-mix(in srgb, var(--panel) 33.33%, transparent); border: 1px solid color-mix(in srgb, var(--app-line-strong) 14.9%, transparent); }
+    .ct-passive-list>button { background: color-mix(in srgb, var(--panel-2) 3.53%, transparent); }
+    .ct-passive-selection { background: color-mix(in srgb, var(--panel-2) 16.08%, transparent); border: 1px solid color-mix(in srgb, var(--app-line-strong) 21.96%, transparent); }
+    .ct-passive-selection>button { background: var(--panel); border: 1px solid color-mix(in srgb, var(--app-line-strong) 27.45%, transparent); color: var(--app-text-soft); }
+    .ct-ownership-badge { color: var(--muted); background: color-mix(in srgb, var(--panel) 40%, transparent); border: 1px solid color-mix(in srgb, var(--app-line-strong) 14.51%, transparent); }
+    .ct-effect-selected { background: color-mix(in srgb, var(--panel-2) 8.63%, transparent); outline: 1px solid color-mix(in srgb, var(--app-line-strong) 23.14%, transparent); }
+    .ca-sidebar { background: radial-gradient(ellipse at 50% 65%,color-mix(in srgb, var(--panel-2) 14.9%, transparent),transparent 68%); }
+    .ca-source-note { background: color-mix(in srgb, var(--panel-2) 8.63%, transparent); border: 1px solid color-mix(in srgb, var(--app-line-strong) 14.9%, transparent); }
+    .ca-card { background: linear-gradient(145deg,var(--panel-2),var(--panel-2) 70%); border: 1px solid color-mix(in srgb, var(--app-line-strong) 23.14%, transparent); }
+    .ca-card>header { border-bottom: 1px solid color-mix(in srgb, var(--app-line-strong) 14.9%, transparent); }
+    .ca-progress,
+    .ct-unlock-progress,
+    .cpet-progress { background: var(--panel); }
+    .ca-rewards { border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 10.59%, transparent); background: color-mix(in srgb, var(--panel) 33.33%, transparent); }
+    .ca-reward { border: 1px solid color-mix(in srgb, var(--app-line-strong) 15.69%, transparent); background: color-mix(in srgb, var(--panel) 41.96%, transparent); }
+    .ca-pages>button { color: var(--app-text-soft); background: var(--panel-2); border: 1px solid color-mix(in srgb, var(--app-line-strong) 27.45%, transparent); }
+    .ca-stage-choice>select,
+    .ca-progress-filters>button,
+    .ca-search>button { border: 1px solid color-mix(in srgb, var(--app-line-strong) 21.96%, transparent); background: var(--panel-2); color: var(--app-text-soft); }
+    .ct-unlock { border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 10.98%, transparent); background: color-mix(in srgb, var(--panel) 27.06%, transparent); color: var(--muted); }
+    .ct-unlock li { border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 7.84%, transparent); }
+    .ct-favorite { background: color-mix(in srgb, var(--panel-2) 50.98%, transparent); color: var(--muted); }
+    .ct-detail-close { border: 1px solid color-mix(in srgb, var(--app-line-strong) 27.45%, transparent); color: var(--app-text-soft); }
+    .ct-unlock-achievement,
+    .ct-unlock-reference { border: 1px solid color-mix(in srgb, var(--app-line-strong) 16.86%, transparent); background: var(--panel-2); }
+    .ct-unlock-achievement>button { background: var(--panel-2); border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); color: var(--text); }
+    .ca-unmapped-groups { border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 18.04%, transparent); }
+    .ca-areas { border-bottom: 1px solid color-mix(in srgb, var(--app-line-strong) 18.04%, transparent); background: var(--panel); }
+    .ca-history { border: 1px solid color-mix(in srgb, var(--app-line-strong) 18.04%, transparent); background: var(--panel); }
+    .ca-activity { border-left: 2px solid var(--app-line-strong); background: color-mix(in srgb, var(--panel-2) 16.86%, transparent); }
+    .ca-linked-selection { border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); background: color-mix(in srgb, var(--panel-2) 16.08%, transparent); color: var(--app-text-soft); }
+    .ca-linked-selection>button { background: var(--panel-2); border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); }
+    .ca-title-rewards { border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 14.9%, transparent); }
+    .ca-title-rewards button { border: 1px solid color-mix(in srgb, var(--app-line-strong) 26.67%, transparent); background: var(--panel-2); }
+    .ca-view .ca-sidebar { background: color-mix(in srgb, var(--panel) 21.96%, transparent); }
+    .ca-view .ca-reward-tooltip { border: 1px solid color-mix(in srgb, var(--app-line-strong) 46.67%, transparent); background: var(--panel); color: var(--text); }
+    .ca-search { border: 1px solid color-mix(in srgb, var(--app-line-strong) 28.24%, transparent); background: var(--panel-2); color: var(--app-text-soft); }
+    .cpet-category { border: 1px solid color-mix(in srgb, var(--app-line-strong) 17.65%, transparent); background: linear-gradient(145deg,color-mix(in srgb, var(--panel-2) 60%, transparent),var(--panel-2)); }
+    .cpet-effect-list>.cpet-missing-link { border-color: color-mix(in srgb, var(--app-line-strong) 9.02%, transparent); background: color-mix(in srgb, var(--panel-2) 3.53%, transparent); }
+    .cc-tabs button.selected { background: var(--app-surface-selected); color: var(--text); }
+    .cw-tabs>button:hover { color: var(--text); background: var(--app-surface-hover); }
+    .cw-tabs>button.selected { color: var(--text); background: var(--app-surface-selected); border-color: var(--app-line-strong); }
+    .cw-stat-row>summary:hover { background: var(--app-surface-hover); }
+    .cw-details-toggle:hover { color: var(--text); }
+    .ct-categories>button:hover { background: var(--app-surface-hover); color: var(--text); }
+    .ct-categories>button.selected { color: var(--text); border-color: var(--app-line-strong); background: linear-gradient(90deg,var(--app-surface-selected),var(--app-surface-selected)); }
+    .ct-origins>button:hover { color: var(--text); }
+    .ct-origins>button.selected { color: var(--text); border-color: var(--app-line-strong); background: linear-gradient(0deg,var(--app-surface-selected),transparent 65%); }
+    .ct-passive-list>button:hover { border-color: var(--app-line-strong); background: var(--app-surface-hover); }
+    .ct-passive-list>button.selected { border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .ca-categories>button:hover { background: var(--app-surface-hover); color: var(--text); }
+    .ca-groups button:hover { background: var(--app-surface-hover); color: var(--text); }
+    .ca-categories>button.selected { color: var(--text); border-color: var(--app-line-strong); background: linear-gradient(180deg,var(--app-surface-selected),var(--app-surface-selected)); }
+    .ca-groups button.selected { color: var(--text); border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .ct-title-card.selected { border-color: var(--app-line-strong); }
+    .ct-favorite.selected { color: var(--text); }
+    .ct-favorite:hover { border-color: var(--app-line-strong); background: var(--app-surface-hover); }
+    .ca-progress-filters>button.selected { color: var(--text); border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .ca-areas>button.selected { background: var(--app-surface-selected); color: var(--text); border-color: var(--app-line-strong); }
+    .ca-favorite:hover:not(:disabled) { background: var(--app-surface-hover); color: var(--text); }
+    .ca-favorite.selected { color: var(--text); }
+    .cpet-open-pets:hover { background: var(--app-surface-hover); border-color: var(--app-line-strong); }
+    .cpet-effect-list>.cpet-missing-link:hover:not(:disabled) { border-color: var(--app-line-strong); background: var(--app-surface-hover); }
+    /* crafting-calculator.css */
+    .craft-page { background: radial-gradient(ellipse at 85% 0,color-mix(in srgb, var(--panel-2) 27.06%, transparent),transparent 46%),var(--panel); color: var(--text); }
+    .craft-eyebrow,
+    .craft-proficiency small,
+    .craft-source-note,
+    .craft-profession-nav button,
+    .craft-subcategories button,
+    .craft-browser-tools>span,
+    .craft-search>span,
+    .craft-search input::placeholder,
+    .craft-card-top small,
+    .craft-empty,
+    .craft-plan-inputs label,
+    .craft-metrics>div>span,
+    .craft-metrics strong>small,
+    .craft-metrics>div>small,
+    .craft-status,
+    .craft-shopping>p,
+    .craft-shopping-row small,
+    .craft-step span,
+    .craft-node-heading strong>span,
+    .craft-node-heading small,
+    .craft-ingredient-label small,
+    .craft-ingredient-price small,
+    .craft-replacement,
+    .craft-subrecipe>summary,
+    .craft-subrecipe>summary small,
+    .craft-tree-note,
+    .craft-combo-link>span,
+    .craft-combo-link small,
+    .craft-live-settings>p,
+    .craft-price-coverage,
+    .craft-attempt-note { color: var(--muted); }
+    .craft-market-badge { border: 1px solid color-mix(in srgb, var(--app-line-strong) 21.18%, transparent); background: color-mix(in srgb, var(--panel-2) 38.82%, transparent); }
+    .craft-market-badge a,
+    .craft-proficiency>span,
+    .craft-card-ingredients>small,
+    .craft-combo-tag,
+    .craft-ingredient-quantity,
+    .craft-ingredient-price,
+    .craft-combo-link strong { color: var(--app-text-soft); }
+    .craft-proficiency { background: var(--panel-2); border: 1px solid var(--line); }
+    .craft-proficiency input,
+    .craft-search input,
+    .craft-card-ingredients b,
+    .craft-budget strong { color: var(--text); }
+    .craft-proficiency.simulated { border-color: color-mix(in srgb, var(--app-line-strong) 43.92%, transparent); background: var(--panel-2); }
+    .craft-reset-levels { border: 1px solid var(--line); color: var(--muted); }
+    .craft-browser-layout { background: linear-gradient(140deg,color-mix(in srgb, var(--panel-2) 32.94%, transparent),color-mix(in srgb, var(--panel-2) 43.92%, transparent)); }
+    .craft-profession-nav { border-right: 1px solid var(--line); background: color-mix(in srgb, var(--panel-2) 43.92%, transparent); border-bottom: 1px solid var(--line); }
+    .craft-subcategories,
+    .craft-plan-heading { border-bottom: 1px solid var(--line); }
+    .craft-search { border: 1px solid var(--line); background: var(--panel); }
+    .craft-recipe-card { color: var(--text); background: linear-gradient(135deg,var(--panel-2),var(--panel-2) 75%); border: 1px solid color-mix(in srgb, var(--app-line-strong) 45.88%, transparent); }
+    .craft-card-top>img { border: 1px solid color-mix(in srgb, var(--app-line-strong) 29.02%, transparent); background: var(--panel-2); }
+    .craft-card-level { border: 1px solid color-mix(in srgb, var(--app-line-strong) 34.12%, transparent); color: var(--muted); }
+    .craft-card-footer { background: color-mix(in srgb, var(--panel-2) 33.33%, transparent); border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 14.9%, transparent); color: var(--muted); }
+    .craft-plan { background: linear-gradient(125deg,color-mix(in srgb, var(--panel-2) 31.37%, transparent),color-mix(in srgb, var(--panel-2) 43.92%, transparent)); }
+    .craft-plan-inputs select { background: var(--panel-2); border-color: var(--app-line-strong); }
+    .craft-plan-inputs button { background: var(--panel-2); border: 1px solid color-mix(in srgb, var(--app-line-strong) 43.92%, transparent); color: var(--text); }
+    .craft-section-heading button { background: var(--panel-2); border: 1px solid color-mix(in srgb, var(--app-line-strong) 43.92%, transparent); color: var(--muted); border-color: var(--app-line-strong); }
+    .craft-metrics { border: 1px solid color-mix(in srgb, var(--app-line-strong) 29.02%, transparent); background: color-mix(in srgb, var(--panel-2) 43.92%, transparent); }
+    .craft-metrics>div { border-right: 1px solid color-mix(in srgb, var(--app-line-strong) 29.02%, transparent); }
+    .craft-metrics .craft-budget { background: color-mix(in srgb, var(--panel-2) 3.92%, transparent); }
+    .craft-spinner { border: 1.5px solid var(--app-line-strong); }
+    .craft-shopping { border-left: 1px solid color-mix(in srgb, var(--app-line-strong) 32.16%, transparent); border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 39.61%, transparent); }
+    .craft-shopping-row,
+    .craft-step { border-bottom: 1px solid color-mix(in srgb, var(--app-line-strong) 23.14%, transparent); }
+    .craft-node { border: 1px solid color-mix(in srgb, var(--app-line-strong) 39.61%, transparent); background: color-mix(in srgb, var(--panel-2) 37.65%, transparent); }
+    .craft-node-heading { background: linear-gradient(90deg,color-mix(in srgb, var(--panel-2) 53.33%, transparent),color-mix(in srgb, var(--panel-2) 40%, transparent)); border-bottom: 1px solid color-mix(in srgb, var(--app-line-strong) 39.61%, transparent); }
+    .craft-ingredient { border-bottom: 1px solid color-mix(in srgb, var(--app-line-strong) 27.06%, transparent); }
+    .craft-ingredient-main>select { background: var(--panel-2); }
+    .craft-subrecipe { border-left: 1px solid color-mix(in srgb, var(--app-line-strong) 36.08%, transparent); }
+    .craft-combo-link { background: color-mix(in srgb, var(--panel-2) 13.33%, transparent); border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 20%, transparent); }
+    .craft-assumptions { border-top: 1px solid var(--line); color: var(--muted); }
+    .craft-live-settings { background: var(--panel); }
+    .craft-metrics>div:nth-child(-n+2) { border-bottom: 1px solid color-mix(in srgb, var(--app-line-strong) 29.02%, transparent); }
+    .craft-profession-nav button:hover { background: var(--app-surface-hover); color: var(--text); }
+    .craft-profession-nav button.selected { background: linear-gradient(90deg,var(--app-surface-selected),var(--app-surface-selected)); color: var(--text); border-color: var(--app-line-strong); }
+    .craft-subcategories button.selected { color: var(--text); border-color: var(--app-line-strong); background: linear-gradient(0deg,var(--app-surface-selected),transparent); }
+    .craft-recipe-card:hover { border-color: var(--app-line-strong); background: linear-gradient(135deg,var(--app-surface-hover),var(--app-surface-hover)); }
+    .craft-recipe-card.selected { border-color: var(--app-line-strong); background: linear-gradient(135deg,var(--app-surface-selected),var(--app-surface-selected)); }
+    /* daevanion-calculator.css */
+    .dc-budget label:nth-child(3) { border-color: var(--app-line-strong); }
+    .dc-live-budget { border: 1px solid var(--border,var(--line)); }
+    /* genus-insight.css */
+    .cgi-view,
+    .cgi-saved-note>strong { color: var(--text); }
+    .cgi-applied p,
+    .cgi-applied time,
+    .cgi-note,
+    .cgi-categories small,
+    .cgi-rolls>header>span,
+    .cgi-count,
+    .cgi-slot-top,
+    .cgi-pinned,
+    .cgi-range-labels,
+    .cgi-eyebrow,
+    .cgi-favorite,
+    .cgi-catalog-note,
+    .cgi-overlay-note,
+    .cgi-saved-meta { color: var(--muted); }
+    .cgi-categories button { background: var(--panel); border: 1px solid var(--line); color: var(--app-text-soft); }
+    .cgi-rolls,
+    .cgi-options { border: 1px solid var(--line); background: var(--panel); }
+    .cgi-slot { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); }
+    .cgi-range { background: linear-gradient(90deg,var(--panel-2),var(--panel-2)); }
+    .cgi-range-labels b { color: var(--app-text-soft); }
+    .cgi-options thead th,
+    .cgi-options tbody th { border-bottom: 1px solid var(--line); }
+    .cgi-options td { border-bottom: 1px solid var(--line); color: var(--app-text-soft); }
+    .cgi-view button:focus-visible { outline: 2px solid var(--app-line-strong); }
+    .cgi-preset { border: 1px solid var(--app-line-strong); color: var(--app-text-soft); }
+    .cgi-saved-note { border: 1px solid var(--line); border-left: 3px solid var(--app-line-strong); background: var(--panel-2); color: var(--app-text-soft); }
+    .cgi-categories button.selected { background: var(--app-surface-selected); border-color: var(--app-line-strong); color: var(--text); }
+    .cgi-slot.selected { border-color: var(--app-line-strong); }
+    .cgi-favorite:hover { color: var(--text); }
+    /* pantheon.css */
+    .pt-view { background: linear-gradient(145deg,var(--panel),var(--panel) 68%); color: var(--text); }
+    .pt-source strong,
+    .pt-source.current strong,
+    .pt-card-head small,
+    .pt-card-effects strong,
+    .pt-card-status,
+    .pt-effect-summary dt,
+    .pt-effect-summary dd { color: var(--app-text-soft); }
+    .pt-categories>button,
+    .pt-categories>button>small,
+    .pt-filter-buttons>button,
+    .pt-library-heading>span,
+    .pt-search::placeholder,
+    .pt-sort,
+    .pt-slot-group h4,
+    .pt-slot-group h4>span,
+    .pt-slot-empty,
+    .pt-slot small,
+    .pt-effect-summary p { color: var(--muted); }
+    .pt-search,
+    .pt-sort select { border: 1px solid color-mix(in srgb, var(--app-line-strong) 26.67%, transparent); background: var(--panel); color: var(--text); }
+    .pt-card { border: 1px solid color-mix(in srgb, var(--app-line-strong) 23.14%, transparent); background: linear-gradient(145deg,var(--panel-2),var(--panel-2) 69%); }
+    .pt-card-head h4,
+    .pt-card-effects li { color: var(--text); }
+    .pt-sidebar-heading { border-bottom: 1px solid color-mix(in srgb, var(--app-line-strong) 16.08%, transparent); }
+    .pt-slot { border: 1px dashed color-mix(in srgb, var(--app-line-strong) 21.96%, transparent); background: var(--panel); }
+    .pt-effect-summary { border-top: 1px solid color-mix(in srgb, var(--app-line-strong) 16.08%, transparent); }
+    .pt-icon-missing { border: 1px dashed color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); color: var(--muted); }
+    .pt-no-results { color: var(--muted); border: 1px dashed color-mix(in srgb, var(--app-line-strong) 21.96%, transparent); }
+    .pt-view button:focus-visible,
+    .pt-view input:focus-visible,
+    .pt-view select:focus-visible { outline: 2px solid var(--app-line-strong); }
+    .pt-categories>button:hover { background: var(--app-surface-hover); color: var(--text); }
+    .pt-categories>button.selected { color: var(--text); border-color: var(--app-line-strong); background: linear-gradient(90deg,var(--app-surface-selected),var(--app-surface-selected)); }
+    .pt-filter-buttons>button.selected { color: var(--text); border-color: var(--app-line-strong); background: linear-gradient(0deg,var(--app-surface-selected),transparent 65%); }
+    .pt-filter-buttons>button:hover { color: var(--text); }
+    /* transfer-crafting.css */
+    .tc-view { color: var(--text); }
+    .tc-heading p,
+    .tc-metrics strong small,
+    .tc-metrics>div>small,
+    .tc-ownership small,
+    .tc-owned-note,
+    .tc-automatic-route,
+    .craft-owned-quantity,
+    .craft-subrecipe-actions>label { color: var(--muted); }
+    .tc-manual-note { border: 1px solid color-mix(in srgb, var(--app-line-strong) 29.02%, transparent); background: color-mix(in srgb, var(--panel-2) 20%, transparent); color: var(--app-text-soft); }
+    .tc-metrics { border: 1px solid color-mix(in srgb, var(--app-line-strong) 29.02%, transparent); background: color-mix(in srgb, var(--panel-2) 43.92%, transparent); }
+    .tc-metrics>div+div { border-left: 1px solid color-mix(in srgb, var(--app-line-strong) 29.02%, transparent); background: color-mix(in srgb, var(--panel-2) 3.92%, transparent); }
+    .tc-metrics>div>span,
+    .tc-ownership label,
+    .tc-replacement,
+    .tc-producer { color: var(--app-text-soft); }
+    .tc-equipment { background: color-mix(in srgb, var(--panel-2) 4.31%, transparent); }
+    .tc-replacement>select,
+    .tc-producer>select,
+    .craft-owned-quantity>input,
+    .craft-subrecipe-actions select { background: var(--panel-2); color: var(--text); border: 1px solid var(--app-line-strong); }
+    .tc-view button:focus-visible,
+    .tc-view input:focus-visible,
+    .tc-view select:focus-visible,
+    .tc-view summary:focus-visible,
+    .craft-owned-quantity>input:focus-visible,
+    .craft-subrecipe-actions select:focus-visible,
+    .craft-subrecipe-actions>button:focus-visible { outline: 2px solid var(--app-line-strong); }
+    /* overlay-kit/base.css */
+    .overlay-editor { color: var(--text); background: var(--panel); }
+    .overlay-editor .switch:after { background: var(--panel-2); }
+    .overlay-editor .button.secondary { background: var(--panel-2); border-color: var(--line); color: var(--app-text-soft); }
+    .overlay-editor .notice { border: 1px solid var(--line); background: var(--panel-2); color: var(--app-text-soft); }
+    .overlay-editor .notice>.icon,
+    .overlay-editor .notice span { color: var(--muted); }
+    .overlay-editor .switch { background: var(--panel-2); border: 1px solid var(--app-line-strong); }
+    .overlay-editor .modal,
+    .overlay-editor.modal { background: var(--panel-2); border: 1px solid var(--line); }
+    .overlay-editor .modal::backdrop,
+    .overlay-editor.modal::backdrop { background: color-mix(in srgb, var(--panel) 74.12%, transparent); }
+    .overlay-editor .button.secondary:hover:not(:disabled) { border-color: var(--app-line-strong); background: var(--app-surface-hover); }
+    .overlay-editor .icon-button:hover:not(:disabled) { border-color: var(--app-line-strong); }
+
+    .overlay-editor .switch:checked { background: var(--app-surface-selected); border-color: var(--app-line-strong); }
+    .overlay-editor .switch:checked:after { background: var(--app-surface-selected); }
+    /* overlay-kit/overlay-editor.css */
+    .overlay-editor .oe-enable { border: 1px solid var(--line); }
+    .overlay-editor .oe-status-row,
+    .overlay-editor .oe-save-state,
+    .overlay-editor .oe-behavior>summary .icon,
+    .overlay-editor .oe-field small,
+    .overlay-editor .oe-help,
+    .overlay-editor .oe-section-title>span,
+    .overlay-editor .oe-module>.icon:last-child,
+    .overlay-editor .oe-module small,
+    .overlay-editor .oe-inspector-empty>.icon,
+    .overlay-editor .oe-module-group-label,
+    .overlay-editor .oe-custom-templates>label,
+    .overlay-editor .oe-custom-templates>.icon-button,
+    .overlay-editor .oe-window-actions>.icon-button,
+    .overlay-editor .oe-module-preview>small { color: var(--muted); }
+    .overlay-editor .oe-field,
+    .overlay-editor .oe-check,
+    .overlay-editor .oe-shortcut { color: var(--app-text-soft); }
+    .overlay-editor .oe-field input:not([type=range]),
+    .overlay-editor .oe-field select,
+    .overlay-editor .oe-custom-templates select { border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+    .overlay-editor .oe-module strong { color: var(--text); }
+    .overlay-editor .oe-data-kind { border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); color: var(--muted); }
+    .overlay-editor .oe-module { border-color: color-mix(in srgb, var(--line) 24.71%, transparent); background: color-mix(in srgb, var(--panel) 33.33%, transparent); }
+    .overlay-editor .oe-item-action { border: 1px solid color-mix(in srgb, var(--app-line-strong) 33.33%, transparent); background: color-mix(in srgb, var(--panel) 40%, transparent); color: var(--app-text-soft); }
+    .overlay-editor .oe-item-results { border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 40%, transparent); }
+    .overlay-editor .oe-shortcuts kbd,
+    .overlay-editor .oe-hotkey-field kbd { background: var(--panel); }
+    .overlay-editor .oe-custom-templates { background: var(--panel-2); }
+    .overlay-editor .oe-modifier { background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
+    .overlay-editor .oe-module-preview { background: color-mix(in srgb, var(--panel) 94.9%, transparent); }
+    .overlay-editor .oe-module:hover:not(:disabled) { background: var(--app-surface-hover); border-color: var(--app-line-strong); }
+
+    .overlay-editor .oe-item-action:hover:not(:disabled) { border-color: var(--app-line-strong); color: var(--text); background: var(--app-surface-hover); }
+    .overlay-editor .oe-item-result:hover { background: var(--app-surface-hover); border-color: var(--app-line-strong); }
+    .overlay-editor .oe-shortcut:hover { color: var(--text); }
+    .overlay-editor .oe-custom-templates>.icon-button:hover { color: var(--text); }
+    .overlay-editor .oe-modifier:has(input:checked) { border-color: var(--app-line-strong); color: var(--text); background: var(--app-surface-selected); }
+    .overlay-editor .oe-library-category.is-active { border-color: var(--app-line-strong); background: var(--app-surface-selected); }
+    .overlay-editor .oe-library .oe-module:hover:not(:disabled) { border-color: var(--app-line-strong); }
+    /* overlay-kit/browser-preview.css */
+    .overlay-editor .browser-overlay-dialog,
+    .overlay-editor.browser-overlay-dialog { border: 1px solid var(--app-line-strong); background: var(--panel); color: var(--text); }
+    .overlay-editor .browser-overlay-dialog::backdrop,
+    .overlay-editor.browser-overlay-dialog::backdrop { background: color-mix(in srgb, var(--panel) 85.1%, transparent); }
+    .overlay-editor .browser-overlay-toolbar p,
+    .overlay-editor .browser-overlay-footer { color: var(--muted); }
+    .overlay-editor .browser-overlay-empty { color: var(--text); background: color-mix(in srgb, var(--panel) 85.1%, transparent); }
+}
+
+/* Shared surfaces and controls. Their colors are decorative; feature data keeps its palette. */
+:where(html[data-app-theme="graphite-dark"]) {
+    .pets-view, .loot-page, .exploration-overview, .craft-page, .craft-live-settings,
+    .overlay-editor { background: var(--bg); }
+    .craft-page { --craft-border: var(--line); --craft-soft: var(--muted); }
+    .exploration-overview { --exploration-line: var(--line); --exploration-surface: var(--panel); }
+    .ct-view { --ct-border: var(--line); --ct-muted: var(--muted); }
+    .ca-view { --ca-border: var(--line); --ca-muted: var(--muted); }
+    .pt-view { --pt-border: var(--line); --pt-muted: var(--muted); }
+    .lst-root { --lst-border: var(--line); --lst-muted: var(--muted); --lst-ink: var(--text); }
+    .craft-browser-layout, .craft-plan, .lt-metric, .lt-metric.gold,
+    .ct-view, .ca-view, .pt-view, .cc-native { background: var(--panel); }
+    .craft-recipe-card, .ct-title-card, .ca-card, .pt-card { background: var(--panel-2); }
+    .craft-recipe-card:hover { background: var(--app-surface-hover); }
+    .craft-recipe-card.selected { background: var(--app-surface-selected); border-color: var(--app-line-strong); box-shadow: inset 0 0 0 1px var(--app-line-strong); }
+    .pets-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 14px #ffffff15; }
+    .pets-rail-item.is-active { background: linear-gradient(90deg, var(--app-accent-soft), transparent 85%); }
+    .mapside .chip:has(input:checked), .routelist .route-repeat.on,
+    .opt-choice.on, .focusbox { background: var(--app-accent-soft); }
+    .focusbox { border-color: var(--app-accent-line); }
+    .mapview .legend-choice:hover { background: var(--app-accent-soft); }
+    .lt-emblem, .cc-native > strong, .cc-model-formula,
+    .cc-score-sums .cc-score-result, .cc-details-button,
+    .overlay-editor .eyebrow, .overlay-editor .oe-module > .icon:first-child,
+    .overlay-editor .oe-module-group-label:first-child { color: var(--text); }
+    .lt-emblem { background: var(--panel-2); border-color: var(--line); }
+    .cc-native, .cc-model-formula, .cc-score-sums .cc-score-result,
+    .cc-details-button { border-color: var(--line); }
+    .overlay-editor .button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: none; }
+    .overlay-editor .button.primary:hover:not(:disabled) { background: #ffffff; }
+    .overlay-editor .switch:after, .boss-page input[role=switch]::before { background: var(--muted); }
+    .overlay-editor .switch:checked { background: var(--accent); border-color: var(--accent); }
+    .overlay-editor .switch:checked:after { background: var(--accent-ink); }
+    .boss-page input[role=switch]:checked { background: var(--boss-accent); border-color: var(--boss-accent); }
+    .boss-page input[role=switch]:checked::before { background: #30171b; }
+    .overlay-editor .status-dot.running { background: var(--teal); }
+    .tabs::-webkit-scrollbar-thumb { background: var(--app-line-strong); }
+    .hotkey-record:focus-visible { outline-color: var(--accent); }
+}
+
+/* Some older views reused the application accent for confirmed progress and live state.
+   Give those indicators their original functional color independently of the neutral accent. */
+:where(html[data-app-theme="graphite-dark"]) {
+    .pill.live, .tile-state.on, .sv-badge.on,
+    .event-boss-card.spawned > strong, .monster-search-current.is-max strong,
+    .pets-stat.is-max b, .pets-count.is-max, .pets-card.is-max .pets-badge,
+    .pets-insight-head b.is-max, .pets-detail-body.is-max .pets-step.on,
+    .lines div.soul, .alerts-state.active, .alerts-feedback { color: var(--app-functional-accent); }
+    .pill.live, .sv-badge.on, .pets-card.is-max .pets-badge,
+    .pets-detail-body.is-max .pets-step.on { border-color: var(--app-functional-accent); }
+
+    .pill.live .dot,
+    .alerts-live-dot,
+    .trk-legend .soul::before,
+    .pets-detail-body.is-max .pets-meter > div,
+    .event-timeline-now,
+    .event-timeline-portal,
+    .event-timeline-legend i.event-now-key { background: var(--app-functional-accent); }
+    .pill.live .dot { box-shadow: 0 0 6px var(--app-functional-accent); }
+    .event-timeline-legend i.event-portal-key { border-color: var(--app-functional-accent); }
+    .routelist .route-color, .route-color { background: var(--route-color, var(--app-functional-accent)); }
+    .route-progress > span { background: var(--objective-color, var(--app-functional-accent)); }
+    .route-marked-running { border-left-color: var(--route-color, var(--app-functional-accent)); }
+    .alerts-card { border-left-color: var(--alert-color, var(--app-functional-accent)); }
+    .alerts-next-card { border-top-color: var(--alert-color, var(--app-functional-accent)); }
+    .alerts-countdown, .alerts-event-symbol, .event-reset-symbol { color: var(--alert-color, var(--app-functional-accent)); }
+}

@@ -76,7 +76,7 @@ else
             @foreach (var marker in _markers.Where(row => Show(row.Data.Kind)))
             {
                 <g class="@($"lt-session-marker {marker.Data.KindKey}")" data-marker-kind="@marker.Data.KindKey" data-marker-id="@marker.Data.Id" data-estimated="@(marker.Data.IsEstimated ? "true" : null)">
-                    <title>@marker.Data.Tooltip</title>
+                    @if (marker.Data.Items.IsDefaultOrEmpty) { <title>@marker.Data.Tooltip</title> }
                     @if (!marker.Data.Items.IsDefaultOrEmpty)
                     {
                         <g transform="@($"translate({marker.X} {marker.Y}) scale({F(_units)})")">
@@ -86,8 +86,7 @@ else
                                 var columns = Math.Min(3, marker.Data.Items.Length);
                                 var x = (index % 3 - (columns - 1) / 2d) * 28;
                                 var y = index / 3 * 28;
-                                <g class="lt-route-item-marker" data-loot-id="@item.Id" data-quantity="@item.Quantity" data-rarity="@item.Rarity.ToString().ToLowerInvariant()" transform="@($"translate({F(x)} {F(y)})")" style="@RarityStyle(item.Rarity)">
-                                    <title>@ItemTitle(item)</title>
+                                <g class="lt-route-item-marker" data-loot-id="@item.Id" data-quantity="@item.Quantity" data-rarity="@item.Rarity.ToString().ToLowerInvariant()" transform="@($"translate({F(x)} {F(y)})")" style="@RarityStyle(item.Rarity)" tabindex="0" role="img" aria-label="@ItemTitle(item)" data-loot-item-tooltip="true" data-item-name-text="@item.Name" data-item-name-color="@ItemNamePresentation.ForDropKey(item.Id).CssColor" data-item-quantity-text="@(item.Quantity?.ToString("N0", Culture) ?? "?")">
                                     <rect class="lt-route-item-frame" x="-12" y="-12" width="24" height="24" rx="4" vector-effect="non-scaling-stroke" />
                                     @if (item.Asset is { } asset) { <image href="@asset" x="-10" y="-10" width="20" height="20" preserveAspectRatio="xMidYMid meet" /> }
                                     else { <g><text class="lt-route-item-fallback" x="0" y="0" text-anchor="middle" dominant-baseline="central" style="font-size:14px">◇</text></g> }
@@ -235,7 +234,9 @@ else
             : AbyssRankCatalog.Default.Stages.FirstOrDefault(row => row.IconAsset == KillAsset(marker))?.Name(UiText.Language);
         return $"{marker.Tooltip} · {UiText.T(_killIconMode == LootTrackerReplayKillIconMode.Class ? "Klasse" : "Rang")}: {name ?? UiText.T("Unbekannt")}";
     }
-    private static string? RarityStyle(LootItemRarity rarity) => LootRarityVisuals.NameCssColor(rarity) is { } color ? "--route-item-color:" + color : null;
+    // Frame/effect palette is independent of the native name foreground.
+    private static string? RarityStyle(LootItemRarity rarity) => rarity != LootItemRarity.Unknown && Enum.IsDefined(rarity)
+        ? "--route-item-color:" + System.Drawing.ColorTranslator.ToHtml(LootRarityVisuals.Accent(rarity)) : null;
     private static string ItemTitle(LootTrackerMarkerItem item) => $"{item.Name} × {item.Quantity?.ToString("N0", Culture) ?? "?"}";
     public void Dispose() { _disposed = true; if (_settings is not null) _settings.Changed -= SettingsChanged; }
 

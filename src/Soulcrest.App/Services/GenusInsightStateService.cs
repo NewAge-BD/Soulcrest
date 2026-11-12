@@ -12,16 +12,34 @@ public sealed class GenusInsightStateService : IDisposable
     private readonly CharacterCombatStateService _character;
     private readonly GenusInsightFavoriteService _favorites;
     private readonly GenusMenuObservationService _menu;
+    private readonly INetworkGenusInsightSource? _shared;
     private readonly GenusActivePresetSelection _preset = new();
     private int _savingSelection, _refreshPending;
     private bool _disposed;
     public event Action? Changed;
     public GenusInsightStateService(CharacterCombatStateService character, GenusInsightFavoriteService favorites,
-        GenusMenuObservationService menu)
+        GenusMenuObservationService menu, INetworkGenusInsightSource? shared = null)
     {
-        _character = character; _favorites = favorites; _menu = menu;
+        _character = character; _favorites = favorites; _menu = menu; _shared = shared;
         character.Changed += Refresh; favorites.Changed += Refresh; menu.Changed += Refresh; menu.FrameObserved += FreshMenuFrame;
+        if (shared is not null) shared.GenusInsightChanged += Refresh;
         Refresh();
+    }
+
+    /// <summary>Global roll evidence never supplies a character identity or its active preset.</summary>
+    internal static CharacterCombatSnapshot ForGenusSource(CharacterCombatSnapshot character, NetworkGenusInsightSnapshot? shared)
+    {
+        if (shared is null) return character;
+        var domain = shared.Domain;
+        var usable = shared.Generation > 0 && shared.Sequence > 0 && domain.Sequence == shared.Sequence
+            && domain is { IsFresh: true, Status: NetworkCombatSourceStatus.Complete, ObservedAt: not null, Value: not null }
+            && domain.Source is "own-pet-genus-list" or "own-pet-genus-lock-update" or "own-pet-genus-roll-update";
+        return character with
+        {
+            Sequence = shared.Sequence,
+            Pets = usable ? domain with { Value = domain.Value! with { SelectedGenusPanel = null } }
+                : NetworkCombatDomain<PetProgressSnapshot>.Unknown
+        };
     }
     public GenusInsightSnapshot Snapshot
     {
@@ -29,24 +47,35 @@ public sealed class GenusInsightStateService : IDisposable
         {
             if (_disposed) return GenusInsightSnapshot.Empty;
             var character = _character.Snapshot;
+            var shared = _shared?.GenusInsightSnapshot;
             var favorites = _favorites.Snapshot.Favorites;
             var menu = _menu.Snapshot;
-            var live = ReadLive(character, favorites, menu, out _);
+            var source = ForGenusSource(character, shared);
+            var live = ReadLive(source, favorites, menu, out _);
             var current = _character.Snapshot;
             var currentMenu = _menu.Snapshot;
-            if (current.ProfileId != character.ProfileId || current.Generation != character.Generation
-                || current.Sequence != character.Sequence || current.IsFresh != character.IsFresh
+            if (!SameOwn(character, current) || !SameShared(shared)
                 || currentMenu.MenuVisible != menu.MenuVisible || currentMenu.Genus != menu.Genus
                 || currentMenu.ViewedPreset != menu.ViewedPreset || currentMenu.SourceGeneration != menu.SourceGeneration)
                 return ReadSaved(favorites);
             // Capture/menu expiry revokes live selection authority, never the saved rolls.
             // Partial or malformed source payloads must also leave the complete shared display intact.
-            var usable = live.IsCurrent && live.Preset is not null && character.Pets.Status == NetworkCombatSourceStatus.Complete
-                && character.Pets.Value is { } value && character.Pets.ObservedAt is { } at
-                && ExplorationService.ValidGenusHistory(new(value.GenusBoards, at, character.Pets.Source));
+            var usable = live.IsCurrent && live.Preset is not null && source.Pets.Status == NetworkCombatSourceStatus.Complete
+                && source.Pets.Value is { } value && source.Pets.ObservedAt is { } at
+                && ExplorationService.ValidGenusHistory(new(value.GenusBoards, at, source.Pets.Source));
             if (!usable && ReadSaved(favorites) is { IsHistorical: true } saved) return saved;
             return live;
         }
+    }
+    private static bool SameOwn(CharacterCombatSnapshot expected, CharacterCombatSnapshot current) =>
+        current.ProfileId == expected.ProfileId && current.Generation == expected.Generation
+        && current.Sequence == expected.Sequence && current.IsFresh == expected.IsFresh;
+    private bool SameShared(NetworkGenusInsightSnapshot? expected)
+    {
+        if (_shared is null) return expected is null;
+        var current = _shared.GenusInsightSnapshot;
+        return expected is not null && current.Generation == expected.Generation && current.Sequence == expected.Sequence
+            && ReferenceEquals(current.Domain, expected.Domain);
     }
     private GenusInsightSnapshot ReadSaved(IReadOnlySet<GenusInsightFavoriteKey> favorites)
     {
@@ -62,7 +91,8 @@ public sealed class GenusInsightStateService : IDisposable
         var result = GenusInsightProjection.Create(character, favorites);
         // Menu selection belongs to the current character even if the shared roll
         // payload is available only from disk. It does not make those rolls live.
-        var ownCurrent = character.IsFresh && character.Generation > 0 && !string.IsNullOrWhiteSpace(character.ProfileId);
+        var ownCurrent = character.IsFresh && character.Generation > 0 && !string.IsNullOrWhiteSpace(character.ProfileId)
+            && (_shared is null || result.IsCurrent);
         selection = _preset.Evaluate(character, ownCurrent, menu);
         if (result.IsCurrent && selection.Preset != character.Pets.Value!.SelectedGenusPanel)
             result = GenusInsightProjection.Create(character with { Pets = character.Pets with
@@ -98,13 +128,20 @@ public sealed class GenusInsightStateService : IDisposable
             while (!_disposed && Interlocked.Exchange(ref _refreshPending, 0) != 0)
             {
                 var character = _character.Snapshot;
+                var shared = _shared?.GenusInsightSnapshot;
                 var menu = _menu.Snapshot;
-                _ = ReadLive(character, _favorites.Snapshot.Favorites, menu, out var selection);
+                var source = ForGenusSource(character, shared);
+                if (shared is not null && source.Pets.IsFresh && SameShared(shared))
+                    _character.PersistObservedSharedGenus(character, source.Pets, () => SameShared(shared));
+                _ = ReadLive(source, _favorites.Snapshot.Favorites, menu, out var selection);
                 var latest = _menu.Snapshot;
                 if (selection.MenuQualified && menu.ViewedPreset is { } selected
                     && latest.MenuVisible == true && latest.Genus == menu.Genus
-                    && latest.ViewedPreset == selected && latest.SourceGeneration == menu.SourceGeneration)
-                    _character.PersistObservedGenusPreset(character, selected);
+                    && latest.ViewedPreset == selected && latest.SourceGeneration == menu.SourceGeneration
+                    && SameOwn(character, _character.Snapshot) && SameShared(shared))
+                    _character.PersistObservedGenusPreset(character, selected, () => SameShared(shared)
+                        && _menu.Snapshot is { MenuVisible: true } currentMenu && currentMenu.Genus == menu.Genus
+                        && currentMenu.ViewedPreset == selected && currentMenu.SourceGeneration == menu.SourceGeneration);
             }
         }
         finally { Volatile.Write(ref _savingSelection, 0); }
@@ -115,6 +152,7 @@ public sealed class GenusInsightStateService : IDisposable
     {
         _disposed = true; _character.Changed -= Refresh; _favorites.Changed -= Refresh;
         _menu.Changed -= Refresh; _menu.FrameObserved -= FreshMenuFrame;
+        if (_shared is not null) _shared.GenusInsightChanged -= Refresh;
     }
 }
 
@@ -173,6 +211,7 @@ public static class GenusInsightProjection
                 var view = new GenusInsightSlotView { Slot = slot };
                 if (effect is not null)
                 {
+                    var notAnalyzed = effect.Grade == 0 && effect.StatType == 0 && effect.Value == 0;
                     var rank = effect.Grade is >= 1 and <= 5 ? effect.Grade : (byte?)null;
                     var stat = bindings.TryGetValue(effect.StatType, out var id) ? catalog.FindStat(id) : null;
                     var rankRange = stat is not null && rank is not null ? catalog.Range(genus, slot, stat.StatId, rank) : null;
@@ -185,7 +224,9 @@ public static class GenusInsightProjection
                         : (double?)null;
                     view = view with
                     {
-                        StatId = stat?.StatId, LabelDe = stat?.LabelDe ?? "Unbekannter Stat", LabelEn = stat?.LabelEn ?? "Unknown stat",
+                        StatId = stat?.StatId,
+                        LabelDe = stat?.LabelDe ?? (notAnalyzed ? "Nicht analysiert" : "Unbekannter Stat"),
+                        LabelEn = stat?.LabelEn ?? (notAnalyzed ? "Not analyzed" : "Unknown stat"),
                         Unit = stat?.Unit, Value = value, Rank = rank, Minimum = range?.Minimum, Maximum = range?.Maximum,
                         RollFraction = fraction, IsMaxRoll = qualified && value == range?.Maximum,
                         IsFavorite = stat is not null && favorites?.Contains(new(genus, slot, stat.StatId)) == true,

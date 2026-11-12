@@ -1,0 +1,21 @@
+/* Name foregrounds come from the bundled item catalogue. Metadata stays in theme colors. */
+.item-name[data-item-name="true"]:not([data-item-grade]) { color: var(--text, #e6ebf2); }
+.overlay-editor .item-name[data-item-name="true"]:not([data-item-grade]) { color: var(--overlay-primary, var(--text, #e7edf2)); }
+.route-item-tooltip {
+    position: fixed;
+    z-index: 100000;
+    display: block;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 8px 10px;
+    border: 1px solid var(--border, #3b4655);
+    border-radius: 7px;
+    background: var(--panel, #151c26);
+    color: var(--text, #dbe2eb);
+    box-shadow: 0 4px 20px #0008;
+    font: 12px/1.4 "Segoe UI", sans-serif;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+}
+.lt-route-item-marker:focus-visible { outline: 2px solid #30c8b8; outline-offset: 3px; }
+.pt-slot .item-tooltip { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; }
+.pt-slot > .item-tooltip > img { width: calc(100% - 8px); height: calc(100% - 8px); object-fit: contain; }

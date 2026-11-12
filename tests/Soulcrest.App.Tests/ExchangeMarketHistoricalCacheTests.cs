@@ -230,7 +230,7 @@ public sealed class ExchangeMarketHistoricalCacheTests
         var bytes = JsonSerializer.SerializeToUtf8Bytes(new
         {
             SchemaVersion = 1, Provider = "aion2.exchange", ServersFetchedAt = Start,
-            Servers = new[] { new ExchangeMarketServer(ServerId, "Example", "eu", "Europe", "elyos", true) },
+            Servers = new[] { new ExchangeMarketServer(ServerId, "Example", "eu", "Europe", "elyos", true) { GameServerKey = 1301 } },
             Quotes = new[] { Current(clock, 1) },
             Lookups = new[] { new { ServerId, ItemId = 2, FetchedAt = Start } },
             HistoricalQuotes = history
@@ -272,7 +272,7 @@ public sealed class ExchangeMarketHistoricalCacheTests
         using var directory = new CacheDirectory();
         var clock = new Clock();
         var cache = new ExchangeMarketCache(clock);
-        cache.SaveServers([new(ServerId, "Example", "eu", "Europe", "elyos", true)]);
+        cache.SaveServers([new(ServerId, "Example", "eu", "Europe", "elyos", true) { GameServerKey = 1301 }]);
         var item = 610530001;
         var client = new DetailsClient { Reply = (_, _, _) => Task.FromResult(new ExchangeMarketQuoteDetails([], [Historical(clock, item)])) };
         var source = new ReceiptSource(clock);

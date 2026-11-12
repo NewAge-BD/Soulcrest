@@ -55,7 +55,7 @@
         {
             <div class="lt-table-wrap"><table class="lt-table lt-statistics-table"><thead><tr><th aria-sort="@QuantityDirection(_lootSort, "name")">@SortButton("Item / Soul", "loot-name", QuantityDirection(_lootSort, "name"), () => SortLoot("name"))</th><th aria-sort="@QuantityDirection(_lootSort, "quantity")">@SortButton("Menge", "loot-quantity", QuantityDirection(_lootSort, "quantity"), () => SortLoot("quantity"))</th></tr></thead><tbody>@foreach (var row in loot)
             {
-                <tr data-loot-statistic="@row.Key"><td><span class="lt-statistic-name">@if (row.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> }@row.Name</span></td><td><strong>@Number(row.Quantity)</strong><small class="lt-statistic-share">@Percent(row.Percent)</small></td></tr>
+                <tr data-loot-statistic="@row.Key"><td><span class="lt-statistic-name">@if (row.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> }<ItemName DropKey="@row.Key" Text="@row.Name" /></span></td><td><strong>@Number(row.Quantity)</strong><small class="lt-statistic-share">@Percent(row.Percent)</small></td></tr>
             }</tbody></table></div>
         }
         else { <div class="lt-visual-empty">@UiText.T("Keine einzelnen Loot-Einträge vorhanden.")</div> }

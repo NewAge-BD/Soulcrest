@@ -26,6 +26,8 @@ public sealed record NetworkCombatDomain<T>(T? Value, NetworkCombatSourceStatus 
 /// <summary>Immutable, transient own evidence; native identity remains inside Character and must never be persisted.</summary>
 public sealed record NetworkCharacterCombatSnapshot
 {
+    public NetworkCombatDomain<ImmutableDictionary<byte, CharacterCraftingProficiency>> CraftingProficiencies { get; init; } =
+        NetworkCombatDomain<ImmutableDictionary<byte, CharacterCraftingProficiency>>.Unknown;
     public OwnCharacterContext? Character { get; init; }
     public string? ClassId { get; init; }
     public int? CharacterLevel { get; init; }

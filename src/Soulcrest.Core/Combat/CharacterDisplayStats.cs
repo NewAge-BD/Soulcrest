@@ -1,7 +1,7 @@
 namespace Soulcrest.Core.Combat;
 
 public enum CharacterDisplayStatCategory { Main, Sub }
-public enum CharacterDisplayStatQualification { Unknown, ObservedMatch, ControlledChange, NativeDirect }
+public enum CharacterDisplayStatQualification { Unknown, ObservedMatch, ControlledChange, NativeDirect, TableInferred }
 public enum CharacterDisplayVitalSourceKind { Unknown, Own, StateUpdate8D00 }
 public enum CharacterDisplayInputRole { Flat, IncreaseBasisPoints }
 

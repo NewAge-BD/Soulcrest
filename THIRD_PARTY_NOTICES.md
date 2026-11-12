@@ -42,7 +42,10 @@ Die Klassen- und Abyss-Rangicons im PvP-Killfeed sind originale Spielgrafiken ©
 - Verwendet: Kartenkacheln, Monster- und Objektpositionen, Kibelisk- und Ortsnamen, Pet-Porträts,
   englische/deutsche Namen, Soul-Beute. Faktenbelege je Zuordnung in `data/pets/soul-sources.json`.
 - Spielgrafiken und Spielinhalte © NCSOFT. Keine freie Grafiklizenz behauptet; die Erlaubnis von
-  gaming.tools betrifft deren Aufbereitung, nicht die Rechte von NCSOFT. Rohdaten, Positionen und Grafiken werden nicht ins Git eingecheckt.
+  gaming.tools betrifft deren Aufbereitung, nicht die Rechte von NCSOFT. Rohimporte bleiben
+  im lokalen Cache. Die geprüfte Dungeon-Pet-Projektion und vollständige aufbereitete
+  Dungeonbilder werden für die Offlineanzeige lokal gebündelt, mit sichtbarem Quellenlink.
+  Herkunftsdetails und private Aufbereiter sind kein Teil des öffentlichen Produktvertrags.
 - Änderungen: GTPK-Kacheln in Leaflet-Kacheln zerlegt, Koordinaten umgerechnet, Pet-Porträts
   von WebP nach PNG konvertiert, Soul-Quellen nach belegter Beute zugeordnet und gruppiert.
 - Frontend-Code wurde nur zur Prüfung des öffentlichen Dateiformats/Datenwegs gelesen;

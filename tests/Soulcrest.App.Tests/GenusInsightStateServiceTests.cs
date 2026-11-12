@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Drawing;
 using Soulcrest.App.Network;
+using Soulcrest.App.Overlay;
 using Soulcrest.App.OverlayEditorKit;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Combat;
@@ -29,7 +30,14 @@ public sealed class GenusInsightStateServiceTests
         f.Network.Running = false;
         var contributors = DiagnosticContributors.Create(new DiagnosticServiceRegistry(f.Character, f.State, f.Menu));
         var contributor = contributors.Single(item => item.FeatureIds.Contains("combat-genus-insight"));
-        _ = contributor.Collect("combat-genus-insight");
+        var diagnosis = contributor.Collect("combat-genus-insight");
+        Assert.Equal(89, diagnosis.Facts["catalogStats"]);
+        Assert.Equal(87, diagnosis.Facts["boundCatalogStats"]);
+        Assert.Equal(2, diagnosis.Facts["unboundCatalogStats"]);
+        Assert.Equal(45, diagnosis.Facts["rangeQualifiedRolls"]);
+        var statsDiagnosis = contributors.Single(item => item.FeatureIds.Contains("combat-stat-overview")).Collect("combat-stat-overview");
+        Assert.Equal(131, statsDiagnosis.Facts["displayRuleCount"]);
+        Assert.Equal(30, statsDiagnosis.Facts["tableInferredRuleCount"]);
         Assert.Equal(before, fields.Select(field => field.GetValue(preset)).ToArray());
         Assert.Equal(beforeFile, File.ReadAllBytes(f.Path));
     }
@@ -200,6 +208,110 @@ public sealed class GenusInsightStateServiceTests
     }
 
     [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public void GlobalDesiredStatsReachEveryObservedSlotAndTheNativeSidebarWhileLocalExceptionsKeepTheirPrecedence(string language)
+    {
+        using var f = new Fixture(); f.Login(101, 7, 1); f.WaitForProjection();
+        using var lease = f.State.ObserveMenu(); f.SelectGamePreset(3);
+        f.Frame(new("special", .99, 3)); f.Frame(new("special", .99, 3));
+        var before = f.State.Snapshot;
+        Assert.True(GenusInsightOverlayContent.Available(before));
+        Assert.Equal("special", before.ViewedBoard!.Genus);
+        Assert.All(before.Boards.SelectMany(board => board.Slots), slot => Assert.False(slot.IsFavorite));
+        var savedBefore = File.ReadAllBytes(f.Path);
+        var rawBefore = RawValues(f.Exploration.TryGetSavedGenusInsight()!.Boards).ToArray();
+        using var unmarked = GenusInsightOverlayRenderer.Render(before, language: language);
+        Assert.Equal(0, FirstSlotStarPixels(unmarked));
+
+        f.Favorites.ToggleGlobal("FixingDamage");
+        var global = f.State.Snapshot;
+        Assert.Equal(15, global.Boards.SelectMany(board => board.Slots).Count(slot => slot.IsFavorite));
+        Assert.All(global.Boards.SelectMany(board => board.Slots), slot =>
+            Assert.Equal(slot.StatId == "FixingDamage", slot.IsFavorite));
+        AssertOnlyFavoritePresentationChanged(before, global);
+        using var marked = GenusInsightOverlayRenderer.Render(global, language: language);
+        Assert.True(FirstSlotStarPixels(marked) > 0);
+
+        var specialFirst = new GenusInsightFavoriteKey("special", 1, "FixingDamage");
+        f.Favorites.Toggle(specialFirst);
+        var local = f.State.Snapshot;
+        Assert.False(local.ViewedBoard!.Slots[0].IsFavorite);
+        Assert.Contains("FixingDamage", f.Favorites.Snapshot.GlobalStats);
+        Assert.False(f.Favorites.Snapshot.SlotOverrides[specialFirst]);
+        Assert.Equal(14, local.Boards.SelectMany(board => board.Slots).Count(slot => slot.IsFavorite));
+        AssertOnlyFavoritePresentationChanged(before, local);
+        using var excepted = GenusInsightOverlayRenderer.Render(local, language: language);
+        Assert.Equal(0, FirstSlotStarPixels(excepted));
+
+        f.Favorites.ToggleGlobal("FixingDamage");
+        Assert.All(f.State.Snapshot.Boards.SelectMany(board => board.Slots), slot => Assert.False(slot.IsFavorite));
+        f.Favorites.ToggleGlobal("FixingDamage");
+        Assert.False(f.State.Snapshot.ViewedBoard!.Slots[0].IsFavorite);
+        Assert.False(f.Favorites.Snapshot.SlotOverrides[specialFirst]);
+        f.Favorites.ResetOverride(specialFirst);
+        var inherited = f.State.Snapshot;
+        Assert.True(inherited.ViewedBoard!.Slots[0].IsFavorite);
+        Assert.False(f.Favorites.Snapshot.SlotOverrides.ContainsKey(specialFirst));
+        Assert.Equal(15, inherited.Boards.SelectMany(board => board.Slots).Count(slot => slot.IsFavorite));
+        using var reset = GenusInsightOverlayRenderer.Render(inherited, language: language);
+        Assert.True(FirstSlotStarPixels(reset) > 0);
+        AssertOnlyFavoritePresentationChanged(before, inherited);
+        Assert.Equal(rawBefore, RawValues(f.Exploration.TryGetSavedGenusInsight()!.Boards).ToArray());
+        Assert.Equal(savedBefore, File.ReadAllBytes(f.Path));
+        Assert.Equal(0, f.CaptureCalls);
+    }
+
+    [Fact]
+    public void OfflineWishlistChoicesSurviveSavedSnapshotsProfileChangesAndPresetChangesWithoutMutatingRawRolls()
+    {
+        using var f = new Fixture();
+        var revision = f.Menu.Revision;
+        var negative = new GenusInsightFavoriteKey("special", 1, "FixingDamage");
+        var positive = new GenusInsightFavoriteKey("special", 2, "Defense");
+        Assert.False(f.State.Snapshot.IsCurrent);
+        f.Favorites.ToggleGlobal("FixingDamage");
+        f.Favorites.Toggle(negative);
+        f.Favorites.Toggle(positive);
+        Assert.False(f.State.Snapshot.IsCurrent);
+        Assert.False(GenusInsightOverlayContent.Available(f.State.Snapshot));
+        Assert.Equal(revision, f.Menu.Revision);
+        Assert.Equal(0, f.CaptureCalls);
+        var preferenceBytes = File.ReadAllBytes(f.FavoritesPath);
+
+        var first = f.Login(101, 7, 1); f.WaitForProjection();
+        var firstSnapshot = f.State.Snapshot;
+        AssertWishlistExceptions(firstSnapshot);
+        using (f.State.ObserveMenu()) f.SelectGamePreset(3);
+        var firstSaved = f.Exploration.TryGetSavedGenusInsight(first)!;
+        Assert.Equal((byte)3, firstSaved.ActivePreset);
+        var rawBefore = RawValues(firstSaved.Boards).ToArray();
+        f.Restart();
+        var restored = f.State.Snapshot;
+        Assert.True(restored.IsHistorical);
+        Assert.False(restored.IsCurrent);
+        Assert.Equal((byte)3, restored.Preset);
+        AssertWishlistExceptions(restored);
+        Assert.False(GenusInsightOverlayContent.Available(restored));
+
+        var second = f.Login(102, 8, 2); f.WaitForProjection();
+        Assert.NotEqual(first, second);
+        var secondSnapshot = f.State.Snapshot;
+        Assert.Equal(second, secondSnapshot.ProfileId);
+        Assert.Equal((byte)2, secondSnapshot.Preset);
+        Assert.NotEqual(FirstAttack(firstSnapshot), FirstAttack(secondSnapshot));
+        AssertWishlistExceptions(secondSnapshot);
+        Assert.Equal(rawBefore, RawValues(f.Exploration.TryGetSavedGenusInsight(second)!.Boards).ToArray());
+        Assert.Equal((byte)3, f.Exploration.TryGetSavedGenusInsight(first)!.ActivePreset);
+        Assert.Equal(preferenceBytes, File.ReadAllBytes(f.FavoritesPath));
+        var reloaded = new GenusInsightFavoriteService(f.FavoritesPath).Snapshot;
+        Assert.Contains("FixingDamage", reloaded.GlobalStats);
+        Assert.False(reloaded.SlotOverrides[negative]);
+        Assert.True(reloaded.SlotOverrides[positive]);
+        Assert.Equal(0, f.CaptureCalls);
+    }
+
+    [Theory]
     [InlineData("profile")] [InlineData("full-list")] [InlineData("roll")]
     public void AReadBeforeTheStateFrameCallbackCannotConsumeThePresetChoiceWithoutPersistingIt(string barrier)
     {
@@ -242,6 +354,42 @@ public sealed class GenusInsightStateServiceTests
     }
 
     private static decimal? FirstAttack(GenusInsightSnapshot snapshot) => snapshot.Boards.Single(board => board.Genus == "special").Slots[0].Value;
+    private static void AssertOnlyFavoritePresentationChanged(GenusInsightSnapshot before, GenusInsightSnapshot after)
+    {
+        Assert.Equal(before.ProfileId, after.ProfileId);
+        Assert.Equal(before.Generation, after.Generation);
+        Assert.Equal(before.Sequence, after.Sequence);
+        Assert.Equal(before.Preset, after.Preset);
+        Assert.Equal(before.ViewedPreset, after.ViewedPreset);
+        Assert.Equal(before.AppliedEffects.ToArray(), after.AppliedEffects.ToArray());
+        Assert.Equal(before.AppliedEffectsStatus, after.AppliedEffectsStatus);
+        Assert.Equal(before.Boards.SelectMany(board => board.Slots).Select(slot => slot with { IsFavorite = false }).ToArray(),
+            after.Boards.SelectMany(board => board.Slots).Select(slot => slot with { IsFavorite = false }).ToArray());
+    }
+    private static void AssertWishlistExceptions(GenusInsightSnapshot snapshot)
+    {
+        foreach (var board in snapshot.Boards)
+        foreach (var slot in board.Slots)
+        {
+            var expected = slot.StatId == "FixingDamage";
+            if (board.Genus == "special" && slot.Slot == 1) expected = false;
+            if (board.Genus == "special" && slot.Slot == 2) expected = true;
+            Assert.Equal(expected, slot.IsFavorite);
+        }
+    }
+    private static int FirstSlotStarPixels(Bitmap image)
+    {
+        var gold = OverlayThemeDefinition.Aion2.Gold;
+        var pixels = 0;
+        for (var y = 75; y < 94; y++)
+        for (var x = 305; x < 321; x++)
+        {
+            var actual = image.GetPixel(x, y);
+            if (actual.A > 200 && Math.Abs(actual.R - gold.R) <= 5 && Math.Abs(actual.G - gold.G) <= 5
+                && Math.Abs(actual.B - gold.B) <= 5) pixels++;
+        }
+        return pixels;
+    }
     private static decimal?[] Values(GenusInsightSnapshot snapshot) => snapshot.Boards.OrderBy(board => board.Genus, StringComparer.Ordinal)
         .SelectMany(board => board.Slots.OrderBy(slot => slot.Slot)).Select(slot => slot.Value).ToArray();
     private static IEnumerable<(byte Board, byte Preset, byte Slot, ushort Stat, long Value)> RawValues(ImmutableDictionary<byte, CharacterGenusBoard> boards) =>
@@ -287,6 +435,7 @@ public sealed class GenusInsightStateServiceTests
         internal GenusMenuObservationService Menu { get; private set; } = null!;
         internal GenusInsightFavoriteService Favorites { get; private set; } = null!;
         internal GenusInsightStateService State { get; private set; } = null!;
+        internal int CaptureCalls { get; private set; }
         internal Action? BeforeFrameObserved { get; set; }
         internal Fixture(string json = Legacy, bool writeProfileFile = true)
         {
@@ -295,7 +444,8 @@ public sealed class GenusInsightStateServiceTests
         private void StartServices()
         {
             Network = new(); Exploration = new(Path, []); Skills = new(Network, Exploration); Character = new(Network, Skills, Exploration);
-            Favorites = new(FavoritesPath); Menu = new(() => throw new InvalidOperationException("No capture in tests."), () => _bounds, () => _clock);
+            Favorites = new(FavoritesPath);
+            Menu = new(() => { CaptureCalls++; throw new InvalidOperationException("No capture in tests."); }, () => _bounds, () => _clock);
             Menu.FrameObserved += () => BeforeFrameObserved?.Invoke();
             State = new(Character, Favorites, Menu);
             Character.Changed += ProjectionObserved;

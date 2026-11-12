@@ -1,4 +1,5 @@
 @inherits KitLocalizedComponentBase
+@using Soulcrest.App.Components
 @using Soulcrest.App.OverlayEditorKit
 @implements IAsyncDisposable
 @inject IOverlayService Overlay
@@ -30,6 +31,10 @@
             @if (SelectedSection != "static" && _error is not null) { <div class="notice error-notice" role="alert"><KitIcon Name="info" /><span>@T(_error)</span></div> }
             @if (SelectedSection != "static" && _placement?.Error is { } placementError && placementError != _error && placementError != Overlay.LoadError) { <div class="notice error-notice" role="alert"><KitIcon Name="info" /><span>@T(placementError)</span></div> }
             @if (SelectedSection != "static" && WindowRuntime is { IsError: true } runtime && runtime.Status != _error && runtime.Status != _placement?.Error && runtime.Status != Overlay.LoadError) { <div class="notice error-notice" role="alert"><KitIcon Name="info" /><span>@T(runtime.Status)</span></div> }
+            @if (SelectedSection is not ("static" or "presets") && !_demo && _liveSnapshot.WaitingForWorldContext)
+            {
+                <div class="notice warning-notice" role="status" data-overlay-world-context-warning="true"><KitIcon Name="info" /><div><strong>@T("Warte auf bestätigten Kartenkontext")</strong><span>@T("Teleportiere deinen Charakter einmal, damit Soulcrest den aktuellen Kartenkontext erkennt und Loot erfassen kann.")</span></div></div>
+            }
             <div class="oe-status-row" hidden="@(SelectedSection == "static")">
                 <span><span class="status-dot @(PlaceModeActive || WindowRuntime.IsVisible ? "running" : "")"></span>@T(PlaceModeActive ? "Place Mode aktiv" : WindowRuntime.Status)</span>
                 @if (_saving || _savingTheme) { <span class="oe-save-state" role="status"><KitIcon Name="refresh" />@T("Speichert …")</span> }
@@ -251,7 +256,7 @@
                                                 var item = CatalogItem(itemKey);
                                                 var index = selected.ItemKeys.ToList().IndexOf(itemKey);
                                                 <div class="oe-selected-item" @key="itemKey">
-                                                    <AssetImage Src="@item.IconPath" Alt="" Class="oe-picker-icon" /><span title="@item.Name">@item.Name</span>
+                                                    <AssetImage Src="@item.IconPath" Alt="" Class="oe-picker-icon" /><ItemTooltip Id="@ItemTooltipId(item.Key, true)" DropKey="@item.Key" Text="@item.Name"><ItemName DropKey="@item.Key" Text="@item.Name" /></ItemTooltip>
                                                     <div class="oe-item-order">
                                                         @if (selected.ItemKeys.Count > 1)
                                                         {
@@ -267,7 +272,7 @@
                                     }
                                     <div class="oe-item-results" aria-label="@T("Verfügbare Overlay-Items")">
                                         <Microsoft.AspNetCore.Components.Web.Virtualization.Virtualize Items="@AvailableItems(selected)" Context="item" ItemSize="45" OverscanCount="4">
-                                            <button class="oe-item-result" @key="item.Key" disabled="@(selected.ItemKeys.Count >= 24)" title="@item.Name" @onclick="() => AddItem(item.Key)"><AssetImage Src="@item.IconPath" Alt="" Class="oe-picker-icon" /><span>@item.Name</span><KitIcon Name="plus" /></button>
+                                            <button class="oe-item-result" @key="item.Key" disabled="@(selected.ItemKeys.Count >= 24)" aria-describedby="@ItemTooltipId(item.Key, false)" @onclick="() => AddItem(item.Key)"><AssetImage Src="@item.IconPath" Alt="" Class="oe-picker-icon" /><ItemTooltip Id="@ItemTooltipId(item.Key, false)" DropKey="@item.Key" Text="@item.Name" Focusable="false" ParentFocus="true"><ItemName DropKey="@item.Key" Text="@item.Name" /></ItemTooltip><KitIcon Name="plus" /></button>
                                         </Microsoft.AspNetCore.Components.Web.Virtualization.Virtualize>
                                         @if (!AvailableItems(selected).Any()) { <p class="oe-help">@T("Keine weiteren passenden Items.")</p> }
                                     </div>

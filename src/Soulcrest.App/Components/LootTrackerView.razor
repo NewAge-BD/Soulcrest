@@ -207,7 +207,7 @@
                                 <p class="lt-panel-subtitle">@UiText.T("Nur tatsächlich erhaltene Items.")</p>
                                 @if (!harvestSession.Loot.IsDefaultOrEmpty && harvestSession.Loot.Any(row => row.Kind == LootTrackerLootKind.Item && row.Quantity > 0))
                                 {
-                                    <div class="lt-resource-bars">@foreach (var loot in LootTrackerPresentation.OrderedLoot(harvestSession).Where(row => row.Kind == LootTrackerLootKind.Item && row.Quantity > 0)) { <div><span class="lt-resource-name">@LootIcon(loot.Id)<span>@loot.Name</span></span><strong>@Number(loot.Quantity)</strong><div class="lt-mob-bar" aria-hidden="true"><span style="width: @LootPercent(harvestSession, loot)%"></span></div></div> }</div>
+                                    <div class="lt-resource-bars">@foreach (var loot in LootTrackerPresentation.OrderedLoot(harvestSession).Where(row => row.Kind == LootTrackerLootKind.Item && row.Quantity > 0)) { <div><span class="lt-resource-name">@LootIcon(loot.Id)<ItemName DropKey="@loot.Id" Text="@loot.Name" /></span><strong>@Number(loot.Quantity)</strong><div class="lt-mob-bar" aria-hidden="true"><span style="width: @LootPercent(harvestSession, loot)%"></span></div></div> }</div>
                                 }
                                 else { <div class="lt-visual-empty" data-testid="gathering-loot-empty">@UiText.T(session.ItemCount == 0 ? "Keine Sammelbeute erhalten." : "Noch keine bestätigte Sammelbeute vorhanden.")</div> }
                                 @if (harvestSession.LastLootAt is { } lastLoot) { <p class="lt-panel-subtitle">@UiText.T("Zuletzt gesammelt") · @lastLoot.ToLocalTime().ToString("T", Culture)</p> }
@@ -231,7 +231,7 @@
                             {
                                 <div class="lt-table-wrap"><table class="lt-table lt-loot-table"><thead><tr><th>@UiText.T("Item / Soul")</th><th>@UiText.T("Menge")</th>
 @if (ExchangeRowSummary is not null) { <th>@UiText.T("Marktwert · geschätzt")</th> }
-</tr></thead><tbody>@foreach (var loot in LootTrackerPresentation.OrderedLoot(session)) { var rarity = LootRarity(loot.Id); <tr class="lt-loot-row @RarityClass(rarity)" data-loot-id="@loot.Id"><td><div class="lt-loot-name">@LootIcon(loot.Id)<span style="@LootNameStyle(rarity)">@loot.Name<span class="lt-loot-kind">@(MonsterLootItemCatalog.IsExceptional(rarity) ? rarity.ToString() : UiText.T(loot.Kind == LootTrackerLootKind.Soul ? "Soul" : "Item"))</span></span></div></td><td>@Number(loot.Quantity)</td>
+</tr></thead><tbody>@foreach (var loot in LootTrackerPresentation.OrderedLoot(session)) { var rarity = LootRarity(loot.Id); <tr class="lt-loot-row @RarityClass(rarity)" data-loot-id="@loot.Id"><td><div class="lt-loot-name">@LootIcon(loot.Id)<span><ItemName DropKey="@loot.Id" Text="@loot.Name" /><span class="lt-loot-kind">@(MonsterLootItemCatalog.IsExceptional(rarity) ? rarity.ToString() : UiText.T(loot.Kind == LootTrackerLootKind.Soul ? "Soul" : "Item"))</span></span></div></td><td>@Number(loot.Quantity)</td>
 @if (ExchangeRowSummary is not null)
 {
     var exchangeRow = ExchangeRowSummary(session, loot);
@@ -359,8 +359,6 @@
     private static string DayKey(DateOnly day) => day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
     private void ToggleDay(DateOnly day) { if (!_collapsedDays.Remove(day)) _collapsedDays.Add(day); }
     private static LootItemRarity LootRarity(string key) => MonsterLootItemCatalog.Default.DropRarity(key);
-    private static string? LootNameStyle(LootItemRarity rarity) => Soulcrest.App.Overlay.LootRarityVisuals.NameCssColor(rarity) is { } color
-        ? "color:" + color : null;
     private static string RarityClass(LootItemRarity rarity) => rarity != LootItemRarity.Unknown && Enum.IsDefined(rarity) ? "rarity-" + rarity.ToString().ToLowerInvariant() : "";
     private static RenderFragment LootIcon(string key) => @<span class="lt-loot-icon" aria-hidden="true">@if (MonsterLootIconCatalog.Default.DropAsset(key) is { } path) { <img src="@path" width="24" height="24" alt="" /> }</span>;
     private static RenderFragment KinaIcon => @<span class="lt-kina-icon" aria-hidden="true">@if (MonsterLootIconCatalog.Default.ItemAsset(930100031) is { } path) { <img src="@path" width="24" height="24" alt="" /> }</span>;

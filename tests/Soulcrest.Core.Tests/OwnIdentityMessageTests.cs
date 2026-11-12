@@ -182,7 +182,7 @@ public sealed class OwnIdentityMessageTests
         return w.Bytes;
     }
 
-    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0, int pcId = 0, int gearScore = 0, int highestGearScore = 0, long combatScore = 0, long highestCombatScore = 0, long? abyssRankPoints = null, bool? abyssRankPointsPresent = null, ulong health = 128, ulong maximumHealth = 300, byte appearReason = 0, int characterLevel = 0, int combatLevel = 0, int conquerorLevel = 0, int maximumMana = 0, int? wingId = null, byte? wingLevel = null, int? wingSkinId = null)
+    internal static byte[] OwnMessage(bool optional, ushort server = 42, long characterId = 123456789, string name = "Testchar", long mapKey = 0, int mapId = 0, int pcId = 0, int gearScore = 0, int highestGearScore = 0, long combatScore = 0, long highestCombatScore = 0, long? abyssRankPoints = null, bool? abyssRankPointsPresent = null, ulong health = 128, ulong maximumHealth = 300, byte appearReason = 0, int characterLevel = 0, int combatLevel = 0, int conquerorLevel = 0, int maximumMana = 0, int? wingId = null, byte? wingLevel = null, int? wingSkinId = null, CharacterCraftingProficiency[]? crafting = null)
     {
         using var w = new Packet(0x3633);
         var hasAbyssRankPoints = abyssRankPointsPresent ?? optional;
@@ -194,7 +194,12 @@ public sealed class OwnIdentityMessageTests
         w.I(characterLevel); w.I(gearScore); w.I(highestGearScore); w.Z(12); w.I(combatLevel); w.Z(8);
         if (optional) w.B(1);
         w.V(optional ? 1u : 0u); if (optional) w.Z(14);
-        w.V(optional ? 1u : 0u); if (optional) w.Z(13);
+        if (crafting is null) { w.V(optional ? 1u : 0u); if (optional) w.Z(13); }
+        else
+        {
+            w.V((uint)crafting.Length);
+            foreach (var row in crafting) { w.B(row.Category); w.U(row.Level); w.L(row.Experience); w.U(row.SkillPoints); }
+        }
         w.Z(16); w.B(0);
         if (optional) { w.B(1); Points(w); Points(w); }
 

@@ -14,6 +14,7 @@ public sealed record OverlaySnapshot
     public string? SessionId { get; init; }
     public bool SessionActive { get; init; }
     public bool TrackingAvailable { get; init; }
+    public bool WaitingForWorldContext { get; init; }
     public TimeSpan SessionElapsed { get; init; }
     public bool ItemAnimationsEnabled { get; init; } = true;
     public IReadOnlyList<OverlayLootItem> Drops { get; init; } = [];
@@ -55,4 +56,7 @@ public sealed record OverlayDailyKinaProgress(string Value, string Detail, strin
 
 /// <summary>Read-only visual receipt. Reading or rendering it cannot trigger audio.</summary>
 public sealed record OverlayRareNotice(string Id, string Name, long Quantity, string QuantityText,
-    string? IconPath, LootItemRarity Rarity, double ElapsedSeconds, string? Tooltip = null);
+    string? IconPath, LootItemRarity Rarity, double ElapsedSeconds, string? Tooltip = null)
+{
+    public string? LootKey { get; init; }
+}

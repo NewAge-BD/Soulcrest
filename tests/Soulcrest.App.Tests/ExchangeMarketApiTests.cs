@@ -13,6 +13,295 @@ public sealed class ExchangeMarketApiTests
     private static readonly DateTimeOffset Now = new(2026, 11, 1, 20, 40, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task RollingAverageUsesCanonicalHourlyEndpointAndKeepsAnExactDay()
+    {
+        using var handler = new Handler((request, _) => Task.FromResult(Json(AverageSeries(request.RequestUri!, Now))));
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        var average = Assert.Single(await client.GetAveragePricesAsync(12304, [610530001], CancellationToken.None));
+        Assert.Equal(12304, average.ServerId); Assert.Equal(610530001, average.ItemId);
+        Assert.Equal(125.375m, average.UnitPrice); Assert.Equal(3, average.Samples);
+        Assert.Equal(Now.AddHours(-24), average.RangeStart); Assert.Equal(Now, average.RangeEnd); Assert.Equal(Now, average.FetchedAt);
+        var uri = Assert.Single(handler.Requests);
+        Assert.Equal("/api/items/610530001/prices", uri.AbsolutePath);
+        var query = AverageQuery(uri);
+        Assert.Equal("12304", query["server"]); Assert.Equal("raw", query["bucket"]);
+        Assert.Equal("2026-10-31T20:00:00Z", query["from"]);
+        Assert.Equal(3, query.Count); Assert.False(query.ContainsKey("range")); Assert.False(query.ContainsKey("to"));
+    }
+
+    [Fact]
+    public async Task AverageRequestsChooseTheirCanonicalHourAndExactWindowAfterTheSharedWait()
+    {
+        var clock = new Clock();
+        clock.Advance(TimeSpan.FromMinutes(19) + TimeSpan.FromSeconds(58));
+        using var handler = new Handler((request, _) => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/prices", StringComparison.Ordinal)
+            ? Json(AverageSeries(request.RequestUri, clock.GetUtcNow())) : Json(new { items = new[] { Row(1) } })));
+        using var client = new ExchangeMarketApiClient(handler, clock);
+        Assert.Single(await client.GetQuotesAsync(12304, [1], CancellationToken.None));
+        var waiting = client.GetAveragePricesAsync(12304, [2], CancellationToken.None);
+        Assert.Single(handler.Requests); Assert.False(waiting.IsCompleted);
+        clock.Advance(TimeSpan.FromSeconds(5));
+        var average = Assert.Single(await waiting.WaitAsync(TimeSpan.FromSeconds(5)));
+        var expectedEnd = new DateTimeOffset(2026, 11, 1, 21, 0, 3, TimeSpan.Zero);
+        Assert.Equal(expectedEnd, average.RangeEnd); Assert.Equal(expectedEnd.AddHours(-24), average.RangeStart);
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal("2026-10-31T21:00:00Z", AverageQuery(handler.Requests[1])["from"]);
+    }
+
+    [Fact]
+    public async Task AverageInputsAreDeduplicatedSortedAndRequestedIndividually()
+    {
+        var clock = new Clock();
+        using var handler = new Handler((request, _) => Task.FromResult(Json(AverageSeries(request.RequestUri!, clock.GetUtcNow()))));
+        using var client = new ExchangeMarketApiClient(handler, clock);
+        var pending = client.GetAveragePricesAsync(12304, [2, 1, 2], CancellationToken.None);
+        Assert.Single(handler.Requests);
+        clock.Advance(TimeSpan.FromSeconds(5));
+        var averages = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(new[] { 1, 2 }, averages.Select(row => row.ItemId));
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal(Now, averages[0].RangeEnd); Assert.Equal(Now.AddSeconds(5), averages[1].RangeEnd);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(7)]
+    public async Task MissingAverageIsAValidEmptyResultAndNeverUsesOtherPriceFields(int samples)
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var body = AverageSeries(request.RequestUri!, Now);
+            var summary = (Dictionary<string, object?>)body["summary"]!;
+            summary["samples"] = samples; summary["avg"] = null;
+            summary["sold_avg"] = 999m; body["last_price"] = 888m;
+            return Task.FromResult(Json(body));
+        });
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        Assert.Empty(await client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData("wrong-item")]
+    [InlineData("wrong-bucket")]
+    [InlineData("old-window")]
+    [InlineData("future-window")]
+    [InlineData("wide-window")]
+    [InlineData("missing-lower-coverage")]
+    [InlineData("expired-provider-window")]
+    [InlineData("excess-upper-coverage")]
+    [InlineData("auto-bucket")]
+    [InlineData("duplicate-timestamp")]
+    [InlineData("aggregated-point")]
+    [InlineData("point-price-mismatch")]
+    [InlineData("point-without-listings")]
+    [InlineData("point-outside-envelope")]
+    [InlineData("truncated-raw-points")]
+    [InlineData("sum-overflow")]
+    [InlineData("negative-samples")]
+    [InlineData("fractional-samples")]
+    [InlineData("zero-samples-positive-average")]
+    [InlineData("zero-average")]
+    [InlineData("negative-average")]
+    [InlineData("string-average")]
+    [InlineData("huge-average")]
+    [InlineData("missing-summary")]
+    [InlineData("missing-points")]
+    public async Task InvalidAverageIdentityWindowOrSummaryCannotBecomeAValuation(string invalid)
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var body = AverageSeries(request.RequestUri!, Now);
+            var summary = (Dictionary<string, object?>)body["summary"]!;
+            var points = (Dictionary<string, object?>[])body["points"]!;
+            var start = Now.AddHours(-24); var end = Now;
+            switch (invalid)
+            {
+                case "wrong-item": body["item_key"] = 999; break;
+                case "wrong-bucket": body["bucket"] = "1d"; break;
+                case "old-window": body["range_start"] = start.AddMinutes(-11); body["range_end"] = end.AddMinutes(-11); break;
+                case "future-window": body["range_start"] = start.AddMinutes(3); body["range_end"] = end.AddMinutes(3); break;
+                case "wide-window": body["range_start"] = start.AddHours(-1).AddTicks(-1); break;
+                case "missing-lower-coverage": body["range_start"] = start.AddMilliseconds(1100); break;
+                case "expired-provider-window": body["range_end"] = end - ExchangeMarketCache.FetchTtl - TimeSpan.FromTicks(1); break;
+                case "excess-upper-coverage": body["range_end"] = end.AddMinutes(2).AddTicks(1); break;
+                case "auto-bucket": body["auto"] = true; break;
+                case "duplicate-timestamp": points[1]["ts"] = points[0]["ts"]; break;
+                case "aggregated-point": points[0]["samples"] = 2; break;
+                case "point-price-mismatch": points[0]["close"] = 999m; break;
+                case "point-without-listings": points[0]["listings"] = 0; break;
+                case "point-outside-envelope": points[0]["ts"] = start.AddHours(-2); break;
+                case "truncated-raw-points": summary["samples"] = 4; break;
+                case "sum-overflow": body["points"] = new[] { RawPoint(end.AddHours(-2), decimal.MaxValue), RawPoint(end.AddHours(-1), decimal.MaxValue) }; summary["samples"] = 2; break;
+                case "negative-samples": summary["samples"] = -1; break;
+                case "fractional-samples": summary["samples"] = 1.5m; break;
+                case "zero-samples-positive-average": summary["samples"] = 0; break;
+                case "zero-average": summary["avg"] = 0m; break;
+                case "negative-average": summary["avg"] = -1m; break;
+                case "string-average": summary["avg"] = "125"; break;
+                case "huge-average": summary["avg"] = 1e100; break;
+                case "missing-summary": body.Remove("summary"); break;
+                case "missing-points": body.Remove("points"); break;
+            }
+            return Task.FromResult(Json(body));
+        });
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        await Assert.ThrowsAsync<ExchangeMarketApiException>(() => client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+        Assert.Single(handler.Requests);
+    }
+
+    [Theory]
+    [InlineData(500)]
+    [InlineData(1100)]
+    [InlineData(300_000)]
+    [InlineData(600_000)]
+    public async Task FreshCachedProviderEndKeepsACompleteDayAndFiltersItsLowerBoundary(int millisecondsOld)
+    {
+        var end = Now.AddMilliseconds(-millisecondsOld);
+        var start = end.AddHours(-24);
+        using var handler = new Handler((request, _) =>
+        {
+            var body = AverageSeries(request.RequestUri!, end);
+            body["points"] = new[] { RawPoint(start.AddTicks(-1), 100_000), RawPoint(start, 100), RawPoint(end.AddTicks(-1), 150) };
+            var summary = (Dictionary<string, object?>)body["summary"]!;
+            summary["samples"] = 3; summary["avg"] = 33_416.666666666666m;
+            return Task.FromResult(Json(body));
+        });
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        var average = Assert.Single(await client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+        Assert.Equal(125m, average.UnitPrice); Assert.Equal(2, average.Samples);
+        Assert.Equal(start, average.RangeStart); Assert.Equal(end, average.RangeEnd); Assert.Equal(Now, average.FetchedAt);
+        Assert.Equal(TimeSpan.FromHours(24), average.RangeEnd - average.RangeStart);
+    }
+
+    [Fact]
+    public async Task CachedProviderEndCannotInventMissingLowerCoverageAcrossAnHourBoundary()
+    {
+        var clock = new Clock();
+        clock.Advance(TimeSpan.FromMinutes(20) + TimeSpan.FromSeconds(3));
+        var end = clock.GetUtcNow().AddMinutes(-5);
+        using var handler = new Handler((request, _) => Task.FromResult(Json(AverageSeries(request.RequestUri!, end))));
+        using var client = new ExchangeMarketApiClient(handler, clock);
+        await Assert.ThrowsAsync<ExchangeMarketApiException>(() => client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+        Assert.Equal("2026-10-31T21:00:00Z", AverageQuery(Assert.Single(handler.Requests))["from"]);
+    }
+
+    [Fact]
+    public async Task RoundedProviderEnvelopeIsFilteredToTheExactLowerInclusiveUpperExclusiveDay()
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var body = AverageSeries(request.RequestUri!, Now.AddSeconds(1));
+            var start = Now.AddHours(-24); var end = Now;
+            body["points"] = new[] { RawPoint(start.AddTicks(-1), 100_000), RawPoint(start, 100),
+                RawPoint(end.AddTicks(-1), 150), RawPoint(end, 999), RawPoint(end.AddMilliseconds(500), 888) };
+            var summary = (Dictionary<string, object?>)body["summary"]!;
+            summary["samples"] = 5; summary["avg"] = 20_427.4m;
+            return Task.FromResult(Json(body));
+        });
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        var average = Assert.Single(await client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+        Assert.Equal(125m, average.UnitPrice); Assert.Equal(2, average.Samples);
+        Assert.Equal(Now.AddHours(-24), average.RangeStart); Assert.Equal(Now, average.RangeEnd);
+    }
+
+    [Fact]
+    public async Task RawMeansKeepFractionalUnitPricesAndIncludeValidOutliersWithoutFiltering()
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var body = AverageSeries(request.RequestUri!, Now); var end = Now;
+            body["points"] = new[] { RawPoint(end.AddHours(-3), 1), RawPoint(end.AddHours(-2), 2), RawPoint(end.AddHours(-1), 10_000) };
+            var summary = (Dictionary<string, object?>)body["summary"]!; summary["samples"] = 3; summary["avg"] = 3334.3333333333335;
+            return Task.FromResult(Json(body));
+        });
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        var average = Assert.Single(await client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+        Assert.Equal(10_003m / 3, average.UnitPrice);
+        Assert.Equal(3, average.Samples);
+    }
+
+    [Fact]
+    public async Task APositiveSummaryWithOnlyOlderEnvelopePointsRemainsUnknownForTheExactDay()
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var body = AverageSeries(request.RequestUri!, Now); var start = Now.AddHours(-24);
+            body["points"] = new[] { RawPoint(start.AddMinutes(-30), 100), RawPoint(start.AddMinutes(-20), 125.125m), RawPoint(start.AddMinutes(-10), 151) };
+            return Task.FromResult(Json(body));
+        });
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        Assert.Empty(await client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AverageRedirectsRemainBlockedEvenForTheSameOrigin(bool foreign)
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.PermanentRedirect);
+            response.Headers.Location = foreign ? new Uri("https://example.invalid/prices") : request.RequestUri;
+            return Task.FromResult(response);
+        });
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        var error = await Assert.ThrowsAsync<ExchangeMarketApiException>(() => client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+        Assert.Equal(HttpStatusCode.PermanentRedirect, error.StatusCode);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task RawAverageResponsesRetainTheSharedBodySizeBound()
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var response = Json(AverageSeries(request.RequestUri!, Now));
+            response.Content.Headers.ContentLength = 8 * 1024 * 1024 + 1;
+            return Task.FromResult(response);
+        });
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        await Assert.ThrowsAsync<ExchangeMarketApiException>(() => client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RawHistoryPointCountIsBoundedEvenBelowTheSharedByteLimit()
+    {
+        using var handler = new Handler((request, _) =>
+        {
+            var body = AverageSeries(request.RequestUri!, Now);
+            var end = Now;
+            body["points"] = Enumerable.Range(1, 20_001).Select(index => RawPoint(end.AddSeconds(-4 * index), 10m)).ToArray();
+            ((Dictionary<string, object?>)body["summary"]!)["samples"] = 20_001;
+            return Task.FromResult(Json(body));
+        });
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        await Assert.ThrowsAsync<ExchangeMarketApiException>(() => client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AverageRequestsRetainTheSharedDuplicateJsonGuard()
+    {
+        using var handler = new Handler((request, _) => Task.FromResult(JsonText(JsonSerializer.Serialize(AverageSeries(request.RequestUri!, Now))
+            .Replace("\"summary\":{", "\"summary\":{\"avg\":1,", StringComparison.Ordinal))));
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        await Assert.ThrowsAsync<ExchangeMarketApiException>(() => client.GetAveragePricesAsync(12304, [1], CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task InvalidOrEmptyAverageInputsNeverSendRequests()
+    {
+        using var handler = new Handler((_, _) => throw new InvalidOperationException("No request expected."));
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        Assert.Empty(await client.GetAveragePricesAsync(12304, [], CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.GetAveragePricesAsync(0, [1], CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.GetAveragePricesAsync(12304, [0], CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client.GetAveragePricesAsync(12304, Enumerable.Range(1, 20_001).ToArray(), CancellationToken.None));
+        using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.GetAveragePricesAsync(12304, [1], cancellation.Token));
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
     public async Task HundredIdsUseOneExactAnonymousServerBoundBatchWithoutLosingDecimalPrecision()
     {
         var clock = new Clock();
@@ -251,13 +540,59 @@ public sealed class ExchangeMarketApiTests
         using var handler = new Handler((_, _) => Task.FromResult(Json(new
         {
             @default = 11301,
-            servers = new[] { new { server_id = 11301, name = "Example", region = "eu", region_name = "Europe", faction = (string?)null, has_data = false } }
+            servers = new[] { new { server_id = 11301, game_server_key = 1301, name = "Example", region = "eu", region_name = "Europe", faction = (string?)null, has_data = false } }
         })));
         using var client = new ExchangeMarketApiClient(handler, new Clock());
         var server = Assert.Single(await client.GetServersAsync(CancellationToken.None));
         Assert.Equal("eu", server.Region);
         Assert.Equal("", server.Faction);
         Assert.False(server.HasData);
+        Assert.Equal(1301, server.GameServerKey);
+    }
+
+    [Fact]
+    public async Task ProviderServerIdentifierAndNativeGameServerKeyRemainDistinct()
+    {
+        using var handler = new Handler((_, _) => Task.FromResult(Json(new
+        {
+            servers = new[] { new { server_id = 12304, game_server_key = 2304, name = "Synthetic server", region = "EU", region_name = "Europe", faction = "Asmodian", has_data = true } }
+        })));
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        var row = Assert.Single(await client.GetServersAsync(CancellationToken.None));
+        Assert.Equal(12304, row.ServerId);
+        Assert.Equal(2304, row.GameServerKey);
+        Assert.NotEqual(row.ServerId, row.GameServerKey);
+        Assert.Single(handler.Requests);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("null")]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("1.5")]
+    [InlineData("\"2304\"")]
+    [InlineData("2147483648")]
+    public async Task MissingOrInvalidNativeGameServerKeysNeverBecomeAnInferredMapping(string value)
+    {
+        var row = new Dictionary<string, object?>
+        {
+            ["server_id"] = 12304, ["name"] = "Synthetic server", ["region"] = "EU", ["region_name"] = "Europe",
+            ["faction"] = "Asmodian", ["has_data"] = true,
+        };
+        if (value != "missing") row["game_server_key"] = JsonSerializer.Deserialize<JsonElement>(value);
+        var mapped = new Dictionary<string, object?>
+        {
+            ["server_id"] = 12305, ["game_server_key"] = 2305, ["name"] = "Synthetic mapped", ["region"] = "EU",
+            ["region_name"] = "Europe", ["faction"] = "Elyos", ["has_data"] = true,
+        };
+        using var handler = new Handler((_, _) => Task.FromResult(Json(new { servers = new[] { row, mapped } })));
+        using var client = new ExchangeMarketApiClient(handler, new Clock());
+        // One unusable key keeps only that row unmapped; the catalogue and its other mappings stay usable.
+        var servers = await client.GetServersAsync(CancellationToken.None);
+        Assert.Null(Assert.Single(servers, server => server.ServerId == 12304).GameServerKey);
+        Assert.Equal(2305, Assert.Single(servers, server => server.ServerId == 12305).GameServerKey);
+        Assert.Single(handler.Requests);
     }
 
     [Fact]
@@ -395,12 +730,12 @@ public sealed class ExchangeMarketApiTests
         using var directory = new CacheDirectory();
         var clock = new Clock();
         var cache = new ExchangeMarketCache(clock, directory.Root);
-        cache.SaveServers([new(11301, "Example", "eu", "Europe", "Elyos", true)]);
+        cache.SaveServers([new(11301, "Example", "eu", "Europe", "Elyos", true) { GameServerKey = 1301 }]);
         cache.PutQuotes([Quote()]);
         var restored = new ExchangeMarketCache(clock, directory.Root);
         Assert.Equal(Quote(), restored.GetQuote(11301, 1));
         Assert.Null(restored.GetQuote(11302, 1));
-        Assert.Single(restored.GetServers());
+        Assert.Equal(1301, Assert.Single(restored.GetServers()).GameServerKey);
         Assert.Equal(Now, restored.ServersFetchedAt);
         Assert.Null(restored.PersistenceError);
         Assert.Single(Directory.GetFiles(directory.Root));
@@ -471,6 +806,31 @@ public sealed class ExchangeMarketApiTests
     }
 
     private static ExchangeMarketQuote Quote() => new(11301, 1, .125m, 2, Now.AddMinutes(-32), Now);
+    private static Dictionary<string, string> AverageQuery(Uri uri) => uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+        .Select(part => part.Split('=', 2)).ToDictionary(parts => Uri.UnescapeDataString(parts[0]), parts => Uri.UnescapeDataString(parts[1]), StringComparer.Ordinal);
+    private static Dictionary<string, object?> AverageSeries(Uri uri, DateTimeOffset end)
+    {
+        var query = AverageQuery(uri);
+        return new()
+        {
+            ["item_key"] = int.Parse(uri.Segments[^2].Trim('/'), System.Globalization.CultureInfo.InvariantCulture),
+            ["range_start"] = DateTimeOffset.Parse(query["from"], System.Globalization.CultureInfo.InvariantCulture),
+            ["range_end"] = end, ["bucket"] = "raw", ["auto"] = false,
+            ["points"] = new[] { RawPoint(end.AddHours(-3), 100m), RawPoint(end.AddHours(-2), 125.125m), RawPoint(end.AddHours(-1), 151m) },
+            ["summary"] = new Dictionary<string, object?>
+            {
+                ["samples"] = 3, ["low"] = 100m, ["high"] = 151m, ["avg"] = 125.375m, ["first"] = 100m, ["last"] = 151m,
+                ["change_pct"] = 51m, ["listings_min"] = 5, ["listings_max"] = 5, ["listings_avg"] = 5m,
+                ["sold_avg"] = 777m,
+            },
+            ["last_price"] = 888m,
+        };
+    }
+    private static Dictionary<string, object?> RawPoint(DateTimeOffset at, decimal amount) => new()
+    {
+        ["ts"] = at, ["low"] = amount, ["high"] = amount, ["avg"] = amount, ["close"] = amount,
+        ["listings"] = 5, ["listings_min"] = 5, ["listings_max"] = 5, ["samples"] = 1,
+    };
     private static object Row(int id, decimal price = 10m) => new
         { item_key = id, price, listings = 2, listed = true, captured_at = Now.AddMinutes(-32).ToString("O") };
     private static object HistoricalRow(int id, decimal lastPrice, DateTimeOffset lastSeenAt) => new

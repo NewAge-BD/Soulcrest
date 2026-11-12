@@ -36,7 +36,12 @@ public static class LootTrackerTimeline
             void Flush() { if (points.Count > 0) result.Add(string.Join(" ", points)); points.Clear(); }
         }
     }
-    public sealed record Event(string Id, string Lane, TimeSpan Elapsed, DateTimeOffset At, string Label);
+    /// <summary>Display-only identity segments. Stored item labels remain unchanged and each exact key keeps its own colour.</summary>
+    public sealed record ItemText(string Key, string Name, long Quantity);
+    public sealed record Event(string Id, string Lane, TimeSpan Elapsed, DateTimeOffset At, string Label)
+    {
+        public IReadOnlyList<ItemText> Items { get; init; } = [];
+    }
     public sealed record EventGroup(string Lane, TimeSpan Elapsed, IReadOnlyList<Event> Events);
 
     public static IReadOnlyList<Series> Build(LootTrackerSession session, LootTimelineValueMode mode)
@@ -205,7 +210,11 @@ public static class LootTrackerTimeline
                 LootTrackerTimelineEventKind.HarvestFailure => UiText.T("Fehlversuch"),
                 _ => !row.Loot.IsDefaultOrEmpty ? string.Join(", ", row.Loot.Select(l => $"{l.Name} ×{l.Quantity.ToString("N0", CultureInfo.InvariantCulture)}")) : UiText.T("Sammelerfolg")
             };
-            events.Add(new(row.Id, lane, row.Elapsed, row.At, label));
+            events.Add(new(row.Id, lane, row.Elapsed, row.At, label)
+            {
+                Items = row.Kind is LootTrackerTimelineEventKind.Drop or LootTrackerTimelineEventKind.HarvestSuccess
+                    && !row.Loot.IsDefaultOrEmpty ? row.Loot.Select(item => new ItemText(item.Id, item.Name, item.Quantity)).ToArray() : []
+            });
         }
         return events.Where(e => e.Elapsed >= TimeSpan.Zero && e.Elapsed <= End(session)).OrderBy(e => e.Elapsed).ToArray();
     }

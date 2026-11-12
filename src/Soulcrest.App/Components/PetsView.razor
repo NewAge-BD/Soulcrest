@@ -2,11 +2,12 @@
 @inject ProgressService Progress
 @inject SettingsService Settings
 @inject UiState Ui
+@inject PetDungeonMapService DungeonMaps
 
 @{
     var lang = Settings.Current.NameLanguage;
     var shown = Sorted(_verifiedPets.Where(Matches)).ToList();
-    var selected = (_selectedId is null ? null : _verifiedPets.FirstOrDefault(pet => pet.Id == _selectedId)) ?? shown.FirstOrDefault();
+    var selected = SelectedPet;
 }
 
 <div class="pets-view" data-pet-genus="@_genus">
@@ -65,7 +66,7 @@
             </select>
             <select @bind="_source" title="@UiText.T("Soul-Quelle")">
                 <option value="">@UiText.T("Alle Soul-Quellen")</option>
-                <option value="dungeon">@UiText.F("Neue Dungeonquellen ({0})", _dungeonSourceCount)</option>
+                <option value="dungeon">@UiText.F("Mit Dungeonquelle ({0})", _dungeonSourceCount)</option>
             </select>
             <select @bind="_status" title="Status">
                 <option value="">@UiText.T("Jeder Status")</option>
@@ -288,9 +289,11 @@
                         <ul class="pets-acquisition-list">
                             @foreach (var source in acquisition.Sources)
                             {
-                                <li>
-                                    <strong>@source.DungeonDisplayName(lang)</strong>
-                                    <span class="pill">@UiText.T(source.Category == PetAcquisitionCategory.Transcendence ? "Transzendenz" : "Expedition")</span>
+                                <li data-pet-acquisition-source="@source.Id">
+                                    <div class="pets-acquisition-heading">
+                                        <strong>@source.DungeonDisplayName(lang)</strong>
+                                        <span class="pill">@UiText.T(AcquisitionCategory(source.Category))</span>
+                                    </div>
                                     @foreach (var status in AvailabilityOrder)
                                     {
                                         var npcs = source.NpcsWithAvailability(status).ToArray();
@@ -307,7 +310,10 @@
                             }
                         </ul>
                         <p class="note">@UiText.T("Dropchance nicht bekannt.")</p>
-                        <a href="https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957" target="_blank" rel="noopener noreferrer">@UiText.T("Update vom 4. November") ↗</a>
+                        @if (acquisition.SourceRefs.Contains(DungeonPatchUrl, StringComparer.Ordinal))
+                        {
+                            <a href="@DungeonPatchUrl" target="_blank" rel="noopener noreferrer">@UiText.T("Update vom 4. November") ↗</a>
+                        }
                     </section>
                 }
 
@@ -350,6 +356,19 @@
                     {
                         <p class="note" data-pet-map-unavailable="true">@UiText.T("Keine belegten Positionen auf den verfügbaren Karten.")</p>
                     }
+                    @if (Acquisition(pet) is not null)
+                    {
+                        var dungeon = DungeonMaps.For(pet, lang);
+                        <button id="@_dungeonButtonId" type="button" class="btn pets-map-btn" data-pet-dungeon-action="true" disabled="@(dungeon.Scenes.Count == 0)" @onclick="@(() => OpenDungeonMap(pet.Id))">@UiText.T("Im Dungeon Zeigen")</button>
+                        @if (dungeon.Scenes.Count == 0)
+                        {
+                            <p class="note pets-dungeon-map-note" data-pet-dungeon-unavailable>@dungeon.UnavailableReason</p>
+                        }
+                        @if (_dungeonError is { } failure && failure.PetId == pet.Id)
+                        {
+                            <p class="status error" role="alert" data-pet-dungeon-error>@failure.Message</p>
+                        }
+                    }
                     <button class="btn primary pets-map-btn" data-pet-map-action="true" disabled="@(!HasMapPositions(pet))" @onclick="@(() => Ui.ShowPetOnMap(pet.Id))">@UiText.T("Auf der Karte zeigen")</button>
                 </section>
 
@@ -359,11 +378,20 @@
     </aside>
 </div>
 
+@if (_dungeonSelection is { } selection)
+{
+    <DungeonPetMapDialog @key="selection.PetId" Selection="selection" ReturnFocusId="@_dungeonButtonId" Closed="CloseDungeonMap" Failed="DungeonMapFailed" DisplayChanged="DungeonMaps.ObserveDisplay" />
+}
+
 @code {
+    private const string DungeonPatchUrl = "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957";
     private static readonly string[] KnownGenera = ["cogni", "fera", "natura", "varian", "special"];
 
     private string _query = "", _genus = "", _map = "", _source = "", _status = "", _level = "", _sort = "";
     private string? _selectedId;
+    private readonly string _dungeonButtonId = "pet-dungeon-button-" + Guid.NewGuid().ToString("N");
+    private DungeonPetMapSelection? _dungeonSelection;
+    private (string PetId, string Message)? _dungeonError;
     private bool _disposed;
     private int _total, _unlocked, _done, _focusCount, _dungeonSourceCount;
     private IReadOnlyList<PetDefinition> _verifiedPets = [];
@@ -375,6 +403,23 @@
 
     private bool FiltersActive =>
         _query.Length > 0 || _genus.Length > 0 || _map.Length > 0 || _source.Length > 0 || _status.Length > 0 || _level.Length > 0;
+
+    private PetDefinition? SelectedPet => (_selectedId is null ? null : _verifiedPets.FirstOrDefault(pet => pet.Id == _selectedId))
+        ?? Sorted(_verifiedPets.Where(Matches)).FirstOrDefault();
+
+    private void OpenDungeonMap(string petId)
+    {
+        if (_disposed || _dungeonSelection is not null || SelectedPet is not { } pet || pet.Id != petId) return;
+        var selection = DungeonMaps.For(pet, Settings.Current.NameLanguage);
+        _dungeonError = null;
+        if (selection.Scenes.Count > 0) _dungeonSelection = selection;
+    }
+
+    private void CloseDungeonMap() => _dungeonSelection = null;
+    private void DungeonMapFailed(string message)
+    {
+        if (_dungeonSelection is { } selection) _dungeonError = (selection.PetId, message);
+    }
 
     private bool Matches(PetDefinition pet)
     {
@@ -447,19 +492,22 @@
         _ => "Varianten mit ungeklärter Global-Verfügbarkeit"
     };
 
-    private static PetGlobalAvailability AcquisitionAvailability(PetAcquisitionEntry entry) =>
-        entry.Sources.Any(source => source.HasAvailableVariants) ? PetGlobalAvailability.Available :
-        entry.Sources.All(source => !source.HasUnconfirmedVariants && source.HasUpcomingVariants)
-            ? PetGlobalAvailability.Upcoming : PetGlobalAvailability.Unconfirmed;
-
     private static string AvailabilityKey(PetAcquisitionEntry entry) =>
-        AcquisitionAvailability(entry).ToString().ToLowerInvariant();
+        entry.Availability.ToString().ToLowerInvariant();
 
-    private static string AcquisitionBadge(PetAcquisitionEntry entry) => AcquisitionAvailability(entry) switch
+    private static string AcquisitionBadge(PetAcquisitionEntry entry) => entry.Availability switch
     {
-        PetGlobalAvailability.Available => "Dungeon-Soul",
-        PetGlobalAvailability.Upcoming => "Zukünftige Quelle",
-        _ => "Quelle unbestätigt"
+        PetGlobalAvailability.Available => "Dungeon",
+        PetGlobalAvailability.Upcoming => "Dungeon · zukünftig",
+        _ => "Dungeon · unbestätigt"
+    };
+
+    private static string AcquisitionCategory(PetAcquisitionCategory category) => category switch
+    {
+        PetAcquisitionCategory.Expedition => "Expedition",
+        PetAcquisitionCategory.Transcendence => "Transzendenz",
+        PetAcquisitionCategory.Raid => "Raid",
+        _ => "Dungeon"
     };
 
     private bool HasMapPositions(PetDefinition pet) =>

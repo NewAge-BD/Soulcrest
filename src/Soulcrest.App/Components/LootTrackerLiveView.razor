@@ -4,6 +4,7 @@
 @inject SettingsService Settings
 @inject AbyssProgressService Abyss
 @inject ExchangeLootValuationService Market
+@inject ExchangeMarketAutoSelectionService AutomaticMarket
 @inject ExplorationService Exploration
 
 <LootTrackerView Snapshot="_snapshot" SourceAvailable="Unified.SourceAvailable"
@@ -11,8 +12,9 @@
                  ViewMode="Settings.Current.LootTrackerViewMode" ViewModeChanged="ChangeViewMode"
                  ExchangeSessionSummary="Market.GetSessionSummary" ExchangeRowSummary="Market.GetRowSummary" ExchangeDaySummary="Market.GetDaySummary">
     <MarketSettingsContent>
-        <ExchangeMarketSettings Profiles="Exploration.Characters" ActiveProfileId="Exploration.ActiveId" Servers="Market.Servers"
-                                LoadServers="LoadMarketServers" SourceStatus="Market.Snapshot.Status" SourceStatusIsError="Market.Snapshot.StatusIsError" />
+        <ExchangeMarketSettings Profiles="Exploration.Characters" ActiveProfileId="@(AutomaticMarket.Snapshot.ProfileId ?? Exploration.ActiveId)" Servers="Market.Servers"
+                                DetectedProfileId="@AutomaticMarket.Snapshot.ProfileId" AutomaticStatus="@AutomaticMarket.Snapshot.Status" AutomaticStatusIsError="AutomaticMarket.Snapshot.IsError"
+                                LoadServers="LoadMarketServers" SourceStatus="@Market.Snapshot.Status" SourceStatusIsError="Market.Snapshot.StatusIsError" />
     </MarketSettingsContent>
 </LootTrackerView>
 
@@ -25,6 +27,7 @@
         Settings.Changed += Refresh;
         Abyss.Changed += Refresh;
         Market.Changed += Refresh;
+        AutomaticMarket.Changed += Refresh;
         Exploration.Changed += Refresh;
         _snapshot = Unified.Snapshot;
     }
@@ -35,7 +38,11 @@
         if (session is not null) await Replays.RemoveAsync(id, session.Kind);
     }
     private Task ChangeViewMode(LootTrackerViewMode mode) => Task.Run(() => Settings.SetLootTrackerViewMode(mode));
-    private Task LoadMarketServers() => Market.LoadServersAsync();
+    private async Task LoadMarketServers()
+    {
+        await Market.LoadServersAsync();
+        await AutomaticMarket.RetryAsync();
+    }
     private void Refresh()
     {
         if (_disposed) return;
@@ -46,5 +53,5 @@
             StateHasChanged();
         });
     }
-    public void Dispose() { _disposed = true; Unified.Changed -= Refresh; Settings.Changed -= Refresh; Abyss.Changed -= Refresh; Market.Changed -= Refresh; Exploration.Changed -= Refresh; }
+    public void Dispose() { _disposed = true; Unified.Changed -= Refresh; Settings.Changed -= Refresh; Abyss.Changed -= Refresh; Market.Changed -= Refresh; AutomaticMarket.Changed -= Refresh; Exploration.Changed -= Refresh; }
 }

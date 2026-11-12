@@ -1,0 +1,228 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<dialog id="@_dialogId" class="dungeon-pet-dialog" aria-labelledby="@_titleId" data-dungeon-pet-dialog="@Selection.PetId">
+    <div class="dungeon-pet-dialog-shell">
+        <header class="dungeon-pet-dialog-head">
+            <div class="dungeon-pet-dialog-pet">
+                @if (Selection.IconUrl is { } icon) { <img src="@icon" alt="" /> }
+                <h2 id="@_titleId">@UiText.F("Dungeonkarten für {0}", Selection.PetName)</h2>
+            </div>
+            <button type="button" class="btn" data-dungeon-map-close title="@UiText.T("Schließen")" @onclick="Close">@UiText.T("Schließen")</button>
+        </header>
+
+        @if (_scene is { } selected)
+        {
+            <div class="dungeon-pet-map-toolbar">
+                <label class="dungeon-pet-map-choice">@UiText.T("Dungeon und Variante")
+                    <select value="@selected.Key" disabled="@_presenting" @onchange="ChangeScene" data-dungeon-map-select>
+                        @foreach (var scene in _scenes)
+                        {
+                            <option value="@scene.Key">@SceneLabel(scene)</option>
+                        }
+                    </select>
+                </label>
+                <button type="button" class="btn" disabled="@(!_mapCreated || _loading || _presenting || _error is not null)" @onclick="FitSelected" data-dungeon-map-fit>@UiText.T("Auswahl einpassen")</button>
+            </div>
+            <div class="dungeon-pet-map-meta">
+                <span class="pill dungeon-pet-map-availability @AvailabilityKey(selected)" data-dungeon-map-availability="@AvailabilityKey(selected)">@UiText.T(AvailabilityLabel(selected.Availability))</span>
+                @if (!string.IsNullOrWhiteSpace(selected.CheckedAt))
+                {
+                    <span class="note">@UiText.F("Global-Verfügbarkeit geprüft: {0}", selected.CheckedAt)</span>
+                }
+                <InfoTip>@UiText.T("Positionen nach vorhandener Kartenkalibrierung. Die Genauigkeit wurde nicht live im Spiel bestätigt.")</InfoTip>
+            </div>
+            <div class="dungeon-pet-map-stage" aria-busy="@_loading.ToString().ToLowerInvariant()">
+                <div id="@_mapId" class="dungeon-pet-map-canvas" role="region" aria-label="@SceneLabel(selected)" data-dungeon-map-scene="@selected.Key"></div>
+                @if (_loading)
+                {
+                    <div class="dungeon-pet-map-notice" role="status">@UiText.T("Dungeonkarte wird geladen …")</div>
+                }
+                @if (_error is not null)
+                {
+                    <div class="dungeon-pet-map-notice error" role="alert">@UiText.T(_error)</div>
+                }
+            </div>
+            <footer class="dungeon-pet-map-footer">
+                <div class="dungeon-pet-map-legend">
+                    <span><i class="selected"></i>@UiText.T("Ausgewähltes Pet")</span>
+                    <span><i></i>@UiText.T("Weitere Pets")</span>
+                    <span class="note">@UiText.F(selected.Pins.Count(pin => pin.Selected) == 1 ? "{0} Farmposition für {1}" : "{0} Farmpositionen für {1}", selected.Pins.Count(pin => pin.Selected), Selection.PetName)</span>
+                </div>
+                <a href="https://aion2.gaming.tools/" target="_blank" rel="noopener noreferrer">aion2.gaming.tools ↗</a>
+            </footer>
+        }
+        else
+        {
+            <p class="dungeon-pet-map-empty" role="status">@(Selection.UnavailableReason ?? UiText.T("Für diese Dungeonquelle sind noch keine belegten Kartenpositionen verfügbar."))</p>
+        }
+    </div>
+</dialog>
+
+@code {
+    [Parameter, EditorRequired] public DungeonPetMapSelection Selection { get; set; } = default!;
+    [Parameter] public string ReturnFocusId { get; set; } = "";
+    [Parameter] public EventCallback Closed { get; set; }
+    [Parameter] public EventCallback<string> Failed { get; set; }
+    [Parameter] public EventCallback<DungeonPetMapDisplayState> DisplayChanged { get; set; }
+
+    private readonly string _dialogId = "dungeon-pet-dialog-" + Guid.NewGuid().ToString("N");
+    private readonly string _mapId = "dungeon-pet-map-" + Guid.NewGuid().ToString("N");
+    private readonly string _titleId = "dungeon-pet-title-" + Guid.NewGuid().ToString("N");
+    private DotNetObjectReference<DungeonPetMapDialog>? _self;
+    private DungeonPetMapSelection? _previousSelection;
+    private IReadOnlyList<DungeonPetMapScene> _scenes = [];
+    private DungeonPetMapScene? _scene;
+    private bool _opened, _openingAttempted, _mapCreated, _needsScene, _presenting, _loading, _closing, _disposed;
+    private string? _error;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Selection, _previousSelection)) return;
+        var priorKey = Selection.PetId == _previousSelection?.PetId ? _scene?.Key : null;
+        _previousSelection = Selection;
+        _scenes = Selection.Scenes.OrderBy(scene => scene.Availability == PetGlobalAvailability.Available ? 0 : 1)
+            .ThenByDescending(scene => scene.Pins.Count(pin => pin.Selected))
+            .ThenBy(scene => scene.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(scene => scene.Variant, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(scene => scene.Key, StringComparer.Ordinal).ToArray();
+        SelectScene(_scenes.FirstOrDefault(scene => scene.Key == priorKey) ?? _scenes.FirstOrDefault());
+    }
+
+    private static string AvailabilityKey(DungeonPetMapScene scene) => scene.Availability.ToString().ToLowerInvariant();
+    private static string AvailabilityLabel(PetGlobalAvailability availability) => availability switch
+    {
+        PetGlobalAvailability.Available => "Auf Global verfügbar",
+        PetGlobalAvailability.Upcoming => "Zukünftig · noch nicht freigeschaltet",
+        _ => "Global-Verfügbarkeit unbestätigt"
+    };
+
+    private static string SceneLabel(DungeonPetMapScene scene) => scene.Title
+        + (string.IsNullOrWhiteSpace(scene.Variant) ? "" : " · " + scene.Variant)
+        + " · " + UiText.T(AvailabilityLabel(scene.Availability));
+
+    private void SelectScene(DungeonPetMapScene? scene)
+    {
+        _scene = scene;
+        _needsScene = true;
+        _loading = scene is not null;
+        _error = null;
+    }
+
+    private void ChangeScene(ChangeEventArgs args)
+    {
+        if (_disposed || _closing || _presenting || args.Value is not string key || key == _scene?.Key) return;
+        if (_scenes.FirstOrDefault(scene => scene.Key == key) is { } scene) SelectScene(scene);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_disposed || _closing || _presenting || _opened && !_needsScene || !_opened && _openingAttempted) return;
+        _presenting = true;
+        try
+        {
+            if (!_opened)
+            {
+                _openingAttempted = true;
+                _self ??= DotNetObjectReference.Create(this);
+                _opened = await JS.InvokeAsync<bool>("soulcrestDungeonMaps.openDialog", _dialogId, ReturnFocusId, _self);
+                if (!_opened) throw new InvalidOperationException("Dungeon dialog unavailable.");
+            }
+            if (_disposed || _closing || !_needsScene) return;
+            _needsScene = false;
+            if (_scene is { } scene)
+            {
+                await DisplayChanged.InvokeAsync(DungeonPetMapDisplayState.Loading);
+                var accepted = await JS.InvokeAsync<bool>(_mapCreated ? "soulcrestDungeonMaps.setScene" : "soulcrestDungeonMaps.create", _mapId, scene, _self);
+                if (!accepted) throw new InvalidOperationException("Dungeon map unavailable.");
+                _mapCreated = true;
+            }
+            else if (_mapCreated)
+            {
+                await JS.InvokeVoidAsync("soulcrestDungeonMaps.dispose", _mapId);
+                _mapCreated = false;
+            }
+        }
+        catch (Exception error) when (error is JSException or InvalidOperationException)
+        {
+            _loading = false;
+            _error = "Die Dungeonkarte konnte nicht geladen werden.";
+            await DisplayChanged.InvokeAsync(DungeonPetMapDisplayState.Error);
+            if (!_opened)
+            {
+                await Failed.InvokeAsync(UiText.T(_error));
+                await Close();
+            }
+        }
+        finally
+        {
+            _presenting = false;
+            if (!_disposed && !_closing) StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public Task OnDungeonMapReady(string sceneKey)
+    {
+        if (_disposed) return Task.CompletedTask;
+        return InvokeAsync(async () =>
+        {
+            if (_disposed || _closing || _scene?.Key != sceneKey) return;
+            _loading = false;
+            _error = null;
+            await DisplayChanged.InvokeAsync(DungeonPetMapDisplayState.Ready);
+            StateHasChanged();
+        });
+    }
+
+    [JSInvokable]
+    public Task OnDungeonMapError(string sceneKey, string reason)
+    {
+        if (_disposed) return Task.CompletedTask;
+        return InvokeAsync(async () =>
+        {
+            if (_disposed || _closing || _scene?.Key != sceneKey) return;
+            _loading = false;
+            _error = "Die Dungeonkarte konnte nicht geladen werden.";
+            await DisplayChanged.InvokeAsync(DungeonPetMapDisplayState.Error);
+            StateHasChanged();
+        });
+    }
+
+    private async Task FitSelected()
+    {
+        if (!_disposed && !_closing && _mapCreated && !_loading && !_presenting)
+            await JS.InvokeVoidAsync("soulcrestDungeonMaps.fitSelected", _mapId);
+    }
+
+    private async Task Close()
+    {
+        if (_disposed || _closing) return;
+        _closing = true;
+        try { if (_opened) await JS.InvokeVoidAsync("soulcrestDungeonMaps.closeDialog", _dialogId); }
+        catch (Exception error) when (error is JSException or InvalidOperationException) { }
+        finally
+        {
+            await DisplayChanged.InvokeAsync(DungeonPetMapDisplayState.Closed);
+            await Closed.InvokeAsync();
+        }
+    }
+
+    [JSInvokable] public Task OnDungeonDialogClosed() => _disposed ? Task.CompletedTask : InvokeAsync(Close);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        try
+        {
+            // Also clean up an interop call that finished while this component was closing.
+            await JS.InvokeVoidAsync("soulcrestDungeonMaps.closeDialog", _dialogId);
+            await JS.InvokeVoidAsync("soulcrestDungeonMaps.dispose", _mapId);
+        }
+        catch (Exception error) when (error is JSException or InvalidOperationException) { }
+        _self?.Dispose();
+        try { await DisplayChanged.InvokeAsync(DungeonPetMapDisplayState.Closed); }
+        catch (InvalidOperationException) { }
+    }
+}

@@ -9,12 +9,14 @@ public static class SmokeTest
     public static bool Enabled { get; set; }
     public static volatile bool UiRendered;
     public static volatile bool MapShown;
+    public static volatile bool ThemeApplied;
+    public static string Theme = "nicht angewendet";
     public static volatile string? Error;
     public static string Capture = "nicht gestartet";
     public static string OpenCv = "nicht geprüft";
 
     public static string Describe() =>
-        $"ui={UiRendered} map={MapShown} capture={Capture} opencv={OpenCv} error={Error ?? "-"}";
+        $"ui={UiRendered} map={MapShown} theme={Theme} themeApplied={ThemeApplied} capture={Capture} opencv={OpenCv} error={Error ?? "-"}";
 
     /// <summary>Loads the native OpenCV library and checks image matching once (map tracking), as a single-file build must.</summary>
     public static bool CheckOpenCv()

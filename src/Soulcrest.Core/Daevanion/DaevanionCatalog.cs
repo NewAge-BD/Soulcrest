@@ -161,7 +161,7 @@ public sealed class DaevanionCatalog
         {
             if (!valid) throw new InvalidDataException("Inconsistent Daevanion catalog.");
         }
-        Require(Classes.Count == 8 && Boards.Count == 48 && Skills.Count == 176 && Stats.Count == 34 && Assets.Count == 170);
+        Require(Classes.Count == 8 && Boards.Count == 48 && Skills.Count == 176 && Stats.Count == 34 && Assets.Count == 171);
         var classes = Classes.Select(value => value.Id).ToHashSet(StringComparer.Ordinal);
         Require(classes.Count == Classes.Count && Classes.All(value => !string.IsNullOrWhiteSpace(value.Id) && HasText(value.Name)));
         Require(Boards.Select(board => board.Id).Distinct().Count() == Boards.Count);

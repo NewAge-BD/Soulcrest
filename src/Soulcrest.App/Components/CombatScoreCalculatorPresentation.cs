@@ -11,6 +11,9 @@ public static class CombatScoreCalculatorPresentation
 {
     public static string PetName(int id) => PetIdTable.Find(id)?.En ?? UiText.F("Pet {0}", id);
     public static string ItemName(int id) => MonsterLootItemCatalog.Default.Name(id, UiText.Language);
+    // Only the existing typed gear source contract carries an item identity.
+    public static int? SourceItemId(CombatSourceReport source) => source.SourceId.Split(':') is ["gear", _, _, var item, ..]
+        && int.TryParse(item, NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0 ? id : null;
     public static string SourceTitle(CombatSourceReport source, int index)
     {
         var parts = source.SourceId.Split(':');
@@ -79,6 +82,7 @@ public static class CombatScoreCalculatorPresentation
         CharacterDisplayStatQualification.NativeDirect => "Direkt beobachtet",
         CharacterDisplayStatQualification.ControlledChange => "Abgeleitet · Änderungstest",
         CharacterDisplayStatQualification.ObservedMatch => "Abgeleitet · Zahlenabgleich",
+        CharacterDisplayStatQualification.TableInferred => "Aus Rolltabellen abgeleitet",
         _ => "Zuordnung ungeklärt"
     });
     public static string DisplayStatStatus(CharacterDisplayStatRow row) => UiText.T(row.Status switch

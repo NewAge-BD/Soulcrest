@@ -56,6 +56,7 @@ public sealed partial class NetworkLootService
         {
             Character = null, CurrentCombatScore = null, CharacterLevel = null, CombatLevel = null, ConquerorLevel = null,
             Generation = _progressGeneration, Stats = Stale(_combatSnapshot.Stats),
+            CraftingProficiencies = Stale(_combatSnapshot.CraftingProficiencies),
             DaevanionBoards = Stale(_combatSnapshot.DaevanionBoards), Titles = Stale(_combatSnapshot.Titles),
             // A prefix never publishes fresh character-owned data. The full Own must first
             // confirm the private witness's native identity and transport continuity.
@@ -95,6 +96,9 @@ public sealed partial class NetworkLootService
             CombatLevel = world.CombatLevel, ConquerorLevel = world.ConquerorLevel,
             CurrentCombatScore = world.CombatScore, Generation = own.Generation, Sequence = sequence,
             ObservedAt = own.ObservedAt,
+            CraftingProficiencies = world.CraftingProficiencies is { } crafting
+                ? Observed(crafting, own.ObservedAt!.Value, sequence, "own-entry-crafting-proficiencies")
+                : NetworkCombatDomain<ImmutableDictionary<byte, CharacterCraftingProficiency>>.Unknown,
             HpMaximum = world.ResourceMaximums.MaxHp is { } hp
                 ? Observed(new NetworkCharacterResourceMaximum(hp), own.ObservedAt!.Value, sequence, "own-entry-resource-maxima")
                 : NetworkCombatDomain<NetworkCharacterResourceMaximum>.Unknown,

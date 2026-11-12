@@ -1,5 +1,20 @@
 # Technische Sicherheitsgrenze
 
+## Crafting Calculator (2026-11-10)
+
+Der Rechner verwendet gebündelte Rezept-/Bilddaten und dieselbe erlaubte anonyme
+Exchange-Preisquelle. Er startet keine Herstellung und sendet keine Eingaben oder
+Anfragen an das Spiel. Die vorhandene passive Own-Nachricht liefert nach ihrer
+vollständigen Validierung zusätzlich die eigenen Crafting-Level. Nur bestätigter
+eigener Kontext darf diese einem lokalen Profil zuordnen; Quellenlücken entwerten
+die Livebestätigung. Gespeicherte Stände bleiben ausdrücklich historisch.
+
+Szenariorechnungen und manuelle Rechenlevel verändern den Spielstand nicht.
+Die Diagnose liest vorhandene Quellen und löst keine Aufnahme oder Preisabfrage
+aus. Die anonymisierte Proficiency-Debugprojektion benötigt einen gültigen
+konfigurierten WebView-Debugport und enthält keine Profil-/Charakteridentität,
+Netzwerkendpunkte oder Paketdaten.
+
 Aion 2 hat einen Anti-Cheat. Soulcrest bleibt deshalb strikt **passiv** und verhält sich wie
 eine Bildschirmaufnahme- plus Overlay-Software.
 
@@ -244,13 +259,20 @@ Bestehende Nutzerdaten bleiben unverändert; Tests und Replay verwenden isoliert
 
 Für den Loot-Tracker sind lesende HTTPS-GET-Anfragen an `aion2.exchange` erlaubt:
 Serverliste und gebündelte Preisreferenzen nach expliziter Markt- und Itemkennung.
+Seit Nutzerentscheid vom 10.11.2026 zusätzlich dokumentierte Preisverläufe desselben
+Markts/Items als 24h-Ersatzwerte für fehlende aktuelle Preise der Live-Marktmodule.
+Items mit aktuellem gültigem Preis benötigen keinen Verlaufsabruf. Übertragen werden dabei
+nur öffentliche Markt-/Itemkennungen und das feste UTC-Preisfenster, keine Sessionzeit.
 Es werden keine Charakter-, Profil-, Sitzungs-, Kampf- oder Verbindungsdaten und
 keine Lootmengen übertragen. Keine Cookies, Zugangsdaten, Spielanmeldung oder
 Anfragen an Spieldienste; keine Weiterleitung an fremde Hosts.
 
-Der separate Schalter „Online-Marktpreise“ beendet HTTP-Zugriffe. Gespeicherte
-Preise und eingefrorene Schätzwerte bleiben lokal nutzbar. Ohne ausgewählten Markt
-werden keine Preise angefragt. Anfragen sind mengen- und zeitbegrenzt; Fehler
+Seit Nutzerauftrag vom 2026-11-10 werden Online-Marktpreise beim Start automatisch
+aktiviert; der separate UI-Schalter entfällt. Der bereits bestätigte eigene Charakter
+und seine Serverkennung bestimmen über den öffentlichen Exchange-Katalog den Markt.
+Ohne eindeutige Zuordnung werden keine Serverpreise geraten. Manuelle Serverwahl
+erfordert ein ausdrückliches Abschalten der Zuordnungsautomatik. Gespeicherte Preise
+und eingefrorene Schätzwerte bleiben erhalten. Anfragen sind mengen- und zeitbegrenzt; Fehler
 und fehlende Preise werden nicht als null Kina interpretiert.
 
 Die Werte sind geschätzte Angebote desselben Basisartikels mit einem ausdrücklich

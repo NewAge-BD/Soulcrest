@@ -27,6 +27,7 @@ window.soulcrestMap = (() => {
     // Resource kinds (Gem: Sapphire, Diamond, Ruby): per category a Map kind name -> L.LayerGroup inside
     // the category layer, so each kind can be hidden on its own (user request 2026-10-05).
     let kindLayers = [];
+    let nameColors = Object.freeze({});
     let monsterDrops = null; // additive, per-spawn material presentation; original markers stay unchanged
     let cubeGroups = null; // optional offline group presentation, isolated in soulcrest-cube-groups.js
     let petRefs = [], huntingGroundRefs = [];
@@ -178,7 +179,10 @@ window.soulcrestMap = (() => {
         if (viewportBatchTimer === null) viewportBatchTimer = setTimeout(flushViewport, VIEWPORT_BATCH_MS);
     }
 
-    function init(elementId, manifestJson, baseUrl, dotnetRef) {
+    function init(elementId, manifestJson, baseUrl, dotnetRef, itemNameColors = {}) {
+        // Shared offline presentation data; no source lookup or heuristic in JavaScript.
+        nameColors = Object.freeze(Object.fromEntries(Object.entries(itemNameColors || {})
+            .filter(([id, color]) => /^[1-9][0-9]*$/.test(id) && typeof color === 'string' && /^#[0-9A-F]{6}$/.test(color))));
         manifest = JSON.parse(manifestJson);
         base = baseUrl;
         dotnet = dotnetRef;
@@ -585,7 +589,7 @@ window.soulcrestMap = (() => {
                 }
                 return { index: category.index, name: category.name, de: category.de, count, hidden: !catVisible[category.index],
                     color: '#e5b66b', icon: category.items[0].icon ? base + category.items[0].icon : null,
-                    kinds: category.items.map(item => ({ key: item.id, name: item.en, de: item.de,
+                    kinds: category.items.map(item => ({ key: item.id, itemId: Number(item.id), name: item.en, de: item.de,
                         icon: item.icon ? base + item.icon : null, count: counts.get(item.id) })) };
             }) };
     }
@@ -593,9 +597,9 @@ window.soulcrestMap = (() => {
     const dropItemName = item => lang === 'de' && item.de ? item.de : item.en;
     function monsterDropPopup(spawn) {
         const chosen = new Set(spawn.selected.map(item => item.id));
-        const rows = spawn.items.map(item => `<div style="display:flex;align-items:center;gap:6px;${chosen.has(item.id) ? 'font-weight:600' : 'opacity:.6'}">`
+        const rows = spawn.items.map(item => `<div style="display:flex;align-items:center;gap:6px;${chosen.has(item.id) ? 'font-weight:600' : ''}">`
             + (item.icon ? `<img src="${esc(base + item.icon)}" alt="" width="22" height="22">` : '')
-            + `<span>${chosen.has(item.id) ? '✓ ' : ''}${esc(dropItemName(item))}</span></div>`).join('');
+            + `<span>${chosen.has(item.id) ? '✓ ' : ''}<span class="item-name" data-item-id="${item.id}"${nameColors[item.id] ? ` style="color:${nameColors[item.id]}"` : ''}>${esc(dropItemName(item))}</span></span></div>`).join('');
         return `<b>${esc(nameOf(spawn.m))}</b><br><span style="color:#b4bdca">Monster Drops · ${ui('Mögliche Crafting-Materialien', 'Possible crafting materials')}</span>`
             + `<div style="margin:6px 0">${rows}</div><span style="color:#8b96a8">${ui('Rechtsklick: als Ziel markieren', 'Right-click: set target')}</span>`;
     }

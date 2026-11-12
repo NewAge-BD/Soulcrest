@@ -1,0 +1,235 @@
+@using Soulcrest.Core.Crafting
+@using static Soulcrest.App.Services.CraftingCalculatorPresentation
+
+<section class="page craft-page @(TransferMode ? "" : "craft-map-layout")" data-crafting-calculator data-crafting-build="@Catalog.MetadataBuild" aria-busy="@State.Busy">
+    <header class="craft-heading"><div class="craft-title-line"><h1>Crafting Calculator</h1><InfoTip>@UiText.T("Plane dein Zielprodukt mit vollständiger Rezeptkette, COMBO und aktuellen Kina-Preisen.")</InfoTip></div>
+        <div class="craft-market-badge"><span class="craft-live-dot @(State.ServerName is null ? "unknown" : "")"></span><div><strong>@(State.ServerName ?? UiText.T("Marktserver noch unbekannt"))</strong><small>@if (TransferMode) { @UiText.T("Nur Herstellungskosten") } else { @UiText.F("Gebühren: {0} % + {1} %", Number(State.SalesTaxPercent, "0.##"), Number(State.RegistrationFeePercent, "0.##")) } · <a href="https://aion2.exchange" target="_blank" rel="noopener noreferrer">aion2.exchange ↗</a></small></div></div>
+    </header>
+    <div class="craft-proficiencies">
+        @foreach (var profession in Professions)
+        {
+            var simulated = State.SimulatedLevels.ContainsKey(profession.Id);
+            var reference = State.ReferenceLevels.TryGetValue(profession.Id, out var referenceLevel) ? referenceLevel : (int?)null;
+            <label class="craft-proficiency @(simulated ? "simulated" : "") @(reference is not null ? "reference" : "")" data-crafting-required-level="@(State.RequiredProficiencyLevels.TryGetValue(profession.Id, out var requiredLevel) ? requiredLevel : (int?)null)"><span>@profession.Id</span><div><input aria-label="@UiText.F("Rechenlevel für {0}", profession.Id)" type="number" min="0" max="100" placeholder="—" value="@State.Level(profession.Id)" @onchange="@(e => SetLevel(profession.Id, e))" /><small>@UiText.T(simulated ? "Simulation" : State.ObservedLevels.ContainsKey(profession.Id) && State.ProficiencyFresh ? "Erkannt" : State.ObservedLevels.ContainsKey(profession.Id) && State.UsingSavedProficiency ? "Gespeichert" : "Unbekannt")</small>@if (reference is { } referenceValue) { <small class="craft-reference-level" data-crafting-reference-level="@profession.Id">@UiText.F("Referenz {0}", referenceValue)</small> }</div></label>
+        }
+        <button type="button" class="craft-reset-levels" disabled="@(State.SimulatedLevels.Count == 0)" @onclick="ResetLevels">@UiText.T("Level zurücksetzen")</button>
+    </div>
+    <div class="craft-context-line">
+    <p class="craft-source-note">@UiText.T(State.ProficiencyFresh ? "Stand vom letzten bestätigten Welteintritt." : State.UsingSavedProficiency ? "Gespeicherter Charakterstand · aktuell nicht live bestätigt." : "Level werden beim eigenen Welteintritt erkannt. Du kannst bereits mit einem simulierten Level rechnen.")
+        @if (State.ProficiencyObservedAt is { } observed) { <time datetime="@observed.ToString("O")"> · @Time(observed)</time> }
+    </p>
+        <label class="craft-simulation-control"><span>@UiText.T("Simulationsläufe")</span><input data-crafting-simulation-samples="true" type="number" min="1" max="100000" step="1" aria-label="@UiText.T("Anzahl der Simulationsläufe")" value="@State.SimulationSamples" @onchange="ChangeSimulationSamples" /></label>
+        <p class="craft-scenario-status @(State.ScenarioStorage.Error is not null ? "error" : "")" role="status" data-crafting-scenario-storage>
+            @if (State.ScenarioStorage.Error is { } storageError) { @UiText.T(storageError) }
+            else if (State.ScenarioStorage.IsReadOnly || !State.ScenarioStorage.Available) { @UiText.T("Szenario nur für diese Sitzung.") }
+            else if (State.ScenarioStorage.IsDirty) { @UiText.T("Szenario wird gespeichert …") }
+            else if (State.ScenarioStorage.SavedAt is { } savedAt) { @UiText.T("Szenario gespeichert.") <time datetime="@savedAt.ToString("O")">@Time(savedAt)</time> }
+            else { @UiText.T("Szenario wird lokal gespeichert.") }
+        </p>
+    </div>
+    @if (State.ReferenceLevels.Count > 0 || ProficiencyWarnings(State).Length > 0)
+    {
+        <div class="craft-reference-notice" role="status" data-crafting-proficiency-warning data-crafting-reference-simulation="@(State.ReferenceLevels.Count > 0 ? "true" : null)">
+            @if (ReferenceSimulationHint(State) is { } minimumHint) { <strong>@UiText.T("Referenzsimulation")</strong><span>@minimumHint</span> }
+            @foreach (var warning in ProficiencyWarnings(State)) { <span class="craft-reference-detail" data-crafting-proficiency-requirement>@warning</span> }
+        </div>
+    }
+    @if (_inputError is not null) { <p class="craft-input-error" role="alert">@UiText.T(_inputError)</p> }
+    <nav class="craft-profession-nav" aria-label="Crafting Calculator">
+        @foreach (var profession in BrowserCategories)
+        {
+            var example = Catalog.Recipes.Where(row => !Catalog.IsComboRecipe(row.Id)
+                && MatchesFaction(row.Faction, State.Faction)
+                && MatchesBrowser(Catalog, row, profession.Id, profession.Subcategories[0]))
+                .OrderBy(row => row.RequiredProficiency).FirstOrDefault();
+            <button type="button" class="@(State.Profession == profession.Id ? "selected" : "")" aria-pressed="@(State.Profession == profession.Id ? "true" : "false")" data-crafting-profession="@profession.Id" @onclick="@(() => ProfessionChanged.InvokeAsync(profession.Id))">
+                @if (example is not null && Catalog.FindItem(example.OutputItemId)?.Icon is { } icon) { <img src="@icon" alt="" /> }
+                <span>@profession.Id</span>
+            </button>
+        }
+    </nav>
+    <nav class="craft-subcategories @(State.Profession == TransferCategory ? "craft-transfer-tabs" : "")" data-crafting-slot-tabs="@(State.Profession == TransferCategory ? "true" : null)" aria-label="@UiText.T("Rezeptkategorien")">
+        @foreach (var subcategory in BrowserCategories.First(row => row.Id == State.Profession).Subcategories)
+        {
+            <button type="button" class="@(State.Subcategory == subcategory ? "selected" : "")" aria-pressed="@(State.Subcategory == subcategory ? "true" : "false")" data-crafting-subcategory="@subcategory" @onclick="@(() => SubcategoryChanged.InvokeAsync(subcategory))">@subcategory</button>
+        }
+    </nav>
+    <div class="craft-browser-layout craft-workspace" data-crafting-workspace>
+        <aside class="craft-browser" data-crafting-catalog>
+        <div class="craft-browser-tools"><label class="craft-search"><span aria-hidden="true">⌕</span><input type="search" placeholder="@UiText.T("Alle Rezepte durchsuchen …")" aria-label="@UiText.T("Alle Rezepte durchsuchen")" value="@State.Query" @oninput="@(e => QueryChanged.InvokeAsync(e.Value?.ToString() ?? ""))" /></label><span>@UiText.F("{0} Rezepte", VisibleRecipes.Length)</span></div>
+        <div class="craft-recipe-grid" role="list" data-crafting-catalog-panel data-crafting-visible-count="@VisibleRecipes.Length">
+            @foreach (var recipe in VisibleRecipes)
+            {
+                var product = Catalog.FindItem(recipe.OutputItemId);
+                var selected = State.SelectedRecipeId is { } selectedId && (selectedId == recipe.Id
+                    || !IsComboEquipmentTarget(Catalog, selectedId) && (Catalog.FindBaseRecipe(selectedId)?.Id ?? selectedId) == recipe.Id);
+                var ingredientsRecipe = Catalog.FindBaseRecipe(recipe.Id) ?? recipe;
+                var comboEquipment = IsComboEquipmentTarget(Catalog, recipe.Id);
+                var transfer = TransferCraftingRules.IsTransfer(Catalog, recipe);
+                var requirementsMet = State.Level(recipe.Profession) is { } level && recipe.RequiredProficiency <= level;
+                <button type="button" role="listitem" class="craft-recipe-card @Grade(product?.Rarity) @(comboEquipment ? "combo-target" : "") @(selected ? "selected" : "")" data-crafting-recipe="@recipe.Id" data-crafting-combo-target="@(comboEquipment ? recipe.Id : (int?)null)" data-crafting-result-kind="@(comboEquipment ? "combo" : "normal")" aria-pressed="@(selected ? "true" : "false")" @onclick="@(() => RecipeSelected.InvokeAsync(recipe.Id))">
+                    @if (comboEquipment) { <span class="craft-card-outcome"><span class="craft-combo-product-badge"><span aria-hidden="true">✦</span>@UiText.T("COMBO-Endprodukt")</span></span> }
+                    <span class="craft-card-top">@if (product?.Icon is { } icon) { <img src="@icon" alt="" loading="lazy" /> }<span><strong><ItemName ItemId="recipe.OutputItemId" Text="@Name(product)" /></strong><small>@Faction(recipe.Faction) · × @recipe.OutputQuantity</small></span><span class="craft-card-level @(transfer || requirementsMet ? "ready" : "")">@(transfer ? "100 %" : recipe.RequiredProficiency?.ToString())</span></span>
+                    <ItemTooltip Class="craft-card-materials" Focusable="false" ParentFocus="true">
+                        <ChildContent><span class="craft-card-ingredients">@foreach (var ingredient in ingredientsRecipe.Ingredients.Take(6)) { <span>@if (Catalog.FindItem(ingredient.ItemId)?.Icon is { } materialIcon) { <img src="@materialIcon" alt="" loading="lazy" /> }<b>@ingredient.Quantity</b></span> }@if (ingredientsRecipe.Ingredients.Length > 6) { <small>+@(ingredientsRecipe.Ingredients.Length - 6)</small> }</span></ChildContent>
+                        <TooltipContent>@foreach (var ingredient in ingredientsRecipe.Ingredients) { <div><ItemName ItemId="ingredient.ItemId" Text="@Name(Catalog.FindItem(ingredient.ItemId))" /> × @ingredient.Quantity</div> }</TooltipContent>
+                    </ItemTooltip>
+                    <span class="craft-card-footer"><span>@UiText.T(transfer ? "Garantierter Transfer" : requirementsMet ? "Level erreicht" : "Proficiency benötigt")</span>@if (comboEquipment || recipe.ComboRecipeId is not null) { <span class="craft-combo-tag">@UiText.T(comboEquipment ? "COMBO-Aktivierung" : "COMBO möglich") @ActivationChance(comboEquipment ? ComboActivationProbability(Catalog, recipe.Id) : recipe.ComboActivationChance)</span> }</span>
+                </button>
+            }
+        </div>
+        @if (VisibleRecipes.Length == 0) { <p class="craft-empty">@UiText.T("Keine Rezepte für diese Auswahl gefunden.")</p> }
+        </aside>
+        <div class="craft-plan-pane" data-crafting-plan-pane data-crafting-plan-panel>
+    @if (State.SelectedRecipeId is { } transferId && Catalog.FindRecipe(transferId) is { } transferRecipe
+        && TransferCraftingRules.IsTransfer(Catalog, transferRecipe))
+    {
+        <TransferCraftingView Catalog="Catalog" State="State" Quantity="State.TargetQuantity" QuantityChanged="QuantityChanged"
+            SourceChanged="SourceChanged" ReplacementChanged="ReplacementChanged" OwnershipChanged="OwnershipChanged"
+            OwnedQuantityChanged="OwnedQuantityChanged" Refresh="Refresh" />
+    }
+    @if (State.SelectedRecipeId is { } recipeId && Catalog.FindRecipe(recipeId) is { } selectedRecipe
+        && !TransferCraftingRules.IsTransfer(Catalog, selectedRecipe))
+    {
+        var root = Catalog.FindBaseRecipe(recipeId) ?? selectedRecipe;
+        var result = State.Result;
+        <section class="craft-plan" data-crafting-selected="@recipeId">
+            <header class="craft-plan-heading"><div class="craft-title-line craft-plan-title"><h2><ItemName ItemId="selectedRecipe.OutputItemId" Text="@Name(Catalog.FindItem(selectedRecipe.OutputItemId))" /></h2><InfoTip><strong>@UiText.T("DEIN HERSTELLUNGSPLAN")</strong>@if (IsComboEquipmentTarget(Catalog, recipeId)) { <p class="craft-attempt-note">@UiText.F("{0} COMBO-Zielitems: Versuche bis zur Zielmenge; Basis- und COMBO-Fehlschläge werden berücksichtigt.", Number(State.TargetQuantity))</p> }</InfoTip></div><div class="craft-plan-inputs"><ItemSelect Class="craft-variant-select" Label="@UiText.T("Zielprodukt")" Value="recipeId" Options="@(Variants(root).Select(variant => new ItemSelectOption(variant.Id, variant.OutputItemId, Name(Catalog.FindItem(variant.OutputItemId)), "× " + variant.OutputQuantity + (variant.Id != root.Id ? " · COMBO" : ""))).ToArray())" ValueChanged="@(id => ChangeTarget(new ChangeEventArgs { Value = id }))" data-crafting-target-variant /><label class="craft-target-quantity">@UiText.T(IsComboEquipmentTarget(Catalog, recipeId) ? "Zielmenge COMBO" : "Zielmenge")<input data-crafting-target-quantity="true" type="number" min="1" max="100000" value="@State.TargetQuantity" @onchange="ChangeQuantity" /></label><button type="button" disabled="@State.Busy" @onclick="Refresh">@UiText.T("Aktualisieren")</button></div></header>
+            <div class="craft-metrics craft-map-metrics">
+                <div><span>@UiText.T("Erwartete Gesamtkosten")</span><strong>@Number(result?.ExpectedCost) <small>Kina</small></strong><small>@UiText.T("Materialien und Herstellungsgebühren")</small></div>
+                <div><span>@UiText.T("Erwarteter Nettoerlös")</span><strong>@Number(IsComboEquipmentTarget(Catalog, recipeId) ? result?.TargetOutput?.NetValue : result?.TargetNetRevenue) <small>Kina</small></strong><small>@UiText.F("Marktgebühren: {0} Kina", Number(result?.ExpectedFees))</small></div>
+                <div class="craft-profit @(result?.ExpectedProfit >= 0 ? "positive" : "negative")"><span>@UiText.T("Erwarteter Profit")</span><strong>@Number(result?.ExpectedProfit) <small>Kina</small></strong><small>@UiText.T(IsComboEquipmentTarget(Catalog, recipeId) ? "COMBO-Ziel · Nebenprodukte separat" : "Nebenprodukte separat ausgewiesen")</small></div>
+                <div class="craft-map-observed-loss" data-crafting-observed-loss="unavailable"><span>@UiText.T("Tatsächliche Fehlcraft-Verluste")</span><strong>— <small>Kina</small></strong><small>@UiText.T("Noch nicht beobachtet")</small></div>
+            </div>
+            <div class="craft-status @(State.IsError ? "error" : "")" role="status"><span class="@(State.Busy ? "craft-spinner" : "")" aria-hidden="true">@(State.Busy ? "" : result?.Status == CraftingPlanStatus.Complete ? "✓" : "◇")</span><span>@UiText.T(State.Status)</span></div>
+            @if (State.PriceRefreshFailure is { } priceFailure)
+            {
+                <div class="craft-issues" role="status" data-crafting-price-warning="@priceFailure.Stage"><p>@UiText.T("Die Marktpreise konnten nicht aktualisiert werden. Gültige Cachepreise und belegte NPC-Preise werden weiter verwendet. Fehlende Preise bleiben unbekannt.")
+                    @if (priceFailure.RetryAt is { } retryAt) { <span> @UiText.F("Nächster Preisabruf frühestens {0}.", Time(retryAt))</span> }
+                </p></div>
+            }
+            @if (State.RequiredProficiencyLevels.IsEmpty && ProficiencyHint(root, State) is { } proficiencyHint)
+            {
+                <p class="craft-qualification-note" data-crafting-proficiency-warning>@proficiencyHint</p>
+            }
+            @if (State.RequiredPriceCount > 0)
+            {
+                <p class="craft-price-coverage">@UiText.F("Preise: {0} von {1} Items", State.BuyPrices.Keys.Concat(State.SellPrices.Keys).Distinct().Count(), State.RequiredPriceCount)
+                    @if (OldestMarketPrice is { } pricedAt) { <span> · @UiText.T("Ältester Marktpreis") <time datetime="@pricedAt.ToString("O")">@Time(pricedAt)</time></span> }
+                </p>
+            }
+            @if (AverageFallbackCount > 0)
+            {
+                <p class="craft-price-coverage" data-crafting-average-fallback>@UiText.F("24h-Durchschnitt als Ersatzpreis für {0} Items ohne aktuelles Angebot.", AverageFallbackCount)</p>
+            }
+            @if (result is not null && result.Issues.Length > 0)
+            {
+                <div class="craft-issues">@foreach (var issue in result.Issues.Distinct()) { <p>@Issue(issue) @if (issue.ItemId is { } item) { <strong><ItemName ItemId="item" Text="@Name(Catalog.FindItem(item))" /></strong> }</p> }</div>
+            }
+            @if (!root.MechanicsQualified) { <p class="craft-qualification-note">@UiText.T("Das Schema ist verfügbar. Für eine vollständige Profitrechnung fehlen noch bestätigte Verbrauchs- oder Ergebnisregeln.")</p> }
+            <div class="craft-plan-columns"><div class="craft-schema">
+                <CraftingDependencyMap Catalog="Catalog" State="State" SourceChanged="SourceChanged" SourcesChanged="SourcesChanged" OwnedQuantityChanged="OwnedQuantityChanged" ReplacementChanged="ReplacementChanged" />
+                <details class="craft-map-legacy-schema"><summary>@UiText.T("Vollständiges Rezeptschema und Materialalternativen")</summary><div class="craft-section-heading"><h3>@UiText.T("Rezeptschema")</h3><button type="button" @onclick="@(() => _expandAll = !_expandAll)">@UiText.T(_expandAll ? "Unterrezepte einklappen" : "Alle Unterrezepte öffnen")</button></div>
+                <CraftingRecipeTree Catalog="Catalog" Recipe="root" State="State" SourceChanged="SourceChanged" ReplacementChanged="ReplacementChanged"
+                    OwnedQuantityChanged="OwnedQuantityChanged" ExpandAll="_expandAll" />
+                </details>
+            </div><aside class="craft-shopping"><h3>@UiText.T("Einkaufsliste")</h3><p>@UiText.T("Zusammengefasst über die gesamte Herstellungskette.")</p>
+                @if (result?.Shopping.Length > 0)
+                {
+                    @foreach (var row in result.Shopping)
+                    {
+                        <div class="craft-shopping-row">@if (Catalog.FindItem(row.ItemId)?.Icon is { } icon) { <img src="@icon" alt="" /> }<div><strong><ItemName ItemId="row.ItemId" Text="@Name(Catalog.FindItem(row.ItemId))" /></strong><small>@Source(row.Source) · @Number(row.UnitPrice) Kina</small></div><span>@Number(row.ExpectedQuantity, "N2")<small>@Number(row.ExpectedCost) Kina</small></span></div>
+                    }
+                }
+                else if (result?.Status == CraftingPlanStatus.Complete || result is { Samples: > 0, ExpectedCost: not null }) { <p class="craft-empty">@UiText.T("Kein Einkauf erforderlich.")</p> }
+                else { <p class="craft-empty">@UiText.T(State.Busy ? "Der Bedarf wird berechnet …" : "Der vollständige Bedarf erscheint nach einer belegten Kalkulation.")</p> }
+                @if (IsComboEquipmentTarget(Catalog, recipeId) && result?.TargetOutput is { } targetOutput)
+                {
+                    <h3>@UiText.T("COMBO-Ziel")</h3>
+                    <div class="craft-step" data-crafting-output="@targetOutput.ItemId" data-crafting-combo-output><strong><ItemName ItemId="targetOutput.ItemId" Text="@Name(Catalog.FindItem(targetOutput.ItemId))" /> × @Number(targetOutput.ExpectedQuantity, "N2")</strong><span>@UiText.T("Erwarteter Nettoerlös") @Number(targetOutput.NetValue) Kina</span></div>
+                }
+                @if (result?.Steps.Length > 0)
+                {
+                    <h3>@UiText.T("Herstellungsschritte")</h3>
+                    @foreach (var step in result.Steps) { <div class="craft-step"><strong><ItemName ItemId="@(Catalog.FindRecipe(step.RecipeId)?.OutputItemId)" Text="@Name(Catalog.FindItem(Catalog.FindRecipe(step.RecipeId)!.OutputItemId))" /></strong><span>@UiText.F("{0} Versuche · {1} Fehlschläge im Mittel", Number(step.ExpectedAttempts, "N2"), Number(step.ExpectedFailures, "N2"))</span></div> }
+                }
+                @if (result?.Byproducts.Length > 0)
+                {
+                    <h3>@UiText.T("Nebenprodukte und Reste")</h3>
+                    @foreach (var output in result.Byproducts) { <div class="craft-step"><strong><ItemName ItemId="output.ItemId" Text="@Name(Catalog.FindItem(output.ItemId))" /> × @Number(output.ExpectedQuantity, "N2")</strong><span>@UiText.T("Möglicher zusätzlicher Nettoerlös") @Number(output.NetValue) Kina</span></div> }
+                }
+            </aside></div>
+            <footer class="craft-assumptions"><InfoTip>@UiText.T("Die Simulation berücksichtigt Fehlschläge, automatische COMBO und gemeinsame Vorprodukte. Level und Preise bleiben während der Rechnung konstant; Angriffe und Marktbewegungen werden nicht simuliert. Aktuelle Angebote bestätigen weder Verkaufserfolg noch verfügbare Stückzahlen. Unbekannte Preise und Regeln bleiben unbekannt.") @ExchangeMarketPresentation.TradeabilityHint</InfoTip><span>@UiText.T(IsComboEquipmentTarget(Catalog, recipeId) ? "Die Anzahl der Versuche ist variabel; die Rechnung zielt auf die gewählte COMBO-Menge." : "Erwartungswerte können Bruchteile enthalten. Tatsächliche Kosten und Ergebnisse schwanken.")</span>@if (result?.Samples > 0) { <small>@UiText.F("{0} Simulationsläufe", Number(result.Samples))</small> }</footer>
+        </section>
+    }
+    @if (State.SelectedRecipeId is not { } emptyRecipeId || Catalog.FindRecipe(emptyRecipeId) is null)
+    {
+        <p class="craft-empty" role="status" data-crafting-plan-empty>@UiText.T("Wähle ein Rezept für die Kalkulation.")</p>
+    }
+        </div>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public CraftingCatalog Catalog { get; set; } = null!;
+    [Parameter, EditorRequired] public CraftingCalculatorSnapshot State { get; set; } = new();
+    [Parameter] public EventCallback<string> ProfessionChanged { get; set; }
+    [Parameter] public EventCallback<string> SubcategoryChanged { get; set; }
+    [Parameter] public EventCallback<string> QueryChanged { get; set; }
+    [Parameter] public EventCallback<int> RecipeSelected { get; set; }
+    [Parameter] public EventCallback<int> TargetChanged { get; set; }
+    [Parameter] public EventCallback<int> QuantityChanged { get; set; }
+    [Parameter] public EventCallback<int> SimulationSamplesChanged { get; set; }
+    [Parameter] public EventCallback<CraftingLevelSelection> LevelChanged { get; set; }
+    [Parameter] public EventCallback ResetLevels { get; set; }
+    [Parameter] public EventCallback<CraftingSourceSelection> SourceChanged { get; set; }
+    [Parameter] public EventCallback<System.Collections.Immutable.ImmutableArray<CraftingSourceSelection>> SourcesChanged { get; set; }
+    [Parameter] public EventCallback<CraftingReplacementSelection> ReplacementChanged { get; set; }
+    [Parameter] public EventCallback<CraftingOwnershipSelection> OwnershipChanged { get; set; }
+    [Parameter] public EventCallback<CraftingOwnedQuantitySelection> OwnedQuantityChanged { get; set; }
+    [Parameter] public EventCallback Refresh { get; set; }
+    private bool _expandAll;
+    private string? _inputError;
+    private bool TransferMode => State.Profession == TransferCategory || State.SelectedRecipeId is { } id
+        && Catalog.FindRecipe(id) is { } recipe && TransferCraftingRules.IsTransfer(Catalog, recipe);
+    private int AverageFallbackCount => State.BuyPrices.Values.Concat(State.SellPrices.Values)
+        .Where(row => row.Source == CraftingPriceSource.ExchangeAverage).Select(row => row.ItemId).Distinct().Count();
+    private DateTimeOffset? OldestMarketPrice => State.BuyPrices.Values.Concat(State.SellPrices.Values)
+        .Where(row => row.IsMarket && row.ObservedAt is not null)
+        .Select(row => row.ObservedAt).Min();
+    private CraftingRecipe[] VisibleRecipes => Catalog.Recipes.Where(row => !Catalog.IsComboRecipe(row.Id) || IsComboEquipmentTarget(Catalog, row.Id))
+        .Where(row => MatchesFaction(row.Faction, State.Faction))
+        .Where(row => string.IsNullOrWhiteSpace(State.Query) ? MatchesBrowser(Catalog, row, State.Profession, State.Subcategory)
+            : (Catalog.FindItem(row.OutputItemId)?.NameEn.Contains(State.Query, StringComparison.OrdinalIgnoreCase) == true
+                || Catalog.FindItem(row.OutputItemId)?.NameDe.Contains(State.Query, StringComparison.OrdinalIgnoreCase) == true
+                || Variants(row).Any(variant => Name(Catalog.FindItem(variant.OutputItemId)).Contains(State.Query, StringComparison.OrdinalIgnoreCase))))
+        .OrderBy(row => (Catalog.FindBaseRecipe(row.Id) ?? row).RequiredProficiency is > 0 and var required ? required : int.MaxValue)
+        .ThenBy(row => (Catalog.FindBaseRecipe(row.Id) ?? row).Id).ThenBy(row => row.Id).ToArray();
+    private IEnumerable<CraftingRecipe> Variants(CraftingRecipe root)
+    {
+        var seen = new HashSet<int>(); var current = root;
+        while (seen.Add(current.Id)) { yield return current; if (current.ComboRecipeId is not { } next || Catalog.FindRecipe(next) is not { } recipe) yield break; current = recipe; }
+    }
+    private static string Grade(string? value) => value is "Common" or "Rare" or "Legend" or "Unique" or "Epic" or "Mythic" or "Special" ? value.ToLowerInvariant() : "unknown";
+    private Task SetLevel(string profession, ChangeEventArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(args.Value?.ToString())) { _inputError = null; return LevelChanged.InvokeAsync(new(profession, null)); }
+        if (int.TryParse(args.Value?.ToString(), out var level) && level is >= 0 and <= 100)
+        { _inputError = null; return LevelChanged.InvokeAsync(new(profession, level)); }
+        _inputError = "Das Rechenlevel muss eine ganze Zahl zwischen 0 und 100 sein."; return Task.CompletedTask;
+    }
+    private Task ChangeQuantity(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var amount) && amount is >= 1 and <= 100_000)
+        { _inputError = null; return QuantityChanged.InvokeAsync(amount); }
+        _inputError = "Die Zielmenge muss eine ganze Zahl zwischen 1 und 100.000 sein."; return Task.CompletedTask;
+    }
+    private Task ChangeTarget(ChangeEventArgs args) => int.TryParse(args.Value?.ToString(), out var id) ? TargetChanged.InvokeAsync(id) : Task.CompletedTask;
+    private Task ChangeSimulationSamples(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var samples) && samples is >= 1 and <= 100_000)
+        { _inputError = null; return SimulationSamplesChanged.InvokeAsync(samples); }
+        _inputError = "Die Anzahl der Simulationsläufe muss eine ganze Zahl zwischen 1 und 100.000 sein.";
+        return Task.CompletedTask;
+    }
+}

@@ -38,10 +38,15 @@ public sealed class DaevanionHighlightRenderer
             spacing = ResolveSpacing(anchors, spacing);
             // Without a pitch, an unseen neighbor cannot be safely excluded. Live snapshots always supply it.
             if (spacing is null && board.Nodes.Count > 1) return;
+            var cells = new Dictionary<(int Row, int Column), DaevanionNode>(board.Nodes.Count);
+            foreach (var node in board.Nodes) cells.TryAdd((node.Row, node.Column), node);
+            var nativeFrames = new Rectangle[anchors.Count];
+            for (var i = 0; i < anchors.Count; i++)
+                nativeFrames[i] = new(anchors[i].Bounds.X - origin.X, anchors[i].Bounds.Y - origin.Y,
+                    anchors[i].Bounds.Width, anchors[i].Bounds.Height);
             foreach (var anchor in anchors)
             {
-                var node = board.Nodes.FirstOrDefault(n => n.Row == anchor.Row && n.Column == anchor.Column);
-                if (node is null || node.Kind != DaevanionNodeKind.Stat
+                if (!cells.TryGetValue((anchor.Row, anchor.Column), out var node) || node.Kind != DaevanionNodeKind.Stat
                     || !node.Effects.Any(effect => effect.Kind == DaevanionEffectKind.StatBonus
                         && effect.StatId is { } stat && selected.Contains(stat))) continue;
                 var frame = new RectangleF(anchor.Bounds.X - origin.X, anchor.Bounds.Y - origin.Y,
@@ -56,19 +61,16 @@ public sealed class DaevanionHighlightRenderer
                 var state = graphics.Save();
                 try
                 {
-                    // The same measured envelope as the node fitting bounds every antialiased fringe.
-                    var envelope = DaevanionNodeFitting.Bounds(frame, spacing);
+                    // User request 2026-11-12: follow the native frame, without the former extended footer.
+                    var envelope = ContourBounds(frame, spacing);
                     graphics.SetClip(envelope, CombineMode.Intersect);
                     graphics.SetClip(frame, CombineMode.Exclude);
-                    foreach (var other in anchors)
-                    {
-                        var native = new Rectangle(other.Bounds.X - origin.X, other.Bounds.Y - origin.Y,
-                            other.Bounds.Width, other.Bounds.Height);
-                        if (envelope.IntersectsWith(native)) graphics.ExcludeClip(native);
-                    }
+                    foreach (var native in nativeFrames)
+                        if (!((RectangleF)native).Equals(frame) && envelope.IntersectsWith(native)) graphics.ExcludeClip(native);
                     if (spacing is { } pitch)
-                        foreach (var neighbor in board.Nodes.Where(n => n.Id != node.Id))
+                        foreach (var neighbor in board.Nodes)
                         {
+                            if (neighbor.Id == node.Id) continue;
                             var native = new RectangleF(frame.X + (float)((neighbor.Column - node.Column) * pitch),
                                 frame.Y + (float)((neighbor.Row - node.Row) * pitch), frame.Width, frame.Height);
                             if (envelope.IntersectsWith(native)) graphics.SetClip(native, CombineMode.Exclude);
@@ -87,7 +89,7 @@ public sealed class DaevanionHighlightRenderer
 
     private static (Bitmap Image, Point Offset) CreateStamp(Size size, double? spacing, double phase)
     {
-        var envelope = DaevanionNodeFitting.Bounds(new RectangleF(PointF.Empty, size), spacing);
+        var envelope = ContourBounds(new RectangleF(PointF.Empty, size), spacing);
         var left = (int)Math.Floor(envelope.Left); var top = (int)Math.Floor(envelope.Top);
         var image = new Bitmap(Math.Max(1, (int)Math.Ceiling(envelope.Right) - left),
             Math.Max(1, (int)Math.Ceiling(envelope.Bottom) - top), PixelFormat.Format32bppPArgb);
@@ -98,7 +100,7 @@ public sealed class DaevanionHighlightRenderer
             graphics.PageUnit = GraphicsUnit.Pixel;
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             var frame = new RectangleF(-left, -top, size.Width, size.Height);
-            var localEnvelope = DaevanionNodeFitting.Bounds(frame, spacing);
+            var localEnvelope = ContourBounds(frame, spacing);
             graphics.SetClip(localEnvelope, CombineMode.Intersect);
             graphics.SetClip(frame, CombineMode.Exclude);
             PaintContour(graphics, frame, localEnvelope, phase);
@@ -107,21 +109,36 @@ public sealed class DaevanionHighlightRenderer
         catch { image.Dispose(); throw; }
     }
 
+    internal static RectangleF ContourBounds(RectangleF frame, double? spacing = null)
+    {
+        var padding = Math.Min(frame.Width, frame.Height) * .06f;
+        if (spacing is { } pitch)
+        {
+            if (!double.IsFinite(pitch) || pitch <= 0) return frame;
+            var margin = Math.Max(1f, Math.Min(frame.Width, frame.Height) / 60f);
+            // Remain inside the conservative presentation/pruning envelope and reserve the neighboring frame.
+            padding = (float)Math.Max(0, Math.Min(padding,
+                Math.Min((pitch - frame.Width - margin) / 2, (pitch - frame.Height - margin) / 4)));
+        }
+        frame.Inflate(padding, padding);
+        return frame;
+    }
+
     private static void PaintContour(Graphics graphics, RectangleF frame, RectangleF envelope, double phase)
     {
-        var horizontal = Math.Clamp((frame.Left - envelope.Left) / (frame.Width * .09f), 0, 1);
-        var vertical = Math.Clamp((frame.Top - envelope.Top) / (frame.Height * .06f), 0, 1);
-        if (horizontal <= 0 || vertical <= 0) return;
-        static float Outside(float value, float scale) => value < 0 ? value * scale : value > 1 ? 1 + (value - 1) * scale : value;
-        PointF At(float x, float y) => new(frame.X + frame.Width * Outside(x, horizontal),
-            frame.Y + frame.Height * Outside(y, vertical));
+        var available = Math.Min(frame.Left - envelope.Left, frame.Top - envelope.Top);
+        if (available <= 0) return;
+        var distance = available * .72f;
+        var outside = RectangleF.Inflate(frame, distance, distance);
+        var bevel = distance;
         PointF[] points = [
-            At(.075f, -.030f), At(.925f, -.030f), At(1.068f, .07f), At(1.068f, .925f),
-            At(.94f, 1.16f), At(.06f, 1.16f), At(-.068f, .925f), At(-.068f, .07f)];
+            new(outside.Left + bevel, outside.Top), new(outside.Right - bevel, outside.Top),
+            new(outside.Right, outside.Top + bevel), new(outside.Right, outside.Bottom - bevel),
+            new(outside.Right - bevel, outside.Bottom), new(outside.Left + bevel, outside.Bottom),
+            new(outside.Left, outside.Bottom - bevel), new(outside.Left, outside.Top + bevel)];
         using var contour = new GraphicsPath();
         contour.AddPolygon(points);
         var scale = Math.Min(frame.Width, frame.Height) / 60f;
-        var available = Math.Min(frame.Width * .09f * horizontal, frame.Height * .06f * vertical);
         using var foundation = new Pen(Color.FromArgb(100, 211, 205, 177), Math.Min(.75f * scale, Math.Max(.2f, available)))
             { LineJoin = LineJoin.Round };
         graphics.DrawPath(foundation, contour);

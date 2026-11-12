@@ -13,6 +13,10 @@ namespace Soulcrest.App.Services;
 public sealed record DaevanionSnapshot(OwnCharacterContext Context, DaevanionBoard Board,
     Rectangle GameBounds, long FrameAt, DaevanionBoardDetection Detection, string Language);
 
+/// <summary>Anonymous observed recognition work; no additional source or diagnostics run is started.</summary>
+public sealed record DaevanionRecognitionHealth(long Searches, long PreferredSearches, long Matches, long Misses,
+    long ExpiredAfterSearch, DaevanionRecognitionMetrics? Last, double MaximumMilliseconds);
+
 /// <summary>Passive board projection. No map-tracking dependency and no secondary capture session.</summary>
 public sealed class DaevanionService : IDisposable
 {
@@ -31,6 +35,7 @@ public sealed class DaevanionService : IDisposable
     private string _status = "Warte auf Klassenerkennung.";
     private string? _highlightPlacementStatus;
     private long _revision;
+    private DaevanionRecognitionHealth _recognitionDiagnostics = new(0, 0, 0, 0, 0, null, 0);
     private int _disposed;
 
     public DaevanionService(NetworkLootService network, SettingsService settings, GameCaptureService capture)
@@ -51,6 +56,7 @@ public sealed class DaevanionService : IDisposable
     }
 
     public DaevanionSnapshot? Snapshot => Volatile.Read(ref _snapshot);
+    public DaevanionRecognitionHealth RecognitionDiagnostics => Volatile.Read(ref _recognitionDiagnostics);
     public string Status => Volatile.Read(ref _status);
     public string? HighlightPlacementStatus => Volatile.Read(ref _highlightPlacementStatus);
     public string? ClassId => _network.OwnCharacter?.Identity.ClassId;
@@ -147,7 +153,8 @@ public sealed class DaevanionService : IDisposable
         if (preferred is not null) preferred = ScaleDetection(preferred, scale);
         // Like the shop: validate the frozen layout against this new game-window image before
         // allowing a noisy global fit to move it. A preferred layout is never capture evidence.
-        var found = DaevanionBoardLocator.Find(image, _patterns, preferred);
+        var found = DaevanionBoardLocator.Find(image, _patterns, preferred, out var metrics);
+        RecordRecognition(metrics, found is not null, !DaevanionLayoutStability.Fresh(at));
         if (found is not null) found = ScaleDetection(found, 1 / scale);
         if (!_stability.Update(key, bounds.Value, at, found))
         { Publish(null, found is null ? "Daevanion-Board nicht erkannt." : "Daevanion-Board wird erkannt …", revision); return; }
@@ -156,6 +163,20 @@ public sealed class DaevanionService : IDisposable
         { _stability.Reset(); Publish(null, "Daevanion-Board nicht erkannt.", revision); return; }
         TryPublishObservation(new(context, board, bounds.Value, _stability.ConfirmedFrameAt,
             _stability.Confirmed!, language), revision);
+    }
+
+    private void RecordRecognition(DaevanionRecognitionMetrics metrics, bool matched, bool expired)
+    {
+        DaevanionRecognitionHealth previous, next;
+        do
+        {
+            previous = Volatile.Read(ref _recognitionDiagnostics);
+            next = new(previous.Searches + 1,
+                previous.PreferredSearches + (metrics.Path == DaevanionRecognitionPath.PreferredRaster ? 1 : 0),
+                previous.Matches + (matched ? 1 : 0), previous.Misses + (matched ? 0 : 1),
+                previous.ExpiredAfterSearch + (expired ? 1 : 0), metrics,
+                Math.Max(previous.MaximumMilliseconds, metrics.ElapsedMilliseconds));
+        } while (!ReferenceEquals(Interlocked.CompareExchange(ref _recognitionDiagnostics, next, previous), previous));
     }
 
     internal bool TryPublishObservation(DaevanionSnapshot snapshot, long revision)

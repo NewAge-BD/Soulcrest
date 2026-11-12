@@ -1,5 +1,139 @@
 # Architektur
 
+## Crafting Calculator
+
+Der Haupttab `crafting` verwendet einen gebündelten Rezept- und Itemkatalog mit
+Originalicons, Unterrezepten, Materialalternativen und belegten NPC-Angeboten.
+`Core.Crafting` berechnet ein konkretes Zielprodukt einschließlich der getrennten
+Basis-/COMBO-Erfolgsrollen. Standardmäßig 1.000 deterministische Gesamtdurchläufe (einstellbar von 1 bis
+100.000) teilen Zwischenbestände und liefern erwartete Kosten sowie das 90-%-Bruttobudget.
+Unvollständige Regeln, Preise, Fraktionsbindungen und abgebrochene Simulationen
+liefern keinen behaupteten Profit.
+
+`CraftingCalculatorService` hält das aktive Rechenszenario im RAM.
+`CraftingScenarioStore` speichert ausschließlich die manuelle Auswahl pro lokaler
+Profil-GUID atomar in `crafting-scenarios.json`: Bereich, Unterkategorie, Suche,
+Rezept/Variante, Menge, Simulationszahl, Bezugswege, Alternativen, Bestände und manuelle Rechenlevel.
+500-ms-Debounce und serieller Writer fassen Eingaben zusammen; letzte Lease und
+Dispose sichern verbleibende Änderungen. Profilwechsel restaurieren getrennte
+Szenarien, gelöschte Profile können durch verspätete Schreibvorgänge nicht
+wiederkehren. Defekte oder unbekannte Dateischemata bleiben schreibgeschützt;
+Speicherfehler werden separat gemeldet und sperren die Berechnung nicht.
+Beobachtete Level, abgeleitete Referenzlevel, Preise und Ergebnisse werden nie als
+Szenario gespeichert. Nur eine erworbene
+Ansichtslease aktiviert Preise und Berechnung; Änderungen widerrufen ältere
+Ergebnisse. Der Dienst teilt Exchange-Client, Cache, Serverzuordnung und Gebühren
+mit den bestehenden Preisfunktionen. Beutefakten werden dabei nicht verändert.
+Vor jeder Marktanfrage werden benötigte Item-IDs auf bestätigte Handelbarkeit
+gefiltert. Gebundene, nicht handelbare und unbekannt klassifizierte Items bleiben
+im Rezeptschema und in der NPC-Preisprojektion, benötigen aber weder aktuelle
+Angebote noch 24h-Ersatzwerte. Ohne marktfähige Items wird auch bei explizitem
+Preis-Refresh kein Serverkatalog geladen. Die passive Diagnose zählt getrennt
+marktfähige, nicht handelbare und ungeklärt klassifizierte benötigte Items.
+`CraftingProficiencyStateService` liest ausschließlich die nach vollständiger
+Own-Prüfung veröffentlichte Fertigkeitsdomain. Eine separate atomare Datei
+`crafting-proficiency.json` hält die Historie pro lokaler Profil-GUID; gespeicherte
+Werte und manuelle Rechenlevel bleiben von Livebelegen unterscheidbar.
+
+Die auswählbare Diagnose `crafting-calculator` liest nur bestehende Zustände.
+Die zusätzliche Debugprojektion enthält ausschließlich Kategorien, Level,
+Quellenstatus und Faktzeiten und wird nur bei gültig konfiguriertem Debugport
+ausgegeben. Eine Änderungsmeldung für Proficiency ist noch nicht qualifiziert;
+der erkannte Stand stammt ausdrücklich vom letzten bestätigten Welteintritt.
+
+### Abhängigkeitskarte
+
+Die normale Rezeptansicht verwendet `CraftingDependencyMapProjection` als reine
+Projektion des vorhandenen Szenarios. Exakte Item-IDs, gewählte Unterrezepte und
+Materialalternativen erzeugen einen begrenzten azyklischen Graphen. Gemeinsame
+Zutaten erscheinen einmal; ihr erwarteter Gesamtbedarf stammt aus den tatsächlichen
+Simulationsschritten. Der bereits bestandsbereinigte Einkaufsrest wird nicht
+erneut um denselben Bestand vermindert. Mehrdeutige Herstellungswege erfordern
+eine explizite Auswahl. Sammeländerungen werden als eine Szenarioänderung gebucht.
+
+Die Mengenbalken zeigen ausdrücklich manuellen Planbestand. Gold mit dem bestehenden
+Unique-Glanz bedeutet gedeckten Durchschnittsbedarf ohne offenen Einkaufs- oder
+Produktionsanteil. Ein neu zu produzierendes Ziel hat ohne Ergebnisbeleg keinen
+behaupteten Fortschritt. Bestätigte Craft-Ereignisse, tatsächliche Ausgaben und
+Fehlcraft-Verluste sind noch nicht qualifiziert. Die eigene auswählbare Diagnose
+`crafting-dependency-map` weist diese Quellenlücke aus und aktiviert keine Quelle.
+Transfercrafting behält seine getrennte Kostenansicht und Beschaffungsregeln.
+
+### Referenzlevel und konkrete COMBO-Ziele
+
+`CraftingReferenceProjection` traversiert nur die gewählten Herstellungswege und
+erreichbaren COMBO-Stufen. Pro Beruf wird das Maximum der benötigten Mindestlevel
+abgeleitet. Ein bekanntes zu niedriges Rechenlevel wird ausschließlich für diese
+Rechnung angehoben; Charakterstand und manuelle Eingaben bleiben unverändert.
+Die UI zeigt Charakterwarnung, Referenzsimulation und verwendete Mindestlevel.
+Unbekannte Level bleiben unbekannt; fehlende Kurven und andere Fachlücken werden
+dadurch nicht ersetzt. Schon vorhandene garantierte einzelne Transferausrüstung
+kann ihre Vorstufenkette einsparen, ein stochastisches COMBO-Ziel dagegen nicht.
+
+COMBO-Ausrüstung erscheint mit eigener Ausgabe-ID als separates auswählbares
+Produkt. `CraftingOutputTargetCalculator` simuliert bis zur exakten neu erzeugten
+Zielmenge, mit unabhängigen Basiserfolgen, Aktivierungen und COMBO-Erfolgen.
+Vorhandene Zielkopien und normale Ausgaben erfüllen dieses Ziel nicht. Exakte
+COMBO-Vorstufen werden nicht gegen ein ähnlich benanntes Basisitem ersetzt.
+Tatsächliche Ausgabekörbe, gemeinsame Zwischenbestände und Fehlschlagsverbrauch
+bestimmen Kosten und Gesamtquantile. Nur der Zielverkauf fließt in den Profit ein;
+zusätzliche mögliche Nebenproduktverkäufe bleiben separat. Fehlt ausschließlich
+der Zielverkauf, bleiben nach abgeschlossener Simulation Kosten und Bedarf
+verfügbar; Erlös und Profit bleiben unbekannt. Fehlende Einkaufspreise und
+unvollständige Simulationen liefern keine Kostenkennzahlen. Transfer-COMBO-Ziele
+verwenden ebenfalls die konkrete ID und behalten reine Kostenkennzahlen.
+
+### Transferkosten und vorhandene Materialien
+
+Der zusätzliche Browserbereich `Transfercrafting` hat 19 direkte Ausrüstungsarten,
+erzeugt aber keinen sechsten Proficiency-Wert. Native Item-/Rezeptklassifikationen
+trennen Ausrüstung und Transferrezepte; fehlende Klassifikationen bleiben nullable.
+Die fünf normalen Berufsbereiche behalten ihre bestehende Unterteilung.
+Transferfilter verwenden die Ausrüstungsart des Rezepts. Eine direkte
+Rezeptauswahl einschließlich globaler Suchtreffer synchronisiert den
+Browserbereich und die Ausrüstungsart mit der gewählten Rezeptdefinition.
+Zusätzlich begrenzt die konfigurierte Marktfraktion die Rezeptliste, globale
+Suchtreffer und auswählbare Unterrezepte. Neutrale Rezepte bleiben sichtbar;
+eine noch unbekannte Fraktion schränkt den Browser nicht ein. Der Dienst weist
+inkompatible direkte Rezept-/Quellenwahlen ab. Nach einem Fraktionswechsel
+ersetzt er ein unpassendes Ziel bevorzugt durch dasselbe Ausgabeitem im aktuellen
+Bereich/Slot, andernfalls durch ein passendes Basisrezept oder eine leere Auswahl.
+Ungültige Herstellerwahlen werden entfernt; manuelle Bestände desselben Profils
+bleiben erhalten. Die passive Diagnose nennt Einstellungen- und Rezeptfraktion
+sowie die Zahl kompatibler Basisrezepte.
+`TransferCraftingCalculator` berechnet ausschließlich Bruttoherstellungskosten,
+Einkaufsmengen und das 90-%-Gesamtbudget. Es gibt keine Verkaufsbewertung von
+Transferausgaben oder Marktpreisabfragen für deren Ausrüstungsvorstufen.
+
+Eine exakt ausgewählte Transferausrüstung kann als vorhandene einzelne Kopie
+eingeplant werden. Fehlende Kopien und gewöhnliche Ausrüstungsmaterialien werden
+über exakte Herstellerrezepte beschafft; mehrere Wege benötigen eine Auswahl,
+fehlende Wege bleiben unbekannt. Die bestätigte 100-%-Transferregel ist ein eigener
+Nutzerbeleg und ersetzt keine fehlenden nativen Wahrscheinlichkeitskurven.
+Normale Vorrezepte behalten ihre Proficiency-, Erfolgs- und COMBO-Regeln.
+
+Alle Materialbestände gelten in einem gemeinsamen endlichen Planinventar pro
+Durchlauf. Nur nachzukaufende Fehlmengen erzeugen Kosten; Überbestände erhalten
+keine Gutschrift. Geschützte Transferausrüstung wird vor sonstiger Ausrüstung und
+Rohstoffen beschafft. Bereits neu erzeugte zulässige COMBO-Alternativen oder höhere
+Zielausgaben können weitere Transfers und Materialkäufe ersparen. Ungewählte
+vorhandene Ausrüstung wird dabei nicht als Alternative verbraucht.
+
+Besitzangaben gehören zum gespeicherten Szenario und werden beim Profilwechsel
+durch die Angaben des gewählten Profils ersetzt. Normales
+Crafting verwendet denselben endlichen Materialbestand. Die UI ersetzt den
+Kauf-Dropdown durch Mengenfelder; Unterrezepte bleiben ausdrücklich auswählbar.
+Hintergrundaktualisierungen erhalten das bisherige Ergebnis, während fachliche
+Eingabe-/Quellenwechsel es verwerfen. Die passive Diagnose unterscheidet Kosten-
+und Profitmodus, Garantiertheitsquelle und vorhandene Material-/Geararten.
+
+Der Calculator verwendet eine Arbeitsansicht mit unabhängig scrollender
+Rezeptauswahl links und Herstellungsplan rechts. Globale Bereichs-/Kategoriewahl
+und die kompakte Proficiency-Zeile bleiben sichtbar; Kennzahlen haften im Plan
+oben. Schema und Einkaufsliste teilen einen Scrollbereich. Unter 1100 Pixeln
+steht der Einkauf unter dem Schema, unter 900 Pixeln auch der Plan unter der
+Rezeptauswahl. UI-Struktur und CSS enthalten keine fachliche Berechnung.
+
 ## Lösung
 
 - `Soulcrest.Core` (`net10.0`): Pet-Daten, Fortschrittsmodelle, begrenzte Netzwerkparser,
@@ -685,3 +819,85 @@ bestehenden nativen Ownership-Nachweis. Ausgehende Pakete werden ausschließlich
 aufgezeichnet, nicht an Decoder geliefert. Dateischreiben läuft über eine begrenzte
 Queue unabhängig vom Tracker. PCAP-Dateien bewahren Paketbytes und Originalzeiten;
 Manifest und Status nennen IPv4/TCP, aktiven Quelladapter, Grenzen und Unterbrechungen.
+
+## Startkontext und automatische Exchange-Zuordnung (2026-11-10)
+
+`UnifiedLootOverlayState.WaitingForWorldContext` stammt aus derselben atomaren
+Veröffentlichung wie Quelle und aktive Session. Es unterscheidet fehlende aktuelle
+Own-Kartenbestätigung von einer Pause, fehlenden Drops, einem nicht unterstützten
+Gebiet und ausgeschalteten Quellen. Die Präsentationsprojektion gibt das Flag nur
+bei gültiger Beobachtungszeit weiter; ausschließlich die Liveansicht des Editors
+zeigt den Hinweis. `loot-sessions`/`loot-pve`/`loot-lifeskill` diagnostizieren ihn
+anonym ohne zusätzlichen Bindungs-, Erfassungs- oder Aufnahmeaufruf.
+
+`ExchangeMarketAutoSelectionService` liest die vorhandene eigene Netzwerkbindung
+und `ExplorationService.TryGetBoundCharacter`, unabhängig vom manuell betrachteten
+Profil. Nur ein exakter eindeutiger Join der eigenen Serverkennung mit dem
+expliziten `game_server_key` des gemeinsamen Exchange-Serverkatalogs liefert
+Region, Fraktion und dessen separate Anbieter-ID `server_id`. Beide Kennungen
+werden atomar in der automatischen Profilzuordnung gespeichert. Die Vorabprüfung
+neuer Beutebelege und der Liveprojektion vergleicht ausschließlich den nativen
+Schlüssel mit der eigenen Serverkennung; API-Anfragen und Preisbelege verwenden
+weiterhin die Anbieter-ID. Kein Offset-, Namens- oder anderer Ersatzabgleich.
+Alte Katalogcaches ohne native Schlüssel behalten Preise und Lookupfristen, aber
+ihr Serverlistenzeitpunkt wird ungültig, damit der gemeinsame Client sie einmal
+regulär erneuert. Mehrdeutige oder fehlende Schlüssel bleiben unbekannt.
+Onlinepreise werden beim Start automatisch aktiviert; der UI-Schalter entfällt.
+Cache, Abrufabstände und Rückstau bleiben gemeinsam genutzt.
+Keine Charakter-/Profilkennung und kein Charaktername gelangen in HTTP-Anfragen.
+
+`AutoDetectServer` ist ein additives nullable Profilfeld: Ohne expliziten Wert
+werden alle Profile automatisch zugeordnet; nur explizit false bleibt manuell.
+Atomare Profilupdates bewahren aktuelle Gebühren
+und explizite manuelle Änderungen. Gebührenspeicherung ändert ausschließlich die
+Gebührenfelder. Vor dem Commit wird die aktuelle Own-Autorität erneut geprüft;
+der Netzwerkadapter publiziert dafür einen lockfreien unveränderlichen Own-Snapshot.
+Damit entsteht keine Settings-/Netzwerk-Sperrumkehr. Fehler werden sichtbar,
+eine ausdrückliche Wiederholung hebt die Fehlersperre auf. Quellenwechsel,
+interne Sperren und Dispose widerrufen ausstehende Ergebnisse. Der bestehende
+`loot-market`-Diagnosebeitrag ergänzt ausschließlich anonyme Zuordnungsflags.
+
+Die Zuordnung wird vor künftigen Beutebewertungen im bestehenden Profilmodell
+gespeichert. Liveprojektion und eingefrorene Bewertungen verwenden weiterhin ihre
+bisherigen Dienste; alte Preisbelege, Gebührenbasen, Beutefakten und Sessionzeiten
+werden nicht umgeschrieben. Fehlende oder nicht eindeutige Server bleiben unbekannt.
+
+### Live-Marktwert aus 24h-Beobachtungsmitteln (10.11.2026)
+
+Für Market Kina und Market Kina/h haben nach der Nutzerpräzisierung vom 10.11.2026
+aktuelle gültige niedrigste Stückpreise Vorrang. Sie werden gemeinsam in 100er-Batches
+abgerufen und mit der eingefrorenen Lootbewertung sowie weiteren Verbrauchern geteilt.
+Nur Items ohne aktuellen Preis verwenden das arithmetische Mittel der niedrigsten
+Stückpreise im vorangehenden 24h-Fenster. Einzelne letzte historische Angebote sind
+kein Ersatz. Bereits verfügbare aktuelle Preise lösen keinen Verlaufsabruf aus.
+
+Die zusätzliche Average-Capability des gemeinsamen Clients fragt die dokumentierte
+Prices-Schnittstelle mit auf die UTC-Stunde abgerundetem Start und bucket=raw ab.
+Ein exaktes from/to erzeugt beim Anbieter HTTP 308; die kanonische URL vermeidet
+Weiterleitungen, während automatische Redirects weiterhin gesperrt bleiben.
+Antworten können im Anbietercache liegen: Das tatsächliche, höchstens zehn Minuten
+alte Bereichsende begrenzt das exakte 24h-Fenster, bei kleiner Zukunftsabweichung
+höchstens die eigene Anfragezeit. Der Anbieter muss den gesamten Tag abdecken.
+Ausschließlich echte Rohzeitpunkte innerhalb dieses [Start,Ende)-Fensters liefern
+Summe und Anzahl; der zusätzliche Stundenrand und spätere Punkte bleiben draußen.
+Einzelbeobachtungen, Server/Item, Rohpunktform, Zeitrahmen und JSON werden validiert;
+unbrauchbare Daten bleiben unbekannt. Es gibt keine Median-, Verkaufsvolumen- oder
+Ausreißerheuristik.
+
+AveragePrices und AverageLookups sind optionale, anonyme Erweiterungen derselben
+Schema-1-Cachedatei. Positive und negative Mittelwerttreffer unterdrücken erneute
+Anfragen für zehn Minuten ab erfolgreichem Abruf, auch nach Neustart und bei einem
+bereits älteren Anbietercachefenster. Die Datenfrische bleibt davon getrennt sichtbar.
+Fehlende aktuelle Preise werden während eines frischen Mittelwert-Lookups durch
+Editorinstanzen nicht erneut gepollt; die einminütige Frist für eingefrorene Belege
+bleibt unabhängig erhalten. Ältere noch zulässige Cachewerte sind als veraltet markiert.
+Gemeinsamer Fetch-Gate,
+HTTP-Mindestabstand und Fehlerbackoff bleiben unverändert. Einzelne Ergebnisse
+werden inkrementell veröffentlicht und über Fenster/Module geteilt. Abbruch,
+Quellenwechsel und unqualifizierte Sessions können keine alten Ergebnisse als
+neue Livewerte übernehmen. Layouts und Vorlagen enthalten weiterhin keine Preise.
+
+Die Marktdiagnose zeigt Basis, Anzahl aktueller Preiszeilen und 24h-Ersatzwerte,
+anonyme Abdeckung, Beobachtungsanzahl, Ladezustand und Zeitraum. Durchschnittsfenster
+und Samples stammen ausschließlich aus tatsächlich verwendeten Ersatzwerten.
+Vollständige veraltete Preise ergeben Warning statt Healthy.

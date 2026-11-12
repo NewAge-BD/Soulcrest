@@ -49,7 +49,7 @@ public sealed record NetworkProgressSources(bool IdentityIsLive, string? Charact
 public sealed partial class NetworkLootService(ProgressService progress, ExplorationService? exploration = null,
     WorldContextService? worldContext = null) : INetworkLootSource, INetworkMerchantSource,
     INetworkGatheringSource, INetworkKinaSource, INetworkFarmSource, INetworkAbyssSource, INetworkAbyssCombatSource,
-    INetworkSkillSource, INetworkCharacterCombatSource, INetworkAchievementSource, IDisposable
+    INetworkSkillSource, INetworkCharacterCombatSource, INetworkAchievementSource, INetworkGenusInsightSource, IDisposable
 {
     public WorldContextService WorldContext { get; } = worldContext ?? new();
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(5);
@@ -157,6 +157,8 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
 
     /// <summary>Atomic live own identity/class binding; null on every network context boundary.</summary>
     public OwnCharacterContext? OwnCharacter { get { lock (_gate) return _ownCharacter; } }
+    /// <summary>Immutable authority pointer for commit guards; never takes the transport lock.</summary>
+    public OwnCharacterContext? OwnCharacterSnapshot => Volatile.Read(ref _ownCharacter);
     private long _progressGeneration, _merchantGeneration;
     private long _progressSequence;
     private long _petGeneration, _petSequence;
@@ -1079,7 +1081,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             // Revoke the entity proof before any service event can reenter with a broadcast.
             if (characterAffected)
             {
-                _ownCharacter = null;
+                Volatile.Write(ref _ownCharacter, null);
                 _identity = null;
                 ResetSkillContext();
                 ResetCombatContext(at: capturedAtUtc);
@@ -1125,7 +1127,11 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             }
             if (opcode is 0x3649 or 0x364A or 0x3656 or 0x8D00 or 0xE226 or 0xE22E or 0x5672 or 0x5676 or 0x5679 or 0x5683 or 0x5684 or 0x5686 or 0x9018 or 0x901A)
             {
-                if (ProcessOwnCombatMessage(stream, opcode, message, at))
+                var genusChanged = ProcessGenusInsightDelta(stream, opcode, message, at);
+                var combatChanged = ProcessOwnCombatMessage(stream, opcode, message, at);
+                // Both sources finish their transaction before a subscriber can rebind or invalidate it.
+                if (genusChanged) NotifyGenusInsightChanged();
+                if (combatChanged || genusChanged)
                     SafeEvent.Raise(Changed, "Eigene Charakterwerte");
                 return;
             }
@@ -1390,7 +1396,9 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         PetBaselineAt = null;
         _petActivityAt = null;
         _petFormatRejected = false;
+        InvalidateGenusInsight();
         progress.MarkPetNetworkStale();
+        NotifyGenusInsightChanged();
     }
 
     /// <summary>Entity-free own-pet messages belong to one collection, independently of character/realm.</summary>
@@ -1438,6 +1446,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         var farmOwn = _identityStream == stream ? _ownCharacter : null;
         var revision = ++_sourceRevisions[0];
         var generation = _petGeneration;
+        var captureGeneration = _generation;
         _petStreams.Add(stream); // Bind/apply notify synchronously; a reentrant gap must already see its scope.
         if (!progress.BindPetSession(new(generation, 0, at)) || generation != _petGeneration) return;
         var context = new PetProgressContext(generation, ++_petSequence, at);
@@ -1454,6 +1463,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                     _petFormatRejected = false;
                     RecordProgressEvent(new(at, NetworkProgressEventKind.Snapshot, opcode,
                         Count: snapshot.Levels.Keys.Concat(snapshot.AvailableSouls.Keys).Distinct().Count()));
+                    PublishAcceptedGenusInsight(stream, snapshot, at, generation, captureGeneration, revision);
                 }
                 break;
             case 0x9009 when PetProgressMessage.TryParseAcquired(message) is { } acquired:
@@ -1496,7 +1506,9 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             RecordProgressRejection(opcode, at);
             PetBaselineAt = null;
             _petFormatRejected = true;
+            InvalidateGenusInsight(NetworkCombatSourceStatus.Conflict);
             progress.MarkNetworkPetSourceStale();
+            NotifyGenusInsightChanged();
         }
         else if (accepted)
         {
@@ -1670,13 +1682,13 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             CompleteAbyssPointTransitionReset(continuity);
             if (_generation != captureGeneration || _progressGeneration != ownGeneration || _identity is not null) return;
             _identity = identity;
-            _ownCharacter = new(identity, ownGeneration)
+            Volatile.Write(ref _ownCharacter, new OwnCharacterContext(identity, ownGeneration)
             {
                 CombatScore = combatScore is >= 0 ? combatScore : null,
                 GearScore = gearScore is >= 0 ? gearScore : null,
                 ObservedAt = at,
                 HasPositiveHealth = hasPositiveHealth,
-            };
+            });
             _identityStream = stream;
             _skillOwnQualified = skillsQualified;
             BindSkillBaseline(null);
@@ -1760,7 +1772,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             ResetDailyKinaContext();
             ResetFarmDropContext();
             var ownCharacterChanged = _ownCharacter is not null;
-            _ownCharacter = null;
+            Volatile.Write(ref _ownCharacter, null);
             _identityStream = null;
             Character = null;
             _entryCandidate = null;

@@ -82,7 +82,7 @@ internal static class Program
         var timer = new System.Windows.Forms.Timer { Interval = 250 };
         timer.Tick += (_, _) =>
         {
-            var uiDone = Services.SmokeTest.UiRendered && Services.SmokeTest.MapShown;
+            var uiDone = Services.SmokeTest.UiRendered && Services.SmokeTest.MapShown && Services.SmokeTest.ThemeApplied;
             var timedOut = DateTime.UtcNow - started > TimeSpan.FromSeconds(45);
             if (!uiDone && Services.SmokeTest.Error is null && !timedOut)
                 return;

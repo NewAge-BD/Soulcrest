@@ -1,0 +1,677 @@
+/* User request 2026-11-12: dependency map, manual stock coverage and direct source choices. */
+.craft-page.craft-map-layout .craft-map-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.craft-page.craft-map-layout .craft-map-observed-loss strong { color: var(--error); }
+.craft-page.craft-map-layout .craft-plan-heading { padding-top: 8px; padding-bottom: 8px; }
+.craft-page.craft-map-layout .craft-map-metrics { margin-bottom: 4px; }
+.craft-page.craft-map-layout .craft-map-metrics > div { padding: 8px 12px; }
+.craft-page.craft-map-layout .craft-map-metrics > div > span { margin-bottom: 4px; }
+.craft-page.craft-map-layout .craft-map-metrics > div > small { margin-top: 3px; }
+.craft-page.craft-map-layout .craft-status { min-height: 22px; }
+.craft-page.craft-map-layout .craft-plan-columns { padding-top: 10px; }
+.craft-map-legacy-schema { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 12px; }
+.craft-map-legacy-schema > summary { color: var(--muted); font-size: 12px; cursor: pointer; }
+.craft-map-legacy-schema .craft-section-heading { margin-top: 12px; }
+@media (max-width: 1199px) {
+    .craft-page.craft-map-layout .craft-map-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .craft-page.craft-map-layout .craft-map-metrics > div:last-child { grid-column: auto; }
+}
+.craft-page.craft-map-layout .craft-plan-pane {
+    container: craft-plan / inline-size;
+}
+
+.craft-page.craft-map-layout .craft-plan-columns {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 20px;
+}
+
+.craft-page.craft-map-layout .craft-shopping {
+    padding: 16px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+}
+
+.craft-map {
+    --craft-map-gold: #fbca47;
+    --craft-map-gold-rgb: 251, 202, 71;
+    container: craft-map / inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.craft-map *, .craft-map *::before, .craft-map *::after {
+    box-sizing: border-box;
+}
+
+.craft-map-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    min-width: 0;
+}
+
+.craft-map-toolbar > :is(div, label) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    min-width: 0;
+}
+
+.craft-map-toolbar label {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.craft-map-toolbar :is(button, select),
+.craft-map-node-actions button,
+.craft-map-source-choice button {
+    min-width: 0;
+    min-height: 30px;
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.craft-map :is(button, input, select):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.craft-map-toolbar button:hover:not(:disabled),
+.craft-map-node-actions button:hover:not(:disabled),
+.craft-map-source-choice button:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--accent) 65%, var(--line));
+    background: color-mix(in srgb, var(--accent) 8%, var(--panel-2));
+}
+
+.craft-map-caption {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-chain {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 24px;
+    min-width: 0;
+}
+
+.craft-map-stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.craft-map-stage > .craft-map-node {
+    flex: 1 1 auto;
+}
+
+.craft-map-edge {
+    position: absolute;
+    top: 43px;
+    right: -22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 20px;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.craft-map-stage:nth-child(4n) > .craft-map-edge,
+.craft-map-stage:last-child > .craft-map-edge {
+    display: none;
+}
+
+.craft-map-materials {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+    align-items: stretch;
+    gap: 10px;
+    min-width: 0;
+}
+
+.craft-map-node {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+    padding: 11px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-2);
+    color: var(--text);
+    transition: border-color .15s ease, background-color .15s ease;
+}
+
+.craft-map-node.selected {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, var(--panel-2));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.craft-map-node.target:not(.selected) {
+    border-color: color-mix(in srgb, var(--craft-map-gold) 45%, var(--line));
+}
+
+.craft-map-node.complete:not(.selected) {
+    border-color: color-mix(in srgb, var(--craft-map-gold) 50%, var(--line));
+}
+
+.craft-map-node.bypassed {
+    background: var(--panel);
+    border-style: dashed;
+}
+
+.craft-map-node.bypassed .craft-map-kind {
+    color: var(--muted);
+}
+
+.craft-map-node-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+}
+
+.craft-map-chain .craft-map-node-head {
+    min-height: 70px;
+}
+
+.craft-map-combo-slot {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    min-height: 20px;
+}
+
+.craft-map-combo-slot .craft-combo-product-badge {
+    padding: 2px 5px;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.craft-map-node-head > img,
+.craft-map-node-head > button > img {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 4px;
+    background: var(--bg);
+}
+
+.craft-map-node-head > :is(div, span) {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.craft-map-node-head > button,
+button.craft-map-name,
+.craft-map-name > button {
+    display: flex;
+    align-items: flex-start;
+    flex: 1 1 0;
+    gap: 8px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-node-head > button:hover,
+button.craft-map-name:hover,
+.craft-map-name > button:hover {
+    color: var(--accent);
+}
+
+.craft-map-node-head input[type="checkbox"] {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    margin: 3px 0 0;
+    accent-color: var(--accent);
+}
+
+.craft-map-name {
+    display: block;
+    min-width: 0;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-kind {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-quantity {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 3px 8px;
+    min-width: 0;
+    margin-top: 0;
+    color: var(--text);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-quantity :is(small, span) {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.craft-map-quantity strong {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.craft-map-progress {
+    position: relative;
+    isolation: isolate;
+    height: 11px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--muted) 15%, var(--bg));
+}
+
+.craft-map-progress-fill {
+    position: relative;
+    display: block;
+    height: 100%;
+    min-width: 0;
+    max-width: 100%;
+    border-radius: inherit;
+    background: var(--accent);
+    transition: width .25s ease;
+}
+
+/* Same ribbon geometry and low-dust motion as the production Unique loot rows. */
+.craft-map-progress.complete,
+.craft-map-node.complete .craft-map-progress {
+    background: rgba(var(--craft-map-gold-rgb), .15);
+}
+
+.craft-map-progress.complete .craft-map-progress-fill,
+.craft-map-node.complete .craft-map-progress-fill {
+    background: linear-gradient(112deg, rgba(var(--craft-map-gold-rgb), .85), rgba(var(--craft-map-gold-rgb), .44) 72%);
+}
+
+.craft-map-progress.complete .craft-map-progress-fill::before,
+.craft-map-progress.complete .craft-map-progress-fill::after,
+.craft-map-node.complete .craft-map-progress-fill::before,
+.craft-map-node.complete .craft-map-progress-fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.craft-map-progress.complete .craft-map-progress-fill::before,
+.craft-map-node.complete .craft-map-progress-fill::before {
+    opacity: .6;
+    background: linear-gradient(160deg, transparent 35%, rgba(var(--craft-map-gold-rgb), .07) 42%, rgba(var(--craft-map-gold-rgb), .38) 45%, transparent 49%, rgba(var(--craft-map-gold-rgb), .17) 51%, transparent 54%);
+    background-size: 240% 180%;
+    animation: craft-map-unique-ribbon 5s linear infinite;
+}
+
+.craft-map-progress.complete .craft-map-progress-fill::after,
+.craft-map-node.complete .craft-map-progress-fill::after {
+    background-image: radial-gradient(circle at 14% 73%, #fff6 0 .7px, transparent 1.3px), radial-gradient(circle at 46% 26%, rgba(var(--craft-map-gold-rgb), .75) 0 .6px, transparent 1.2px), radial-gradient(circle at 78% 62%, #fff5 0 .6px, transparent 1.2px), radial-gradient(circle at 87% 16%, rgba(var(--craft-map-gold-rgb), .6) 0 .8px, transparent 1.4px);
+    animation: craft-map-unique-dust 3.8s ease-in-out infinite alternate;
+}
+
+.craft-map-node-actions,
+.craft-map-source-choice {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-width: 0;
+}
+
+.craft-map-node-actions button {
+    flex: 1 1 65px;
+    min-height: 26px;
+    padding: 3px 6px;
+}
+
+.craft-map-source-choice button {
+    min-height: 26px;
+    padding: 3px 7px;
+}
+
+.craft-map-node-actions button.selected,
+.craft-map-source-choice button.selected,
+.craft-map-toolbar button.selected {
+    border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+    background: color-mix(in srgb, var(--accent) 13%, var(--panel));
+    color: var(--text);
+}
+
+.craft-map-stock {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.craft-map-stock label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1 1 0;
+    flex-wrap: wrap;
+    gap: 5px 8px;
+    min-width: 0;
+}
+
+.craft-map-stock input {
+    width: 60px;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 26px;
+    padding: 2px 5px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.craft-map-source-choice {
+    align-items: center;
+    gap: 7px;
+}
+
+.craft-map-source-choice > :is(label, span) {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.craft-map-material-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 7px 12px;
+    min-width: 0;
+}
+
+.craft-map-material-toolbar > button {
+    min-width: 0;
+    min-height: 28px;
+    padding: 3px 8px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-material-toolbar > button:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--accent) 65%, var(--line));
+    background: color-mix(in srgb, var(--accent) 8%, var(--panel-2));
+}
+
+.craft-map-recipe-choice {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.craft-map-recipe-choice > label {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.craft-map-recipe-choice > .item-select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.craft-map-recipe-choice .item-select-trigger {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 12px;
+}
+
+.craft-map-inspector {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-2);
+}
+
+.craft-map-inspector :is(h3, h4, p) {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-inspector :is(h3, h4) {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.craft-map-inspector p {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.craft-map-link-label {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px 8px;
+    min-width: 0;
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-empty {
+    margin: 0;
+    padding: 14px 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-live-status {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 8px 10px;
+    border-left: 2px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 5%, var(--panel));
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.craft-map-live-status strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+@keyframes craft-map-unique-ribbon {
+    from { background-position: 120% 75%; }
+    to { background-position: -100% 35%; }
+}
+
+@keyframes craft-map-unique-dust {
+    from { opacity: .15; transform: translateY(1px); }
+    to { opacity: .5; transform: translateY(-1px); }
+}
+
+@container craft-plan (min-width: 1050px) {
+    .craft-page.craft-map-layout .craft-plan-columns {
+        grid-template-columns: minmax(0, 1fr) 280px;
+    }
+
+    .craft-page.craft-map-layout .craft-shopping {
+        padding: 0 0 0 16px;
+        border-top: 0;
+        border-left: 1px solid var(--line);
+    }
+}
+
+@container craft-map (max-width: 760px) {
+    .craft-map-chain {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .craft-map-stage:nth-child(4n) > .craft-map-edge {
+        display: flex;
+    }
+
+    .craft-map-stage:nth-child(3n) > .craft-map-edge,
+    .craft-map-stage:last-child > .craft-map-edge {
+        display: none;
+    }
+}
+
+@container craft-map (max-width: 560px) {
+    .craft-map-chain {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+    }
+
+    .craft-map-stage:nth-child(3n) > .craft-map-edge {
+        display: flex;
+    }
+
+    .craft-map-stage:nth-child(2n) > .craft-map-edge,
+    .craft-map-stage:last-child > .craft-map-edge {
+        display: none;
+    }
+
+    .craft-map-edge {
+        right: -19px;
+        width: 18px;
+    }
+}
+
+@container craft-map (max-width: 350px) {
+    .craft-map-chain {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+    }
+
+    .craft-map-stage > .craft-map-edge,
+    .craft-map-stage:nth-child(n) > .craft-map-edge {
+        top: auto;
+        right: calc(50% - 9px);
+        bottom: -19px;
+        display: flex;
+        transform: rotate(90deg);
+    }
+
+    .craft-map-stage:last-child > .craft-map-edge {
+        display: none;
+    }
+}
+
+@media (max-width: 1399px) {
+    .craft-page.craft-map-layout .craft-workspace {
+        grid-template-columns: 270px minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 899px) {
+    .craft-page.craft-map-layout .craft-workspace {
+        display: flex;
+    }
+}
+
+@media (pointer: coarse) {
+    .craft-map-toolbar :is(button, select),
+    .craft-map-node-actions button,
+    .craft-map-source-choice button,
+    .craft-map-material-toolbar > button,
+    .craft-map-stock input,
+    .craft-map-recipe-choice .item-select-trigger {
+        min-height: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .craft-map-node,
+    .craft-map-progress-fill {
+        transition: none;
+    }
+
+    .craft-map-progress.complete .craft-map-progress-fill::before,
+    .craft-map-progress.complete .craft-map-progress-fill::after,
+    .craft-map-node.complete .craft-map-progress-fill::before,
+    .craft-map-node.complete .craft-map-progress-fill::after {
+        animation: none;
+    }
+}

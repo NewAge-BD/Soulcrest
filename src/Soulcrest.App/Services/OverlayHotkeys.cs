@@ -68,7 +68,9 @@ public static class OverlayHotkeys
         new OverlayHotkeyAction("event-timeline.toggle", "Event-Timeline"),
         new OverlayHotkeyAction("event-timeline.unlock", "Event-Timeline", true),
         new OverlayHotkeyAction("map.toggle", "Karten-Overlay"),
-        new OverlayHotkeyAction("daevanion.toggle", "Daevanion-Board")
+        new OverlayHotkeyAction("daevanion.toggle", "Daevanion-Board"),
+        new OverlayHotkeyAction("genus-insight.toggle", "Genus Insight"),
+        new OverlayHotkeyAction("genus-insight.unlock", "Genus Insight", true)
     });
 
     public static Dictionary<string, OverlayHotkey?> Defaults() => new(StringComparer.Ordinal)
@@ -91,6 +93,7 @@ public static class OverlayHotkeys
         {
             case "loot.toggle": settings.OverlayEnabled = !settings.OverlayEnabled; break;
             case "achievements.toggle": settings.AchievementOverlayEnabled = !settings.AchievementOverlayEnabled; break;
+            case "genus-insight.toggle": settings.GenusInsightOverlayEnabled = !settings.GenusInsightOverlayEnabled; break;
             case "boss.toggle": settings.BossOverlayVisible = !settings.BossOverlayVisible; break;
             case "leveling.toggle": settings.LevelingOverlayEnabled = !settings.LevelingOverlayEnabled; break;
             case "alerts.toggle": settings.AlertsOverlayEnabled = !settings.AlertsOverlayEnabled; break;
@@ -106,6 +109,7 @@ public static class OverlayHotkeys
     {
         "loot.toggle" => settings.OverlayEnabled,
         "achievements.toggle" => settings.AchievementOverlayEnabled,
+        "genus-insight.toggle" => settings.GenusInsightOverlayEnabled,
         "boss.toggle" => settings.BossOverlayVisible,
         "leveling.toggle" => settings.LevelingOverlayEnabled,
         "alerts.toggle" => settings.AlertsOverlayEnabled,

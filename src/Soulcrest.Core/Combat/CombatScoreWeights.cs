@@ -10,10 +10,11 @@ namespace Soulcrest.Core.Combat;
 public sealed record CombatScoreWeight(string StatId, CombatStatUnit Unit, decimal Coefficient, decimal Lower, decimal Upper);
 
 /// <summary>
-/// Own measured combat-score weights (research 2026-11-09, docs/COMBAT_SCORE_RESEARCH.md).
-/// The combat score is linear in the raw stat components: flat values and their percentage modifiers carry separate
-/// weights; the displayed total (flat × (1 + %)) is not weighted. Only stats with an own controlled contrast are listed;
-/// every other stat stays unknown. Consumable buffs do not count. Skill levels add fixed per-level steps.
+/// Conditional intervals for a raw-linear working model (research 2026-11-09; scope audit 2026-11-12).
+/// Flat and percentage components have separate weights under a fixed remainder and common rounding hypothesis.
+/// Feasibility does not identify the native formula; source-specific factors and missing contributions remain open.
+/// Only stats with an own controlled contrast are listed; every other stat stays unknown. Coefficients are interval
+/// midpoints, not exact native constants. See docs/COMBAT_SCORE_API_RESEARCH_2026-11-12.md.
 /// </summary>
 public static class CombatScoreWeights
 {
@@ -35,7 +36,9 @@ public static class CombatScoreWeights
     public static CombatScoreWeight? Get(string statId) => Stats.FirstOrDefault(weight => weight.StatId == statId);
 
     // CP for the step L-1 -> L, measured on own skill ladders (Divine Aura 11-20, Earth's Retribution 3-12 incl. the
-    // Original x Daevanion matrix, Heal Block 4-10). Source of the level (original, Daevanion, gear) does not matter.
+    // Original x Daevanion matrix, Heal Block 4-10). Equal CP was observed for two total-11 source configurations,
+    // with different original investments and board points. This does not isolate source parity; gear/arcana parity
+    // remains untested. Applying the same curve to their totals is a model assumption, not a native source rule.
     private static readonly IReadOnlyDictionary<int, int> ActiveSteps = new Dictionary<int, int>
     {
         [3] = 100, [4] = 100, [5] = 100, [6] = 100, [7] = 100, [8] = 100, [9] = 100, [10] = 100, [11] = 100,

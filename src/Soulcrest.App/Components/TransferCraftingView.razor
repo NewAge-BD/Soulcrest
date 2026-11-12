@@ -1,0 +1,76 @@
+@using Soulcrest.Core.Crafting
+@using static Soulcrest.App.Services.CraftingCalculatorPresentation
+
+@if (State.SelectedRecipeId is { } selectedId && Catalog.FindRecipe(selectedId) is { } selected)
+{
+    var recipe = Catalog.FindBaseRecipe(selectedId) ?? selected;
+    var result = State.Result;
+    <section class="craft-plan tc-view" data-transfer-crafting="@selectedId" aria-busy="@State.Busy">
+        <header class="craft-plan-heading tc-heading">
+            <div><h2><ItemName ItemId="selected.OutputItemId" Text="@Name(Catalog.FindItem(selected.OutputItemId))" /></h2><div class="tc-manual-help"><span>@UiText.T("Besitzangaben")</span><InfoTip><strong>@UiText.T("TRANSFERHERSTELLUNG")</strong><p>@UiText.T("Herstellungskosten für deine Transfers einschließlich aller benötigten Vorstufen.")</p><p>@UiText.T("Ausrüstungsbesitz wird manuell angegeben. Inventar, Verzauberung und Bindung werden nicht automatisch geprüft.")</p>@if (IsComboEquipmentTarget(Catalog, selectedId)) { <p>@UiText.F("{0} COMBO-Zielitems: Versuche bis zur Zielmenge; Basis- und COMBO-Fehlschläge werden berücksichtigt.", Number(Quantity))</p> }</InfoTip></div></div>
+            <div class="craft-plan-inputs"><label for="transfer-target-quantity">@UiText.T(IsComboEquipmentTarget(Catalog, selectedId) ? "Zielmenge COMBO" : "Zielmenge")<input id="transfer-target-quantity" data-transfer-quantity type="number" min="1" max="100000" value="@Quantity" @onchange="ChangeQuantity" /></label><button type="button" data-transfer-refresh disabled="@State.Busy" @onclick="Refresh">@UiText.T("Aktualisieren")</button></div>
+        </header>
+        <div class="tc-metrics" data-transfer-costs>
+            <div><span>@UiText.T("Erwartete Herstellungskosten")</span><strong data-transfer-expected-cost>@Number(result?.ExpectedCost) <small>Kina</small></strong><small>@UiText.T("Materialien und Vorstufen")</small></div>
+        </div>
+        <div class="craft-status @(State.IsError ? "error" : "")" role="status"><span class="@(State.Busy ? "craft-spinner" : "")" aria-hidden="true">@(State.Busy ? "" : result?.Status == CraftingPlanStatus.Complete ? "✓" : "◇")</span><span>@UiText.T(State.Status)</span></div>
+        @if (State.RequiredPriceCount > 0)
+        {
+            <p class="craft-price-coverage">@UiText.F("Preise: {0} von {1} Items", State.BuyPrices.Count, State.RequiredPriceCount)
+                @if (OldestMarketPrice is { } observed) { <span> · @UiText.T("Ältester Marktpreis") <time datetime="@observed.ToString("O")">@Time(observed)</time></span> }
+            </p>
+        }
+        @if (State.PriceRefreshFailure is not null)
+        {
+            <p class="tc-price-warning" role="status">@UiText.T("Preisaktualisierung fehlgeschlagen; vorhandene Preisbelege werden weiterverwendet.")</p>
+        }
+        @if (result?.Issues.Length > 0)
+        {
+            <div class="craft-issues">@foreach (var issue in result.Issues.Distinct()) { <p>@Issue(issue) @if (issue.ItemId is { } itemId) { <strong><ItemName ItemId="itemId" Text="@Name(Catalog.FindItem(itemId))" /></strong> }</p> }</div>
+        }
+        <div class="craft-plan-columns tc-columns">
+            <div class="craft-schema"><div class="craft-section-heading"><h3>@UiText.T("Rezeptschema")</h3></div>
+                <TransferCraftingTree Catalog="Catalog" Recipe="recipe" State="State" Quantity="Quantity" SourceChanged="SourceChanged" ReplacementChanged="ReplacementChanged" OwnershipChanged="OwnershipChanged" OwnedQuantityChanged="OwnedQuantityChanged" />
+            </div>
+            <aside class="craft-shopping tc-shopping">
+                <h3>@UiText.T("Einkaufsliste")</h3><p>@UiText.T("Zusammengefasst über die gesamte Herstellungskette.")</p>
+                @if (result?.Shopping.Length > 0)
+                {
+                    @foreach (var row in result.Shopping.Where(row => !TransferCraftingRules.IsEquipment(Catalog, row.ItemId)))
+                    {
+                        <div class="craft-shopping-row" data-transfer-shopping="@row.ItemId">@if (Catalog.FindItem(row.ItemId)?.Icon is { } icon) { <img src="@icon" alt="" /> }<div><strong><ItemName ItemId="row.ItemId" Text="@Name(Catalog.FindItem(row.ItemId))" /></strong><small>@Source(row.Source) · @Number(row.UnitPrice) Kina</small></div><span>@Number(row.ExpectedQuantity, "N2")<small>@Number(row.ExpectedCost) Kina</small></span></div>
+                    }
+                }
+                else if (result?.Status == CraftingPlanStatus.Complete) { <p class="craft-empty">@UiText.T("Kein Einkauf erforderlich.")</p> }
+                else { <p class="craft-empty">@UiText.T(State.Busy ? "Der Bedarf wird berechnet …" : "Der Materialbedarf erscheint nach einer vollständigen Kostenrechnung.")</p> }
+                @if (result?.Steps.Length > 0)
+                {
+                    <h3>@UiText.T("Herstellungsschritte")</h3>
+                    @foreach (var step in result.Steps) { <div class="craft-step"><strong><ItemName ItemId="@(Catalog.FindRecipe(step.RecipeId)?.OutputItemId)" Text="@Name(Catalog.FindItem(Catalog.FindRecipe(step.RecipeId)?.OutputItemId ?? 0))" /></strong><span>@UiText.F("{0} Versuche · {1} Fehlschläge im Mittel", Number(step.ExpectedAttempts, "N2"), Number(step.ExpectedFailures, "N2"))</span></div> }
+                }
+                @if (result?.Byproducts.Length > 0)
+                {
+                    <h3>@UiText.T("Erwartete Ausgaben und Reste")</h3>
+                    @foreach (var output in result.Byproducts) { <div class="craft-step" data-transfer-byproduct="@output.ItemId"><strong><ItemName ItemId="output.ItemId" Text="@Name(Catalog.FindItem(output.ItemId))" /> × @Number(output.ExpectedQuantity, "N2")</strong></div> }
+                }
+            </aside>
+        </div>
+        <footer class="craft-assumptions tc-assumptions"><span>@UiText.T("Nebenprodukte und Reste werden ohne Verkaufsgutschrift ausgewiesen. Eine als vorhanden markierte Ausrüstung zählt als eine einzelne Kopie.") @UiText.T("Mögliche COMBO-Aufwertungen können Zwischenschritte sparen.")</span>@if (result?.Samples > 0) { <small>@UiText.F("{0} Simulationsläufe", Number(result.Samples))</small> }</footer>
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public CraftingCatalog Catalog { get; set; } = null!;
+    [Parameter, EditorRequired] public CraftingCalculatorSnapshot State { get; set; } = new();
+    [Parameter] public int Quantity { get; set; } = 1;
+    [Parameter] public EventCallback<int> QuantityChanged { get; set; }
+    [Parameter] public EventCallback<CraftingSourceSelection> SourceChanged { get; set; }
+    [Parameter] public EventCallback<CraftingReplacementSelection> ReplacementChanged { get; set; }
+    [Parameter] public EventCallback<CraftingOwnershipSelection> OwnershipChanged { get; set; }
+    [Parameter] public EventCallback<CraftingOwnedQuantitySelection> OwnedQuantityChanged { get; set; }
+    [Parameter] public EventCallback Refresh { get; set; }
+    private DateTimeOffset? OldestMarketPrice => State.BuyPrices.Values.Where(price => price.IsMarket && price.ObservedAt is not null)
+        .Select(price => price.ObservedAt).Min();
+    private Task ChangeQuantity(ChangeEventArgs args) => int.TryParse(args.Value?.ToString(), out var quantity)
+        && quantity is >= 1 and <= 100_000 ? QuantityChanged.InvokeAsync(quantity) : Task.CompletedTask;
+}

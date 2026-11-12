@@ -10,7 +10,7 @@ font_path = Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Fonts/segoeui.ttf'
 font = ImageFont.truetype(str(font_path), 20)
 small = ImageFont.truetype(str(font_path), 16)
 title = ImageFont.truetype(str(font_path), 28)
-for kind in ('normal', 'stress', 'priority'):
+for kind in ('normal', 'stress', 'priority', 'dungeon'):
     rows = []
     for index, name in enumerate(('smaller', 'small', 'medium', 'large', 'larger')):
         base = f'{name}-native' + ('' if kind == 'normal' else '-synthetic-' + kind)
@@ -18,7 +18,7 @@ for kind in ('normal', 'stress', 'priority'):
         with Image.open(root / (base + '.png')) as source:
             image = source.convert('RGB')
         entries = {entry['SlotIndex']: entry for entry in report['Footers']}
-        if kind == 'priority':
+        if kind in ('priority', 'dungeon'):
             slots = list(entries)
         elif index < 3:
             slots = [0, 2, 1] if kind == 'stress' else [1, 3, 4]
@@ -43,7 +43,8 @@ for kind in ('normal', 'stress', 'priority'):
               font=small, fill=(174, 173, 160))
     note = {'normal': 'Kategorie über dem Petnamen · Counter unter dem Preis · Farmquellen aus dem lokalen Katalog',
             'stress': 'Vier Kategorien und drei dreistellige Farmregionen als synthetischer Breitentest',
-            'priority': '0/5 sowie Special mit ? / MAX · Farmzuordnungen hier bewusst synthetisch'}[kind]
+            'priority': '0/5 sowie Special mit ? / MAX · Farmzuordnungen hier bewusst synthetisch',
+            'dungeon': 'Dungeon: verfügbar / zukünftig / unbekannt · Status und Quellen hier bewusst synthetisch'}[kind]
     draw.text((24, 80), note, font=small, fill=(174, 173, 160))
     y = 117
     for name, crops, height in rows:

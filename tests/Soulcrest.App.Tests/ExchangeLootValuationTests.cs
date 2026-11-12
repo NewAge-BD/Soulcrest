@@ -312,7 +312,7 @@ public sealed class ExchangeLootValuationTests
     }
 
     [Fact]
-    public async Task TheLiveEditorAndFrozenValuationShareTheSamePendingPriceFetch()
+    public async Task LiveCurrentPricesReuseFrozenOfferFetchAndLeaveFrozenReceiptsUnchanged()
     {
         await using var f = new Fixture();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -330,13 +330,22 @@ public sealed class ExchangeLootValuationTests
         editor.Changed += () => { if (editor.Snapshot.Loading) editorWaiting.TrySetResult(); };
         using var lease = editor.Acquire();
         var refresh = editor.RefreshAsync();
-        // Both consumers have planned the same miss before the first response is released.
+        // The live current-price lookup waits behind the committed-offer request on the same gate.
         await editorWaiting.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Empty(f.Client.AverageRequests);
         release.TrySetResult();
         await Task.WhenAll(refresh, f.Service.FlushAsync()).WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Single(f.Client.Requests);
-        Assert.Equal(17, editor.Snapshot.NetKina);
+        Assert.Empty(f.Client.AverageRequests);
+        Assert.Equal(17, editor.Snapshot.NetKina); // Current offer10 * quantity2 * .88, floored once.
+        Assert.Equal(17, f.Service.GetSessionSummary(f.Source.Session).NetKina); // Frozen offer10.
+        var frozen = f.Service.Snapshot.Entries;
+        f.Cache.PutQuotes([new(7, Material, 20, 2, f.Clock.GetUtcNow(), f.Clock.GetUtcNow())]);
+        await editor.RefreshAsync(); await f.Service.RefreshPendingAsync();
+        Assert.Equal(35, editor.Snapshot.NetKina);
+        Assert.Equal(frozen, f.Service.Snapshot.Entries);
         Assert.Equal(17, f.Service.GetSessionSummary(f.Source.Session).NetKina);
+        Assert.Single(f.Client.Requests); Assert.Empty(f.Client.AverageRequests);
     }
 
     [Fact]
@@ -412,8 +421,16 @@ public sealed class ExchangeLootValuationTests
         public void Delete() => SessionDeleted?.Invoke(Session.Id);
         public void Signal() => Changed?.Invoke();
     }
-    private sealed class Client(Clock clock) : IExchangeMarketClient
+    private sealed class Client(Clock clock) : IExchangeMarketClient, IExchangeMarketAverageClient
     {
+        public System.Collections.Concurrent.ConcurrentQueue<(int Server, int[] Items)> AverageRequests { get; } = new();
+        public Task<ImmutableArray<ExchangeMarketAveragePrice>> GetAveragePricesAsync(int server, IReadOnlyCollection<int> items, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            AverageRequests.Enqueue((server, items.ToArray()));
+            var now = clock.GetUtcNow();
+            return Task.FromResult(items.Select(id => new ExchangeMarketAveragePrice(server, id, 5m, 24, now.AddHours(-24), now, now)).ToImmutableArray());
+        }
         public List<(int Server, int[] Items)> Requests { get; } = [];
         public Func<int, IReadOnlyCollection<int>, CancellationToken, Task<ImmutableArray<ExchangeMarketQuote>>>? Reply;
         public Func<CancellationToken, Task<ImmutableArray<ExchangeMarketServer>>>? ServerReply;

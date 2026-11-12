@@ -74,6 +74,19 @@ public sealed class CombatScoreDisplayStatPresentationTests
         Assert.Equal(new CharacterDisplayStatCounts(0, 0, 0, 0, 0, 0), CountDisplayStats([]));
     }
 
+    [Theory]
+    [InlineData("de", "Aus Rolltabellen abgeleitet")]
+    [InlineData("en", "Inferred from roll tables")]
+    public void RollTableRecognitionRetainsItsOwnEvidenceLabel(string language, string expected)
+    {
+        var previous = UiText.Language; UiText.Language = language;
+        try
+        {
+            Assert.Equal(expected, DisplayQualification(CharacterDisplayStatQualification.TableInferred));
+        }
+        finally { UiText.Language = previous; }
+    }
+
     private static CharacterDisplayStatRow Row(decimal? value, CharacterDisplayStatQualification qualification) => new()
     {
         Id = "SyntheticStat", Value = value, Status = CombatKnowledgeStatus.Complete,

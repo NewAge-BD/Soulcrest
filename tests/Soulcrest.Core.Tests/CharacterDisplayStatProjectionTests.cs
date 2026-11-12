@@ -92,7 +92,7 @@ public sealed class CharacterDisplayStatProjectionTests
         Assert.DoesNotContain(result.Rows, row => row.Id is "Light" or "Dark");
         Assert.DoesNotContain(gods.SelectMany(rule => rule.FlatInputs), term => term.NativeId is 12 or 18);
         Assert.Null(Row(result, "Intelligence").Value); Assert.Empty(CombatEffectCatalog.Default.NativeForwardRules);
-        Assert.Equal("character-display-26262663-v3", result.Version);
+        Assert.Equal("character-display-26262663-v4-roll-tables20261112", result.Version);
     }
 
     [Fact]
@@ -348,7 +348,7 @@ public sealed class CharacterDisplayStatProjectionTests
         Assert.Throws<NotSupportedException>(() => ((IList<CharacterDisplayStatDependency>)Row(result, "HPMax").Inputs).Clear());
         Assert.All(result.Rows, row => { Assert.DoesNotContain('\uFFFD', row.LabelDe); Assert.DoesNotContain('\uFFFD', row.LabelEn); });
         Assert.Equal(CharacterDisplayStatProjection.Version, result.Version);
-        Assert.Equal(101, result.Rows.Count); Assert.Equal(101, result.Rows.Select(row => row.Id).Distinct().Count());
+        Assert.Equal(131, result.Rows.Count); Assert.Equal(131, result.Rows.Select(row => row.Id).Distinct().Count());
     }
 
     [Theory]

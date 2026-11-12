@@ -20,6 +20,55 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")]
 public sealed class ExchangeMarketUiTests
 {
+    [Theory]
+    [InlineData("de")]
+    [InlineData("en")]
+    public async Task AutomaticSelectionIsVisibleAndManualOverridePreservesFeesAndOtherProfiles(string language)
+    {
+        await using var fixture = new Fixture(language);
+        fixture.Settings.SetExchangeMarketProfile(FirstProfile, new()
+        {
+            Region = "eu", Faction = "elyos", ServerId = 1, AutoDetectServer = true, SalesTaxPercent = 7.5m,
+        });
+        fixture.Settings.Update(value => value.LootTrackingEnabled = false);
+        ExchangeMarketSettings? component = null;
+        var loads = 0;
+        var html = await fixture.Render<CaptureSettings>(new()
+        {
+            [nameof(CaptureSettings.Captured)] = (Action<ExchangeMarketSettings>)(value => component = value),
+            [nameof(ExchangeMarketSettings.Profiles)] = new (string Id, string Name)[] { (FirstProfile, "Synthetic profile A"), (SecondProfile, "Synthetic profile B") },
+            [nameof(ExchangeMarketSettings.ActiveProfileId)] = FirstProfile,
+            [nameof(ExchangeMarketSettings.DetectedProfileId)] = FirstProfile,
+            [nameof(ExchangeMarketSettings.AutomaticStatus)] = "Marktserver automatisch zugeordnet.",
+            [nameof(ExchangeMarketSettings.Servers)] = Servers,
+            [nameof(ExchangeMarketSettings.LoadServers)] = EventCallback.Factory.Create(this, () => loads++),
+        });
+        Assert.Contains(UiText.T("Marktserver automatisch erkennen"), WebUtility.HtmlDecode(html));
+        Assert.Contains("data-exchange-auto-status=\"true\"", html);
+        Assert.Equal(0, loads);
+        if (Environment.GetEnvironmentVariable("SOULCREST_AUTO_MARKET_PREVIEW") is { Length: > 0 } output)
+        {
+            Directory.CreateDirectory(output);
+            var css = ReadCss("app.css") + ReadCss("loot-tracker.css");
+            await File.WriteAllTextAsync(Path.Combine(output, "auto-market-" + language + ".html"),
+                "<!doctype html><html lang=\"" + language + "\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><style>" + css + "</style></head><body><main class=\"page\">" + html + "</main></body></html>");
+        }
+        await fixture.Event(component!, "exchange-market-auto", "onchange", new ChangeEventArgs { Value = false });
+        var manual = fixture.Settings.GetExchangeMarketProfile(FirstProfile);
+        Assert.False(manual.AutomaticServerSelection);
+        Assert.Equal(1, manual.ServerId);
+        Assert.Equal(7.5m, manual.SalesTaxPercent);
+        await fixture.Event(component!, "exchange-market-auto", "onchange", new ChangeEventArgs { Value = true });
+        var automatic = fixture.Settings.GetExchangeMarketProfile(FirstProfile);
+        Assert.True(automatic.AutomaticServerSelection);
+        Assert.Null(automatic.ServerId); Assert.Null(automatic.Region); Assert.Null(automatic.Faction);
+        Assert.Equal(7.5m, automatic.SalesTaxPercent);
+        Assert.Equal(new ExchangeMarketProfileSettings(), fixture.Settings.GetExchangeMarketProfile(SecondProfile));
+        Assert.True(new SettingsService().GetExchangeMarketProfile(FirstProfile).AutomaticServerSelection);
+        Assert.False(fixture.Settings.Current.LootTrackingEnabled);
+        Assert.Equal(0, loads);
+    }
+
     private const string FirstProfile = "b5037bf47d70426084c0e464b4c85621", SecondProfile = "75adb901b0ee4f56800db99e78cf3276";
     private static readonly DateTimeOffset At = new(2026, 11, 1, 14, 0, 0, TimeSpan.Zero);
     private static readonly ExchangeMarketServer[] Servers =
@@ -53,7 +102,7 @@ public sealed class ExchangeMarketUiTests
         settings.SetExchangeMarketProfile(SecondProfile, first with { Region = "nae", Faction = "asmodian", ServerId = 2, SalesTaxPercent = 7.5m });
         settings.SetOnlineMarketPricesEnabled(false);
         var restarted = new SettingsService();
-        Assert.False(restarted.Current.OnlineMarketPricesEnabled);
+        Assert.True(restarted.Current.OnlineMarketPricesEnabled);
         Assert.False(restarted.Current.LootTrackingEnabled);
         Assert.Equal(first, restarted.GetExchangeMarketProfile(FirstProfile));
         Assert.Equal(7.5m, restarted.GetExchangeMarketProfile(SecondProfile).SalesTaxPercent);
@@ -78,7 +127,7 @@ public sealed class ExchangeMarketUiTests
     public async Task SettingsRenderWithoutNetworkAndOnlyExplicitLoadInvokesCallback(string language)
     {
         await using var fixture = new Fixture(language);
-        fixture.Settings.SetExchangeMarketProfile(FirstProfile, new() { Region = "eu", Faction = "elyos", ServerId = 1 });
+        fixture.Settings.SetExchangeMarketProfile(FirstProfile, new() { Region = "eu", Faction = "elyos", ServerId = 1, AutoDetectServer = false });
         var calls = 0;
         ExchangeMarketSettings? component = null;
         var html = await fixture.Render<CaptureSettings>(new()
@@ -90,7 +139,8 @@ public sealed class ExchangeMarketUiTests
             [nameof(ExchangeMarketSettings.LoadServers)] = EventCallback.Factory.Create(this, () => calls++),
         });
         Assert.Equal(0, calls);
-        Assert.Contains("exchange-market-enabled", html);
+        Assert.DoesNotContain("exchange-market-enabled", html);
+        Assert.Contains("data-exchange-market-always-on", html);
         Assert.Contains("Synthetic EU", html);
         Assert.DoesNotContain("<option value=\"2\">", html);
         Assert.Contains(UiText.T("Verkaufsgebühr (%)"), WebUtility.HtmlDecode(html));
@@ -101,13 +151,12 @@ public sealed class ExchangeMarketUiTests
         var selected = fixture.Settings.GetExchangeMarketProfile(FirstProfile);
         Assert.Equal("nae", selected.Region); Assert.Null(selected.ServerId); Assert.Null(selected.Faction);
         Assert.Equal(new ExchangeMarketProfileSettings(), fixture.Settings.GetExchangeMarketProfile(SecondProfile));
-        await fixture.Event(component!, "exchange-market-enabled", "onchange", new ChangeEventArgs { Value = false });
-        Assert.False(fixture.Settings.Current.OnlineMarketPricesEnabled);
+        Assert.True(fixture.Settings.Current.OnlineMarketPricesEnabled);
         Assert.Equal(1, calls);
     }
 
     [Fact]
-    public async Task ServerLoadErrorsAndDisablingDuringALoadRemainVisibleAndHandled()
+    public async Task ServerLoadErrorsAndInternalRevocationDuringALoadRemainVisibleAndHandled()
     {
         await using var fixture = new Fixture("en");
         ExchangeMarketSettings? component = null;
@@ -128,7 +177,7 @@ public sealed class ExchangeMarketUiTests
         await fixture.Render<CaptureSettings>(parameters);
         var waiting = fixture.Event(component!, "exchange-market-load-servers", "onclick", new MouseEventArgs());
         await started.Task;
-        await fixture.Event(component!, "exchange-market-enabled", "onchange", new ChangeEventArgs { Value = false });
+        fixture.Settings.SetOnlineMarketPricesEnabled(false); // Simulated internal source revocation; no user-facing off switch.
         await waiting;
         Assert.False(fixture.Settings.Current.OnlineMarketPricesEnabled);
         Assert.Contains(UiText.T("Ausgeschaltet"), WebUtility.HtmlDecode(await fixture.Markup()));

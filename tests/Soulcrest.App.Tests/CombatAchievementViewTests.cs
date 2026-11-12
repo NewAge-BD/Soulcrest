@@ -583,8 +583,9 @@ public sealed class CombatAchievementViewTests
         Assert.NotEmpty(reward);
         Assert.Contains("tabindex=\"0\"", reward);
         Assert.Contains("aria-describedby=\"", reward);
-        Assert.Contains("title=\"" + rewardName + " ", reward);
-        Assert.Contains("role=\"tooltip\">" + rewardName + " ", reward);
+        Assert.Contains("aria-label=\"" + rewardName + " ", reward);
+        Assert.DoesNotContain(" title=", reward);
+        Assert.Matches("role=\"tooltip\"><span[^>]*data-item-name=\"true\"[^>]*>\\s*" + Regex.Escape(rewardName) + "\\s*</span> ", reward);
         var withoutTooltip = Regex.Replace(reward, "<span\\b[^>]*role=\"tooltip\"[^>]*>.*?</span>", "", RegexOptions.Singleline);
         var visibleText = WebUtility.HtmlDecode(Regex.Replace(withoutTooltip, "<[^>]*>", ""));
         Assert.DoesNotContain(rewardName, visibleText);

@@ -1,0 +1,35 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@if (_json is not null)
+{
+    <script type="application/json" data-crafting-observation>@((MarkupString)_json)</script>
+}
+
+@code {
+    private CraftingProficiencyStateService? _source;
+    private string? _json;
+    private bool _disposed;
+    protected override void OnInitialized()
+    {
+        if (!Soulcrest.App.OverlayEditorKit.OverlayEditorLiveDiagnostics.ValidPort(Environment.GetEnvironmentVariable("SOULCREST_WEBVIEW_DEBUG_PORT"))) return;
+        _source = Services.GetService(typeof(CraftingProficiencyStateService)) as CraftingProficiencyStateService;
+        if (_source is null) return;
+        _source.Changed += Refresh;
+        Capture();
+    }
+    private void Capture()
+    {
+        if (_source is null) return;
+        var snapshot = _source.Snapshot;
+        _json = JsonSerializer.Serialize(new
+        {
+            snapshot.IsFresh, snapshot.UsingSaved, snapshot.IsKnown, snapshot.Source, snapshot.Status,
+            snapshot.ObservedAt, snapshot.Generation, snapshot.Sequence,
+            categories = snapshot.Proficiencies.Values.OrderBy(row => row.Category)
+                .Select(row => new { row.Category, row.Level })
+        });
+    }
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(() => { if (_disposed) return; Capture(); StateHasChanged(); }); }
+    public void Dispose() { _disposed = true; if (_source is not null) _source.Changed -= Refresh; }
+}

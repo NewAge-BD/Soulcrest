@@ -50,6 +50,13 @@ public sealed class CombatSourceCategoryTests
             Assert.Contains("type=\"search\"", search);
             Assert.Contains("data-achievement-search", search);
         }
+        else if (section == "genus-insight")
+        {
+            // The existing favorite-stat picker has its own search, not an editable stat source.
+            var search = Assert.Single(inputs);
+            Assert.Contains("type=\"search\"", search);
+            Assert.Contains("data-genus-favorite-search", search);
+        }
         else Assert.Empty(inputs);
         if (section == "titles")
         {

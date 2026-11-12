@@ -36,28 +36,14 @@ public static class DaevanionToggleRenderer
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.TranslateTransform(bounds.X, bounds.Y);
             graphics.ScaleTransform(bounds.Width / (float)LogicalWidth, bounds.Height / (float)LogicalHeight);
-            var top = pressed ? Color.FromArgb(52, 57, 55) : hover ? Color.FromArgb(75, 80, 76) : Color.FromArgb(52, 62, 68);
-            var bottom = pressed ? Color.FromArgb(20, 25, 27) : Color.FromArgb(20, 28, 33);
-            var edge = contentVisible ? Color.FromArgb(211, 190, 137) : Color.FromArgb(143, 155, 162);
-            var ink = hover ? Color.FromArgb(255, 249, 224) : contentVisible ? Color.FromArgb(248, 237, 202) : Color.FromArgb(215, 222, 223);
+            var ink = hover ? Color.FromArgb(255, 249, 224) : contentVisible ? Color.FromArgb(252, 240, 207) : Color.FromArgb(187, 184, 165);
             using var outline = Shape(new(.5f, .5f, LogicalWidth - 1, LogicalHeight - 1));
-            using var fill = new LinearGradientBrush(new Rectangle(0, 0, LogicalWidth, LogicalHeight), top, bottom, 90);
-            using var border = new Pen(edge, .85f);
-            graphics.FillPath(fill, outline); graphics.DrawPath(border, outline);
-            using var inset = Shape(new(2.5f, 2.5f, LogicalWidth - 5, LogicalHeight - 5));
-            using var insetPen = new Pen(Color.FromArgb(100, edge), .65f);
-            graphics.DrawPath(insetPen, inset);
-            using var icon = new Pen(ink, 1.25f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
-            using var eye = new GraphicsPath();
-            eye.AddBezier(10, 14, 15, 7, 22, 7, 28, 14);
-            eye.AddBezier(28, 14, 22, 21, 15, 21, 10, 14);
-            graphics.DrawPath(icon, eye);
-            graphics.DrawEllipse(icon, 16.5f, 11.5f, 5, 5);
-            if (!contentVisible) graphics.DrawLine(icon, 10, 21, 28, 7);
+            PaintNativeButton(graphics, new(0, 0, LogicalWidth, LogicalHeight), outline, contentVisible, true, hover, pressed);
+            PaintNativeCheckbox(graphics, new(6, 3, 22, 22), contentVisible);
             var text = language.StartsWith("de", StringComparison.OrdinalIgnoreCase)
                 ? contentVisible ? "Overlay an" : "Overlay aus"
                 : contentVisible ? "Overlay on" : "Overlay off";
-            Text(graphics, text, new(34, 4, 71, 20), ink);
+            Text(graphics, text, new(30, 4, 77, 20), ink);
         }
         finally { graphics.Restore(saved); }
     }
@@ -72,6 +58,46 @@ public static class DaevanionToggleRenderer
             new PointF(bounds.Right - bevel, bounds.Bottom), new PointF(bounds.Left + bevel, bounds.Bottom),
             new PointF(bounds.Left, bounds.Bottom - bevel), new PointF(bounds.Left, bounds.Top + bevel)]);
         return path;
+    }
+
+    // User-selected native engraving design (2026-11-12). These are the original
+    // button/checkbox images, shared with the stat rail and never mutated per state.
+    internal static void PaintNativeButton(Graphics graphics, RectangleF bounds, GraphicsPath outline,
+        bool selected, bool enabled, bool hover, bool pressed)
+    {
+        var saved = graphics.Save();
+        try
+        {
+            graphics.SetClip(outline, CombineMode.Intersect);
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            DaevanionNativeArtwork.Button.Paint(graphics, bounds);
+            var wash = !enabled ? Color.FromArgb(95, 8, 13, 17)
+                : pressed ? Color.FromArgb(110, 7, 12, 16)
+                : hover ? Color.FromArgb(42, 250, 237, 204)
+                : selected ? Color.FromArgb(15, 235, 216, 165) : Color.Transparent;
+            if (wash.A > 0)
+            {
+                using var brush = new SolidBrush(wash);
+                graphics.FillPath(brush, outline);
+            }
+            if (enabled && (selected || hover || pressed))
+            {
+                using var border = new Pen(Color.FromArgb(hover ? 190 : 110, 221, 203, 154), .8f);
+                graphics.DrawPath(border, outline);
+            }
+        }
+        finally { graphics.Restore(saved); }
+    }
+
+    internal static void PaintNativeCheckbox(Graphics graphics, RectangleF bounds, bool selected)
+    {
+        var saved = graphics.Save();
+        try
+        {
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            (selected ? DaevanionNativeArtwork.CheckboxOn : DaevanionNativeArtwork.CheckboxOff).Paint(graphics, bounds);
+        }
+        finally { graphics.Restore(saved); }
     }
 
     private static void Text(Graphics graphics, string text, RectangleF area, Color ink)

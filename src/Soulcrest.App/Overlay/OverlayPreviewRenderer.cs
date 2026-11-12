@@ -48,6 +48,9 @@ public sealed class OverlayPreviewRenderer : IDisposable
         {
             "loot" => Loot(settings, theme),
             "achievements" => AchievementOverlayRenderer.Render(AchievementExamples(), theme, language: settings.LootNameLanguage, icons: _lootIcons),
+            "genus-insight" => GenusInsightOverlayRenderer.Render(
+                OverlayEditorKit.GenusInsightOverlayExamples.Create(_now, "synthetic-genus-preview"), theme,
+                language: settings.LootNameLanguage, icons: _lootIcons),
             "farm-loot" => LootOverlayRenderer.RenderPreview(FarmLootExample(settings.LootNameLanguage), theme.Id,
                 animationSeconds: 1.4, icons: _lootIcons, backgroundOpacity: settings.LootOverlayBackgroundOpacity),
             "abyss-rank" => AbyssRankOverlayRenderer.RenderPreview(AbyssRankExample(includeKillFeed: true) with
@@ -101,7 +104,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
                 FamilyId = familyId, StageId = stage.Id, NameDe = stage.NameDe, NameEn = stage.NameEn,
                 ConditionDe = stage.ConditionDe, ConditionEn = stage.ConditionEn, IconPath = stage.IconPath,
                 IsFavorite = favorite, State = state, Current = current, Target = target, RawValue = raw, Unit = unit,
-                Rewards = stage.Rewards.Select(reward => new AchievementTrackerReward(reward.NameDe, reward.NameEn, reward.IconPath, reward.Quantity)).ToImmutableArray(),
+                Rewards = stage.Rewards.Select(reward => new AchievementTrackerReward(reward.NameDe, reward.NameEn, reward.IconPath, reward.Quantity) { ItemId = reward.ItemId }).ToImmutableArray(),
             };
         }
         return [Row(420101200, 2, true, AchievementTrackerRowState.InProgress, 10, 30, 10, Soulcrest.App.Components.CombatAchievementProgressUnit.Minutes),

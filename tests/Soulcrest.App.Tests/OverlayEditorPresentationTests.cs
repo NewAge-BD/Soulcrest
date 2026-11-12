@@ -11,6 +11,25 @@ public sealed class OverlayEditorPresentationTests
     private const string Profile = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     [Fact]
+    public void MissingWorldContextMetadataDoesNotInventSessionValuesAndExamplesStayIndependent()
+    {
+        var waiting = new UnifiedLootOverlayState(null, false, new(null, null, null, 0), null, false, Now)
+            { WaitingForWorldContext = true };
+        var snapshot = Project(waiting);
+        Assert.True(snapshot.WaitingForWorldContext);
+        Assert.False(snapshot.SessionActive);
+        Assert.False(snapshot.TrackingAvailable);
+        Assert.Empty(snapshot.Drops);
+        Assert.Equal("—", snapshot.Metrics["duration"].Value);
+        Assert.False(Project(waiting with { WaitingForWorldContext = false }).WaitingForWorldContext);
+        Assert.False(Project(waiting with { At = default }).WaitingForWorldContext);
+        Assert.False(Project(waiting with { At = Now.AddSeconds(1) }).WaitingForWorldContext);
+        Assert.False(Project(waiting with { TrackingAvailable = true }).WaitingForWorldContext);
+        Assert.False(OverlaySnapshot.DemoFor("de").WaitingForWorldContext);
+        Assert.False(OverlaySnapshot.DemoFor("en").WaitingForWorldContext);
+    }
+
+    [Fact]
     public void SharedSessionFactsKeepTotalsRatesAndNegativeNetSeparate()
     {
         var session = Session() with { KinaUnbound = 600, AbyssPoints = 20, RankPointsGained = 10, RankPointsLost = 50 };

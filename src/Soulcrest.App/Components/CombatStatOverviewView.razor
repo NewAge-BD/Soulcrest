@@ -11,7 +11,7 @@
         <span class="cw-status-dot @(Snapshot.IsFresh ? "known" : "missing")" aria-hidden="true"></span>
         <span data-display-known-count="@KnownRows">@UiText.F("{0} von {1} Werten zugeordnet", KnownRows, AllRows.Count)</span>
         <span>@(Snapshot.NativeStats.ObservedAt is { } at ? UiText.F("Stand: {0}", at.ToLocalTime().ToString("g", Culture)) : UiText.T("Noch keine eigenen Statdaten empfangen."))</span>
-        <InfoTip>@UiText.T("Angezeigt werden bestätigte Werte deines eigenen Charakters. Fehlende Daten oder eine ungeklärte Zuordnung bleiben als — sichtbar; sie werden nicht als 0 ergänzt. Klicke auf einen Wert für seinen Belegstatus.")</InfoTip>
+        <InfoTip>@UiText.T("Die Werte deines Charakters werden direkt beobachtet oder aus belegten Zuordnungen und Rolltabellen abgeleitet. Fehlende Daten oder ungeklärte Zuordnungen bleiben als — sichtbar. Klicke auf einen Wert für seinen Belegstatus.")</InfoTip>
     </div>
 
     <div class="cw-section-heading"><h3>Main Stats</h3><span>@UiText.T("Grundattribute, Gottheitsattribute und Hauptwerte")</span></div>

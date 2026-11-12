@@ -137,6 +137,45 @@ public sealed class MerchantServiceTests
         Assert.Equal("", new MerchantCounterRow(0, FirstId, "?", false, false).FarmSpawns);
     }
 
+    [Fact]
+    public void DungeonSourcesPreserveKnownMapCountsAndQualifyUnopenedOrUnconfirmedVariants()
+    {
+        foreach (var acquisition in PetAcquisitionCatalog.All.Values)
+        {
+            var catalog = FarmCatalog(acquisition.PetNumber);
+            var regions = MerchantService.FarmSpawnText(acquisition.PetNumber, catalog, []);
+            var text = MerchantService.FarmSourceText(acquisition.PetNumber, catalog, []);
+            Assert.StartsWith("Dungeon", text);
+            Assert.DoesNotContain("Special", text);
+            if (regions is not ("Special" or "?")) Assert.EndsWith(" · " + regions, text);
+            if (acquisition.Availability == PetGlobalAvailability.Available)
+                Assert.DoesNotContain("(", text.Split(" · ")[0]);
+            if (acquisition.Availability == PetGlobalAvailability.Unconfirmed)
+                Assert.StartsWith("Dungeon (?)", text);
+            if (acquisition.Availability == PetGlobalAvailability.Upcoming)
+                Assert.NotEqual("Dungeon", text.Split(" · ")[0]);
+        }
+        Assert.Equal("Special", MerchantService.FarmSourceText(1001, new PetCatalog([]), []));
+        Assert.Equal("?", MerchantService.FarmSourceText(int.MaxValue, new PetCatalog([]), []));
+    }
+
+    [Fact]
+    public void DungeonRowsUseQualifiedSoulIdentityAndNeverChangeProgressOrAcquisitionEvidence()
+    {
+        var acquisition = PetAcquisitionCatalog.All.Values.First();
+        using var f = new Fixture(item => item == 20_000 ? acquisition.PetNumber : null);
+        f.Baseline();
+        var before = File.ReadAllBytes(f.ProgressPath);
+        f.Accept(List(Offers()));
+        var row = Assert.Single(f.Merchant.Rows);
+        Assert.Equal(PetIdTable.Find(acquisition.PetNumber)!.CatalogId, row.PetId);
+        Assert.Equal(acquisition.Availability, row.DungeonAvailability);
+        Assert.StartsWith("Dungeon", row.FarmSpawns);
+        Assert.Equal(string.Join(" / ", PetFarmRegions.Find(acquisition.PetNumber)!), row.FarmRegions);
+        Assert.Equal(before, File.ReadAllBytes(f.ProgressPath));
+        Assert.Empty(f.Progress.Recent());
+    }
+
     private static PetCatalog FarmCatalog(int number, Dictionary<string, int>? monsters = null,
         Dictionary<string, int>? spawns = null)
     {

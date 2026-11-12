@@ -204,7 +204,7 @@ public sealed class CharacterCombatStateService : IDisposable
         }
     }
 
-    internal bool PersistObservedGenusPreset(CharacterCombatSnapshot expected, byte preset)
+    internal bool PersistObservedGenusPreset(CharacterCombatSnapshot expected, byte preset, Func<bool>? sourceStillCurrent = null)
     {
         lock (_gate) if (_disposed) return false;
         if (_exploration is null || !expected.IsFresh || string.IsNullOrWhiteSpace(expected.ProfileId)) return false;
@@ -213,7 +213,26 @@ public sealed class CharacterCombatStateService : IDisposable
             || evidence.Generation != expected.Generation || evidence.Sequence != expected.Sequence
             || _resolve(own)?.ProfileId != expected.ProfileId
             || !ReferenceEquals(evidence, _source.CombatSnapshot)) return false;
+        if (sourceStillCurrent?.Invoke() == false || !ReferenceEquals(evidence, _source.CombatSnapshot)
+            || _resolve(own)?.ProfileId != expected.ProfileId) return false;
         return _exploration.ApplyObservedGenusPreset(own, expected.ProfileId, preset, DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>Persist already accepted shared rolls only while both their source and this own binding still agree.</summary>
+    internal bool PersistObservedSharedGenus(CharacterCombatSnapshot expected, NetworkCombatDomain<PetProgressSnapshot> domain,
+        Func<bool> sourceStillCurrent)
+    {
+        lock (_gate) if (_disposed) return false;
+        if (_exploration is null || !expected.IsFresh || string.IsNullOrWhiteSpace(expected.ProfileId)) return false;
+        var evidence = _source.CombatSnapshot;
+        if (!_source.Running || evidence.Character is not { } own || own.Generation != expected.Generation
+            || evidence.Generation != expected.Generation || evidence.Sequence != expected.Sequence
+            || _resolve(own)?.ProfileId != expected.ProfileId || !ReferenceEquals(evidence, _source.CombatSnapshot)) return false;
+        if (!sourceStillCurrent() || !ReferenceEquals(evidence, _source.CombatSnapshot)
+            || _resolve(own)?.ProfileId != expected.ProfileId) return false;
+        // Global collection evidence deliberately has no character-local preset authority.
+        var shared = domain.Value is { } value ? domain with { Value = value with { SelectedGenusPanel = null } } : domain;
+        return _exploration.ApplyNetworkGenusInsight(own, expected.ProfileId, shared);
     }
 
     private void ProfileChanged()

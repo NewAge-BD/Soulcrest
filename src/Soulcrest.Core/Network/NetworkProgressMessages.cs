@@ -12,6 +12,8 @@ public sealed record OwnCharacterIdentity(long CharacterId, int ServerId, int En
 /// <summary>Own map metadata returned only after complete MyCharAppear validation; no raw map key or coordinates.</summary>
 public sealed record OwnWorldObservation(OwnCharacterIdentity Identity, int? MapDataId)
 {
+    /// <summary>Full own crafting list; null means conflicting or invalid records, absent categories stay unknown.</summary>
+    public ImmutableDictionary<byte, CharacterCraftingProficiency>? CraftingProficiencies { get; init; }
     public long? CombatScore { get; init; }
     public int? GearScore { get; init; }
     public int? CharacterLevel { get; init; }

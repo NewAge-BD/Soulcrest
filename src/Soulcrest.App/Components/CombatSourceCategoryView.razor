@@ -58,7 +58,8 @@
     }
     else if (Key == "genus-insight")
     {
-        <CombatGenusInsightView State="GenusState" Favorites="GenusFavorites" ToggleFavorite="ToggleGenusFavorite" FavoriteError="@GenusFavoriteError" />
+        <CombatGenusInsightView State="GenusState" Favorites="GenusFavorites" ToggleFavorite="ToggleGenusFavorite" FavoriteError="@GenusFavoriteError"
+            GlobalFavoriteStats="GenusGlobalFavoriteStats" ToggleGlobalFavorite="ToggleGlobalGenusFavorite" />
     }
     else if (Key == "titles")
     {
@@ -127,6 +128,8 @@
     [Parameter] public GenusInsightSnapshot GenusState { get; set; } = GenusInsightSnapshot.Empty;
     [Parameter] public IReadOnlySet<GenusInsightFavoriteKey>? GenusFavorites { get; set; }
     [Parameter] public EventCallback<GenusInsightFavoriteKey> ToggleGenusFavorite { get; set; }
+    [Parameter] public IReadOnlySet<string>? GenusGlobalFavoriteStats { get; set; }
+    [Parameter] public EventCallback<string> ToggleGlobalGenusFavorite { get; set; }
     [Parameter] public string? GenusFavoriteError { get; set; }
     [Parameter] public EventCallback OpenPets { get; set; }
     [Parameter] public EventCallback<string> OpenPetCategory { get; set; }
@@ -155,7 +158,7 @@
     private RenderFragment EmptyList() => @<p class="cw-source-note">@UiText.T("Der beobachtete Stand enthält keine Einträge.")</p>;
     private RenderFragment GearCard(CharacterEquipmentItem item, int index) => @<article class="cw-source-entry cw-source-equipment" data-source-equipment-entry>
         @{ var detail = item.Detail; var options = GearOptions(detail); }
-        <h4>@ItemLabel(item.ItemId)</h4><small>@UiText.F("Ausrüstungsteil {0}", index + 1)</small>
+        <h4><ItemName ItemId="item.ItemId" Text="@ItemLabel(item.ItemId)" /></h4><small>@UiText.F("Ausrüstungsteil {0}", index + 1)</small>
         <dl class="cw-source-stats"><div><dt>@UiText.T("Gegenstandsstufe")</dt><dd>@detail.ItemLevel</dd></div><div><dt>@UiText.T("Verzauberung")</dt><dd>+@detail.EnchantLevel</dd></div><div><dt>@UiText.T("Durchbruch")</dt><dd>+@detail.SurpassEnchantLevel</dd></div><div><dt>@UiText.T("Seelenbindungen")</dt><dd>@detail.SoulBindCount</dd></div><div><dt>@UiText.T("Manasteine")</dt><dd>@detail.Magicstones.Length</dd></div><div><dt>@UiText.T("Gottsteine")</dt><dd>@detail.Godstones.Length</dd></div></dl>
         @if (detail.IsBroken) { <p class="cw-source-unknown">@UiText.T("Als beschädigt beobachtet")</p> }
         <p class="cw-source-note">@UiText.F("{0} Statoptionen erfasst", options.Count)</p>

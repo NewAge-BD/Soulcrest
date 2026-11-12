@@ -11,7 +11,7 @@ public sealed class PetAcquisitionCatalogTests
     private const string PatchUrl = "https://steamcommunity.com/games/3393110/announcements/detail/675136702174461957";
 
     [Fact]
-    public void AdditionalSourcesResolveExactlyTheTwelveExistingPetIdentities()
+    public void HistoricalTwelveSourcesKeepTheirIdentitiesDatesAndPatchReferences()
     {
         Dictionary<int, int> expected = new()
         {
@@ -19,7 +19,8 @@ public sealed class PetAcquisitionCatalogTests
             [1078] = 534660079, [1080] = 534660081, [1082] = 534660083, [1090] = 534660091,
             [1100] = 534660101, [1107] = 534660108, [1167] = 534660132, [1199] = 534660131
         };
-        Assert.Equal(expected.Keys.Order(), PetAcquisitionCatalog.All.Keys.Order());
+        Assert.Equal(65, PetAcquisitionCatalog.All.Count);
+        Assert.All(expected.Keys, number => Assert.Contains(number, PetAcquisitionCatalog.All.Keys));
         foreach (var (number, item) in expected)
         {
             var pet = Assert.IsType<PetAcquisitionEntry>(PetAcquisitionCatalog.Find(number));
@@ -36,12 +37,13 @@ public sealed class PetAcquisitionCatalogTests
     }
 
     [Fact]
-    public void SevenSourceFamiliesPreserveNamesAndLeaveModeAndDropChanceUnknown()
+    public void AllDungeonFamiliesPreserveNamesAndLeaveModeAndDropChanceUnknown()
     {
         var sources = PetAcquisitionCatalog.All.Values.SelectMany(pet => pet.Sources).ToArray();
-        Assert.Equal(7, sources.Select(source => source.DungeonEn).Distinct().Count());
-        Assert.Equal(36, sources.SelectMany(source => source.Npcs).Select(npc => npc.Id).Distinct().Count());
-        int[] excluded = [2301052, 2340704, 2351704, 2352704, 2354704, 2355704, 2357704];
+        Assert.Equal(15, sources.Select(source => source.DungeonEn).Distinct().Count());
+        Assert.Equal(73, sources.Length);
+        Assert.Equal(222, sources.SelectMany(source => source.Npcs).Select(npc => npc.Id).Distinct().Count());
+        int[] excluded = [2340704, 2351704, 2352704, 2354704, 2355704, 2357704, 2600001];
         Assert.DoesNotContain(sources.SelectMany(source => source.Npcs), npc => excluded.Contains(npc.Id));
         foreach (var source in sources)
         {
@@ -55,7 +57,6 @@ public sealed class PetAcquisitionCatalogTests
                 Assert.Equal("2026-11-05", map.CheckedAt);
                 Assert.NotEmpty(map.SourceRefs);
             });
-            Assert.Contains(PatchUrl, source.SourceRefs);
             Assert.Contains(source.SourceRefs, reference => reference.EndsWith("#" + source.Id, StringComparison.Ordinal));
             foreach (var npc in source.Npcs)
             {
@@ -63,7 +64,6 @@ public sealed class PetAcquisitionCatalogTests
                 Assert.All(npc.MapIds, map => Assert.Contains(map, source.MapIds));
                 Assert.False(string.IsNullOrWhiteSpace(npc.DisplayName("en")));
                 Assert.False(string.IsNullOrWhiteSpace(npc.DisplayName("de")));
-                Assert.Contains(PatchUrl, npc.SourceRefs);
             }
         }
         var krao = Assert.Single(PetAcquisitionCatalog.Find(1068)!.Sources);
@@ -73,8 +73,58 @@ public sealed class PetAcquisitionCatalogTests
         Assert.Equal("Enhanced Krao Test Subject", krao.Npcs[0].DisplayName("en"));
         Assert.Equal(PetAcquisitionCategory.Transcendence,
             Assert.Single(PetAcquisitionCatalog.Find(1090)!.Sources).Category);
-        Assert.All(sources.Where(source => source.DungeonEn != "Shattered Arkanis"),
-            source => Assert.Equal(PetAcquisitionCategory.Expedition, source.Category));
+        Assert.Equal(PetAcquisitionCategory.Raid,
+            Assert.Single(PetAcquisitionCatalog.Find(1176)!.Sources).Category);
+        Assert.Contains(PetAcquisitionCatalog.Find(1199)!.Sources, source => source.Category == PetAcquisitionCategory.Raid);
+        Assert.Contains(sources, source => source.DungeonEn == "Deus Research Base" && source.Category == PetAcquisitionCategory.Expedition);
+        Assert.Contains(sources, source => source.DungeonEn == "Deus Research Base" && source.Category == PetAcquisitionCategory.Transcendence);
+    }
+
+    [Fact]
+    public void OlderQualifiedDungeonSourcesHaveNoInventedPatchDateAndDoNotIncludeOtherMapKinds()
+    {
+        int[] expected = [1005, 1006, 1007, 1009, 1011, 1013, 1014, 1017, 1026, 1028, 1030, 1031, 1039, 1040, 1043, 1056, 1058, 1059, 1060, 1061, 1066, 1068, 1077, 1078, 1080, 1082, 1086, 1087, 1088, 1090, 1091, 1093, 1096, 1100, 1107, 1114, 1118, 1124, 1125, 1127, 1134, 1136, 1147, 1155, 1159, 1164, 1165, 1166, 1167, 1168, 1169, 1172, 1173, 1174, 1176, 1186, 1187, 1192, 1193, 1199, 1200, 1202, 1213, 1215, 1217];
+        Assert.Equal(expected, PetAcquisitionCatalog.All.Keys.Order());
+        Assert.Equal(53, PetAcquisitionCatalog.All.Values.Count(pet => pet.NewSince is null));
+        Assert.Equal(45, PetAcquisitionCatalog.All.Values.Count(pet => pet.Availability == PetGlobalAvailability.Available));
+        Assert.Equal(20, PetAcquisitionCatalog.All.Values.Count(pet => pet.Availability == PetGlobalAvailability.Upcoming));
+        var draupnir = PetAcquisitionCatalog.Find(1093)!;
+        Assert.Null(draupnir.NewSince);
+        Assert.DoesNotContain(PatchUrl, draupnir.SourceRefs);
+        Assert.Equal("Draupnir", Assert.Single(draupnir.Sources).DungeonEn);
+        Assert.Equal(PetGlobalAvailability.Available, draupnir.Availability);
+        var raid = PetAcquisitionCatalog.Find(1176)!;
+        Assert.Null(raid.NewSince);
+        Assert.Equal(PetGlobalAvailability.Upcoming, raid.Availability);
+        Assert.Null(PetAcquisitionCatalog.Find(1108)); // Only an InstanceLayer source, not a party/raid dungeon.
+        Assert.Null(PetAcquisitionCatalog.Find(1002)); // No direct dungeon source.
+        Assert.DoesNotContain(PetAcquisitionCatalog.All.Values.SelectMany(pet => pet.Sources).SelectMany(source => source.MapIds),
+            map => map is 20 or 22 or 23 or 800011); // Abyss and instanced open-world layers remain separate.
+    }
+
+    [Theory]
+    [InlineData("Dungeon", PetAcquisitionCategory.Dungeon)]
+    [InlineData("Raid", PetAcquisitionCategory.Raid)]
+    public void BroaderQualifiedCategoriesDoNotRequireAnInventedNewSinceDate(string label, PetAcquisitionCategory expected)
+    {
+        var file = Fixture();
+        file["pets"]![0]!["newSince"] = null;
+        Source(file)["category"] = label;
+        var pet = PetAcquisitionCatalog.FromJson(file.ToJsonString())[1009];
+        Assert.Null(pet.NewSince);
+        Assert.Equal(expected, Assert.Single(pet.Sources).Category);
+    }
+
+    [Theory]
+    [InlineData("npc")]
+    [InlineData("map")]
+    public void ARewardReferenceCannotReplaceTheRequiredNpcToDungeonMapLink(string missing)
+    {
+        var file = Fixture();
+        Source(file)["sourceRefs"] = new JsonArray("https://example.com/reward-only");
+        if (missing == "npc") Source(file)["npcs"] = new JsonArray();
+        else Source(file)["npcs"]![0]!["mapIds"] = new JsonArray();
+        AssertInvalid(file);
     }
 
     [Fact]
@@ -142,7 +192,7 @@ public sealed class PetAcquisitionCatalogTests
         duplicate["pets"]!.AsArray().Add(duplicate["pets"]![0]!.DeepClone());
         AssertInvalid(duplicate);
         var category = Fixture();
-        Source(category)["category"] = "Raid";
+        Source(category)["category"] = "Unknown";
         AssertInvalid(category);
         var extra = Fixture();
         extra["unrelatedMetadata"] = "not part of the runtime projection";
@@ -154,13 +204,15 @@ public sealed class PetAcquisitionCatalogTests
     {
         using var stream = typeof(PetAcquisitionCatalog).Assembly.GetManifestResourceStream("Soulcrest.PetAcquisitionSources.json");
         Assert.NotNull(stream);
-        Assert.InRange(stream.Length, 1, 64_000);
+        Assert.InRange(stream.Length, 1, 512_000);
         using var document = JsonDocument.Parse(stream);
         Assert.Equal(["schemaVersion", "pets"], document.RootElement.EnumerateObject().Select(property => property.Name));
         Assert.Equal(1, document.RootElement.GetProperty("schemaVersion").GetInt32());
-        Assert.Equal(12, document.RootElement.GetProperty("pets").GetArrayLength());
+        Assert.Equal(65, document.RootElement.GetProperty("pets").GetArrayLength());
         // Strict deserialization also prevents extra metadata from entering the bundled contract.
-        Assert.Equal(12, PetAcquisitionCatalog.FromJson(document.RootElement.GetRawText()).Count);
+        Assert.Equal(65, PetAcquisitionCatalog.FromJson(document.RootElement.GetRawText()).Count);
+        string[] privateKeys = ["steamBuild", "sourceSnapshotBuild", "source_path", "byteStart", "rawSha256", "json_line_sha", "wireTree"];
+        Assert.All(privateKeys, key => Assert.DoesNotContain("\"" + key + "\"", document.RootElement.GetRawText(), StringComparison.Ordinal));
     }
 
     [Fact]

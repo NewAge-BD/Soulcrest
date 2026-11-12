@@ -3,6 +3,7 @@ using Soulcrest.App.Capture;
 using Soulcrest.App.Network;
 using Soulcrest.App.Overlay;
 using Soulcrest.App.OverlayEditorKit;
+using Soulcrest.Core.GenusInsight;
 
 namespace Soulcrest.App.Services;
 
@@ -13,6 +14,49 @@ namespace Soulcrest.App.Services;
 /// </summary>
 public static class DiagnosticContributors
 {
+    internal static DiagnosticResult GenusInsightOverlaySnapshot(bool enabled, DiagnosticOverlayRuntimeState? runtime,
+        GenusInsightSnapshot? source, GenusMenuSnapshot? menu, DateTimeOffset now,
+        IReadOnlyList<(string Key, object? Value)>? contextFacts = null)
+    {
+        var age = runtime is null ? (double?)null : (now - runtime.ObservedAt).TotalMilliseconds;
+        var categoryKnown = GenusInsightPresentation.KnownGenus(menu?.Genus);
+        var presetKnown = menu?.ViewedPreset is >= 1 and <= 3;
+        var current = source is { IsCurrent: true, IsHistorical: false, Generation: > 0 }
+            && !string.IsNullOrWhiteSpace(source.ProfileId);
+        var board = categoryKnown ? source?.Boards.FirstOrDefault(item => item.Genus == menu!.Genus) : null;
+        var confirmed = board?.Slots.Count(slot => slot.IsCurrent) ?? 0;
+        var allowed = current && menu is { MenuVisible: true, SourceGeneration: > 0 } && categoryKnown && presetKnown;
+        var status = !enabled ? DiagnosticStatus.Disabled : runtime?.Disposed == true ? DiagnosticStatus.Error
+            : runtime is null ? DiagnosticStatus.Waiting : age is < 0 or > 5000 ? DiagnosticStatus.Warning
+            : !allowed || !runtime.Visible || !runtime.HandleCreated ? DiagnosticStatus.Waiting
+            : board?.Slots.Count != 9 || confirmed != 9 ? DiagnosticStatus.Warning : DiagnosticStatus.Healthy;
+        var facts = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var (key, value) in contextFacts ?? []) facts[key] = value;
+        facts["enabled"] = enabled;
+        facts["nativeVisibilityKnown"] = runtime is not null;
+        facts["nativeVisible"] = runtime?.Visible;
+        facts["handleCreated"] = runtime?.HandleCreated;
+        facts["disposed"] = runtime?.Disposed;
+        facts["runtimeObservedAtUtc"] = runtime?.ObservedAt.ToUniversalTime();
+        facts["runtimeAgeMs"] = age;
+        facts["sourceCurrent"] = current;
+        facts["historical"] = source?.IsHistorical;
+        facts["menuVisible"] = menu?.MenuVisible;
+        facts["categoryKnown"] = categoryKnown;
+        facts["viewedPresetKnown"] = presetKnown;
+        facts["liveDisplayAllowed"] = allowed;
+        facts["slots"] = board?.Slots.Count;
+        facts["confirmedSlots"] = confirmed;
+        return new("overlay-genus-insight", status, now.ToUniversalTime(), status switch
+        {
+            DiagnosticStatus.Healthy => "Zustand verfügbar, keine Auffälligkeit erkannt.",
+            DiagnosticStatus.Warning => "Unvollständige oder veraltete Daten; Details prüfen.",
+            DiagnosticStatus.Error => "Ein Fehler wurde erkannt; Details prüfen.",
+            DiagnosticStatus.Disabled => "Diese Funktion ist ausgeschaltet.",
+            _ => "Die Funktion wartet auf passende Daten."
+        }, new ReadOnlyDictionary<string, object?>(facts));
+    }
+
     internal static DiagnosticResult MerchantOverlaySnapshot(bool enabled, DiagnosticOverlayRuntimeState? runtime,
         MerchantOverlayHealthSnapshot health, DateTimeOffset now,
         IReadOnlyList<(string Key, object? Value)>? contextFacts = null)
@@ -92,7 +136,7 @@ public static class DiagnosticContributors
 
     internal static DiagnosticResult LootSessionSnapshot(LootTrackerSnapshot snapshot, bool sourceAvailable,
         bool statusError, long? itemThreshold, long automaticallyDeleted, bool cleanupIncomplete, DateTimeOffset now,
-        bool? trackingEnabled)
+        bool? trackingEnabled, bool? waitingForWorldContext = null)
     {
         var sessions = snapshot.Sessions;
         var age = snapshot.At is { } observed ? now - observed : (TimeSpan?)null;
@@ -114,6 +158,7 @@ public static class DiagnosticContributors
                 ["interruptedSessions"] = sessions.Count(session => session.Status == LootTrackerSessionStatus.Interrupted),
                 ["sourceAvailable"] = sourceAvailable,
                 ["trackingEnabled"] = trackingEnabled,
+                ["waitingForWorldContext"] = waitingForWorldContext,
                 ["snapshotFresh"] = fresh,
                 ["snapshotAgeMilliseconds"] = age?.Ticks / TimeSpan.TicksPerMillisecond,
                 ["idlePauseSeconds"] = LootTrackerPresentation.IdlePauseSeconds,
@@ -220,16 +265,19 @@ public static class DiagnosticContributors
 
         public DiagnosticResult Collect() => id switch
         {
-            "system" => System(), "settings-storage" => Storage(), "ui" => Ui(), "updates" => Updates(),
+            "system" => System(), "settings-storage" => Storage(), "ui" => Ui(), "app-themes" => AppThemes(), "updates" => Updates(),
             "network" => Network(), "capture" => Capture(),
             "map" => Map(), "navigation" or "routes" or "map-leveling" => Navigation(),
-            "pets" => Pets(), "exploration" => Exploration(), "merchant" => Merchant(),
+            "pets" => Pets(), "dungeon-pets" => DungeonPets(), "exploration" => Exploration(), "merchant" => Merchant(),
             "boss-rush" => Bosses(), "alerts" => Alerts(),
             "loot-market" => Market(), "loot-replay" => Replay(), "loot-alerts" => DropAlerts(),
             "loot-killfeed" => KillFeed(), "loot-abyss" => Abyss(),
             "loot-pve" or "loot-lifeskill" or "loot-sessions" or "loot-statistics" => Loot(),
             "character" => Character(), "combat-skills" => Skills(),
+            "crafting-calculator" or "crafting-dependency-map" => Crafting(),
+            "item-name-colors" => ItemNameColors(),
             "combat-daevanion" => Daevanion(), "combat-genus-insight" => Genus(),
+            "combat-genus-favorites" => GenusInsightFavoriteDiagnostics.Capture(Existing<GenusInsightFavoriteService>(), DateTimeOffset.UtcNow),
             "combat-achievements" => Achievements(), "combat-pantheon" => Pantheon(),
             "combat-stat-overview" or "combat-wings" or "combat-gear" or "combat-pets" or "combat-titles" => Combat(),
             "overlay-editor" => Editor(), "overlay-hotkeys" => Hotkeys(),
@@ -237,6 +285,117 @@ public static class DiagnosticContributors
             _ when id.StartsWith("overlay-", StringComparison.Ordinal) => Overlay(),
             _ => throw new InvalidOperationException("Diagnostic feature has no implementation.")
         };
+
+        private DiagnosticResult AppThemes()
+        {
+            var settings = Existing<SettingsService>();
+            if (settings is null) return Missing();
+            var runtime = Existing<AppThemeRuntime>()?.Snapshot;
+            var selected = AppThemeDefinition.NormalizeId(settings.Current.AppTheme);
+            var status = settings.AppThemeSaveError is not null || runtime?.NativeError is not null || runtime?.WebError is not null
+                ? DiagnosticStatus.Error
+                : runtime is not null && runtime.RequestedId == selected && runtime.NativeAppliedId == selected && runtime.WebAppliedId == selected
+                    ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting;
+            return Result(status, ("selectedThemeId", selected), ("requestedThemeId", runtime?.RequestedId),
+                ("nativeAppliedThemeId", runtime?.NativeAppliedId), ("webAppliedThemeId", runtime?.WebAppliedId),
+                ("applicationObservedAtUtc", runtime?.AppliedAtUtc), ("saveError", settings.AppThemeSaveError),
+                ("nativeError", runtime?.NativeError), ("webError", runtime?.WebError),
+                ("customTitleBarColorsSupported", OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000)), ("mainWindowOnly", true));
+        }
+
+        private DiagnosticResult ItemNameColors()
+        {
+            if (Existing<SettingsService>() is null) return Missing();
+            var items = ItemNamePresentation.ItemCount;
+            var grades = ItemNamePresentation.GradeCount;
+            return Result(items > 0 && grades == 7 ? DiagnosticStatus.Healthy : DiagnosticStatus.Warning,
+                ("presentationSchema", 1), ("knownItems", items), ("knownGrades", grades),
+                ("unknownItemsStayNeutral", true), ("changesBusinessRarity", false),
+                ("paletteAvailable", grades == 7));
+        }
+
+        private DiagnosticResult Crafting()
+        {
+            var service = Existing<CraftingCalculatorService>();
+            if (service is null) return Missing();
+            var state = service.Snapshot;
+            var proficiency = Existing<CraftingProficiencyStateService>();
+            var source = proficiency?.Snapshot;
+            var result = state.Result;
+            var transfer = state.SelectedRecipeId is { } recipeId && service.Catalog.FindRecipe(recipeId) is { } recipe
+                && Soulcrest.Core.Crafting.TransferCraftingRules.IsTransfer(service.Catalog, recipe);
+            var dependencyMap = transfer ? null : CraftingDependencyMapProjection.Build(service.Catalog, state);
+            var priceTradeability = service.NeededItems(state).Select(id => service.Catalog.FindItem(id)?.IsTradable).ToArray();
+            var oldestPrice = state.BuyPrices.Values.Concat(state.SellPrices.Values)
+                .Where(row => row.IsMarket)
+                .Select(row => row.ObservedAt).Min();
+            var priceAge = oldestPrice is { } pricedAt ? DateTimeOffset.UtcNow - pricedAt : (TimeSpan?)null;
+            var status = state.IsError || proficiency?.StorageError is not null || state.ScenarioStorage.Error is not null ? DiagnosticStatus.Error
+                : !service.Active || state.Busy || state.SelectedRecipeId is null || state.ObservedLevels.Count == 0 && state.SimulatedLevels.Count == 0
+                    ? DiagnosticStatus.Waiting
+                : state.PriceRefreshFailure is not null ? DiagnosticStatus.Warning
+                : result?.Status == Soulcrest.Core.Crafting.CraftingPlanStatus.Complete && state.ProficiencyFresh
+                    && priceAge is { } quoteAge && quoteAge >= TimeSpan.Zero && quoteAge <= ExchangeMarketCache.FetchTtl
+                    && state.CalculatedAt is { } at && DateTimeOffset.UtcNow - at is { TotalSeconds: >= 0 and <= 60 } ? DiagnosticStatus.Healthy
+                : DiagnosticStatus.Warning;
+            // Planning may be healthy while the requested observed crafting progress still has no qualified source.
+            if (id == "crafting-dependency-map" && status == DiagnosticStatus.Healthy) status = DiagnosticStatus.Warning;
+            return Result(status, ("metadataBuild", service.Catalog.MetadataBuild), ("recipeCount", service.Catalog.Recipes.Length),
+                ("qualifiedRecipeCount", service.Catalog.Recipes.Count(row => row.MechanicsQualified)),
+                ("itemCount", service.Catalog.Items.Length), ("npcOfferCount", service.Catalog.NpcOffers.Length),
+                ("profession", state.Profession), ("recipeSelected", state.SelectedRecipeId is not null),
+                ("settingsFaction", string.IsNullOrWhiteSpace(state.Faction) ? null : CraftingCalculatorPresentation.Faction(state.Faction)),
+                ("selectedRecipeFaction", state.SelectedRecipeId is { } factionRecipe && service.Catalog.FindRecipe(factionRecipe) is { } factionDefinition
+                    ? CraftingCalculatorPresentation.Faction(factionDefinition.Faction) : null),
+                ("factionCompatibleRootCount", service.Catalog.Recipes.Count(row => !service.Catalog.IsComboRecipe(row.Id)
+                    && CraftingCalculatorPresentation.MatchesFaction(row.Faction, state.Faction))),
+                ("calculationMode", transfer ? "transfer-costs-only" : "market-profit"),
+                ("planPresentation", transfer ? "transfer-tree" : "dependency-map"),
+                ("dependencyMapItems", dependencyMap?.Nodes.Length),
+                ("dependencyMapEdges", dependencyMap?.Nodes.Sum(node => node.DependencyItemIds.Length)),
+                ("dependencyMapTruncated", dependencyMap?.Truncated),
+                ("dependencyQuantitiesKnown", dependencyMap?.QuantitiesKnown),
+                ("stockCoverageSource", "manual-scenario"),
+                ("stockCoveredItemKinds", dependencyMap?.Nodes.Count(node => node.IsComplete)),
+                ("craftEventSourceAvailable", false), ("observedCraftLossSourceAvailable", false),
+                ("transferEquipmentType", transfer ? state.Subcategory : null),
+                ("transferRootCount", service.Catalog.Recipes.Count(row => !service.Catalog.IsComboRecipe(row.Id)
+                    && Soulcrest.Core.Crafting.TransferCraftingRules.IsTransfer(service.Catalog, row))),
+                ("transferGuaranteeSource", transfer ? Soulcrest.Core.Crafting.TransferCraftingRules.PolicyGuaranteeSource : null),
+                ("ownedItemKinds", state.OwnedItems.Count),
+                ("ownedEquipmentKinds", state.OwnedItems.Count(row => Soulcrest.Core.Crafting.TransferCraftingRules.IsEquipment(service.Catalog, row.Key))),
+                ("exactComboTarget", CraftingCalculatorPresentation.IsComboEquipmentTarget(service.Catalog, state.SelectedRecipeId)),
+                ("referenceSimulation", !state.ReferenceLevels.IsEmpty), ("referenceProfessionCount", state.ReferenceLevels.Count),
+                ("simulationSamples", state.SimulationSamples),
+                ("requiredProfessionCount", state.RequiredProficiencyLevels.Count),
+                ("scenarioStorageAvailable", state.ScenarioStorage.Available), ("scenarioStorageReadOnly", state.ScenarioStorage.IsReadOnly),
+                ("scenarioStorageDirty", state.ScenarioStorage.IsDirty), ("scenarioStorageSavedAtUtc", state.ScenarioStorage.SavedAt),
+                ("scenarioStorageError", state.ScenarioStorage.Error),
+                ("proficiencySourceAvailable", source is not null), ("proficiencyFresh", state.ProficiencyFresh),
+                ("usingSavedProficiency", state.UsingSavedProficiency), ("observedProfessionCount", state.ObservedLevels.Count),
+                ("simulatedProfessionCount", state.SimulatedLevels.Count), ("proficiencyObservedAtUtc", state.ProficiencyObservedAt?.ToUniversalTime()),
+                ("marketKnown", state.ServerName is not null), ("buyPriceCount", state.BuyPrices.Count),
+                ("marketEligibleItemCount", priceTradeability.Count(tradable => tradable == true)),
+                ("excludedNonTradableItemCount", priceTradeability.Count(tradable => tradable == false)),
+                ("unknownTradeabilityItemCount", priceTradeability.Count(tradable => tradable is null)),
+                ("salePriceCount", state.SellPrices.Count), ("busy", state.Busy),
+                ("retainingResultDuringRefresh", state.Busy && state.Result is not null),
+                ("averageFallbackPriceCount", state.BuyPrices.Values.Concat(state.SellPrices.Values)
+                    .Where(row => row.Source == Soulcrest.Core.Crafting.CraftingPriceSource.ExchangeAverage).Select(row => row.ItemId).Distinct().Count()),
+                ("priceRefreshFailureStage", state.PriceRefreshFailure?.Stage.ToString()),
+                ("priceRefreshFailureKind", state.PriceRefreshFailure?.Kind.ToString()),
+                ("priceRefreshHttpStatus", state.PriceRefreshFailure?.HttpStatus),
+                ("priceRefreshRetryAtUtc", state.PriceRefreshFailure?.RetryAt?.ToUniversalTime()),
+                ("calculationFailureStage", state.CalculationFailure?.Stage.ToString()),
+                ("calculationFailureKind", state.CalculationFailure?.Kind.ToString()),
+                ("requiredPriceCount", state.RequiredPriceCount), ("oldestPriceObservedAtUtc", oldestPrice?.ToUniversalTime()),
+                ("oldestPriceAgeSeconds", priceAge?.TotalSeconds),
+                ("active", service.Active), ("calculatedAtUtc", state.CalculatedAt?.ToUniversalTime()),
+                ("calculationStatus", result?.Status.ToString()), ("calculationIssueCount", result?.Issues.Length),
+                ("completedSimulationCount", result?.Samples), ("hasExpectedCost", result?.ExpectedCost is not null),
+                ("hasP90Budget", result?.P90Cost is not null), ("hasProfit", result?.ExpectedProfit is not null),
+                ("hasExactTargetOutput", result?.TargetOutput is not null));
+        }
 
         private DiagnosticResult System()
         {
@@ -341,13 +500,32 @@ public static class DiagnosticContributors
         {
             if (Existing<ProgressService>() is not { } progress) return Missing();
             var pets = progress.Catalog.Pets.Select(pet => progress.EntrySnapshot(pet.Id)).ToArray();
+            var sources = Soulcrest.Core.Pets.PetAcquisitionCatalog.All.Values.ToArray();
             var network = Existing<NetworkLootService>();
             return Result(Settings?.LootTrackingEnabled == false ? DiagnosticStatus.Disabled
                 : network?.PetBaselineAt is null ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy,
+                ("dungeonPets", sources.Length),
+                ("dungeonAvailablePets", sources.Count(pet => pet.Sources.Any(source => source.HasAvailableVariants))),
+                ("dungeonUpcomingPets", sources.Count(pet => pet.Sources.Any(source => source.HasUpcomingVariants))),
+                ("dungeonUnconfirmedPets", sources.Count(pet => pet.Sources.Any(source => source.HasUnconfirmedVariants))),
                 ("catalogPets", pets.Length), ("manualOverrides", pets.Count(pet => pet.ManualOverride)),
                 ("focusedPets", pets.Count(pet => pet.Focus)), ("baselineAtUtc", network?.PetBaselineAt?.ToUniversalTime()),
                 ("sourceRunning", network?.Running), ("acceptedSoulMessages", network?.ProgressDiagnostics.AcceptedSoulMessages),
                 ("acceptedSoulPoints", network?.ProgressDiagnostics.AcceptedSoulPoints));
+        }
+
+        private DiagnosticResult DungeonPets()
+        {
+            if (Existing<PetDungeonMapService>() is not { } service) return Missing();
+            var state = service.Diagnostics();
+            return Result(state.DisplayState == DungeonPetMapDisplayState.Error ? DiagnosticStatus.Error
+                : state.Maps == 0 ? DiagnosticStatus.Waiting
+                : state.MissingImages > 0 ? DiagnosticStatus.Warning
+                : state.DisplayState == DungeonPetMapDisplayState.Ready ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting,
+                ("catalogMaps", state.Maps), ("petSpecies", state.PetSpecies),
+                ("placements", state.Placements), ("missingOrInvalidImages", state.MissingImages),
+                ("displayState", state.DisplayState.ToString()), ("displayObservedAtUtc", state.DisplayObservedAt),
+                ("imageChecksumsRequired", true), ("changesTracking", false));
         }
 
         private DiagnosticResult Exploration()
@@ -370,11 +548,13 @@ public static class DiagnosticContributors
         {
             if (Existing<MerchantService>() is not { } merchant) return Missing();
             var snapshot = merchant.Snapshot;
-            var petRows = merchant.Rows.Count;
+            var rows = merchant.Rows;
+            var petRows = rows.Count;
             return Result(Settings?.LootTrackingEnabled == false ? DiagnosticStatus.Disabled
                 : snapshot is null ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy,
                 ("hasOfferSnapshot", snapshot is not null), ("offerCount", snapshot?.Offers.Count),
                 ("observedAtUtc", snapshot?.At.ToUniversalTime()), ("petRowCount", petRows),
+                ("dungeonRows", rows.Count(row => row.DungeonAvailability is not null)),
                 ("counterEnabled", Settings?.MerchantOverlayEnabled));
         }
 
@@ -418,11 +598,12 @@ public static class DiagnosticContributors
             if (id == "loot-sessions") return LootSessionSnapshot(snapshot, tracker.SourceAvailable,
                 tracker.StatusIsError, Existing<SettingsService>()?.GetLootTrackerSmallSessionItemThreshold(),
                 tracker.AutomaticallyDeletedSmallSessionCount, tracker.SmallSessionCleanupIncomplete, DateTimeOffset.UtcNow,
-                Settings?.LootTrackingEnabled);
+                Settings?.LootTrackingEnabled, tracker.OverlayState.WaitingForWorldContext);
             var enabled = id == "loot-pve" ? Settings?.MonsterLootTrackingEnabled : Settings?.LifeskillTrackingEnabled;
             return Result(enabled == false ? DiagnosticStatus.Disabled : tracker.StatusIsError ? DiagnosticStatus.Error
                 : tracker.SourceAvailable ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting,
-                ("enabled", enabled), ("sourceAvailable", tracker.SourceAvailable), ("sessions", sessions.Length),
+                ("enabled", enabled), ("sourceAvailable", tracker.SourceAvailable),
+                ("waitingForWorldContext", tracker.OverlayState.WaitingForWorldContext), ("sessions", sessions.Length),
                 ("dailyKinaConfirmed", id == "loot-pve" ? tracker.DailyMonsterKinaConfirmed : null),
                 ("sessionsWithActivity", id == "loot-pve" ? sessions.Count(session => session.MonsterCount > 0)
                     : sessions.Count(session => session.HarvestCount > 0 || session.FailedHarvestCount > 0)),
@@ -455,14 +636,33 @@ public static class DiagnosticContributors
 
         private DiagnosticResult Market()
         {
-            if (Existing<ExchangeLootValuationService>() is not { } market) return Missing();
-            var snapshot = market.Snapshot;
-            return Result(!snapshot.OnlineEnabled ? DiagnosticStatus.Disabled : snapshot.StatusIsError ? DiagnosticStatus.Error
-                : snapshot.PendingCount > 0 ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy,
-                ("onlineEnabled", snapshot.OnlineEnabled), ("entries", snapshot.Entries.Length), ("pending", snapshot.PendingCount),
-                ("estimated", snapshot.Entries.Count(entry => entry.Status == ExchangeLootValueStatus.Estimated)),
-                ("referenceOnly", snapshot.Entries.Count(entry => entry.Status == ExchangeLootValueStatus.ReferenceOnly)),
-                ("unknown", snapshot.Entries.Count(entry => entry.Status == ExchangeLootValueStatus.Unknown)));
+            var snapshot = Existing<ExchangeLootValuationService>()?.Snapshot;
+            var automatic = Existing<ExchangeMarketAutoSelectionService>()?.Snapshot;
+            var servers = Existing<ExchangeMarketCache>()?.GetServers();
+            var liveMarket = Existing<OverlayEditorMarketService>()?.Snapshot;
+            if (snapshot is null && automatic is null && liveMarket is null) return Missing();
+            var online = snapshot?.OnlineEnabled ?? liveMarket?.OnlineEnabled ?? Settings?.OnlineMarketPricesEnabled;
+            return Result(online == false ? DiagnosticStatus.Disabled : snapshot?.StatusIsError == true || automatic?.IsError == true || liveMarket?.StatusIsError == true ? DiagnosticStatus.Error
+                : automatic is not null && (!automatic.OwnCharacterKnown || automatic.Automatic && (!automatic.MappingKnown || automatic.Loading))
+                    || snapshot is null && liveMarket is null || snapshot?.PendingCount > 0 || liveMarket is { Available: true } && (liveMarket.Loading || liveMarket.UnknownRows > 0)
+                    ? DiagnosticStatus.Waiting : liveMarket is { Available: true, Stale: true } ? DiagnosticStatus.Warning : DiagnosticStatus.Healthy,
+                ("onlineEnabled", online), ("entries", snapshot?.Entries.Length), ("pending", snapshot?.PendingCount),
+                ("estimated", snapshot?.Entries.Count(entry => entry.Status == ExchangeLootValueStatus.Estimated)),
+                ("referenceOnly", snapshot?.Entries.Count(entry => entry.Status == ExchangeLootValueStatus.ReferenceOnly)),
+                ("unknown", snapshot?.Entries.Count(entry => entry.Status == ExchangeLootValueStatus.Unknown)),
+                ("automaticSelectionAvailable", automatic is not null), ("detectedOwnProfileAvailable", automatic?.OwnCharacterKnown),
+                ("automaticServerSelection", automatic?.Automatic), ("automaticServerMapped", automatic?.MappingKnown),
+                ("automaticServerLoading", automatic?.Loading), ("automaticServerError", automatic?.IsError),
+                ("catalogueServers", servers?.Length), ("nativeServerKeys", servers?.Count(server => server.GameServerKey is > 0)),
+                ("ambiguousNativeServerKeys", servers?.Where(server => server.GameServerKey is > 0)
+                    .GroupBy(server => server.GameServerKey).Count(group => group.Count() > 1)),
+                ("liveMarketAverage24Hours", liveMarket?.Uses24HourAverage), ("liveMarketAvailable", liveMarket?.Available),
+                ("liveMarketAverageFallbackEnabled", liveMarket?.AverageFallbackEnabled),
+                ("liveMarketCurrentRows", liveMarket?.CurrentRows), ("liveMarketAverageRows", liveMarket?.AverageRows),
+                ("liveMarketPricedRows", liveMarket?.PricedRows), ("liveMarketUnknownRows", liveMarket?.UnknownRows),
+                ("liveMarketSamples", liveMarket?.AverageSamples), ("liveMarketLoading", liveMarket?.Loading),
+                ("liveMarketStale", liveMarket?.Stale), ("liveMarketWindowStart", liveMarket?.AverageWindowStart),
+                ("liveMarketWindowEnd", liveMarket?.AverageWindowEnd));
         }
 
         private DiagnosticResult Replay()
@@ -511,6 +711,12 @@ public static class DiagnosticContributors
             return id switch
             {
                 "combat-stat-overview" => Domain(snapshot.NativeStats, ("nativeStatCount", snapshot.NativeStats.Value?.Count),
+                    ("displayRuleCount", Soulcrest.Core.Combat.CharacterDisplayStatProjection.Rules.Count),
+                    ("tableInferredRuleCount", Soulcrest.Core.Combat.CharacterDisplayStatProjection.Rules.Count(rule =>
+                        rule.Qualification == Soulcrest.Core.Combat.CharacterDisplayStatQualification.TableInferred)),
+                    ("tableInferredValues", snapshot.DisplayStats.Rows.Count(row => row.Value is not null
+                        && row.Status == Soulcrest.Core.Combat.CombatKnowledgeStatus.Complete
+                        && row.Qualification == Soulcrest.Core.Combat.CharacterDisplayStatQualification.TableInferred)),
                     ("hpMaximumKnown", snapshot.HpMaximum.Value is not null), ("mpMaximumKnown", snapshot.MpMaximum.Value is not null),
                     ("evaluationAvailable", snapshot.Breakdown is not null), ("missingRequirements", snapshot.MissingRequirements.Count)),
                 "combat-wings" => Domain(snapshot.WingOwnership, ("ownedWings", snapshot.WingOwnership.Value?.Wings.Count),
@@ -553,16 +759,27 @@ public static class DiagnosticContributors
             if (Existing<CharacterCombatStateService>() is not { } source) return Missing();
             // The presentation service's Snapshot evaluates and changes preset authority. Diagnose
             // the immutable producer and menu observations without entering that state machine.
-            var character = source.Snapshot;
+            var ownCharacter = source.Snapshot;
+            var shared = Existing<INetworkGenusInsightSource>()?.GenusInsightSnapshot;
+            var character = GenusInsightStateService.ForGenusSource(ownCharacter, shared);
+            var menu = Existing<GenusMenuObservationService>()?.Snapshot;
+            if (character.Pets.Value is { } pets && menu?.ViewedPreset is { } viewed)
+                character = character with { Pets = character.Pets with { Value = pets with { SelectedGenusPanel = viewed } } };
             var snapshot = GenusInsightProjection.Create(character);
             if (!snapshot.IsCurrent && source.SavedGenusInsight is { } saved) snapshot = GenusInsightProjection.CreateSaved(saved);
-            var menu = Existing<GenusMenuObservationService>()?.Snapshot;
             return Result(snapshot.IsCurrent ? DomainStatus(character.Pets) : snapshot.IsHistorical ? DiagnosticStatus.Warning : DiagnosticStatus.Waiting,
                 ("current", snapshot.IsCurrent), ("historical", snapshot.IsHistorical), ("boards", snapshot.Boards.Count),
                 ("slots", snapshot.Boards.Sum(board => board.Slots.Count)), ("appliedEffects", snapshot.AppliedEffects.Count),
+                ("catalogStats", GenusInsightCatalog.Default.Stats.Count),
+                ("boundCatalogStats", GenusInsightNativeBindings.Stats.Count),
+                ("unboundCatalogStats", GenusInsightCatalog.Default.Stats.Count - GenusInsightNativeBindings.Stats.Count),
+                ("rangeQualifiedRolls", snapshot.Boards.Sum(board => board.Slots.Count(slot => slot.RollFraction is not null))),
                 ("effectsStatus", EnumValue(snapshot.AppliedEffectsStatus)), ("menuVisible", menu?.MenuVisible),
                 ("observedPresetKnown", snapshot.Preset is not null), ("viewedPresetKnown", menu?.ViewedPreset is not null),
                 ("presentationServiceAvailable", Existing<GenusInsightStateService>() is not null),
+                ("combatPetSourceStatus", EnumValue(ownCharacter.Pets.Status)),
+                ("sharedSourceAvailable", shared is not null), ("sharedSourceFresh", shared?.Domain.IsFresh),
+                ("sharedSourceStatus", shared is null ? null : EnumValue(shared.Domain.Status)),
                 ("observedAtUtc", snapshot.ObservedAt?.ToUniversalTime()));
         }
 
@@ -691,6 +908,24 @@ public static class DiagnosticContributors
                     var achievements = Existing<AchievementTrackerService>()?.Snapshot;
                     facts.Add(("trackerLive", achievements?.IsLive)); facts.Add(("trackerRows", achievements?.Rows.Length));
                     break;
+                case "genus-insight":
+                    // Read immutable producer/menu observations only. The display service evaluates
+                    // and persists preset authority, so diagnosis must never call its Snapshot getter.
+                    var genusCharacter = Existing<CharacterCombatStateService>()?.Snapshot;
+                    var genusMenu = Existing<GenusMenuObservationService>()?.Snapshot;
+                    var sharedGenus = Existing<INetworkGenusInsightSource>()?.GenusInsightSnapshot;
+                    facts.Add(("combatPetSourceStatus", genusCharacter is null ? null : EnumValue(genusCharacter.Pets.Status)));
+                    if (genusCharacter is not null)
+                        genusCharacter = GenusInsightStateService.ForGenusSource(genusCharacter, sharedGenus);
+                    if (genusCharacter?.Pets.Value is { } genusValue && genusMenu?.ViewedPreset is { } viewed)
+                        genusCharacter = genusCharacter with { Pets = genusCharacter.Pets with
+                            { Value = genusValue with { SelectedGenusPanel = viewed } } };
+                    var genusSource = genusCharacter is null ? null : GenusInsightProjection.Create(genusCharacter);
+                    facts.Add(("presentationServiceAvailable", Existing<GenusInsightStateService>() is not null));
+                    facts.Add(("sharedSourceAvailable", sharedGenus is not null));
+                    facts.Add(("sharedSourceFresh", sharedGenus?.Domain.IsFresh));
+                    facts.Add(("sharedSourceStatus", sharedGenus is null ? null : EnumValue(sharedGenus.Domain.Status)));
+                    return GenusInsightOverlaySnapshot(enabled, runtime, genusSource, genusMenu, DateTimeOffset.UtcNow, facts);
                 case "boss":
                     var bosses = Existing<BossRushService>()?.OverlaySpawns;
                     facts.Add(("upcomingBossRows", bosses?.Count)); facts.Add(("cachedBossRows", bosses?.Count(boss => boss.Cached)));
@@ -731,6 +966,7 @@ public static class DiagnosticContributors
                     break;
                 case "daevanion":
                     facts.Add(("boardObservationAvailable", Existing<DaevanionService>()?.Snapshot is not null));
+                    DaevanionRecognitionDiagnosticFacts.Append(facts, Existing<DaevanionService>()?.RecognitionDiagnostics);
                     facts.Add(("boardSourceStatus", Existing<CharacterCombatStateService>() is { } character ? EnumValue(character.Snapshot.ActivatedBoards.Status) : null));
                     break;
             }

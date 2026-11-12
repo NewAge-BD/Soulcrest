@@ -1,0 +1,100 @@
+@using Soulcrest.Core.Crafting
+@using static Soulcrest.App.Services.CraftingCalculatorPresentation
+
+@if (Depth >= 12 || Ancestors.Contains(Recipe.Id))
+{
+    <p class="craft-tree-note" data-crafting-tree-boundary>@UiText.T("Die Herstellungskette endet hier. Prüfe eine andere Zutatenquelle.")</p>
+}
+else
+{
+    var output = Catalog.FindItem(Recipe.OutputItemId);
+    <section class="craft-node" data-crafting-node="@Recipe.Id">
+        <header class="craft-node-heading">
+            @if (output?.Icon is { } icon) { <img src="@icon" alt="" loading="lazy" /> }
+            <div><strong><ItemName ItemId="Recipe.OutputItemId" Text="@Name(output)" /> <span>× @Recipe.OutputQuantity</span></strong><small>@Recipe.Profession · @UiText.F("Proficiency {0}", Recipe.RequiredProficiency?.ToString() ?? "—") · @Faction(Recipe.Faction)</small></div>
+            <span class="craft-node-chance" title="@UiText.T("Maximale Erfolgswahrscheinlichkeit ohne Unterbrechung")">@Chance(SuccessChance(Recipe, State))</span>
+        </header>
+        @if (Recipe.Ingredients.Length == 0)
+        {
+            <p class="craft-tree-note">@UiText.T("COMBO verwendet die Zutaten des Basisversuchs.")</p>
+        }
+        @foreach (var ingredient in Recipe.Ingredients)
+        {
+            var itemId = State.ReplacementChoices.GetValueOrDefault(new(Recipe.Id, ingredient.ItemId), ingredient.ItemId);
+            var item = Catalog.FindItem(itemId);
+            var candidates = Catalog.Recipes.Where(row => row.OutputItemId == itemId && !Ancestors.Contains(row.Id) && row.Id != Recipe.Id)
+                .Where(row => MatchesFaction(row.Faction, State.Faction))
+                .OrderBy(row => row.RequiredProficiency).ThenBy(row => row.Id).ToArray();
+            var craft = State.Acquisition.GetValueOrDefault(itemId) == CraftingAcquisition.Craft;
+            var choice = State.RecipeChoices.GetValueOrDefault(itemId);
+            var selected = candidates.FirstOrDefault(row => row.Id == choice) ?? (candidates.Length == 1 ? candidates[0] : null);
+            var price = State.BuyPrices.GetValueOrDefault(itemId);
+            <div class="craft-ingredient" data-crafting-ingredient="@itemId">
+                <div class="craft-ingredient-main">
+                    @if (item?.Icon is { } ingredientIcon) { <img src="@ingredientIcon" alt="" loading="lazy" /> }
+                    <div class="craft-ingredient-label"><strong><ItemName ItemId="itemId" Text="@Name(item)" /></strong><small>@(craft ? UiText.T("Wird selbst hergestellt") : Recipe.TransferItemIds.Contains(itemId) ? UiText.T("Transferausrüstung") : price is not null ? Source(price.Source) : UiText.T("Preis noch unbekannt"))</small></div>
+                    <span class="craft-ingredient-quantity">× @ingredient.Quantity</span>
+                    <span class="craft-ingredient-price">@if (craft) { <small>@UiText.T("Kosten im Gesamtplan")</small> } else { @Number(price?.UnitPrice) <small>Kina</small> }</span>
+                    <label class="craft-owned-quantity">@UiText.T("Bereits vorhanden")<input data-crafting-owned-quantity="@itemId" type="number" min="0" max="1000000000" aria-label="@UiText.F("Bereits vorhanden für {0}", Name(item))" aria-invalid="@(_ownedQuantityErrors.Contains(itemId) ? "true" : null)" value="@State.OwnedItems.GetValueOrDefault(itemId)" @onchange="@(args => SelectOwnedQuantity(itemId, args))" /></label>
+                </div>
+                @if (_ownedQuantityErrors.Contains(itemId)) { <p class="craft-owned-error" role="alert" data-crafting-owned-error="@itemId">@UiText.T("Die vorhandene Menge muss eine ganze Zahl zwischen 0 und 1.000.000.000 sein.")</p> }
+                @if (ingredient.ReplacementItemIds.Length > 0)
+                {
+                    <ItemSelect Class="craft-replacement" Label="@UiText.T("Materialalternative")" Value="itemId" Options="@(new[] { ingredient.ItemId }.Concat(ingredient.ReplacementItemIds).Select(id => new ItemSelectOption(id, id, Name(Catalog.FindItem(id)))).ToArray())" ValueChanged="@(id => SelectReplacement(ingredient.ItemId, new ChangeEventArgs { Value = id }))" data-crafting-replacement="@($"{Recipe.Id}:{ingredient.ItemId}")" />
+                }
+                @if (candidates.Length > 0)
+                {
+                    <details class="craft-subrecipe" open="@(craft || ExpandAll)">
+                        <summary>@UiText.T("Unterrezept") · <ItemName ItemId="itemId" Text="@Name(item)" /> <small>@UiText.T(craft ? "Wird selbst hergestellt" : "Nur Schema · Fehlmenge wird gekauft")</small></summary>
+                        <div class="craft-subrecipe-actions">
+                            @if (candidates.Length > 1)
+                            {
+                                <ItemSelect Label="@UiText.F("Herstellungsweg für {0}", Name(item))" Value="@(selected?.Id)" Placeholder="@UiText.T("Herstellungsweg auswählen …")" Options="@(candidates.Select(candidate => new ItemSelectOption(candidate.Id, candidate.OutputItemId, Name(Catalog.FindItem(candidate.OutputItemId)), candidate.Profession + " · " + candidate.RequiredProficiency + " · " + Faction(candidate.Faction) + (Catalog.IsComboRecipe(candidate.Id) ? " · COMBO" : ""))).ToArray())" ValueChanged="@(id => SelectProducer(itemId, new ChangeEventArgs { Value = id }))" data-crafting-producer="@itemId" ><LabelContent><ItemNameFormat FormatKey="Herstellungsweg für {0}" ItemId="itemId" Text="@Name(item)" /></LabelContent></ItemSelect>
+                            }
+                            @if (craft) { <button type="button" data-crafting-buy-deficit="@itemId" @onclick="@(() => SourceChanged.InvokeAsync(new(itemId, null)))">@UiText.T("Fehlmenge kaufen")</button> }
+                            else if (selected is not null) { <button type="button" data-crafting-use-subrecipe="@itemId" @onclick="@(() => SourceChanged.InvokeAsync(new(itemId, selected.Id)))">@UiText.T("Dieses Unterrezept verwenden")</button> }
+                        </div>
+                        @if (selected is not null)
+                        {
+                            var baseRecipe = Catalog.FindBaseRecipe(selected.Id) ?? selected;
+                            <CraftingRecipeTree Catalog="Catalog" Recipe="baseRecipe" State="State" Depth="@(Depth + 1)" Ancestors="@(Ancestors.Add(Recipe.Id))" ExpandAll="ExpandAll" SourceChanged="SourceChanged" ReplacementChanged="ReplacementChanged" OwnedQuantityChanged="OwnedQuantityChanged" />
+                        }
+                    </details>
+                }
+            </div>
+        }
+        @if (Recipe.ComboRecipeId is { } comboId && Catalog.FindRecipe(comboId) is { } combo)
+        {
+            <div class="craft-combo-link" data-crafting-combo="@combo.Id"><span aria-hidden="true">↳</span>
+                @if (Catalog.FindItem(combo.OutputItemId)?.Icon is { } comboIcon) { <img src="@comboIcon" alt="" loading="lazy" /> }
+                <div><strong>COMBO · <ItemName ItemId="combo.OutputItemId" Text="@Name(Catalog.FindItem(combo.OutputItemId))" /> × @combo.OutputQuantity</strong><small>@UiText.T("Aktivierung nach Basiserfolg") @ActivationChance(Recipe.ComboActivationChance) · @UiText.T("COMBO-Erfolg") @Chance(SuccessChance(combo, State))</small></div>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public CraftingCatalog Catalog { get; set; } = null!;
+    [Parameter, EditorRequired] public CraftingRecipe Recipe { get; set; } = null!;
+    [Parameter, EditorRequired] public CraftingCalculatorSnapshot State { get; set; } = new();
+    [Parameter] public int Depth { get; set; }
+    [Parameter] public System.Collections.Immutable.ImmutableHashSet<int> Ancestors { get; set; } = [];
+    [Parameter] public bool ExpandAll { get; set; }
+    [Parameter] public EventCallback<CraftingSourceSelection> SourceChanged { get; set; }
+    [Parameter] public EventCallback<CraftingReplacementSelection> ReplacementChanged { get; set; }
+    [Parameter] public EventCallback<CraftingOwnedQuantitySelection> OwnedQuantityChanged { get; set; }
+    private readonly HashSet<int> _ownedQuantityErrors = [];
+    private Task SelectProducer(int id, ChangeEventArgs args) => int.TryParse(args.Value?.ToString(), out var recipeId)
+        && Catalog.FindRecipe(recipeId) is { } recipe && recipe.OutputItemId == id && recipe.Id != Recipe.Id && !Ancestors.Contains(recipe.Id)
+        && MatchesFaction(recipe.Faction, State.Faction)
+            ? SourceChanged.InvokeAsync(new(id, recipeId)) : Task.CompletedTask;
+    private Task SelectOwnedQuantity(int id, ChangeEventArgs args)
+    {
+        if (!long.TryParse(args.Value?.ToString(), out var quantity) || quantity is < 0 or > 1_000_000_000)
+        { _ownedQuantityErrors.Add(id); return Task.CompletedTask; }
+        _ownedQuantityErrors.Remove(id);
+        return OwnedQuantityChanged.InvokeAsync(new(id, quantity));
+    }
+    private Task SelectReplacement(int ingredient, ChangeEventArgs args) => int.TryParse(args.Value?.ToString(), out var id)
+        ? ReplacementChanged.InvokeAsync(new(Recipe.Id, ingredient, id)) : Task.CompletedTask;
+}

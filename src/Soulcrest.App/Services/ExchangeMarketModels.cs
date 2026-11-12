@@ -4,7 +4,11 @@ using System.Net;
 namespace Soulcrest.App.Services;
 
 public sealed record ExchangeMarketServer(int ServerId, string Name, string Region, string RegionName,
-    string Faction, bool HasData);
+    string Faction, bool HasData)
+{
+    /// <summary>Explicit provider mapping to the native own-character server key; distinct from ServerId.</summary>
+    public int? GameServerKey { get; init; }
+}
 
 /// <summary>A captured lowest listed unit price, not a sale, variant appraisal or wallet transaction.</summary>
 public sealed record ExchangeMarketQuote(int ServerId, int ItemId, decimal UnitPrice, int Listings,
@@ -16,6 +20,16 @@ public sealed record ExchangeMarketHistoricalQuote(int ServerId, int ItemId, dec
 
 public sealed record ExchangeMarketQuoteDetails(ImmutableArray<ExchangeMarketQuote> CurrentQuotes,
     ImmutableArray<ExchangeMarketHistoricalQuote> HistoricalQuotes);
+
+/// <summary>Mean of provider raw cheapest-unit-price observations in one exact rolling 24-hour window.</summary>
+public sealed record ExchangeMarketAveragePrice(int ServerId, int ItemId, decimal UnitPrice, int Samples,
+    DateTimeOffset RangeStart, DateTimeOffset RangeEnd, DateTimeOffset FetchedAt);
+
+public interface IExchangeMarketAverageClient
+{
+    Task<ImmutableArray<ExchangeMarketAveragePrice>> GetAveragePricesAsync(int serverId, IReadOnlyCollection<int> itemIds,
+        CancellationToken cancellationToken);
+}
 
 public interface IExchangeMarketClient
 {

@@ -5,6 +5,7 @@ using System.Drawing.Text;
 using System.Runtime.InteropServices;
 using Soulcrest.App.Capture;
 using Soulcrest.App.Services;
+using Soulcrest.Core.Pets;
 using Soulcrest.Ocr.Shop;
 
 namespace Soulcrest.App.Overlay;
@@ -32,7 +33,7 @@ public sealed class MerchantOverlayForm : Form
 
     internal sealed record Badge(Rectangle Bounds, string Counter, bool IsFresh, bool IsMax, string FarmRegions = "",
         Rectangle PriceBounds = default, string PetCategory = "", string FarmSpawns = "",
-        Rectangle CategoryBounds = default);
+        Rectangle CategoryBounds = default, PetGlobalAvailability? DungeonAvailability = null);
     private sealed record Picture(MerchantSnapshot Snapshot, Rectangle GameBounds, long FrameAt,
         IReadOnlyList<Badge> Badges);
 
@@ -211,9 +212,10 @@ public sealed class MerchantOverlayForm : Form
             // than add a dashboard badge. Anchor.Scale already includes UI scale and physical
             // capture resolution; neither monitor DPI nor game-window dimensions scale it again.
             if (!double.IsFinite(anchor.Scale) || anchor.Scale <= 0) return [];
-            var hasRegions = !string.IsNullOrWhiteSpace(row.FarmRegions);
+            var splitSources = SplitDungeonSources(row.DungeonAvailability, row.FarmSpawns);
+            var hasRegions = !string.IsNullOrWhiteSpace(row.FarmRegions) || splitSources is not null;
             var width = Math.Max(1, (int)Math.Round(212 * anchor.Scale));
-            var footHeight = Math.Max(1, (int)Math.Round((hasRegions ? 52 : 36) * anchor.Scale));
+            var footHeight = Math.Max(1, (int)Math.Round((splitSources is not null ? 68 : hasRegions ? 52 : 36) * anchor.Scale));
             var gap = Math.Max(1, (int)Math.Round(anchor.Scale));
             var rectangle = new Rectangle(anchor.PriceBounds.X + (anchor.PriceBounds.Width - width) / 2,
                 anchor.PriceBounds.Top, width, anchor.PriceBounds.Height + gap + footHeight);
@@ -231,13 +233,23 @@ public sealed class MerchantOverlayForm : Form
             if (!gameArea.Contains(rectangle) || !category.IsEmpty && !gameArea.Contains(category)) return [];
             badges.Add(new(rectangle, row.Counter, row.IsFresh, row.IsMax, row.FarmRegions,
                 new Rectangle(anchor.PriceBounds.X, anchor.PriceBounds.Y, anchor.PriceBounds.Width, anchor.PriceBounds.Height),
-                row.PetCategory, row.FarmSpawns, category));
+                row.PetCategory, row.FarmSpawns, category, row.DungeonAvailability));
         }
         return badges.AsReadOnly();
     }
 
     internal static Rectangle SurfaceBounds(Badge badge) => badge.CategoryBounds.IsEmpty
         ? badge.Bounds : Rectangle.Union(badge.Bounds, badge.CategoryBounds);
+
+    // User request 2026-11-11: preserve readable dungeon qualifiers and world-map counts as
+    // separate lines. Layout and paint share exactly the same typed, first-separator predicate.
+    private static (string Dungeon, string World)? SplitDungeonSources(PetGlobalAvailability? availability, string sources)
+    {
+        if (availability is null || string.IsNullOrWhiteSpace(sources)) return null;
+        var separator = sources.IndexOf(" · ", StringComparison.Ordinal);
+        return separator > 0 && separator + 3 < sources.Length
+            ? (sources[..separator], sources[(separator + 3)..]) : null;
+    }
 
     private static bool Fresh(long frameAt) => frameAt > 0 && frameAt <= Stopwatch.GetTimestamp() &&
         Stopwatch.GetElapsedTime(frameAt) <= TimeSpan.FromSeconds(1);
@@ -361,13 +373,17 @@ public sealed class MerchantOverlayForm : Form
             var rect = new Rectangle(badge.Bounds.X - origin.X, badge.Bounds.Y - origin.Y,
                 badge.Bounds.Width, badge.Bounds.Height);
             var scale = rect.Width / 212f;
-            var hasRegions = !string.IsNullOrWhiteSpace(badge.FarmRegions);
+            var splitSources = SplitDungeonSources(badge.DungeonAvailability, badge.FarmSpawns);
+            var hasRegions = !string.IsNullOrWhiteSpace(badge.FarmRegions) || splitSources is not null;
             DrawCategory(graphics, origin, badge, format, scale);
             var farmText = string.IsNullOrWhiteSpace(badge.FarmSpawns) ? badge.FarmRegions : badge.FarmSpawns;
             // User request 2026-10-13: prioritize pets not yet unlocked and the farm
             // category Special (no source on the three maps), independently of shop tab.
             var needsUnlock = badge.Counter == "0/5";
-            var special = badge.FarmRegions == "Special";
+            // User request 2026-11-11: a typed dungeon source owns the material, independently
+            // of map classification or displayed text. Counter status colours remain unchanged.
+            var dungeon = badge.DungeonAvailability is not null;
+            var special = !dungeon && badge.FarmRegions == "Special";
             var isMax = badge.IsMax;
             var state = graphics.Save();
             graphics.SetClip(rect, CombineMode.Intersect);
@@ -388,7 +404,8 @@ public sealed class MerchantOverlayForm : Form
                 graphics.SetClip(protectedPrice, CombineMode.Exclude);
             }
 
-            // BuildBadges reserves 36 px for a counter alone or 52 px with the farm line.
+            // BuildBadges reserves 36 px for a counter, 52 px with one source line, or 68 px
+            // for typed dungeon + world sources. Counter placement stays at the same price edge.
             // Derive geometry from that physical space, so adding/removing header metadata or
             // using a legacy farm-label fallback never shifts the counter or the contour.
             var hasFarmFoot = rect.Bottom - contentTop > 44 * scale;
@@ -407,17 +424,19 @@ public sealed class MerchantOverlayForm : Form
             shape.AddPolygon(outline);
             // User request 2026-10-13: Special and MAX must catch the eye. Match the
             // shop's coloured item material while blending into its neutral price surround.
-            var materialEnd = special ? Color.FromArgb(252, 75, 53, 26)
+            var materialEnd = dungeon ? Color.FromArgb(252, 62, 37, 89)
+                : special ? Color.FromArgb(252, 75, 53, 26)
                 : isMax ? badge.IsFresh ? Color.FromArgb(252, 30, 66, 41) : Color.FromArgb(252, 38, 48, 36)
                 : Color.FromArgb(252, 44, 44, 41);
             using var background = new LinearGradientBrush(rect,
                 Color.FromArgb(255, 54, 54, 52), materialEnd, 90f);
             graphics.FillPath(background, shape);
-            var edgeColor = special ? Color.FromArgb(255, 217, 182, 106)
+            var edgeColor = dungeon ? Color.FromArgb(255, 185, 137, 235)
+                : special ? Color.FromArgb(255, 217, 182, 106)
                 : isMax ? badge.IsFresh ? Color.FromArgb(245, 160, 208, 153) : Color.FromArgb(220, 135, 160, 121)
                 : needsUnlock && badge.IsFresh ? Color.FromArgb(210, 177, 160, 117)
                 : needsUnlock ? Color.FromArgb(190, 155, 142, 111) : Color.FromArgb(200, 139, 132, 108);
-            using var edge = new Pen(edgeColor, Math.Max(.5f, (special || isMax ? 1.3f : 1f) * scale));
+            using var edge = new Pen(edgeColor, Math.Max(.5f, (dungeon || special || isMax ? 1.3f : 1f) * scale));
             graphics.DrawLines(edge, outline);
 
             // Standalone MAX and the decorated Special line have distinct green/amber
@@ -436,18 +455,31 @@ public sealed class MerchantOverlayForm : Form
             DrawShadowedText(graphics, counterText, font, color, counterArea, format, scale);
             if (hasRegions)
             {
+                var sourceText = splitSources?.Dungeon ?? farmText;
                 var regionArea = new RectangleF(rect.Left + 8 * scale, contentTop + 21 * scale,
                     rect.Width - 16 * scale, 16 * scale);
-                using var regionFont = FitFont(graphics, farmText, regionArea, (special ? 14 : 12) * scale,
-                    special ? FontStyle.Bold : FontStyle.Regular);
+                using var regionFont = FitFont(graphics, sourceText, regionArea, (dungeon || special ? 14 : 12) * scale,
+                    dungeon || special ? FontStyle.Bold : FontStyle.Regular);
                 // Long three-map counts use the straight portion above the sloping card tip.
                 // Keep the same font/footprint rather than let the last glyphs cross its contour.
-                var regionWidth = graphics.MeasureString(farmText, regionFont,
+                var regionWidth = graphics.MeasureString(sourceText, regionFont,
                     int.MaxValue, StringFormat.GenericTypographic).Width;
                 if (regionWidth > 176 * scale) regionArea.Offset(0, -3 * scale);
-                var regionColor = special ? Color.FromArgb(255, 219, 143) : Color.FromArgb(181, 179, 165);
-                DrawShadowedText(graphics, farmText, regionFont, regionColor,
+                var regionColor = dungeon ? Color.FromArgb(221, 185, 255)
+                    : special ? Color.FromArgb(255, 219, 143) : Color.FromArgb(181, 179, 165);
+                DrawShadowedText(graphics, sourceText, regionFont, regionColor,
                     regionArea, format, scale);
+                if (splitSources is { } sources)
+                {
+                    // This is already a separate line: moving long text upward would collide
+                    // with the 14px dungeon qualifier. The 68px foot gives both glyphs and their
+                    // shadows room before its shoulder, without squeezing away their ascenders.
+                    var worldArea = new RectangleF(rect.Left + 8 * scale, contentTop + 38 * scale,
+                        rect.Width - 16 * scale, 14 * scale);
+                    using var worldFont = FitFont(graphics, sources.World, worldArea, 12 * scale);
+                    DrawShadowedText(graphics, sources.World, worldFont, Color.FromArgb(186, 174, 204),
+                        worldArea, format, scale);
+                }
                 if (special)
                 {
                     var textWidth = graphics.MeasureString(farmText, regionFont,

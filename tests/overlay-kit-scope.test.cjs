@@ -134,6 +134,11 @@ test('original editor declarations and breakpoints remain unchanged apart from a
     assert.equal(css.split(lockStart).length - 1, 1);
     assert.equal(css.split(lockEnd).length - 1, 1);
     css = css.slice(0, css.indexOf(lockStart)) + css.slice(css.indexOf(lockEnd) + lockEnd.length);
+    const contextStart = '/* Startup world context adaptation:begin (user request 2026-11-10). */';
+    const contextEnd = '/* Startup world context adaptation:end. */';
+    assert.equal(css.split(contextStart).length - 1, 1);
+    assert.equal(css.split(contextEnd).length - 1, 1);
+    css = css.slice(0, css.indexOf(contextStart)) + css.slice(css.indexOf(contextEnd) + contextEnd.length);
     for (const [added, original] of themeAdaptations) {
         assert.equal(css.split(added).length - 1, 1, added);
         css = css.replace(added, original);

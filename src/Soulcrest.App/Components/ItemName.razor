@@ -1,0 +1,24 @@
+<span @attributes="AdditionalAttributes" class="@CssClass" style="@ColorStyle" title="@Title"
+      data-item-name="true" data-item-grade="@Appearance.Grade">@if (ChildContent is not null)
+    {@ChildContent}
+    else
+    {@Text}</span>
+
+@code {
+    [Parameter] public int? ItemId { get; set; }
+    [Parameter] public string? DropKey { get; set; }
+    [Parameter] public string? Grade { get; set; }
+    [Parameter] public LootItemRarity? Rarity { get; set; }
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private ItemNameStyle Appearance => ItemId is { } id ? ItemNamePresentation.ForItem(id)
+        : DropKey is not null ? ItemNamePresentation.ForDropKey(DropKey)
+        : Grade is not null ? ItemNamePresentation.ForGrade(Grade)
+        : Rarity is { } rarity ? ItemNamePresentation.ForGrade(rarity) : ItemNameStyle.Neutral;
+    private string CssClass => string.IsNullOrWhiteSpace(Class) ? "item-name" : "item-name " + Class;
+    private string? ColorStyle => Appearance.CssColor is { } color ? "color:" + color : null;
+}

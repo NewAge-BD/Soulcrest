@@ -27,7 +27,8 @@ public sealed record MerchantSnapshot
 }
 
 public sealed record MerchantCounterRow(int SlotIndex, string PetId, string Counter, bool IsFresh, bool IsMax,
-    string FarmRegions = "", string PetCategory = "", string FarmSpawns = "");
+    string FarmRegions = "", string PetCategory = "", string FarmSpawns = "",
+    PetGlobalAvailability? DungeonAvailability = null);
 
 /// <summary>Ephemeral, paired merchant lists projected onto the global pet collection.</summary>
 public sealed class MerchantService : IDisposable
@@ -84,7 +85,8 @@ public sealed class MerchantService : IDisposable
                 var counter = _progress.ReadMerchantCounter(petId);
                 rows.Add(new(slot, petId, counter.Counter, counter.IsFresh, counter.IsMax,
                     PetFarmRegions.Find(number) is { } regions ? string.Join(" / ", regions) : "?",
-                    PetCategory(number), FarmSpawnText(number, _progress.Catalog, _progress.Maps)));
+                    PetCategory(number), FarmSourceText(number, _progress.Catalog, _progress.Maps),
+                    PetAcquisitionCatalog.Find(number)?.Availability));
             }
             lock (_gate)
                 return !_disposed && ReferenceEquals(snapshot, _snapshot) ? rows.AsReadOnly() : [];
@@ -121,6 +123,21 @@ public sealed class MerchantService : IDisposable
                 .Sum(pair => (long)pair.Value) ?? 0;
             return region + " (" + (count > 0 ? count.ToString(CultureInfo.InvariantCulture) : "?") + ")";
         }));
+    }
+
+    // User request 2026-11-11: distinguish proven dungeon drops from the three world-map regions.
+    // A datamined drop does not establish that a Global variant has already opened.
+    internal static string FarmSourceText(int petNumber, PetCatalog catalog, IReadOnlyList<MapInfo> maps)
+    {
+        var regions = FarmSpawnText(petNumber, catalog, maps);
+        if (PetAcquisitionCatalog.Find(petNumber) is not { } acquisition) return regions;
+        var dungeon = acquisition.Availability switch
+        {
+            PetGlobalAvailability.Available => "Dungeon",
+            PetGlobalAvailability.Upcoming => UiText.T("Dungeon (zukünftig)"),
+            _ => "Dungeon (?)"
+        };
+        return regions is "Special" or "?" ? dungeon : dungeon + " · " + regions;
     }
 
     private void OnMessage(MerchantNetworkMessage message)

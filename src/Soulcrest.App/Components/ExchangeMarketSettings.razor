@@ -3,16 +3,22 @@
 
 <details class="exchange-market-settings" data-testid="exchange-market-settings">
     <summary><span>@UiText.T("Online-Marktpreise")</span><small>@UiText.T(Settings.Current.OnlineMarketPricesEnabled ? "Aktiv" : "Ausgeschaltet") · <a href="https://aion2.exchange" target="_blank" rel="noopener noreferrer" @onclick:stopPropagation="true">aion2.exchange ↗</a></small></summary>
+    <p class="exchange-market-note" data-exchange-market-always-on="true">@UiText.T("Online-Marktpreise sind automatisch aktiv.")</p>
     <div class="exchange-market-controls" aria-busy="@_busy">
-        <label class="exchange-market-toggle"><input id="exchange-market-enabled" type="checkbox" checked="@Settings.Current.OnlineMarketPricesEnabled" disabled="@_saving" @onchange="ChangeEnabled" />@UiText.T("Online-Marktpreise verwenden")</label>
         <label for="exchange-market-profile">@UiText.T("Einstellungen für Charakterprofil")<select id="exchange-market-profile" value="@_profileId" disabled="@_saving" @onchange="ChangeProfile"><option value="">@UiText.T("Profil wählen")</option>@foreach (var profile in Profiles) { <option value="@profile.Id">@profile.Name</option> }</select></label>
-        <button id="exchange-market-load-servers" type="button" class="btn" disabled="@(_busy || !Settings.Current.OnlineMarketPricesEnabled || !LoadServers.HasDelegate)" @onclick="LoadServerList">@UiText.T(_loading ? "Server werden geladen …" : "Serverliste laden")</button>
+        <label class="exchange-market-toggle"><input id="exchange-market-auto" type="checkbox" checked="@Profile.AutomaticServerSelection" disabled="@(_busy || _profileId is null)" @onchange="ChangeAutomaticSelection" />@UiText.T("Marktserver automatisch erkennen")</label>
+        <button id="exchange-market-load-servers" type="button" class="btn" disabled="@(_busy || !LoadServers.HasDelegate)" @onclick="LoadServerList">@UiText.T(_loading ? "Server werden geladen …" : "Serverliste laden")</button>
         <label for="exchange-market-region">@UiText.T("Marktregion")<select id="exchange-market-region" value="@Profile.Region" disabled="@SelectionDisabled" @onchange="ChangeRegion"><option value="">@UiText.T("Region wählen")</option>@foreach (var region in Servers.GroupBy(row => row.Region).OrderBy(group => group.Key, StringComparer.Ordinal)) { <option value="@region.Key">@(region.First().RegionName)</option> }</select></label>
         <label for="exchange-market-faction">@UiText.T("Marktfraktion")<select id="exchange-market-faction" value="@Profile.Faction" disabled="@(SelectionDisabled || Profile.Region is null)" @onchange="ChangeFaction"><option value="">@UiText.T("Fraktion wählen")</option>@foreach (var faction in Servers.Where(row => row.Region == Profile.Region).Select(row => row.Faction).Distinct().Order(StringComparer.Ordinal)) { <option value="@faction">@ExchangeMarketPresentation.Faction(faction)</option> }</select></label>
         <label for="exchange-market-server">@UiText.T("Marktserver")<select id="exchange-market-server" value="@Profile.ServerId?.ToString(System.Globalization.CultureInfo.InvariantCulture)" disabled="@(SelectionDisabled || Profile.Faction is null)" @onchange="ChangeServer"><option value="">@UiText.T("Server wählen")</option>@foreach (var server in Servers.Where(row => row.Region == Profile.Region && row.Faction == Profile.Faction).OrderBy(row => row.Name, StringComparer.Ordinal)) { <option value="@server.ServerId">@server.Name@(!server.HasData ? " · " + UiText.T("Noch keine Preise") : "")</option> }</select></label>
         <label for="exchange-market-sales-tax">@UiText.T("Verkaufsgebühr (%)")<input id="exchange-market-sales-tax" type="number" min="0" max="100" step="0.01" inputmode="decimal" value="@_salesTax" disabled="@FeeDisabled" @onchange="ChangeSalesTax" /></label>
         <label for="exchange-market-listing-fee">@UiText.T("Einstellgebühr (%)")<input id="exchange-market-listing-fee" type="number" min="0" max="100" step="0.01" inputmode="decimal" value="@_listingFee" disabled="@FeeDisabled" @onchange="ChangeListingFee" /></label>
     </div>
+    @if (_profileId is not null && Profile.AutomaticServerSelection)
+    {
+        <p class="exchange-market-status @(AutomaticStatusIsError && _profileId == DetectedProfileId ? "error" : "")" data-exchange-auto-status="true" role="status">@UiText.T(_profileId == DetectedProfileId && AutomaticStatus is not null ? AutomaticStatus : "Wird automatisch zugeordnet, sobald dieser Charakter im Spiel erkannt wird.")</p>
+    }
+    <p class="exchange-market-note">@UiText.T("Charakter und Marktserver werden automatisch erkannt. Du kannst die Serverwahl bei Bedarf manuell überschreiben.")</p>
     <p class="exchange-market-note">@UiText.T("Markt und Gebühren gelten für neue Beute dieses lokalen Profils. Bestehende Bewertungen bleiben eingefroren; ältere Sessions werden nicht nachbewertet.")</p>
     <p class="exchange-market-note">@UiText.T("Ohne gewählten Marktserver werden keine Preise abgefragt. Ein Preis fehlt, wenn kein frischer Beleg vorliegt. Ausrüstung erhält nur einen Basispreis-Richtwert für die Item-ID.")</p>
     <p class="exchange-market-note">@ExchangeMarketPresentation.TradeabilityHint</p>
@@ -23,6 +29,9 @@
 @code {
     [Parameter] public IReadOnlyList<(string Id, string Name)> Profiles { get; set; } = [];
     [Parameter] public string? ActiveProfileId { get; set; }
+    [Parameter] public string? DetectedProfileId { get; set; }
+    [Parameter] public string? AutomaticStatus { get; set; }
+    [Parameter] public bool AutomaticStatusIsError { get; set; }
     [Parameter] public IReadOnlyList<ExchangeMarketServer> Servers { get; set; } = [];
     [Parameter] public EventCallback LoadServers { get; set; }
     [Parameter] public string? SourceStatus { get; set; }
@@ -31,7 +40,7 @@
     private string _salesTax = "10", _listingFee = "2";
     private bool _saving, _loading, _failed, _disposed;
     private bool _busy => _saving || _loading;
-    private bool SelectionDisabled => _busy || _profileId is null || !Settings.Current.OnlineMarketPricesEnabled || Servers.Count == 0;
+    private bool SelectionDisabled => _busy || _profileId is null || Profile.AutomaticServerSelection || Servers.Count == 0;
     private bool FeeDisabled => _saving || _profileId is null;
     private ExchangeMarketProfileSettings Profile => Settings.GetExchangeMarketProfile(_profileId);
 
@@ -55,22 +64,24 @@
         _profileId = Profiles.Any(row => row.Id == e.Value?.ToString()) ? e.Value?.ToString() : null;
         _feedback = null; SyncFees();
     }
-    private Task ChangeEnabled(ChangeEventArgs e) => Save(() => Settings.SetOnlineMarketPricesEnabled(e.Value is true));
+    private Task ChangeAutomaticSelection(ChangeEventArgs e) => e.Value is true
+        ? SaveProfile(Profile with { AutoDetectServer = true, Region = null, Faction = null, ServerId = null })
+        : SaveProfile(Profile with { AutoDetectServer = false });
     private Task ChangeRegion(ChangeEventArgs e)
     {
         var region = e.Value?.ToString();
-        return SaveProfile(Profile with { Region = Servers.Any(row => row.Region == region) ? region : null, Faction = null, ServerId = null });
+        return SaveProfile(Profile with { AutoDetectServer = false, Region = Servers.Any(row => row.Region == region) ? region : null, Faction = null, ServerId = null });
     }
     private Task ChangeFaction(ChangeEventArgs e)
     {
         var faction = e.Value?.ToString(); var profile = Profile;
-        return SaveProfile(profile with { Faction = Servers.Any(row => row.Region == profile.Region && row.Faction == faction) ? faction : null, ServerId = null });
+        return SaveProfile(profile with { AutoDetectServer = false, Faction = Servers.Any(row => row.Region == profile.Region && row.Faction == faction) ? faction : null, ServerId = null });
     }
     private Task ChangeServer(ChangeEventArgs e)
     {
         var profile = Profile;
         var found = int.TryParse(e.Value?.ToString(), out var id) && Servers.Any(row => row.ServerId == id && row.Region == profile.Region && row.Faction == profile.Faction);
-        return SaveProfile(profile with { ServerId = found ? id : null });
+        return SaveProfile(profile with { AutoDetectServer = false, ServerId = found ? id : null });
     }
     private Task ChangeSalesTax(ChangeEventArgs e) { _salesTax = e.Value?.ToString() ?? ""; return SaveFees(); }
     private Task ChangeListingFee(ChangeEventArgs e) { _listingFee = e.Value?.ToString() ?? ""; return SaveFees(); }
@@ -81,7 +92,8 @@
             || !decimal.TryParse(_listingFee, style, System.Globalization.CultureInfo.InvariantCulture, out var listing)
             || !(Profile with { SalesTaxPercent = sales, RegistrationFeePercent = listing }).HasValidFees)
         { _failed = true; _feedback = "Gebühren müssen zusammen zwischen 0 und 100 Prozent liegen."; return Task.CompletedTask; }
-        return SaveProfile(Profile with { SalesTaxPercent = sales, RegistrationFeePercent = listing });
+        var id = _profileId;
+        return id is null ? Task.CompletedTask : Save(() => Settings.SetExchangeMarketFees(id, sales, listing));
     }
     private Task SaveProfile(ExchangeMarketProfileSettings value)
     {
@@ -99,7 +111,7 @@
     }
     private async Task LoadServerList()
     {
-        if (_busy || !Settings.Current.OnlineMarketPricesEnabled) return;
+        if (_busy) return;
         _loading = true; _feedback = null;
         try { await LoadServers.InvokeAsync(); }
         catch (OperationCanceledException) { }

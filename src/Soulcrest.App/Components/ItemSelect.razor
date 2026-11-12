@@ -1,0 +1,138 @@
+@implements IAsyncDisposable
+@inject IServiceProvider Services
+
+<div class="item-select @Class @(_open ? "is-open" : "")" @attributes="AdditionalAttributes">
+    <span id="@(_id + "-label")" class="item-select-label">@if (LabelContent is not null) { @LabelContent } else { @Label }</span>
+    @if (_open) { <span class="item-select-backdrop" aria-hidden="true" @onmousedown:preventDefault @onclick="Cancel"></span> }
+    <button type="button" class="item-select-trigger" role="combobox" aria-labelledby="@(_id + "-label")" aria-label="@Label"
+        aria-haspopup="listbox" aria-expanded="@(_open ? "true" : "false")" aria-controls="@(_id + "-list")"
+        aria-activedescendant="@(_open && _active >= 0 ? OptionId(_active) : null)" disabled="@Disabled"
+        @onclick="Toggle" @onkeydown="KeyDown" @onblur="Cancel" @ref="_trigger">
+        <span class="item-select-value">
+            @if (Selected is { } selected)
+            {
+                @if (SelectedContent is not null) { @SelectedContent(selected) }
+                else { <ItemName ItemId="selected.ItemId" Text="@selected.Text" />@if (!string.IsNullOrWhiteSpace(selected.Detail)) { <small>@selected.Detail</small> } }
+            }
+            else { <span class="item-select-placeholder">@Placeholder</span> }
+        </span><span class="item-select-chevron" aria-hidden="true">⌄</span>
+    </button>
+    @if (_open)
+    {
+        <div id="@(_id + "-list")" class="item-select-list" role="listbox" aria-labelledby="@(_id + "-label")" @ref="_popup">
+            @for (var index = 0; index < Options.Count; index++)
+            {
+                var row = Options[index]; var optionIndex = index;
+                <div id="@OptionId(index)" class="item-select-option @(_active == index ? "is-active" : "")" role="option"
+                    aria-selected="@(Value == row.Value ? "true" : "false")" data-item-select-option="@row.Value"
+                    @onmousedown:preventDefault @onclick="@(() => Commit(optionIndex))" @onmouseenter="@(() => _active = optionIndex)">
+                    @if (OptionContent is not null) { @OptionContent(row) }
+                    else { <ItemName ItemId="row.ItemId" Text="@row.Text" />@if (!string.IsNullOrWhiteSpace(row.Detail)) { <small>@row.Detail</small> } }
+                    @if (Value == row.Value) { <span class="item-select-check" aria-hidden="true">✓</span> }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ItemSelectOption> Options { get; set; } = [];
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int> ValueChanged { get; set; }
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public RenderFragment? LabelContent { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "—";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment<ItemSelectOption>? OptionContent { get; set; }
+    [Parameter] public RenderFragment<ItemSelectOption>? SelectedContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+    private static long _nextId;
+    private readonly string _id = "item-select-" + Interlocked.Increment(ref _nextId);
+    private ElementReference _trigger, _popup;
+    private IJSObjectReference? _module;
+    private bool _open, _disposed;
+    private int _active = -1;
+    private string _typeAhead = "";
+    private DateTime _typedAt;
+    private string? _optionsKey;
+    private int? _lastValue;
+    private ItemSelectOption? Selected => Options.FirstOrDefault(row => row.Value == Value);
+    private string OptionId(int index) => _id + "-option-" + index;
+    protected override void OnParametersSet()
+    {
+        var key = string.Join("\n", Options.Select(option => option.Value + ":" + option.ItemId + ":" + option.Text + ":" + option.Detail));
+        if (_optionsKey is not null && (_optionsKey != key || _lastValue != Value)) Cancel();
+        _optionsKey = key; _lastValue = Value;
+        if (Disabled || Options.Count == 0) _open = false;
+        if (_active >= Options.Count) _active = Options.Count - 1;
+    }
+    private void Open()
+    {
+        if (Disabled || Options.Count == 0) return;
+        _active = Options.ToList().FindIndex(row => row.Value == Value);
+        if (_active < 0) _active = 0;
+        _open = true;
+    }
+    private void Toggle() { if (_open) Cancel(); else Open(); }
+    private void Cancel() { _open = false; _typeAhead = ""; }
+    private async Task Commit(int index)
+    {
+        if (Disabled || index < 0 || index >= Options.Count) return;
+        var value = Options[index].Value; Cancel();
+        if (value != Value) await ValueChanged.InvokeAsync(value);
+    }
+    private async Task KeyDown(KeyboardEventArgs args)
+    {
+        if (Disabled) return;
+        switch (args.Key)
+        {
+            case "Enter": case " ":
+                if (_open) await Commit(_active); else Open();
+                break;
+            case "Escape": Cancel(); break;
+            case "Tab": if (_open) await Commit(_active); break;
+            case "ArrowDown":
+                if (!_open) Open(); else if (Options.Count > 0) _active = Math.Min(Options.Count - 1, _active + 1);
+                break;
+            case "ArrowUp":
+                if (!_open) Open(); else _active = Math.Max(0, _active - 1);
+                break;
+            case "Home": Open(); _active = 0; break;
+            case "End": Open(); _active = Options.Count - 1; break;
+            default:
+                if (args.Key.Length != 1 || args.CtrlKey || args.AltKey || args.MetaKey || Options.Count == 0) break;
+                var now = DateTime.UtcNow;
+                _typeAhead = now - _typedAt > TimeSpan.FromSeconds(1) ? args.Key : _typeAhead + args.Key;
+                _typedAt = now;
+                if (!_open) Open();
+                var prefix = _typeAhead.All(character => char.ToUpperInvariant(character) == char.ToUpperInvariant(args.Key[0])) ? args.Key : _typeAhead;
+                for (var offset = 1; offset <= Options.Count; offset++)
+                {
+                    var candidate = (_active + offset) % Options.Count;
+                    if (!Options[candidate].Text.StartsWith(prefix, StringComparison.CurrentCultureIgnoreCase)) continue;
+                    _active = candidate; break;
+                }
+                break;
+        }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_disposed || Services.GetService(typeof(IJSRuntime)) is not IJSRuntime runtime) return;
+        try
+        {
+            if (_module is null) _module = await runtime.InvokeAsync<IJSObjectReference>("import", "./js/item-controls.js");
+            await _module.InvokeVoidAsync("bindSelectKeyboard", _trigger);
+            if (_open) await _module.InvokeVoidAsync("placePopup", _trigger, _popup, "select", false, OptionId(_active));
+            else await _module.InvokeVoidAsync("closePopupFor", _trigger);
+        }
+        catch (Exception error) when (error is JSException or InvalidOperationException) { }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        if (_module is null) return;
+        try { await _module.InvokeVoidAsync("closePopupFor", _trigger); await _module.DisposeAsync(); }
+        catch (Exception error) when (error is JSException or InvalidOperationException) { }
+    }
+}

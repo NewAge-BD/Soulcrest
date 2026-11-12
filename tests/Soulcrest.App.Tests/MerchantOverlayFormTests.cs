@@ -5,6 +5,7 @@ using System.Runtime.ExceptionServices;
 using System.Windows.Forms;
 using Soulcrest.App.Overlay;
 using Soulcrest.App.Services;
+using Soulcrest.Core.Pets;
 using Soulcrest.Ocr.Shop;
 using Xunit;
 using Rect = OpenCvSharp.Rect;
@@ -397,6 +398,166 @@ public sealed class MerchantOverlayFormTests
         Assert.True(actualSpecial.GetPixel(edge.X, edge.Y).GetBrightness() > reference.GetPixel(edge.X, edge.Y).GetBrightness());
     }
 
+    [Theory]
+    [InlineData(PetGlobalAvailability.Available)]
+    [InlineData(PetGlobalAvailability.Upcoming)]
+    [InlineData(PetGlobalAvailability.Unconfirmed)]
+    public void DungeonHighlightUsesTypedEvidenceRatherThanTheDisplayedLabel(PetGlobalAvailability availability)
+    {
+        var bounds = new Rectangle(20, 20, 212, 52);
+        foreach (var (counter, fresh, max) in new[] { ("0/5", true, false), ("max", true, true), ("?", false, false) })
+        {
+            var plain = new MerchantOverlayForm.Badge(bounds, counter, fresh, max, "Altgard",
+                FarmSpawns: "Altgard (123)");
+            using var reference = Render(new Size(260, 90), Point.Empty, [plain]);
+            using var textOnly = Render(reference.Size, Point.Empty, [plain with { FarmSpawns = "Dungeon" }]);
+            using var dungeon = Render(reference.Size, Point.Empty,
+                [plain with { FarmRegions = "Special", FarmSpawns = "Dungeon", DungeonAvailability = availability }]);
+            using var dungeonWithMap = Render(reference.Size, Point.Empty,
+                [plain with { FarmSpawns = "Dungeon", DungeonAvailability = availability }]);
+            Assert.Equal(Pixels(dungeon), Pixels(dungeonWithMap));
+            var edge = new Point(bounds.Left, bounds.Top + 10);
+            Assert.Equal(reference.GetPixel(edge.X, edge.Y), textOnly.GetPixel(edge.X, edge.Y));
+            var violet = dungeon.GetPixel(edge.X, edge.Y);
+            Assert.True(violet.B > violet.R && violet.R > violet.G);
+            var material = dungeon.GetPixel(bounds.Left + bounds.Width / 2, bounds.Bottom - 8);
+            Assert.True(material.B > material.R && material.R > material.G);
+            var preservedCounterPixels = 0;
+            for (var y = bounds.Top; y < bounds.Top + 21; y++)
+                for (var x = bounds.Left + 8; x < bounds.Right - 8; x++)
+                {
+                    var original = reference.GetPixel(x, y);
+                    if (original.GetBrightness() > .55 && original == dungeon.GetPixel(x, y)) preservedCounterPixels++;
+                }
+            Assert.True(preservedCounterPixels > 0, "Dungeon material must preserve the counter's status colour.");
+        }
+    }
+
+    [Theory]
+    [InlineData(.9375)]
+    [InlineData(1)]
+    [InlineData(1.0625)]
+    [InlineData(1.125)]
+    [InlineData(1.25)]
+    public void DungeonSourcesKeepNativeGeometryPriceClipTextSeparationAndPhysicalDpi(double scale)
+    {
+        var cases = new[]
+        {
+            (PetGlobalAvailability.Available, "0/5", "Dungeon · Altgard (123)"),
+            (PetGlobalAvailability.Upcoming, "max", "Dungeon (zukünftig) · Altgard (123) / Verteron (377)"),
+            (PetGlobalAvailability.Unconfirmed, "?", "Dungeon (?) · Abyss (209) / Altgard (123) / Verteron (377)")
+        };
+        foreach (var (availability, counter, sources) in cases)
+        {
+            var row = new MerchantCounterRow(0, "synthetic-dungeon", counter, counter != "?", counter == "max",
+                "Special", "Natura", sources, availability);
+            var badge = Assert.Single(MerchantOverlayForm.BuildBadges(GameSize, Anchors(scale, top: 300), [row]));
+            var original = Assert.Single(MerchantOverlayForm.BuildBadges(GameSize, Anchors(scale, top: 300),
+                [row with { DungeonAvailability = null }]));
+            Assert.Equal(availability, badge.DungeonAvailability);
+            Assert.Equal(original.Bounds.Location, badge.Bounds.Location);
+            Assert.Equal(original.Bounds.Width, badge.Bounds.Width);
+            Assert.Equal(original.Bounds.Height + (int)Math.Round(68 * scale) - (int)Math.Round(52 * scale), badge.Bounds.Height);
+            Assert.Equal(original.PriceBounds, badge.PriceBounds);
+            Assert.Equal(original.CategoryBounds, badge.CategoryBounds);
+            using var image = Render(new Size(400, 500), Point.Empty, [badge]);
+            using var withoutFarm = Render(image.Size, Point.Empty, [badge with { FarmRegions = "", FarmSpawns = "" }]);
+            using var counterLabel = Render(image.Size, Point.Empty, [badge with { FarmRegions = "", FarmSpawns = "", Counter = "", IsMax = false }]);
+            using var dungeonOnly = Render(image.Size, Point.Empty,
+                [badge with { FarmSpawns = sources[..sources.IndexOf(" · ", StringComparison.Ordinal)] }]);
+            var counterBottom = -1;
+            for (var y = badge.Bounds.Top; y < badge.Bounds.Bottom; y++)
+                for (var x = badge.Bounds.Left; x < badge.Bounds.Right; x++)
+                    if (withoutFarm.GetPixel(x, y) != counterLabel.GetPixel(x, y)) counterBottom = y;
+            Assert.True(counterBottom >= badge.PriceBounds.Bottom);
+            var dungeonBottom = -1;
+            for (var y = badge.Bounds.Top; y < badge.Bounds.Bottom; y++)
+                for (var x = badge.Bounds.Left; x < badge.Bounds.Right; x++)
+                    if (dungeonOnly.GetPixel(x, y) != withoutFarm.GetPixel(x, y)) dungeonBottom = y;
+            Assert.True(dungeonBottom > counterBottom);
+            var farmPixels = 0;
+            var worldPixels = 0;
+            for (var y = badge.Bounds.Top; y < badge.Bounds.Bottom; y++)
+                for (var x = badge.Bounds.Left; x < badge.Bounds.Right; x++)
+                {
+                    if (image.GetPixel(x, y) == withoutFarm.GetPixel(x, y)) continue;
+                    farmPixels++;
+                    Assert.True(y > counterBottom, $"Dungeon label overlaps its counter at scale {scale}.");
+                    if (image.GetPixel(x, y) != dungeonOnly.GetPixel(x, y))
+                    {
+                        worldPixels++;
+                        Assert.True(y > dungeonBottom,
+                            $"World sources at y={y} overlap dungeon bottom={dungeonBottom}, scale {scale}, source={sources}.");
+                    }
+                    var touchesMaterial = false;
+                    for (var nearY = Math.Max(0, y - 1); nearY <= Math.Min(image.Height - 1, y + 1); nearY++)
+                        for (var nearX = Math.Max(0, x - 1); nearX <= Math.Min(image.Width - 1, x + 1); nearX++)
+                            touchesMaterial |= withoutFarm.GetPixel(nearX, nearY).A > 0;
+                    Assert.True(touchesMaterial, $"Dungeon label escapes the native contour at scale {scale}.");
+                }
+            Assert.True(farmPixels > 0);
+            Assert.True(worldPixels > 0);
+            for (var y = badge.PriceBounds.Top; y < badge.PriceBounds.Bottom; y++)
+                for (var x = badge.PriceBounds.Left; x < badge.PriceBounds.Right; x++)
+                {
+                    var radius = badge.PriceBounds.Height / 2d;
+                    var centerX = Math.Clamp(x + .5, badge.PriceBounds.Left + radius, badge.PriceBounds.Right - radius);
+                    var dx = x + .5 - centerX;
+                    var dy = y + .5 - badge.PriceBounds.Top - radius;
+                    if (dx * dx + dy * dy <= radius * radius) Assert.Equal(0, image.GetPixel(x, y).A);
+                }
+            AssertTransparentOutside(image, Regions(badge));
+            var pixels = Pixels(image);
+            foreach (var dpi in new[] { 120f, 144f, 192f })
+            {
+                using var highDpi = Render(image.Size, Point.Empty, [badge], dpi);
+                Assert.Equal(pixels, Pixels(highDpi));
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(.9375)]
+    [InlineData(1)]
+    [InlineData(1.0625)]
+    [InlineData(1.125)]
+    [InlineData(1.25)]
+    public void DungeonWorldFeetRemainSeparateFromEveryNativeCardHeaderAcrossResolutions(double scale)
+    {
+        foreach (var frameScale in new[] { .5, .75, 1 })
+        {
+            var rows = Enumerable.Range(0, 10).Select(slot => new MerchantCounterRow(slot,
+                "synthetic-dungeon-" + slot, "24/25", true, false, "Abyss / Altgard / Verteron", "Natura",
+                "Dungeon · Abyss (209) / Altgard (123) / Verteron (377)", PetGlobalAvailability.Available)).ToArray();
+            var size = new Size((int)Math.Round(2560 * frameScale), (int)Math.Round(1440 * frameScale));
+            var badges = MerchantOverlayForm.BuildBadges(size, ShopAnchors(scale, frameScale), rows);
+            Assert.Equal(10, badges.Count);
+            foreach (var badge in badges)
+            {
+                Assert.True(new Rectangle(Point.Empty, size).Contains(MerchantOverlayForm.SurfaceBounds(badge)));
+                foreach (var other in badges)
+                {
+                    Assert.False(badge.Bounds.IntersectsWith(other.CategoryBounds));
+                    if (!ReferenceEquals(badge, other)) Assert.False(badge.Bounds.IntersectsWith(other.Bounds));
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(null, "Dungeon · Altgard (123)")]
+    [InlineData(PetGlobalAvailability.Unconfirmed, "Dungeon (?)")]
+    [InlineData(PetGlobalAvailability.Available, "Dungeon · ")]
+    public void LegacyOrSingleSourceTextDoesNotReserveAnotherMetadataLine(PetGlobalAvailability? availability, string sources)
+    {
+        var row = new MerchantCounterRow(0, "synthetic-pet", "24/25", true, false,
+            "Special", "Natura", sources, availability);
+        var badge = Assert.Single(MerchantOverlayForm.BuildBadges(GameSize, Anchors(top: 300), [row]));
+        var legacy = Assert.Single(MerchantOverlayForm.BuildBadges(GameSize, Anchors(top: 300),
+            [row with { DungeonAvailability = null }]));
+        Assert.Equal(legacy.Bounds, badge.Bounds);
+    }
+
     [Fact]
     public void AnOffscreenCategoryHeaderRejectsTheWholeSuppliedLayout()
     {
@@ -538,6 +699,18 @@ public sealed class MerchantOverlayFormTests
             for (var x = area.Left; x < area.Right; x++)
                 if (first.GetPixel(x, y) != second.GetPixel(x, y)) return;
         Assert.Fail("The requested metadata must add visible text within its existing line.");
+    }
+
+    private static byte[] Pixels(Bitmap bitmap)
+    {
+        var data = bitmap.LockBits(new Rectangle(Point.Empty, bitmap.Size), ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
+        try
+        {
+            var bytes = new byte[data.Stride * data.Height];
+            System.Runtime.InteropServices.Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
+            return bytes;
+        }
+        finally { bitmap.UnlockBits(data); }
     }
 
     private static void AssertContainsInk(Bitmap bitmap, Rectangle footprint)

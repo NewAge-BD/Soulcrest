@@ -39,7 +39,7 @@ public sealed partial class UnifiedLootTrackerService
         // The position getter releases its map lock before the binding is read.
         var position = _position();
         var character = _bind(own);
-        var marketProfile = _settings.GetExchangeMarketProfile(character?.ProfileId) with { };
+        var marketProfile = _settings.GetExchangeMarketProfileForOwnServer(character?.ProfileId, own.Identity.ServerId) with { };
         Enqueue(new Activity(channel, own, character, world, at, stamp, sequence,
             ChannelEnabled(channel, world), position, amount, drop, items, outcome, gatherableId,
             inInstance, combatKind, classId, grade, isEstimated) { MarketProfile = marketProfile });

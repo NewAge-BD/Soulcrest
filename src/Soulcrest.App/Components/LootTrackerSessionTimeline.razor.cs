@@ -18,7 +18,8 @@ public partial class LootTrackerSessionTimeline
     [Parameter] public EventCallback TogglePlayback { get; set; }
     [Parameter] public EventCallback<TimeSpan> Seek { get; set; }
     [Parameter] public EventCallback JumpToEnd { get; set; }
-    private sealed record ExactRow(TimeSpan At, TimeSpan? End, string Kind, string Label, string Value);
+    private sealed record ExactRow(TimeSpan At, TimeSpan? End, string Kind, string Label, string Value,
+        string? ItemKey = null, IReadOnlyList<LootTrackerTimeline.ItemText>? Items = null);
     private readonly LootTrackerTimelineViewport _viewport = new();
     private readonly HashSet<string> _items = new(StringComparer.Ordinal);
     private readonly HashSet<string> _resources = new(StringComparer.Ordinal);
@@ -46,6 +47,8 @@ public partial class LootTrackerSessionTimeline
     private int _exactPage = 1;
     private readonly string _exactId = "loot-timeline-values-" + Guid.NewGuid().ToString("N");
     private readonly string _helpId = "loot-timeline-help-" + Guid.NewGuid().ToString("N");
+    private readonly string _itemTooltipPrefix = "loot-timeline-item-" + Guid.NewGuid().ToString("N");
+    private string ItemTooltipId(string key) => _itemTooltipPrefix + "-" + Uri.EscapeDataString(key);
     private ElementReference _track, _headGrip;
     private double _trackWidth = 1000, _trackLeft;
     private readonly record struct TrackBounds(double Width, double Left);
@@ -406,11 +409,11 @@ public partial class LootTrackerSessionTimeline
             }
         }
         foreach (var row in _events.Where(row => On(row.Lane) && row.Lane != "loot" && row.Elapsed >= _viewport.From && row.Elapsed <= _viewport.To))
-            rows.Add(new(row.Elapsed, null, "Ereignis", row.Label, "1"));
+            rows.Add(new(row.Elapsed, null, "Ereignis", row.Label, "1", Items: row.Items));
         if (On("loot"))
             foreach (var moment in _lootMoments.Where(row => row.Elapsed >= _viewport.From && row.Elapsed <= _viewport.To))
                 foreach (var item in moment.Items.Where(item => _items.Contains(item.Key)))
-                    rows.Add(new(moment.Elapsed, null, "Beute", item.Name, Number(item.Quantity)));
+                    rows.Add(new(moment.Elapsed, null, "Beute", item.Name, Number(item.Quantity), ItemKey: item.Key));
         return rows.OrderBy(row => row.At).ThenBy(row => row.Label, StringComparer.Create(Culture, false)).ToArray();
     }
 }

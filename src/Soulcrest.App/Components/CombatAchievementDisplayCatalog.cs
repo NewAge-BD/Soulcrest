@@ -11,7 +11,10 @@ public sealed record CombatAchievementGroupDefinition(int Id, string? CategoryId
     public string? ScopeDe { get; init; }
     public string? ScopeEn { get; init; }
 }
-public sealed record CombatAchievementDisplayReward(string NameDe, string NameEn, string? IconPath, long? Quantity);
+public sealed record CombatAchievementDisplayReward(string NameDe, string NameEn, string? IconPath, long? Quantity)
+{
+    public int? ItemId { get; init; }
+}
 public sealed record CombatAchievementDisplayStage(int Id, string NameDe, string NameEn, string ConditionDe,
     string ConditionEn, string? IconPath, long? NativeTarget, IReadOnlyList<CombatAchievementDisplayReward> Rewards);
 public sealed record CombatAchievementDisplayDefinition(int Id, string? CategoryId, int? GroupId, string NameDe,
@@ -112,7 +115,7 @@ public sealed class CombatAchievementDisplayCatalog
     private static IReadOnlyList<CombatAchievementDisplayReward> FreezeRewards(IReadOnlyList<CombatAchievementDisplayReward>? rewards)
     {
         if (rewards is null || rewards.Count > 1000 || rewards.Any(reward => reward is null
-            || !ValidLabel(reward.NameDe) || !ValidLabel(reward.NameEn) || !ValidIcon(reward.IconPath) || reward.Quantity is < 0))
+            || reward.ItemId is <= 0 || !ValidLabel(reward.NameDe) || !ValidLabel(reward.NameEn) || !ValidIcon(reward.IconPath) || reward.Quantity is < 0))
             throw new InvalidDataException("Invalid achievement display reward.");
         return Array.AsReadOnly(rewards.ToArray());
     }

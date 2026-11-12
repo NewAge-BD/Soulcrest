@@ -34,7 +34,10 @@
         else
         {
             <CombatSourceCategoryView Section="@SelectedSection" Snapshot="State" SavedTitles="SavedTitles" SavedWings="SavedWings" AchievementState="AchievementState" Faction="@Faction" Favorites="Favorites" ToggleFavorite="ToggleFavorite"
-                ToggleTitleFavorite="ToggleTitleFavorite" SelectedTitleId="_selectedTitleId" ShowTitle="ShowTitle" ShowAchievement="ShowAchievement" AchievementNavigation="_achievementNavigation" PetCollection="PetState" GenusState="GenusState" GenusFavorites="_genusFavorites?.Snapshot.Favorites" ToggleGenusFavorite="ToggleGenusFavorite" GenusFavoriteError="@_genusFavoriteError" OpenPets="OpenPets" OpenPetCategory="OpenPetCategory" />
+                ToggleTitleFavorite="ToggleTitleFavorite" SelectedTitleId="_selectedTitleId" ShowTitle="ShowTitle" ShowAchievement="ShowAchievement" AchievementNavigation="_achievementNavigation" PetCollection="PetState" GenusState="GenusState"
+                GenusFavorites="_genusFavoriteState?.Favorites" GenusGlobalFavoriteStats="_genusFavoriteState?.GlobalStats"
+                ToggleGenusFavorite="GenusFavoriteToggle" ToggleGlobalGenusFavorite="GlobalGenusFavoriteToggle"
+                GenusFavoriteError="@_genusFavoriteError" OpenPets="OpenPets" OpenPetCategory="OpenPetCategory" />
         }
     </div>
     <CombatStatObservationData Snapshot="State" Enabled="DebugObservationEnabled" />
@@ -59,6 +62,7 @@
     private ProfileWingSnapshot? SavedWings;
     private GenusInsightStateService? _genus;
     private GenusInsightFavoriteService? _genusFavorites;
+    private GenusInsightFavoriteSnapshot? _genusFavoriteState;
     private GenusInsightSnapshot GenusState = GenusInsightSnapshot.Empty;
     private PantheonStateService? _pantheon;
     private PantheonSnapshot PantheonState = PantheonSnapshot.Empty;
@@ -80,6 +84,11 @@
         State = Character.Snapshot; SavedTitles = Character.SavedTitles; SavedWings = Character.SavedWings; Character.Changed += Refresh;
         _genus = Provider.GetService(typeof(GenusInsightStateService)) as GenusInsightStateService;
         _genusFavorites = Provider.GetService(typeof(GenusInsightFavoriteService)) as GenusInsightFavoriteService;
+        if (_genusFavorites is not null)
+        {
+            _genusFavoriteState = _genusFavorites.Snapshot;
+            _genusFavorites.Changed += RefreshGenusFavorites;
+        }
         if (_genus is not null) { _genus.Changed += RefreshGenus; GenusState = _genus.Snapshot; }
         _pantheon = Provider.GetService(typeof(PantheonStateService)) as PantheonStateService;
         if (_pantheon is not null) { _pantheon.Changed += RefreshPantheon; PantheonState = _pantheon.Snapshot; }
@@ -134,15 +143,45 @@
         if (_section == "genus-insight" && _genus is not null) { _genusMenuLease ??= _genus.ObserveMenu(); GenusState = _genus.Snapshot; }
         else { _genusMenuLease?.Dispose(); _genusMenuLease = null; }
     }
-    private void ToggleGenusFavorite(GenusInsightFavoriteKey key)
+    private EventCallback<GenusInsightFavoriteKey> GenusFavoriteToggle => _genusFavorites is null ? default
+        : EventCallback.Factory.Create<GenusInsightFavoriteKey>(this, ToggleGenusFavorite);
+    private EventCallback<string> GlobalGenusFavoriteToggle => _genusFavorites is null ? default
+        : EventCallback.Factory.Create<string>(this, ToggleGlobalGenusFavorite);
+    private void ToggleGenusFavorite(GenusInsightFavoriteKey key) => ChangeGenusFavorite(service => service.Toggle(key));
+    private void ToggleGlobalGenusFavorite(string statId) => ChangeGenusFavorite(service => service.ToggleGlobal(statId));
+    private void ChangeGenusFavorite(Action<GenusInsightFavoriteService> change)
     {
-        try { _genusFavorites?.Toggle(key); _genusFavoriteError = null; }
+        if (_genusFavorites is null) return;
+        try
+        {
+            change(_genusFavorites);
+            _genusFavoriteState = _genusFavorites.Snapshot;
+            if (_genus is not null) GenusState = _genus.Snapshot;
+            _genusFavoriteError = null;
+        }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidDataException)
         { _genusFavoriteError = UiText.T("Favorit konnte nicht gespeichert werden. Bitte erneut versuchen."); }
     }
     private void RefreshGenus()
     {
-        if (!_disposed) _ = InvokeAsync(() => { if (!_disposed && _genus is not null) { GenusState = _genus.Snapshot; StateHasChanged(); } });
+        if (!_disposed) _ = InvokeAsync(() =>
+        {
+            if (_disposed || _genus is null) return;
+            GenusState = _genus.Snapshot;
+            _genusFavoriteState = _genusFavorites?.Snapshot;
+            StateHasChanged();
+        });
+    }
+    private void RefreshGenusFavorites()
+    {
+        if (!_disposed) _ = InvokeAsync(() =>
+        {
+            if (_disposed || _genusFavorites is null) return;
+            _genusFavoriteState = _genusFavorites.Snapshot;
+            if (_genus is not null) GenusState = _genus.Snapshot;
+            _genusFavoriteError = null;
+            StateHasChanged();
+        });
     }
     private void RefreshPantheon()
     {
@@ -153,6 +192,7 @@
         _disposed = true; Character.Changed -= Refresh;
         _genusMenuLease?.Dispose(); _genusMenuLease = null;
         if (_genus is not null) _genus.Changed -= RefreshGenus;
+        if (_genusFavorites is not null) _genusFavorites.Changed -= RefreshGenusFavorites;
         if (_pantheon is not null) _pantheon.Changed -= RefreshPantheon;
         if (_petProgress is not null) _petProgress.Changed -= RefreshPets;
     }

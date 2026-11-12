@@ -25,7 +25,7 @@ function payload(id = 'first') {
             { marker: 1, npcId: '43', items: ['10'] }, { marker: 3, npcId: '44', items: ['30'] }] } };
 }
 
-function fixture(data = payload()) {
+function fixture(data = payload(), colors = {}) {
     const layers = [], callbacks = [], counters = { groups: 0, refreshes: 0, changes: 0 };
     const group = () => {
         const members = new Set();
@@ -75,7 +75,7 @@ function fixture(data = payload()) {
     vm.runInNewContext(source, context);
     const api = context.window.soulcrestMap;
     api.init('map', JSON.stringify({ maps: ['first', 'second'].map(id => ({ id, size: 1000, minZoom: 0, maxZoom: 6, maxNativeZoom: 4, tiles: 'tiles' })) }), '/mapdata/',
-        { invokeMethodAsync(...args) { callbacks.push(args); } });
+        { invokeMethodAsync(...args) { callbacks.push(args); } }, colors);
     return { api, map, layers, callbacks, counters, data, show: async (language = 'en', id = 'first') => JSON.parse(await api.show(id, language)) };
 }
 
@@ -128,19 +128,33 @@ test('individual item selection, popup language and exact navigation retain all 
     const spawn = f.api.state().monsterDrops.spawns.get(0), row = spawn.activeLayer;
     const english = row.popup();
     assert.match(english, /Beast &lt;Boss&gt;/);
-    assert.match(english, /✓ Fresh &lt;Meat&gt;/);
+    assert.match(english, /✓ <span[^>]*>Fresh &lt;Meat&gt;/);
     assert.match(english, /Balaur Meat/);
     assert.match(english, /Fruit/);
     assert.doesNotMatch(english, /✓ Balaur/);
     f.api.setLanguage('de');
     assert.match(row.popup(), /Bestie &lt;Boss&gt;/);
-    assert.match(row.popup(), /✓ Frisches &lt;Fleisch&gt;/);
+    assert.match(row.popup(), /✓ <span[^>]*>Frisches &lt;Fleisch&gt;/);
     assert.match(row.popup(), /Balaur Meat/); // missing DE keeps exact English label
     assert.match(row.popup(), /Mögliche Crafting-Materialien/);
     const event = { shiftKey: true };
     row.fire('contextmenu', { originalEvent: event });
     assert.equal(event.prevented, true);
     assert.deepEqual(plain(f.callbacks.at(-1)), ['OnToggleTarget', 'first', 100, 200, 'Bestie <Boss>', 'Monster Drops', 'icons/meat.png', true, null]);
+});
+
+test('item names receive the shared exact-ID foreground without coloring counts or accepting CSS input', async () => {
+    const f = fixture(payload(), { 10: '#FF6C00', 11: 'red;position:fixed', 20: '#19E048' });
+    const legend = await f.show();
+    const meat = legend.groups.find(group => group.name === 'Monster Drops').categories.find(category => category.name === 'Meat');
+    assert.equal(meat.kinds[0].itemId, 10);
+    f.api.setCategoryVisible(meat.index, true);
+    const popup = f.api.state().monsterDrops.spawns.get(0).activeLayer.popup();
+    assert.match(popup, /data-item-id="10" style="color:#FF6C00">Fresh &lt;Meat&gt;/);
+    assert.match(popup, /data-item-id="20" style="color:#19E048">Fruit/);
+    assert.match(popup, /data-item-id="11">Balaur Meat/);
+    assert.doesNotMatch(popup, /position:fixed|opacity:\.6/);
+    assert.equal(meat.count, 2);
 });
 
 test('zoom and repeated filter snapshots retain drop layer identity; map switches reset presentation', async () => {

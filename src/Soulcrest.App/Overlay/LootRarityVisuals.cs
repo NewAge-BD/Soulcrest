@@ -18,13 +18,9 @@ internal static class LootRarityVisuals
         _ => Color.FromArgb(235, 233, 222)
     };
 
-    // Item grades come from the exact catalog ID, including non-exceptional materials.
-    // Both production surfaces use this palette; unknown entries keep their normal theme text.
-    internal static Color? NameColor(LootItemRarity rarity) => rarity != LootItemRarity.Unknown && Enum.IsDefined(rarity)
-        ? Accent(rarity) : null;
-
-    internal static string? NameCssColor(LootItemRarity rarity) => NameColor(rarity) is { } color
-        ? $"#{color.R:X2}{color.G:X2}{color.B:X2}" : null;
+    // Name foregrounds share the bundled presentation palette. Lighting keeps its separate treatment.
+    internal static Color? NameColor(LootItemRarity rarity) => ItemNamePresentation.ForGrade(rarity).Color;
+    internal static string? NameCssColor(LootItemRarity rarity) => ItemNamePresentation.ForGrade(rarity).CssColor;
 
     internal static void PaintBackground(Graphics graphics, RectangleF bounds, LootItemRarity rarity,
         double seconds, bool animated)

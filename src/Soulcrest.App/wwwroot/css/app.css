@@ -1312,8 +1312,14 @@ button.route-color:hover, button.route-color.open { box-shadow: 0 0 0 2px #11192
 
 /* Separate dungeon acquisition hints never provide map coordinates. */
 .pets-card-source { padding: 0 8px 4px; font-size: 11px; }
+.pets-card-source .pill { max-width: 100%; white-space: normal; }
+.pets-source-available { color: #c9a8f5; }
+.pets-card-source .pets-source-available { background: rgba(145, 94, 198, .13); border-color: rgba(175, 128, 225, .38); }
 .pets-acquisition-list { list-style: none; padding: 0; margin: 8px 0; }
-.pets-acquisition-list li { display: grid; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pets-acquisition-list li { display: grid; min-width: 0; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.pets-acquisition-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.pets-acquisition-heading > strong { min-width: 0; }
+.pets-acquisition-heading .pill { flex: none; }
 .pets-acquisition-list .pill { justify-self: start; }
 .pets-source-variants { display: grid; gap: 4px; border-left: 2px solid var(--line); padding-left: 10px; }
 .pets-source-variants > strong { font-size: 12px; }

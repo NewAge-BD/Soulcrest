@@ -29,6 +29,7 @@ public sealed class OverlayVisibilityPolicyTests : IDisposable
         Assert.Equal(5, current.SettingsRevision);
         Assert.Equal(new(), OverlayVisibilityPolicy.Get(current, "boss"));
         Assert.Equal(new(), OverlayVisibilityPolicy.Get(current, "notifications"));
+        Assert.Equal(new(), OverlayVisibilityPolicy.Get(current, "genus-insight"));
         Assert.Equal(new(false, false, false, false), OverlayVisibilityPolicy.Get(current, "loot"));
         Assert.Equal(new(false, false, false, false), OverlayVisibilityPolicy.Get(current, "leveling"));
         Assert.Equal(new(true, !followMinimap, true, !followMinimap), OverlayVisibilityPolicy.Get(current, "event-timeline"));
@@ -43,18 +44,24 @@ public sealed class OverlayVisibilityPolicyTests : IDisposable
             JsonSerializer.Serialize(new SettingsService().Current.OverlayVisibility));
     }
 
-    [Fact]
-    public void PartialNewPoliciesPreserveExplicitFalseValuesAndFillMissingEntries()
+    [Theory]
+    [InlineData("boss")]
+    [InlineData("genus-insight")]
+    public void PartialNewPoliciesPreserveExplicitFalseValuesAndFillMissingEntries(string id)
     {
         JsonFile.Save(AppPaths.SettingsFile, new AppSettings
         {
             SettingsRevision = 5,
-            OverlayVisibility = new() { ["boss"] = new(false, false, false, false) }
+            OverlayVisibility = new() { [id] = new(false, false, false, false) }
         });
-        var current = new SettingsService().Current;
-        Assert.Equal(new(false, false, false, false), current.OverlayVisibility["boss"]);
-        Assert.Equal(7, current.OverlayVisibility.Count);
+        var service = new SettingsService();
+        var current = service.Current;
+        Assert.Equal(new(false, false, false, false), current.OverlayVisibility[id]);
+        Assert.Equal(8, current.OverlayVisibility.Count);
         Assert.Equal(new(), current.OverlayVisibility["notifications"]);
+        if (id != "genus-insight") Assert.Equal(new(), current.OverlayVisibility["genus-insight"]);
+        service.Update(_ => { });
+        Assert.Equal(new(false, false, false, false), new SettingsService().Current.OverlayVisibility[id]);
     }
 
     [Theory]
@@ -71,7 +78,8 @@ public sealed class OverlayVisibilityPolicyTests : IDisposable
     [Theory]
     [InlineData("boss")]
     [InlineData("notifications")]
-    public void BossAndBannerAreIndependentlyVisibleInEveryContextByDefault(string id)
+    [InlineData("genus-insight")]
+    public void BossBannerAndGenusAreIndependentlyVisibleInEveryContextByDefault(string id)
     {
         var settings = new AppSettings();
         var before = JsonSerializer.Serialize(settings);

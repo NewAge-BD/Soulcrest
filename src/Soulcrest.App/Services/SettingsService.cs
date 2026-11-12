@@ -8,6 +8,8 @@ public sealed class AppSettings
 {
     public string NameLanguage { get; set; } = "en";
     public string UiLanguage { get; set; } = "";
+    /// <summary>User request 2026-11-11: app appearance is independent of all in-game overlay themes.</summary>
+    public string AppTheme { get; set; } = AppThemeDefinition.DefaultId;
     public bool AutoOcrLanguage { get; set; } = true;
     public string OcrLanguage { get; set; } = "en-US";
     public string? DetectedGameLanguage { get; set; }
@@ -93,6 +95,11 @@ public sealed class AppSettings
     public int? AchievementOverlayY { get; set; }
     public double AchievementOverlayScale { get; set; } = 1;
     public int AchievementOverlayDisplaySeconds { get; set; } = 20;
+    /// <summary>User request 2026-11-12: the freely placed Genus Insight sidebar starts enabled.</summary>
+    public bool GenusInsightOverlayEnabled { get; set; } = true;
+    public int? GenusInsightOverlayX { get; set; }
+    public int? GenusInsightOverlayY { get; set; }
+    public double GenusInsightOverlayScale { get; set; } = 1;
     public bool MerchantOverlayEnabled { get; set; } = true;
     public bool DaevanionOverlayEnabled { get; set; } = true;
     /// <summary>User request 2026-10-22: remember node visibility independently of the master switch.</summary>
@@ -375,12 +382,16 @@ public sealed class SettingsService
 {
     private readonly object _gate = new();
     private long _networkTrackingRevision;
+    private string? _appThemeSaveError;
+    /// <summary>Anonymous failure type from the last failed app-theme save; no paths or exception messages.</summary>
+    public string? AppThemeSaveError { get { lock (_gate) return _appThemeSaveError; } }
     /// <summary>In-memory switch revision; rapid round trips must still revoke old visual work.</summary>
     public long NetworkTrackingRevision => Interlocked.Read(ref _networkTrackingRevision);
     public SettingsService()
     {
         var existed = File.Exists(AppPaths.SettingsFile);
         Current = JsonFile.Load<AppSettings>(AppPaths.SettingsFile);
+        Current.AppTheme = AppThemeDefinition.NormalizeId(Current.AppTheme);
         if (Current.UiLanguage is not ("de" or "en")) Current.UiLanguage = Current.NameLanguage == "de" ? "de" : "en";
         if (Current.OverlayLanguage is not ("auto" or "de" or "en")) Current.OverlayLanguage = "auto";
         if (Current.OverlayShowMode is not ("foreground" or "always")) Current.OverlayShowMode = "foreground";
@@ -388,6 +399,8 @@ public sealed class SettingsService
         Current.LootTrackerIdleTimeoutMinutes = LootTrackerPresentation.NormalizeIdleTimeoutMinutes(Current.LootTrackerIdleTimeoutMinutes);
         NormalizeSessionPresentation(Current);
         NormalizeExchangeMarketProfiles(Current);
+        // User request 2026-11-10: normal startup always enables anonymous market prices; no startup write is needed.
+        Current.OnlineMarketPricesEnabled = true;
         if (Current.MonsterLootAutoSessionRevision < 1)
         {
             // The former false default was serialized in existing files. Subsequent opt-outs
@@ -432,6 +445,7 @@ public sealed class SettingsService
         OverlayHotkeys.Normalize(Current);
         Current.OverlayScale = double.IsFinite(Current.OverlayScale) ? Math.Clamp(Current.OverlayScale, .6, 2.5) : 1;
         Current.AchievementOverlayScale = double.IsFinite(Current.AchievementOverlayScale) ? Math.Clamp(Current.AchievementOverlayScale, .6, 2.5) : 1;
+        Current.GenusInsightOverlayScale = double.IsFinite(Current.GenusInsightOverlayScale) ? Math.Clamp(Current.GenusInsightOverlayScale, .6, 2) : 1;
         Current.AchievementOverlayDisplaySeconds = NormalizeAchievementOverlayDisplaySeconds(Current.AchievementOverlayDisplaySeconds);
         Current.LootOverlayScale = LootOverlayRenderer.NormalizedScale(Current.LootOverlayScale);
         Current.AbyssRankOverlayScale = AbyssRankOverlayRenderer.NormalizedScale(Current.AbyssRankOverlayScale);
@@ -523,6 +537,30 @@ public sealed class SettingsService
         }
         var selected = new HashSet<string>(settings.ProgressionPetGenera, StringComparer.OrdinalIgnoreCase);
         settings.ProgressionPetGenera = canonical.Where(selected.Contains).ToArray();
+    }
+
+    /// <summary>Publish a main-window theme only after its atomic save succeeds.</summary>
+    public void SetAppTheme(string? theme)
+    {
+        lock (_gate)
+        {
+            var previous = Current.AppTheme;
+            var normalized = AppThemeDefinition.NormalizeId(theme);
+            if (previous == normalized) return;
+            Current.AppTheme = normalized;
+            try
+            {
+                JsonFile.Save(AppPaths.SettingsFile, Current);
+                _appThemeSaveError = null;
+            }
+            catch (Exception error)
+            {
+                Current.AppTheme = previous;
+                _appThemeSaveError = error.GetType().Name;
+                throw;
+            }
+        }
+        Changed?.Invoke();
     }
 
     /// <summary>Commits the shared overlay theme before publishing it; a failed save keeps the previous theme.</summary>
@@ -792,6 +830,14 @@ public sealed class SettingsService
                 ? ExchangeMarketProfileSettings.Normalize(value) : new();
     }
 
+    /// <summary>Automatic prices never use an old server while the newly qualified own server is still being assigned.</summary>
+    internal ExchangeMarketProfileSettings GetExchangeMarketProfileForOwnServer(string? profileId, int? observedServerId)
+    {
+        var model = GetExchangeMarketProfile(profileId);
+        return model.AutomaticServerSelection && (observedServerId is not > 0 || model.GameServerKey != observedServerId)
+            ? model with { Region = null, Faction = null, ServerId = null, GameServerKey = null } : model;
+    }
+
     public void SetOnlineMarketPricesEnabled(bool enabled) => SetDropOption(
         () => Current.OnlineMarketPricesEnabled, value => Current.OnlineMarketPricesEnabled = value, enabled);
 
@@ -812,6 +858,49 @@ public sealed class SettingsService
         Changed?.Invoke();
     }
 
+    public void SetExchangeMarketFees(string profileId, decimal salesTaxPercent, decimal registrationFeePercent)
+    {
+        if (!ExchangeMarketProfileSettings.IsProfileId(profileId)) throw new ArgumentException("A local profile GUID is required.", nameof(profileId));
+        if (!(new ExchangeMarketProfileSettings { SalesTaxPercent = salesTaxPercent, RegistrationFeePercent = registrationFeePercent }).HasValidFees)
+            throw new ArgumentOutOfRangeException(nameof(salesTaxPercent), "Fee percentages must be between zero and 100 in total.");
+        lock (_gate)
+        {
+            var current = Current.ExchangeMarketProfiles.TryGetValue(profileId, out var saved)
+                ? ExchangeMarketProfileSettings.Normalize(saved) : new();
+            var next = current with { SalesTaxPercent = salesTaxPercent, RegistrationFeePercent = registrationFeePercent };
+            if (next == current) return;
+            var previous = Current.ExchangeMarketProfiles;
+            Current.ExchangeMarketProfiles = new(previous, StringComparer.Ordinal) { [profileId] = next };
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.ExchangeMarketProfiles = previous; throw; }
+        }
+        Changed?.Invoke();
+    }
+
+    /// <summary>Updates only an authorized automatic market selection; concurrent fees and manual choices win.</summary>
+    internal bool TrySetDetectedExchangeMarketProfile(string profileId, ExchangeMarketServer? server, Func<bool> stillCurrent)
+    {
+        if (!ExchangeMarketProfileSettings.IsProfileId(profileId)) return false;
+        var selection = new ExchangeMarketProfileSettings { Region = server?.Region, Faction = server?.Faction, ServerId = server?.ServerId, GameServerKey = server?.GameServerKey };
+        if (server is not null && (!selection.HasServerSelection || selection.GameServerKey is not > 0)) return false;
+        var changed = false;
+        lock (_gate)
+        {
+            var current = Current.ExchangeMarketProfiles.TryGetValue(profileId, out var saved)
+                ? ExchangeMarketProfileSettings.Normalize(saved) : new();
+            if (!Current.OnlineMarketPricesEnabled || !current.AutomaticServerSelection || !stillCurrent()) return false;
+            var next = current with { Region = selection.Region, Faction = selection.Faction, ServerId = selection.ServerId, GameServerKey = selection.GameServerKey, AutoDetectServer = true };
+            if (next == current) return true;
+            var previous = Current.ExchangeMarketProfiles;
+            Current.ExchangeMarketProfiles = new(previous, StringComparer.Ordinal) { [profileId] = next };
+            try { JsonFile.Save(AppPaths.SettingsFile, Current); }
+            catch { Current.ExchangeMarketProfiles = previous; throw; }
+            changed = true;
+        }
+        if (changed) Changed?.Invoke();
+        return true;
+    }
+
     private static void NormalizeExchangeMarketProfiles(AppSettings settings) =>
         settings.ExchangeMarketProfiles = (settings.ExchangeMarketProfiles ?? [])
             .Where(pair => ExchangeMarketProfileSettings.IsProfileId(pair.Key))
@@ -824,6 +913,7 @@ public sealed class SettingsService
             var networkEnabled = Current.LootTrackingEnabled;
             change(Current);
             if (networkEnabled != Current.LootTrackingEnabled) Interlocked.Increment(ref _networkTrackingRevision);
+            Current.AppTheme = AppThemeDefinition.NormalizeId(Current.AppTheme);
             Current.OverlayTheme = OverlayThemeDefinition.NormalizeId(Current.OverlayTheme);
             Current.LootTrackerIdleTimeoutMinutes = LootTrackerPresentation.NormalizeIdleTimeoutMinutes(Current.LootTrackerIdleTimeoutMinutes);
             NormalizeSessionPresentation(Current);
@@ -840,6 +930,7 @@ public sealed class SettingsService
             Current.MapViewports = MapViewport.Normalize(Current.MapViewports);
             Current.BossNavigationPreviewCount = Math.Clamp(Current.BossNavigationPreviewCount, 0, 23);
             Current.AchievementOverlayDisplaySeconds = NormalizeAchievementOverlayDisplaySeconds(Current.AchievementOverlayDisplaySeconds);
+            Current.GenusInsightOverlayScale = double.IsFinite(Current.GenusInsightOverlayScale) ? Math.Clamp(Current.GenusInsightOverlayScale, .6, 2) : 1;
             UiText.Language = Current.UiLanguage;
             JsonFile.Save(AppPaths.SettingsFile, Current);
         }

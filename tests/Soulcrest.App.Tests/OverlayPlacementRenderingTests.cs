@@ -99,13 +99,14 @@ public sealed class OverlayPlacementRenderingTests
     }
 
     [Fact]
-    public void SevenOverlaySceneCanBeInspectedOfflineWithoutOpeningAWindow()
+    public void EightOverlaySceneCanBeInspectedOfflineWithoutOpeningAWindow()
     {
         using var renderer = Renderer();
         var settings = new AppSettings();
         var layouts = new Dictionary<string, OverlayLayout>
         {
             ["achievements"] = new(1320, 150, 1),
+            ["genus-insight"] = new(1600, 140, .6),
             ["loot"] = new(40, 150, 1), ["boss"] = new(440, 150, 1),
             ["leveling"] = new(880, 150, 1), ["alerts"] = new(104, 40, 1),
             ["notifications"] = new(440, 640, 1, 340), ["event-timeline"] = new(40, 840, 1, 720)
@@ -115,7 +116,7 @@ public sealed class OverlayPlacementRenderingTests
         try
         {
             using var frame = OverlayPlacementForm.RenderFrame(new(1920, 1080), previews, Point.Empty, "event-timeline", true);
-            Assert.Equal(7, previews.Length);
+            Assert.Equal(8, previews.Length);
             Assert.True(frame.GetPixel(100, 200).A > OverlayPlacementForm.DimAlpha);
             SavePreview(frame, "place-mode-scene.png");
         }
@@ -183,6 +184,7 @@ public sealed class OverlayPlacementRenderingTests
 
     [Theory]
     [InlineData("loot")]
+    [InlineData("genus-insight")]
     [InlineData("boss")]
     [InlineData("leveling")]
     [InlineData("alerts")]

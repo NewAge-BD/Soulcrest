@@ -8,6 +8,18 @@ public sealed class LootSessionDiagnosticsTests
 {
     private static readonly DateTimeOffset At = new(2026, 11, 9, 12, 0, 0, TimeSpan.FromHours(1));
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void MissingWorldContextIsAnExplicitAnonymousFactIndependentOfAnEmptySessionList(bool waiting)
+    {
+        var result = DiagnosticContributors.LootSessionSnapshot(new([], At), false, false, 20, 0, false, At, true, waiting);
+        Assert.Equal(DiagnosticStatus.Waiting, result.Status);
+        Assert.Equal(waiting, result.Facts["waitingForWorldContext"]);
+        Assert.Equal(0, result.Facts["liveSessions"]);
+        Assert.Equal(0, result.Facts["pausedSessions"]);
+    }
+
     [Fact]
     public void PausedSessionsPolicyAndRetentionAreProjectedWithoutIdentitiesOrSnapshotStrings()
     {
@@ -47,6 +59,7 @@ public sealed class LootSessionDiagnosticsTests
             null, 0, false, At, null);
         Assert.Equal(DiagnosticStatus.Waiting, result.Status);
         Assert.Null(result.Facts["trackingEnabled"]);
+        Assert.Null(result.Facts["waitingForWorldContext"]);
         Assert.Null(result.Facts["snapshotFresh"]);
         Assert.Null(result.Facts["snapshotAgeMilliseconds"]);
         Assert.Null(result.Facts["smallSessionItemThreshold"]);

@@ -1,0 +1,20 @@
+@using System.Globalization
+
+@if (Items.Count == 0)
+{
+    @Text
+}
+else
+{
+    @for (var index = 0; index < Items.Count; index++)
+    {
+        var item = Items[index];
+        @if (index > 0) { <text>, </text> }
+        <ItemName DropKey="@item.Key" Text="@item.Name" /><text> ×@item.Quantity.ToString("N0", CultureInfo.InvariantCulture)</text>
+    }
+}
+
+@code {
+    [Parameter] public IReadOnlyList<LootTrackerTimeline.ItemText> Items { get; set; } = [];
+    [Parameter] public string? Text { get; set; }
+}

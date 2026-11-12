@@ -3,12 +3,12 @@ using System.Collections.Frozen;
 namespace Soulcrest.Core.Combat;
 
 /// <summary>
-/// Explicit forward projection of independently qualified wire components to character-panel values.
+/// Explicit forward projection of observed or table-inferred wire components to character-panel values.
 /// No inferred absent zeros, visual input, runtime IO, or promotion to a combat-score stat-ID contract occurs.
 /// </summary>
 public static class CharacterDisplayStatProjection
 {
-    public const string Version = "character-display-26262663-v3";
+    public const string Version = "character-display-26262663-v4-roll-tables20261112";
     public const int QualifiedClientBuild = 26262663;
     public static IReadOnlyList<CharacterDisplayForwardRule> Rules { get; } = CreateRules();
 
@@ -221,8 +221,10 @@ public static class CharacterDisplayStatProjection
                 "floor(raw[133] * (10000 + raw[430]) / 10000)")
         };
         var sub = CharacterDisplaySubstatRules.Create();
-        return Array.AsReadOnly(primary.Concat(gods).Concat(main).Concat(sub.Where(rule => rule.Category == CharacterDisplayStatCategory.Main)
+        var existing = primary.Concat(gods).Concat(main).Concat(sub.Where(rule => rule.Category == CharacterDisplayStatCategory.Main)
                 .OrderBy(rule => rule.OutputId == "CombatSpeed" ? 0 : 1))
-            .Concat(sub.Where(rule => rule.Category == CharacterDisplayStatCategory.Sub)).ToArray());
+            .Concat(sub.Where(rule => rule.Category == CharacterDisplayStatCategory.Sub)).ToArray();
+        var added = CharacterDisplayRollStatRules.Create(existing.Select(rule => rule.OutputId).ToHashSet(StringComparer.Ordinal));
+        return Array.AsReadOnly(existing.Concat(added).ToArray());
     }
 }

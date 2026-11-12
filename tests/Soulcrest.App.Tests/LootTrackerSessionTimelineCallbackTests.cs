@@ -179,7 +179,8 @@ public sealed class LootTrackerSessionTimelineCallbackTests
     {
         await using var fixture = new Fixture();
         var html = await fixture.Render(Session);
-        Assert.Contains(">3</button>", html);
+        var trigger = Regex.Match(html, "<button[^>]*data-event-group=\"kill-0\"[^>]*>(.*?)<span[^>]*role=\"tooltip\"", RegexOptions.Singleline).Groups[1].Value;
+        Assert.Equal("3", WebUtility.HtmlDecode(Regex.Replace(trigger, "<[^>]+>", "")).Trim());
         html = await fixture.Click("data-event-group", "kill-0");
         Assert.Equal(TimeSpan.FromSeconds(10), fixture.LastSeek);
         var selection = html[html.IndexOf("class=\"lt-timeline-selection\"", StringComparison.Ordinal)..];
@@ -382,8 +383,10 @@ public sealed class LootTrackerSessionTimelineCallbackTests
             TimelineEvents = [new("large-drop", LootTrackerTimelineEventKind.Drop, At.AddSeconds(10), TimeSpan.FromSeconds(10))
                 { Loot = [new("synthetic-large", "Synthetic large reward", LootTrackerLootKind.Item, 123456789)] }] };
         var html = WebUtility.HtmlDecode(await fixture.Render(session));
-        Assert.Contains(">123</button>", html);
-        Assert.Contains("title=\"Synthetic large reward ×123,456,789\"", html);
+        var trigger = Regex.Match(html, "<button[^>]*data-event-group=\"dense-0\"[^>]*>(.*?)<span[^>]*role=\"tooltip\"", RegexOptions.Singleline).Groups[1].Value;
+        Assert.Equal("123", WebUtility.HtmlDecode(Regex.Replace(trigger, "<[^>]+>", "")).Trim());
+        Assert.Contains("aria-label=\"Synthetic large reward ×123,456,789\"", html);
+        Assert.Contains("role=\"tooltip\"", html);
         html = WebUtility.HtmlDecode(await fixture.Click("data-loot-marker", "synthetic-large"));
         var details = html[html.IndexOf("class=\"lt-timeline-selection\"", StringComparison.Ordinal)..];
         Assert.Contains("123,456,789", details);

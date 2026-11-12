@@ -415,3 +415,9 @@
 .overlay-editor .oe-library-filter-row>.oe-required-widget{flex:0 0 auto}
 .overlay-editor .oe-required-widget>.oe-lock-glyph{width:22px;height:22px;flex:0 0 22px}
 /* Mandatory overlay lock adaptation:end. */
+
+/* Startup world context adaptation:begin (user request 2026-11-10). */
+.overlay-editor [data-overlay-world-context-warning]{border-color:#8a6a35;background:#30291c;color:#f4d69c}
+.overlay-editor [data-overlay-world-context-warning]>.icon{color:#efc979}
+.overlay-editor [data-overlay-world-context-warning] span{color:#d9c8a8}
+/* Startup world context adaptation:end. */

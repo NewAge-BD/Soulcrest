@@ -15,6 +15,7 @@ internal sealed class DaevanionHighlightForm : Form
     private bool _recordings;
     private bool _disposing;
     private bool? _appliedRecordings;
+    private Bitmap? _surface;
 
     internal DaevanionHighlightForm(Func<DaevanionSnapshot?> currentSource, Func<IReadOnlySet<string>> selectedStats)
     {
@@ -31,11 +32,11 @@ internal sealed class DaevanionHighlightForm : Form
             && node.Effects.Any(effect => effect.StatId is { } id && selected.Contains(id))))
         { Suppress(); return; }
         var key = string.Join("\n", selected.Order(StringComparer.Ordinal));
-        if (!animationFrame && _shown is { } shown && Visible && _selection == key && DaevanionOverlayForm.HasSameContent(shown, snapshot))
+        if (!animationFrame && _shown is { } shown && Visible && _selection == key && HasSameVisibleGeometry(shown, snapshot))
         {
             var current = _currentSource();
             if (current is null || !DaevanionOverlayForm.HasSameBoard(snapshot, current)) { Suppress(); return; }
-            if (DaevanionOverlayForm.HasSameContent(snapshot, current))
+            if (HasSameVisibleGeometry(snapshot, current))
             { _shown = current; ApplyRecordingVisibility(visibleInRecordings); BringForward(); return; }
             // A new tooltip mask needs a replacement surface, never an empty interval.
             snapshot = current;
@@ -45,15 +46,14 @@ internal sealed class DaevanionHighlightForm : Form
             var area = DaevanionOverlayForm.SurfaceBounds(snapshot);
             if (area.Width <= 0 || area.Height <= 0) { Suppress(); return; }
             var phase = StopwatchPhase();
-            using var image = _renderer.Render(area.Size, snapshot.Board, snapshot.Detection.Nodes, selected,
-                area.Location, snapshot.Detection.Spacing, phase);
+            var image = Raster(snapshot, selected, area, phase);
             var current = _currentSource();
             if (current is null) { Suppress(); return; }
-            var artwork = DaevanionOverlayForm.ReconcileRendered(image, snapshot, current, area.Location, includeStatEnvelope: true);
+            var artwork = ReconcileHighlight(image, snapshot, current, area.Location);
             if (artwork is null) { Suppress(); return; }
-            var additions = current.Detection.Nodes.Where(node => !artwork.Detection.Nodes.Any(drawn =>
-                drawn.Row == node.Row && drawn.Column == node.Column && drawn.Bounds == node.Bounds
-                && drawn.Appearance == node.Appearance)).ToArray();
+            Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor[] additions = ReferenceEquals(artwork, current) ? [] : current.Detection.Nodes.Where(node =>
+                !artwork.Detection.Nodes.Any(drawn => drawn.Row == node.Row && drawn.Column == node.Column
+                    && drawn.Bounds == node.Bounds)).ToArray();
             if (additions.Length > 0)
             {
                 using var graphics = Graphics.FromImage(image);
@@ -61,7 +61,7 @@ internal sealed class DaevanionHighlightForm : Form
             }
             var latest = _currentSource();
             if (latest is null) { Suppress(); return; }
-            artwork = DaevanionOverlayForm.ReconcileRendered(image, current, latest, area.Location, includeStatEnvelope: true);
+            artwork = ReconcileHighlight(image, current, latest, area.Location);
             if (artwork is null) { Suppress(); return; }
             _recordings = visibleInRecordings;
             var target = new Rectangle(latest.GameBounds.X + area.X, latest.GameBounds.Y + area.Y, area.Width, area.Height);
@@ -71,7 +71,7 @@ internal sealed class DaevanionHighlightForm : Form
             LayeredOverlayPresenter.Configure(this, true, 1);
             var final = _currentSource();
             if (final is null) { Suppress(); return; }
-            artwork = DaevanionOverlayForm.ReconcileRendered(image, artwork, final, area.Location, includeStatEnvelope: true);
+            artwork = ReconcileHighlight(image, artwork, final, area.Location);
             if (artwork is null) { Suppress(); return; }
             if (!LayeredOverlayPresenter.Present(this, image)) { Suppress(); return; }
             _selection = key; _shown = artwork;
@@ -87,6 +87,79 @@ internal sealed class DaevanionHighlightForm : Form
             Suppress();
             System.Diagnostics.Trace.TraceWarning("Daevanion highlights: {0}", error.GetType().Name);
         }
+    }
+
+    private Bitmap Raster(DaevanionSnapshot snapshot, IReadOnlySet<string> selected, Rectangle area, double phase)
+    {
+        // One working surface, never a retained frame history. Every frame is cleared and freshly painted.
+        if (_surface is null || _surface.Size != area.Size)
+        {
+            _surface?.Dispose();
+            _surface = new Bitmap(area.Width, area.Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+        }
+        using var graphics = Graphics.FromImage(_surface);
+        graphics.Clear(Color.Transparent);
+        _renderer.Paint(graphics, snapshot.Board, snapshot.Detection.Nodes, selected, area.Location, snapshot.Detection.Spacing, phase);
+        return _surface;
+    }
+
+    // User request 2026-11-12: animation geometry does not depend on native active/unknown classification.
+    internal static bool HasSameVisibleGeometry(DaevanionSnapshot previous, DaevanionSnapshot current)
+    {
+        if (!DaevanionOverlayForm.HasSameBoard(previous, current)
+            || previous.Detection.Nodes.Count != current.Detection.Nodes.Count) return false;
+        if (ReferenceEquals(previous, current) || ReferenceEquals(previous.Detection.Nodes, current.Detection.Nodes)) return true;
+        Span<int> index = stackalloc int[225];
+        if (!IndexNodes(current.Detection.Nodes, index)) return false;
+        foreach (var node in previous.Detection.Nodes)
+        {
+            var key = CellKey(node);
+            if (key < 0 || index[key] < 0 || current.Detection.Nodes[index[key]].Bounds != node.Bounds) return false;
+            index[key] = -1;
+        }
+        return true;
+    }
+
+    internal static DaevanionSnapshot? ReconcileHighlight(Bitmap image, DaevanionSnapshot rendered,
+        DaevanionSnapshot current, Point origin)
+    {
+        if (!DaevanionOverlayForm.HasSameBoard(rendered, current)) return null;
+        if (ReferenceEquals(rendered, current) || HasSameVisibleGeometry(rendered, current)) return current;
+        Span<int> index = stackalloc int[225];
+        if (!IndexNodes(current.Detection.Nodes, index)) return null;
+        var retained = new List<Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor>(current.Detection.Nodes.Count);
+        using var graphics = Graphics.FromImage(image);
+        graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+        using var transparent = new SolidBrush(Color.Transparent);
+        foreach (var node in rendered.Detection.Nodes)
+        {
+            var key = CellKey(node);
+            if (key >= 0 && index[key] >= 0 && current.Detection.Nodes[index[key]].Bounds == node.Bounds)
+            { retained.Add(current.Detection.Nodes[index[key]]); continue; }
+            var frame = new Rectangle(node.Bounds.X - origin.X, node.Bounds.Y - origin.Y, node.Bounds.Width, node.Bounds.Height);
+            var definition = rendered.Board.Nodes.FirstOrDefault(cell => cell.Row == node.Row && cell.Column == node.Column);
+            var area = definition?.Kind == Soulcrest.Core.Daevanion.DaevanionNodeKind.Stat
+                ? RectangleF.Union(frame, DaevanionNodeFitting.Bounds(frame, rendered.Detection.Spacing)) : frame;
+            graphics.FillRectangle(transparent, Rectangle.FromLTRB((int)Math.Floor(area.Left), (int)Math.Floor(area.Top),
+                (int)Math.Ceiling(area.Right), (int)Math.Ceiling(area.Bottom)));
+        }
+        return retained.Count == current.Detection.Nodes.Count ? current
+            : current with { Detection = current.Detection with { Nodes = Array.AsReadOnly(retained.ToArray()) } };
+    }
+
+    private static int CellKey(Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor node) =>
+        node.Row is >= 1 and <= 15 && node.Column is >= 1 and <= 15 ? (node.Row - 1) * 15 + node.Column - 1 : -1;
+
+    private static bool IndexNodes(IReadOnlyList<Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor> nodes, Span<int> index)
+    {
+        index.Fill(-1);
+        for (var i = 0; i < nodes.Count; i++)
+        {
+            var key = CellKey(nodes[i]);
+            if (key < 0 || index[key] >= 0) return false;
+            index[key] = i;
+        }
+        return true;
     }
 
     private static double StopwatchPhase() => (System.Diagnostics.Stopwatch.GetTimestamp()
@@ -112,7 +185,7 @@ internal sealed class DaevanionHighlightForm : Form
     {
         if (_disposing || IsDisposed) return;
         _animation.Stop(); _shown = null; _selection = "";
-        Hide();
+        Hide(); _surface?.Dispose(); _surface = null;
     }
 
     private void ApplyRecordingVisibility(bool value)
@@ -157,7 +230,7 @@ internal sealed class DaevanionHighlightForm : Form
     protected override void Dispose(bool disposing)
     {
         if (disposing && !_disposing)
-        { _disposing = true; _animation.Stop(); _animation.Dispose(); _shown = null; }
+        { _disposing = true; _animation.Stop(); _animation.Dispose(); _shown = null; _surface?.Dispose(); _surface = null; }
         base.Dispose(disposing);
     }
 

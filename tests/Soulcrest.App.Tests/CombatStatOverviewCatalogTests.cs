@@ -71,7 +71,7 @@ public sealed class CombatStatOverviewCatalogTests
             Assert.Null(CombatStatOverviewCatalog.Resolve(row, null).Value);
         });
         Assert.Contains(active, row => row.Id == "Intelligence" && row.IsVisible);
-        Assert.Contains(active, row => row.Id == "FrontAttackDamage" && row.IsVisible && row.OutputId is null);
+        Assert.Contains(active, row => row.Id == "FrontAttackDamage" && row.IsVisible && row.OutputId == "FrontAttackDamage");
         var gods = CombatStatOverviewCatalog.ActiveMainGroups.Single(group => group.Group == CombatStatOverviewGroup.GodAttributes);
         Assert.Equal(10, gods.Rows.Count);
         Assert.Throws<NotSupportedException>(() => ((IList<CombatStatOverviewRowDefinition>)gods.Rows).Clear());

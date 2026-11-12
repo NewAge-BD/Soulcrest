@@ -8,7 +8,7 @@ namespace Soulcrest.App.Overlay;
 public sealed partial class DaevanionOverlayRenderer
 {
     private readonly record struct ArtworkKey(DaevanionNode Node, string Family, Size Size, string Language,
-        DaevanionNodeAppearance Appearance, double? Spacing);
+        DaevanionNodeAppearance Appearance);
     private sealed record NodeArtwork(Bitmap Image, int Padding);
     private readonly Dictionary<ArtworkKey, NodeArtwork> _artwork = [];
     private readonly Queue<ArtworkKey> _artworkOrder = [];
@@ -17,11 +17,11 @@ public sealed partial class DaevanionOverlayRenderer
     private const long MaxArtworkPixels = 8_000_000;
 
     private NodeArtwork GetArtwork(DaevanionBoard board, DaevanionNode node, Size size, string language,
-        DaevanionNodeAppearance appearance, double? spacing, out bool cached)
+        DaevanionNodeAppearance appearance, out bool cached)
     {
-        var key = new ArtworkKey(node, board.FamilyId, size, language, appearance, spacing);
+        var key = new ArtworkKey(node, board.FamilyId, size, language, appearance);
         if (_artwork.TryGetValue(key, out var found)) { cached = true; return found; }
-        var padding = Math.Max(2, (int)Math.Ceiling(Math.Max(size.Width, size.Height) * .20) + 1);
+        const int padding = 0; // Native engraving has no exterior fitting or gap-dependent artwork.
         var image = new Bitmap(size.Width + padding * 2, size.Height + padding * 2, PixelFormat.Format32bppPArgb);
         try
         {
@@ -30,7 +30,7 @@ public sealed partial class DaevanionOverlayRenderer
             graphics.PageUnit = GraphicsUnit.Pixel;
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            PaintNode(graphics, board, node, new(padding, padding, size.Width, size.Height), language, appearance, spacing);
+            PaintNode(graphics, node, new(padding, padding, size.Width, size.Height), language, appearance);
         }
         catch { image.Dispose(); throw; }
         var artwork = new NodeArtwork(image, padding);
@@ -48,35 +48,26 @@ public sealed partial class DaevanionOverlayRenderer
         return artwork;
     }
 
-    private void PaintBackground(Graphics graphics, Rectangle inside, DaevanionNodeQuality quality,
-        DaevanionNodeAppearance appearance, bool extended)
+    private static void PaintBackground(Graphics graphics, Rectangle nodeBounds, Rectangle inside,
+        DaevanionNodeQuality quality, DaevanionNodeAppearance appearance, bool doubleBonus)
     {
-        if (appearance == DaevanionNodeAppearance.Active)
+        // This is the game's empty stat tile material, not an invented individual stat icon.
+        // Draw its full native canvas before clipping/masking so its engraving remains aligned.
+        DaevanionNativeArtwork.StatBackground.Paint(graphics, nodeBounds);
+        using var shade = new SolidBrush(Color.FromArgb(doubleBonus ? 150 : 125, 13, 21, 23));
+        graphics.FillRectangle(shade, inside);
+        if (appearance != DaevanionNodeAppearance.Active) return;
+        // Only the confirmed native active state lights the material. Unknown and inactive
+        // remain identical; a blue level-up pulse alone is not an activation signal.
+        var tint = quality switch
         {
-            // Brighten the supplied stone itself; keep the number ink and original activation ring.
-            using var attributes = new ImageAttributes();
-            attributes.SetColorMatrix(new ColorMatrix([
-                [1.45f, 0, 0, 0, 0], [0, 1.45f, 0, 0, 0], [0, 0, 1.45f, 0, 0],
-                [0, 0, 0, 1, 0], [.035f, .035f, .035f, 0, 1]]));
-            graphics.DrawImage(_background, inside, BackgroundCrop.X, BackgroundCrop.Y, BackgroundCrop.Width,
-                BackgroundCrop.Height, GraphicsUnit.Pixel, attributes);
-            var tint = quality switch
-            {
-                DaevanionNodeQuality.Rare => Color.FromArgb(42, 100, 180, 135),
-                DaevanionNodeQuality.Legend => Color.FromArgb(42, 115, 166, 223),
-                DaevanionNodeQuality.Unique => Color.FromArgb(42, 230, 157, 82),
-                _ => Color.FromArgb(42, 143, 158, 174)
-            };
-            using var wash = new SolidBrush(tint);
-            graphics.FillRectangle(wash, inside);
-        }
-        else
-        {
-            graphics.DrawImage(_background, inside, BackgroundCrop, GraphicsUnit.Pixel);
-            if (!extended) return;
-            using var shade = new SolidBrush(Color.FromArgb(68, 9, 14, 14));
-            graphics.FillRectangle(shade, inside);
-        }
+            DaevanionNodeQuality.Rare => Color.FromArgb(110, 150, 210, 170),
+            DaevanionNodeQuality.Legend => Color.FromArgb(110, 160, 200, 240),
+            DaevanionNodeQuality.Unique => Color.FromArgb(110, 240, 190, 120),
+            _ => Color.FromArgb(110, 185, 200, 215)
+        };
+        using var wash = new SolidBrush(tint);
+        graphics.FillRectangle(wash, inside);
     }
 
     private void ClearArtwork()

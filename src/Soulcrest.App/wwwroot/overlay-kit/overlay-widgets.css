@@ -184,7 +184,13 @@
 .overlay-editor .oe-module>.overlay-hourly-icon{--hourly-icon-size:17px;display:inline-flex;flex-direction:row;flex:0 0 auto;font-size:10px;color:#c5ad77}
 
 /* Grouped equipment keeps the in-game grade color across name and total count. */
-.overlay-editor .overlay-widget-items.is-list .is-equipment-group>.overlay-item-name,.overlay-editor .overlay-widget-items.is-list .is-equipment-group>.overlay-item-quantity{color:var(--loot-group-color,#fff)}
+.overlay-editor .overlay-widget-items.is-list .is-equipment-group>.overlay-item-quantity{color:var(--loot-group-color,#fff)}
+.overlay-editor .overlay-notice-item-name{color:var(--overlay-primary,var(--text))}
+.overlay-editor .overlay-widget-item>.overlay-item-tooltip-target{position:absolute;inset:0;z-index:2;display:block;pointer-events:auto}
+.overlay-editor .overlay-item-tooltip-target:focus-visible{outline-offset:-2px}
+.overlay-editor .overlay-item-tooltip-line{display:block;white-space:normal}
+.overlay-editor .overlay-item-tooltip-quantity{color:var(--text,var(--overlay-primary));font-variant-numeric:tabular-nums}
+.overlay-editor .overlay-item-tooltip-detail{display:block;margin-top:4px;color:var(--muted,var(--overlay-secondary));white-space:pre-line}
 
 /* Market estimates pair the market sign with the native Kina glyph; /h belongs to Kina. */
 .overlay-editor .overlay-market-icon{--market-icon-size:calc(16px * var(--widget-font-scale,1) * var(--line-fit,1));--market-unit-size:calc(10px * var(--widget-font-scale,1) * var(--line-fit,1));display:inline-flex;flex-direction:row;align-items:center;gap:calc(3px * var(--widget-font-scale,1) * var(--line-fit,1));flex:0 0 auto;white-space:nowrap}

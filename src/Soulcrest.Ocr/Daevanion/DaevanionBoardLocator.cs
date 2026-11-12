@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using OpenCvSharp;
 using Point = OpenCvSharp.Point;
 using Size = OpenCvSharp.Size;
@@ -21,6 +22,12 @@ public sealed record DaevanionBoardDetection(string Family, Point2d Origin, doub
     public bool StartVisible { get; init; }
 }
 
+public enum DaevanionRecognitionPath { InvalidInput, GlobalSearch, PreferredRaster }
+
+/// <summary>Anonymous per-call work, with no pixels, identities, or persisted frame evidence.</summary>
+public sealed record DaevanionRecognitionMetrics(DaevanionRecognitionPath Path, double ElapsedMilliseconds,
+    int ComputedScores, int ReusedScores);
+
 /// <summary>
 /// Finds a complete board family from current pixels, without text, color-to-skill assumptions or a
 /// stored screen rectangle. Native frame artwork confirms individual nodes; the distinct start
@@ -33,6 +40,13 @@ public static class DaevanionBoardLocator
     private sealed record Hypothesis(DaevanionBoardPattern Pattern, Point2d Origin, double Score,
         IReadOnlyList<DaevanionNodeAnchor> Nodes, bool StartVisible);
     private sealed record FrameReference(double[] Values, double Norm, double[] RedValues, double RedNorm, DaevanionNodeAppearance Appearance);
+    // Only scores from this one immutable source image may be reused. Never cache across Find calls.
+    private sealed class FrameScoreCache
+    {
+        internal readonly Dictionary<(bool Red, double X, double Y, double Size), (double Active, double Inactive)> Scores = new();
+        internal DaevanionRecognitionPath Path;
+        internal int Computed, Reused;
+    }
     private static readonly Lazy<(FrameReference[] Frames, Point2d[] Start, Point2d[] Border)> References = new(LoadReferences);
     private const int SamplesPerAxis = 13;
     private const double FirstSample = .16, SampleSpan = .68;
@@ -43,7 +57,20 @@ public static class DaevanionBoardLocator
     /// Only a freshly confirmed identical family may retain its exact raster; otherwise search anew.
     /// </summary>
     public static DaevanionBoardDetection? Find(Mat image, IReadOnlyList<DaevanionBoardPattern> patterns,
-        DaevanionBoardDetection? preferred = null)
+        DaevanionBoardDetection? preferred = null) => Find(image, patterns, preferred, out _);
+
+    public static DaevanionBoardDetection? Find(Mat image, IReadOnlyList<DaevanionBoardPattern> patterns,
+        DaevanionBoardDetection? preferred, out DaevanionRecognitionMetrics metrics)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var cache = new FrameScoreCache();
+        var result = FindCore(image, patterns, preferred, cache);
+        metrics = new(cache.Path, Stopwatch.GetElapsedTime(started).TotalMilliseconds, cache.Computed, cache.Reused);
+        return result;
+    }
+
+    private static DaevanionBoardDetection? FindCore(Mat image, IReadOnlyList<DaevanionBoardPattern> patterns,
+        DaevanionBoardDetection? preferred, FrameScoreCache cache)
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(patterns);
@@ -51,6 +78,7 @@ public static class DaevanionBoardLocator
             || image.Width < 220 || image.Height < 220) return null;
         var valid = patterns.Where(IsValid).ToArray();
         if (valid.Length == 0) return null;
+        cache.Path = DaevanionRecognitionPath.GlobalSearch;
         using var gray = new Mat();
         if (image.Channels() == 1) image.CopyTo(gray);
         else Cv2.CvtColor(image, gray, image.Channels() == 4 ? ColorConversionCodes.BGRA2GRAY : ColorConversionCodes.BGR2GRAY);
@@ -58,8 +86,11 @@ public static class DaevanionBoardLocator
         if (red is not null) Cv2.ExtractChannel(image, red, 2);
         using var edges = new Mat();
         Cv2.Canny(gray, edges, 8, 25);
-        if (preferred is not null && ValidatePreferred(gray, red, edges, valid, preferred) is { } frozen)
-            return ReadAppearances(frozen, gray, red);
+        if (preferred is not null && ValidatePreferred(gray, red, edges, valid, preferred, cache) is { } frozen)
+        {
+            cache.Path = DaevanionRecognitionPath.PreferredRaster;
+            return ReadAppearances(frozen, gray, red, cache);
+        }
         using var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
         using var closed = new Mat();
         Cv2.MorphologyEx(edges, closed, MorphTypes.Close, kernel);
@@ -98,8 +129,8 @@ public static class DaevanionBoardLocator
                 foreach (var cell in lattice)
                 {
                     var center = new Point2d(phase.X + cell.X * spacing.Value, phase.Y + cell.Y * spacing.Value);
-                    var confidence = FrameScore(gray, center, actualSize, red);
-                    confidence = Math.Max(confidence, FrameScore(gray, cell.Candidate.Center, actualSize, red));
+                    var confidence = FrameScore(gray, center, actualSize, red, cache);
+                    confidence = Math.Max(confidence, FrameScore(gray, cell.Candidate.Center, actualSize, red, cache));
                     if (confidence >= .58) confirmed.Add(cell with { Confidence = confidence });
                 }
                 if (confirmed.Count < 35) continue;
@@ -107,34 +138,37 @@ public static class DaevanionBoardLocator
                 var radius = Math.Max(1, (int)Math.Ceiling(actualSize * .018));
                 using var proximity = Cv2.GetStructuringElement(MorphShapes.Ellipse, new Size(radius * 2 + 1, radius * 2 + 1));
                 Cv2.Dilate(edges, nearEdges, proximity);
-                var hypothesis = MatchPatterns(confirmed, phase, spacing.Value, actualSize, gray, red, nearEdges, valid, image.Size());
+                var hypothesis = MatchPatterns(confirmed, phase, spacing.Value, actualSize, gray, red, nearEdges, valid, image.Size(), cache);
                 if (hypothesis is null) continue;
                 var result = new DaevanionBoardDetection(hypothesis.Pattern.Family, hypothesis.Origin,
                     spacing.Value, actualSize, hypothesis.Nodes, hypothesis.Score) { StartVisible = hypothesis.StartVisible };
                 if (Better(result, best)) best = result;
                 if (ratio == 1 && result.Confidence == 1 && result.Nodes.All(n => FrameScorePlane(gray,
-                    Center(result.Origin, result.Spacing, n.Row, n.Column), result.NodeSize, false) >= .58)) nativeContour = result;
+                    Center(result.Origin, result.Spacing, n.Row, n.Column), result.NodeSize, false, cache) >= .58)) nativeContour = result;
             }
             // Fine downsampling can move the best texture sample within four percent of an already
             // fully proved native contour. Keep that frame geometry; an actual pulse requires the
             // distinctly smaller artwork scale and must not inherit its larger luminous boundary.
             if (nativeContour is not null && best is not null && best.NodeSize >= nativeContour.NodeSize * .95)
-                return ReadAppearances(nativeContour, gray, red);
+                return ReadAppearances(nativeContour, gray, red, cache);
             // A complete freshly proved mask already resolves this grid. Select its native size
             // from all bounded artwork probes, then avoid repeating an equivalent contour cluster.
-            if (best?.Confidence == 1) return ReadAppearances(best, gray, red);
+            if (best?.Confidence == 1) return ReadAppearances(best, gray, red, cache);
         }
-        return best is null ? null : ReadAppearances(best, gray, red);
+        return best is null ? null : ReadAppearances(best, gray, red, cache);
     }
 
-    private static DaevanionBoardDetection ReadAppearances(DaevanionBoardDetection detection, Mat gray, Mat? red) =>
+    private static DaevanionBoardDetection ReadAppearances(DaevanionBoardDetection detection, Mat gray, Mat? red, FrameScoreCache cache) =>
         detection with { Nodes = detection.Nodes.Select(node => node with
         {
-            Appearance = ClassifyAppearance(gray, red, Center(detection.Origin, detection.Spacing, node.Row, node.Column), detection.NodeSize)
+            Appearance = ClassifyAppearanceCore(gray, red, Center(detection.Origin, detection.Spacing, node.Row, node.Column), detection.NodeSize, cache)
         }).ToArray() };
 
     /// <summary>Compare active and disabled native textures independently of brightness and cyan bloom.</summary>
-    internal static DaevanionNodeAppearance ClassifyAppearance(Mat gray, Mat? red, Point2d center, double size)
+    internal static DaevanionNodeAppearance ClassifyAppearance(Mat gray, Mat? red, Point2d center, double size) =>
+        ClassifyAppearanceCore(gray, red, center, size, null);
+
+    private static DaevanionNodeAppearance ClassifyAppearanceCore(Mat gray, Mat? red, Point2d center, double size, FrameScoreCache? cache)
     {
         static DaevanionNodeAppearance Decide((double Active, double Inactive) scores) =>
             scores.Active >= .68 && scores.Active - scores.Inactive >= .10 ? DaevanionNodeAppearance.Active :
@@ -146,7 +180,7 @@ public static class DaevanionBoardLocator
             var best = (Active: 0d, Inactive: 0d);
             foreach (var ratio in new[] { 1d, .98, .96, .94 })
             {
-                var scores = FrameScoresPlane(plane, center, size * ratio, isRed);
+                var scores = FrameScoresPlane(plane, center, size * ratio, isRed, cache);
                 best = (Math.Max(best.Active, scores.Active), Math.Max(best.Inactive, scores.Inactive));
                 if (Math.Max(scores.Active, scores.Inactive) >= .78 && Math.Abs(scores.Active - scores.Inactive) >= .18)
                     return scores;
@@ -170,7 +204,7 @@ public static class DaevanionBoardLocator
         || candidate.Confidence == current.Confidence && candidate.Nodes.Average(n => n.Confidence) > current.Nodes.Average(n => n.Confidence);
 
     private static DaevanionBoardDetection? ValidatePreferred(Mat gray, Mat? red, Mat edges,
-        IReadOnlyList<DaevanionBoardPattern> patterns, DaevanionBoardDetection preferred)
+        IReadOnlyList<DaevanionBoardPattern> patterns, DaevanionBoardDetection preferred, FrameScoreCache cache)
     {
         var pattern = patterns.FirstOrDefault(p => p.Family == preferred.Family);
         var size = preferred.NodeSize; var spacing = preferred.Spacing; var origin = preferred.Origin;
@@ -208,9 +242,9 @@ public static class DaevanionBoardLocator
                 && Math.Abs(c.Bounds.Height - size) <= Math.Max(3, size * .065))
                 .OrderBy(c => DistanceSquared(c.Center, center)).FirstOrDefault();
             if (contour is null && OutlineScore(nearEdges, center, size, References.Value.Border) < .75) continue;
-            var confidence = FrameScoreNearNativeSize(gray, center, size, red);
+            var confidence = FrameScoreNearNativeSize(gray, center, size, red, cache);
             if (contour is not null)
-                confidence = Math.Max(confidence, FrameScoreNearNativeSize(gray, contour.Center, size, red));
+                confidence = Math.Max(confidence, FrameScoreNearNativeSize(gray, contour.Center, size, red, cache));
             if (confidence < .58) continue;
             visible[(cell.Row, cell.Column)] = new(cell.Row, cell.Column,
                 new Rect((int)Math.Round(center.X - size / 2), (int)Math.Round(center.Y - size / 2),
@@ -330,7 +364,7 @@ public static class DaevanionBoardLocator
     }
 
     private static Hypothesis? MatchPatterns(IReadOnlyList<Cell> cells, Point2d phase, double spacing,
-        double size, Mat gray, Mat? red, Mat nearEdges, IReadOnlyList<DaevanionBoardPattern> patterns, Size imageSize)
+        double size, Mat gray, Mat? red, Mat nearEdges, IReadOnlyList<DaevanionBoardPattern> patterns, Size imageSize, FrameScoreCache cache)
     {
         var hypotheses = new List<Hypothesis>();
         var minimumX = cells.Min(c => c.X); var maximumX = cells.Max(c => c.X);
@@ -370,7 +404,7 @@ public static class DaevanionBoardLocator
                 {
                     var center = new Point2d(origin.X + (node.Column - 1) * spacing, origin.Y + (node.Row - 1) * spacing);
                     if (OutlineScore(nearEdges, center, size, References.Value.Border) < .75) continue;
-                    var confidence = FrameScore(gray, center, size, red);
+                    var confidence = FrameScore(gray, center, size, red, cache);
                     if (confidence < .58) continue;
                     matched.Add(new(node.Row, node.Column, new Rect((int)Math.Round(center.X - size / 2),
                         (int)Math.Round(center.Y - size / 2), (int)Math.Round(size), (int)Math.Round(size)), confidence));
@@ -411,41 +445,55 @@ public static class DaevanionBoardLocator
         return hits / (double)points.Length;
     }
 
-    private static double FrameScore(Mat gray, Point2d center, double size, Mat? red = null)
+    private static double FrameScore(Mat gray, Point2d center, double size, Mat? red = null, FrameScoreCache? cache = null)
     {
-        var ordinary = FrameScorePlane(gray, center, size, false);
+        var ordinary = FrameScorePlane(gray, center, size, false, cache);
         // A cyan pulse selectively changes green/blue luminance. Its red channel still contains
         // the current native glyph. This is new pixel evidence, never a retained previous node.
-        return red is null ? ordinary : Math.Max(ordinary, FrameScorePlane(red, center, size, true));
+        return red is null ? ordinary : Math.Max(ordinary, FrameScorePlane(red, center, size, true, cache));
     }
 
-    private static double FrameScoreNearNativeSize(Mat gray, Point2d center, double size, Mat? red)
+    private static double FrameScoreNearNativeSize(Mat gray, Point2d center, double size, Mat? red, FrameScoreCache cache)
     {
-        var confidence = FrameScore(gray, center, size, red);
+        var confidence = FrameScore(gray, center, size, red, cache);
         if (confidence >= .58) return confidence;
         // Selected-node pulses can shift the strongest native motif scale by a few percent. Probe
         // only the current interior, after its frame was independently proved; rendering retains
         // the frozen original bounds and never borrows a previous frame's node evidence.
         foreach (var ratio in new[] { .98, .96, .94 })
         {
-            confidence = Math.Max(confidence, FrameScore(gray, center, size * ratio, red));
+            confidence = Math.Max(confidence, FrameScore(gray, center, size * ratio, red, cache));
             if (confidence >= .58) break;
         }
         return confidence;
     }
 
-    private static double FrameScorePlane(Mat gray, Point2d center, double size, bool red)
+    private static double FrameScorePlane(Mat gray, Point2d center, double size, bool red, FrameScoreCache? cache = null)
     {
-        var scores = FrameScoresPlane(gray, center, size, red);
+        var scores = FrameScoresPlane(gray, center, size, red, cache);
         return Math.Max(scores.Active, scores.Inactive);
     }
 
-    private static (double Active, double Inactive) FrameScoresPlane(Mat gray, Point2d center, double size, bool red)
+    private static (double Active, double Inactive) FrameScoresPlane(Mat gray, Point2d center, double size, bool red, FrameScoreCache? cache = null)
     {
-        var samples = new double[SamplesPerAxis * SamplesPerAxis];
+        var key = (red, center.X, center.Y, size);
+        if (cache is not null && cache.Scores.TryGetValue(key, out var known))
+        { cache.Reused++; return known; }
+        var result = ComputeFrameScoresPlane(gray, center, size, red);
+        if (cache is not null)
+        {
+            cache.Computed++;
+            if (cache.Scores.Count < 4096) cache.Scores[key] = result;
+        }
+        return result;
+    }
+
+    private static (double Active, double Inactive) ComputeFrameScoresPlane(Mat gray, Point2d center, double size, bool red)
+    {
+        Span<double> samples = stackalloc double[SamplesPerAxis * SamplesPerAxis];
         var best = (Active: 0d, Inactive: 0d);
         var delta = Math.Max(1, (int)Math.Round(size * .012));
-        Point[] offsets = [new(0, 0), new(delta, 0), new(-delta, 0), new(0, delta), new(0, -delta),
+        ReadOnlySpan<Point> offsets = [new(0, 0), new(delta, 0), new(-delta, 0), new(0, delta), new(0, -delta),
             new(delta, delta), new(-delta, -delta), new(delta, -delta), new(-delta, delta),
             new(delta * 2, 0), new(-delta * 2, 0), new(0, delta * 2), new(0, -delta * 2)];
         foreach (var offset in offsets)

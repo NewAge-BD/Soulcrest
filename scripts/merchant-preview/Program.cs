@@ -26,7 +26,7 @@ internal static class Program
     private static readonly MethodInfo DrawBadges = ProductionMethod("DrawBadges");
     private static readonly MethodInfo GetSurfaceBounds = ProductionMethod("SurfaceBounds");
     private static readonly MethodInfo PetCategory = ServiceMethod("PetCategory");
-    private static readonly MethodInfo FarmSpawnText = ServiceMethod("FarmSpawnText");
+    private static readonly MethodInfo FarmSourceText = ServiceMethod("FarmSourceText");
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private static readonly Reference[] References =
     [
@@ -37,7 +37,8 @@ internal static class Program
         new("larger", "codex-clipboard-bae4f049-e36e-4951-bfd8-199fc14ac52b.png", 1.25, true),
     ];
 
-    private sealed record Reference(string Name, string FileName, double UiScale, bool MixedTab);
+    private sealed record Reference(string Name, string FileName, double UiScale, bool MixedTab,
+        bool HasExistingOverlay = false, string? InputSha256 = null);
     private sealed record FarmContext(PetCatalog Catalog, IReadOnlyList<MapInfo> Maps, string Version);
     private sealed record DrawnSurface(Bitmap Bitmap, Rectangle Area, string PixelHash, int InkPixels) : IDisposable
     {
@@ -46,19 +47,32 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        if (args.Length != 2)
+        var archived = args.Length == 3 && args[0] == "--archived-previews";
+        if (args.Length != 2 && !archived || args.Length == 2 && args[0].StartsWith("--", StringComparison.Ordinal))
         {
-            Console.Error.WriteLine("Usage: MerchantPreview <reference-image-directory> <output-directory>");
+            Console.Error.WriteLine("Usage: MerchantPreview [--archived-previews] <image-directory> <output-directory>");
             return 2;
         }
         try
         {
-            var input = Path.GetFullPath(args[0]);
-            var output = Path.GetFullPath(args[1]);
+            var input = Path.GetFullPath(args[archived ? 1 : 0]);
+            var output = Path.GetFullPath(args[archived ? 2 : 1]);
+            if (archived && string.Equals(Path.TrimEndingDirectorySeparator(input),
+                Path.TrimEndingDirectorySeparator(output), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Archived input and output directories must differ; existing previews are never overwritten.");
+            // Explicit archival mode only: never rename a previous composite as an original clipboard capture.
+            var references = References.Select(reference =>
+            {
+                var fileName = archived ? reference.Name + "-native.png" : reference.FileName;
+                var source = Path.Combine(input, fileName);
+                if (!File.Exists(source)) throw new FileNotFoundException("Missing preview input: " + fileName);
+                return reference with { FileName = fileName, HasExistingOverlay = archived,
+                    InputSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(source))) };
+            }).ToArray();
             var farm = LoadFarmContext();
             Directory.CreateDirectory(output);
             var reports = new List<object>();
-            foreach (var reference in References)
+            foreach (var reference in references)
             {
                 using var image = Cv2.ImRead(Path.Combine(input, reference.FileName), ImreadModes.Color);
                 if (image.Empty()) throw new InvalidDataException($"Missing reference: {reference.FileName}");
@@ -75,17 +89,28 @@ internal static class Program
             }
             var manifest = new
             {
-                SchemaVersion = 3,
+                SchemaVersion = 5,
+                InputKind = archived ? "PreviousOfflinePreview" : "OriginalShopReference",
+                PreviousOfflinePreview = archived,
+                HasExistingOverlay = archived,
+                Inputs = references.Select(reference => new { reference.Name, reference.FileName,
+                    reference.InputSha256, reference.HasExistingOverlay }).ToArray(),
                 Layout = "Category centered above the pet name; counter centered below its price. Header and footer are separate transparent overlay regions.",
                 SyntheticCounters = true,
                 NativeFarmRegionsFromEmbeddedCatalog = true,
                 NativePetCategoriesFromPetIdTable = true,
                 NativeFarmSpawnCountsFromLocalMapPackage = true,
+                NativeDungeonSourcesFromEmbeddedCatalog = true,
                 MapPackageVersion = farm.Version,
                 SpawnCountMeaning = "Known source-monster placements, not clustered pet symbols or a live population.",
                 Note = "Counter values are illustrative. Files named synthetic-stress replace farm regions, spawn counts and " +
                     "categories to test line width; synthetic-priority replaces farm regions and spawn counts to test emphasis. " +
+                    "synthetic-dungeon explicitly overrides typed dungeon availability and farm text for layout checks. " +
                     "These synthetic values do not assert sources or categories for the pictured pets.",
+                InputLimitations = archived
+                    ? "Inputs are previous offline composites, already containing overlay pixels. Native shop artwork, prices and seals outside those overlays remain from the supplied historical reference. " +
+                        "Existing overlay pixels cannot be reconstructed as original game pixels; transparent outputs contain only the current production renderer."
+                    : "Inputs are the supplied original shop references.",
                 ApplicationCreated = false,
                 LiveGameOrUserDataAccessed = false,
                 Variants = reports,
@@ -135,8 +160,30 @@ internal static class Program
             FarmRegions = "Abyss / Altgard / Verteron",
             PetCategory = categories[(index + categoryOffset) % categories.Length],
             FarmSpawns = "Abyss (209) / Altgard (398) / Verteron (377)",
+            DungeonAvailability = null,
         }).ToArray();
         WritePreview(reference, image, frameName, anchors, stress, "synthetic-stress", analysisScale, expectedUiScale, output, reports, farm);
+        var dungeon = rows.Take(3).Select((row, index) => row with
+        {
+            Counter = index switch { 0 => "0/5", 1 => "max", _ => "?" },
+            IsFresh = index != 2,
+            IsMax = index == 1,
+            FarmRegions = index switch { 0 => "Special", 1 => "Altgard", _ => "Abyss / Altgard / Verteron" },
+            FarmSpawns = index switch
+            {
+                0 => "Dungeon",
+                1 => UiText.T("Dungeon (zukünftig)") + " · Altgard (123)",
+                _ => "Dungeon (?) · Abyss (209) / Altgard (123) / Verteron (377)"
+            },
+            DungeonAvailability = index switch
+            {
+                0 => PetGlobalAvailability.Available,
+                1 => PetGlobalAvailability.Upcoming,
+                _ => PetGlobalAvailability.Unconfirmed
+            },
+        }).ToArray();
+        WritePreview(reference, image, frameName, anchors, dungeon, "synthetic-dungeon", analysisScale,
+            expectedUiScale, output, reports, farm);
         if (frameName == "native")
         {
             var priorities = rows.Take(3).Select((row, index) => row with
@@ -146,6 +193,7 @@ internal static class Program
                 IsMax = index == 2,
                 FarmRegions = index == 0 ? "Altgard" : "Special",
                 FarmSpawns = index == 0 ? "Altgard (12)" : "Special",
+                DungeonAvailability = null,
             }).ToArray();
             WritePreview(reference, image, frameName, anchors, priorities, "synthetic-priority", analysisScale,
                 expectedUiScale, output, reports, farm);
@@ -165,10 +213,10 @@ internal static class Program
         var regions = PetFarmRegions.Find(petNumber) ?? throw new InvalidDataException($"Missing farm regions {petNumber}.");
         var category = PetCategory.Invoke(null, [petNumber]) as string
             ?? throw new InvalidDataException($"Missing category result for {petNumber}.");
-        var spawns = FarmSpawnText.Invoke(null, [petNumber, farm.Catalog, farm.Maps]) as string
+        var spawns = FarmSourceText.Invoke(null, [petNumber, farm.Catalog, farm.Maps]) as string
             ?? throw new InvalidDataException($"Missing spawn-count result for {petNumber}.");
         return new(slot, pet.CatalogId ?? $"preview-pet-{petNumber}", counter, fresh, max,
-            string.Join(" / ", regions), category, spawns);
+            string.Join(" / ", regions), category, spawns, PetAcquisitionCatalog.Find(petNumber)?.Availability);
     }
 
     private static void WritePreview(Reference reference, Mat image, string frameName,
@@ -214,6 +262,10 @@ internal static class Program
         {
             Name = name,
             Reference = reference.FileName,
+            InputKind = reference.HasExistingOverlay ? "PreviousOfflinePreview" : "OriginalShopReference",
+            PreviousOfflinePreview = reference.HasExistingOverlay,
+            reference.HasExistingOverlay,
+            reference.InputSha256,
             Width = size.Width,
             Height = size.Height,
             AnalysisScale = analysisScale,
@@ -223,6 +275,7 @@ internal static class Program
             SyntheticFarmRegions = syntheticLabel is not null,
             SyntheticFarmSpawns = syntheticLabel is not null,
             SyntheticPetCategories = syntheticLabel == "synthetic-stress",
+            SyntheticDungeonAvailability = syntheticLabel is not null,
             MapPackageVersion = farm.Version,
             Anchors = anchors.Select(anchor => new
             {
@@ -234,6 +287,7 @@ internal static class Program
             {
                 row.SlotIndex, row.PetId, row.Counter, row.IsFresh, row.IsMax, row.FarmRegions,
                 row.PetCategory, row.FarmSpawns,
+                DungeonAvailability = row.DungeonAvailability?.ToString(),
                 Bounds = BoundsData(bounds[index]),
                 CategoryBounds = BoundsData(categoryBounds[index]),
                 SurfaceBounds = BoundsData(surfaceBounds[index]),
@@ -253,6 +307,9 @@ internal static class Program
                 ThreeDigitSpawnCounts = rows.Any(row => Regex.IsMatch(row.FarmSpawns, @"\([0-9]{3,}\)")),
                 UnlockPriority = rows.Any(row => row.Counter == "0/5"),
                 SpecialPriority = rows.Any(row => row.FarmRegions == "Special"),
+                DungeonPriority = rows.Any(row => row.DungeonAvailability is not null),
+                DungeonAvailability = rows.Where(row => row.DungeonAvailability is not null)
+                    .Select(row => row.DungeonAvailability!.Value.ToString()).Distinct().Order().ToArray(),
                 surface.InkPixels,
                 DpiChecks = new[] { 96, 144, 192 },
                 DpiPixelsIdentical = true,

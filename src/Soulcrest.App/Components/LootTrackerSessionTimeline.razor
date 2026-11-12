@@ -34,7 +34,7 @@
         {
             <ul class="lst-loot-list">@foreach (var item in _lootItems)
             {
-                <li><label><input type="checkbox" data-timeline-item="@item.Key" checked="@_items.Contains(item.Key)" @onchange="@(e => ToggleItem(item.Key, e.Value is true))" />@if (item.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> }<span>@item.Name</span><strong>@Number(item.Quantity)</strong></label></li>
+                <li><label><input type="checkbox" data-timeline-item="@item.Key" checked="@_items.Contains(item.Key)" @onchange="@(e => ToggleItem(item.Key, e.Value is true))" />@if (item.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> }<ItemName DropKey="@item.Key" Text="@item.Name" /><strong>@Number(item.Quantity)</strong></label></li>
             }</ul>
         }
         <div class="lst-view-controls" role="group" aria-label="@UiText.T("Timeline-Ausschnitt steuern")">
@@ -102,7 +102,7 @@
                                 <div class="lst-loot-cluster" style="@LootLeft(group)">
                                     @foreach (var item in group.Items.Take(MaximumIcons))
                                     {
-                                        <button type="button" class="lst-loot-icon" title="@(item.Name + " ×" + Number(item.Quantity))" data-loot-marker="@item.Key" @onpointerdown:stopPropagation="true" @onkeydown:stopPropagation="true" @onclick="@(() => SelectLoot(group))">@if (item.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="@item.Name" /> } else { <span>◇</span> }<strong>@Number(item.Quantity)</strong></button>
+                                        <button type="button" class="lst-loot-icon" aria-label="@(item.Name + " ×" + Number(item.Quantity))" aria-describedby="@ItemTooltipId(group.Moments[0].Id + ":" + item.Key)" data-loot-marker="@item.Key" @onpointerdown:stopPropagation="true" @onkeydown:stopPropagation="true" @onclick="@(() => SelectLoot(group))"><ItemTooltip Id="@ItemTooltipId(group.Moments[0].Id + ":" + item.Key)" DropKey="@item.Key" Text="@item.Name" Focusable="false" ParentFocus="true"><ChildContent>@if (item.IconAsset is { } icon) { <img src="@icon" width="24" height="24" alt="" /> } else { <span>◇</span> }<strong>@Number(item.Quantity)</strong></ChildContent><TooltipContent><ItemName DropKey="@item.Key" Text="@item.Name" /><text> ×@Number(item.Quantity)</text></TooltipContent></ItemTooltip></button>
                                     }
                                     @if (group.Items.Count > MaximumIcons) { <button type="button" class="lst-loot-icon" @onpointerdown:stopPropagation="true" @onkeydown:stopPropagation="true" @onclick="@(() => SelectLoot(group))">+@(group.Items.Count - MaximumIcons)</button> }
                                 </div>
@@ -112,7 +112,7 @@
                         {
                             @foreach (var group in _groups.Where(row => row.Lane == layer.Id))
                             {
-                                <button type="button" class="lst-event" style="@EventLeft(group.Elapsed)" title="@GroupLabel(group)" aria-label="@GroupLabel(group)" data-event-group="@group.Events[0].Id" @onpointerdown:stopPropagation="true" @onkeydown:stopPropagation="true" @onclick="@(() => Select(group))">@(group.Events.Count > 1 ? group.Events.Count.ToString(Culture) : Glyph(layer.Id))</button>
+                                <button type="button" class="lst-event" style="@EventLeft(group.Elapsed)" aria-label="@GroupLabel(group)" aria-describedby="@ItemTooltipId(group.Events[0].Id)" data-event-group="@group.Events[0].Id" @onpointerdown:stopPropagation="true" @onkeydown:stopPropagation="true" @onclick="@(() => Select(group))"><ItemTooltip Id="@ItemTooltipId(group.Events[0].Id)" Focusable="false" ParentFocus="true"><ChildContent>@(group.Events.Count > 1 ? group.Events.Count.ToString(Culture) : Glyph(layer.Id))</ChildContent><TooltipContent>@foreach (var row in group.Events) { <div><time>@ExactTime(row.Elapsed)</time> <LootTrackerEventText Items="row.Items" Text="@row.Label" /></div> }</TooltipContent></ItemTooltip></button>
                             }
                         }
                     </div></div>
@@ -144,13 +144,13 @@
         <p class="lst-help" id="@_helpId">@UiText.T("Shift + Mausrad zoomt, Ziehen verschiebt den Ausschnitt, Klicken setzt den Playhead. Auf der Timeline: Plus/Minus zoomt, Pfeiltasten verschieben, Pos1 zeigt alles und die Leertaste startet oder pausiert. Am Playhead verschieben Pfeiltasten die Zeit.")</p>
         @if (_selected is { } selected)
         {
-            <div class="lt-timeline-selection" aria-live="polite"><strong>@UiText.T("Ereignisse an dieser Stelle")</strong><ul>@foreach (var row in selected.Events) { <li><button type="button" @onclick="@(() => SeekAt(row.Elapsed))"><time>@ExactTime(row.Elapsed)</time><span>@row.Label</span><small>@row.At.ToLocalTime().ToString("T", Culture)</small></button></li> }</ul></div>
+            <div class="lt-timeline-selection" aria-live="polite"><strong>@UiText.T("Ereignisse an dieser Stelle")</strong><ul>@foreach (var row in selected.Events) { <li><button type="button" @onclick="@(() => SeekAt(row.Elapsed))"><time>@ExactTime(row.Elapsed)</time><span><LootTrackerEventText Items="row.Items" Text="@row.Label" /></span><small>@row.At.ToLocalTime().ToString("T", Culture)</small></button></li> }</ul></div>
         }
         @if (_exactOpen)
         {
             <section id="@_exactId" class="lst-exact" aria-label="@UiText.T("Exakte Timeline-Werte")"><h4>@UiText.T("Exakte Timeline-Werte")</h4><p>@UiText.T("Alle bestätigten Werte und Ereignisse der ausgewählten Ebenen im sichtbaren Ausschnitt. Fehlende Werte bleiben unbekannt.")</p>
                 <div class="lst-table-scroll" tabindex="0" role="region" aria-label="@UiText.T("Tabelle der Timeline-Werte")"><table><thead><tr><th>@UiText.T("Zeit")</th><th>@UiText.T("Typ")</th><th>@UiText.T("Ereignis")</th><th>@UiText.T("Exakter Wert")</th></tr></thead><tbody>@foreach (var row in _exactRows.Skip((_exactPage - 1) * 25).Take(25))
-                { <tr><td><button type="button" class="lst-time-button" @onclick="@(() => SeekAt(row.At))">@ExactTime(row.At)</button>@if (row.End is { } end) { <span> – @ExactTime(end)</span> }</td><td>@UiText.T(row.Kind)</td><td>@row.Label</td><td>@row.Value</td></tr> }</tbody></table></div>
+                { <tr><td><button type="button" class="lst-time-button" @onclick="@(() => SeekAt(row.At))">@ExactTime(row.At)</button>@if (row.End is { } end) { <span> – @ExactTime(end)</span> }</td><td>@UiText.T(row.Kind)</td><td>@if (row.ItemKey is { } key) { <ItemName DropKey="@key" Text="@row.Label" /> } else { <LootTrackerEventText Items="@(row.Items ?? [])" Text="@row.Label" /> }</td><td>@row.Value</td></tr> }</tbody></table></div>
                 @if (_exactRows.Count == 0) { <p>@UiText.T("Keine erfassten Werte in diesem Ausschnitt.")</p> }
                 <div class="lst-pagination"><span>@UiText.F("{0} Werte", _exactRows.Count)</span><button type="button" class="btn" id="loot-timeline-exact-previous" disabled="@(_exactPage <= 1)" aria-label="@UiText.T("Vorherige Seite der Timeline-Werte")" @onclick="@(() => _exactPage--)">←</button><span>@UiText.F("Seite {0} von {1}", _exactPage, ExactPages)</span><button type="button" class="btn" id="loot-timeline-exact-next" disabled="@(_exactPage >= ExactPages)" aria-label="@UiText.T("Nächste Seite der Timeline-Werte")" @onclick="@(() => _exactPage++)">→</button></div>
             </section>

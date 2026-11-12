@@ -2,6 +2,31 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.18.0 – 2026-11-12
+
+- **Neu:** Genus Insight als eigenes Static Overlay: Eine verschiebbare Seitenleiste neben der Statliste
+  im Pet-Genus-Menü zeigt alle neun Slots mit Wert, Min-/Max-Bereich, Wunschstat-Sternen und „MAX“ beim
+  Höchstwert. Ein- und ausschalten unter Overlay Editor → Static Overlays.
+- **Neu:** Favorit Stats im Genus-Insight-Tab: Stats einmal global markieren, sie gelten dann in allen
+  passenden Slots. Einzelne Slots lassen sich weiterhin abweichend einstellen.
+- **Neu:** „Im Dungeon zeigen“ im Pet-Katalog öffnet die Dungeonkarte mit allen belegten Fundorten und
+  hebt das gewählte Pet hervor. Der Katalog enthält jetzt 65 Pets mit Dungeonquellen, auch im Shop-Overlay.
+- **Neu:** Der Exchange-Marktserver wird automatisch aus dem erkannten eigenen Charakter zugeordnet; eine
+  manuelle Auswahl bleibt möglich. Online-Marktpreise sind jetzt immer aktiv.
+- **Neu:** Theme „Dark“ unter Optionen: neutrales Graphitdesign für das Hauptfenster. Overlays bleiben
+  unverändert.
+- **Neu:** Der Overlay Editor weist darauf hin, wenn Loot erst nach einem Teleport einer Karte zugeordnet
+  werden kann.
+- **Verbessert:** Loot-Marktwerte nutzen den aktuell niedrigsten Angebotspreis; nur ohne aktuelles Angebot
+  dient der 24h-Durchschnitt als Ersatz. Preise werden höchstens alle zehn Minuten neu abgefragt, auch
+  nach einem Neustart.
+- **Verbessert:** Itemnamen erscheinen überall in ihren Ingame-Farben: Loot, Karte, Overlays und
+  Ausrüstung.
+- **Verbessert:** Das Daevanion-Brett sieht aus wie im Spiel, mit hellen aktiven Statflächen und
+  Skillbildern. Erkennung und Animation brauchen weniger Leistung.
+- **Verbessert:** Genus Insight und der Stats-Tab erkennen jetzt 87 der 89 Genus-Stats.
+- **Behoben:** Genus-Werte fehlten im Overlay, obwohl das Pet-Genus-Menü offen war.
+- **Behoben:** Loot-Sessions konnten beim Pausieren mit einem Speicherfehler abbrechen.
 ## 0.17.1 – 2026-11-10
 
 - **Behoben:** Die Diagnose für den Händler-Soulcounter zeigt wieder, warum das Overlay ausgeblendet

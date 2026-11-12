@@ -2,6 +2,29 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.18.0 – 2026-11-12
+
+- **New:** Genus Insight as its own static overlay: a movable sidebar next to the stat list in the pet
+  genus menu shows all nine slots with value, min/max range, wish-stat stars and "MAX" at the highest
+  value. Turn it on or off under Overlay Editor → Static Overlays.
+- **New:** Favourite stats in the Genus Insight tab: mark a stat once globally and it applies to every
+  matching slot. Individual slots can still be set differently.
+- **New:** "Show in dungeon" in the pet catalogue opens the dungeon map with every confirmed location and
+  highlights the selected pet. The catalogue now lists 65 pets with dungeon sources, also in the shop
+  overlay.
+- **New:** The Exchange market server is assigned automatically from your detected character; manual
+  selection stays possible. Online market prices are now always on.
+- **New:** "Dark" theme under Options: a neutral graphite design for the main window. Overlays stay
+  unchanged.
+- **New:** The Overlay Editor tells you when loot can only be assigned to a map after a teleport.
+- **Improved:** Loot market values use the current lowest offer; the 24h average is only a fallback when
+  there is no current offer. Prices are refreshed at most every ten minutes, also after a restart.
+- **Improved:** Item names show their in-game colours everywhere: loot, map, overlays and gear.
+- **Improved:** The Daevanion board looks like in game, with bright active stat fields and skill images.
+  Detection and animation use less performance.
+- **Improved:** Genus Insight and the Stats tab now recognise 87 of the 89 genus stats.
+- **Fixed:** Genus values were missing from the overlay although the pet genus menu was open.
+- **Fixed:** Loot sessions could stop with a save error when pausing.
 ## 0.17.1 – 2026-11-10
 
 - **Fixed:** Diagnostics for the merchant soul counter show again why the overlay is hidden: no

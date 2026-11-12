@@ -192,7 +192,7 @@
 .lt-loot-row[class*="rarity-"] { background: linear-gradient(112deg, rgba(var(--rarity-glow), .22), rgba(var(--rarity-glow), .04) 72%); }
 .lt-loot-row[class*="rarity-"] td { position: relative; isolation: isolate; }
 .lt-loot-row[class*="rarity-"] td:first-child { overflow: hidden; padding-left: .45rem; border-left: 2px solid rgba(var(--rarity-glow), .75); }
-.lt-loot-row[class*="rarity-"] .lt-loot-name { color: rgb(var(--rarity-glow)); text-shadow: 0 1px 2px #000; position: relative; z-index: 1; }
+.lt-loot-row[class*="rarity-"] .lt-loot-name { text-shadow: 0 1px 2px #000; position: relative; z-index: 1; }
 .lt-loot-row[class*="rarity-"] .lt-loot-kind { color: #d9d7ce; }
 .lt-loot-row[class*="rarity-"] td:first-child::before, .lt-loot-row[class*="rarity-"] td:first-child::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: -1; }
 .lt-loot-row[class*="rarity-"] td:first-child::before { background: linear-gradient(160deg, transparent 35%, rgba(var(--rarity-glow), .07) 42%, rgba(var(--rarity-glow), .38) 45%, transparent 49%, rgba(var(--rarity-glow), .17) 51%, transparent 54%); background-size: 240% 180%; animation: lt-item-ribbon 5s linear infinite; }

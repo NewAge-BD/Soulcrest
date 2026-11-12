@@ -60,7 +60,7 @@
                     var status = isOwned ? UsingSavedOwnership ? "SavedOwned" : "Owned" : DisplayOwnershipComplete ? UsingSavedOwnership ? "SavedNotOwned" : "NotOwned" : "Unknown";
                     <article class="ct-title-card cw-wing-card @GradeClass(definition?.Grade) @(isOwned ? "cw-wing-owned" : "") @(equipped ? "equipped" : "")" role="listitem" data-wing-id="@id" data-wing-owned="@status" data-wing-grade="@definition?.Grade">
                         @if (definition?.IconPath is { } icon) { <img class="ct-card-emblem cw-wing-emblem" src="@icon" alt="" loading="lazy" /> }
-                        <header><h4>@Wp.Name(Catalog, id, UiText.Language)</h4><div class="ct-card-badges"><span class="ct-ownership-badge @(isOwned ? "owned" : DisplayOwnershipComplete ? "notowned" : "unknown")">@UiText.T(isOwned ? UsingSavedOwnership ? "Gespeicherter Besitz" : "Im Besitz" : DisplayOwnershipComplete ? "Nicht im Besitz" : "Besitz ungeklärt")</span>@if (equipped) { <span class="ct-equipped-badge">@UiText.T("Ausgerüstet")</span> }</div></header>
+                        <header><h4><ItemName Grade="@definition?.Grade" Text="@Wp.Name(Catalog, id, UiText.Language)" /></h4><div class="ct-card-badges"><span class="ct-ownership-badge @(isOwned ? "owned" : DisplayOwnershipComplete ? "notowned" : "unknown")">@UiText.T(isOwned ? UsingSavedOwnership ? "Gespeicherter Besitz" : "Im Besitz" : DisplayOwnershipComplete ? "Nicht im Besitz" : "Besitz ungeklärt")</span>@if (equipped) { <span class="ct-equipped-badge">@UiText.T("Ausgerüstet")</span> }</div></header>
                         <div class="ct-card-equipped"><span class="ct-effect-label">@UiText.T("Beim Ausrüsten")</span>@Effects(definition?.EquippedEffects, "Equipped")</div>
                         <footer class="ct-card-owned"><span class="ct-effect-label">@UiText.T("Besitzbonus")</span>@Effects(definition?.OwnedEffects, "Owned")</footer>
                     </article>
@@ -85,7 +85,7 @@
                 var definition = Catalog.Find(id);
                 <section class="ct-equipped-slot @GradeClass(definition?.Grade)" data-equipped-wing="@id">
                     @if (definition?.IconPath is { } icon) { <img class="cw-wing-equipped-image" src="@icon" alt="" /> }
-                    <h4 class="ct-slot-title">@Wp.Name(Catalog, id, UiText.Language)</h4>
+                    <h4 class="ct-slot-title"><ItemName Grade="@definition?.Grade" Text="@Wp.Name(Catalog, id, UiText.Language)" /></h4>
                     <span class="ct-effect-label">@UiText.T("Beim Ausrüsten")</span>@Effects(definition?.EquippedEffects, "Equipped")
                 </section>
             }

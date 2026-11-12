@@ -173,8 +173,8 @@ public sealed class DaevanionCatalogTests
     public void EveryOriginalPngIsLocalHashVerifiedAndReferenced()
     {
         var catalog = DaevanionCatalog.Default;
-        Assert.Equal(170, catalog.Assets.Count);
-        Assert.Equal(160, catalog.Skills.Select(skill => skill.ImageAssetId).Distinct().Count());
+        Assert.Equal(171, catalog.Assets.Count);
+        Assert.Equal(161, catalog.Skills.Select(skill => skill.ImageAssetId).Distinct().Count());
         var root = RepositoryRoot();
         foreach (var asset in catalog.Assets)
         {
@@ -184,6 +184,35 @@ public sealed class DaevanionCatalogTests
         }
         Assert.NotNull(catalog.GetAsset("ut_fwindow_daevanion_node_rare_disabled_sprite"));
         Assert.NotNull(catalog.GetAsset("ut_fwindow_daevanion_node_startbg_sprite"));
+    }
+
+    [Theory]
+    [InlineData(17740000, "skill-icon_cl_skill_passive_004", "eb27abdab5683e7b9a90808b46d2b3e5e5fa1f4e828950a1318c51bed3ee5c0f")]
+    [InlineData(17750000, "skill-icon_cl_skill_passive_005", "5515c73236560492c0d0453cfb08a59c58542e52d0a8b65bee1c100409274ac3")]
+    [InlineData(17760000, "skill-icon_cl_skill_passive_006", "e4a2829750f4964b5d7e3deec650b718a42e50a1d8b497d0274f3c27202fcc3a")]
+    [InlineData(17770000, "skill-icon_cl_skill_passive_007", "fd76485c56a7f7d263d0962349b7f8f4ff45d239e6d9a4c66453f5f58d8fa6f8")]
+    [InlineData(17790000, "skill-icon_cl_skill_passive_009", "3c17f5234620ab5562f793b005e29c0df0a82c2fec6a9ca56367176fa4563990")]
+    [InlineData(17800000, "skill-icon_cl_skill_passive_010", "cf08b16b19b1e4730bb7f86a96a14ea1368c406a0cca683416f9061b567e5dad")]
+    public void ClericPassiveSkillsUseTheirQualifiedOriginalImages(int skillId, string imageId, string sha256)
+    {
+        var catalog = DaevanionCatalog.Default;
+        var skill = Assert.IsType<DaevanionSkill>(catalog.GetSkill(skillId));
+        Assert.Equal("Cleric", skill.ClassId);
+        Assert.Equal(imageId, skill.ImageAssetId);
+        Assert.Equal(sha256, catalog.GetAsset(imageId)!.Sha256);
+        Assert.Equal("2026-10-21", catalog.DataVersion); // Artwork corrections do not assert new progression data.
+    }
+
+    [Fact]
+    public void ClericArtworkCorrectionPreservesOtherClassesSharedImage()
+    {
+        var catalog = DaevanionCatalog.Default;
+        foreach (var skillId in new[] { 11790000, 12790000, 18790000 })
+            Assert.Equal("skill-icon_gl_skill_passive_009", catalog.GetSkill(skillId)!.ImageAssetId);
+        Assert.Equal("b04b76a0704cc17ca0ed37dee7013c6ba3202008a12d9482e33181e97cb4930d",
+            catalog.GetAsset("skill-icon_gl_skill_passive_009")!.Sha256);
+        Assert.Null(catalog.GetAsset("skill-icon_cl_skill_passive_003"));
+        Assert.Null(catalog.GetAsset("skill-icon_cl_skill_passive_011"));
     }
 
     [Fact]

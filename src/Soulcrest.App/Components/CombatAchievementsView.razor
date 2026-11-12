@@ -183,11 +183,11 @@
                                         var rewardName = Label(reward.NameDe, reward.NameEn, UiText.Language);
                                         var rewardLabel = $"{rewardName} × {Number(reward.Quantity, UiText.Language)}";
                                         var tooltipId = $"ca-reward-{achievement.Id}-{rewardIndex}";
-                                        <div class="ca-reward" data-achievement-reward tabindex="0" role="img" aria-label="@rewardLabel" aria-describedby="@tooltipId" title="@rewardLabel">
+                                        <div class="ca-reward" data-achievement-reward tabindex="0" role="img" aria-label="@rewardLabel" aria-describedby="@tooltipId">
                                             @if (reward.IconPath is { } rewardIcon) { <img src="@rewardIcon" alt="" loading="lazy" /> }
                                             else { <span class="ca-reward-icon-missing" aria-hidden="true">◇</span> }
                                             <strong data-achievement-reward-quantity="@reward.Quantity?.ToString(System.Globalization.CultureInfo.InvariantCulture)">@Number(reward.Quantity, UiText.Language)</strong>
-                                            <span id="@tooltipId" class="ca-reward-tooltip" role="tooltip">@rewardLabel</span>
+                                            <span id="@tooltipId" class="ca-reward-tooltip" role="tooltip"><ItemName ItemId="reward.ItemId" Text="@rewardName" /> × @Number(reward.Quantity, UiText.Language)</span>
                                         </div>
                                     }
                                 </div>

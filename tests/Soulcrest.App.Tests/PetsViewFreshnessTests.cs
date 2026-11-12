@@ -110,6 +110,7 @@ public sealed class PetsViewFreshnessTests
             services.AddSingleton(Progress);
             services.AddSingleton(settings);
             services.AddSingleton(new NetworkLootService(Progress));
+            services.AddSingleton(new PetDungeonMapService(Progress, [], _ => false));
             services.AddSingleton<UiState>();
             _provider = services.BuildServiceProvider();
         }

@@ -55,6 +55,7 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
     private string? _suppressedAbyssProfile, _announcedSession;
     private IDisposable? _lease;
     private int _disposed, _overflow, _fatal;
+    private LootRecordingFaultSnapshot? _recordingFault;
 
     public UnifiedLootTrackerService(SettingsService settings, INetworkFarmSource farm, INetworkKinaSource kina,
         INetworkGatheringSource gathering, INetworkAbyssSource abyss, ExplorationService exploration,
@@ -117,6 +118,7 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
     public bool OverlayCandidate => _overlayCandidate;
     public string Status => _status;
     public bool StatusIsError => _statusError;
+    public LootRecordingFaultSnapshot? RecordingFault => Volatile.Read(ref _recordingFault);
     public NetworkDailyMonsterKinaSnapshot DailyMonsterKinaSnapshot => Volatile.Read(ref _daily);
     public SavedDailyMonsterKina? CachedDailyMonsterKina => Volatile.Read(ref _cachedDaily);
     public bool DailyMonsterKinaConfirmed => _dailyConfirmed;
@@ -163,7 +165,8 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
             await SweepSmallSessionsAsync().ConfigureAwait(false);
             await foreach (var command in _commands.Reader.ReadAllAsync().ConfigureAwait(false))
             {
-                if (Interlocked.Exchange(ref _overflow, 0) != 0) Fail();
+                if (Interlocked.Exchange(ref _overflow, 0) != 0)
+                    Stop(new InvalidOperationException("Loot recording command queue overflowed."), LootRecordingFaultStage.CommandQueue);
                 Exception? completionError = null;
                 try
                 {
@@ -175,9 +178,13 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
                         case Delete delete: completionError = await DeleteSession(delete, deferCompletion: true).ConfigureAwait(false); break;
                     }
                 }
-                catch (Exception error) { completionError = error; Stop(error); }
+                catch (Exception error)
+                {
+                    completionError = error;
+                    Stop(error, command is Activity ? LootRecordingFaultStage.Activity : LootRecordingFaultStage.Observation);
+                }
                 try { Expire(_time.GetUtcNow(), _time.GetTimestamp()); await SweepSmallSessionsAsync().ConfigureAwait(false); Publish(); }
-                catch (Exception error) { completionError ??= error; Stop(error); }
+                catch (Exception error) { completionError ??= error; Stop(error, LootRecordingFaultStage.Publication); }
                 // Public mutations complete only after their snapshot/status publication. Internal
                 // retention deletes keep their immediate worker-local completion to avoid self-waiting.
                 if (command is Delete completedDelete)
@@ -191,7 +198,7 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         finally
         {
             try { Finish(LootTrackerSessionStatus.Interrupted); }
-            catch (Exception error) when (StorageFailure(error)) { Fail(); }
+            catch (Exception error) when (StorageFailure(error)) { Stop(error, LootRecordingFaultStage.Shutdown); }
             _lease?.Dispose(); _lease = null;
             if (_replayPositions is not null) await _replayPositions.DisposeAsync().ConfigureAwait(false);
             await SweepSmallSessionsAsync().ConfigureAwait(false);
@@ -333,7 +340,12 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
 
     private void Save(LootTrackerSession next)
     {
-        _store.Append(next); _active = _durable = next;
+        // Visual observations can arrive after the packet's UTC fact time or after its queued
+        // monotonic receipt. Keep that provisional walking tail in RAM, never in the journal.
+        var durable = next.Kind == LootTrackerSessionKind.Mixed
+            ? next with { RouteSegments = UnifiedLootSessionStore.TrimRoute(next, next.LastLootAt ?? next.StartedAt, next.Elapsed) }
+            : next;
+        _store.Append(durable); _active = next; _durable = durable;
         if (_announcedSession != next.Id)
         {
             _replayPositions?.Start(next.Id, _startStamp, _own?.Generation, _observedWorld?.Generation,
@@ -362,9 +374,11 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
 
     // The single worker must survive every command: a dead reader would silently stop recording
     // and leave pending deletes and flushes waiting forever.
-    private void Stop(Exception error)
+    private void Stop(Exception error, LootRecordingFaultStage stage)
     {
-        if (!StorageFailure(error) && error is not OverflowException) LogFile.Error("Loot-Aufzeichnung", error);
+        var fault = LootRecordingFaults.Create(error, stage, _time.GetUtcNow());
+        if (Interlocked.CompareExchange(ref _recordingFault, fault, null) is null)
+            LogFile.Error("Loot-Aufzeichnung", error);
         try { Fail(); }
         catch (Exception failure) when (StorageFailure(failure)) { }
     }
@@ -383,11 +397,20 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
     private void Publish(bool notify = true)
     {
         var now = _time.GetUtcNow(); var world = _world(); var own = CurrentOwn;
-        _available = Volatile.Read(ref _fatal) == 0 && _settings.Current.LootTrackingEnabled && Running
-            && ValidCharacter(own is null ? null : _bind(own)) is not null && QualifiedWorld(world, own, now)
+        var boundSource = Volatile.Read(ref _fatal) == 0 && _settings.Current.LootTrackingEnabled && Running
+            && ValidCharacter(own is null ? null : _bind(own)) is not null;
+        _available = boundSource && QualifiedWorld(world, own, now)
             && (IsAbyss(world) ? _settings.Current.AbyssTrackingEnabled && _abyss.Running
                 : _settings.Current.MonsterLootTrackingEnabled && _farm.Running
                     || _settings.Current.LifeskillTrackingEnabled && _gathering.Running && _gathering.GatheringVerified);
+        // User request 2026-11-10: distinguish missing map evidence from an idle/paused session or unsupported area.
+        // Reuse this publication's existing observations; never acquire another source for the editor hint.
+        var confirmedOwnWorld = own is not null && world.Status == WorldContextStatus.Confirmed
+            && world.BindingGeneration == own.Generation && world.ObservedAt is { } worldAt && worldAt != default && worldAt <= now;
+        var waitingForWorldContext = boundSource && !confirmedOwnWorld
+            && (_settings.Current.MonsterLootTrackingEnabled && _farm.Running
+                || _settings.Current.LifeskillTrackingEnabled && _gathering.Running && _gathering.GatheringVerified
+                || _settings.Current.AbyssTrackingEnabled && _abyss.Running);
         _overlayCandidate = _available && _active is not null && ReferenceEquals(own, _own)
             && (_active.Kind == LootTrackerSessionKind.Abyss) == IsAbyss(world);
         if (_available) _lease ??= _acquire?.Invoke(); else { _lease?.Dispose(); _lease = null; }
@@ -400,9 +423,10 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         var currentProfile = own is null ? null : ValidCharacter(_bind(own))?.ProfileId;
         var overlayDaily = own is not null && ReferenceEquals(_daily.Character, own) ? _daily : new(null, null, null, 0);
         Volatile.Write(ref _overlayState, new(_overlayCandidate ? _active! with { Elapsed = Elapsed(_time.GetTimestamp()) } : null,
-            _available, overlayDaily, _cachedDaily?.ProfileId == currentProfile ? _cachedDaily : null, _dailyConfirmed, now));
+            _available, overlayDaily, _cachedDaily?.ProfileId == currentProfile ? _cachedDaily : null, _dailyConfirmed, now)
+            { WaitingForWorldContext = waitingForWorldContext });
         _statusError = _storageIssue || Volatile.Read(ref _fatal) != 0 || _gatheringWarning is not null;
-        _status = Volatile.Read(ref _fatal) != 0 ? "Loot-Aufzeichnung wegen eines Speicherfehlers unterbrochen."
+        _status = Volatile.Read(ref _fatal) != 0 ? RecordingFault?.Status ?? "Loot-Aufzeichnung wegen eines internen Fehlers unterbrochen."
             : _storageIssue ? "Loot-Verlauf ist unvollständig."
             : !_settings.Current.LootTrackingEnabled ? "Loot-Aufzeichnung ist ausgeschaltet."
             : !_available ? "Warte auf einen bestätigten eigenen Weltkontext."

@@ -1,0 +1,51 @@
+.tc-view { --craft-border: var(--line); --craft-soft: var(--muted); --craft-teal: var(--accent); color: var(--text); }
+.tc-heading p { margin: 6px 0 0; color: var(--craft-soft,var(--muted)); font-size: 12px; line-height: 1.5; }
+.tc-heading .craft-plan-inputs { flex: 0 1 225px; }
+.tc-heading .craft-plan-inputs>label:first-child { flex: none; }
+.tc-manual-help { display: flex; align-items: center; gap: 7px; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.tc-manual-help .info-tip-body p { margin: 7px 0 0; color: inherit; }
+.tc-metrics { display: grid; position: sticky; top: 0; z-index: 3; grid-template-columns: minmax(0,1fr); margin: 0 0 10px; border-bottom: 1px solid var(--craft-border,var(--line)); background: var(--panel); box-shadow: 0 5px 12px #0002; }
+.tc-metrics>div { min-width: 0; padding: 10px 16px; }
+.tc-metrics>div>span { display: block; margin-bottom: 7px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.tc-metrics strong { display: block; font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.4px; overflow-wrap: anywhere; }
+.tc-metrics strong small { color: var(--muted); font-size: 12px; font-weight: 400; letter-spacing: 0; }
+.tc-metrics>div>small { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.tc-price-warning { margin: 8px 16px; color: var(--warn); font-size: 12px; line-height: 1.6; }
+.tc-equipment { background: color-mix(in srgb,var(--text) 2%,transparent); }
+.tc-equipment-heading { padding-bottom: 7px; }
+.tc-ownership { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 8px 36px; }
+.tc-ownership label { display: flex; align-items: center; gap: 8px; min-height: 34px; color: var(--text); font-size: 12px; cursor: pointer; }
+.tc-ownership input { flex: none; width: 17px; height: 17px; accent-color: var(--accent); }
+.tc-ownership small { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.tc-owned-note,.tc-automatic-route { margin: 5px 0 10px 36px; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.tc-selection-needed { margin: 8px 0 10px; color: var(--warn); font-size: 12px; line-height: 1.6; }
+.tc-replacement,.tc-producer { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 10px; margin: 10px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.tc-replacement>select,.tc-producer>select { flex: 1 1 220px; min-width: 0; max-width: 100%; min-height: 34px; padding: 7px; border: 1px solid var(--craft-border,var(--line)); border-radius: 5px; background: var(--bg); color: var(--text); font-size: 12px; }
+.tc-subrecipe { margin-top: 8px; }
+.tc-subrecipe>summary { min-height: 30px; overflow-wrap: anywhere; }
+.tc-requirement { margin: 8px 10px; color: var(--warn); font-size: 12px; line-height: 1.6; }
+.tc-view :is(button,input,select,summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.craft-owned-quantity { display: flex; flex: 0 1 126px; flex-direction: column; gap: 4px; min-width: 100px; max-width: 126px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.craft-owned-quantity>input { box-sizing: border-box; width: 100%; min-height: 34px; padding: 6px 8px; border: 1px solid var(--craft-border,var(--line)); border-radius: 5px; background: var(--bg); color: var(--text); font: inherit; font-variant-numeric: tabular-nums; }
+.craft-subrecipe-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin: 3px 0 10px; }
+.craft-subrecipe-actions>label { display: flex; flex: 1 1 200px; flex-direction: column; gap: 4px; min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.craft-subrecipe-actions select { min-width: 0; max-width: 100%; min-height: 34px; padding: 7px; border: 1px solid var(--craft-border,var(--line)); border-radius: 5px; background: var(--bg); color: var(--text); font-size: 12px; }
+.craft-subrecipe-actions>button { min-height: 34px; max-width: 100%; padding: 6px 9px; border: 1px solid var(--craft-border,var(--line)); border-radius: 5px; background: var(--panel-2); color: var(--text); font-size: 12px; text-align: left; white-space: normal; }
+.craft-owned-quantity>input:focus-visible,.craft-subrecipe-actions :is(select,button):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.craft-owned-error { margin: 0 0 10px; color: var(--error); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.craft-owned-quantity>input[aria-invalid=true] { border-color: var(--error); background: color-mix(in srgb,var(--error) 8%,var(--bg)); }
+@media (max-width:899px) {
+    .tc-metrics { position: static; }
+    .tc-ownership,.tc-automatic-route,.tc-owned-note { margin-left: 0; }
+    .tc-replacement>select,.tc-producer>select { flex-basis: 100%; }
+}
+@media (max-width:649px) {
+    .tc-heading .craft-plan-inputs { flex-basis: 100%; justify-content: end; }
+    .tc-metrics>div { padding: 12px; }
+    .tc-metrics strong { font-size: 20px; }
+    .tc-price-warning { margin: 8px 12px; }
+    .craft-owned-quantity { flex-basis: 100%; max-width: none; margin-left: 36px; }
+    .craft-subrecipe-actions>label { flex-basis: 100%; }
+}
+
+.tc-replacement.item-select,.tc-producer.item-select { align-items:stretch; flex-direction:column; }

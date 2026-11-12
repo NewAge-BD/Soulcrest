@@ -137,3 +137,50 @@ Für die Pet-DB werden nur **Fakten** übernommen (Namen, Gattung, Monster, Gebi
 Quelle pro Eintrag. Keine Texte oder Bilder aus diesen Seiten kopieren.
 
 Aktueller Kartenimport: Zuordnung ausschließlich aus veröffentlichter Soul-Beute; keine Namensendungen. Siehe MAP_DATA.md.
+
+## Dungeonquellen im Pet-Katalog (2026-11-11)
+
+Der vorhandene Quellenkatalog umfasst jetzt auch ältere belegte Dungeon-Souls.
+Eine Zuordnung setzt die eindeutige Pet-/Soul-Identität, einen direkten
+Soul-Beuteeintrag des Quellmonsters und dessen tatsächliche Dungeonplatzierung
+voraus. Bloßes Auftreten eines Monsters, Namensähnlichkeit oder eine
+Belohnungsvorschau reichen nicht aus. Raidquellen werden als Raid ausgewiesen;
+Abyss-Farmkarten, Event- und Festungsinstanzen werden dadurch keine Dungeons.
+
+Der Filter „Mit Dungeonquelle“ und die Suche nach Dungeon-/Quellmonsternamen
+verwenden dieselben gebündelten Fakten wie die Quellenangaben auf den Petkarten
+und im Detail. Dungeonbelege ergänzen die Weltkartenquellen; sie erzeugen keine
+fiktiven Kartenmarker oder Spawnzahlen und verändern keinen Fortschritt.
+
+Global-Verfügbarkeit bleibt je Kartenvariante getrennt: verfügbar, zukünftig
+oder unbestätigt, jeweils mit dem Datum der vorhandenen Prüfung. Die Anzeige
+„Dungeon“ allein setzt mindestens eine als verfügbar belegte Variante voraus.
+Bei ausschließlich zukünftigen oder ungeklärten Varianten ist die Kennzeichnung
+ausdrücklich qualifiziert. Ein historisches Ergänzungsdatum ist optional, damit
+ältere Quellen kein erfundenes Veröffentlichungsdatum erhalten. Dropchance und
+Schwierigkeitsstufe bleiben unbekannt, solange sie nicht eigenständig belegt sind.
+
+Die auswählbare Pet-Diagnose enthält nur anonyme Anzahlen belegter Dungeon-Pets
+und ihrer Verfügbarkeitszustände; sie startet keine Quelle und exportiert keine
+NPC-Identitäten oder Herkunftsdaten.
+
+## Dungeon-Fundorte anzeigen (2026-11-12)
+
+Bei Pets mit Dungeonquelle öffnet „Im Dungeon Zeigen“ oberhalb von „Auf der Karte
+zeigen“ einen eigenen Kartendialog. Der Dialog zeigt alle belegten Pet-Fundpunkte
+der gewählten Dungeonvariante und hebt das gewählte Pet hervor. Dungeons und
+Varianten sind wechselbar; verfügbare Varianten mit vielen ausgewählten Punkten
+werden bevorzugt. Die Kamera passt alle Positionen dieses Pets ein. Zoom,
+Verschieben und erneutes Einpassen bleiben direkt in der Ansicht möglich.
+
+Originale Variantenbezeichnungen werden erhalten. Gleiche oder fehlende Labels
+erhalten generische Variantennummern, keine erfundene Schwierigkeit. Zukünftige
+und unbestätigte Varianten bleiben ausdrücklich gekennzeichnet. Die Ansicht
+erzeugt weder Farmorte auf der Weltkarte noch einen Freigabebeleg im Spiel.
+
+Der Weltkartenbutton bleibt unabhängig. Schließen und Escape stellen den Fokus
+wieder her; Tabs, Tracking, Kartenausschnitte, Routen und globaler Petfortschritt
+werden nicht geändert. Fehlende oder veraltete Kartenpakete ergeben einen
+Hinweis und einen deaktivierten Dungeonbutton. Die separat auswählbare Diagnose
+„Dungeon-Petkarten“ liest Bild-/Positionsabdeckung sowie den flüchtigen Lade-/
+Darstellungszustand. Sie startet keine Quelle und exportiert keine Auswahlidentität.

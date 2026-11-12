@@ -41,12 +41,32 @@ public sealed partial class UnifiedLootTrackerServiceTests
     {
         await using var f = new Fixture(); await f.Ready();
         const string profile = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        var original = new ExchangeMarketProfileSettings { Region = "eu", Faction = "elyos", ServerId = 7, SalesTaxPercent = 10, RegistrationFeePercent = 2 };
+        var original = new ExchangeMarketProfileSettings { Region = "eu", Faction = "elyos", ServerId = 7, AutoDetectServer = false, SalesTaxPercent = 10, RegistrationFeePercent = 2 };
         f.Settings.Current.ExchangeMarketProfiles[profile] = original;
         f.Service.SessionStarted += _ => f.Settings.Current.ExchangeMarketProfiles[profile] = original with { ServerId = 8, SalesTaxPercent = 20 };
         CommittedLootFact? observed = null; f.Service.LootFactCommitted += fact => observed = fact;
         f.Source.Drop(610530001, 1, 1); await f.Ready();
         Assert.NotNull(observed); Assert.Equal(original, observed.MarketProfile);
         Assert.Equal(8, f.Settings.Current.ExchangeMarketProfiles[profile].ServerId);
+    }
+
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(7, false)]
+    public async Task CommittedFactsNeverFreezeTheWrongAutomaticServerBeforeAssignmentCompletes(int gameServerKey, bool matched)
+    {
+        await using var f = new Fixture(); await f.Ready();
+        const string profile = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        var original = new ExchangeMarketProfileSettings
+            { Region = "eu", Faction = "elyos", ServerId = 10001, GameServerKey = gameServerKey, SalesTaxPercent = 17, RegistrationFeePercent = 1 };
+        f.Settings.Current.ExchangeMarketProfiles[profile] = original;
+        CommittedLootFact? observed = null; f.Service.LootFactCommitted += fact => observed = fact;
+        f.Source.Drop(610530001, 1, 1); await f.Ready();
+        Assert.NotNull(observed);
+        Assert.Equal(matched, observed.MarketProfile.HasServerSelection);
+        if (matched) { Assert.Equal(10001, observed.MarketProfile.ServerId); Assert.Equal(1, observed.MarketProfile.GameServerKey); }
+        Assert.Equal(17, observed.MarketProfile.SalesTaxPercent);
+        Assert.Equal(1, observed.MarketProfile.RegistrationFeePercent);
+        Assert.Equal(original, f.Settings.GetExchangeMarketProfile(profile));
     }
 }

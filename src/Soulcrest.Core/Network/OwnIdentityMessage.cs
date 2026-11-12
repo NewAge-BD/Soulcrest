@@ -71,7 +71,7 @@ public static class OwnIdentityMessage
             var entity = r.Vi32();
             var flags = r.U32();
             if ((flags & 0xC0000000) != 0) return null;
-            var (name, server, classId, gearScore, characterLevel, combatLevel) = Detail(ref r);
+            var (name, server, classId, gearScore, characterLevel, combatLevel, crafting) = Detail(ref r);
             var (positiveHealth, resourceMaximums, equippedWing) = ReadStateHealth(ref r);
             if ((flags & 1) != 0) Guild(ref r);
             var statSubset = CharacterCombatMessage.ReadStats(ref r);
@@ -134,7 +134,8 @@ public static class OwnIdentityMessage
             return entity > 0 && server > 0 && characterId > 0 && name.Length is >= 2 and <= 32
                 && name.All(char.IsLetterOrDigit)
                 ? new(new(characterId, server, entity, name) { ClassId = classId }, mapDataId > 0 ? mapDataId : null)
-                    { CombatScore = combatScore >= 0 ? combatScore : null, GearScore = gearScore,
+                    { CraftingProficiencies = crafting,
+                        CombatScore = combatScore >= 0 ? combatScore : null, GearScore = gearScore,
                         CharacterLevel = characterLevel > 0 ? characterLevel : null, StatSubset = statSubset,
                         CombatLevel = combatLevel >= 0 ? combatLevel : null,
                         ConquerorLevel = conquerorLevel >= 0 ? conquerorLevel : null,
@@ -148,7 +149,8 @@ public static class OwnIdentityMessage
         catch (DecoderFallbackException) { return null; }
     }
 
-    private static (string Name, int Server, string? ClassId, int? GearScore, int CharacterLevel, int CombatLevel) Detail(ref ProgressPacketReader r)
+    private static (string Name, int Server, string? ClassId, int? GearScore, int CharacterLevel, int CombatLevel,
+        ImmutableDictionary<byte, CharacterCraftingProficiency>? Crafting) Detail(ref ProgressPacketReader r)
     {
         var flags = r.U8();
         if ((flags & 0xC0) != 0) throw new InvalidDataException("Unknown own detail flags.");
@@ -163,13 +165,30 @@ public static class OwnIdentityMessage
         r.Skip(8); // combat experience
         SkipIf(ref r, flags, 4, 1);
         r.Skip(r.Count(14) * 14); // gathering stats
-        r.Skip(r.Count(13) * 13); // crafting stats
+        // User request 2026-11-10: the existing complete Own contract already covered these
+        // 13-byte records. Read them without weakening the enclosing Exact validation.
+        // The historical enum is only a candidate profession bridge until an own live comparison;
+        // retaining numeric codes here does not qualify their UI labels. Future categories are
+        // consumed but never guessed; duplicate keys invalidate only this domain.
+        var crafting = ImmutableDictionary.CreateBuilder<byte, CharacterCraftingProficiency>();
+        var categories = new HashSet<byte>();
+        var craftingValid = true;
+        var craftCount = r.Count(13, 256);
+        for (var i = 0; i < craftCount; i++)
+        {
+            var category = r.U8(); var level = r.U16(); var experience = r.I64(); var skillPoints = r.U16();
+            if (!categories.Add(category)) craftingValid = false;
+            if (category is < 1 or > 5) continue;
+            if (level > 100 || experience < 0) { craftingValid = false; continue; }
+            crafting[category] = new(category, level, experience, skillPoints);
+        }
         r.Skip(16); // cooldowns and reputation
         r.U8();
         SkipIf(ref r, flags, 8, 1);
         if ((flags & 16) != 0) Points(ref r);
         if ((flags & 32) != 0) Points(ref r);
-        return (name, server, classId, gearScore >= 0 ? gearScore : null, characterLevel, combatLevel);
+        return (name, server, classId, gearScore >= 0 ? gearScore : null, characterLevel, combatLevel,
+            craftingValid ? crafting.ToImmutable() : null);
     }
 
     // User request 2026-10-20: class comes only from full MyCharAppear.detail.pcId (i32 LE).

@@ -17,6 +17,7 @@ import cv2
 import numpy as np
 from fetch_gamingtools import decode
 from pet_source_markers import add_pet_source_markers, source_groups
+from dungeon_pet_maps import prepare_dungeon_pet_maps, write_dungeon_pet_maps
 from exploration_network_ids import point_network_ids
 from monster_drops import load_monster_drop_catalog, monster_drop_payload, preflight_monster_drop_icons
 try:
@@ -473,11 +474,13 @@ def main():
     args = parser.parse_args()
     monster_catalog = load_monster_drop_catalog(data, MAPS)
     preflight_monster_drop_icons(monster_catalog, GAMINGTOOLS)
+    dungeon_maps = prepare_dungeon_pet_maps(ROOT)
     args.out.mkdir(parents=True, exist_ok=True)
     icons = IconStore(args.out)
     summaries, pets, numeric = build_catalog(icons)
     sources, conflicts = build_soul_sources(summaries)
     manifest = {'version': time.strftime('%Y%m%d%H%M%S'), 'maps': [], 'source': 'https://aion2.gaming.tools/map'}
+    manifest['dungeonPetMaps'] = write_dungeon_pet_maps(args.out, dungeon_maps)
     resource_nodes = []
     german_maps = {m['id']:m for m in data('interactive-map', locale='de')['maps']}
     for definition in data('interactive-map')['maps']:

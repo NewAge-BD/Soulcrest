@@ -1,0 +1,134 @@
+@using System.Collections.Immutable
+@using Soulcrest.Core.Crafting
+@using static Soulcrest.App.Services.CraftingCalculatorPresentation
+
+<section class="craft-map" data-crafting-dependency-map data-crafting-map-stock-source="manual" data-crafting-live-events="unavailable" data-crafting-loss-source="unavailable" aria-label="@UiText.T("Abhängigkeitskarte")">
+    <div class="craft-map-toolbar">
+        <div><strong>@UiText.T("Abhängigkeitskarte")</strong><InfoTip>@UiText.T("Jedes Teil erscheint einmal. Der Bedarf und die Restkosten sind Erwartungswerte aus dem gewählten Plan. Die Balken zeigen die Abdeckung durch deinen manuellen Bestand, keine erkannten Craft-Erfolge.")</InfoTip></div>
+        <div><span>@UiText.F("{0} Teile ausgewählt", _checked.Count)</span><button type="button" data-crafting-map-select-all @onclick="ToggleAll">@UiText.T("Alle Vorprodukte auswählen")</button><button type="button" data-crafting-map-bulk-buy disabled="@(_checked.Count == 0)" @onclick="@(() => ChangeBatch(false))">@UiText.T("Auswahl kaufen")</button><button type="button" data-crafting-map-bulk-craft disabled="@(_checked.Count == 0)" @onclick="@(() => ChangeBatch(true))">@UiText.T("Auswahl herstellen")</button></div>
+    </div>
+    <p class="craft-map-caption">@UiText.T("Manueller Planbestand · Bedarf im Mittel") · @UiText.T("Gold: Durchschnittsbedarf gedeckt")</p>
+    @if (!_main.IsEmpty)
+    {
+        <div class="craft-map-chain">
+            @for (var index = 0; index < _main.Length; index++)
+            {
+                var node = _main[index];
+                <div class="craft-map-stage" @key="node.ItemId">
+                    <CraftingDependencyCard Catalog="Catalog" State="State" Node="node" Selected="@(_selected == node.ItemId)" Checked="@_checked.Contains(node.ItemId)" SelectedChanged="Select" CheckedChanged="@(value => Check(node.ItemId, value))" SourceChanged="SourceChanged" CraftRequested="Craft" OwnedQuantityChanged="OwnedQuantityChanged" />
+                    @if (index + 1 < _main.Length && _main[index + 1].DependencyItemIds.Contains(node.ItemId))
+                    {
+                        <span class="craft-map-edge" aria-label="@UiText.T("Wird benötigt für den nächsten Schritt")">→</span>
+                    }
+                </div>
+            }
+        </div>
+    }
+    @if (!_materials.IsEmpty)
+    {
+        <div class="craft-map-material-toolbar"><h3 class="craft-map-caption">@UiText.T(_showAllMaterials ? "Zulieferungen und Materialien" : "Zulieferungen für ausgewähltes Teil")</h3><button type="button" aria-pressed="@(_showAllMaterials ? "true" : "false")" @onclick="@(() => _showAllMaterials = !_showAllMaterials)">@UiText.T(_showAllMaterials ? "Nur gewählte Zulieferungen" : "Alle Zulieferungen anzeigen")</button></div>
+        <div class="craft-map-materials">
+            @foreach (var node in VisibleMaterials)
+            {
+                <CraftingDependencyCard @key="node.ItemId" Catalog="Catalog" State="State" Node="node" Selected="@(_selected == node.ItemId)" Checked="@_checked.Contains(node.ItemId)" SelectedChanged="Select" CheckedChanged="@(value => Check(node.ItemId, value))" SourceChanged="SourceChanged" CraftRequested="Craft" OwnedQuantityChanged="OwnedQuantityChanged" />
+            }
+        </div>
+    }
+    @if (_map.Nodes.FirstOrDefault(node => node.ItemId == _selected) is { } selected)
+    {
+        <section class="craft-map-inspector" aria-label="@UiText.T("Ausgewähltes Teil")">
+            <h3><ItemName ItemId="selected.ItemId" Text="@Name(Catalog.FindItem(selected.ItemId))" /></h3>
+            @if (!selected.ConsumerItemIds.IsEmpty)
+            {
+                <p class="craft-map-link-label">@UiText.T("Benötigt für"):
+                    @foreach (var consumer in selected.ConsumerItemIds) { <ItemName ItemId="consumer" Text="@Name(Catalog.FindItem(consumer))" /> }
+                </p>
+            }
+            @if (!selected.IsTarget && !selected.RecipeCandidateIds.IsEmpty)
+            {
+                <div class="craft-map-recipe-choice">
+                    <ItemSelect Label="@UiText.F("Herstellungsweg für {0}", Name(Catalog.FindItem(selected.ItemId)))" Value="@Producer(selected)" Placeholder="@UiText.T("Herstellungsweg auswählen …")" Options="@ProducerOptions(selected)" ValueChanged="@(id => SelectProducer(selected.ItemId, id))" data-crafting-map-producer="@selected.ItemId"><LabelContent><ItemNameFormat FormatKey="Herstellungsweg für {0}" ItemId="selected.ItemId" Text="@Name(Catalog.FindItem(selected.ItemId))" /></LabelContent></ItemSelect>
+                </div>
+            }
+            @if (!selected.DependencyItemIds.IsEmpty)
+            {
+                <p class="craft-map-link-label">@UiText.T("Benötigte Vorprodukte"):
+                    @foreach (var dependency in selected.DependencyItemIds) { <ItemName ItemId="dependency" Text="@Name(Catalog.FindItem(dependency))" /> }
+                </p>
+            }
+        </section>
+    }
+    @if (_map.Truncated) { <p class="craft-map-empty" role="status">@UiText.T("Die Herstellungskette endet hier. Prüfe eine andere Zutatenquelle.")</p> }
+    @if (!string.IsNullOrEmpty(_feedback)) { <p class="craft-map-caption" role="status">@UiText.T(_feedback)</p> }
+    <p class="craft-map-live-status"><strong>@UiText.T("Craft-Erkennung nicht verfügbar")</strong><span>@UiText.T("Bestätigte Craft-Ergebnisse und tatsächliche Fehlcraft-Verluste liegen noch nicht vor. Bestände werden manuell gepflegt; Preise und Prognosen aktualisieren sich automatisch.")</span></p>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public CraftingCatalog Catalog { get; set; } = null!;
+    [Parameter, EditorRequired] public CraftingCalculatorSnapshot State { get; set; } = new();
+    [Parameter] public EventCallback<CraftingSourceSelection> SourceChanged { get; set; }
+    [Parameter] public EventCallback<ImmutableArray<CraftingSourceSelection>> SourcesChanged { get; set; }
+    [Parameter] public EventCallback<CraftingOwnedQuantitySelection> OwnedQuantityChanged { get; set; }
+    [Parameter] public EventCallback<CraftingReplacementSelection> ReplacementChanged { get; set; }
+    private Soulcrest.App.Services.CraftingDependencyMap _map = new();
+    private ImmutableArray<CraftingDependencyNode> _main = [], _materials = [];
+    private readonly HashSet<int> _checked = [];
+    private int? _selected, _recipe, _supplyAnchor;
+    private string? _profile;
+    private bool _showAllMaterials;
+    private string? _feedback;
+    protected override void OnParametersSet()
+    {
+        _map = CraftingDependencyMapProjection.Build(Catalog, State);
+        if (_recipe != State.SelectedRecipeId || _profile != State.ProfileId)
+        { _checked.Clear(); _selected = null; _supplyAnchor = null; _showAllMaterials = false; _feedback = null; _recipe = State.SelectedRecipeId; _profile = State.ProfileId; }
+        var ids = _map.Nodes.Select(node => node.ItemId).ToHashSet();
+        _checked.IntersectWith(ids);
+        if (_selected is null || !ids.Contains(_selected.Value)) _selected = _map.Nodes.FirstOrDefault(node => node.IsTarget)?.ItemId;
+        if (_supplyAnchor is null || !ids.Contains(_supplyAnchor.Value)) _supplyAnchor = _map.Nodes.FirstOrDefault(node => node.IsTarget)?.ItemId;
+        _main = _map.Nodes.Where(node => node.IsEquipment || node.IsTarget).OrderBy(node => Rank(node.ItemId, [])).ThenBy(node => node.ItemId).ToImmutableArray();
+        _materials = _map.Nodes.Where(node => !node.IsEquipment && !node.IsTarget).OrderBy(node => Name(Catalog.FindItem(node.ItemId))).ToImmutableArray();
+    }
+    private int Rank(int id, HashSet<int> path)
+    {
+        if (path.Count >= 12 || !path.Add(id)) return 0;
+        var node = _map.Nodes.FirstOrDefault(row => row.ItemId == id);
+        var rank = node is null || node.DependencyItemIds.IsEmpty ? 0 : 1 + node.DependencyItemIds.Max(child => Rank(child, new(path)));
+        return rank;
+    }
+    private IEnumerable<CraftingDependencyNode> VisibleMaterials => _showAllMaterials ? _materials
+        : _materials.Where(node => _map.Nodes.FirstOrDefault(row => row.ItemId == _supplyAnchor)?.DependencyItemIds.Contains(node.ItemId) == true);
+    private void Select(int id)
+    {
+        _selected = id;
+        if (_map.Nodes.FirstOrDefault(node => node.ItemId == id) is { } node && (node.IsEquipment || node.IsTarget)) _supplyAnchor = id;
+    }
+    private void Check(int id, bool value) { if (value) _checked.Add(id); else _checked.Remove(id); }
+    private void ToggleAll()
+    {
+        var eligible = _map.Nodes.Where(node => !node.IsTarget).Select(node => node.ItemId).ToArray();
+        if (eligible.All(_checked.Contains)) _checked.Clear(); else _checked.UnionWith(eligible);
+    }
+    private int? Producer(CraftingDependencyNode node) => State.RecipeChoices.TryGetValue(node.ItemId, out var selected) && node.RecipeCandidateIds.Contains(selected)
+        ? selected : node.RecipeCandidateIds.Length == 1 ? node.RecipeCandidateIds[0] : null;
+    private ItemSelectOption[] ProducerOptions(CraftingDependencyNode node) => node.RecipeCandidateIds.Select(id => Catalog.FindRecipe(id)).OfType<CraftingRecipe>()
+        .Select(recipe => new ItemSelectOption(recipe.Id, recipe.OutputItemId, Name(Catalog.FindItem(recipe.OutputItemId)), recipe.Profession + " · " + recipe.RequiredProficiency + " · " + Faction(recipe.Faction) + (Catalog.IsComboRecipe(recipe.Id) ? " · COMBO" : ""))).ToArray();
+    private Task SelectProducer(int itemId, int recipeId) => SourceChanged.InvokeAsync(new(itemId, recipeId));
+    private Task Craft(int itemId)
+    {
+        var node = _map.Nodes.First(row => row.ItemId == itemId);
+        Select(itemId);
+        if (Producer(node) is not { } recipeId) { _feedback = "Wähle zuerst den genauen Herstellungsweg für dieses Teil aus."; return Task.CompletedTask; }
+        _feedback = null;
+        return SourceChanged.InvokeAsync(new(itemId, recipeId));
+    }
+    private async Task ChangeBatch(bool craft)
+    {
+        var choices = _map.Nodes.Where(node => _checked.Contains(node.ItemId) && !node.IsTarget)
+            .Where(node => !craft || Producer(node) is not null).Select(node => new CraftingSourceSelection(node.ItemId, craft ? Producer(node) : null)).ToImmutableArray();
+        _feedback = craft && choices.Length < _checked.Count ? "Teile ohne eindeutigen Herstellungsweg bleiben unverändert. Wähle ihren Herstellungsweg einzeln aus." : "Beschaffungswege aktualisiert.";
+        if (choices.IsEmpty) return;
+        if (SourcesChanged.HasDelegate) await SourcesChanged.InvokeAsync(choices);
+        else foreach (var choice in choices) await SourceChanged.InvokeAsync(choice);
+    }
+}

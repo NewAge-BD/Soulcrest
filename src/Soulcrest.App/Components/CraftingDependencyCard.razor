@@ -1,0 +1,68 @@
+@using System.Globalization
+@using Soulcrest.Core.Crafting
+@using static Soulcrest.App.Services.CraftingCalculatorPresentation
+
+<article class="craft-map-node @(Selected ? "selected" : "") @(Node.IsComplete ? "complete" : "") @(Node.IsTarget ? "target" : "") @(!Node.IsActive ? "bypassed" : "")" data-crafting-map-item="@Node.ItemId">
+    <div class="craft-map-node-head">
+        @if (!Node.IsTarget)
+        {
+            <input type="checkbox" data-crafting-map-selection="@Node.ItemId" checked="@Checked" aria-label="@UiText.F("{0} gemeinsam umstellen", Name(Item))" @onchange="@(e => CheckedChanged.InvokeAsync(e.Value is true))" />
+        }
+        <button type="button" class="craft-map-name" aria-pressed="@(Selected ? "true" : "false")" aria-label="@UiText.F("Details für {0}", Name(Item))" @onclick="@(() => SelectedChanged.InvokeAsync(Node.ItemId))">
+            @if (Item?.Icon is { } icon) { <img src="@icon" alt="" loading="lazy" /> }
+            <span><ItemName ItemId="Node.ItemId" Text="@Name(Item)" /><small class="craft-map-kind">@UiText.T(Node.IsTarget ? "Zielprodukt" : IsCraft ? "Herstellen" : "Kaufen")</small></span>
+        </button>
+    </div>
+    @if (Node.IsEquipment || Node.IsTarget) { <div class="craft-map-combo-slot">@if (Node.IsCombo) { <span class="craft-combo-product-badge">@UiText.T("COMBO-Endprodukt")</span> }</div> }
+    <div class="craft-map-quantity"><span>@UiText.T(Node.IsTarget ? "Produktion nicht beobachtet" : "Bestand / Bedarf im Mittel")</span><strong>@Number(Node.OwnedQuantity) / @Number(Node.RequiredQuantity, "N2")</strong></div>
+    <div class="craft-map-progress @(Node.IsComplete ? "complete" : "")" role="progressbar" aria-label="@UiText.F("Bestandsabdeckung für {0}", Name(Item))" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@(Node.CoveragePercent?.ToString("0.##", CultureInfo.InvariantCulture))" aria-valuetext="@(Node.CoveragePercent is { } coverage ? UiText.F("{0} % · manueller Planbestand", Number(coverage, "N1")) : UiText.T("Fortschritt unbekannt"))" data-crafting-map-progress="@Node.ItemId" data-progress-known="@(Node.CoveragePercent is not null ? "true" : "false")" data-progress-complete="@(Node.IsComplete ? "true" : "false")">
+        <span class="craft-map-progress-fill" style="@($"width:{Node.CoveragePercent?.ToString("0.####", CultureInfo.InvariantCulture) ?? "0"}%")"></span>
+    </div>
+    @if (Node.IsTarget || Node.IsComplete || Node.RequiredQuantity is null)
+    {
+        <small class="craft-map-kind">@UiText.T(Node.IsTarget ? "Neu herzustellendes Ziel · kein Inventarbeleg" : Node.IsComplete ? "Durchschnittsbedarf gedeckt" : "Bedarf noch unbekannt")</small>
+    }
+    @if (!Node.IsTarget && Node.RequiredQuantity is > 0 && Node.OwnedQuantity >= Node.RequiredQuantity && !Node.IsComplete)
+    {
+        <small class="craft-map-kind">@UiText.T("Für mögliche Mehrversuche bleibt Bedarf offen.")</small>
+    }
+    @if (!Node.IsTarget)
+    {
+        <label class="craft-map-stock">@UiText.T("Manueller Bestand")<input type="number" min="0" max="1000000000" value="@State.OwnedItems.GetValueOrDefault(Node.ItemId)" aria-label="@UiText.F("Bereits vorhanden für {0}", Name(Item))" aria-invalid="@(_stockError ? "true" : null)" data-crafting-map-owned-quantity="@Node.ItemId" @onchange="ChangeStock" /></label>
+        @if (_stockError) { <p class="craft-owned-error" role="alert">@UiText.T("Die vorhandene Menge muss eine ganze Zahl zwischen 0 und 1.000.000.000 sein.")</p> }
+        <div class="craft-map-node-actions">
+            <button type="button" class="@(!IsCraft ? "selected" : "")" aria-pressed="@(!IsCraft ? "true" : "false")" data-crafting-map-buy="@Node.ItemId" @onclick="@(() => SourceChanged.InvokeAsync(new(Node.ItemId, null)))">@UiText.T("Kaufen")</button>
+            @if (!Node.RecipeCandidateIds.IsEmpty)
+            {
+                <button type="button" class="@(IsCraft ? "selected" : "")" aria-pressed="@(IsCraft ? "true" : "false")" data-crafting-map-craft="@Node.ItemId" @onclick="@(() => CraftRequested.InvokeAsync(Node.ItemId))">@UiText.T("Herstellen")</button>
+            }
+        </div>
+        @if (State.BuyPrices.GetValueOrDefault(Node.ItemId) is { } price)
+        {
+            <small class="craft-map-kind">@UiText.T("Kaufpreis pro Stück") · @Number(price.UnitPrice) Kina</small>
+        }
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired] public CraftingCatalog Catalog { get; set; } = null!;
+    [Parameter, EditorRequired] public CraftingCalculatorSnapshot State { get; set; } = new();
+    [Parameter, EditorRequired] public CraftingDependencyNode Node { get; set; } = null!;
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public bool Checked { get; set; }
+    [Parameter] public EventCallback<int> SelectedChanged { get; set; }
+    [Parameter] public EventCallback<bool> CheckedChanged { get; set; }
+    [Parameter] public EventCallback<CraftingSourceSelection> SourceChanged { get; set; }
+    [Parameter] public EventCallback<int> CraftRequested { get; set; }
+    [Parameter] public EventCallback<CraftingOwnedQuantitySelection> OwnedQuantityChanged { get; set; }
+    private bool _stockError;
+    private CraftingItem? Item => Catalog.FindItem(Node.ItemId);
+    private bool IsCraft => State.Acquisition.GetValueOrDefault(Node.ItemId) == CraftingAcquisition.Craft;
+    private Task ChangeStock(ChangeEventArgs args)
+    {
+        if (!long.TryParse(args.Value?.ToString(), out var value) || value is < 0 or > 1_000_000_000)
+        { _stockError = true; return Task.CompletedTask; }
+        _stockError = false;
+        return OwnedQuantityChanged.InvokeAsync(new(Node.ItemId, value));
+    }
+}

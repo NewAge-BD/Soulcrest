@@ -150,6 +150,7 @@ public sealed class PetCategoryNavigationTests
             var settings = new SettingsService(); settings.Current.NameLanguage = settings.Current.UiLanguage = UiText.Language = "en";
             var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton(progress); services.AddSingleton(settings);
             services.AddSingleton(new NetworkLootService(progress)); services.AddSingleton(Ui);
+            services.AddSingleton(new PetDungeonMapService(progress, [], _ => false));
             _provider = services.BuildServiceProvider();
             _renderer = new(_provider, _provider.GetRequiredService<ILoggerFactory>());
             _before = _backups.Keys.Append(path).ToDictionary(file => file, Bytes);

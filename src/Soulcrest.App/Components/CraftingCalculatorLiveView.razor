@@ -1,0 +1,42 @@
+@implements IDisposable
+@inject CraftingCalculatorService Calculator
+@inject ExplorationService Profiles
+@inject ExchangeMarketAutoSelectionService Automatic
+
+<div class="craft-live-wrap">
+    <CraftingCalculatorView Catalog="Calculator.Catalog" State="Calculator.Snapshot"
+        ProfessionChanged="Calculator.SetProfession" SubcategoryChanged="Calculator.SetSubcategory" QueryChanged="Calculator.SetQuery"
+        RecipeSelected="Calculator.SelectRecipe" TargetChanged="ChangeTarget" QuantityChanged="Calculator.SetQuantity"
+        SimulationSamplesChanged="Calculator.SetSimulationSamples"
+        LevelChanged="ChangeLevel" ResetLevels="Calculator.ResetProficiencies" SourceChanged="ChangeSource" SourcesChanged="Calculator.SetAcquisitions"
+        ReplacementChanged="ChangeReplacement" OwnershipChanged="ChangeOwnership" OwnedQuantityChanged="ChangeOwnedQuantity" Refresh="Calculator.RefreshAsync" />
+    <details class="craft-live-settings">
+        <summary>@UiText.T("Markt und Gebühren")</summary>
+        <ExchangeMarketSettings Profiles="Profiles.Characters" ActiveProfileId="@Calculator.Snapshot.ProfileId"
+            DetectedProfileId="@Automatic.Snapshot.ProfileId" AutomaticStatus="@Automatic.Snapshot.Status"
+            AutomaticStatusIsError="Automatic.Snapshot.IsError" Servers="Calculator.Snapshot.Servers" LoadServers="Calculator.RefreshAsync" />
+        <p>@UiText.T("Markt- und Gebührenänderungen aktualisieren diese Herstellungsvorschau. Gespeicherte Lootbewertungen bleiben unverändert.")</p>
+    </details>
+</div>
+
+@code {
+    private IDisposable? _lease;
+    private bool _disposed;
+    protected override void OnInitialized()
+    {
+        Calculator.Changed += Refresh; Automatic.Changed += Refresh;
+        _lease = Calculator.Acquire();
+    }
+    private void ChangeTarget(int id)
+    {
+        if (Calculator.Catalog.FindRecipe(id) is { } recipe) Calculator.SetTarget(id, recipe.OutputItemId);
+    }
+    private void ChangeLevel(CraftingLevelSelection value) => Calculator.SetProficiency(value.Profession, value.Level);
+    private void ChangeSource(CraftingSourceSelection value) => Calculator.SetAcquisition(value.ItemId,
+        value.RecipeId is null ? Soulcrest.Core.Crafting.CraftingAcquisition.Buy : Soulcrest.Core.Crafting.CraftingAcquisition.Craft, value.RecipeId);
+    private void ChangeReplacement(CraftingReplacementSelection value) => Calculator.SetReplacement(value.RecipeId, value.IngredientId, value.SelectedId);
+    private void ChangeOwnership(CraftingOwnershipSelection value) => Calculator.SetOwnership(value.ItemId, value.Owned);
+    private void ChangeOwnedQuantity(CraftingOwnedQuantitySelection value) => Calculator.SetOwnedQuantity(value.ItemId, value.Quantity);
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
+    public void Dispose() { _disposed = true; Calculator.Changed -= Refresh; Automatic.Changed -= Refresh; _lease?.Dispose(); }
+}
