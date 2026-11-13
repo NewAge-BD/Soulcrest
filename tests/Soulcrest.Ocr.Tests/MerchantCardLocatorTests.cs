@@ -1,5 +1,6 @@
 using OpenCvSharp;
 using Soulcrest.Ocr.Shop;
+using static Soulcrest.Testing.MerchantShopFixture;
 using Xunit;
 using Point = OpenCvSharp.Point;
 using Size = OpenCvSharp.Size;
@@ -9,13 +10,6 @@ namespace Soulcrest.Ocr.Tests;
 /// <summary>Procedurally drawn shop geometry; no game screenshots, item artwork or OCR fixtures.</summary>
 public sealed class MerchantCardLocatorTests
 {
-    // Independent rounded measurements of the small-UI example, in a 2560 x 1440 game window.
-    private static readonly Point[] ReferenceSeals =
-    [
-        new(512, 366), new(819, 435), new(1126, 460), new(1433, 460), new(1740, 435), new(2048, 366),
-        new(571, 750), new(878, 805), new(1680, 805), new(1989, 750),
-    ];
-
     [Theory]
     [InlineData(.9375)]
     [InlineData(1)]
@@ -24,7 +18,7 @@ public sealed class MerchantCardLocatorTests
     [InlineData(1.25)]
     public void FindsAllTenPriceButtonsAcrossTheFiveUiScales(double scale)
     {
-        using var image = Shop(scale);
+        using var image = CreateShop(scale);
         var anchors = MerchantCardLocator.Find(image);
         Assert.Equal(10, anchors.Count);
         for (var index = 0; index < anchors.Count; index++)
@@ -46,7 +40,7 @@ public sealed class MerchantCardLocatorTests
     [InlineData(4)]
     public void SupportsGrayscaleBgrAndBgraWithoutMutatingTheInput(int channels)
     {
-        using var color = Shop(1);
+        using var color = CreateShop(1);
         using var image = new Mat();
         if (channels == 3) color.CopyTo(image);
         else Cv2.CvtColor(color, image, channels == 1 ? ColorConversionCodes.BGR2GRAY : ColorConversionCodes.BGR2BGRA);
@@ -60,7 +54,7 @@ public sealed class MerchantCardLocatorTests
     [InlineData(.75)]
     public void CoordinatesFollowTheActualImageResolution(double frameScale)
     {
-        using var full = Shop(1);
+        using var full = CreateShop(1);
         using var reduced = new Mat();
         Cv2.Resize(full, reduced, new Size(), frameScale, frameScale, InterpolationFlags.Area);
         var anchors = MerchantCardLocator.Find(reduced);
@@ -78,7 +72,7 @@ public sealed class MerchantCardLocatorTests
     [InlineData(true)]
     public void CardArtworkAndWhiteHoverFramesDoNotChangeTheAnchors(bool whiteHover)
     {
-        using var image = Shop(1, whiteHover: whiteHover);
+        using var image = CreateShop(1, whiteHover: whiteHover);
         // Arbitrary different contents stand in for pets, non-pets, ownership labels and sold-out bands.
         for (var index = 0; index < 10; index++)
         {
@@ -95,7 +89,7 @@ public sealed class MerchantCardLocatorTests
     [Fact]
     public void TwoFaintSealsAreAllowedOnlyWhileEveryCardAndPriceRemainVerified()
     {
-        using var image = Shop(1, missingSeals: [6, 8]);
+        using var image = CreateShop(1, missingSeals: [6, 8]);
         Assert.Equal(10, MerchantCardLocator.Find(image).Count);
         var price = PriceCenter(8, 1);
         Cv2.Rectangle(image, new Rect(price.X - 80, price.Y - 20, 160, 40), Scalar.All(18), -1);
@@ -105,7 +99,7 @@ public sealed class MerchantCardLocatorTests
     [Fact]
     public void ThreeMissingSealsNeverProduceAnAssumedTenCardLayout()
     {
-        using var image = Shop(1, missingSeals: [6, 7, 8]);
+        using var image = CreateShop(1, missingSeals: [6, 7, 8]);
         Assert.Empty(MerchantCardLocator.Find(image));
     }
 
@@ -115,21 +109,21 @@ public sealed class MerchantCardLocatorTests
     [InlineData(9)]
     public void OneMissingPriceRejectsTheEntireLayout(int slot)
     {
-        using var image = Shop(1, missingPrice: slot);
+        using var image = CreateShop(1, missingPrice: slot);
         Assert.Empty(MerchantCardLocator.Find(image));
     }
 
     [Fact]
     public void PriceButtonsAndSealsWithoutTheCardFramesAreInsufficient()
     {
-        using var image = Shop(1, frames: false);
+        using var image = CreateShop(1, frames: false);
         Assert.Empty(MerchantCardLocator.Find(image));
     }
 
     [Fact]
     public void ClosingTheShopDoesNotRetainThePreviousResult()
     {
-        using var image = Shop(1);
+        using var image = CreateShop(1);
         Assert.Equal(10, MerchantCardLocator.Find(image).Count);
         image.SetTo(Scalar.All(18));
         Assert.Empty(MerchantCardLocator.Find(image));
@@ -142,7 +136,7 @@ public sealed class MerchantCardLocatorTests
         for (var index = 0; index < 10; index++)
             Cv2.Rectangle(boxes, new Rect(180 + index * 200, 350 + index % 2 * 320, 36, 36), Scalar.All(160), 2);
         Assert.Empty(MerchantCardLocator.Find(boxes));
-        using var full = Shop(1);
+        using var full = CreateShop(1);
         using var clipped = new Mat(full, new Rect(0, 0, 2560, 1000));
         Assert.Empty(MerchantCardLocator.Find(clipped));
         using var distorted = new Mat();
@@ -164,7 +158,7 @@ public sealed class MerchantCardLocatorTests
     [Fact]
     public void ReducedSealQuantizationCanUseOneSharedPixelCorrection()
     {
-        using var original = Shop(.9375, sealOffsetY: 4);
+        using var original = CreateShop(.9375, sealOffsetY: 4);
         using var reduced = new Mat();
         Cv2.Resize(original, reduced, new Size(), .75, .75, InterpolationFlags.Area);
         var anchors = MerchantCardLocator.Find(reduced);
@@ -182,7 +176,7 @@ public sealed class MerchantCardLocatorTests
     [Fact]
     public void ADisplacementBeyondTheSinglePixelCorrectionStillFailsClosed()
     {
-        using var original = Shop(.9375, sealOffsetY: 5);
+        using var original = CreateShop(.9375, sealOffsetY: 5);
         using var reduced = new Mat();
         Cv2.Resize(original, reduced, new Size(), .75, .75, InterpolationFlags.Area);
         Assert.Empty(MerchantCardLocator.Find(reduced));
@@ -284,10 +278,10 @@ public sealed class MerchantCardLocatorTests
     [InlineData(true, 1)]
     public void PreferredGeometryIsRevalidatedWithoutFollowingSealQuantizationOrHover(bool whiteHover, int sealOffset)
     {
-        using var original = Shop(1);
+        using var original = CreateShop(1);
         var previous = MerchantCardLocator.Find(original);
         Assert.Equal(10, previous.Count);
-        using var current = Shop(1, whiteHover: whiteHover, sealOffsetY: sealOffset);
+        using var current = CreateShop(1, whiteHover: whiteHover, sealOffsetY: sealOffset);
         using var before = current.Clone();
 
         var anchors = MerchantCardLocator.Find(current, Enumerable.Reverse(previous).ToArray());
@@ -300,7 +294,7 @@ public sealed class MerchantCardLocatorTests
     [Fact]
     public void AFalseOrInconsistentPreferredLayoutFallsBackToTheCurrentImage()
     {
-        using var image = Shop(1);
+        using var image = CreateShop(1);
         var expected = MerchantCardLocator.Find(image);
         Assert.Equal(10, expected.Count);
         var moved = expected.Select(anchor => anchor with
@@ -323,10 +317,10 @@ public sealed class MerchantCardLocatorTests
     [InlineData(1.125, 0, 0)]
     public void ARealCardMoveOrScaleChangeIsDetectedInsteadOfReusingThePreferredLayout(double scale, int x, int y)
     {
-        using var original = Shop(1);
+        using var original = CreateShop(1);
         var previous = MerchantCardLocator.Find(original);
         Assert.Equal(10, previous.Count);
-        using var current = Shop(scale, layoutOffsetX: x, layoutOffsetY: y);
+        using var current = CreateShop(scale, layoutOffsetX: x, layoutOffsetY: y);
         var expected = MerchantCardLocator.Find(current);
 
         var anchors = MerchantCardLocator.Find(current, previous);
@@ -338,12 +332,12 @@ public sealed class MerchantCardLocatorTests
     [Fact]
     public void PreferredGeometryStillRequiresEightIndependentCurrentSeals()
     {
-        using var original = Shop(1);
+        using var original = CreateShop(1);
         var previous = MerchantCardLocator.Find(original);
         Assert.Equal(10, previous.Count);
-        using var eight = Shop(1, missingSeals: [6, 7]);
+        using var eight = CreateShop(1, missingSeals: [6, 7]);
         AssertSameGeometry(previous, MerchantCardLocator.Find(eight, previous));
-        using var seven = Shop(1, missingSeals: [6, 7, 8]);
+        using var seven = CreateShop(1, missingSeals: [6, 7, 8]);
         Assert.Empty(MerchantCardLocator.Find(seven, previous));
     }
 
@@ -353,20 +347,20 @@ public sealed class MerchantCardLocatorTests
     [InlineData(9)]
     public void PreferredGeometryCannotReplaceOneMissingRawPrice(int slot)
     {
-        using var original = Shop(1);
+        using var original = CreateShop(1);
         var previous = MerchantCardLocator.Find(original);
         Assert.Equal(10, previous.Count);
-        using var current = Shop(1, missingPrice: slot);
+        using var current = CreateShop(1, missingPrice: slot);
         Assert.Empty(MerchantCardLocator.Find(current, previous));
     }
 
     [Fact]
     public void PreferredGeometryCannotReplaceOneMissingRawCardSide()
     {
-        using var original = Shop(1);
+        using var original = CreateShop(1);
         var previous = MerchantCardLocator.Find(original);
         Assert.Equal(10, previous.Count);
-        using var current = Shop(1);
+        using var current = CreateShop(1);
         var seal = SealCenter(0, 1);
         Cv2.Rectangle(current, new Rect(seal.X - 111, seal.Y + 40, 10, 220), Scalar.All(18), -1);
         Assert.Empty(MerchantCardLocator.Find(current, previous));
@@ -375,7 +369,7 @@ public sealed class MerchantCardLocatorTests
     [Fact]
     public void PreferredGeometryCannotBridgeAPurchaseDialogAndCanBeRevalidatedAfterDismissal()
     {
-        using var shop = Shop(1);
+        using var shop = CreateShop(1);
         var previous = MerchantCardLocator.Find(shop);
         Assert.Equal(10, previous.Count);
         using var dialog = shop.Clone();
@@ -402,7 +396,7 @@ public sealed class MerchantCardLocatorTests
     [InlineData(true)]
     public void PreferredGeometryRevalidatesItsOwnSealsDespiteMoreThanFortyEightUnrelatedCandidates(bool right)
     {
-        using var original = Shop(1);
+        using var original = CreateShop(1);
         var previous = MerchantCardLocator.Find(original);
         Assert.Equal(10, previous.Count);
         using var current = original.Clone();
@@ -431,10 +425,10 @@ public sealed class MerchantCardLocatorTests
     [InlineData("false-prior", true)]
     public void PreferredClutterSearchCannotReplaceMissingCurrentEvidenceOrValidateAFalsePrior(string change, bool right)
     {
-        using var original = Shop(1);
+        using var original = CreateShop(1);
         var previous = MerchantCardLocator.Find(original);
         Assert.Equal(10, previous.Count);
-        using var current = Shop(1, missingSeals: change == "seven-seals" ? [6, 7, 8] : null);
+        using var current = CreateShop(1, missingSeals: change == "seven-seals" ? [6, 7, 8] : null);
         if (change == "price")
         {
             var price = PriceCenter(4, 1);
@@ -462,7 +456,7 @@ public sealed class MerchantCardLocatorTests
     [InlineData(true)]
     public void FailedWholeLayoutRetriesSealRepairEvenWhenArtworkSuppliesEnoughUnrelatedCandidates(bool withPreferred)
     {
-        using var original = Shop(.9375);
+        using var original = CreateShop(.9375);
         using var reference = new Mat();
         Cv2.Resize(original, reference, new Size(), .75, .75, InterpolationFlags.Area);
         var previous = MerchantCardLocator.Find(reference);
@@ -502,19 +496,6 @@ public sealed class MerchantCardLocatorTests
         Assert.Empty(MerchantCardLocator.Find(current));
     }
 
-    private static void AddSealClutter(Mat image, bool right, int count = 64)
-    {
-        var size = (int)Math.Round(image.Height * .025);
-        for (var index = 0; index < count; index++)
-        {
-            var x = right ? image.Width - 40 - index % 8 * 44 : 24 + index % 8 * 44;
-            var y = (int)Math.Round(image.Height * .2) + index / 8 * (size + 30);
-            var bounds = new Rect(x, y, size, size);
-            Cv2.Rectangle(image, bounds, Scalar.All(28), -1);
-            Cv2.Rectangle(image, bounds, Scalar.All(145), 1, LineTypes.AntiAlias);
-        }
-    }
-
     private static void AssertSameGeometry(IReadOnlyList<MerchantCardAnchor> expected,
         IReadOnlyList<MerchantCardAnchor> actual)
     {
@@ -528,20 +509,10 @@ public sealed class MerchantCardLocatorTests
         }
     }
 
-    private static Point SealCenter(int slot, double scale) => new(
-        (int)Math.Round(1280 + (ReferenceSeals[slot].X - 1280) * scale),
-        (int)Math.Round(720 + (ReferenceSeals[slot].Y - 720) * scale));
-
-    private static Point PriceCenter(int slot, double scale)
-    {
-        var seal = SealCenter(slot, scale);
-        return new(seal.X, seal.Y + (int)Math.Round(268 * scale));
-    }
-
     private static Mat FineSealsAt720p(int[]? missingSeals = null)
     {
         const double uiScale = .9375, frameScale = .5;
-        using var original = Shop(uiScale);
+        using var original = CreateShop(uiScale);
         var reduced = new Mat();
         Cv2.Resize(original, reduced, new Size(), frameScale, frameScale, InterpolationFlags.Area);
         for (var slot = 0; slot < 10; slot++)
@@ -568,7 +539,7 @@ public sealed class MerchantCardLocatorTests
     private static Mat ReducedShopWithTinySealGaps(int[]? missingSeals = null)
     {
         const double uiScale = .9375, frameScale = .75;
-        using var original = Shop(uiScale, missingSeals: missingSeals);
+        using var original = CreateShop(uiScale, missingSeals: missingSeals);
         var reduced = new Mat();
         Cv2.Resize(original, reduced, new Size(), frameScale, frameScale, InterpolationFlags.Area);
         for (var slot = 0; slot < 4; slot++)
@@ -582,44 +553,5 @@ public sealed class MerchantCardLocatorTests
         }
         return reduced;
     }
-    private static Mat Shop(double scale, bool whiteHover = false, int[]? missingSeals = null, int? missingPrice = null,
-        bool frames = true, int sealOffsetY = 0, int layoutOffsetX = 0, int layoutOffsetY = 0)
-    {
-        var image = new Mat(1440, 2560, MatType.CV_8UC3, Scalar.All(18));
-        for (var slot = 0; slot < 10; slot++)
-        {
-            var seal = SealCenter(slot, scale);
-            var price = PriceCenter(slot, scale);
-            seal = new(seal.X + layoutOffsetX, seal.Y + layoutOffsetY);
-            price = new(price.X + layoutOffsetX, price.Y + layoutOffsetY);
-            var border = whiteHover && slot % 2 == 1 ? Scalar.All(230) : new Scalar(105, 135, 150);
-            var halfWidth = (int)Math.Round(106 * scale);
-            if (frames)
-            {
-                Cv2.Rectangle(image, new Rect(seal.X - halfWidth, seal.Y - (int)Math.Round(10 * scale), halfWidth * 2,
-                    price.Y - seal.Y + (int)Math.Round(28 * scale)), border, 1, LineTypes.AntiAlias);
-                var lower = new Point(seal.X, price.Y + (int)Math.Round(47 * scale));
-                Cv2.Line(image, new Point(seal.X - halfWidth, price.Y + (int)Math.Round(18 * scale)), lower, border, 1, LineTypes.AntiAlias);
-                Cv2.Line(image, lower, new Point(seal.X + halfWidth, price.Y + (int)Math.Round(18 * scale)), border, 1, LineTypes.AntiAlias);
-            }
-            if (missingSeals?.Contains(slot) != true)
-            {
-                var size = (int)Math.Round(36 * scale);
-                var sealBounds = new Rect(seal.X - size / 2, seal.Y - size / 2 + sealOffsetY, size, size);
-                Cv2.Rectangle(image, sealBounds, Scalar.All(28), -1);
-                Cv2.Rectangle(image, sealBounds, border, 1, LineTypes.AntiAlias);
-            }
-            if (missingPrice == slot) continue;
-            var width = (int)Math.Round(146 * scale);
-            var height = (int)Math.Round(30 * scale);
-            var radius = height / 2;
-            var left = new Point(price.X - width / 2 + radius, price.Y);
-            var right = new Point(price.X + width / 2 - radius, price.Y);
-            Cv2.Ellipse(image, left, new Size(radius, radius), 0, 90, 270, border, 1, LineTypes.AntiAlias);
-            Cv2.Ellipse(image, right, new Size(radius, radius), 0, -90, 90, border, 1, LineTypes.AntiAlias);
-            Cv2.Line(image, new Point(left.X, price.Y - radius), new Point(right.X, price.Y - radius), border, 1, LineTypes.AntiAlias);
-            Cv2.Line(image, new Point(left.X, price.Y + radius), new Point(right.X, price.Y + radius), border, 1, LineTypes.AntiAlias);
-        }
-        return image;
-    }
+
 }

@@ -147,7 +147,7 @@ public sealed class MerchantOverlayForm : Form
                     }
                     else
                     {
-                        var preferred = stability.StableAnchors.Select(anchor => anchor with
+                        var preferred = stability.GetCandidateAnchors(snapshot, bounds.Value, frameAt).Select(anchor => anchor with
                         {
                             PriceBounds = new OpenCvSharp.Rect((int)Math.Round(anchor.PriceBounds.X * scale),
                                 (int)Math.Round(anchor.PriceBounds.Y * scale), (int)Math.Round(anchor.PriceBounds.Width * scale),

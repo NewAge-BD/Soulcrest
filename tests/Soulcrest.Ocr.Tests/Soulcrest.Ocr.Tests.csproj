@@ -14,6 +14,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\MerchantShopFixture.cs" Link="MerchantShopFixture.cs" />
     <Compile Include="..\DiagnosticTestAttributes.cs" Link="DiagnosticTestAttributes.cs" />
     <Using Include="Soulcrest.Testing" />
     <ProjectReference Include="..\..\src\Soulcrest.Ocr\Soulcrest.Ocr.csproj" />

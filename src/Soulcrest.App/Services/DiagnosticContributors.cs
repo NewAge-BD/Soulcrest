@@ -914,8 +914,12 @@ public static class DiagnosticContributors
             if (Existing<IOverlayService>() is not { } editor) return Missing();
             var overlays = editor.Overlays;
             var runtime = OverlayEditorLiveDiagnostics.CaptureRecorded();
-            return Result(editor.LoadError is not null || overlays.Any(overlay => editor.GetState(overlay.Id).IsError)
-                ? DiagnosticStatus.Error : runtime.Entries.Count == 0 ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy, ("overlays", overlays.Count),
+            var rendering = OverlayEditorRenderDiagnostics.Current.Capture();
+            return Result(editor.LoadError is not null ? DiagnosticStatus.Error
+                : overlays.All(overlay => !overlay.Settings.Enabled) ? DiagnosticStatus.Disabled
+                : overlays.Any(overlay => editor.GetState(overlay.Id).IsError) || rendering.LastAttemptFailed ? DiagnosticStatus.Error
+                : overlays.Any(overlay => editor.GetState(overlay.Id).IsVisible || editor.GetState(overlay.Id).Previewing)
+                    ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting, ("overlays", overlays.Count),
                 ("enabledOverlays", overlays.Count(overlay => overlay.Settings.Enabled)),
                 ("visibleOverlays", overlays.Count(overlay => editor.GetState(overlay.Id).IsVisible)),
                 ("previewingOverlays", overlays.Count(overlay => editor.GetState(overlay.Id).Previewing)),
@@ -926,6 +930,10 @@ public static class DiagnosticContributors
                 ("loadError", editor.LoadError is not null), ("templateError", editor.TemplateError is not null),
                 ("runtimeObservations", runtime.Entries.Count), ("runtimeErrors", runtime.Entries.Count(entry => entry.Action == "error")),
                 ("blockedPolicies", runtime.Entries.Count(entry => entry.Policy is { Result: false })),
+                ("lastFailedGates", runtime.Entries.LastOrDefault(entry => entry.Policy is not null)?.Policy?.FailedGates.ToString()),
+                ("renderSucceeded", rendering.Succeeded), ("renderFailed", rendering.Failed),
+                ("lastRenderAttemptFailed", rendering.LastAttemptFailed), ("lastRenderFailureStage", rendering.FailureStage?.ToString()),
+                ("lastRenderExceptionType", rendering.ExceptionType), ("lastRenderHResult", rendering.HResult),
                 ("observationEnabled", OverlayEditorLiveDiagnostics.Enabled));
         }
 

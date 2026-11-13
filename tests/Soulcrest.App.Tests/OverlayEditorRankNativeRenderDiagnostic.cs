@@ -83,6 +83,29 @@ public sealed class OverlayEditorRankNativeRenderDiagnostic(ITestOutputHelper ou
                         previous?.Dispose();
                         previous = new Bitmap(image);
                     }
+                    // Model a DPI/viewport change between renders. The raster contract must recover
+                    // without recreating a host or depending on another monitor being installed.
+                    var hostField = typeof(OverlayEditorBitmapRenderer).GetField("_initialized", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                    var browser = await Assert.IsType<TaskCompletionSource<BrowserView>>(hostField.GetValue(renderer)).Task;
+                    foreach (var density in new[] { 1.25, 1.5, 2.0 })
+                    {
+                        await browser.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setDeviceMetricsOverride",
+                            JsonSerializer.Serialize(new { width = 811, height = 233, deviceScaleFactor = density, mobile = false }));
+                        browser.ZoomFactor = .8;
+                        var resized = window with { Settings = window.Settings with { Width = 721, Height = 217 } };
+                        var recoveredSnapshot = Snapshot(language, 2_733, 56, 4);
+                        using var recovered = await renderer.RenderAsync(resized, recoveredSnapshot);
+                        await AssertBrowserValues(renderer, recoveredSnapshot);
+                        Assert.Equal(new Size(721, 217), recovered.Size);
+                        using var empty = new Bitmap(721, 217);
+                        Assert.True(DifferentPixels(empty, recovered, new Rectangle(Point.Empty, recovered.Size)));
+                        using var metrics = JsonDocument.Parse(await browser.CoreWebView2.ExecuteScriptAsync(
+                            "({density:devicePixelRatio,width:innerWidth,height:innerHeight})"));
+                        Assert.Equal(1, metrics.RootElement.GetProperty("density").GetDouble());
+                        Assert.Equal(721, metrics.RootElement.GetProperty("width").GetInt32());
+                        Assert.Equal(217, metrics.RootElement.GetProperty("height").GetInt32());
+                        recovered.Save(Path.Combine(Path.GetDirectoryName(target)!, "dpi-recovered-" + language + ".png"), ImageFormat.Png);
+                    }
                 }
                 finally { previous?.Dispose(); }
                 await RenderOverlappingLayout(provider, target, language);

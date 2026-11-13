@@ -2,6 +2,14 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.18.2 – 2026-11-13
+
+- **Fixed:** Overlay Editor windows are created at the correct pixel size with Windows scaling above
+  100 %. Before, this could cause a rendering error so that a window was missing.
+- **Fixed:** The merchant soul counter detects the Shugo shop more reliably, even when extra outlines
+  get in the way. The check stays just as strict.
+- **Improved:** Diagnostics now tell why an Overlay Editor window is not visible and show the error
+  code of a failed rendering.
 ## 0.18.1 – 2026-11-12
 
 - **Changed:** The Daevanion board is easier to read again: large values on the round background,

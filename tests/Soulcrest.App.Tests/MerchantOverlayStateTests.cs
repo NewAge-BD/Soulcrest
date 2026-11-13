@@ -10,6 +10,41 @@ namespace Soulcrest.App.Tests;
 public sealed class MerchantOverlayStateTests
 {
     [Fact]
+    public void FirstFrameSuppliesAnImmutableSearchHypothesisWithoutAuthorizingPresentation()
+    {
+        var state = new MerchantLayoutStability(); var snapshot = new object(); var anchors = Anchors();
+        Assert.False(state.Update(snapshot, Bounds, 100, anchors));
+        var candidate = state.GetCandidateAnchors(snapshot, Bounds, 101);
+        Assert.Equal(anchors, candidate.ToArray());
+        Assert.Empty(state.StableAnchors);
+        Assert.Equal(0, state.ConfirmedFrameAt);
+        Assert.False(state.Update(snapshot, Bounds, 100, candidate));
+        if (candidate is IList<MerchantCardAnchor> list)
+            Assert.Throws<NotSupportedException>(() => list[0] = anchors[0] with { Scale = 9 });
+        Assert.True(state.Update(snapshot, Bounds, 101, candidate));
+        Assert.Equal(anchors, state.StableAnchors.ToArray());
+        Assert.False(state.Update(snapshot, Bounds, 102, []));
+        Assert.Empty(state.GetCandidateAnchors(snapshot, Bounds, 103));
+    }
+
+    [Theory]
+    [InlineData("snapshot")]
+    [InlineData("bounds")]
+    [InlineData("time")]
+    [InlineData("reset")]
+    public void SearchHypothesesAreRevokedWithTheirOriginalContext(string change)
+    {
+        var state = new MerchantLayoutStability(); var snapshot = new object(); var anchors = Anchors();
+        Assert.False(state.Update(snapshot, Bounds, 100, anchors));
+        if (change == "reset") state.Reset();
+        Assert.Empty(state.GetCandidateAnchors(change == "snapshot" ? new object() : snapshot,
+            change == "bounds" ? Bounds with { X = Bounds.X + 1 } : Bounds, change == "time" ? 99 : 101));
+        Assert.Empty(state.GetCandidateAnchors(snapshot, Bounds, 102));
+        Assert.False(state.Update(snapshot, Bounds, 103, anchors));
+        Assert.True(state.Update(snapshot, Bounds, 104, anchors));
+    }
+
+    [Fact]
     public void ATemporaryPurchaseDialogCanRecoverWithoutAnotherNetworkOfferList()
     {
         var state = new MerchantLayoutStability();

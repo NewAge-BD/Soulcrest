@@ -30,6 +30,7 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
     private TaskCompletionSource<BrowserView>? _initialized;
     private bool _disposed;
     private int _calls;
+    private OverlayEditorRenderStage _stage;
     internal static readonly TimeSpan RenderTimeout = TimeSpan.FromSeconds(15);
 
     public OverlayEditorBitmapRenderer(IServiceProvider services) : this(services, pauseAnimations: true) { }
@@ -55,6 +56,7 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         {
             await _gate.WaitAsync(timeout.Token);
             entered = true;
+            _stage = OverlayEditorRenderStage.PreviousCapture;
             timeout.Token.ThrowIfCancellationRequested();
             // A cancelled caller may leave a native capture finishing. Drain its completion only:
             // an obsolete frame's failure must not fail the new request or become a false timeout.
@@ -77,18 +79,25 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
                 _publishedSnapshot = snapshot;
                 _readyRevision = null;
             }
+            _stage = OverlayEditorRenderStage.Host;
             var browser = await EnsureHostAsync(size, timeout.Token);
-            await CalibratePixelsAsync(browser, timeout.Token);
+            _stage = OverlayEditorRenderStage.PixelCalibration;
+            await CalibratePixelsAsync(browser, size, timeout.Token);
+            _stage = OverlayEditorRenderStage.SurfaceReady;
             if (_readyRevision != _model.Revision)
             {
                 await WaitForSurfaceAsync(browser.CoreWebView2, _model.Revision, size, timeout.Token);
                 _readyRevision = _model.Revision;
             }
             _lastCaptureAt = Stopwatch.GetTimestamp();
-            return await CaptureAsync(browser.CoreWebView2, size, timeout.Token);
+            _stage = OverlayEditorRenderStage.Capture;
+            var image = await CaptureAsync(browser.CoreWebView2, size, timeout.Token);
+            OverlayEditorRenderDiagnostics.Current.Success();
+            return image;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && !_lifetime.IsCancellationRequested)
         {
+            OverlayEditorRenderDiagnostics.Current.Failure(entered ? _stage : OverlayEditorRenderStage.Queue, new TimeoutException());
             if (entered) { await DumpDiagnosticsAsync(); ResetHost(); }
             throw new TimeoutException(UiText.T("Zeitüberschreitung beim Rendern des Editorfensters."));
         }
@@ -100,6 +109,7 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException
             or COMException or ArgumentException or TimeoutException or WebView2RuntimeNotFoundException)
         {
+            OverlayEditorRenderDiagnostics.Current.Failure(entered ? _stage : OverlayEditorRenderStage.Queue, error);
             if (entered) { await DumpDiagnosticsAsync(); ResetHost(); }
             throw new InvalidOperationException(UiText.T("Das Editorfenster konnte nicht gerendert werden."), error);
         }
@@ -171,6 +181,8 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         host.Controls.Add(view);
         host.ResizeSurface(size);
         host.Show();
+        // Creating/showing the HWND can apply its monitor's DPI after the initial size assignment.
+        host.ResizeSurface(size);
         return await initialized.Task.WaitAsync(cancellationToken);
     }
 
@@ -227,17 +239,14 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException or TimeoutException or COMException) { }
     }
 
-    private static async Task CalibratePixelsAsync(BrowserView browser, CancellationToken cancellationToken)
+    private static async Task CalibratePixelsAsync(BrowserView browser, Size size, CancellationToken cancellationToken)
     {
-        // WinForms exposes ZoomFactor, not its private controller. Measure the effective browser density.
-        var encoded = await browser.CoreWebView2.ExecuteScriptAsync("window.devicePixelRatio").WaitAsync(cancellationToken);
-        if (!double.TryParse(encoded, NumberStyles.Float, CultureInfo.InvariantCulture, out var density) || !double.IsFinite(density) || density <= 0)
-            throw new InvalidOperationException("The browser pixel density is unavailable.");
-        if (Math.Abs(density - 1) > .001)
-        {
-            browser.ZoomFactor = Math.Clamp(browser.ZoomFactor / density, .25, 5);
-            await Task.Delay(40, cancellationToken);
-        }
+        // This offscreen raster has a fixed logical pixel contract. Monitor DPI and native HWND
+        // resizing must not change its viewport or screenshot density (including mixed-DPI desktops).
+        browser.ZoomFactor = 1;
+        await browser.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setDeviceMetricsOverride",
+            JsonSerializer.Serialize(new { width = size.Width, height = size.Height, deviceScaleFactor = 1, mobile = false }))
+            .WaitAsync(cancellationToken);
     }
 
     private static async Task WaitForSurfaceAsync(CoreWebView2 core, string revision, Size expected, CancellationToken cancellationToken)
@@ -280,6 +289,7 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         try
         {
             var response = await capture.WaitAsync(cancellationToken);
+            _stage = OverlayEditorRenderStage.Decode;
             return OverlayEditorFrameDecoder.Decode(response, expected);
         }
         catch (OperationCanceledException)
@@ -350,9 +360,9 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         }
         public void ResizeSurface(Size size)
         {
-            ClientSize = size;
             var screen = SystemInformation.VirtualScreen;
             Location = new(screen.Left - size.Width - 64, screen.Top - size.Height - 64);
+            ClientSize = size;
         }
         protected override void OnDpiChanged(DpiChangedEventArgs e) { e.Cancel = true; base.OnDpiChanged(e); }
     }

@@ -12,6 +12,37 @@ namespace Soulcrest.App.Tests;
 public sealed class DiagnosticContributorCoverageTests
 {
     [Fact]
+    public async Task EditorDiagnosisDistinguishesBlockedVisibleFailedAndDisabledWithoutStartingRendering()
+    {
+        var path = Path.Combine(AppPaths.DataDirectory, "editor-diagnosis-" + Guid.NewGuid().ToString("N"));
+        using var editor = new OverlayService(path);
+        OverlayEditorRenderDiagnostics.Current.Success();
+        try
+        {
+            foreach (var window in editor.Overlays.ToArray())
+                Assert.True((await editor.SaveAsync(window.Id, window.Settings with { Enabled = true })).Succeeded);
+            var contributor = DiagnosticContributors.Create(new ExistingOnlyProvider(editor))
+                .Single(item => item.FeatureIds.Contains("overlay-editor"));
+            var blocked = contributor.Collect("overlay-editor");
+            Assert.Equal(DiagnosticStatus.Waiting, blocked.Status);
+            Assert.Equal(0, blocked.Facts["visibleOverlays"]);
+            editor.SetRuntimeState(editor.SelectedOverlayId, true);
+            Assert.Equal(DiagnosticStatus.Healthy, contributor.Collect("overlay-editor").Status);
+            editor.SetRuntimeState(editor.SelectedOverlayId, false);
+            OverlayEditorRenderDiagnostics.Current.Failure(OverlayEditorRenderStage.Host, new IOException("private-path"));
+            var failed = contributor.Collect("overlay-editor");
+            Assert.Equal(DiagnosticStatus.Error, failed.Status);
+            Assert.Equal("Host", failed.Facts["lastRenderFailureStage"]);
+            Assert.Equal(nameof(IOException), failed.Facts["lastRenderExceptionType"]);
+            Assert.DoesNotContain("private-path", JsonSerializer.Serialize(failed));
+            foreach (var window in editor.Overlays.ToArray())
+                Assert.True((await editor.SaveAsync(window.Id, window.Settings with { Enabled = false })).Succeeded);
+            Assert.Equal(DiagnosticStatus.Disabled, contributor.Collect("overlay-editor").Status);
+        }
+        finally { OverlayEditorRenderDiagnostics.Current.Success(); }
+    }
+
+    [Fact]
     public void ProductRegistriesHaveExplicitSelectableDiagnosticCoverage()
     {
         var ids = DiagnosticFeatureCatalog.All.Select(feature => feature.Id).ToHashSet(StringComparer.Ordinal);

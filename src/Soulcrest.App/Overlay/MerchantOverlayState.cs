@@ -20,6 +20,18 @@ internal sealed class MerchantLayoutStability
     public IReadOnlyList<MerchantCardAnchor> StableAnchors => _ready ? _anchorReference : [];
     public long ConfirmedFrameAt => _ready ? _frameAt : 0;
 
+    /// <summary>A prior valid frame is only a search hypothesis; the locator must verify every current edge.</summary>
+    public IReadOnlyList<MerchantCardAnchor> GetCandidateAnchors(object snapshotIdentity, Rectangle bounds, long frameAt)
+    {
+        if (snapshotIdentity is null || !ReferenceEquals(snapshotIdentity, _snapshotIdentity) || bounds != _bounds
+            || frameAt <= 0 || frameAt < _frameAt)
+        {
+            Reset();
+            return [];
+        }
+        return _anchorReference;
+    }
+
     /// <summary>A missed read may retain only an already confirmed, still-fresh picture in the same context.</summary>
     public bool RetainAfterMissingCapture(object snapshotIdentity, Rectangle bounds, bool frameIsFresh)
     {

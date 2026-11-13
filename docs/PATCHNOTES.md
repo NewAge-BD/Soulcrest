@@ -2,6 +2,14 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.18.2 – 2026-11-13
+
+- **Behoben:** Overlay-Editor-Fenster werden bei Windows-Skalierung über 100 % in der richtigen
+  Pixelgröße erzeugt. Bisher konnte das zu einem Darstellungsfehler führen, sodass ein Fenster fehlte.
+- **Behoben:** Der Händler-Soulcounter erkennt den Shugo-Shop zuverlässiger, auch wenn im Bild
+  zusätzliche Konturen stören. Die Prüfung bleibt genauso streng.
+- **Verbessert:** Die Diagnose nennt jetzt, warum ein Overlay-Editor-Fenster nicht sichtbar ist, und
+  den Fehlercode einer fehlgeschlagenen Darstellung.
 ## 0.18.1 – 2026-11-12
 
 - **Geändert:** Das Daevanion-Brett ist wieder besser lesbar: große Werte auf dem runden Hintergrund,
