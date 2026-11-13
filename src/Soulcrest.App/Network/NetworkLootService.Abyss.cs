@@ -37,11 +37,13 @@ public sealed partial class NetworkLootService
                 var rankCurrent = own is not null && ReferenceEquals(_abyssRankCharacter, own);
                 var farmCurrent = own is not null && ReferenceEquals(_abyssFarmCharacter, own);
                 var kinaCurrent = own is not null && ReferenceEquals(_abyssKinaCharacter, own);
-                var current = walletCurrent || rankCurrent || farmCurrent || kinaCurrent;
+                var boundKinaCurrent = own is not null && ReferenceEquals(_abyssBoundKinaCharacter, own);
+                var current = walletCurrent || rankCurrent || farmCurrent || kinaCurrent || boundKinaCurrent;
                 var at = walletCurrent ? _abyssAt : null;
                 if (rankCurrent && (at is null || _abyssRankAt > at)) at = _abyssRankAt;
                 if (farmCurrent && (at is null || _abyssFarmAt > at)) at = _abyssFarmAt;
                 if (kinaCurrent && (at is null || _abyssKinaAt > at)) at = _abyssKinaAt;
+                if (boundKinaCurrent && (at is null || _abyssBoundKinaAt > at)) at = _abyssBoundKinaAt;
                 return new(current ? own : null, walletCurrent ? _abyssWallet?.Count : null,
                     farmCurrent ? _abyssFarmTotal : null, rankCurrent ? _abyssRankPoints : null, at, current ? _abyssSequence : 0)
                 {
@@ -49,6 +51,8 @@ public sealed partial class NetworkLootService
                     FarmedAbyssPointsObservedAt = farmCurrent ? _abyssFarmAt : null,
                     KinaGainsObservedAt = kinaCurrent ? _abyssKinaAt : null,
                     KinaGainsQualified = kinaCurrent && _abyssKinaGainsQualified,
+                    BoundKinaGainsObservedAt = boundKinaCurrent ? _abyssBoundKinaAt : null,
+                    BoundKinaGainsQualified = boundKinaCurrent && _abyssBoundKinaGainsQualified,
                     AbyssPointGainsQualified = walletCurrent && _abyssPointGainsQualified,
                     RankPointsObservedAt = rankCurrent ? _abyssRankAt : null,
                     RankPointChangesQualified = rankCurrent && _abyssRankChangesQualified,
@@ -164,6 +168,7 @@ public sealed partial class NetworkLootService
         _abyssObservations.Clear();
         ResetAbyssPointContext();
         ResetAbyssKinaContext();
+        ResetAbyssBoundKinaContext();
         ResetAbyssRankContext();
         ResetAbyssFarmContext();
     }

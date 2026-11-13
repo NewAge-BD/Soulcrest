@@ -20,9 +20,10 @@ public sealed record NetworkKinaSnapshot(long? UnboundBalance, long? BoundBalanc
     public bool IsReady => UnboundBalance is not null;
 }
 
-/// <summary>Only the currently qualified unbound combat gain, without native wallet identifiers.</summary>
+/// <summary>Qualified combat income, with independent currency amounts and no native wallet identifiers.</summary>
 public sealed record NetworkKinaGain(DateTimeOffset At, long Sequence,
     OwnCharacterContext Character, long UnboundKina)
 {
     public bool InInstance { get; init; }
+    public long BoundKina { get; init; }
 }

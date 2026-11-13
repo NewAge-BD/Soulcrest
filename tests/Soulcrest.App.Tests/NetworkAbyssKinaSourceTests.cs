@@ -10,7 +10,7 @@ using Xunit;
 namespace Soulcrest.App.Tests;
 
 /// <summary>Synthetic own/inventory observations with an isolated public Abyss map fixture.</summary>
-public sealed class NetworkAbyssKinaSourceTests
+public sealed partial class NetworkAbyssKinaSourceTests
 {
     private static readonly DateTimeOffset At = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
     private const string OwnStream = "synthetic-abyss-kina", Foreign = "synthetic-abyss-kina-foreign";
@@ -87,7 +87,9 @@ public sealed class NetworkAbyssKinaSourceTests
         f.Send(Changes(new Change(100, Item: CurrencyInventoryMessage.BoundKinaItemId)), At.AddSeconds(1));
         f.Send(Changes(new Change(199, Item: CurrencyInventoryMessage.BoundKinaItemId)), At.AddSeconds(2));
         Assert.Null(f.Network.KinaSnapshot.UnboundBalance); Assert.False(f.Network.AbyssSnapshot.KinaGainsQualified);
-        Assert.Null(f.Network.AbyssSnapshot.KinaGainsObservedAt); Assert.Empty(f.Gains); AssertNoOtherIncome(f);
+        Assert.Null(f.Network.AbyssSnapshot.KinaGainsObservedAt);
+        var boundGain = Assert.Single(f.Gains); Assert.Equal(99, boundGain.BoundKina); Assert.Equal(0, boundGain.UnboundKina);
+        Assert.True(f.Network.AbyssSnapshot.BoundKinaGainsQualified); AssertNoOtherIncome(f);
     }
 
     [Fact]

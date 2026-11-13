@@ -101,6 +101,8 @@ public sealed partial class NetworkLootService
         if (!ReferenceEquals(ownBeforeAbyss, _ownCharacter) || revisionBeforeAbyss != _kinaAppliedRevision) return;
         ProcessAbyssKinaInventoryChanges(update, at);
         if (!ReferenceEquals(ownBeforeAbyss, _ownCharacter) || revisionBeforeAbyss != _kinaAppliedRevision) return;
+        ProcessAbyssBoundKinaInventoryChanges(update, at);
+        if (!ReferenceEquals(ownBeforeAbyss, _ownCharacter) || revisionBeforeAbyss != _kinaAppliedRevision) return;
         var ownBeforeFarm = _ownCharacter;
         var revisionBeforeFarm = _kinaAppliedRevision;
         ProcessStockInventoryChanges(stream, update, at);
@@ -140,11 +142,15 @@ public sealed partial class NetworkLootService
             if (isUnbound) _unboundKina = current;
             else _boundKina = current;
             // Other valid reasons, spending and transfers update the absolute comparison base
-            // without producing farm income. Bound reward variants are not live-qualified yet.
+            // without producing farm income. Bound income additionally needs its own Abyss evidence.
             if (isUnbound && current is not null && change.ModificationType == 1
                 && change.IncreaseReason == 11 && change.DecreaseReason == 0 && change.UpdateReason == 0
                 && current.Count > previous.Count)
                 gains.Add(new(at, ++_kinaSequence, character, current.Count - previous.Count));
+            else if (!isUnbound && current is not null && change.ModificationType == 1
+                && _abyssBoundKinaGainsQualified && ReferenceEquals(_abyssBoundKinaCharacter, character)
+                && _abyssBoundKinaAt == at && current.Count > previous.Count)
+                gains.Add(new(at, ++_kinaSequence, character, 0) { BoundKina = current.Count - previous.Count, InInstance = true });
         }
         foreach (var gain in gains)
         {
@@ -194,6 +200,7 @@ public sealed partial class NetworkLootService
     {
         ResetStockContext();
         ResetAbyssKinaContext(rejected: true);
+        ResetAbyssBoundKinaContext(rejected: true);
         _kinaContextRevision++;
         _unboundKina = _boundKina = null;
         _kinaCharacter = null;

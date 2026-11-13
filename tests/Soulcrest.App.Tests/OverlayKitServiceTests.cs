@@ -11,8 +11,8 @@ public sealed class OverlayKitServiceTests
     [InlineData("en", "Example value", "1,234", "Sample data")]
     public void CatalogContainsApprovedModulesAndKeepsNeutralExampleLayoutsCompatible(string language, string label, string value, string detail)
     {
-        Assert.Equal(22, OverlayCatalog.Widgets.Count);
-        Assert.Equal(22, OverlayCatalog.Widgets.Select(module => module.Kind).Distinct().Count());
+        Assert.Equal(24, OverlayCatalog.Widgets.Count);
+        Assert.Equal(24, OverlayCatalog.Widgets.Select(module => module.Kind).Distinct().Count());
         Assert.DoesNotContain(OverlayCatalog.Widgets, module => module.Kind == "preview-metric");
         Assert.DoesNotContain(OverlayCatalog.Widgets, module => module.Kind is "silver" or "trash" or "experience" or "spot" or "controls");
         var legacy = OverlayCatalog.Find("preview-metric");
@@ -59,6 +59,22 @@ public sealed class OverlayKitServiceTests
         var small = OverlayLayout.ResizeCanvas(before, 160, 64);
         Assert.Equal(before.Widgets, small.Widgets);
         Assert.Equal(before.Widgets, OverlayLayout.ResizeCanvas(small, 1200, 1000).Widgets);
+    }
+
+    [Fact]
+    public async Task IndependentBoundAndUnboundWidgetsSurviveSavingTemplatesAndRestart()
+    {
+        using var fixture = new Fixture();
+        using var service = fixture.Create();
+        var widgets = new[] { "bound-kina", "bound-kina-hour", "dropped-kina", "dropped-kina-hour" }
+            .Select((kind, index) => OverlayCatalog.CreateWidget(kind, index * 180, 16) with { ShowLabel = false, FontScale = 1.2 }).ToArray();
+        Assert.True((await service.SaveAsync(service.Settings with { Width = 800, Widgets = widgets })).Succeeded);
+        Assert.True((await service.SaveTemplateAsync("Currency channels", service.Settings)).Succeeded);
+        using var restarted = fixture.Create();
+        Assert.Null(restarted.LoadError);
+        Assert.Null(restarted.TemplateError);
+        Assert.Equal(widgets, restarted.Settings.Widgets);
+        Assert.Equal(widgets, Assert.Single(restarted.Templates).Layout.Widgets);
     }
 
     [Theory]

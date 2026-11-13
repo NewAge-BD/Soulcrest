@@ -55,10 +55,13 @@ public sealed partial class UnifiedLootTrackerService
     private void AbyssKina(NetworkKinaGain gain)
     {
         var snapshot = _abyss.AbyssSnapshot;
-        if (_kina.Running && _abyss.Running && ReferenceEquals(_kina.OwnCharacter, gain.Character)
-            && IsAbyss(_world()) && gain.UnboundKina > 0 && snapshot.KinaGainsQualified
+        if (!_kina.Running || !_abyss.Running || !ReferenceEquals(_kina.OwnCharacter, gain.Character)
+            || !IsAbyss(_world())) return;
+        if (gain.UnboundKina > 0 && snapshot.KinaGainsQualified
             && QualifiedGain(snapshot, gain.Character, gain.At, snapshot.KinaGainsObservedAt))
             QueueActivity(GainChannel.AbyssKina, gain.Character, gain.At, gain.Sequence, gain.UnboundKina, inInstance: gain.InInstance);
+        if (gain.BoundKina > 0 && QualifiedBoundKinaGain(snapshot, gain.Character, gain.At))
+            QueueActivity(GainChannel.AbyssBoundKina, gain.Character, gain.At, gain.Sequence, gain.BoundKina, inInstance: gain.InInstance);
     }
 
     private void FarmDrop(NetworkFarmDrop drop)
@@ -280,6 +283,10 @@ public sealed partial class UnifiedLootTrackerService
                 session = session with { KinaUnbound = checked((session.KinaUnbound ?? 0) + activity.Amount) };
                 bin = bin with { KinaUnbound = checked((bin.KinaUnbound ?? 0) + activity.Amount) };
                 kind = LootTrackerTimelineEventKind.KinaUnbound; break;
+            case GainChannel.AbyssBoundKina:
+                session = session with { KinaBound = checked((session.KinaBound ?? 0) + activity.Amount) };
+                bin = bin with { KinaBound = checked((bin.KinaBound ?? 0) + activity.Amount) };
+                kind = LootTrackerTimelineEventKind.KinaBound; break;
             case GainChannel.AbyssPoints:
                 session = session with { AbyssPoints = checked((session.AbyssPoints ?? 0) + activity.Amount) };
                 bin = bin with { AbyssPoints = checked((bin.AbyssPoints ?? 0) + activity.Amount) };

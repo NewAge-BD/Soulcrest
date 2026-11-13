@@ -717,12 +717,16 @@ public static class DiagnosticContributors
         {
             if (Existing<AbyssProgressService>() is not { } abyss) return Missing();
             var snapshot = abyss.ProgressSnapshot;
+            var source = Existing<INetworkAbyssSource>() ?? Existing<NetworkLootService>();
+            var currency = source?.AbyssSnapshot;
             return Result(Settings?.AbyssTrackingEnabled == false ? DiagnosticStatus.Disabled
                 : abyss.StatusIsError ? DiagnosticStatus.Error : snapshot.Confirmed ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting,
                 ("enabled", Settings?.AbyssTrackingEnabled), ("confirmed", snapshot.Confirmed),
                 ("balanceConfirmed", snapshot.AbyssPointBalanceConfirmed), ("farmConfirmed", snapshot.FarmedAbyssPointsConfirmed),
                 ("rankConfirmed", snapshot.RankPointsConfirmed), ("rankTrackingActive", snapshot.RankTrackingActive),
                 ("capKnown", snapshot.Cap is not null), ("remainingBudgetKnown", snapshot.Remaining is not null),
+                ("boundKinaSourceRunning", source?.Running), ("boundKinaGainsQualified", currency?.BoundKinaGainsQualified),
+                ("boundKinaGainsObservedAtUtc", currency?.BoundKinaGainsObservedAt?.ToUniversalTime()),
                 ("observedAtUtc", snapshot.ObservedAt?.ToUniversalTime()), ("rankObservedAtUtc", snapshot.RankPointsObservedAt?.ToUniversalTime()));
         }
 
@@ -945,15 +949,49 @@ public static class DiagnosticContributors
             var mandatory = kind == OverlayLockWidget.Kind;
             var applicable = mandatory ? overlays.ToArray()
                 : overlays.Where(overlay => overlay.Settings.Widgets.Any(widget => widget.Kind == kind)).ToArray();
-            return Result(applicable.Length == 0 ? DiagnosticStatus.Disabled
+            var status = applicable.Length == 0 ? DiagnosticStatus.Disabled
                 : applicable.Any(overlay => editor.GetState(overlay.Id).IsError) ? DiagnosticStatus.Error
                 : applicable.All(overlay => !overlay.Settings.Enabled) ? DiagnosticStatus.Disabled
                 : applicable.Any(overlay => editor.GetState(overlay.Id).IsVisible || editor.GetState(overlay.Id).Previewing)
-                    ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting,
+                    ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting;
+            var facts = new List<(string, object?)>
+            {
                 ("configuredWindows", applicable.Length), ("enabledWindows", applicable.Count(overlay => overlay.Settings.Enabled)),
                 ("visibleWindows", applicable.Count(overlay => editor.GetState(overlay.Id).IsVisible)),
                 ("instances", mandatory ? applicable.Length : applicable.Sum(overlay => overlay.Settings.Widgets.Count(widget => widget.Kind == kind))),
-                ("mandatoryControl", mandatory), ("invalidTriggerRules", applicable.Count(overlay => overlay.Settings.TriggerRules is { } rules && !OverlayTriggerRules.Valid(rules))));
+                ("mandatoryControl", mandatory), ("invalidTriggerRules", applicable.Count(overlay => overlay.Settings.TriggerRules is { } rules && !OverlayTriggerRules.Valid(rules))),
+            };
+            if (kind is "bound-kina" or "bound-kina-hour")
+            {
+                // A rendered example or an unknown live value does not qualify the income source.
+                var settings = Settings;
+                var tracker = Existing<UnifiedLootTrackerService>();
+                var source = Existing<INetworkAbyssSource>() ?? Existing<NetworkLootService>();
+                var now = DateTimeOffset.UtcNow;
+                var state = tracker?.OverlayState;
+                var session = state is null ? null : OverlayEditorPresentation.CurrentSession(state, now);
+                var own = source?.OwnCharacter;
+                var snapshot = source?.AbyssSnapshot;
+                var sourceAvailable = tracker?.SourceAvailable == true && state?.TrackingAvailable == true
+                    && source?.Running == true && own is not null;
+                var boundKnown = session is { Kind: LootTrackerSessionKind.Abyss, KinaBound: >= 0 };
+                var qualified = sourceAvailable && snapshot is { BoundKinaGainsQualified: true, FormatRejected: false, Sequence: > 0 }
+                    && ReferenceEquals(snapshot.Character, own)
+                    && snapshot.At is { } latest && latest != default && latest <= now
+                    && snapshot.BoundKinaGainsObservedAt is { } observed && observed != default && observed <= latest
+                    && session?.TimelineEvents.LastOrDefault(row => row.Kind == LootTrackerTimelineEventKind.Availability
+                        && row.Metric == LootTrackerTimelineMetric.KinaBound)?.Available == true;
+                var rateAvailable = boundKnown && session!.Elapsed > TimeSpan.Zero;
+                facts.AddRange([("sourceAvailable", sourceAvailable), ("qualified", qualified), ("boundKnown", boundKnown),
+                    ("hourlyRateAvailable", rateAvailable), ("trackingEnabled", settings?.LootTrackingEnabled),
+                    ("abyssTrackingEnabled", settings?.AbyssTrackingEnabled)]);
+                status = settings?.LootTrackingEnabled == false || settings?.AbyssTrackingEnabled == false || status == DiagnosticStatus.Disabled
+                    ? DiagnosticStatus.Disabled : status == DiagnosticStatus.Error || tracker?.StatusIsError == true ? DiagnosticStatus.Error
+                    : tracker is null || source is null ? DiagnosticStatus.Unavailable
+                    : status != DiagnosticStatus.Healthy || !sourceAvailable || !qualified || !boundKnown
+                        || kind == "bound-kina-hour" && !rateAvailable ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy;
+            }
+            return Result(status, facts.ToArray());
         }
 
         private DiagnosticResult Hotkeys()

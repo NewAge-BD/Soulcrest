@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace Soulcrest.App.OverlayEditorKit;
 
 // Adapted from overlay-editor-kit 1.15.0: OverlaySettingsStore/OverlayTemplateStore.
-// This isolated store deliberately has no legacy reader or migration path.
+// Reads remain side-effect free; explicit layout migrations are coordinated by OverlayService.
 internal sealed class OverlaySettingsStore(string directory)
 {
     internal string FilePath { get; } = Path.Combine(directory, "overlay.json");
@@ -11,7 +11,7 @@ internal sealed class OverlaySettingsStore(string directory)
     internal OverlayCollectionSettings Load(OverlayCollectionSettings? missing = null)
     {
         var collection = OverlayKitJson.Read(FilePath, () => missing ?? new OverlayCollectionSettings());
-        if (collection.Version != 2 || collection.Overlays is null || collection.Overlays.Count == 0)
+        if (collection.Version != 2 || collection.AbyssBoundKinaMigrationVersion < 0 || collection.Overlays is null || collection.Overlays.Count == 0)
             throw new InvalidDataException("Das Format der Overlay-Datei wird nicht unterstützt.");
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

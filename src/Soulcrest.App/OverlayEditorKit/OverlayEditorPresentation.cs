@@ -54,11 +54,13 @@ internal static class OverlayEditorPresentation
                 Tone: rate > 0 && !loss ? OverlayMetricTone.Positive : rate is null ? OverlayMetricTone.Muted : OverlayMetricTone.Default);
         }
         Number("dropped-kina", "Erhaltene Kina", Nonnegative(session?.KinaUnbound));
+        Number("bound-kina", "Gebundene Kina", Nonnegative(session?.KinaBound));
         Number("abyss-points", "Verdiente AP", Nonnegative(session?.AbyssPoints));
         Number("rank-net", "Rangpunkte netto", net, signed: true);
         Number("rank-gained", "Gewonnene Rangpunkte", Nonnegative(session?.RankPointsGained));
         Number("rank-lost", "Verlorene Rangpunkte", Nonnegative(session?.RankPointsLost), loss: true);
         Rate("dropped-kina-hour", "Erhaltene Kina / Stunde", Nonnegative(session?.KinaUnbound));
+        Rate("bound-kina-hour", "Gebundene Kina / Stunde", Nonnegative(session?.KinaBound));
         Rate("abyss-points-hour", "AP / Stunde", Nonnegative(session?.AbyssPoints));
         Rate("rank-net-hour", "Rangpunkte netto / Stunde", net, signed: true);
         Rate("rank-gained-hour", "Gewonnene Rangpunkte / Stunde", Nonnegative(session?.RankPointsGained));
@@ -153,10 +155,12 @@ internal static class OverlayEditorPresentation
         {
             Id = "overlay-editor-example", Kind = LootTrackerSessionKind.Mixed, UnifiedVersion = 1,
             Status = LootTrackerSessionStatus.Live, StartedAt = now.AddMinutes(-42.5), Elapsed = TimeSpan.FromMinutes(42.5),
-            Character = new(profile, "Example"), KinaUnbound = 184_720, AbyssPoints = 3_240,
+            Character = new(profile, "Example"), KinaUnbound = 184_720, KinaBound = 267_540, AbyssPoints = 3_240,
             RankPointsGained = 1_450, RankPointsLost = 230, TimelineVersion = 1,
             TimelineEvents = [new("example-kina", LootTrackerTimelineEventKind.KinaUnbound, now, TimeSpan.FromMinutes(42.5))
-                { Origin = LootTrackerActivityOrigin.Pve, Amount = 184_720 }],
+                { Origin = LootTrackerActivityOrigin.Pve, Amount = 184_720 },
+                new("example-bound-kina", LootTrackerTimelineEventKind.KinaBound, now, TimeSpan.FromMinutes(42.5))
+                    { Origin = LootTrackerActivityOrigin.Abyss, Amount = 267_540 }],
             Loot = [new("Item:531900004", "", LootTrackerLootKind.Soul, 24),
                 new("Item:210230006", "", LootTrackerLootKind.Item, 1),
                 new("Item:510116011", "", LootTrackerLootKind.Item, 12),
@@ -345,6 +349,7 @@ internal static class OverlayEditorPresentation
         ["Erhaltene Kina"] = "Dropped Kina", ["Verdiente AP"] = "Earned AP", ["Rangpunkte netto"] = "Net rank points",
         ["Gewonnene Rangpunkte"] = "Rank points gained", ["Verlorene Rangpunkte"] = "Rank points lost",
         ["Erhaltene Kina / Stunde"] = "Dropped Kina / hour", ["AP / Stunde"] = "AP / hour",
+        ["Gebundene Kina"] = "Bound Kina", ["Gebundene Kina / Stunde"] = "Bound Kina / hour",
         ["Rangpunkte netto / Stunde"] = "Net rank points / hour", ["Gewonnene Rangpunkte / Stunde"] = "Rank points gained / hour",
         ["Verlorene Rangpunkte / Stunde"] = "Rank points lost / hour", ["Aktueller Marktwert netto"] = "Current net market value",
         ["Marktwert netto"] = "Net market value",

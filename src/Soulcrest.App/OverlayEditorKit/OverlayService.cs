@@ -25,17 +25,17 @@ public sealed class OverlayService : IOverlayService
     internal OverlayService(string? directory, OverlayCollectionSettings missingDefaults)
     {
         ArgumentNullException.ThrowIfNull(missingDefaults);
-        _missingDefaults = missingDefaults;
+        _missingDefaults = missingDefaults with { AbyssBoundKinaMigrationVersion = Math.Max(1, missingDefaults.AbyssBoundKinaMigrationVersion) };
         var path = Path.GetFullPath(directory ?? Path.Combine(AppPaths.DataDirectory, "overlay-editor"));
         _saveGate = SaveGates.GetOrAdd(path, _ => new SemaphoreSlim(1, 1));
         _store = new(path);
         _templateStore = new(path);
-        // Loading is read-only. No directory creation, compatibility import or
-        // synthetic snapshot is allowed to write an editor or existing file.
+        // Missing and unaffected layouts remain read-only. The user-approved one-time
+        // Abyss Kina replacement backs up and atomically commits an existing valid file.
         _saveGate.Wait();
         try
         {
-            try { _collection = _store.Load(_missingDefaults); }
+            try { _collection = LoadCollection(_missingDefaults); }
             catch (Exception error) when (OverlayKitJson.IsStorageError(error)) { LoadError = LoadFailure(error); }
             try { _templates = _templateStore.Load(); }
             catch (Exception error) when (OverlayKitJson.IsStorageError(error)) { TemplateError = TemplateFailure(error); }
@@ -83,7 +83,7 @@ public sealed class OverlayService : IOverlayService
         try
         {
             if (_disposed) return Failure("Der Overlay-Editor wurde bereits beendet.");
-            try { _collection = await Task.Run(() => _store.Load(_missingDefaults)).ConfigureAwait(false); LoadError = null; }
+            try { _collection = await Task.Run(() => LoadCollection(_missingDefaults)).ConfigureAwait(false); LoadError = null; }
             catch (Exception error) when (OverlayKitJson.IsStorageError(error)) { LoadError = LoadFailure(error); }
             try { _templates = await Task.Run(_templateStore.Load).ConfigureAwait(false); TemplateError = null; }
             catch (Exception error) when (OverlayKitJson.IsStorageError(error)) { TemplateError = TemplateFailure(error); }
@@ -224,6 +224,42 @@ public sealed class OverlayService : IOverlayService
         return Task.CompletedTask;
     }
 
+    // User request 2026-11-13: replace existing Abyss Kina widgets once, preserving user design.
+    // Call only while holding the shared save gate. Store.Load itself never writes.
+    private OverlayCollectionSettings LoadCollection(OverlayCollectionSettings missing)
+    {
+        var current = _store.Load(missing);
+        if (current.AbyssBoundKinaMigrationVersion >= 1) return current;
+        var changed = false;
+        var windows = current.Overlays.Select(window =>
+        {
+            if (window.Settings.TriggerRules?.Areas is not [OverlayTriggerArea.Abyss]) return window;
+            var windowChanged = false;
+            var widgets = window.Settings.Widgets.Select(widget =>
+            {
+                var kind = widget.Kind switch
+                {
+                    "dropped-kina" => "bound-kina",
+                    "dropped-kina-hour" => "bound-kina-hour",
+                    _ => widget.Kind,
+                };
+                if (kind == widget.Kind) return widget;
+                changed = windowChanged = true;
+                return widget with { Kind = kind };
+            }).ToArray();
+            return windowChanged ? window with { Settings = window.Settings with { Widgets = Array.AsReadOnly(widgets) } } : window;
+        }).ToArray();
+        var next = current with { AbyssBoundKinaMigrationVersion = 1, Overlays = Array.AsReadOnly(windows) };
+        // Stamp unaffected layouts on the next user save, without marker-only startup writes.
+        if (!changed) return next;
+        foreach (var window in next.Overlays) OverlaySettingsStore.ValidateWidgets(window.Settings);
+        var backup = Path.Combine(Path.GetDirectoryName(_store.FilePath)!,
+            $"overlay.before-bound-kina-{DateTimeOffset.UtcNow:yyyyMMddTHHmmssfffffffZ}-{Guid.NewGuid():N}.bak");
+        File.Copy(_store.FilePath, backup, overwrite: false);
+        _store.Save(next);
+        return next;
+    }
+
     private async Task<OverlaySaveResult> ChangeCollection(Func<OverlayCollectionSettings, OverlayCollectionSettings> change)
     {
         await _saveGate.WaitAsync().ConfigureAwait(false);
@@ -232,10 +268,14 @@ public sealed class OverlayService : IOverlayService
             if (_disposed) return Failure("Der Overlay-Editor wurde bereits beendet.");
             if (LoadError is not null) return Failure(LoadError);
             OverlayCollectionSettings current;
-            try { current = await Task.Run(() => _store.Load(_collection)).ConfigureAwait(false); }
+            try { current = await Task.Run(() => LoadCollection(_collection)).ConfigureAwait(false); }
             catch (Exception error) when (OverlayKitJson.IsStorageError(error)) { return Failure(LoadError = LoadFailure(error)); }
             OverlayCollectionSettings next;
-            try { next = change(current); }
+            try
+            {
+                next = change(current);
+                next = next with { AbyssBoundKinaMigrationVersion = Math.Max(1, next.AbyssBoundKinaMigrationVersion) };
+            }
             catch (ArgumentException error) { return Failure(error.Message); }
             try { await Task.Run(() => _store.Save(next)).ConfigureAwait(false); }
             catch (Exception error) when (OverlayKitJson.IsStorageError(error))

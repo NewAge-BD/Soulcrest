@@ -21,6 +21,8 @@ public sealed record OverlayCollectionSettings
 {
     [System.Text.Json.Serialization.JsonRequired] public int Version { get; init; } = 2;
     public bool OverlaysVisible { get; init; } = true;
+    /// <summary>Absent in older version-2 files; protects later intentional Unbound widget choices.</summary>
+    public int AbyssBoundKinaMigrationVersion { get; init; }
     [System.Text.Json.Serialization.JsonRequired] public string SelectedOverlayId { get; init; } = OverlayInstance.DefaultId;
     [System.Text.Json.Serialization.JsonRequired] public IReadOnlyList<OverlayInstance> Overlays { get; init; } = Array.AsReadOnly(new[] { new OverlayInstance() });
 }

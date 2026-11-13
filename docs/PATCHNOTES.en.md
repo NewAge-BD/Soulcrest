@@ -2,6 +2,17 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.18.3 – 2026-11-13
+
+- **New:** Two overlay widgets for the Abyss: "Bound Kina" and "Bound Kina per hour", with their own
+  icon. They count bound Kina separately from unbound Kina and feed into the Abyss session. The first
+  Kina gain after entering serves as the starting value.
+- **Changed:** The Abyss preset in the Overlay Editor now shows bound instead of unbound Kina.
+  Existing windows set up only for the Abyss are switched over once. Position and design are kept,
+  and a backup is made first.
+- **Fixed:** Overlay Editor windows are no longer drawn too early at startup. This could occasionally
+  cause a rendering error. Cancelled renderings no longer count as errors in diagnostics.
+
 ## 0.18.2 – 2026-11-13
 
 - **Fixed:** Overlay Editor windows are created at the correct pixel size with Windows scaling above

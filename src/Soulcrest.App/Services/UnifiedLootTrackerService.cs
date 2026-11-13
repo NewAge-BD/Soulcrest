@@ -135,7 +135,7 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
     private sealed record Tick : Command;
     private sealed record Barrier(TaskCompletionSource Completion) : Command;
     private sealed record Delete(string Id, TaskCompletionSource Completion) : Command;
-    private enum GainChannel { MonsterKina, AbyssKina, Drop, Harvest, AbyssPoints, RankPoints, Combat }
+    private enum GainChannel { MonsterKina, AbyssKina, AbyssBoundKina, Drop, Harvest, AbyssPoints, RankPoints, Combat }
 
     private OwnCharacterContext? CurrentOwn => _farm.OwnCharacter ?? _gathering.OwnCharacter ?? _abyss.OwnCharacter ?? _kina.OwnCharacter;
     private bool Running => _farm.Running || _gathering.Running || _abyss.Running || _kina.Running;

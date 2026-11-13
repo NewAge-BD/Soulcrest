@@ -2,6 +2,18 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.18.3 – 2026-11-13
+
+- **Neu:** Zwei Overlay-Widgets für den Abyss: „Gebundene Kina“ und „Gebundene Kina pro Stunde“, mit
+  eigenem Icon. Sie zählen gebundene Kina getrennt von ungebundener Kina und fließen in die
+  Abyss-Session ein. Der erste Kina-Zugang nach dem Betreten dient als Ausgangswert.
+- **Geändert:** Die Abyss-Vorlage im Overlay-Editor zeigt jetzt gebundene statt ungebundene Kina.
+  Bestehende Fenster, die nur für den Abyss eingerichtet sind, werden einmalig umgestellt. Position
+  und Design bleiben erhalten, vorher wird eine Sicherung angelegt.
+- **Behoben:** Overlay-Editor-Fenster werden beim Start nicht mehr zu früh gezeichnet. Das konnte
+  vereinzelt einen Darstellungsfehler auslösen. Abgebrochene Darstellungen zählen in der Diagnose
+  nicht mehr als Fehler.
+
 ## 0.18.2 – 2026-11-13
 
 - **Behoben:** Overlay-Editor-Fenster werden bei Windows-Skalierung über 100 % in der richtigen

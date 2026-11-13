@@ -83,7 +83,7 @@ public partial class OriginalKitOverlayEditor
     private static string CategoryForModule(string kind) => kind switch
     {
         "drop-grid" or "drop-strip" or "drop-list" => "drops",
-        "market-kina" or "dropped-kina" or "daily-kina" or "market-kina-hour" or "dropped-kina-hour" => "kina",
+        "market-kina" or "dropped-kina" or "bound-kina" or "daily-kina" or "market-kina-hour" or "dropped-kina-hour" or "bound-kina-hour" => "kina",
         "abyss-points" or "abyss-points-hour" => "ap",
         "duration" or "clock" => "time",
         "rare-notice" => "notices",

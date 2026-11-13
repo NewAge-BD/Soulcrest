@@ -142,6 +142,13 @@ public sealed class OverlayEditorDefaultsTests
     public void AbyssKeepsTheSeparateNetAndRateLabelsAndOriginalCanvasClipping()
     {
         var settings = OverlayEditorDefaults.CreateSettings(OverlayEditorDefaults.Abyss);
+        Assert.DoesNotContain(settings.Widgets, widget => widget.Kind is "dropped-kina" or "dropped-kina-hour");
+        foreach (var (kind, x) in new[] { ("bound-kina", 0d), ("bound-kina-hour", 184d) })
+        {
+            var kina = Assert.Single(settings.Widgets, widget => widget.Kind == kind);
+            Assert.Equal((x, 184d, 184d, 72d, 168d, 72d, 1.2, false),
+                (kina.X, kina.Y, kina.Width, kina.Height, kina.ContentWidth, kina.ContentHeight, kina.FontScale, kina.ShowLabel));
+        }
         Assert.Equal(new[] { "rank-net-hour", "rank-net", "abyss-killfeed" },
             settings.Widgets.Where(widget => widget.ShowLabel).Select(widget => widget.Kind));
         var killfeed = settings.Widgets.Single(widget => widget.Kind == "abyss-killfeed");

@@ -17,18 +17,21 @@ public sealed class OverlayKitCurrencyIconTests : IDisposable
 {
     private readonly string _language = UiText.Language;
     private static readonly string[] Kina = ["market-kina", "market-kina-hour", "dropped-kina", "dropped-kina-hour", "daily-kina"];
+    private static readonly string[] BoundKina = ["bound-kina", "bound-kina-hour"];
     private static readonly string[] Ap = ["abyss-points", "abyss-points-hour"];
 
-    public static IEnumerable<object[]> IconModes() => Kina.Concat(Ap).SelectMany(kind =>
+    public static IEnumerable<object[]> IconModes() => Kina.Concat(BoundKina).Concat(Ap).SelectMany(kind =>
         new[] { false, true }.SelectMany(label => new[] { false, true }.Select(icon => new object[] { kind, label, icon })));
 
     [Fact]
     public void CurrencyBindingsReuseTheSameBundledItemAssetsAsTheNativeLootSource()
     {
         var kina = Assert.IsType<string>(MonsterLootIconCatalog.Default.ItemAsset(930100031));
+        var boundKina = Assert.IsType<string>(MonsterLootIconCatalog.Default.ItemAsset(930100001));
         var ap = Assert.IsType<string>(MonsterLootIconCatalog.Default.ItemAsset(930100003));
         Assert.NotEqual(kina, ap);
         Assert.All(Kina, kind => Assert.Equal(kina, OverlayCatalog.GameIconAsset(kind)));
+        Assert.All(BoundKina, kind => Assert.Equal(boundKina, OverlayCatalog.GameIconAsset(kind)));
         Assert.All(Ap, kind => Assert.Equal(ap, OverlayCatalog.GameIconAsset(kind)));
         Assert.Null(OverlayCatalog.GameIconAsset("rank-net"));
         Assert.Null(OverlayCatalog.GameIconAsset("clock"));
@@ -83,12 +86,13 @@ public sealed class OverlayKitCurrencyIconTests : IDisposable
         if (icon && OverlayCatalog.GameIconAsset(kind) is { } asset) Assert.Contains(asset, html);
         if (icon && kind.StartsWith("rank-", StringComparison.Ordinal)) Assert.Contains("<svg", html);
         if (!icon) Assert.DoesNotContain("overlay-currency-icon", html);
-        Assert.Equal(6, OverlayCatalog.Widgets.Count(module => module.Kind.EndsWith("-hour", StringComparison.Ordinal)));
+        Assert.Equal(7, OverlayCatalog.Widgets.Count(module => module.Kind.EndsWith("-hour", StringComparison.Ordinal)));
     }
 
     [Theory]
     [InlineData("market-kina")]
     [InlineData("dropped-kina")]
+    [InlineData("bound-kina")]
     [InlineData("abyss-points")]
     [InlineData("rank-net")]
     [InlineData("rank-gained")]

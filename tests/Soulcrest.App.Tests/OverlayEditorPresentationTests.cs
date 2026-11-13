@@ -32,10 +32,12 @@ public sealed class OverlayEditorPresentationTests
     [Fact]
     public void SharedSessionFactsKeepTotalsRatesAndNegativeNetSeparate()
     {
-        var session = Session() with { KinaUnbound = 600, AbyssPoints = 20, RankPointsGained = 10, RankPointsLost = 50 };
+        var session = Session() with { KinaUnbound = 600, KinaBound = 1_200, AbyssPoints = 20, RankPointsGained = 10, RankPointsLost = 50 };
         var snapshot = Project(State(session));
         Assert.Equal("600", snapshot.Metrics["dropped-kina"].Value);
         Assert.Equal("1,200", snapshot.Metrics["dropped-kina-hour"].Value);
+        Assert.Equal("1,200", snapshot.Metrics["bound-kina"].Value);
+        Assert.Equal("2,400", snapshot.Metrics["bound-kina-hour"].Value);
         Assert.Equal("20", snapshot.Metrics["abyss-points"].Value);
         Assert.Equal("40", snapshot.Metrics["abyss-points-hour"].Value);
         Assert.Equal("-40", snapshot.Metrics["rank-net"].Value);
@@ -57,20 +59,46 @@ public sealed class OverlayEditorPresentationTests
     {
         var unknown = Project(State(Session()));
         Assert.Equal("—", unknown.Metrics["dropped-kina"].Value);
+        Assert.Equal("—", unknown.Metrics["bound-kina"].Value);
+        Assert.Equal("—", unknown.Metrics["bound-kina-hour"].Value);
         Assert.Equal("—", unknown.Metrics["abyss-points"].Value);
         Assert.Equal("—", unknown.Metrics["rank-net"].Value);
         var zero = Project(State(Session() with
         {
-            Elapsed = TimeSpan.Zero, KinaUnbound = 0, AbyssPoints = 0, RankPointsGained = 0, RankPointsLost = 0,
+            Elapsed = TimeSpan.Zero, KinaUnbound = 0, KinaBound = 0, AbyssPoints = 0, RankPointsGained = 0, RankPointsLost = 0,
         }));
-        foreach (var key in new[] { "dropped-kina", "abyss-points", "rank-net", "rank-gained", "rank-lost" })
+        foreach (var key in new[] { "dropped-kina", "bound-kina", "abyss-points", "rank-net", "rank-gained", "rank-lost" })
             Assert.Equal("0", zero.Metrics[key].Value);
-        foreach (var key in new[] { "dropped-kina-hour", "abyss-points-hour", "rank-net-hour", "rank-gained-hour", "rank-lost-hour" })
+        foreach (var key in new[] { "dropped-kina-hour", "bound-kina-hour", "abyss-points-hour", "rank-net-hour", "rank-gained-hour", "rank-lost-hour" })
             Assert.Equal("—", zero.Metrics[key].Value);
         var oneChannel = Project(State(Session() with { RankPointsGained = 12 }));
         Assert.Equal("12", oneChannel.Metrics["rank-gained"].Value);
         Assert.Equal("—", oneChannel.Metrics["rank-lost"].Value);
         Assert.Equal("—", oneChannel.Metrics["rank-net"].Value);
+    }
+
+    [Theory]
+    [InlineData("de", "1.200", "2.400", "Gebundene Kina", "Gebundene Kina / Stunde")]
+    [InlineData("en", "1,200", "2,400", "Bound Kina", "Bound Kina / hour")]
+    public void BoundKinaUsesItsOwnCurrentSessionChannelAndLanguage(string language, string total, string rate,
+        string label, string rateLabel)
+    {
+        var session = Session() with { KinaBound = 1_200, KinaUnbound = null };
+        var snapshot = OverlayEditorPresentation.Project(State(session), null, null, Now, TimeZoneInfo.Utc, language);
+        Assert.Equal(total, snapshot.Metrics["bound-kina"].Value);
+        Assert.Equal(rate, snapshot.Metrics["bound-kina-hour"].Value);
+        Assert.Equal(label, snapshot.Metrics["bound-kina"].Label);
+        Assert.Equal(rateLabel, snapshot.Metrics["bound-kina-hour"].Label);
+        Assert.Equal("—", snapshot.Metrics["dropped-kina"].Value);
+        Assert.Equal("—", snapshot.Metrics["dropped-kina-hour"].Value);
+        foreach (var state in new[] { State(session) with { TrackingAvailable = false },
+                     State(session with { Status = LootTrackerSessionStatus.Completed }),
+                     State(session with { KinaBound = -1, KinaUnbound = 900 }) })
+        {
+            var unavailable = OverlayEditorPresentation.Project(state, null, null, Now, TimeZoneInfo.Utc, language);
+            Assert.Equal("—", unavailable.Metrics["bound-kina"].Value);
+            Assert.Equal("—", unavailable.Metrics["bound-kina-hour"].Value);
+        }
     }
 
     [Fact]
@@ -420,7 +448,7 @@ public sealed class OverlayEditorPresentationTests
             genus: () => throw new InvalidOperationException("No live genus read"),
             acquireGenus: () => throw new InvalidOperationException("No menu capture lease"));
         var example = source.Capture(examples: true, language: "en");
-        Assert.Equal(21, example.Metrics.Count);
+        Assert.Equal(23, example.Metrics.Count);
         foreach (var definition in OverlayCatalog.Widgets.Where(definition => definition.Kind is not ("abyss-killfeed" or "abyss-rank-progress")))
             Assert.Contains(definition.Kind, example.Metrics.Keys);
         Assert.True(example.Abyss.WorldContextVisible);
@@ -430,6 +458,8 @@ public sealed class OverlayEditorPresentationTests
         Assert.Equal(Now, example.ClockUtcNow);
         Assert.Equal(OverlaySnapshot.DemoFor("en").Metrics["dropped-kina"], OverlaySnapshot.DemoFor("en").Metrics["dropped-kina"]);
         Assert.Equal("1,234", example.Metrics["preview-metric"].Value);
+        Assert.Equal("267,540", example.Metrics["bound-kina"].Value);
+        Assert.NotEqual(example.Metrics["dropped-kina"].Value, example.Metrics["bound-kina"].Value);
         Assert.Equal(.5, example.DailyProgress.SessionStartFraction);
         Assert.Equal(.18472, example.DailyProgress.SessionFraction);
         foreach (var language in new[] { "de", "en" })

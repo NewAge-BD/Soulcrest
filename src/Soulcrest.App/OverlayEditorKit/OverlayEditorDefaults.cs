@@ -42,6 +42,7 @@ public static class OverlayEditorDefaults
         }).ToArray();
         return new()
         {
+            AbyssBoundKinaMigrationVersion = 1,
             SelectedOverlayId = windows[Array.IndexOf(ids, selectedPresetId)].Id,
             Overlays = Array.AsReadOnly(windows),
         };
@@ -71,8 +72,8 @@ public static class OverlayEditorDefaults
         // Preserve the configured viewport, including eight pixels clipped at the right and bottom.
         Widgets = Array.AsReadOnly(new[]
         {
-            Widget("dropped-kina", 0, 184, 184, 72, 168, 72, font: 1.2),
-            Widget("dropped-kina-hour", 184, 184, 184, 72, 168, 72, font: 1.2),
+            Widget("bound-kina", 0, 184, 184, 72, 168, 72, font: 1.2),
+            Widget("bound-kina-hour", 184, 184, 184, 72, 168, 72, font: 1.2),
             Widget("abyss-points-hour", 184, 136, 184, 72, 168, 72, font: 1.2),
             Widget("rank-net-hour", 184, 80, 184, 72, 168, 72, label: true),
             Widget("abyss-points", 0, 136, 184, 72, 168, 72, font: 1.2),

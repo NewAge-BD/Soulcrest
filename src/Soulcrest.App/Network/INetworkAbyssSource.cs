@@ -34,6 +34,9 @@ public sealed record NetworkAbyssSnapshot(OwnCharacterContext? Character, long? 
     public bool RankPointChangesQualified { get; init; }
     /// <summary>The wallet combat reason must be independently qualified for the Abyss context.</summary>
     public bool KinaGainsQualified { get; init; }
+    /// <summary>Independent own evidence for the bound Abyss combat-income channel.</summary>
+    public bool BoundKinaGainsQualified { get; init; }
+    public DateTimeOffset? BoundKinaGainsObservedAt { get; init; }
     public static NetworkAbyssSnapshot Empty { get; } = new(null, null, null, null, null, 0);
 }
 

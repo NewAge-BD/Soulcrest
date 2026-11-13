@@ -41,7 +41,7 @@ else
 @code {
     [Parameter] public string? Kind { get; set; }
     private bool IsMarket => Kind is "market-kina" or "market-kina-hour";
-    private bool IsHourly => Kind is "market-kina-hour" or "dropped-kina-hour" or "abyss-points-hour"
+    private bool IsHourly => Kind is "market-kina-hour" or "dropped-kina-hour" or "bound-kina-hour" or "abyss-points-hour"
         or "rank-net-hour" or "rank-gained-hour" or "rank-lost-hour";
     private string Fallback => OverlayCatalog.Find(Kind ?? "")?.Icon ?? "live";
 }

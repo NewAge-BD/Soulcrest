@@ -83,6 +83,40 @@ public sealed class DiagnosticContributorCoverageTests
         Assert.Throws<ArgumentException>(() => contributors[0].Collect("unknown"));
     }
 
+    [Theory]
+    [InlineData("bound-kina")]
+    [InlineData("bound-kina-hour")]
+    public async Task BoundKinaWidgetsHaveSelectableAbyssDiagnosisWithoutStartingSources(string kind)
+    {
+        var path = Path.Combine(AppPaths.DataDirectory, "bound-kina-diagnosis-" + Guid.NewGuid().ToString("N"));
+        using var editor = new OverlayService(path);
+        var selected = "widget-" + kind;
+        var features = DiagnosticFeatureCatalog.Resolve([selected]).Select(feature => feature.Id).ToArray();
+        Assert.Contains("loot-abyss", features);
+        Assert.Contains("overlay-editor", features);
+        Assert.DoesNotContain("loot-market", features);
+        var contributor = DiagnosticContributors.Create(new ExistingOnlyProvider(editor))
+            .Single(item => item.FeatureIds.Contains(selected));
+        Assert.True((await editor.SaveAsync(editor.Settings with { Enabled = true, Widgets = [OverlayCatalog.CreateWidget(kind)] })).Succeeded);
+        var result = contributor.Collect(selected);
+        Assert.Equal(DiagnosticStatus.Unavailable, result.Status);
+        Assert.Equal(1, result.Facts["instances"]);
+        Assert.Equal(0, result.Facts["visibleWindows"]);
+        Assert.Equal(false, result.Facts["sourceAvailable"]);
+        Assert.Equal(false, result.Facts["qualified"]);
+        Assert.Equal(false, result.Facts["boundKnown"]);
+        editor.SetRuntimeState(editor.SelectedOverlayId, true);
+        Assert.Equal(DiagnosticStatus.Unavailable, contributor.Collect(selected).Status);
+        var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = false;
+        var disabled = DiagnosticContributors.Create(new ExistingOnlyProvider(editor, settings))
+            .Single(item => item.FeatureIds.Contains(selected));
+        Assert.Equal(DiagnosticStatus.Disabled, disabled.Collect(selected).Status);
+        settings.Current.LootTrackingEnabled = true;
+        settings.Current.AbyssTrackingEnabled = false;
+        Assert.Equal(DiagnosticStatus.Disabled, disabled.Collect(selected).Status);
+    }
+
     [Fact]
     public void AbsentSourcesStayUnavailableAndDoNotBecomeHealthyZeroValues()
     {

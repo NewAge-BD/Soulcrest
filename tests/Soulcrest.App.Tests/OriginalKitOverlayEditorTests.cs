@@ -1000,12 +1000,31 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.DoesNotContain("<strong>Market-Kina (netto)</strong>", html);
     }
 
+    [Theory]
+    [InlineData("de", "Gebundene Kina", "Gebundene Kina pro Stunde")]
+    [InlineData("en", "Bound Kina", "Bound Kina per hour")]
+    public async Task BoundKinaModulesAppearInTheKinaLibraryAndCanBeAddedWithoutMarketAcquisition(
+        string language, string totalLabel, string hourlyLabel)
+    {
+        await using var fixture = await Fixture.Create(language: language, seedLegacy: false);
+        await fixture.Invoke("SelectModuleCategory", "kina");
+        var html = await fixture.Html();
+        Assert.Contains("<strong>" + totalLabel + "</strong>", html);
+        Assert.Contains("<strong>" + hourlyLabel + "</strong>", html);
+        Assert.Contains("bound-kina", LibraryKinds(html));
+        Assert.Contains("bound-kina-hour", LibraryKinds(html));
+        await fixture.ClickAttribute("data-module-kind", "bound-kina");
+        await fixture.ClickAttribute("data-module-kind", "bound-kina-hour");
+        Assert.Equal(new[] { "bound-kina", "bound-kina-hour" }, fixture.Service.Settings.Widgets.Select(widget => widget.Kind));
+        Assert.All(fixture.Source.Acquisitions, acquisition => Assert.False(acquisition.Market));
+    }
+
     [Fact]
     public async Task EmptyDefaultsAndLibraryDoNotCreateAStoredLayout()
     {
         await using var fixture = await Fixture.Create(seedLegacy: false);
         Assert.Empty(fixture.Service.Settings.Widgets);
-        Assert.Equal(22, OverlayCatalog.Widgets.Count);
+        Assert.Equal(24, OverlayCatalog.Widgets.Count);
         Assert.False(Directory.Exists(fixture.Directory));
         await fixture.Invoke("ShowModulePreview", "drop-grid");
         Assert.Contains("oe-module-preview", await fixture.Html());
@@ -1222,16 +1241,16 @@ public sealed class OriginalKitOverlayEditorTests
         var originalHtml = await fixture.Html();
         Assert.True(originalHtml.IndexOf("class=\"panel oe-library\"", StringComparison.Ordinal)
             < originalHtml.IndexOf("class=\"oe-workbench\"", StringComparison.Ordinal));
-        Assert.Equal(22, LibraryKinds(originalHtml).Distinct().Count());
+        Assert.Equal(24, LibraryKinds(originalHtml).Distinct().Count());
         var collected = new List<string>();
-        foreach (var (category, count) in new[] { ("drops", 3), ("kina", 5), ("ap", 2), ("rank", 8), ("time", 2), ("notices", 1), ("pets", 1) })
+        foreach (var (category, count) in new[] { ("drops", 3), ("kina", 7), ("ap", 2), ("rank", 8), ("time", 2), ("notices", 1), ("pets", 1) })
         {
             await fixture.ClickAttribute("data-library-category", category);
             var kinds = LibraryKinds(await fixture.Html());
             Assert.Equal(count, kinds.Length);
             collected.AddRange(kinds);
         }
-        Assert.Equal(22, collected.Distinct().Count());
+        Assert.Equal(24, collected.Distinct().Count());
         await fixture.ClickAttribute("data-library-category", "ap");
         await fixture.Invoke("ShowModulePreview", "abyss-points");
         await fixture.Invoke("ChangeModuleSearch", new ChangeEventArgs { Value = " /H " });
@@ -1242,7 +1261,7 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Contains("role=\"status\"", await fixture.Html());
         await fixture.Invoke("ChangeModuleSearch", new ChangeEventArgs { Value = "" });
         await fixture.ClickAttribute("data-library-category", "all");
-        Assert.Equal(22, LibraryKinds(await fixture.Html()).Length);
+        Assert.Equal(24, LibraryKinds(await fixture.Html()).Length);
         Assert.Equal(selected, await fixture.EditorField<string?>("_selectedId"));
         Assert.Equal(before, await File.ReadAllBytesAsync(file));
         Assert.Equal(leases, fixture.Source.Acquisitions);
@@ -1310,7 +1329,7 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "data-widget-id=\"overlay-lock\""));
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "data-required-widget=\"true\""));
         Assert.Contains("data-select-lock-widget=\"true\"", html);
-        Assert.Equal(22, LibraryKinds(html).Length);
+        Assert.Equal(24, LibraryKinds(html).Length);
         Assert.DoesNotContain(OverlayLockWidget.Kind, LibraryKinds(html));
         if (contents.Length > 0)
             Assert.True(html.IndexOf("data-widget-id=\"overlay-lock\"", StringComparison.Ordinal)
@@ -1386,7 +1405,7 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Contains("class=\"oe-stage-viewport\"", html);
         Assert.Contains("data-module-kind=\"duration\"", html);
         Assert.DoesNotContain("data-module-kind=\"preview-metric\"", html);
-        Assert.Equal(22, OverlayCatalog.Widgets.Count);
+        Assert.Equal(24, OverlayCatalog.Widgets.Count);
         Assert.Contains("data-content-width=\"168\"", html);
         Assert.Contains("data-canvas-resize=\"nw\"", html);
         Assert.Contains("data-canvas-resize=\"sw\"", html);

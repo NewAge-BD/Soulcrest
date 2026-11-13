@@ -670,6 +670,9 @@ public sealed partial class UnifiedLootTrackerServiceTests
         internal void Kina(long amount, long sequence)
         { var gain = new NetworkKinaGain(_clock.GetUtcNow(), sequence, OwnCharacter!, amount) { InInstance = InInstance };
             KinaGained?.Invoke(gain); MonsterKinaGained?.Invoke(gain); }
+        internal void BoundKina(long amount, long sequence, OwnCharacterContext? own = null, DateTimeOffset? at = null) =>
+            KinaGained?.Invoke(new(at ?? _clock.GetUtcNow(), sequence, own ?? OwnCharacter!, 0)
+            { BoundKina = amount, InInstance = InInstance });
         internal void Points(long amount, long sequence, DateTimeOffset? at = null, OwnCharacterContext? own = null) =>
             AbyssPointsGained?.Invoke(new(at ?? _clock.GetUtcNow(), sequence, own ?? OwnCharacter!, amount));
         internal void Rank(long amount, long sequence, DateTimeOffset? at = null, OwnCharacterContext? own = null) =>

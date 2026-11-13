@@ -16,6 +16,8 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
 {
     private readonly IServiceProvider _services;
     private readonly bool _pauseAnimations;
+    private readonly Func<CoreWebView2, string, Task<string>> _executeScript;
+    private readonly Action<CoreWebView2>? _browserInitialized;
     private readonly int _threadId = Environment.CurrentManagedThreadId;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
@@ -28,16 +30,20 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
     private readonly List<string> _browserDiagnostics = [];
     private RenderHost? _host;
     private TaskCompletionSource<BrowserView>? _initialized;
+    private OverlayEditorDocumentReadiness? _documentReady;
     private bool _disposed;
     private int _calls;
     private OverlayEditorRenderStage _stage;
     internal static readonly TimeSpan RenderTimeout = TimeSpan.FromSeconds(15);
 
     public OverlayEditorBitmapRenderer(IServiceProvider services) : this(services, pauseAnimations: true) { }
-    internal OverlayEditorBitmapRenderer(IServiceProvider services, bool pauseAnimations, bool drawLockWidget = true)
+    internal OverlayEditorBitmapRenderer(IServiceProvider services, bool pauseAnimations, bool drawLockWidget = true,
+        Func<CoreWebView2, string, Task<string>>? executeScript = null, Action<CoreWebView2>? browserInitialized = null)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _pauseAnimations = pauseAnimations;
+        _executeScript = executeScript ?? ((core, script) => core.ExecuteScriptAsync(script));
+        _browserInitialized = browserInitialized;
         _model = new(pauseAnimations, drawLockWidget);
     }
 
@@ -81,6 +87,9 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
             }
             _stage = OverlayEditorRenderStage.Host;
             var browser = await EnsureHostAsync(size, timeout.Token);
+            _stage = OverlayEditorRenderStage.DocumentReady;
+            timeout.Token.ThrowIfCancellationRequested();
+            await _documentReady!.Ready.WaitAsync(timeout.Token);
             _stage = OverlayEditorRenderStage.PixelCalibration;
             await CalibratePixelsAsync(browser, size, timeout.Token);
             _stage = OverlayEditorRenderStage.SurfaceReady;
@@ -105,6 +114,14 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         {
             if (entered && (_pauseAnimations || _disposed)) ResetHost();
             throw;
+        }
+        catch (Exception error) when ((error is COMException or InvalidOperationException)
+            && (cancellationToken.IsCancellationRequested || _lifetime.IsCancellationRequested))
+        {
+            // Native calls can fail synchronously after disposal, before WaitAsync sees cancellation.
+            // An abandoned request must not become an active render failure.
+            if (entered && (_pauseAnimations || _disposed)) ResetHost();
+            throw new OperationCanceledException("The editor render request was cancelled.", error, timeout.Token);
         }
         catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException
             or COMException or ArgumentException or TimeoutException or WebView2RuntimeNotFoundException)
@@ -145,6 +162,8 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         if (!File.Exists(page)) throw new FileNotFoundException("The local editor rendering page is missing.", page);
         var initialized = new TaskCompletionSource<BrowserView>(TaskCreationOptions.RunContinuationsAsynchronously);
         _initialized = initialized;
+        var documentReady = new OverlayEditorDocumentReadiness();
+        _documentReady = documentReady;
         var host = new RenderHost();
         _host = host;
         var view = new BlazorWebView { Dock = DockStyle.Fill, HostPage = page, Services = _services };
@@ -173,6 +192,18 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
             try
             {
                 ConfigureBrowser(args.WebView);
+                var core = args.WebView.CoreWebView2;
+                // A created WebView is not yet an executable local document. Keep this gate
+                // bound to its own host so late events cannot release a replacement host.
+                core.NavigationStarting += (_, navigation) => documentReady.NavigationStarting(navigation.NavigationId, navigation.Uri);
+                core.DOMContentLoaded += (_, document) =>
+                {
+                    if (documentReady.Ready.IsCompleted) return;
+                    try { documentReady.DocumentLoaded(document.NavigationId, core.Source); }
+                    catch (Exception error) when (error is COMException or InvalidOperationException) { documentReady.Failure(error); }
+                };
+                core.NavigationCompleted += (_, navigation) => documentReady.NavigationCompleted(navigation.NavigationId, navigation.IsSuccess);
+                _browserInitialized?.Invoke(core);
                 initialized.TrySetResult(args.WebView);
             }
             catch (Exception error) when (error is InvalidOperationException or COMException or ArgumentException)
@@ -243,21 +274,22 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
     {
         // This offscreen raster has a fixed logical pixel contract. Monitor DPI and native HWND
         // resizing must not change its viewport or screenshot density (including mixed-DPI desktops).
+        cancellationToken.ThrowIfCancellationRequested();
         browser.ZoomFactor = 1;
         await browser.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setDeviceMetricsOverride",
             JsonSerializer.Serialize(new { width = size.Width, height = size.Height, deviceScaleFactor = 1, mobile = false }))
             .WaitAsync(cancellationToken);
     }
 
-    private static async Task WaitForSurfaceAsync(CoreWebView2 core, string revision, Size expected, CancellationToken cancellationToken)
+    private async Task WaitForSurfaceAsync(CoreWebView2 core, string revision, Size expected, CancellationToken cancellationToken)
     {
-        while (await core.ExecuteScriptAsync("typeof window.soulcrestPlacementRender === 'object'").WaitAsync(cancellationToken) != "true")
+        while (await ExecuteSurfaceScriptAsync(core, "typeof window.soulcrestPlacementRender === 'object'", cancellationToken) != "true")
             await Task.Delay(25, cancellationToken);
         var token = JsonSerializer.Serialize(revision);
-        _ = await core.ExecuteScriptAsync($"window.soulcrestPlacementRender.begin({token})").WaitAsync(cancellationToken);
+        _ = await ExecuteSurfaceScriptAsync(core, $"window.soulcrestPlacementRender.begin({token})", cancellationToken);
         while (true)
         {
-            var encoded = await core.ExecuteScriptAsync($"window.soulcrestPlacementRender.status({token})").WaitAsync(cancellationToken);
+            var encoded = await ExecuteSurfaceScriptAsync(core, $"window.soulcrestPlacementRender.status({token})", cancellationToken);
             using var document = JsonDocument.Parse(encoded);
             if (document.RootElement.ValueKind == JsonValueKind.Object)
             {
@@ -278,11 +310,18 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         }
     }
 
+    private async Task<string> ExecuteSurfaceScriptAsync(CoreWebView2 core, string script, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return await _executeScript(core, script).WaitAsync(cancellationToken);
+    }
+
     private async Task<Bitmap> CaptureAsync(CoreWebView2 core, Size expected, CancellationToken cancellationToken)
     {
         // CapturePreview can return a stale/partially painted offscreen backbuffer.
         // A Chromium surface snapshot refreshes the raster and preserves per-pixel alpha;
         // fromSurface:false would flatten the transparent overlay onto an opaque view.
+        cancellationToken.ThrowIfCancellationRequested();
         var capture = core.CallDevToolsProtocolMethodAsync("Page.captureScreenshot",
             "{\"format\":\"png\",\"fromSurface\":true,\"captureBeyondViewport\":false}");
         _pendingCapture = capture;
@@ -328,6 +367,8 @@ public sealed class OverlayEditorBitmapRenderer : IOverlayEditorBitmapRenderer
         _pendingCapture = null;
         _initialized?.TrySetCanceled();
         _initialized = null;
+        _documentReady?.Cancel();
+        _documentReady = null;
         host?.Dispose();
     }
 

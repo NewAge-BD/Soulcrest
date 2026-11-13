@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace Soulcrest.App.OverlayEditorKit;
 
-internal enum OverlayEditorRenderStage { Queue, PreviousCapture, Host, PixelCalibration, SurfaceReady, Capture, Decode }
+internal enum OverlayEditorRenderStage { Queue, PreviousCapture, Host, PixelCalibration, SurfaceReady, Capture, Decode, DocumentReady }
 
 internal sealed record OverlayEditorRenderHealth(long Succeeded, long Failed, bool LastAttemptFailed,
     OverlayEditorRenderStage? FailureStage = null, string? ExceptionType = null, int? HResult = null);
