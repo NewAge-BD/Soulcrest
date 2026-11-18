@@ -2,6 +2,20 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.18.4 – 2026-11-18
+
+- **Geändert:** Die tägliche Monster-Kina bis 1.000.000 wird jetzt als gebundene Kina geführt. Der
+  Tagesbalken und die Kina-Zähler in der Open World zeigen das Bound-Icon, Session und Verlauf
+  weisen gebundene Kina mit eigener Stundenrate aus.
+- **Geändert:** Die Open-World-Vorlage im Overlay-Editor zeigt gebundene statt ungebundene Kina.
+  Bestehende Fenster, die nur für die Open World eingerichtet sind, werden einmalig umgestellt.
+  Position und Design bleiben erhalten, vorher wird eine Sicherung angelegt.
+- **Behoben:** Eine laufende Session konnte abbrechen, wenn Laufwegpunkte verspätet eintrafen.
+  Dadurch blendete sich das Overlay nach kurzem Erscheinen wieder aus.
+- **Behoben:** Wurde Soulcrest mitten in einer laufenden Spielverbindung gestartet, konnte ein
+  ungültiger Datenblock die Erkennung von Loot blockieren. Die Diagnose warnt jetzt, wenn Pakete
+  ankommen, aber keine Nachrichten gelesen werden.
+
 ## 0.18.3 – 2026-11-13
 
 - **Neu:** Zwei Overlay-Widgets für den Abyss: „Gebundene Kina“ und „Gebundene Kina pro Stunde“, mit

@@ -604,6 +604,34 @@ public sealed class LootTrackerViewTests
         await fixture.Export(html, "unbound-monster-session");
     }
 
+    [Theory]
+    [InlineData("de", 2_000)]
+    [InlineData("en", 2_000)]
+    [InlineData("de", 0)]
+    [InlineData("en", 0)]
+    public async Task ConfirmedBoundGrindIncomeIsVisibleWhileUnboundRewardsRemainUnknown(string language, long amount)
+    {
+        await using var fixture = new Fixture(language);
+        var session = new LootTrackerSession
+        {
+            Id = "synthetic-bound-grind", Kind = LootTrackerSessionKind.Grind, StartedAt = At,
+            Status = LootTrackerSessionStatus.Completed, EndedAt = At.AddMinutes(10),
+            Elapsed = TimeSpan.FromMinutes(10), KinaBound = amount, KinaUnbound = null, CoverageLimited = true,
+            MinuteIncome = [new(0, amount, null)],
+        };
+        var html = await fixture.Render(new([session], At));
+        var culture = System.Globalization.CultureInfo.GetCultureInfo(language == "de" ? "de-DE" : "en-US");
+        Assert.Equal(amount.ToString("N0", culture), Metric(html, "kina-total"));
+        Assert.Equal((amount * 6).ToString("N0", culture), Metric(html, "kina-rate"));
+        Assert.Equal("—", Metric(html, "kina-unbound"));
+        Assert.Contains(UiText.T("Gebundene Kina"), WebUtility.HtmlDecode(html));
+        Assert.Contains(UiText.T("Nur bestätigte gebundene Kina"), WebUtility.HtmlDecode(html));
+        Assert.Contains(MonsterLootIconCatalog.Default.ItemAsset(930100001)!, html);
+        Assert.Contains("lst-curve", html);
+        Assert.Null(session.KinaUnbound);
+        Assert.Null(LootTrackerPresentation.TotalKina(session));
+    }
+
     [Fact]
     public async Task ACharacterWithUnknownStartScoresNeverBorrowsALegacyOrAnotherSessionsScore()
     {

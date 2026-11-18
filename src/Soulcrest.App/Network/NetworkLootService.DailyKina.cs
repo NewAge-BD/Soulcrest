@@ -18,7 +18,7 @@ public sealed partial class NetworkLootService
     private readonly Queue<NetworkKinaGain> _dailyKinaGains = [];
     private bool _dispatchingDailyKina;
 
-    /// <summary>Canonical monster income from consecutive daily totals, never added to wallet income.</summary>
+    /// <summary>Canonical bound monster income from consecutive daily totals, never added to wallet income.</summary>
     public event Action<NetworkKinaGain>? MonsterKinaGained;
 
     public NetworkDailyMonsterKinaSnapshot DailyMonsterKinaSnapshot
@@ -74,8 +74,11 @@ public sealed partial class NetworkLootService
             else
             {
                 var world = WorldContext.Snapshot;
-                _dailyKinaGains.Enqueue(new(at, _dailyKinaSequence, character, observation.Total - before)
+                // User-confirmed 2026-11-18: the current capped monster reward is bound Kina.
+                // Keep the qualified daily counter as the sole producer, independently of wallet changes.
+                _dailyKinaGains.Enqueue(new(at, _dailyKinaSequence, character, 0)
                 {
+                    BoundKina = observation.Total - before,
                     InInstance = world.Status == WorldContextStatus.Confirmed && world.Kind == WorldContextKind.Instance
                         && world.BindingGeneration == character.Generation
                 });

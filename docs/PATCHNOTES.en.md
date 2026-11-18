@@ -2,6 +2,20 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.18.4 – 2026-11-18
+
+- **Changed:** The daily monster Kina up to 1,000,000 is now tracked as bound Kina. The daily bar and
+  the Kina counters in the Open World show the bound icon, and the session and history list bound
+  Kina with its own hourly rate.
+- **Changed:** The Open World preset in the Overlay Editor shows bound instead of unbound Kina.
+  Existing windows set up only for the Open World are switched over once. Position and design are
+  kept, and a backup is made first.
+- **Fixed:** A running session could break off when route points arrived late. This made the overlay
+  disappear again shortly after it showed up.
+- **Fixed:** When Soulcrest was started in the middle of a running game connection, an invalid data
+  block could stop loot from being detected. Diagnostics now warn when packets arrive but no
+  messages are read.
+
 ## 0.18.3 – 2026-11-13
 
 - **New:** Two overlay widgets for the Abyss: "Bound Kina" and "Bound Kina per hour", with their own

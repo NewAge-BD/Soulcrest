@@ -22,6 +22,56 @@ public sealed class NetworkTransportGapReasonTests
     private static readonly OwnCharacterIdentity Own = new(101, 501, 300, "SyntheticProfile");
     private const byte Ack = 0x10, Fin = 0x01, Rst = 0x04;
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(16 * 1024 * 1024 + 1)]
+    public void ImpossibleIncompleteBundleCannotBlockClockAndLootFromReachingTheTester(int expandedSize)
+    {
+        using var f = new Fixture();
+        var gains = new List<NetworkSoul>();
+        var clocks = new List<byte[]>();
+        var changes = 0;
+        f.Network.SoulGained += gains.Add;
+        f.Network.BossMessageReceived += (_, message) => clocks.Add(message);
+        f.Network.Changed += () => changes++;
+        // Capture starts inside opaque data: a false outer length claims 512 body bytes,
+        // but its already complete bundle header proves this cannot be a valid anchor.
+        var impossiblePrefix = Frame([0xff, 0xff, .. BitConverter.GetBytes(expandedSize), .. new byte[506]])[..8];
+        f.Send(World, impossiblePrefix);
+        Assert.Equal(1, f.Network.Packets);
+        Assert.Equal(0, f.Network.Messages);
+        Assert.Empty(gains);
+
+        var clock = Frame(Clock());
+        f.Send(World, clock[..5]);
+        Assert.Equal(0, f.Network.Messages);
+        var sequence = f.Next(World);
+        byte[] tail = [.. clock[5..], .. Frame(Gain())];
+        f.Send(World, tail);
+
+        Assert.Equal(3, f.Network.Packets);
+        Assert.Equal(2, f.Network.Messages);
+        Assert.Equal(Clock(), Assert.Single(clocks));
+        var gain = Assert.Single(gains);
+        Assert.Equal(2, gain.Souls);
+        Assert.Equal("fossa", gain.PetId);
+        Assert.Equal(gain, Assert.Single(f.Network.Recent));
+        Assert.Equal(2, f.Progress.Souls("fossa"));
+        Assert.Equal(2, f.Network.ProgressDiagnostics.AcceptedSoulPoints);
+        Assert.Contains(f.Network.ProgressDiagnostics.Events, entry => entry.Kind == NetworkProgressEventKind.Gained);
+        Assert.True(changes > 0); // the tester subscribes to these same notifications
+        Assert.Equal(1, f.Network.Resyncs);
+
+        f.SendAt(World, sequence, tail); // retransmission must not display or count a second gain
+        Assert.Single(gains);
+        Assert.Single(clocks);
+        Assert.Single(f.Network.Recent);
+        Assert.Equal(2, f.Network.Messages);
+        f.Send(World, Frame(Gain()));
+        Assert.Equal(2, gains.Count);
+        Assert.Equal(4, f.Progress.Souls("fossa"));
+    }
+
     [Fact]
     public void MissingSegmentOnlyReportsTcpPendingOverflowOnThe257thFutureSegment()
     {

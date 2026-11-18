@@ -48,8 +48,8 @@ public sealed partial class UnifiedLootTrackerService
     private void MonsterKina(NetworkKinaGain gain)
     {
         if (_farm.Running && ReferenceEquals(_farm.OwnCharacter, gain.Character) && !gain.InInstance
-            && !IsAbyss(_world()) && gain.UnboundKina > 0)
-            QueueActivity(GainChannel.MonsterKina, gain.Character, gain.At, gain.Sequence, gain.UnboundKina);
+            && !IsAbyss(_world()) && gain.BoundKina > 0)
+            QueueActivity(GainChannel.MonsterKina, gain.Character, gain.At, gain.Sequence, gain.BoundKina);
     }
 
     private void AbyssKina(NetworkKinaGain gain)
@@ -212,11 +212,7 @@ public sealed partial class UnifiedLootTrackerService
         foreach (var reward in rewards) accepted.Add(new(next.Id, character.ProfileId!, activity.At, reward.Id, reward.Name, reward.Quantity));
         if (!abyss && QualifiedDaily(_daily, activity.Own, activity.At) && _daily.Total is { } total && total >= Overlay.LootOverlaySnapshot.DailyLimit)
             next = next with { Mode = LootTrackerSessionMode.LimitedKina };
-        var provisionalRoute = next.RouteSegments;
-        if (!productive)
-            next = next with { RouteSegments = UnifiedLootSessionStore.TrimRoute(next, next.LastLootAt ?? next.StartedAt, elapsed) };
         Save(next);
-        if (!productive) _active = next with { RouteSegments = provisionalRoute };
         if (productive) _replayPositions?.Commit(activity.Stamp, elapsed);
         if (activity.Channel is GainChannel.Drop or GainChannel.Harvest && !rewards.IsDefaultOrEmpty)
         {
@@ -278,11 +274,11 @@ public sealed partial class UnifiedLootTrackerService
         LootTrackerTimelineEventKind kind;
         switch (activity.Channel)
         {
-            case GainChannel.MonsterKina:
             case GainChannel.AbyssKina:
                 session = session with { KinaUnbound = checked((session.KinaUnbound ?? 0) + activity.Amount) };
                 bin = bin with { KinaUnbound = checked((bin.KinaUnbound ?? 0) + activity.Amount) };
                 kind = LootTrackerTimelineEventKind.KinaUnbound; break;
+            case GainChannel.MonsterKina:
             case GainChannel.AbyssBoundKina:
                 session = session with { KinaBound = checked((session.KinaBound ?? 0) + activity.Amount) };
                 bin = bin with { KinaBound = checked((bin.KinaBound ?? 0) + activity.Amount) };

@@ -23,6 +23,36 @@ public sealed class LootTrackerTimelineTests
             Fact("ap2", LootTrackerTimelineEventKind.AbyssPoints, 80, 200)]
     };
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BoundOnlyIncomeHasItsOwnLabelCurveAndMissingMinuteGaps(bool legacy)
+    {
+        var session = Session with
+        {
+            Kind = LootTrackerSessionKind.Grind, KinaBound = 300, KinaUnbound = null,
+            TimelineVersion = legacy ? 0 : 1,
+            TimelineEvents = legacy ? [] :
+            [
+                Availability("unbound-unknown", LootTrackerTimelineMetric.KinaUnbound, 0, false),
+                Availability("bound-ready", LootTrackerTimelineMetric.KinaBound, 10, true),
+                Fact("bound1", LootTrackerTimelineEventKind.KinaBound, 20, 100),
+                Availability("bound-lost", LootTrackerTimelineMetric.KinaBound, 60, false),
+                Availability("bound-back", LootTrackerTimelineMetric.KinaBound, 120, true),
+                Fact("bound2", LootTrackerTimelineEventKind.KinaBound, 130, 200),
+            ],
+            MinuteIncome = [new(0, 100, null), new(1, null, null), new(2, 200, null)],
+        };
+        var series = Assert.Single(LootTrackerTimeline.Build(session, LootTimelineValueMode.Cumulative), row => row.Key == "kina");
+        Assert.Equal("Gebundene Kina", series.Label);
+        Assert.Equal(legacy ? 0 : 100, series.ValueAt(TimeSpan.FromSeconds(40)));
+        Assert.Null(series.ValueAt(TimeSpan.FromSeconds(90)));
+        Assert.Equal(300, series.ValueAt(session.Elapsed));
+        Assert.Null(LootTrackerPresentation.TotalKina(session));
+        Assert.Equal(300, LootTrackerPresentation.DisplayedKina(session));
+        Assert.Null(LootTrackerPresentation.DisplayedKina(session, new(1, null, 999)));
+    }
+
     [Fact]
     public void CumulativeSeriesPreservesUnknownBaselineAndIndependentSignedRankIncome()
     {

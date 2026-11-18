@@ -125,8 +125,14 @@ public sealed class OverlayEditorDefaultsTests
     public void WorldListKeepsIndependentTimeAndRateRowsAndItsFullListHeight()
     {
         var settings = OverlayEditorDefaults.CreateSettings(OverlayEditorDefaults.OpenWorld);
-        Assert.Equal(new[] { "duration", "market-kina", "clock", "dropped-kina", "daily-kina",
-            "dropped-kina-hour", "market-kina-hour", "drop-list" }, settings.Widgets.Select(widget => widget.Kind));
+        Assert.Equal(new[] { "duration", "market-kina", "clock", "bound-kina", "daily-kina",
+            "bound-kina-hour", "market-kina-hour", "drop-list" }, settings.Widgets.Select(widget => widget.Kind));
+        foreach (var (kind, x) in new[] { ("bound-kina", 0d), ("bound-kina-hour", 168d) })
+        {
+            var kina = Assert.Single(settings.Widgets, widget => widget.Kind == kind);
+            Assert.Equal((x, 72d, 168d, 64d, 168d, 72d, 1.3, false),
+                (kina.X, kina.Y, kina.Width, kina.Height, kina.ContentWidth, kina.ContentHeight, kina.FontScale, kina.ShowLabel));
+        }
         var duration = settings.Widgets.Single(widget => widget.Kind == "duration");
         Assert.Equal((168, 176, 168, 48, 168d, 72d, 1.5),
             (duration.X, duration.Y, duration.Width, duration.Height, duration.ContentWidth, duration.ContentHeight, duration.FontScale));

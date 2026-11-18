@@ -345,7 +345,10 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         var durable = next.Kind == LootTrackerSessionKind.Mixed
             ? next with { RouteSegments = UnifiedLootSessionStore.TrimRoute(next, next.LastLootAt ?? next.StartedAt, next.Elapsed) }
             : next;
-        _store.Append(durable); _active = next; _durable = durable;
+        _store.Append(durable);
+        _active = next.Kind == LootTrackerSessionKind.Mixed
+            ? next with { RouteSegments = RetainPendingRouteTail(next) } : next;
+        _durable = durable;
         if (_announcedSession != next.Id)
         {
             _replayPositions?.Start(next.Id, _startStamp, _own?.Generation, _observedWorld?.Generation,

@@ -86,13 +86,14 @@ public sealed class DiagnosticContributorCoverageTests
     [Theory]
     [InlineData("bound-kina")]
     [InlineData("bound-kina-hour")]
-    public async Task BoundKinaWidgetsHaveSelectableAbyssDiagnosisWithoutStartingSources(string kind)
+    public async Task BoundKinaWidgetsHaveSelectableAbyssAndPveDiagnosisWithoutStartingSources(string kind)
     {
         var path = Path.Combine(AppPaths.DataDirectory, "bound-kina-diagnosis-" + Guid.NewGuid().ToString("N"));
-        using var editor = new OverlayService(path);
+        using var editor = new OverlayService(path, new OverlayCollectionSettings());
         var selected = "widget-" + kind;
         var features = DiagnosticFeatureCatalog.Resolve([selected]).Select(feature => feature.Id).ToArray();
         Assert.Contains("loot-abyss", features);
+        Assert.Contains("loot-pve", features);
         Assert.Contains("overlay-editor", features);
         Assert.DoesNotContain("loot-market", features);
         var contributor = DiagnosticContributors.Create(new ExistingOnlyProvider(editor))
@@ -113,6 +114,11 @@ public sealed class DiagnosticContributorCoverageTests
             .Single(item => item.FeatureIds.Contains(selected));
         Assert.Equal(DiagnosticStatus.Disabled, disabled.Collect(selected).Status);
         settings.Current.LootTrackingEnabled = true;
+        settings.Current.AbyssTrackingEnabled = false;
+        Assert.Equal(DiagnosticStatus.Unavailable, disabled.Collect(selected).Status);
+        settings.Current.AbyssTrackingEnabled = true;
+        settings.Current.MonsterLootTrackingEnabled = false;
+        Assert.Equal(DiagnosticStatus.Unavailable, disabled.Collect(selected).Status);
         settings.Current.AbyssTrackingEnabled = false;
         Assert.Equal(DiagnosticStatus.Disabled, disabled.Collect(selected).Status);
     }
@@ -173,6 +179,41 @@ public sealed class DiagnosticContributorCoverageTests
         settings.Current.LootTrackingEnabled = false;
         Assert.Equal(DiagnosticStatus.Disabled, contributor.Collect("network").Status);
         Assert.False(network.Running);
+    }
+
+    [Theory]
+    [InlineData(true, true, false, 7L, 0L, DiagnosticStatus.Warning)]
+    [InlineData(true, true, false, 7L, 1L, DiagnosticStatus.Healthy)]
+    [InlineData(true, true, false, 0L, 0L, DiagnosticStatus.Waiting)]
+    [InlineData(true, false, false, 7L, 0L, DiagnosticStatus.Waiting)]
+    [InlineData(true, true, true, 7L, 0L, DiagnosticStatus.Error)]
+    [InlineData(false, true, false, 7L, 0L, DiagnosticStatus.Disabled)]
+    public void NetworkDiagnosisDistinguishesReceptionFromDecodedMessages(bool enabled, bool running, bool error,
+        long packets, long messages, DiagnosticStatus expected)
+    {
+        var settings = new SettingsService();
+        settings.Current.LootTrackingEnabled = enabled;
+        using var network = new NetworkLootService(new ProgressService());
+        typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Running))!.SetValue(network, running);
+        typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.StatusIsError))!.SetValue(network, error);
+        typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Packets))!.SetValue(network, packets);
+        typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Messages))!.SetValue(network, messages);
+        const string privateStatus = "Synthetic private identity C:/private/example 192.0.2.8";
+        typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Status))!.SetValue(network, privateStatus);
+        var contributor = DiagnosticContributors.Create(new ExistingOnlyProvider(settings, network))
+            .Single(item => item.FeatureIds.Contains("network"));
+
+        var result = contributor.Collect("network");
+
+        Assert.Equal(expected, result.Status);
+        Assert.Equal(packets, result.Facts["packets"]);
+        Assert.Equal(messages, result.Facts["messages"]);
+        Assert.Equal(running && packets > 0 && messages == 0, result.Facts["receptionWithoutDecodedMessages"]);
+        if (expected == DiagnosticStatus.Warning)
+            Assert.Equal("Pakete werden empfangen, aber noch keine Nachrichten dekodiert. Prüfe Verbindungszuordnung und Nachrichtenrahmen.", result.Summary);
+        Assert.DoesNotContain(privateStatus, JsonSerializer.Serialize(result));
+        Assert.Equal(running, network.Running);
+        Assert.Equal(enabled, settings.Current.LootTrackingEnabled);
     }
 
     [Fact]

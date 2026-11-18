@@ -403,7 +403,7 @@ public partial class LootTrackerSessionTimeline
                 if (end < _viewport.From) continue;
                 foreach (var series in _series.Where(row => On(row.Key)))
                 {
-                    long? amount = series.Key switch { "ap" => bin.AbyssPoints, "rp" => bin.RankPointsGained is { } gained && bin.RankPointsLost is { } lost ? gained - lost : null, "kina" => Session.KinaBound is null ? bin.KinaUnbound : bin.KinaBound is { } bound && bin.KinaUnbound is { } unbound ? bound + unbound : null, _ => null };
+                    long? amount = series.Key switch { "ap" => bin.AbyssPoints, "rp" => bin.RankPointsGained is { } gained && bin.RankPointsLost is { } lost ? gained - lost : null, "kina" => LootTrackerPresentation.DisplayedKina(Session, bin), _ => null };
                     if (series.Key is "ap" or "rp" or "kina") rows.Add(new(at, end, "Minutenaggregat", UiText.T(series.Label), Number(amount)));
                 }
             }

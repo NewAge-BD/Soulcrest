@@ -42,7 +42,7 @@ public static class OverlayEditorDefaults
         }).ToArray();
         return new()
         {
-            AbyssBoundKinaMigrationVersion = 1,
+            AbyssBoundKinaMigrationVersion = 1, OpenWorldBoundKinaMigrationVersion = 1,
             SelectedOverlayId = windows[Array.IndexOf(ids, selectedPresetId)].Id,
             Overlays = Array.AsReadOnly(windows),
         };
@@ -57,9 +57,9 @@ public static class OverlayEditorDefaults
             Widget("duration", 168, 176, 168, 48, 168, 72, font: 1.5),
             Widget("market-kina", 0, 120, 168, 64, 168, 72, font: 1.3),
             Widget("clock", 0, 176, 168, 48, 248, 72, font: 1.65),
-            Widget("dropped-kina", 0, 72, 168, 64, 168, 72, font: 1.3),
+            Widget("bound-kina", 0, 72, 168, 64, 168, 72, font: 1.3),
             Widget("daily-kina", 0, 0, 336, 104, 280, 104, font: 1.45),
-            Widget("dropped-kina-hour", 168, 72, 168, 64, 168, 72, font: 1.3),
+            Widget("bound-kina-hour", 168, 72, 168, 64, 168, 72, font: 1.3),
             Widget("market-kina-hour", 168, 120, 168, 64, 168, 72, font: 1.3),
             Widget("drop-list", 0, 216, 336, 400, 344, 224, itemView: "list"),
         }),

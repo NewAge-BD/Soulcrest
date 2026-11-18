@@ -25,13 +25,13 @@ public sealed class OverlayService : IOverlayService
     internal OverlayService(string? directory, OverlayCollectionSettings missingDefaults)
     {
         ArgumentNullException.ThrowIfNull(missingDefaults);
-        _missingDefaults = missingDefaults with { AbyssBoundKinaMigrationVersion = Math.Max(1, missingDefaults.AbyssBoundKinaMigrationVersion) };
+        _missingDefaults = CurrentMigrationVersions(missingDefaults);
         var path = Path.GetFullPath(directory ?? Path.Combine(AppPaths.DataDirectory, "overlay-editor"));
         _saveGate = SaveGates.GetOrAdd(path, _ => new SemaphoreSlim(1, 1));
         _store = new(path);
         _templateStore = new(path);
         // Missing and unaffected layouts remain read-only. The user-approved one-time
-        // Abyss Kina replacement backs up and atomically commits an existing valid file.
+        // currency replacements back up and atomically commit an existing valid file.
         _saveGate.Wait();
         try
         {
@@ -224,16 +224,20 @@ public sealed class OverlayService : IOverlayService
         return Task.CompletedTask;
     }
 
-    // User request 2026-11-13: replace existing Abyss Kina widgets once, preserving user design.
+    // User requests 2026-11-13/18: independently replace Abyss/Open World Kina widgets once, preserving user design.
     // Call only while holding the shared save gate. Store.Load itself never writes.
     private OverlayCollectionSettings LoadCollection(OverlayCollectionSettings missing)
     {
         var current = _store.Load(missing);
-        if (current.AbyssBoundKinaMigrationVersion >= 1) return current;
+        var migrateAbyss = current.AbyssBoundKinaMigrationVersion < 1;
+        var migrateOpenWorld = current.OpenWorldBoundKinaMigrationVersion < 1;
+        if (!migrateAbyss && !migrateOpenWorld) return current;
         var changed = false;
         var windows = current.Overlays.Select(window =>
         {
-            if (window.Settings.TriggerRules?.Areas is not [OverlayTriggerArea.Abyss]) return window;
+            var area = window.Settings.TriggerRules?.Areas;
+            if (!(migrateAbyss && area is [OverlayTriggerArea.Abyss])
+                && !(migrateOpenWorld && area is [OverlayTriggerArea.OpenWorld])) return window;
             var windowChanged = false;
             var widgets = window.Settings.Widgets.Select(widget =>
             {
@@ -249,7 +253,7 @@ public sealed class OverlayService : IOverlayService
             }).ToArray();
             return windowChanged ? window with { Settings = window.Settings with { Widgets = Array.AsReadOnly(widgets) } } : window;
         }).ToArray();
-        var next = current with { AbyssBoundKinaMigrationVersion = 1, Overlays = Array.AsReadOnly(windows) };
+        var next = CurrentMigrationVersions(current) with { Overlays = Array.AsReadOnly(windows) };
         // Stamp unaffected layouts on the next user save, without marker-only startup writes.
         if (!changed) return next;
         foreach (var window in next.Overlays) OverlaySettingsStore.ValidateWidgets(window.Settings);
@@ -259,6 +263,12 @@ public sealed class OverlayService : IOverlayService
         _store.Save(next);
         return next;
     }
+
+    private static OverlayCollectionSettings CurrentMigrationVersions(OverlayCollectionSettings collection) => collection with
+    {
+        AbyssBoundKinaMigrationVersion = Math.Max(1, collection.AbyssBoundKinaMigrationVersion),
+        OpenWorldBoundKinaMigrationVersion = Math.Max(1, collection.OpenWorldBoundKinaMigrationVersion),
+    };
 
     private async Task<OverlaySaveResult> ChangeCollection(Func<OverlayCollectionSettings, OverlayCollectionSettings> change)
     {
@@ -273,8 +283,7 @@ public sealed class OverlayService : IOverlayService
             OverlayCollectionSettings next;
             try
             {
-                next = change(current);
-                next = next with { AbyssBoundKinaMigrationVersion = Math.Max(1, next.AbyssBoundKinaMigrationVersion) };
+                next = CurrentMigrationVersions(change(current));
             }
             catch (ArgumentException error) { return Failure(error.Message); }
             try { await Task.Run(() => _store.Save(next)).ConfigureAwait(false); }

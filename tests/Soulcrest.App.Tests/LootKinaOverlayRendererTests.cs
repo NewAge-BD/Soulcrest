@@ -96,8 +96,8 @@ public sealed class LootKinaOverlayRendererTests
     [Fact]
     public void CurrentSessionGrowsProportionallyFromTheBluePriorDailyAmount()
     {
-        var first = Example() with { DailyMonsterKina = 600_000, SessionKina = 100_000 };
-        var next = first with { DailyMonsterKina = 750_000, SessionKina = 250_000 };
+        var first = Example() with { DailyMonsterKina = 600_000, SessionKina = 100_000, SessionDailyKinaContribution = 100_000 };
+        var next = first with { DailyMonsterKina = 750_000, SessionKina = 250_000, SessionDailyKinaContribution = 250_000 };
         var before = LootOverlayRenderer.SessionSegmentBounds(first);
         var after = LootOverlayRenderer.SessionSegmentBounds(next);
         Assert.Equal(before.Left, after.Left);
@@ -114,12 +114,12 @@ public sealed class LootKinaOverlayRendererTests
     [Fact]
     public void SessionContributionCannotFillBeyondTheKnownDailyAmount()
     {
-        var snapshot = Example() with { DailyMonsterKina = 50_000, SessionKina = 500_000 };
+        var snapshot = Example() with { DailyMonsterKina = 50_000, SessionKina = 500_000, SessionDailyKinaContribution = 500_000 };
         var segment = LootOverlayRenderer.SessionSegmentBounds(snapshot);
         Assert.Equal(17f, segment.Left);
         Assert.Equal(22.3, segment.Width, 3);
         using var clipped = LootOverlayRenderer.RenderBitmap(snapshot, "aion2-stylized", animationSeconds: 1);
-        using var baseline = LootOverlayRenderer.RenderBitmap(snapshot with { SessionKina = 0 }, "aion2-stylized", animationSeconds: 1);
+        using var baseline = LootOverlayRenderer.RenderBitmap(snapshot with { SessionKina = 0, SessionDailyKinaContribution = null }, "aion2-stylized", animationSeconds: 1);
         for (var x = (int)Math.Ceiling(segment.Right) + 1; x < LootOverlayRenderer.DailyBar.Right - 1; x++)
             Assert.Equal(baseline.GetPixel(x, 82), clipped.GetPixel(x, 82));
     }
@@ -145,7 +145,7 @@ public sealed class LootKinaOverlayRendererTests
     [InlineData(1000000L, 500000L)]
     public void UnknownEmptyAndCompletedDailyTotalsNeedNoSessionAnimation(long? daily, long session)
     {
-        var snapshot = Example() with { DailyMonsterKina = daily, SessionKina = session };
+        var snapshot = Example() with { DailyMonsterKina = daily, SessionKina = session, SessionDailyKinaContribution = session };
         Assert.Equal(RectangleF.Empty, LootOverlayRenderer.SessionSegmentBounds(snapshot));
         Assert.False(new LootOverlayAnimation().IsAnimating(snapshot, 0));
     }
@@ -153,10 +153,18 @@ public sealed class LootKinaOverlayRendererTests
     [Fact]
     public void AOneKinaContributionKeepsItsExactSubpixelExtentWithoutExpandingTheTrack()
     {
-        var snapshot = Example() with { DailyMonsterKina = 500_001, SessionKina = 1 };
+        var snapshot = Example() with { DailyMonsterKina = 500_001, SessionKina = 1, SessionDailyKinaContribution = 1 };
         Assert.InRange(LootOverlayRenderer.SessionSegmentBounds(snapshot).Width, 0, .001f);
         using var image = LootOverlayRenderer.RenderBitmap(snapshot, "aion2-stylized");
         Assert.Equal(480, image.Width);
+    }
+
+    [Fact]
+    public void ASessionBoundTotalAloneNeverInventsADailyContribution()
+    {
+        var snapshot = Example() with { SessionKina = 900_000, SessionDailyKinaContribution = null };
+        Assert.Equal(RectangleF.Empty, LootOverlayRenderer.SessionSegmentBounds(snapshot));
+        Assert.False(new LootOverlayAnimation().IsAnimating(snapshot, 0));
     }
 
     [Fact]
@@ -272,7 +280,7 @@ public sealed class LootKinaOverlayRendererTests
         new("synthetic-item-a", "Example item A", 12),
         new("synthetic-item-b", "Example item B", 3),
         new("synthetic-item-c", "Example item C", 1)
-    ], CompletionScopeKey: "synthetic-character:synthetic-day");
+    ], CompletionScopeKey: "synthetic-character:synthetic-day") { SessionDailyKinaContribution = 184_720 };
 
     private static IEnumerable<Color> RowPixels(Bitmap image, int y, int height) => Enumerable.Range(y, height)
         .SelectMany(row => Enumerable.Range(36, image.Width - 52).Select(x => image.GetPixel(x, row)));

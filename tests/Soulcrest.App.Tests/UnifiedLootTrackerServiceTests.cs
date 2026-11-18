@@ -24,7 +24,8 @@ public sealed partial class UnifiedLootTrackerServiceTests
         var session = Assert.Single(f.Service.Snapshot.Sessions);
         Assert.Equal(id, session.Id); Assert.Equal(LootTrackerSessionKind.Mixed, session.Kind);
         Assert.Equal(1, session.UnifiedVersion); Assert.Equal(TimeSpan.FromSeconds(20), session.Elapsed);
-        Assert.Equal(9, session.ItemCount); Assert.Equal(1, session.HarvestCount); Assert.Equal(25, session.KinaUnbound);
+        Assert.Equal(9, session.ItemCount); Assert.Equal(1, session.HarvestCount); Assert.Equal(25, session.KinaBound);
+        Assert.Null(session.KinaUnbound);
         Assert.Equal(5, Assert.Single(session.Loot, row => row.Id == "Item:7").Quantity);
         Assert.Equal(4, Assert.Single(session.Loot, row => row.Id == "Item:8").Quantity);
         var harvest = Assert.Single(session.TimelineEvents, row => row.Kind == LootTrackerTimelineEventKind.HarvestSuccess);
@@ -33,7 +34,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         Assert.Equal(LootTrackerActivityOrigin.Pve, Assert.Single(session.TimelineEvents, row => row.Kind == LootTrackerTimelineEventKind.Drop).Origin);
         Assert.Equal(3, f.Accepted.Count); Assert.Single(f.Starts);
         var recovered = Assert.Single(new UnifiedLootSessionStore(f.SessionRoot).Read().Sessions);
-        Assert.Equal(9, recovered.ItemCount); Assert.Equal(25, recovered.KinaUnbound);
+        Assert.Equal(9, recovered.ItemCount); Assert.Equal(25, recovered.KinaBound); Assert.Null(recovered.KinaUnbound);
         Assert.Equal(LootTrackerSessionStatus.Interrupted, recovered.Status);
         Assert.Equal(9, recovered.TimelineEvents.SelectMany(row => row.Loot).Sum(row => row.Quantity));
     }
@@ -90,7 +91,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         f.Source.Harvest(1, new NetworkGatheringItem(7, 3)); f.Source.Harvest(1, new NetworkGatheringItem(7, 3));
         f.Source.Kina(10, 1); f.Source.Kina(10, 1); await f.Ready();
         Assert.Equal(5, Assert.Single(f.Service.Snapshot.Sessions).ItemCount);
-        Assert.Equal(10, Assert.Single(f.Service.Snapshot.Sessions).KinaUnbound);
+        Assert.Equal(10, Assert.Single(f.Service.Snapshot.Sessions).KinaBound);
         f.Settings.Current.LifeskillTrackingEnabled = false;
         f.Source.Harvest(2, new NetworkGatheringItem(7, 100));
         f.Settings.Current.LifeskillTrackingEnabled = true;
@@ -107,7 +108,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         var own = f.Source.OwnCharacter;
         f.Source.Kina(10, monsterSequence); f.Source.Kina(10, monsterSequence); await f.Ready();
         var first = Assert.Single(f.Service.Snapshot.Sessions);
-        Assert.Equal(10, first.KinaUnbound);
+        Assert.Equal(10, first.KinaBound); Assert.Null(first.KinaUnbound);
 
         f.SetWorld(abyss: true); await f.Ready();
         f.Source.Kina(20, abyssSequence); f.Source.Kina(20, abyssSequence); await f.Ready();
@@ -120,13 +121,16 @@ public sealed partial class UnifiedLootTrackerServiceTests
         Assert.DoesNotContain(f.Service.Snapshot.Sessions, row => row.Status == LootTrackerSessionStatus.Live);
         f.Source.Kina(30, monsterSequence + 1); f.Source.Kina(30, monsterSequence + 1); await f.Ready();
         var after = Assert.Single(f.Service.Snapshot.Sessions, row => row.Status == LootTrackerSessionStatus.Live);
-        Assert.Equal(LootTrackerSessionKind.Mixed, after.Kind); Assert.Equal(30, after.KinaUnbound);
+        Assert.Equal(LootTrackerSessionKind.Mixed, after.Kind); Assert.Equal(30, after.KinaBound); Assert.Null(after.KinaUnbound);
         Assert.NotEqual(first.Id, after.Id); Assert.Equal(3, f.Service.Snapshot.Sessions.Length);
         Assert.Same(own, f.Source.OwnCharacter);
-        Assert.Equal(60, f.Service.Snapshot.Sessions.Sum(row => row.KinaUnbound ?? 0));
+        Assert.Equal(40, f.Service.Snapshot.Sessions.Sum(row => row.KinaBound ?? 0));
+        Assert.Equal(20, f.Service.Snapshot.Sessions.Sum(row => row.KinaUnbound ?? 0));
         Assert.All(f.Service.Snapshot.Sessions, row =>
-            Assert.Single(row.TimelineEvents, fact => fact.Kind == LootTrackerTimelineEventKind.KinaUnbound));
-        Assert.Equal(60, new UnifiedLootSessionStore(f.SessionRoot).Read().Sessions.Sum(row => row.KinaUnbound ?? 0));
+            Assert.Single(row.TimelineEvents, fact => fact.Kind == (row.Kind == LootTrackerSessionKind.Abyss
+                ? LootTrackerTimelineEventKind.KinaUnbound : LootTrackerTimelineEventKind.KinaBound)));
+        var recovered = new UnifiedLootSessionStore(f.SessionRoot).Read().Sessions;
+        Assert.Equal(40, recovered.Sum(row => row.KinaBound ?? 0)); Assert.Equal(20, recovered.Sum(row => row.KinaUnbound ?? 0));
     }
 
     [Theory]
@@ -140,12 +144,13 @@ public sealed partial class UnifiedLootTrackerServiceTests
         if (dailyReady) f.Source.Daily(0, notify: false);
         f.Source.Harvest(1, new NetworkGatheringItem(7, 2)); await f.Ready();
         var session = Assert.Single(f.Service.Snapshot.Sessions);
-        if (dailyReady) Assert.Equal(0, session.KinaUnbound);
-        else Assert.Null(session.KinaUnbound);
+        if (dailyReady) Assert.Equal(0, session.KinaBound);
+        else Assert.Null(session.KinaBound);
+        Assert.Null(session.KinaUnbound);
         var availability = Assert.Single(session.TimelineEvents,
-            row => row.Kind == LootTrackerTimelineEventKind.Availability && row.Metric == LootTrackerTimelineMetric.KinaUnbound);
+            row => row.Kind == LootTrackerTimelineEventKind.Availability && row.Metric == LootTrackerTimelineMetric.KinaBound);
         Assert.Equal(dailyReady, availability.Available);
-        Assert.DoesNotContain(session.TimelineEvents, row => row.Kind == LootTrackerTimelineEventKind.KinaUnbound);
+        Assert.DoesNotContain(session.TimelineEvents, row => row.Kind is LootTrackerTimelineEventKind.KinaUnbound or LootTrackerTimelineEventKind.KinaBound);
         Assert.Equal(2, session.ItemCount);
     }
 
@@ -171,7 +176,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
         f.Source.Daily(1_000_001); f.Source.Kina(9, 1); await f.Ready();
         var current = Assert.Single(f.Service.Snapshot.Sessions);
         Assert.Equal(first.Id, current.Id); Assert.Equal(first.StartedAt, current.StartedAt);
-        Assert.Equal(LootTrackerSessionMode.LimitedKina, current.Mode); Assert.Equal(9, current.KinaUnbound);
+        Assert.Equal(LootTrackerSessionMode.LimitedKina, current.Mode); Assert.Equal(9, current.KinaBound); Assert.Null(current.KinaUnbound);
         Assert.Equal(LootTrackerSessionStatus.Live, current.Status);
     }
 
@@ -592,7 +597,8 @@ public sealed partial class UnifiedLootTrackerServiceTests
         internal TimeSpan WorldOffset;
         internal Fixture(bool abyss = false, DateTimeOffset? start = null, IEnumerable<LootTrackerSession>? legacy = null,
             Func<LootTrackerSession, bool>? deleteLegacy = null, bool replayPositions = false,
-            Func<RecorderPositionSnapshot, FarmLocationMatch?>? locationName = null)
+            Func<RecorderPositionSnapshot, FarmLocationMatch?>? locationName = null,
+            IEnumerable<LootTrackerSession>? storedHistory = null)
         {
             Directory.CreateDirectory(Root); Clock = new(start); Source = new(Clock);
             Settings.Current.LootTrackingEnabled = Settings.Current.MonsterLootTrackingEnabled = true;
@@ -605,6 +611,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
                 if (FailAppend) throw new IOException("Synthetic append failure.");
                 File.AppendAllText(path, line, new UTF8Encoding(false)); Journal.Add(line);
             }, (path, value) => JsonFile.Save(path, value));
+            foreach (var historical in storedHistory ?? []) store.Append(historical);
             if (replayPositions) PositionRecorder = new(null, root: SessionRoot, time: Clock);
             Service = new(Settings, Source, Source, Source, Source, own =>
             {
@@ -668,8 +675,12 @@ public sealed partial class UnifiedLootTrackerServiceTests
         internal void Failed(long sequence) => GatheringCompleted?.Invoke(new(_clock.GetUtcNow(), sequence, OwnCharacter!, 777_777, [])
         { Outcome = NetworkGatheringOutcome.Failed, InInstance = InInstance });
         internal void Kina(long amount, long sequence)
-        { var gain = new NetworkKinaGain(_clock.GetUtcNow(), sequence, OwnCharacter!, amount) { InInstance = InInstance };
+        { var gain = new NetworkKinaGain(_clock.GetUtcNow(), sequence, OwnCharacter!, InInstance ? amount : 0)
+            { InInstance = InInstance, BoundKina = InInstance ? 0 : amount };
             KinaGained?.Invoke(gain); MonsterKinaGained?.Invoke(gain); }
+        internal void WalletKina(long amount, long sequence, bool bound = false) =>
+            KinaGained?.Invoke(new(_clock.GetUtcNow(), sequence, OwnCharacter!, bound ? 0 : amount)
+            { BoundKina = bound ? amount : 0, InInstance = InInstance });
         internal void BoundKina(long amount, long sequence, OwnCharacterContext? own = null, DateTimeOffset? at = null) =>
             KinaGained?.Invoke(new(at ?? _clock.GetUtcNow(), sequence, own ?? OwnCharacter!, 0)
             { BoundKina = amount, InInstance = InInstance });

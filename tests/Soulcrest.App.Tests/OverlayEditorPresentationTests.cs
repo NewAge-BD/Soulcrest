@@ -169,19 +169,22 @@ public sealed class OverlayEditorPresentationTests
     }
 
     [Theory]
-    [InlineData(LootTrackerActivityOrigin.Pve, LootTrackerTimelineEventKind.Drop, true)]
+    [InlineData(LootTrackerActivityOrigin.Pve, LootTrackerTimelineEventKind.Drop, false)]
     [InlineData(LootTrackerActivityOrigin.Pve, LootTrackerTimelineEventKind.KinaBound, true)]
-    [InlineData(LootTrackerActivityOrigin.Pve, LootTrackerTimelineEventKind.KinaUnbound, true)]
+    [InlineData(LootTrackerActivityOrigin.Pve, LootTrackerTimelineEventKind.KinaUnbound, false)]
     [InlineData(LootTrackerActivityOrigin.Pve, LootTrackerTimelineEventKind.AbyssPoints, false)]
     [InlineData(LootTrackerActivityOrigin.Lifeskill, LootTrackerTimelineEventKind.KinaUnbound, false)]
+    [InlineData(LootTrackerActivityOrigin.Lifeskill, LootTrackerTimelineEventKind.KinaBound, false)]
     [InlineData(LootTrackerActivityOrigin.Abyss, LootTrackerTimelineEventKind.KinaUnbound, false)]
+    [InlineData(LootTrackerActivityOrigin.Abyss, LootTrackerTimelineEventKind.KinaBound, false)]
     [InlineData(null, LootTrackerTimelineEventKind.KinaUnbound, false)]
-    public void DailySessionSegmentKeepsTheNativePveTimelineGate(LootTrackerActivityOrigin? origin,
+    [InlineData(null, LootTrackerTimelineEventKind.KinaBound, false)]
+    public void DailySessionSegmentRequiresAPveBoundReceipt(LootTrackerActivityOrigin? origin,
         LootTrackerTimelineEventKind kind, bool expected)
     {
         var session = PveSession() with
         {
-            TimelineEvents = [new("activity", kind, Now, TimeSpan.FromMinutes(30)) { Origin = origin }],
+            TimelineEvents = [new("activity", kind, Now, TimeSpan.FromMinutes(30)) { Origin = origin, Amount = 200_000 }],
         };
         var state = ConfirmedDailyState(session);
         var progress = Project(state).DailyProgress;
@@ -195,12 +198,13 @@ public sealed class OverlayEditorPresentationTests
     [InlineData(null)]
     [InlineData(0L)]
     [InlineData(-1L)]
-    public void DailySessionSegmentNeverInfersUnboundIncomeFromOtherCurrencyOrMarketValues(long? income)
+    [InlineData(200_000L)]
+    public void DailySessionSegmentNeverInfersBoundIncomeFromOtherCurrencyOrMarketValues(long? income)
     {
         var session = PveSession(income) with
         {
-            KinaBound = 900_000, AbyssPoints = 300_000,
-            TimelineEvents = [new("bound-only", LootTrackerTimelineEventKind.KinaBound, Now, TimeSpan.FromMinutes(30))
+            KinaUnbound = 900_000, AbyssPoints = 300_000,
+            TimelineEvents = [new("unbound-only", LootTrackerTimelineEventKind.KinaUnbound, Now, TimeSpan.FromMinutes(30))
                 { Origin = LootTrackerActivityOrigin.Pve, Amount = 900_000 }],
         };
         var market = new OverlayEditorMarketSnapshot
@@ -212,6 +216,42 @@ public sealed class OverlayEditorPresentationTests
         Assert.Equal(.65, snapshot.DailyProgress.Fraction);
         Assert.Null(snapshot.DailyProgress.SessionStartFraction);
         Assert.Null(snapshot.DailyProgress.SessionFraction);
+    }
+
+    [Fact]
+    public void EditorAndNativeDailySegmentsUseOnlyCurrentDayPveBoundReceiptsOfTheMixedParent()
+    {
+        var session = PveSession() with
+        {
+            KinaBound = 700_000, KinaUnbound = 900_000,
+            TimelineEvents =
+            [
+                new("pve-a", LootTrackerTimelineEventKind.KinaBound, Now, TimeSpan.FromMinutes(29))
+                    { Origin = LootTrackerActivityOrigin.Pve, Amount = 120_000 },
+                new("pve-b", LootTrackerTimelineEventKind.KinaBound, Now, TimeSpan.FromMinutes(30))
+                    { Origin = LootTrackerActivityOrigin.Pve, Amount = 80_000 },
+                new("other-bound", LootTrackerTimelineEventKind.KinaBound, Now, TimeSpan.FromMinutes(30))
+                    { Origin = LootTrackerActivityOrigin.Abyss, Amount = 500_000 },
+                new("unbound", LootTrackerTimelineEventKind.KinaUnbound, Now, TimeSpan.FromMinutes(30))
+                    { Origin = LootTrackerActivityOrigin.Pve, Amount = 900_000 },
+                new("old-day", LootTrackerTimelineEventKind.KinaBound, Now.AddDays(-1), TimeSpan.Zero)
+                    { Origin = LootTrackerActivityOrigin.Pve, Amount = 900_000 },
+                new("future", LootTrackerTimelineEventKind.KinaBound, Now.AddSeconds(1), TimeSpan.FromMinutes(30))
+                    { Origin = LootTrackerActivityOrigin.Pve, Amount = 900_000 },
+            ],
+        };
+        var state = ConfirmedDailyState(session);
+        var editor = Project(state);
+        var native = UnifiedLootOverlaySource.Project(state, AbyssProgressSnapshot.Empty, new());
+        Assert.Equal("700,000", editor.Metrics["bound-kina"].Value);
+        Assert.Equal(700_000, native.SessionKina);
+        Assert.Equal(1_400_000d, native.SessionKinaPerHour);
+        Assert.Equal(200_000, native.SessionDailyKinaContribution);
+        Assert.Equal(.45, editor.DailyProgress.SessionStartFraction);
+        Assert.Equal(.2, editor.DailyProgress.SessionFraction);
+        var bounds = LootOverlayRenderer.SessionSegmentBounds(native);
+        Assert.Equal(89.2, bounds.Width, 3);
+        Assert.Equal(MonsterLootIconCatalog.Default.ItemAsset(930100001), native.KinaIconPath);
     }
 
     [Theory]
@@ -461,7 +501,7 @@ public sealed class OverlayEditorPresentationTests
         Assert.Equal("267,540", example.Metrics["bound-kina"].Value);
         Assert.NotEqual(example.Metrics["dropped-kina"].Value, example.Metrics["bound-kina"].Value);
         Assert.Equal(.5, example.DailyProgress.SessionStartFraction);
-        Assert.Equal(.18472, example.DailyProgress.SessionFraction);
+        Assert.Equal(.26754, example.DailyProgress.SessionFraction);
         foreach (var language in new[] { "de", "en" })
         {
             var demo = OverlaySnapshot.DemoFor(language);
@@ -563,8 +603,8 @@ public sealed class OverlayEditorPresentationTests
     };
     private static LootTrackerSession PveSession(long? income = 200_000) => Session() with
     {
-        KinaUnbound = income, TimelineVersion = 1,
-        TimelineEvents = [new("pve-kina", LootTrackerTimelineEventKind.KinaUnbound, Now, TimeSpan.FromMinutes(30))
+        KinaBound = income, KinaUnbound = 0, TimelineVersion = 1,
+        TimelineEvents = [new("pve-kina", LootTrackerTimelineEventKind.KinaBound, Now, TimeSpan.FromMinutes(30))
             { Origin = LootTrackerActivityOrigin.Pve, Amount = income }],
     };
     private static UnifiedLootOverlayState ConfirmedDailyState(LootTrackerSession session, long total = 650_000) =>

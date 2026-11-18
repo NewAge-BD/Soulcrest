@@ -11,7 +11,8 @@ internal sealed class OverlaySettingsStore(string directory)
     internal OverlayCollectionSettings Load(OverlayCollectionSettings? missing = null)
     {
         var collection = OverlayKitJson.Read(FilePath, () => missing ?? new OverlayCollectionSettings());
-        if (collection.Version != 2 || collection.AbyssBoundKinaMigrationVersion < 0 || collection.Overlays is null || collection.Overlays.Count == 0)
+        if (collection.Version != 2 || collection.AbyssBoundKinaMigrationVersion < 0 || collection.OpenWorldBoundKinaMigrationVersion < 0
+            || collection.Overlays is null || collection.Overlays.Count == 0)
             throw new InvalidDataException("Das Format der Overlay-Datei wird nicht unterstützt.");
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

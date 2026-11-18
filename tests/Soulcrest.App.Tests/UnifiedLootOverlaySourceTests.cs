@@ -32,8 +32,8 @@ public sealed class UnifiedLootOverlaySourceTests
     {
         var session = Session() with
         {
-            KinaUnbound = 600, HarvestCount = 3, FailedHarvestCount = 0, ItemCount = 8,
-            TimelineEvents = [Fact(LootTrackerTimelineEventKind.KinaUnbound, LootTrackerActivityOrigin.Pve),
+            KinaBound = 600, KinaUnbound = 0, HarvestCount = 3, FailedHarvestCount = 0, ItemCount = 8,
+            TimelineEvents = [Fact(LootTrackerTimelineEventKind.KinaBound, LootTrackerActivityOrigin.Pve),
                 Fact(LootTrackerTimelineEventKind.HarvestSuccess, LootTrackerActivityOrigin.Lifeskill)]
         };
         var result = Project(session, new() { LootTrackerViewMode = mode });
@@ -58,6 +58,23 @@ public sealed class UnifiedLootOverlaySourceTests
         Assert.Equal(2d, Project(session, new() { AbyssPointRatePeriod = AbyssPointRatePeriod.Minute }).SessionAbyssPointsRate);
         Assert.Null(Project(session with { Elapsed = TimeSpan.Zero }).SessionAbyssPointsRate);
         Assert.False(Project(session with { Status = LootTrackerSessionStatus.Completed, EndedAt = At }).HasAbyssPointActivity);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(-1L)]
+    [InlineData(0L)]
+    [InlineData(600L)]
+    public void NativeSessionCountersUseBoundKinaWithoutBorrowingTheUnboundWallet(long? bound)
+    {
+        var session = Session() with { KinaBound = bound, KinaUnbound = 900_000 };
+        var result = Project(session);
+        Assert.Equal(bound is >= 0, result.SessionKinaKnown);
+        Assert.Equal(bound is >= 0 ? bound : 0, result.SessionKina);
+        Assert.Equal(bound is >= 0 ? bound * 2d : null, result.SessionKinaPerHour);
+        Assert.Equal(MonsterLootIconCatalog.Default.ItemAsset(930100001), result.KinaIconPath);
+        Assert.Null(result.SessionDailyKinaContribution);
+        Assert.Null(Project(session with { Elapsed = TimeSpan.Zero }).SessionKinaPerHour);
     }
 
     [Fact]

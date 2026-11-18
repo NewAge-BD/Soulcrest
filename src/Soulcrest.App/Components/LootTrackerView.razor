@@ -107,7 +107,7 @@
                             <span class="lt-session-name">@Name(row)</span>
                             @if (row.LocationApproximate) { <span class="lt-location-approx" title="@UiText.T("Nächstgelegenes Gebietslabel; keine bestätigte Gebietsgrenze.")">≈ @UiText.T("Ortszuordnung angenähert")</span> }
                             <span class="lt-session-character">@CharacterName(row)</span>
-                            <span class="lt-session-meta"><span>@LocalDate(row.StartedAt) · @Duration(row.Elapsed)</span><strong title="@(HasUnboundOnlyKina(row) ? UiText.T("Nur bestätigte ungebundene Kina") : null)">@(row.Kind == LootTrackerSessionKind.Abyss ? Number(row.AbyssPoints) + " AP" : row.Kind == LootTrackerSessionKind.Lifeskill ? UiText.F("{0} Items", Number(row.ItemCount)) : Number(DisplayedKina(row)))</strong></span>
+                            <span class="lt-session-meta"><span>@LocalDate(row.StartedAt) · @Duration(row.Elapsed)</span><strong title="@KinaIncomeHint(row)">@(row.Kind == LootTrackerSessionKind.Abyss ? Number(row.AbyssPoints) + " AP" : row.Kind == LootTrackerSessionKind.Lifeskill ? UiText.F("{0} Items", Number(row.ItemCount)) : Number(DisplayedKina(row)))</strong></span>
                         </button>
                         <button type="button" class="lt-session-delete" data-delete-session-id="@row.Id" title="@UiText.T("Session löschen")" aria-label="@UiText.F("Session {0} löschen", Name(row))" disabled="@(IsExample || !DeleteSession.HasDelegate || _deletingId is not null || _deleteAwaitingRemovalId == row.Id)" aria-busy="@(_deletingId == row.Id)" @onclick="@(() => RequestDelete(row.Id))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 10v7 M14 10v7" /></svg></button>
                         @if (_deleteConfirmId == row.Id)
@@ -168,8 +168,8 @@
                         }
                         @if (LootTrackerSessionProjection.ShowsPve(session) || LootTrackerSessionProjection.ShowsAbyss(session))
                         {
-                        <div class="lt-metric gold"><dt>@UiText.T(HasUnboundOnlyKina(session) ? "Ungebundene Kina" : "Kina gesamt")</dt><dd class="lt-kina-value">@KinaIcon<span data-testid="kina-total">@Number(DisplayedKina(session))</span></dd><div class="lt-breakdown"><span>@UiText.T("Gebunden") <b data-testid="kina-bound">@Number(session.KinaBound)</b></span><span>@UiText.T("Ungebunden") <b data-testid="kina-unbound">@Number(session.KinaUnbound)</b></span></div></div>
-                        <div class="lt-metric rate"><dt>@UiText.T("Kina pro Stunde")</dt><dd class="lt-kina-value">@KinaIcon<span data-testid="kina-rate">@Rate(session)</span></dd><small>@UiText.T("Nur erfasste Einnahmen")</small></div>
+                        <div class="lt-metric gold"><dt>@UiText.T(LootTrackerPresentation.KinaIncomeLabel(session))</dt><dd class="lt-kina-value">@SessionKinaIcon(session)<span data-testid="kina-total">@Number(DisplayedKina(session))</span></dd><div class="lt-breakdown"><span>@UiText.T("Gebunden") <b data-testid="kina-bound">@Number(session.KinaBound)</b></span><span>@UiText.T("Ungebunden") <b data-testid="kina-unbound">@Number(session.KinaUnbound)</b></span></div></div>
+                        <div class="lt-metric rate"><dt>@UiText.T("Kina pro Stunde")</dt><dd class="lt-kina-value">@SessionKinaIcon(session)<span data-testid="kina-rate">@Rate(session)</span></dd><small>@UiText.T("Nur erfasste Einnahmen")</small></div>
                         @if (session.Kind == LootTrackerSessionKind.Lifeskill) { <div class="lt-metric"><dt>@UiText.T("Ressourcen-Nodes")</dt><dd data-testid="resource-count">@Number(resourceVisits.Count > 0 ? resourceVisits.Count : null)</dd><small>@UiText.T("In Besuchsreihenfolge aufgenommen")</small></div> }
                         else { <div class="lt-metric"><dt>@UiText.T("Monster")</dt><dd data-testid="monster-count">@Number(session.MonsterCount)</dd><small>@UiText.T("Bestätigte eigene Kills")</small></div> }
                         <div class="lt-metric"><dt>@UiText.T("Souls")</dt><dd data-testid="soul-count">@Number(session.SoulCount)</dd><small>@UiText.F("{0} Items erhalten", Number(session.ItemCount))</small></div>
@@ -362,9 +362,11 @@
     private static string RarityClass(LootItemRarity rarity) => rarity != LootItemRarity.Unknown && Enum.IsDefined(rarity) ? "rarity-" + rarity.ToString().ToLowerInvariant() : "";
     private static RenderFragment LootIcon(string key) => @<span class="lt-loot-icon" aria-hidden="true">@if (MonsterLootIconCatalog.Default.DropAsset(key) is { } path) { <img src="@path" width="24" height="24" alt="" /> }</span>;
     private static RenderFragment KinaIcon => @<span class="lt-kina-icon" aria-hidden="true">@if (MonsterLootIconCatalog.Default.ItemAsset(930100031) is { } path) { <img src="@path" width="24" height="24" alt="" /> }</span>;
-    private static bool HasUnboundOnlyKina(LootTrackerSession session) => session.KinaBound is null && session.KinaUnbound is >= 0;
-    private static long? DisplayedKina(LootTrackerSession session) => HasUnboundOnlyKina(session)
-        ? session.KinaUnbound : LootTrackerPresentation.TotalKina(session);
+    private static RenderFragment SessionKinaIcon(LootTrackerSession session) => @<span class="lt-kina-icon" aria-hidden="true">@if (MonsterLootIconCatalog.Default.ItemAsset(LootTrackerPresentation.HasBoundOnlyKina(session) ? 930100001 : 930100031) is { } path) { <img src="@path" width="24" height="24" alt="" /> }</span>;
+    private static string? KinaIncomeHint(LootTrackerSession session) => LootTrackerPresentation.HasBoundOnlyKina(session)
+        ? UiText.T("Nur bestätigte gebundene Kina") : LootTrackerPresentation.HasUnboundOnlyKina(session)
+            ? UiText.T("Nur bestätigte ungebundene Kina") : null;
+    private static long? DisplayedKina(LootTrackerSession session) => LootTrackerPresentation.DisplayedKina(session);
     private string Rate(LootTrackerSession session) => LootTrackerPresentation.PerHour(DisplayedKina(session), session.Elapsed) is { } rate ? rate.ToString("N0", Culture) : "—";
     private string ItemRate(LootTrackerSession session) => LootTrackerPresentation.PerHour(session.ItemCount, session.Elapsed) is { } rate ? rate.ToString("N0", Culture) : "—";
     private string HarvestRate(LootTrackerSession session) => LootTrackerPresentation.PerHour(session.HarvestCount, session.Elapsed) is { } rate ? rate.ToString("N0", Culture) : "—";

@@ -109,15 +109,11 @@ internal static class OverlayEditorPresentation
         const long limit = 1_000_000;
         var fraction = daily is { } total ? Math.Clamp(total / (double)limit, 0, 1) : (double?)null;
         double? sessionStartFraction = null, sessionFraction = null;
-        // Match the native PvE bar: only known current-session income can explain
-        // a portion of today's confirmed total; a full goal has no moving segment.
-        if (dailyConfirmed && daily is > 0 and < limit && session is { KinaUnbound: > 0 }
-            && session.Kind is not (LootTrackerSessionKind.Abyss or LootTrackerSessionKind.Lifeskill)
-            && session.TimelineEvents.Any(fact => fact.Origin == LootTrackerActivityOrigin.Pve
-                && fact.Kind is LootTrackerTimelineEventKind.Drop or LootTrackerTimelineEventKind.KinaBound or LootTrackerTimelineEventKind.KinaUnbound))
+        // The parent can also contain other activities; only its proven PvE Bound receipts belong to this bar.
+        if (LootTrackerDailyKinaPresentation.SessionContribution(session, daily, dailyConfirmed,
+                state.TrackingAvailable, now) is { } contribution)
         {
-            var contribution = Math.Clamp(session.KinaUnbound.Value, 0, daily.Value);
-            sessionStartFraction = (daily.Value - contribution) / (double)limit;
+            sessionStartFraction = (daily!.Value - contribution) / (double)limit;
             sessionFraction = contribution / (double)limit;
         }
         var dailyDetail = T(daily is null ? "Tagesstand unbekannt" : !dailyConfirmed ? "Gespeicherter Tagesstand"
@@ -160,14 +156,14 @@ internal static class OverlayEditorPresentation
             TimelineEvents = [new("example-kina", LootTrackerTimelineEventKind.KinaUnbound, now, TimeSpan.FromMinutes(42.5))
                 { Origin = LootTrackerActivityOrigin.Pve, Amount = 184_720 },
                 new("example-bound-kina", LootTrackerTimelineEventKind.KinaBound, now, TimeSpan.FromMinutes(42.5))
-                    { Origin = LootTrackerActivityOrigin.Abyss, Amount = 267_540 }],
+                    { Origin = LootTrackerActivityOrigin.Pve, Amount = 267_540 }],
             Loot = [new("Item:531900004", "", LootTrackerLootKind.Soul, 24),
                 new("Item:210230006", "", LootTrackerLootKind.Item, 1),
                 new("Item:510116011", "", LootTrackerLootKind.Item, 12),
                 new("Item:511490001", "", LootTrackerLootKind.Item, 3)],
         };
         var state = new UnifiedLootOverlayState(session, true, new(null, null, null, 0),
-            new(profile, 684_720, now), true, now);
+            new(profile, 767_540, now), true, now);
         var market = new OverlayEditorMarketSnapshot
         {
             SessionId = session.Id, SourceProfileId = profile, Available = true, OnlineEnabled = true,

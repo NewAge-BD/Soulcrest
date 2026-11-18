@@ -57,9 +57,7 @@ public static class LootTrackerTimeline
             }
             if (LootTrackerSessionProjection.ShowsPve(session) || LootTrackerSessionProjection.ShowsAbyss(session))
             {
-                var unbound = session.KinaBound is null;
-                series.Add(Metric(session, "kina", unbound ? "Ungebundene Kina" : "Kina gesamt", unbound
-                    ? [LootTrackerTimelineMetric.KinaUnbound] : [LootTrackerTimelineMetric.KinaBound, LootTrackerTimelineMetric.KinaUnbound], mode));
+                series.Add(Kina(session, mode));
                 series.Add(Counter(session, "souls", "Souls", mode));
             }
             series.Add(Counter(session, "items", "Itemmenge", mode));
@@ -76,11 +74,15 @@ public static class LootTrackerTimeline
         if (session.Kind == LootTrackerSessionKind.Lifeskill)
             return [Counter(session, "items", "Itemmenge", mode), Counter(session, "success", "Sammelerfolge", mode),
                 Counter(session, "failure", "Fehlversuche", mode)];
-        var onlyUnbound = session.KinaBound is null && session.KinaUnbound is >= 0;
-        return [Metric(session, "kina", onlyUnbound ? "Ungebundene Kina" : "Kina gesamt",
-                onlyUnbound ? [LootTrackerTimelineMetric.KinaUnbound] : [LootTrackerTimelineMetric.KinaBound, LootTrackerTimelineMetric.KinaUnbound], mode),
+        return [Kina(session, mode),
             Counter(session, "items", "Itemmenge", mode), Counter(session, "souls", "Souls", mode)];
     }
+
+    private static Series Kina(LootTrackerSession session, LootTimelineValueMode mode) =>
+        Metric(session, "kina", LootTrackerPresentation.KinaIncomeLabel(session),
+            LootTrackerPresentation.HasBoundOnlyKina(session) ? [LootTrackerTimelineMetric.KinaBound]
+            : LootTrackerPresentation.HasUnboundOnlyKina(session) ? [LootTrackerTimelineMetric.KinaUnbound]
+            : [LootTrackerTimelineMetric.KinaBound, LootTrackerTimelineMetric.KinaUnbound], mode);
 
     private static Series Metric(LootTrackerSession session, string key, string label,
         LootTrackerTimelineMetric[] metrics, LootTimelineValueMode mode)
@@ -171,7 +173,7 @@ public static class LootTrackerTimeline
             {
                 "ap" => bin.AbyssPoints,
                 "rp" => bin.RankPointsGained is { } gained && bin.RankPointsLost is { } lost ? checked(gained - lost) : null,
-                _ => session.KinaBound is null ? bin.KinaUnbound : bin.KinaBound is { } bound && bin.KinaUnbound is { } unbound ? checked(bound + unbound) : null
+                _ => LootTrackerPresentation.DisplayedKina(session, bin)
             };
             var start = TimeSpan.FromTicks(Math.Min(End(session).Ticks, TimeSpan.FromMinutes(bin.Minute).Ticks));
             var finish = TimeSpan.FromTicks(Math.Min(End(session).Ticks, TimeSpan.FromMinutes((double)bin.Minute + 1).Ticks));

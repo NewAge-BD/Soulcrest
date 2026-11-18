@@ -162,7 +162,7 @@ public sealed class OverlayPreviewRenderer : IDisposable
         new("synthetic-seed", MonsterLootItemCatalog.Default.Name(511490001, language), 3)
             { IconPath = MonsterLootIconCatalog.Default.ItemAsset(511490001) }
     ], CompletionScopeKey: "synthetic-character:synthetic-day")
-        { KinaIconPath = MonsterLootIconCatalog.Default.ItemAsset(930100031),
+        { KinaIconPath = MonsterLootIconCatalog.Default.ItemAsset(930100001), SessionDailyKinaContribution = 184_720,
             SessionElapsed = TimeSpan.FromMinutes(28), SessionKinaPerHour = 184_720 / TimeSpan.FromMinutes(28).TotalHours };
 
     private Bitmap Boss(AppSettings settings, OverlayThemeDefinition theme)

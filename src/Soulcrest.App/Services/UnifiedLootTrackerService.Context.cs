@@ -88,13 +88,13 @@ public sealed partial class UnifiedLootTrackerService
         var own = _own;
         var current = own is not null && QualifiedWorld(_world(), own, _time.GetUtcNow());
         var absolute = _absolute;
-        var kina = current && (abyss
-            ? absolute.KinaGainsQualified && QualifiedGain(absolute, own!, at, absolute.KinaGainsObservedAt)
+        var unboundKina = current && abyss && absolute.KinaGainsQualified
+            && QualifiedGain(absolute, own!, at, absolute.KinaGainsObservedAt);
+        Set(LootTrackerTimelineMetric.KinaUnbound, unboundKina);
+        var boundKina = current && (abyss ? QualifiedBoundKinaGain(absolute, own!, at)
             : _farm.Running && ReferenceEquals(_farm.OwnCharacter, own) && QualifiedDaily(_farm.DailyMonsterKinaSnapshot, own!, at));
-        Set(LootTrackerTimelineMetric.KinaUnbound, kina);
-        var boundKina = current && abyss && QualifiedBoundKinaGain(absolute, own!, at);
         Set(LootTrackerTimelineMetric.KinaBound, boundKina);
-        if (kina) session = session with { KinaUnbound = session.KinaUnbound ?? 0 };
+        if (unboundKina) session = session with { KinaUnbound = session.KinaUnbound ?? 0 };
         if (boundKina) session = session with { KinaBound = session.KinaBound ?? 0 };
         // Outside the Abyss this method runs only during an accepted activity booking.
         // Absolute observations alone cannot start/extend a session or append idle facts after LastLootAt.

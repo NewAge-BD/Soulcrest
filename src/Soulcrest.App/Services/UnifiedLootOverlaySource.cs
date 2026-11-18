@@ -49,7 +49,8 @@ public sealed class UnifiedLootOverlaySource : ILootOverlaySource, IDisposable
                 && fact.Kind is LootTrackerTimelineEventKind.Drop or LootTrackerTimelineEventKind.KinaBound or LootTrackerTimelineEventKind.KinaUnbound);
         var life = session?.TimelineEvents.Any(fact => fact.Kind is LootTrackerTimelineEventKind.HarvestSuccess
             or LootTrackerTimelineEventKind.HarvestFailure) == true;
-        return new(session?.Id, session is not null, session?.KinaUnbound ?? 0,
+        var bound = session is { KinaBound: >= 0 } ? session.KinaBound : null;
+        return new(session?.Id, session is not null, bound ?? 0,
             state.CachedDaily?.Total, LootOverlayDropPresentation.GroupCommonGear(drops), state.TrackingAvailable,
             profile is null || state.At == default ? null : $"{profile}:{LootFarmDay.Get(state.At):yyyy-MM-dd}")
         {
@@ -74,8 +75,10 @@ public sealed class UnifiedLootOverlaySource : ILootOverlaySource, IDisposable
             FailedHarvestCount = life ? session?.FailedHarvestCount : null,
             HarvestsPerHour = life ? LootTrackerPresentation.PerHour(session?.HarvestCount, elapsed) : null,
             ItemCount = session?.ItemCount,
-            SessionKinaKnown = session?.KinaUnbound is not null,
-            SessionKinaPerHour = LootTrackerPresentation.PerHour(session?.KinaUnbound, elapsed),
+            SessionKinaKnown = bound is not null,
+            SessionKinaPerHour = LootTrackerPresentation.PerHour(bound, elapsed),
+            SessionDailyKinaContribution = LootTrackerDailyKinaPresentation.SessionContribution(session,
+                state.CachedDaily?.Total, state.DailyConfirmed, state.TrackingAvailable, state.At),
             SessionAbyssPoints = session?.AbyssPoints,
             SessionAbyssPointsRate = settings.AbyssPointRatePeriod == AbyssPointRatePeriod.Minute
                 ? PerMinute(session?.AbyssPoints, elapsed) : LootTrackerPresentation.PerHour(session?.AbyssPoints, elapsed),
@@ -84,7 +87,7 @@ public sealed class UnifiedLootOverlaySource : ILootOverlaySource, IDisposable
             AbyssFarmConfirmed = progress.FarmedAbyssPointsConfirmed,
             DailyConfirmed = state.DailyConfirmed,
             LimitedKinaSession = session?.Mode == LootTrackerSessionMode.LimitedKina,
-            KinaIconPath = MonsterLootIconCatalog.Default.ItemAsset(930100031),
+            KinaIconPath = MonsterLootIconCatalog.Default.ItemAsset(930100001),
             AbyssPointIconPath = MonsterLootIconCatalog.Default.ItemAsset(930100003),
             AnimationsEnabled = settings.LootDropAnimationsEnabled,
             SessionElapsed = elapsed,

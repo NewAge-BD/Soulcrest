@@ -78,7 +78,7 @@ public sealed class ExchangeMarketUiTests
     public void OverlayOnlyProjectsFrozenPricesForItsQualifiedLiveSession()
     {
         var session = new LootTrackerSession { Id = "synthetic-live", Status = LootTrackerSessionStatus.Live,
-            Kind = LootTrackerSessionKind.Mixed, KinaUnbound = 12_345, Character = new(FirstProfile, "Synthetic profile A") };
+            Kind = LootTrackerSessionKind.Mixed, KinaBound = 12_345, KinaUnbound = 90_000, Character = new(FirstProfile, "Synthetic profile A") };
         var state = new UnifiedLootOverlayState(session, true, new(null, null, null, 0), null, false, At);
         var projected = UnifiedLootOverlaySource.Project(state, AbyssProgressSnapshot.Empty, new(), Summary());
         Assert.True(projected.ExchangeMarketDisplay); Assert.Equal(135_520, projected.ExchangeNetKina);

@@ -52,10 +52,11 @@ internal static class LootOverlayRenderer
     /// <summary>Only a fresh running session can explain a known part of today's confirmed total.</summary>
     internal static RectangleF SessionSegmentBounds(LootOverlaySnapshot snapshot)
     {
-        if (!ShowPveBlock(snapshot) || !snapshot.SessionKinaKnown || !snapshot.SessionActive || !snapshot.TrackingAvailable || !snapshot.DailyConfirmed
-            || snapshot.DailyLimitReached || snapshot.DailyMonsterKina is not { } total) return RectangleF.Empty;
+        if (!ShowPveBlock(snapshot) || !snapshot.SessionActive || !snapshot.TrackingAvailable || !snapshot.DailyConfirmed
+            || snapshot.DailyLimitReached || snapshot.DailyMonsterKina is not { } total
+            || snapshot.SessionDailyKinaContribution is not > 0) return RectangleF.Empty;
         var daily = Math.Clamp(total, 0, LootOverlaySnapshot.DailyLimit);
-        var contribution = Math.Clamp(snapshot.SessionKina, 0, daily);
+        var contribution = Math.Clamp(snapshot.SessionDailyKinaContribution.Value, 0, daily);
         if (contribution == 0) return RectangleF.Empty;
         var beforeSession = daily - contribution;
         var bounds = DailyBar;

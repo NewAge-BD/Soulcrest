@@ -58,9 +58,9 @@ public static class OverlayCatalog
     /// <summary>Exact bundled currency bindings shared with the native loot presentation.</summary>
     public static string? GameIconAsset(string? kind) => kind switch
     {
-        "market-kina" or "market-kina-hour" or "dropped-kina" or "dropped-kina-hour" or "daily-kina" =>
+        "market-kina" or "market-kina-hour" or "dropped-kina" or "dropped-kina-hour" =>
             Services.MonsterLootIconCatalog.Default.ItemAsset(930100031),
-        "bound-kina" or "bound-kina-hour" => Services.MonsterLootIconCatalog.Default.ItemAsset(930100001),
+        "bound-kina" or "bound-kina-hour" or "daily-kina" => Services.MonsterLootIconCatalog.Default.ItemAsset(930100001),
         "abyss-points" or "abyss-points-hour" => Services.MonsterLootIconCatalog.Default.ItemAsset(930100003),
         _ => null,
     };
@@ -79,7 +79,7 @@ public static class OverlayCatalog
         new OverlayWidgetDefinition("rank-net", "Rangpunkte netto", "Rangpunkte-Gewinne minus Verluste der Session", "trend", 168, 72),
         new OverlayWidgetDefinition("rank-gained", "Erhaltene Rangpunkte", "Rangpunkte-Gewinne der laufenden Session", "trend", 168, 72),
         new OverlayWidgetDefinition("rank-lost", "Verlorene Rangpunkte", "Rangpunkte-Verluste der laufenden Session", "trend", 168, 72),
-        new OverlayWidgetDefinition("daily-kina", "Tages-Kina", "Bestätigter Tagesstand bis 1.000.000 Kina", "trend", 280, 104),
+        new OverlayWidgetDefinition("daily-kina", "Tages-Kina", "Bestätigter Tagesstand gebundener Monster-Kina bis 1.000.000 Kina", "trend", 280, 104),
         new OverlayWidgetDefinition("market-kina-hour", "Market-Kina pro Stunde", "Netto-Marktwert pro Sessionstunde; 24h-Durchschnitt nur bei fehlendem aktuellem Preis", "trend", 168, 72),
         new OverlayWidgetDefinition("dropped-kina-hour", "Erbeutete Kina pro Stunde", "Ungebundene Kina pro gemeinsamer Sessionstunde", "trend", 168, 72),
         new OverlayWidgetDefinition("bound-kina-hour", "Gebundene Kina pro Stunde", "Gebundene Kina pro gemeinsamer Sessionstunde", "trend", 168, 72),

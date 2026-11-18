@@ -16,8 +16,8 @@ namespace Soulcrest.App.Tests;
 public sealed class OverlayKitCurrencyIconTests : IDisposable
 {
     private readonly string _language = UiText.Language;
-    private static readonly string[] Kina = ["market-kina", "market-kina-hour", "dropped-kina", "dropped-kina-hour", "daily-kina"];
-    private static readonly string[] BoundKina = ["bound-kina", "bound-kina-hour"];
+    private static readonly string[] Kina = ["market-kina", "market-kina-hour", "dropped-kina", "dropped-kina-hour"];
+    private static readonly string[] BoundKina = ["bound-kina", "bound-kina-hour", "daily-kina"];
     private static readonly string[] Ap = ["abyss-points", "abyss-points-hour"];
 
     public static IEnumerable<object[]> IconModes() => Kina.Concat(BoundKina).Concat(Ap).SelectMany(kind =>

@@ -544,16 +544,22 @@ public static class DiagnosticContributors
         {
             if (Existing<NetworkLootService>() is not { } network) return Missing();
             var progress = network.ProgressDiagnostics;
-            return Result(Settings?.LootTrackingEnabled == false ? DiagnosticStatus.Disabled
+            var receptionWithoutDecodedMessages = network.Running && network.Packets > 0 && network.Messages == 0;
+            var result = Result(Settings?.LootTrackingEnabled == false ? DiagnosticStatus.Disabled
                 : network.StatusIsError ? DiagnosticStatus.Error
-                : !network.Running || network.Packets == 0 ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy,
+                : !network.Running || network.Packets == 0 ? DiagnosticStatus.Waiting
+                : receptionWithoutDecodedMessages ? DiagnosticStatus.Warning : DiagnosticStatus.Healthy,
                 ("enabled", Settings?.LootTrackingEnabled), ("running", network.Running),
                 ("npcapInstalled", NetworkLootService.NpcapInstalled), ("packets", network.Packets),
                 ("messages", network.Messages), ("framingResyncs", network.Resyncs),
+                ("receptionWithoutDecodedMessages", receptionWithoutDecodedMessages),
                 ("identityBound", progress.IdentityBound), ("identityBindings", progress.IdentityBindings),
                 ("contextResets", progress.ContextResets), ("rejectedMessages", progress.RejectedProgressMessages),
                 ("pendingMessages", progress.PendingMessages), ("pendingBytes", progress.PendingBytes),
                 ("pendingOverflow", progress.PendingOverflow), ("unboundSoulMessages", progress.UnboundSoulMessages));
+            return result.Status == DiagnosticStatus.Warning && receptionWithoutDecodedMessages
+                ? result with { Summary = "Pakete werden empfangen, aber noch keine Nachrichten dekodiert. Prüfe Verbindungszuordnung und Nachrichtenrahmen." }
+                : result;
         }
 
         private DiagnosticResult Capture()
@@ -704,6 +710,7 @@ public static class DiagnosticContributors
                 ("enabled", enabled), ("sourceAvailable", tracker.SourceAvailable),
                 ("waitingForWorldContext", tracker.OverlayState.WaitingForWorldContext), ("sessions", sessions.Length),
                 ("dailyKinaConfirmed", id == "loot-pve" ? tracker.DailyMonsterKinaConfirmed : null),
+                ("dailyKinaCurrency", id == "loot-pve" ? "bound" : null),
                 ("sessionsWithActivity", id == "loot-pve" ? sessions.Count(session => session.MonsterCount > 0)
                     : sessions.Count(session => session.HarvestCount > 0 || session.FailedHarvestCount > 0)),
                 ("idlePauseSeconds", LootTrackerPresentation.IdlePauseSeconds),
@@ -967,29 +974,60 @@ public static class DiagnosticContributors
                 var settings = Settings;
                 var tracker = Existing<UnifiedLootTrackerService>();
                 var source = Existing<INetworkAbyssSource>() ?? Existing<NetworkLootService>();
+                var farm = Existing<INetworkFarmSource>() ?? Existing<NetworkLootService>();
                 var now = DateTimeOffset.UtcNow;
                 var state = tracker?.OverlayState;
                 var session = state is null ? null : OverlayEditorPresentation.CurrentSession(state, now);
-                var own = source?.OwnCharacter;
+                var abyss = session?.Kind == LootTrackerSessionKind.Abyss;
+                var own = abyss ? source?.OwnCharacter : farm?.OwnCharacter;
                 var snapshot = source?.AbyssSnapshot;
+                var daily = farm?.DailyMonsterKinaSnapshot;
                 var sourceAvailable = tracker?.SourceAvailable == true && state?.TrackingAvailable == true
-                    && source?.Running == true && own is not null;
-                var boundKnown = session is { Kind: LootTrackerSessionKind.Abyss, KinaBound: >= 0 };
-                var qualified = sourceAvailable && snapshot is { BoundKinaGainsQualified: true, FormatRejected: false, Sequence: > 0 }
+                    && (abyss ? source?.Running : farm?.Running) == true && own is not null;
+                var boundKnown = session is { KinaBound: >= 0 };
+                var abyssQualified = abyss && snapshot is { BoundKinaGainsQualified: true, FormatRejected: false, Sequence: > 0 }
                     && ReferenceEquals(snapshot.Character, own)
                     && snapshot.At is { } latest && latest != default && latest <= now
-                    && snapshot.BoundKinaGainsObservedAt is { } observed && observed != default && observed <= latest
+                    && snapshot.BoundKinaGainsObservedAt is { } observed && observed != default && observed <= latest;
+                var dailyQualified = !abyss && tracker?.DailyMonsterKinaConfirmed == true
+                    && daily is { Total: >= 0, Sequence: > 0 } && ReferenceEquals(daily.Character, own)
+                    && daily.At is { } dailyAt && dailyAt != default && dailyAt <= now
+                    && LootFarmDay.Get(dailyAt) == LootFarmDay.Get(now);
+                var qualified = sourceAvailable && (abyssQualified || dailyQualified)
                     && session?.TimelineEvents.LastOrDefault(row => row.Kind == LootTrackerTimelineEventKind.Availability
                         && row.Metric == LootTrackerTimelineMetric.KinaBound)?.Available == true;
                 var rateAvailable = boundKnown && session!.Elapsed > TimeSpan.Zero;
                 facts.AddRange([("sourceAvailable", sourceAvailable), ("qualified", qualified), ("boundKnown", boundKnown),
                     ("hourlyRateAvailable", rateAvailable), ("trackingEnabled", settings?.LootTrackingEnabled),
-                    ("abyssTrackingEnabled", settings?.AbyssTrackingEnabled)]);
-                status = settings?.LootTrackingEnabled == false || settings?.AbyssTrackingEnabled == false || status == DiagnosticStatus.Disabled
+                    ("abyssTrackingEnabled", settings?.AbyssTrackingEnabled), ("pveTrackingEnabled", settings?.MonsterLootTrackingEnabled),
+                    ("boundSource", session is null ? null : abyss ? "abyss-wallet" : "daily-monster"),
+                    ("dailyKinaConfirmed", tracker?.DailyMonsterKinaConfirmed)]);
+                var channelDisabled = session is null
+                    ? settings?.AbyssTrackingEnabled == false && settings?.MonsterLootTrackingEnabled == false
+                    : (abyss ? settings?.AbyssTrackingEnabled : settings?.MonsterLootTrackingEnabled) == false;
+                status = settings?.LootTrackingEnabled == false
+                    || channelDisabled || status == DiagnosticStatus.Disabled
                     ? DiagnosticStatus.Disabled : status == DiagnosticStatus.Error || tracker?.StatusIsError == true ? DiagnosticStatus.Error
-                    : tracker is null || source is null ? DiagnosticStatus.Unavailable
+                    : tracker is null || (abyss ? (object?)source : farm) is null ? DiagnosticStatus.Unavailable
                     : status != DiagnosticStatus.Healthy || !sourceAvailable || !qualified || !boundKnown
                         || kind == "bound-kina-hour" && !rateAvailable ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy;
+            }
+            if (kind == "daily-kina")
+            {
+                var tracker = Existing<UnifiedLootTrackerService>();
+                var state = tracker?.OverlayState;
+                var now = DateTimeOffset.UtcNow;
+                var known = state?.CachedDaily is { Total: >= 0 } saved && saved.ObservedAt != default
+                    && saved.ObservedAt <= now && LootFarmDay.Get(saved.ObservedAt) == LootFarmDay.Get(now);
+                var available = tracker?.SourceAvailable == true && state?.TrackingAvailable == true;
+                var confirmed = known && available && tracker?.DailyMonsterKinaConfirmed == true;
+                facts.AddRange([("currency", "bound"), ("dailyLimit", 1_000_000), ("dailyKnown", known),
+                    ("dailyConfirmed", confirmed), ("sourceAvailable", available)]);
+                status = Settings?.LootTrackingEnabled == false || Settings?.MonsterLootTrackingEnabled == false
+                    || status == DiagnosticStatus.Disabled ? DiagnosticStatus.Disabled
+                    : status == DiagnosticStatus.Error || tracker?.StatusIsError == true ? DiagnosticStatus.Error
+                    : tracker is null ? DiagnosticStatus.Unavailable
+                    : status != DiagnosticStatus.Healthy || !confirmed ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy;
             }
             return Result(status, facts.ToArray());
         }

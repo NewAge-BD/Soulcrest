@@ -114,7 +114,7 @@ public sealed class OverlayAbyssBoundKinaMigrationTests
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
-    public async Task MixedUnspecifiedAndOpenWorldLayoutsAreNotReinterpreted(bool mixed, bool openWorld)
+    public async Task AbyssMigrationSkipsMixedUnspecifiedAndAlreadyMigratedOpenWorldLayouts(bool mixed, bool openWorld)
     {
         using var fixture = new Fixture();
         OverlayTriggerArea[] areas = mixed ? [OverlayTriggerArea.Abyss, OverlayTriggerArea.OpenWorld]
@@ -271,7 +271,7 @@ public sealed class OverlayAbyssBoundKinaMigrationTests
 
     private static OverlayCollectionSettings Collection(params OverlayInstance[] windows) => new()
     {
-        SelectedOverlayId = windows[0].Id, Overlays = windows, OverlaysVisible = false,
+        SelectedOverlayId = windows[0].Id, Overlays = windows, OverlaysVisible = false, OpenWorldBoundKinaMigrationVersion = 1,
     };
 
     private static OverlayInstance Window(string id, string name, OverlayTriggerArea[] areas) => new()

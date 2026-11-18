@@ -182,6 +182,18 @@ public sealed class GameMessageStream
             var opcode = bytes[frame.BodyStart] | bytes[frame.BodyStart + 1] << 8;
             if (opcode is not (0xffff or 0x3633 or 0x3600)) continue;
             if (opcode == 0x3600 && frame.End - frame.BodyStart != 10) continue;
+            if (opcode == 0xffff)
+            {
+                // A partial outer frame can already have an impossible bundle header. Do not let
+                // such a false candidate hide later anchors while waiting for its claimed body.
+                if (frame.End - frame.BodyStart < 6) continue;
+                if (frame.BodyStart + 6 <= bytes.Length)
+                {
+                    var size = bytes[frame.BodyStart + 2] | bytes[frame.BodyStart + 3] << 8 |
+                        bytes[frame.BodyStart + 4] << 16 | bytes[frame.BodyStart + 5] << 24;
+                    if (size < 0 || size > MaxExpandedBytes) continue;
+                }
+            }
             if (frame.End > bytes.Length) { _verifiedScan = start; return -1; }
             var message = bytes.AsSpan(frame.BodyStart, frame.End - frame.BodyStart);
             if (opcode == 0x3600 && BossSpawnMessage.ReadServerClock(message) is not null)

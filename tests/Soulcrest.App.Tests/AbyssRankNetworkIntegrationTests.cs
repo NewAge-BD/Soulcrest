@@ -221,9 +221,10 @@ public sealed class AbyssRankNetworkIntegrationTests
         Assert.True(f.Network.AbyssSnapshot.KinaGainsQualified);
         Assert.Equal(kinaAt, f.Network.AbyssSnapshot.KinaGainsObservedAt);
         var overlay = UnifiedLootOverlaySource.Project(f.Loot.OverlayState, f.Tracker.ProgressSnapshot, new AppSettings());
-        Assert.True(overlay.SessionKinaKnown);
-        Assert.Equal(99, overlay.SessionKina);
-        Assert.NotNull(overlay.SessionKinaPerHour);
+        // A proven older Unbound receipt stays Unbound; the current Bound display must not relabel it.
+        Assert.False(overlay.SessionKinaKnown);
+        Assert.Equal(0, overlay.SessionKina);
+        Assert.Null(overlay.SessionKinaPerHour);
     }
 
     [Fact]

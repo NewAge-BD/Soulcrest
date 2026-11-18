@@ -282,6 +282,21 @@ public static class LootTrackerPresentation
         return visits.ToImmutable();
     }
 
+    public static bool HasBoundOnlyKina(LootTrackerSession session) => session.KinaUnbound is null && session.KinaBound is >= 0;
+    public static bool HasUnboundOnlyKina(LootTrackerSession session) => session.KinaBound is null && session.KinaUnbound is >= 0;
+    public static string KinaIncomeLabel(LootTrackerSession session) => HasBoundOnlyKina(session) ? "Gebundene Kina"
+        : HasUnboundOnlyKina(session) ? "Ungebundene Kina" : "Kina gesamt";
+
+    /// <summary>A known component is displayed under its own label, never claimed as a complete total.</summary>
+    public static long? DisplayedKina(LootTrackerSession session) => HasBoundOnlyKina(session) ? session.KinaBound
+        : HasUnboundOnlyKina(session) ? session.KinaUnbound : TotalKina(session);
+
+    public static long? DisplayedKina(LootTrackerSession session, LootTrackerIncomeBin bin) =>
+        HasBoundOnlyKina(session) ? bin.KinaBound is >= 0 ? bin.KinaBound : null
+        : HasUnboundOnlyKina(session) ? bin.KinaUnbound is >= 0 ? bin.KinaUnbound : null
+        : bin.KinaBound is >= 0 && bin.KinaUnbound is >= 0 && bin.KinaBound.Value <= long.MaxValue - bin.KinaUnbound.Value
+            ? bin.KinaBound.Value + bin.KinaUnbound.Value : null;
+
     /// <summary>Both components must be known. Overflow and invalid negative income stay unknown.</summary>
     public static long? TotalKina(LootTrackerSession session)
     {

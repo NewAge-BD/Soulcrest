@@ -49,6 +49,31 @@ public sealed class GameMessageVerifiedSyncTests
         Assert.Equal(own, Assert.Single(bundled.Append(Frame(Bundle(Frame(own))))));
     }
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(16 * 1024 * 1024 + 1)]
+    public void ImpossibleExpandedSizeCannotHideFollowingClockAndLootBehindAnIncompleteOuterFrame(int expandedSize)
+    {
+        var claimed = new byte[4096];
+        claimed[0] = claimed[1] = 0xff;
+        BitConverter.GetBytes(expandedSize).CopyTo(claimed, 2);
+        var framed = Frame(claimed);
+        var prefix = framed[..(framed.Length - claimed.Length + 6)];
+        var clock = Clock();
+        for (var cut = 0; cut <= prefix.Length; cut++)
+        {
+            var stream = new GameMessageStream(requireVerifiedSync: true);
+            Assert.Empty(stream.Append(prefix.AsSpan(0, cut)));
+            var messages = stream.Append([.. prefix.AsSpan(cut), .. Frame(clock), .. Frame(Gain)]);
+            Assert.Equal(2, messages.Count);
+            Assert.Equal(clock, messages[0]);
+            Assert.Equal(new SoulGain(1004, 2), Assert.Single(LootMessage.TryParse(messages[1])!));
+            Assert.Equal(1, stream.Resyncs);
+            Assert.Equal(1, stream.ContinuityBreaks);
+            Assert.Empty(stream.Append([]));
+        }
+    }
+
     [Fact]
     public void AnIncompleteBundleDoesNotExposeAClockAnchorInsideItsLiteralBytes()
     {

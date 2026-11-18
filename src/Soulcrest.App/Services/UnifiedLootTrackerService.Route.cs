@@ -30,6 +30,30 @@ public sealed partial class UnifiedLootTrackerService
         return position;
     }
 
+    private static ImmutableArray<LootTrackerRouteSegment> RetainPendingRouteTail(LootTrackerSession session)
+    {
+        var end = session.LastLootAt ?? session.StartedAt;
+        bool WithinCommit(LootTrackerRoutePoint point) => (point.At is null || point.At <= end)
+            && (point.Elapsed is null || point.Elapsed <= session.Elapsed);
+        var lastSegment = -1;
+        var lastPoint = -1;
+        for (var segment = session.RouteSegments.Length - 1; segment >= 0 && lastSegment < 0; segment--)
+            for (var point = session.RouteSegments[segment].Points.Length - 1; point >= 0; point--)
+                if (WithinCommit(session.RouteSegments[segment].Points[point]))
+                { lastSegment = segment; lastPoint = point; break; }
+        if (lastSegment < 0) return session.RouteSegments;
+        // Keep the committed route followed only by its provisional suffix. A late fact can
+        // qualify a point after a walking point with a newer UTC/elapsed time. Retaining that
+        // inner hole would insert it into the immutable journal prefix on the next gain.
+        // The original final point/segment always survives, so the active route context still
+        // refers to the same segment and no genuine gap is joined to an earlier segment.
+        return session.RouteSegments.Select((segment, index) => segment with
+        {
+            Points = segment.Points.Where((point, pointIndex) => index > lastSegment
+                || index == lastSegment && pointIndex > lastPoint || WithinCommit(point)).ToImmutableArray()
+        }).Where(segment => !segment.Points.IsEmpty).ToImmutableArray();
+    }
+
     private void RecordPosition(RecorderPositionSnapshot? snapshot, WorldContextSnapshot world, OwnCharacterContext own,
         DateTimeOffset at, long stamp, bool activityPosition)
     {

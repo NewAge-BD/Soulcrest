@@ -47,7 +47,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         Assert.Equal(100L, f.Network.DailyMonsterKinaSnapshot.Total);
         Assert.Empty(f.Gains);
         f.Send(Update(140), milliseconds: 200);
-        Assert.Equal(40L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(40L, Assert.Single(f.Gains).BoundKina);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         var character = f.Network.OwnCharacter;
         f.Send(Update(140), milliseconds: 200);
         var gain = Assert.Single(f.Gains);
-        Assert.Equal(40L, gain.UnboundKina); Assert.Same(character, gain.Character);
+        Assert.Equal(40L, gain.BoundKina); Assert.Equal(0, gain.UnboundKina); Assert.Same(character, gain.Character);
         Assert.Equal(At.AddMilliseconds(200), gain.At);
         Assert.Equal(gain.Sequence, f.Network.DailyMonsterKinaSnapshot.Sequence);
         Assert.Equal(140L, f.Network.DailyMonsterKinaSnapshot.Total);
@@ -77,7 +77,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         Assert.Single(f.Gains);
         f.Send(Update(230), milliseconds: 400);
         Assert.Equal(2, f.Gains.Count);
-        Assert.Equal(30, f.Gains[1].UnboundKina);
+        Assert.Equal(30, f.Gains[1].BoundKina);
         Assert.True(f.Gains[1].Sequence > baselineSequence);
     }
     [Fact]
@@ -87,7 +87,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         f.Send(Update(140), milliseconds: 200);
         f.Send(Update(140), milliseconds: 250);
         f.Send(Update(140), milliseconds: 300);
-        Assert.Equal(40L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(40L, Assert.Single(f.Gains).BoundKina);
         Assert.Equal(140L, f.Network.DailyMonsterKinaSnapshot.Total);
         Assert.Equal(At.AddMilliseconds(300), f.Network.DailyMonsterKinaSnapshot.At);
     }
@@ -99,7 +99,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         f.Send(Update(25), milliseconds: 200);
         Assert.Equal(25L, f.Network.DailyMonsterKinaSnapshot.Total); Assert.Empty(f.Gains);
         f.Send(Update(35), milliseconds: 300);
-        Assert.Equal(10L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(10L, Assert.Single(f.Gains).BoundKina);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         Assert.True(f.Network.DailyMonsterKinaSnapshot.IsReady);
         Assert.Equal(0L, f.Network.DailyMonsterKinaSnapshot.Total); Assert.Empty(f.Gains);
         f.Send(Update(5), milliseconds: 300);
-        Assert.Equal(5L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(5L, Assert.Single(f.Gains).BoundKina);
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
     {
         using var f = new Fixture(); f.Login(total: long.MaxValue - 7);
         f.Send(Update(long.MaxValue), milliseconds: 200);
-        Assert.Equal(7L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(7L, Assert.Single(f.Gains).BoundKina);
         Assert.Equal(long.MaxValue, f.Network.DailyMonsterKinaSnapshot.Total);
     }
 
@@ -135,7 +135,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         f.Send(Update(200), milliseconds: 200);
         Assert.Equal(200L, f.Network.DailyMonsterKinaSnapshot.Total); Assert.Empty(f.Gains);
         f.Send(Update(210), milliseconds: 300);
-        Assert.Equal(10L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(10L, Assert.Single(f.Gains).BoundKina);
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         f.Network.ProcessProgressGap(Foreign);
         Assert.Equal(100L, f.Network.DailyMonsterKinaSnapshot.Total); Assert.Empty(f.Gains);
         f.Send(Update(140), milliseconds: 250);
-        Assert.Equal(40L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(40L, Assert.Single(f.Gains).BoundKina);
     }
 
     [Theory]
@@ -207,7 +207,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         f.Send(Update(10000), milliseconds: 200);
         Assert.Equal(10000L, f.Network.DailyMonsterKinaSnapshot.Total); Assert.Empty(f.Gains);
         f.Send(Update(10005), milliseconds: 300);
-        Assert.Equal(5L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(5L, Assert.Single(f.Gains).BoundKina);
     }
 
     [Theory]
@@ -276,13 +276,13 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         var calls = new List<string>();
         f.Network.MonsterKinaGained += gain =>
         {
-            calls.Add("A:" + gain.UnboundKina);
-            if (gain.UnboundKina == 40) f.Send(Update(150), milliseconds: 250);
+            calls.Add("A:" + gain.BoundKina);
+            if (gain.BoundKina == 40) f.Send(Update(150), milliseconds: 250);
         };
-        f.Network.MonsterKinaGained += gain => calls.Add("B:" + gain.UnboundKina);
+        f.Network.MonsterKinaGained += gain => calls.Add("B:" + gain.BoundKina);
         f.Send(Update(140), milliseconds: 200);
         Assert.Equal(new[] { "A:40", "B:40", "A:10", "B:10" }, calls);
-        Assert.Equal(new long[] { 40, 10 }, f.Gains.Select(g => g.UnboundKina));
+        Assert.Equal(new long[] { 40, 10 }, f.Gains.Select(g => g.BoundKina));
         Assert.True(f.Gains[1].Sequence > f.Gains[0].Sequence);
     }
 
@@ -298,7 +298,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
             f.Bind(new(8, 9, 301, "SyntheticOther"), milliseconds: 300);
         };
         f.Send(Update(140), milliseconds: 200);
-        Assert.Equal(40L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(40L, Assert.Single(f.Gains).BoundKina);
         Assert.False(f.Network.DailyMonsterKinaSnapshot.IsReady);
     }
 
@@ -311,8 +311,26 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         f.Send(WalletChange(140), milliseconds: 200);
         Assert.Equal(40L, Assert.Single(wallets).UnboundKina); Assert.Empty(f.Gains);
         f.Send(Update(1040), milliseconds: 201);
-        Assert.Equal(40L, Assert.Single(f.Gains).UnboundKina); Assert.Single(wallets);
+        Assert.Equal(40L, Assert.Single(f.Gains).BoundKina); Assert.Single(wallets);
         Assert.Same(wallets[0].Character, f.Gains[0].Character);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CanonicalDailyIncomeIsBoundWithoutDependingOnAMatchingBoundWallet(bool walletPresent)
+    {
+        using var f = new Fixture(); var walletGains = new List<NetworkKinaGain>(); f.Network.KinaGained += walletGains.Add;
+        f.Begin(); f.Send(Initial(1_000), milliseconds: 10);
+        if (walletPresent) f.Send(WalletList(100, CurrencyInventoryMessage.BoundKinaItemId), milliseconds: 20);
+        f.Prepare(); f.Bind(milliseconds: 100);
+        if (walletPresent) f.Send(WalletChange(140, CurrencyInventoryMessage.BoundKinaItemId), milliseconds: 200);
+        f.Send(Update(1_040), milliseconds: 201); f.Send(Update(1_040), milliseconds: 202);
+        var gain = Assert.Single(f.Gains);
+        Assert.Equal(40, gain.BoundKina); Assert.Equal(0, gain.UnboundKina); Assert.Empty(walletGains);
+        Assert.Equal(1_040, f.Network.DailyMonsterKinaSnapshot.Total);
+        if (walletPresent) Assert.Equal(140, f.Network.KinaSnapshot.BoundBalance);
+        else Assert.Null(f.Network.KinaSnapshot.BoundBalance);
     }
 
     [Fact]
@@ -323,7 +341,7 @@ public sealed class NetworkDailyMonsterKinaSourceTests
         Assert.True(f.Network.KinaSnapshot.FormatRejected);
         Assert.True(f.Network.DailyMonsterKinaSnapshot.IsReady);
         f.Send(Update(140), milliseconds: 200);
-        Assert.Equal(40L, Assert.Single(f.Gains).UnboundKina);
+        Assert.Equal(40L, Assert.Single(f.Gains).BoundKina);
     }
 
     [Theory]
@@ -367,13 +385,13 @@ public sealed class NetworkDailyMonsterKinaSourceTests
     private static byte[] Entry(OwnCharacterIdentity identity) => Packet(0x3620, w =>
     { w.Write((ushort)0); V(w, identity.EntityKey); w.Write(new byte[4]); w.Write(identity.CharacterId); });
     private static byte[] Preparation() => Packet(0x3621, w => w.Write(new byte[46]));
-    private static byte[] WalletList(long balance) => Packet(0x5611, w =>
-    { w.Write((ushort)528); V(w, 1); WalletItem(w, balance); w.Write(new byte[6]); });
-    private static byte[] WalletChange(long balance) => Packet(0x561B, w =>
-    { V(w, 1); w.Write((byte)1); WalletItem(w, balance); w.Write(new byte[] { 11, 0, 0 }); });
-    private static void WalletItem(BinaryWriter w, long balance)
+    private static byte[] WalletList(long balance, int itemId = CurrencyInventoryMessage.UnboundKinaItemId) => Packet(0x5611, w =>
+    { w.Write((ushort)528); V(w, 1); WalletItem(w, balance, itemId); w.Write(new byte[6]); });
+    private static byte[] WalletChange(long balance, int itemId = CurrencyInventoryMessage.UnboundKinaItemId) => Packet(0x561B, w =>
+    { V(w, 1); w.Write((byte)1); WalletItem(w, balance, itemId); w.Write(new byte[] { 11, 0, 0 }); });
+    private static void WalletItem(BinaryWriter w, long balance, int itemId)
     {
-        w.Write((byte)0); w.Write(11L); w.Write(930100031); w.Write(balance); w.Write((byte)1); w.Write(0);
+        w.Write((byte)0); w.Write(11L); w.Write(itemId); w.Write(balance); w.Write((byte)1); w.Write(0);
         w.Write((byte)0); V(w, 0); w.Write(0L); // Both false bools share this one cached zero byte.
     }
     private static void V(BinaryWriter w, int value)

@@ -23,7 +23,7 @@
     [Parameter, EditorRequired] public OverlaySnapshot Snapshot { get; set; } = new();
     [Parameter] public bool ShowIcon { get; set; } = true;
     private OverlayDailyKinaProgress Progress => Snapshot.DailyProgress;
-    private static readonly string? KinaIcon = MonsterLootIconCatalog.Default.ItemAsset(930100031);
+    private static readonly string? KinaIcon = MonsterLootIconCatalog.Default.ItemAsset(930100001);
     private double? _phase;
     protected override void OnParametersSet() => _phase ??= Math.Max(0, Snapshot.ClockUtcNow.ToUnixTimeMilliseconds() / 1000d);
     private string BarStyle => $"--daily-blue:{Color(LootOverlayRenderer.Blue)};--daily-green:{Color(LootOverlayRenderer.Green)};--daily-gold:{Color(LootOverlayRenderer.Gold)};--daily-fill:{Css(Math.Clamp(Progress.Fraction ?? 0, 0, 1) * 100)}%;--daily-phase:-{Css(_phase ?? 0)}s";

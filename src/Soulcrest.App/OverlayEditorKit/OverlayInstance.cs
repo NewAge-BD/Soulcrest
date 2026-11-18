@@ -23,6 +23,8 @@ public sealed record OverlayCollectionSettings
     public bool OverlaysVisible { get; init; } = true;
     /// <summary>Absent in older version-2 files; protects later intentional Unbound widget choices.</summary>
     public int AbyssBoundKinaMigrationVersion { get; init; }
+    /// <summary>Independent Open World migration; an older Abyss marker must not suppress this replacement.</summary>
+    public int OpenWorldBoundKinaMigrationVersion { get; init; }
     [System.Text.Json.Serialization.JsonRequired] public string SelectedOverlayId { get; init; } = OverlayInstance.DefaultId;
     [System.Text.Json.Serialization.JsonRequired] public IReadOnlyList<OverlayInstance> Overlays { get; init; } = Array.AsReadOnly(new[] { new OverlayInstance() });
 }

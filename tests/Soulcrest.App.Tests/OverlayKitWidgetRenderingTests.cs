@@ -241,8 +241,8 @@ public sealed class OverlayKitWidgetRenderingTests : IDisposable
     }
 
     [Theory]
-    [InlineData("de", "684.720 / 1.000.000")]
-    [InlineData("en", "684,720 / 1,000,000")]
+    [InlineData("de", "767.540 / 1.000.000")]
+    [InlineData("en", "767,540 / 1,000,000")]
     public async Task DailyKinaUsesTheLootBarWithOneIntegratedValueAndItsSessionSegment(string language, string value)
     {
         UiText.Language = language;
@@ -251,7 +251,7 @@ public sealed class OverlayKitWidgetRenderingTests : IDisposable
         Assert.Contains("overlay-daily-number", html);
         Assert.Contains("overlay-daily-session", html);
         Assert.Contains("overlay-daily-icon", html);
-        Assert.Contains(MonsterLootIconCatalog.Default.ItemAsset(930100031)!, html);
+        Assert.Contains(MonsterLootIconCatalog.Default.ItemAsset(930100001)!, html);
         Assert.Contains(value, html);
         Assert.DoesNotContain("class=\"overlay-widget-value\"", html);
         Assert.DoesNotContain(">" + snapshot.DailyProgress.Percentage + "<", html);

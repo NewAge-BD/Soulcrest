@@ -30,6 +30,8 @@ public sealed record LootOverlaySnapshot(string? SessionId, bool SessionActive, 
     public long? AbyssPointCap { get; init; }
     public bool AbyssFarmConfirmed { get; init; }
     public bool SessionKinaKnown { get; init; } = true;
+    /// <summary>Confirmed current-day PvE Bound receipts only, separate from all Bound gains of the parent session.</summary>
+    public long? SessionDailyKinaContribution { get; init; }
     public string? AbyssPointIconPath { get; init; }
     /// <summary>False means a saved value for the safely bound character, awaiting fresh confirmation.</summary>
     public bool DailyConfirmed { get; init; } = true;
