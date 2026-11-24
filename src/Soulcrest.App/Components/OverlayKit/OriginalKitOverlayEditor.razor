@@ -16,7 +16,7 @@
         @if (SelectedSection != "static")
         {
             <div class="page-actions">
-                <button type="button" class="button secondary" data-activate-overlay="true" aria-pressed="@(_settings.Enabled ? "true" : "false")" aria-busy="@(_changingActivation ? "true" : "false")" disabled="@ActivationButtonDisabled" @onclick="ToggleWindowActivation"><KitIcon Name="@(_settings.Enabled ? "pause" : "play")" />@T(_settings.Enabled ? "Overlay deaktivieren" : "Overlay aktivieren")</button>
+                @if (SelectedSection != "display") { @ActivationButton(false) }
                 <button type="button" class="button secondary" data-start-place-mode="true" aria-pressed="@(PlaceModeActive ? "true" : "false")" aria-busy="@(PlaceModeBusy ? "true" : "false")" disabled="@PlaceModeButtonDisabled" @onclick="TogglePlaceMode"><KitIcon Name="monitor" />@T(PlaceModeActive ? "Place Mode beenden" : "Place Mode starten")</button>
             </div>
         }
@@ -35,35 +35,65 @@
             {
                 <div class="notice warning-notice" role="status" data-overlay-world-context-warning="true"><KitIcon Name="info" /><div><strong>@T("Warte auf bestätigten Kartenkontext")</strong><span>@T("Teleportiere deinen Charakter einmal, damit Soulcrest den aktuellen Kartenkontext erkennt und Loot erfassen kann.")</span></div></div>
             }
-            <div class="oe-status-row" hidden="@(SelectedSection == "static")">
-                <span><span class="status-dot @(PlaceModeActive || WindowRuntime.IsVisible ? "running" : "")"></span>@T(PlaceModeActive ? "Place Mode aktiv" : WindowRuntime.Status)</span>
-                @if (_saving || _savingTheme) { <span class="oe-save-state" role="status"><KitIcon Name="refresh" />@T("Speichert …")</span> }
-            </div>
+            @if (SelectedSection is not ("static" or "display"))
+            {
+                <div class="oe-status-row">@WindowStatus</div>
+            }
 
-            <div data-overlay-section="display" hidden="@(SelectedSection != "display")">
-                <section class="menu-panel oe-display-settings oe-display-compact" aria-labelledby="oe-display-title">
-                    <div class="oe-menu-heading"><h2 id="oe-display-title">@T("Anzeige & Verhalten")</h2></div>
-                    <div class="oe-display-grid">
-                    <section class="oe-display-group" aria-labelledby="oe-visibility-title">
-                    <h3 id="oe-visibility-title">@T("Anzeige")</h3>
-                    <label class="oe-field oe-setting-row"><span>@T("Sichtbarkeit")</span><select data-kit-overlay-visibility="true" aria-label="@T("Sichtbarkeit")" value="@_settings.Visibility" @onchange="ChangeWindowVisibility"><option value="game">@T("Bei erkanntem Spiel")</option><option value="session">@T("Bei laufender Session")</option><option value="always">@T("Immer")</option></select></label>
-                    <p class="oe-empty">@T("Die globale Vordergrundregel und die Sichtbarkeitsbedingungen gelten zusätzlich.")</p>
-                    <label class="oe-setting-toggle" title="@T("Gilt für dieses Overlayfenster einschließlich Schloss.")"><span>@T("In Aufnahmen anzeigen")</span><input class="switch" type="checkbox" data-kit-overlay-recordings="true" checked="@(!_settings.CaptureExcluded)" @onchange="e => Change(s => s with { CaptureExcluded = !Checked(e) })" /></label>
+            <div class="oe-display-grid" data-overlay-section="display" hidden="@(SelectedSection != "display")">
+                <OverlayWindowTriggers Rules="_settings.EffectiveTriggerRules" RulesChanged="ChangeVisibilityRules" UiT="T">
+                    @if (SelectedSection == "display")
+                    {
+                        <div class="oe-display-window-controls">
+                            <div class="oe-status-row">@WindowStatus</div>
+                            @ActivationButton(true)
+                        </div>
+                    }
+                </OverlayWindowTriggers>
+
+                <div class="oe-display-side">
+                    <section class="menu-panel oe-display-panel" aria-labelledby="oe-appearance-title">
+                        <div class="oe-display-heading"><h2 id="oe-appearance-title">@T("Darstellung")</h2></div>
+                        <label class="oe-display-setting">
+                            <span>@T("Theme")</span>
+                            <select data-kit-overlay-theme="true" value="@SelectedThemeId" @onchange="ChangeTheme" disabled="@(_themeSettings is null || _savingTheme)">
+                                @foreach (var theme in OverlayEditorThemes.All) { <option value="@theme.Id">@T(theme.Label)</option> }
+                            </select>
+                        </label>
+                        <p class="oe-display-hint">@T("Das Theme gilt für alle Editor-Overlays.")</p>
+                        @if (_themeError is not null) { <p class="notice error-notice" role="alert">@T(_themeError)</p> }
+
+                        <div class="oe-display-slider">
+                            <label for="oe-display-scale">@T("Skalierung")</label>
+                            <output for="oe-display-scale" aria-hidden="true">@Percent(_settings.Scale)</output>
+                            <input id="oe-display-scale" type="range" min="0.5" max="2" step="0.05" value="@Css(_settings.Scale)"
+                                   aria-valuetext="@Percent(_settings.Scale)" @onchange="e => ChangeNumber(e, 0.5, 2, (s, v) => s with { Scale = v })" />
+                        </div>
+                        <div class="oe-display-slider">
+                            <label for="oe-display-opacity">@T("Hintergrunddeckkraft")</label>
+                            <output for="oe-display-opacity" aria-hidden="true">@Percent(_settings.BackgroundOpacity)</output>
+                            <input id="oe-display-opacity" type="range" min="0" max="1" step="0.05" value="@Css(_settings.BackgroundOpacity)"
+                                   aria-valuetext="@Percent(_settings.BackgroundOpacity)" @onchange="e => ChangeNumber(e, 0, 1, (s, v) => s with { BackgroundOpacity = v })" />
+                        </div>
+                        <label class="oe-display-setting oe-display-toggle">
+                            <span>@T("Rahmen anzeigen")</span>
+                            <input class="switch" type="checkbox" checked="@_settings.ShowBorder" @onchange="e => Change(s => s with { ShowBorder = Checked(e) })" />
+                        </label>
                     </section>
-                    <section class="oe-display-group" aria-labelledby="oe-appearance-title">
-                    <h3 id="oe-appearance-title">@T("Darstellung")</h3>
-                    <label class="oe-field oe-setting-row"><span>@T("Theme")</span><select data-kit-overlay-theme="true" aria-label="@T("Theme")" value="@SelectedThemeId" @onchange="ChangeTheme" disabled="@(_themeSettings is null || _savingTheme)">@foreach (var theme in OverlayEditorThemes.All) { <option value="@theme.Id">@T(theme.Label)</option> }</select></label>
-                    @if (_themeError is not null) { <p class="notice error-notice" role="alert">@T(_themeError)</p> }
-                    <label class="oe-field oe-setting-row"><span>@T("Skalierung") <output>@Percent(_settings.Scale)</output></span><input type="range" min="0.5" max="2" step="0.05" value="@Css(_settings.Scale)" @onchange="e => ChangeNumber(e, 0.5, 2, (s, v) => s with { Scale = v })" /></label>
-                    <label class="oe-field oe-setting-row"><span>@T("Hintergrund") <output>@Percent(_settings.BackgroundOpacity)</output></span><input type="range" min="0" max="1" step="0.05" value="@Css(_settings.BackgroundOpacity)" @onchange="e => ChangeNumber(e, 0, 1, (s, v) => s with { BackgroundOpacity = v })" /></label>
-                    <label class="oe-setting-toggle"><span>@T("Rahmen anzeigen")</span><input class="switch" type="checkbox" checked="@_settings.ShowBorder" @onchange="e => Change(s => s with { ShowBorder = Checked(e) })" /></label>
+                    <section class="menu-panel oe-display-panel" aria-labelledby="oe-recordings-title">
+                        <div class="oe-display-heading"><h2 id="oe-recordings-title">@T("Aufnahmen")</h2></div>
+                        <label class="oe-display-setting oe-display-toggle">
+                            <span>@T("In Aufnahmen anzeigen")</span>
+                            <input class="switch" type="checkbox" data-kit-overlay-recordings="true" checked="@(!_settings.CaptureExcluded)"
+                                   disabled="@_windowBusy" @onchange="e => Change(s => s with { CaptureExcluded = !Checked(e) })" />
+                        </label>
+                        <label class="oe-display-setting oe-display-toggle oe-recordings-all">
+                            <span>@T("Alle Editor-Overlays in Aufnahmen anzeigen")</span>
+                            <input type="checkbox" data-kit-overlay-all-recordings="true" disabled="@WindowActionsBusy"
+                                   @bind:get="AllOverlaysInRecordings" @bind:set="SetAllOverlaysInRecordings" />
+                        </label>
                     </section>
-                    </div>
-                    <details class="oe-visibility-advanced" data-visibility-advanced="true">
-                    <summary>@T("Sichtbarkeitsbedingungen")<span>@T("Gebiete und zusätzliche Bedingungen")</span></summary>
-                    <OverlayWindowTriggers Rules="_settings.TriggerRules" RulesChanged="rules => Change(s => s with { TriggerRules = rules })" UiT="T" />
-                    </details>
-                </section>
+                </div>
             </div>
 
             <div data-overlay-section="presets" hidden="@(SelectedSection != "presets")">
@@ -189,7 +219,7 @@
                         <div class="oe-widget oe-lock-widget @(LockSelected ? "is-selected" : "")" data-widget-id="@OverlayLockWidget.Id" data-required-widget="true"
                              data-x="@Css(lockWidget.X)" data-y="@Css(lockWidget.Y)" data-width="@OverlayLockWidget.Size" data-height="@OverlayLockWidget.Size"
                              style="@WidgetStyle(lockWidget)" tabindex="0" role="group" aria-label="@T("Overlay-Sperre positionieren")" @onclick="() => SelectWidget(OverlayLockWidget.Id)" @onclick:stopPropagation>
-                            <OverlayLockWidgetPreview ThemeId="@PreviewSnapshot.ThemeId" />
+                            <OverlayLockWidgetPreview ThemeId="@PreviewSnapshot.ThemeId" Locked="@_settings.Locked" />
                             <button type="button" class="oe-widget-grip" data-widget-drag="@OverlayLockWidget.Id" aria-label="@T("Overlay-Sperre verschieben")" title="@T("Verschieben")"><span>⠿</span><span>@T("Overlay-Sperre")</span></button>
                         </div>
                         <div class="oe-alignment-guides" aria-hidden="true"></div>
@@ -335,4 +365,18 @@
     <div class="modal-actions"><button type="button" class="button secondary" @onclick="CloseTemplateDelete" disabled="@_templateBusy" autofocus>@T("Abbrechen")</button><button type="button" class="button primary" @onclick="DeleteTemplate" disabled="@(_templateBusy || _templateToDelete is null)">@T("Vorlage löschen")</button></div>
 </dialog>
 
-<OriginalKitOverlayPreview Examples="@(_demo || SelectedSection == "presets")" />
+<OriginalKitOverlayPreview Snapshot="@PreviewSnapshot" />
+
+@code {
+    private RenderFragment ActivationButton(bool prominent) => @<button type="button"
+        class="button @(prominent && !_settings.Enabled ? "primary" : "secondary")"
+        data-activate-overlay="true" aria-pressed="@(_settings.Enabled ? "true" : "false")"
+        aria-busy="@(_changingActivation ? "true" : "false")" disabled="@ActivationButtonDisabled" @onclick="ToggleWindowActivation">
+        <KitIcon Name="@(_settings.Enabled ? "pause" : "play")" />@T(_settings.Enabled ? "Overlay deaktivieren" : "Overlay aktivieren")
+    </button>;
+
+    private RenderFragment WindowStatus => @<text>
+        <span><span class="status-dot @(PlaceModeActive || WindowRuntime.IsVisible ? "running" : "")"></span>@T(PlaceModeActive ? "Place Mode aktiv" : WindowRuntime.Status)</span>
+        @if (_saving || _savingTheme) { <span class="oe-save-state" role="status"><KitIcon Name="refresh" />@T("Speichert …")</span> }
+    </text>;
+}

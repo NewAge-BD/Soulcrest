@@ -41,6 +41,17 @@ public sealed class InstanceCatalogTests
         Assert.Equal(InstanceMapKind.Instance, catalog.FindMap(20)?.Kind);
     }
 
+    [RequiresFact(TestRequirement.PrivateInstanceCatalog)]
+    public void OuterReshantaUsesCurrentNamesAndKeepsItsExistingMapIdentity()
+    {
+        var map = InstanceCatalog.Default.FindMap(23);
+        Assert.NotNull(map);
+        Assert.Equal(new InstanceNames("Chaotisches Äußeres Reshanta", "Chaotic Outer Reshanta"), map.Names);
+        Assert.Equal(InstanceMapKind.Instance, map.Kind);
+        Assert.Equal("Abyss", map.Category);
+        Assert.Equal("chaotic-upper-reshanta", map.SoulcrestMapId);
+    }
+
     [Theory]
     [InlineData("""{"schemaVersion":2,"maps":[],"dungeons":[]}""")]
     [InlineData("""{"schemaVersion":1,"maps":null,"dungeons":[]}""")]

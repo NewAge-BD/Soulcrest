@@ -128,10 +128,11 @@ public sealed class OverlayTriggerPolicyTests
                 [nameof(OverlayWindowTriggers.UiT)] = (Func<string, string>)(text => "translated:" + text),
             }))).ToHtmlString());
         Assert.Equal(3, Regex.Matches(html, "type=\"checkbox\"").Count);
-        Assert.Equal(5, Regex.Matches(html, "<select\\b").Count);
+        Assert.Equal(5, Regex.Matches(html, "role=\"radiogroup\"").Count);
+        Assert.Equal(15, Regex.Matches(html, "type=\"radio\"").Count);
         Assert.Contains("translated:Sichtbarkeitsbedingungen", html);
-        Assert.Contains("value=\"Required\" selected", html);
-        Assert.Contains("value=\"Excluded\" selected", html);
+        Assert.Contains("value=\"Required\" checked", html);
+        Assert.Contains("value=\"Excluded\" checked", html);
         Assert.DoesNotContain("aria-live", html);
     }
 }

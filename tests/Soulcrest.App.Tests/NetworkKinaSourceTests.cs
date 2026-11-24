@@ -64,7 +64,10 @@ public sealed class NetworkKinaSourceTests
         Assert.Equal(At.AddMilliseconds(20), before.AbyssPointBalanceObservedAt);
         Assert.Equal(At.AddMilliseconds(100), before.RankPointsObservedAt);
 
-        f.Send(malformed ? [0x1B, 0x56] : Changes(Change(new ItemState(91, 930100003, 126_000), increase: 12)), milliseconds: 200);
+        // Opaque reason bytes no longer invalidate AP; a different modification type still does.
+        var unsupported = Changes(Change(new ItemState(91, 930100003, 126_000), modification: 0));
+        Assert.NotNull(CurrencyInventoryMessage.TryParseChanges(unsupported));
+        f.Send(malformed ? [0x1B, 0x56] : unsupported, milliseconds: 200);
         var after = f.Network.AbyssSnapshot;
         Assert.Null(after.AbyssPointBalance);
         Assert.Equal(900_000, after.RankPoints);

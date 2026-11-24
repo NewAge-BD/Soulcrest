@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Reflection;
 using System.Text;
 using Soulcrest.App.Network;
 using Soulcrest.App.Services;
@@ -12,7 +13,9 @@ namespace Soulcrest.App.Tests;
 public sealed class NetworkAbyssFarmSourceTests
 {
     private static readonly DateTimeOffset At = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
-    private const string Game = "synthetic-abyss-farm", Foreign = "synthetic-foreign";
+    private static readonly CaptureConnection Connection = new(42, "192.0.2.2", 50000, "192.0.2.1", 9000);
+    private static readonly string Game = Connection.StreamKey;
+    private const string Foreign = "synthetic-foreign";
 
     [Theory]
     [InlineData(0L)] [InlineData(676_730L)] [InlineData(717_422L)] [InlineData(long.MaxValue)]
@@ -129,7 +132,9 @@ public sealed class NetworkAbyssFarmSourceTests
     {
         using var f = new Fixture(); f.Own(); f.Ap(100, 1); f.Ap(105, 2); f.Farm(717_422, 3);
         var before = f.Network.AbyssSnapshot;
-        f.Send(ApPacket(110, increase: 12), At.AddSeconds(4)); f.Rank(-1, 5);
+        var malformedInventory = ApPacket(110)[..^1];
+        Assert.Null(CurrencyInventoryMessage.TryParseChanges(malformedInventory));
+        f.Send(malformedInventory, At.AddSeconds(4)); f.Rank(-1, 5);
         var after = f.Network.AbyssSnapshot;
         Assert.Equal(before.FarmedAbyssPoints, after.FarmedAbyssPoints);
         Assert.Equal(before.FarmedAbyssPointsObservedAt, after.FarmedAbyssPointsObservedAt);
@@ -228,9 +233,14 @@ public sealed class NetworkAbyssFarmSourceTests
         {
             Directory.CreateDirectory(_root); Network = new(new ProgressService(Path.Combine(_root, "progress.json"), new PetCatalog([])));
             typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Running))!.SetValue(Network, true);
+            // AP comparisons require the same actual transport, keyed exactly like incoming capture.
+            // This synthetic stream never opens a device or reads the OS connection table.
+            var streams = (Dictionary<CaptureConnection, (TcpReassembler Tcp, GameMessageStream Messages)>)
+                typeof(NetworkLootService).GetField("_streams", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Network)!;
+            streams.Add(Connection, (new TcpReassembler(), new GameMessageStream(requireVerifiedSync: true)));
             Network.AbyssPointsGained += ApGains.Add; Network.RankPointsChanged += RankGains.Add; Network.CombatEvent += _ => CombatEvents++;
         }
-        internal void Send(byte[] message, DateTimeOffset? at = null, string stream = Game) => Network.ProcessProgressMessage(stream, message, at ?? At);
+        internal void Send(byte[] message, DateTimeOffset? at = null, string? stream = null) => Network.ProcessProgressMessage(stream ?? Game, message, at ?? At);
         internal void Own(long? rank = 1_000, int seconds = 0) => Send(OwnPacket(rank), At.AddSeconds(seconds));
         internal void Farm(long total, int seconds, byte tail = 0) => Send(FarmPacket(total, tail), At.AddSeconds(seconds));
         internal void Ap(long total, int seconds) => Send(ApPacket(total), At.AddSeconds(seconds));

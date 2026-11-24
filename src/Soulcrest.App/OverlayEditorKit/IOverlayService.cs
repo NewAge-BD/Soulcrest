@@ -35,6 +35,8 @@ public interface IOverlayService : IDisposable
     Task<OverlaySaveResult> DeleteTemplateAsync(string id);
     Task<OverlaySaveResult> SaveAsync(OverlaySettings settings);
     Task<OverlaySaveResult> SaveAsync(string id, OverlaySettings settings);
+    Task<OverlaySaveResult> SaveLockAsync(string id, bool locked);
+    Task<OverlaySaveResult> SetAllCaptureExcludedAsync(bool excluded);
     Task<OverlaySaveResult> SavePositionAsync(double x, double y, double? width = null, double? height = null);
     Task<OverlaySaveResult> SavePositionAsync(string id, double x, double y, double? width = null, double? height = null);
     Task SetPreviewAsync(bool enabled);

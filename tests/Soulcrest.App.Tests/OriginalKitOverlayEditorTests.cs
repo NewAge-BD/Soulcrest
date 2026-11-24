@@ -17,6 +17,66 @@ namespace Soulcrest.App.Tests;
 [Collection("Settings file")]
 public sealed class OriginalKitOverlayEditorTests
 {
+    [Fact]
+    public async Task ClosedPreviewReusesTheEditorSnapshotWithoutAdditionalCaptures()
+    {
+        await using var fixture = await Fixture.Create();
+        Assert.False(fixture.Service.State.Previewing);
+        Assert.Equal(2, fixture.Source.LiveCaptures);
+        var captures = fixture.Source.LiveCaptures;
+        for (var index = 0; index < 10; index++) await fixture.Refresh();
+        Assert.Equal(captures, fixture.Source.LiveCaptures);
+    }
+
+    [Fact]
+    public async Task RepeatedIdenticalParentParametersUseTheSameBoundedRefreshPump()
+    {
+        await using var fixture = await Fixture.Create(initialSettings: new() { Widgets = [OverlayCatalog.CreateWidget("abyss-points")] });
+        var captures = fixture.Source.LiveCaptures;
+        await fixture.RepeatParameters(1000);
+        await fixture.Refresh();
+        Assert.InRange(fixture.Source.LiveCaptures - captures, 1, 2);
+        Assert.Equal("POINTS-1000", (await fixture.EditorField<OverlaySnapshot>("_liveSnapshot")).Metrics["abyss-points"].Value);
+        captures = fixture.Source.LiveCaptures;
+        await fixture.SetSection("presets");
+        Assert.Equal(captures, fixture.Source.LiveCaptures);
+        await fixture.SetSection("display");
+        Assert.Equal(captures + 1, fixture.Source.LiveCaptures);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AbyssPointWidgetsAndPreviewReceiveTheLatestBurstSnapshotWithoutDuplicateLiveCaptures(bool preview)
+    {
+        // Synthetic presentation of a confirmed Abyss stay (including Outer Reshanta).
+        // No game source, network listener or capture service is started by this renderer.
+        string[] kinds = ["abyss-points", "abyss-points-hour", "rank-net", "rank-gained", "rank-lost", "rank-net-hour", "abyss-rank-progress"];
+        await using var fixture = await Fixture.Create(initialSettings: new()
+        {
+            Width = 800, Height = 300, Widgets = kinds.Select((kind, index) => OverlayCatalog.CreateWidget(kind, index * 8, 0)).ToArray(),
+        });
+        if (preview) { await fixture.Service.SetPreviewAsync(true); await fixture.Refresh(); }
+        var captures = fixture.Source.LiveCaptures;
+        await fixture.PublishBurst(1000);
+        await fixture.Refresh();
+        Assert.InRange(fixture.Source.LiveCaptures - captures, 1, 2);
+        var snapshot = await fixture.EditorField<OverlaySnapshot>("_liveSnapshot");
+        Assert.Equal("POINTS-1000", snapshot.Metrics["abyss-points"].Value);
+        Assert.True(snapshot.Abyss.WorldContextVisible);
+        var html = await fixture.Html();
+        var dialog = html[html.IndexOf("id=\"kit-overlay-preview\"", StringComparison.Ordinal)..];
+        Assert.Contains("POINTS-1000", html);
+        Assert.Contains("POINTS-1000", dialog);
+        Assert.Equal(preview, fixture.Service.State.Previewing);
+        var stable = fixture.Source.LiveCaptures;
+        await fixture.Refresh();
+        Assert.Equal(stable, fixture.Source.LiveCaptures);
+        await fixture.Service.SetPreviewAsync(false);
+        await fixture.Refresh();
+        Assert.False(fixture.Service.State.Previewing);
+    }
+
     [Theory]
     [InlineData("de", "Warte auf bestätigten Kartenkontext", "Teleportiere deinen Charakter einmal")]
     [InlineData("en", "Waiting for confirmed map context", "Teleport your character once")]
@@ -540,32 +600,29 @@ public sealed class OriginalKitOverlayEditorTests
         }
     }
 
-    [Theory]
-    [InlineData("game")]
-    [InlineData("session")]
-    [InlineData("always")]
-    public async Task HeaderAndDisplayPersistOnlyTheSelectedWindowsActivationAndVisibility(string visibility)
+    [Fact]
+    public async Task DisplayMigratesLegacySessionModeWhenEditingTheSelectedWindowsConditions()
     {
         await using var fixture = await Fixture.Create(seedLegacy: false, placementServices: true, section: "display");
         var first = fixture.Service.SelectedOverlayId;
         Assert.True((await fixture.Service.CreateOverlayAsync("Live window")).Succeeded);
+        Assert.True((await fixture.Service.SaveAsync(fixture.Service.Settings with { Visibility = "session" })).Succeeded);
         await fixture.Refresh();
         var selected = fixture.Service.SelectedOverlayId;
-        await fixture.ClickAttribute("data-activate-overlay", "true");
-        await fixture.ChangeAttribute("data-kit-overlay-visibility", "true", visibility);
+        Assert.Matches("name=\"[^\"]+-session\" value=\"Required\" checked", await fixture.Html());
+        await fixture.Invoke("ToggleWindowActivation");
+        await fixture.Invoke("ChangeVisibilityRules", new OverlayTriggerRules { WorldMap = OverlayTriggerRequirement.Excluded });
         Assert.True(fixture.Service.Settings.Enabled);
-        Assert.Equal(visibility, fixture.Service.Settings.Visibility);
         Assert.False(fixture.Service.Overlays.Single(window => window.Id == first).Settings.Enabled);
-        Assert.Equal("game", fixture.Service.Overlays.Single(window => window.Id == first).Settings.Visibility);
+        Assert.Null(fixture.Service.Overlays.Single(window => window.Id == first).Settings.TriggerRules);
         await fixture.ClickAttribute("data-start-place-mode", "true");
         Assert.True(fixture.Placement!.Active);
         Assert.Equal(OverlayPlacementService.EditorKey(selected), fixture.Placement.SelectedOverlayId);
         await fixture.ClickAttribute("data-start-place-mode", "true");
-        Assert.True(fixture.Service.Settings.Enabled);
-        Assert.Equal(visibility, fixture.Service.Settings.Visibility);
         using var reopened = new OverlayService(fixture.Directory);
-        Assert.True(reopened.Overlays.Single(window => window.Id == selected).Settings.Enabled);
-        Assert.Equal(visibility, reopened.Overlays.Single(window => window.Id == selected).Settings.Visibility);
+        Assert.True(reopened.Settings.Enabled);
+        Assert.Equal(OverlayTriggerRequirement.Any, reopened.Settings.EffectiveTriggerRules!.SessionActive);
+        Assert.Equal(OverlayTriggerRequirement.Excluded, reopened.Settings.EffectiveTriggerRules.WorldMap);
     }
 
     [Theory]
@@ -620,6 +677,48 @@ public sealed class OriginalKitOverlayEditorTests
     }
 
     [Theory]
+    [InlineData("de", "Alle Editor-Overlays in Aufnahmen anzeigen")]
+    [InlineData("en", "Show all editor overlays in recordings")]
+    public async Task RecordingCheckboxSetsAllEditorWindowsAndReflectsIndividualChanges(string language, string label)
+    {
+        await using var fixture = await Fixture.Create(language: language, seedLegacy: false, section: "display",
+            initialSettings: new() { CaptureExcluded = false, Enabled = true, Widgets = [OverlayCatalog.CreateWidget("clock")] });
+        Assert.True((await fixture.Service.CreateOverlayAsync("Secondary window")).Succeeded);
+        await fixture.Refresh();
+        var original = fixture.Service.Overlays.ToArray();
+        var selected = fixture.Service.SelectedOverlayId;
+        var acquisitions = fixture.Source.Acquisitions.ToArray();
+        Assert.Contains(label, await fixture.Html());
+        Assert.DoesNotContain("checked", RecordingToggleMarkup(await fixture.Html(), "data-kit-overlay-all-recordings"));
+
+        await fixture.ChangeAttribute("data-kit-overlay-all-recordings", "true", true);
+
+        Assert.All(fixture.Service.Overlays, window => Assert.False(window.Settings.CaptureExcluded));
+        Assert.Contains("checked", RecordingToggleMarkup(await fixture.Html(), "data-kit-overlay-all-recordings"));
+        Assert.Contains("checked", RecordingToggleMarkup(await fixture.Html()));
+        using (var restarted = new OverlayService(fixture.Directory))
+            Assert.All(restarted.Overlays, window => Assert.False(window.Settings.CaptureExcluded));
+
+        await fixture.ChangeAttribute("data-kit-overlay-all-recordings", "true", false);
+
+        Assert.All(fixture.Service.Overlays, window => Assert.True(window.Settings.CaptureExcluded));
+        Assert.Equal(selected, fixture.Service.SelectedOverlayId);
+        Assert.DoesNotContain("checked", RecordingToggleMarkup(await fixture.Html()));
+        Assert.DoesNotContain("checked", RecordingToggleMarkup(await fixture.Html(), "data-kit-overlay-all-recordings"));
+        using (var restarted = new OverlayService(fixture.Directory))
+        {
+            var expected = original.Select(window => window with { Settings = window.Settings with { CaptureExcluded = true } });
+            Assert.Equal(System.Text.Json.JsonSerializer.Serialize(expected), System.Text.Json.JsonSerializer.Serialize(restarted.Overlays));
+        }
+
+        await fixture.ChangeAttribute("data-kit-overlay-all-recordings", "true", true);
+        await fixture.ChangeAttribute("data-kit-overlay-recordings", "true", false);
+        Assert.DoesNotContain("checked", RecordingToggleMarkup(await fixture.Html(), "data-kit-overlay-all-recordings"));
+        Assert.Single(fixture.Service.Overlays, window => window.Settings.CaptureExcluded);
+        Assert.Equal(acquisitions, fixture.Source.Acquisitions);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task LoadingATemplateKeepsTheWindowsRecordingChoice(bool captureExcluded)
@@ -640,6 +739,88 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.True(fixture.Service.Settings.Enabled);
         using var restarted = new OverlayService(fixture.Directory, new OverlayCollectionSettings());
         Assert.Equal(captureExcluded, restarted.Settings.CaptureExcluded);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MountedEditorAndItsPreviewReflectTheSavedLockAcrossRuntimeFocusUpdates(bool locked)
+    {
+        await using var fixture = await Fixture.Create(seedLegacy: false, initialSettings: new() { Enabled = true });
+        Assert.True((await fixture.Service.SaveLockAsync(fixture.Service.SelectedOverlayId, locked)).Succeeded);
+        await fixture.Refresh();
+        Assert.Equal(locked, (await fixture.EditorField<OverlaySettings>("_settings")).Locked);
+        AssertRenderedLockChoices(await fixture.Html(), locked);
+        var file = Path.Combine(fixture.Directory, "overlay.json");
+        var before = await File.ReadAllBytesAsync(file);
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            foreach (var visible in new[] { false, true })
+            {
+                // The live host reports its foreground visibility through this existing event path.
+                fixture.Service.SetRuntimeState(fixture.Service.SelectedOverlayId, visible);
+                fixture.Source.Publish();
+                await fixture.Refresh();
+                Assert.Equal(locked, fixture.Service.Settings.Locked);
+                Assert.Equal(locked, (await fixture.EditorField<OverlaySettings>("_settings")).Locked);
+                AssertRenderedLockChoices(await fixture.Html(), locked);
+                Assert.Equal(before, await File.ReadAllBytesAsync(file));
+            }
+        }
+        // A visible layout error retains its draft while external explicit lock choices still synchronize.
+        await fixture.SetField("_error", "synthetic layout warning");
+        Assert.True((await fixture.Service.SaveLockAsync(fixture.Service.SelectedOverlayId, !locked)).Succeeded);
+        await fixture.Refresh();
+        Assert.Equal(!locked, (await fixture.EditorField<OverlaySettings>("_settings")).Locked);
+        AssertRenderedLockChoices(await fixture.Html(), !locked);
+        Assert.True((await fixture.Service.ReloadAsync()).Succeeded);
+        await fixture.Refresh();
+        AssertRenderedLockChoices(await fixture.Html(), !locked);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task QueuedMountedEditorGeometryPreservesANewerExplicitLockChoice(bool locked)
+    {
+        var widget = OverlayCatalog.CreateWidget("clock");
+        await using var fixture = await Fixture.Create(seedLegacy: false, initialSettings: new() { Widgets = [widget] });
+        Assert.True((await fixture.Service.SaveLockAsync(fixture.Service.SelectedOverlayId, !locked)).Succeeded);
+        await fixture.Refresh();
+        var gate = await fixture.SaveGate();
+        await gate.WaitAsync();
+        Task geometry;
+        try
+        {
+            geometry = await fixture.BeginInvoke("CommitWidgetGeometry", widget.Id, 72d, 48d, widget.Width, widget.Height);
+            Assert.False(geometry.IsCompleted);
+            Assert.True((await fixture.Service.SaveLockAsync(fixture.Service.SelectedOverlayId, locked)).Succeeded);
+            fixture.Service.SetRuntimeState(fixture.Service.SelectedOverlayId, false);
+            fixture.Service.SetRuntimeState(fixture.Service.SelectedOverlayId, true);
+            fixture.Source.Publish();
+        }
+        finally { gate.Release(); }
+        await geometry.WaitAsync(TimeSpan.FromSeconds(10));
+        await fixture.Refresh();
+        Assert.Equal(locked, fixture.Service.Settings.Locked);
+        Assert.Equal(locked, (await fixture.EditorField<OverlaySettings>("_settings")).Locked);
+        AssertRenderedLockChoices(await fixture.Html(), locked);
+        var saved = Assert.Single(fixture.Service.Settings.Widgets);
+        Assert.Equal((72d, 48d), (saved.X, saved.Y));
+        using var restarted = new OverlayService(fixture.Directory, new OverlayCollectionSettings());
+        Assert.Null(restarted.LoadError);
+        Assert.Equal(locked, restarted.Settings.Locked);
+        Assert.Equal((72d, 48d), (restarted.Settings.Widgets.Single().X, restarted.Settings.Widgets.Single().Y));
+    }
+
+    private static void AssertRenderedLockChoices(string html, bool locked)
+    {
+        var glyphs = System.Text.RegularExpressions.Regex.Matches(html, "<img class=\"oe-lock-glyph\" src=\"([^\"]+)\"")
+            .Select(match => match.Groups[1].Value).ToArray();
+        var library = Soulcrest.App.Overlay.OverlayLockGlyph.GetDataUri(OverlayEditorThemes.DefaultId, true);
+        var selected = Soulcrest.App.Overlay.OverlayLockGlyph.GetDataUri(OverlayEditorThemes.DefaultId, locked);
+        // The module library shows the generic control; canvas and dialog show the selected window's choice.
+        Assert.Equal(new[] { library, selected, selected }, glyphs);
     }
 
     [Fact]
@@ -699,9 +880,9 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Equal(acquisitions, fixture.Source.Acquisitions);
     }
 
-    private static string RecordingToggleMarkup(string html)
+    private static string RecordingToggleMarkup(string html, string attribute = "data-kit-overlay-recordings")
     {
-        var toggle = System.Text.RegularExpressions.Regex.Match(html, "<input[^>]*data-kit-overlay-recordings=\"true\"[^>]*>");
+        var toggle = System.Text.RegularExpressions.Regex.Match(html, $"<input[^>]*{attribute}=\"true\"[^>]*>");
         Assert.True(toggle.Success);
         return toggle.Value;
     }
@@ -968,9 +1149,10 @@ public sealed class OriginalKitOverlayEditorTests
     }
 
     [Theory]
-    [InlineData("de", "Deine Fenster und wiederverwendbaren Layouts an einem Ort.", "Gebiete und zusätzliche Bedingungen")]
-    [InlineData("en", "Your windows and reusable layouts in one place.", "Areas and additional conditions")]
-    public async Task PresetsAndCompactDisplayUseTheUiLanguageAndRetainTheVisibilityControls(string language, string description, string conditions)
+    [InlineData("de", "Deine Fenster und wiederverwendbaren Layouts an einem Ort.", "Sichtbarkeitsbedingungen", "Aufnahmen")]
+    [InlineData("en", "Your windows and reusable layouts in one place.", "Visibility conditions", "Recordings")]
+    public async Task DisplayShowsAllLocalizedGroupsAndConditionsWithoutAnExpander(
+        string language, string description, string conditions, string recordings)
     {
         await using var fixture = await Fixture.Create(language: language, section: "presets", seedLegacy: false);
         Assert.Contains(description, await fixture.Html());
@@ -978,15 +1160,14 @@ public sealed class OriginalKitOverlayEditorTests
         await fixture.SetSection("display");
         var html = await fixture.Html();
         Assert.Contains("class=\"oe-display-grid\"", html);
-        Assert.Contains("id=\"oe-visibility-title\"", html);
         Assert.Contains("id=\"oe-appearance-title\"", html);
         Assert.Contains(conditions, html);
-        var advanced = System.Text.RegularExpressions.Regex.Match(html, "<details[^>]*data-visibility-advanced=\"true\"[^>]*>").Value;
-        Assert.NotEmpty(advanced);
-        Assert.DoesNotContain("open", advanced);
-        Assert.DoesNotContain("data-kit-overlay-enabled", html);
-        Assert.Contains("data-activate-overlay=\"true\"", html);
-        Assert.Contains("data-kit-overlay-visibility=\"true\"", html);
+        Assert.Contains(recordings, html);
+        Assert.DoesNotContain("data-visibility-advanced", html);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "data-activate-overlay=\"true\""));
+        Assert.DoesNotContain("oe-window-visibility", html);
+        Assert.DoesNotContain(language == "de" ? "Wann anzeigen" : "When to Show", html);
+        Assert.Contains("role=\"radiogroup\"", html);
         Assert.Contains("overlay-window-triggers", html);
         Assert.False(Directory.Exists(fixture.Directory));
     }
@@ -1024,7 +1205,7 @@ public sealed class OriginalKitOverlayEditorTests
     {
         await using var fixture = await Fixture.Create(seedLegacy: false);
         Assert.Empty(fixture.Service.Settings.Widgets);
-        Assert.Equal(24, OverlayCatalog.Widgets.Count);
+        Assert.Contains("daily-gathering-limit", LibraryKinds(await fixture.Html()));
         Assert.False(Directory.Exists(fixture.Directory));
         await fixture.Invoke("ShowModulePreview", "drop-grid");
         Assert.Contains("oe-module-preview", await fixture.Html());
@@ -1241,16 +1422,16 @@ public sealed class OriginalKitOverlayEditorTests
         var originalHtml = await fixture.Html();
         Assert.True(originalHtml.IndexOf("class=\"panel oe-library\"", StringComparison.Ordinal)
             < originalHtml.IndexOf("class=\"oe-workbench\"", StringComparison.Ordinal));
-        Assert.Equal(24, LibraryKinds(originalHtml).Distinct().Count());
+        Assert.Equal(OverlayCatalog.Widgets.Count, LibraryKinds(originalHtml).Distinct().Count());
         var collected = new List<string>();
-        foreach (var (category, count) in new[] { ("drops", 3), ("kina", 7), ("ap", 2), ("rank", 8), ("time", 2), ("notices", 1), ("pets", 1) })
+        foreach (var (category, count) in new[] { ("drops", 3), ("kina", 7), ("ap", 2), ("rank", 8), ("time", 2), ("gathering", 1), ("notices", 1), ("pets", 1) })
         {
             await fixture.ClickAttribute("data-library-category", category);
             var kinds = LibraryKinds(await fixture.Html());
             Assert.Equal(count, kinds.Length);
             collected.AddRange(kinds);
         }
-        Assert.Equal(24, collected.Distinct().Count());
+        Assert.Equal(OverlayCatalog.Widgets.Count, collected.Distinct().Count());
         await fixture.ClickAttribute("data-library-category", "ap");
         await fixture.Invoke("ShowModulePreview", "abyss-points");
         await fixture.Invoke("ChangeModuleSearch", new ChangeEventArgs { Value = " /H " });
@@ -1261,7 +1442,7 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Contains("role=\"status\"", await fixture.Html());
         await fixture.Invoke("ChangeModuleSearch", new ChangeEventArgs { Value = "" });
         await fixture.ClickAttribute("data-library-category", "all");
-        Assert.Equal(24, LibraryKinds(await fixture.Html()).Length);
+        Assert.Equal(OverlayCatalog.Widgets.Count, LibraryKinds(await fixture.Html()).Length);
         Assert.Equal(selected, await fixture.EditorField<string?>("_selectedId"));
         Assert.Equal(before, await File.ReadAllBytesAsync(file));
         Assert.Equal(leases, fixture.Source.Acquisitions);
@@ -1329,7 +1510,7 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "data-widget-id=\"overlay-lock\""));
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "data-required-widget=\"true\""));
         Assert.Contains("data-select-lock-widget=\"true\"", html);
-        Assert.Equal(24, LibraryKinds(html).Length);
+        Assert.Equal(OverlayCatalog.Widgets.Count, LibraryKinds(html).Length);
         Assert.DoesNotContain(OverlayLockWidget.Kind, LibraryKinds(html));
         if (contents.Length > 0)
             Assert.True(html.IndexOf("data-widget-id=\"overlay-lock\"", StringComparison.Ordinal)
@@ -1397,7 +1578,7 @@ public sealed class OriginalKitOverlayEditorTests
     }
 
     [Fact]
-    public async Task OriginalEditorDomShowsNineteenModulesAndPreservesLegacyContent()
+    public async Task OriginalEditorDomShowsTheModuleLibraryAndPreservesLegacyContent()
     {
         await using var fixture = await Fixture.Create();
         var html = await fixture.Html();
@@ -1405,7 +1586,7 @@ public sealed class OriginalKitOverlayEditorTests
         Assert.Contains("class=\"oe-stage-viewport\"", html);
         Assert.Contains("data-module-kind=\"duration\"", html);
         Assert.DoesNotContain("data-module-kind=\"preview-metric\"", html);
-        Assert.Equal(24, OverlayCatalog.Widgets.Count);
+        Assert.Equal(OverlayCatalog.Widgets.Count, LibraryKinds(html).Length);
         Assert.Contains("data-content-width=\"168\"", html);
         Assert.Contains("data-canvas-resize=\"nw\"", html);
         Assert.Contains("data-canvas-resize=\"sw\"", html);
@@ -1720,7 +1901,11 @@ public sealed class OriginalKitOverlayEditorTests
                     [nameof(OriginalKitOverlayEditor.Section)] = section })));
             return fixture;
         }
-        public Task<string> Html() => _renderer.Dispatcher.InvokeAsync(() => WebUtility.HtmlDecode(_root.ToHtmlString()));
+        public async Task<string> Html()
+        {
+            await Refresh();
+            return await _renderer.Dispatcher.InvokeAsync(() => WebUtility.HtmlDecode(_root.ToHtmlString()));
+        }
         public Task<string> VirtualizedItemMarkup(OverlayLootItem item) => _renderer.Dispatcher.InvokeAsync(async () =>
         {
 #pragma warning disable BL0006
@@ -1734,7 +1919,30 @@ public sealed class OriginalKitOverlayEditorTests
             return (await _renderer.RenderComponentAsync<PickerTemplateHost>(ParameterView.FromDictionary(new Dictionary<string, object?>
                 { [nameof(PickerTemplateHost.Content)] = template(item) }))).ToHtmlString();
         });
-        public Task Refresh() => _renderer.Dispatcher.InvokeAsync(() => _editor.Refresh());
+        public async Task Refresh()
+        {
+            var pump = await _renderer.Dispatcher.InvokeAsync(() =>
+                (OverlayEditorRefreshPump?)typeof(OriginalKitOverlayEditor).GetField("_refreshPump", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_editor));
+            if (pump is not null) await pump.WhenIdle.WaitAsync(TimeSpan.FromSeconds(10));
+            await _renderer.Dispatcher.InvokeAsync(() => _editor.Refresh());
+        }
+        public Task RepeatParameters(int count) => _renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            for (var index = 1; index <= count; index++)
+            {
+                Source.PointsVersion = index;
+                await _editor.SetParametersAsync(ParameterView.FromDictionary(new Dictionary<string, object?>
+                    { [nameof(OriginalKitOverlayEditor.Section)] = "layout" }));
+            }
+        });
+        public Task PublishBurst(int count) => _renderer.Dispatcher.InvokeAsync(() =>
+        {
+            for (var index = 1; index <= count; index++)
+            {
+                Source.PointsVersion = index;
+                Source.Publish();
+            }
+        });
         public Task SetSection(string section) => _renderer.Dispatcher.InvokeAsync(() => _editor.SetParametersAsync(
             ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(OriginalKitOverlayEditor.Section)] = section })));
         public Task PublishLanguage(SettingsService settings, string language) => _renderer.Dispatcher.InvokeAsync(() =>
@@ -1877,13 +2085,23 @@ public sealed class OriginalKitOverlayEditorTests
         public List<(bool Examples,bool Market)> Acquisitions { get; } = [];
         public int ActiveLeases { get; private set; }
         public int ActiveMarketLeases { get; private set; }
+        public int LiveCaptures { get; private set; }
+        public int PointsVersion { get; set; }
         public bool DistinctModes { get; set; }
         public bool WaitingForWorldContext { get; set; }
         public IReadOnlyList<OverlayLootItem>? CatalogOverride { get; set; }
         public OverlaySnapshot Capture(bool examples=false,string? language=null)
         {
+            if (!examples) LiveCaptures++;
             var snapshot = OverlaySnapshot.DemoFor(language);
             if (!examples) snapshot = snapshot with { WaitingForWorldContext = WaitingForWorldContext };
+            if (!examples && PointsVersion > 0)
+            {
+                var pointMetrics = snapshot.Metrics.ToDictionary(entry => entry.Key, entry => entry.Value);
+                pointMetrics["abyss-points"] = new("Erhaltene AP", $"POINTS-{PointsVersion}");
+                snapshot = snapshot with { Metrics = pointMetrics, SessionActive = true,
+                    Abyss = snapshot.Abyss with { CharacterBound = true, Confirmed = true, WorldContextVisible = true, SessionActive = true } };
+            }
             if (CatalogOverride is { } catalog) snapshot = snapshot with { ItemCatalog = catalog };
             if (!DistinctModes) return snapshot;
             var metrics = snapshot.Metrics.ToDictionary(entry => entry.Key, entry => entry.Value);

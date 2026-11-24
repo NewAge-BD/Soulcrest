@@ -27,7 +27,7 @@ public sealed class NetworkAbyssSpendingTests
         f.Send(Changes(Spending(471)), 2);
         var spent = f.Network.AbyssSnapshot;
         Assert.Equal(471, spent.AbyssPointBalance); Assert.Equal(At.AddSeconds(2), spent.AbyssPointBalanceObservedAt);
-        Assert.False(spent.AbyssPointGainsQualified); Assert.Empty(f.Gains);
+        Assert.True(spent.AbyssPointGainsQualified); Assert.Empty(f.Gains);
         Assert.Equal(rank.RankPoints, spent.RankPoints); Assert.Equal(rank.RankPointsObservedAt, spent.RankPointsObservedAt);
         Assert.Null(spent.FarmedAbyssPoints); Assert.True(spent.Sequence > rank.Sequence);
         f.Send(Changes(new Change(485)), 3); f.Send(Changes(new Change(485)), 4);
@@ -64,10 +64,6 @@ public sealed class NetworkAbyssSpendingTests
     }
 
     [Theory]
-    [InlineData("unknown-decrease")]
-    [InlineData("unknown-increase")]
-    [InlineData("update")]
-    [InlineData("rising")]
     [InlineData("different-wallet")]
     [InlineData("moved-container")]
     [InlineData("equipment")]
@@ -76,15 +72,11 @@ public sealed class NetworkAbyssSpendingTests
     [InlineData("truncated")]
     [InlineData("trailing-bytes")]
     [InlineData("negative")]
-    public void OnlyTheExactValidatedNonIncreasingWalletVariantCanPreserveTheBase(string variant)
+    public void InvalidWalletRecordsStillRevokeTheComparisonBase(string variant)
     {
         using var f = new Fixture(); f.Baseline(100);
         var update = variant switch
         {
-            "unknown-decrease" => Changes(Spending(90) with { Decrease = 16 }),
-            "unknown-increase" => Changes(Spending(90) with { Increase = 1 }),
-            "update" => Changes(Spending(90) with { Update = 1 }),
-            "rising" => Changes(Spending(101)),
             "different-wallet" => Changes(Spending(90) with { Key = 92 }),
             "moved-container" => Changes(Spending(90) with { Container = 2 }),
             "equipment" => Changes(Spending(90) with { Equipment = true }),
@@ -116,13 +108,34 @@ public sealed class NetworkAbyssSpendingTests
         f.Send(Changes(new Change(110)), 3); Assert.Empty(f.Gains);
     }
 
+    [Theory]
+    [InlineData("no-transport", 11)]
+    [InlineData("no-transport", 24)]
+    [InlineData("removed-transport", 11)]
+    [InlineData("removed-transport", 24)]
+    [InlineData("replaced-transport", 11)]
+    [InlineData("replaced-transport", 24)]
+    [InlineData("capture-generation", 11)]
+    [InlineData("capture-generation", 24)]
+    public void EveryWalletComparisonRequiresCurrentCaptureAndTheSameNonNullTransport(string boundary, int reason)
+    {
+        using var f = new Fixture(seedTransport: boundary != "no-transport"); f.Baseline(100);
+        if (boundary == "removed-transport") f.RemoveTransport();
+        if (boundary == "replaced-transport") f.ReplaceTransport();
+        if (boundary == "capture-generation") f.AdvanceCaptureGeneration();
+        f.Send(Changes(new Change(105, Increase: (byte)reason)), 2);
+        Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance); Assert.Empty(f.Gains);
+        f.Send(Changes(new Change(110)), 3); Assert.Empty(f.Gains);
+    }
+
     [Fact]
     public void ASoftOwnCannotPromoteAnOldWalletIntoANewerCaptureGeneration()
     {
         using var f = new Fixture(); f.Baseline(100); f.AdvanceCaptureGeneration();
         f.Own(2); Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance);
-        f.Send(Changes(Spending(90)), 3); f.Send(Changes(new Change(110)), 4);
-        Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance); Assert.Empty(f.Gains);
+        f.Send(Changes(Spending(90)), 3);
+        Assert.Equal(90, f.Network.AbyssSnapshot.AbyssPointBalance); Assert.Empty(f.Gains);
+        f.Send(Changes(new Change(110)), 4); Assert.Equal(20, Assert.Single(f.Gains).Amount);
     }
 
     [Theory]
@@ -131,7 +144,7 @@ public sealed class NetworkAbyssSpendingTests
     [InlineData("character")]
     [InlineData("server")]
     [InlineData("gap")]
-    public void SpendingCannotEstablishANewOwnBaselineOrBridgeAnUnqualifiedInterval(string boundary)
+    public void FirstModificationAfterABoundaryCannotBorrowTheFormerWalletRegardlessOfReason(string boundary)
     {
         using var f = new Fixture();
         if (boundary == "login-list-only")
@@ -149,8 +162,17 @@ public sealed class NetworkAbyssSpendingTests
             if (boundary == "server") f.Own(2, Identity with { ServerId = 502 });
             if (boundary == "gap") f.Network.ProcessProgressGap(Connection.StreamKey, capturedAtUtc: At.AddSeconds(2));
         }
-        f.Send(Changes(Spending(90)), 3); f.Send(Changes(new Change(110)), 4);
-        Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance); Assert.Empty(f.Gains);
+        f.Send(Changes(Spending(90)), 3); Assert.Empty(f.Gains);
+        f.Send(Changes(new Change(110)), 4);
+        if (boundary == "gap")
+        {
+            Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance); Assert.Empty(f.Gains);
+        }
+        else
+        {
+            Assert.Equal(110, f.Network.AbyssSnapshot.AbyssPointBalance);
+            Assert.Equal(20, Assert.Single(f.Gains).Amount);
+        }
     }
 
     [Theory]
@@ -272,11 +294,10 @@ public sealed class NetworkAbyssSpendingTests
     [Theory]
     [InlineData("no-modification")]
     [InlineData("login-list-only")]
-    [InlineData("single-modification")]
     [InlineData("character")]
     [InlineData("server")]
     [InlineData("gap")]
-    public void ObservedRewardCannotCreateOrPromoteAnUnqualifiedOwnModificationBase(string boundary)
+    public void FirstRewardAfterANewOwnIsOnlyABaselineUntilTheNextOwnModification(string boundary)
     {
         using var f = new Fixture();
         if (boundary == "login-list-only")
@@ -287,7 +308,6 @@ public sealed class NetworkAbyssSpendingTests
             Assert.Equal(100, f.Network.AbyssSnapshot.AbyssPointBalance);
         }
         else if (boundary == "no-modification") f.Own(0);
-        else if (boundary == "single-modification") f.Baseline(100);
         else
         {
             f.QualifiedBaseline(100);
@@ -298,8 +318,11 @@ public sealed class NetworkAbyssSpendingTests
                 f.Network.ProcessProgressGap(Connection.StreamKey, capturedAtUtc: At.AddSeconds(3)); f.Own(4);
             }
         }
-        f.Send(Changes(ObservedReward(1_320)), 5); f.Send(Changes(new Change(1_325)), 6);
-        Assert.Null(f.Network.AbyssSnapshot.AbyssPointBalance); Assert.Empty(f.Gains);
+        f.Send(Changes(ObservedReward(1_320)), 5);
+        Assert.Equal(1_320, f.Network.AbyssSnapshot.AbyssPointBalance); Assert.Empty(f.Gains);
+        Assert.False(f.Network.AbyssSnapshot.AbyssPointGainsQualified);
+        f.Send(Changes(new Change(1_325)), 6);
+        Assert.Equal(5, Assert.Single(f.Gains).Amount);
     }
 
     [Theory]
@@ -318,11 +341,6 @@ public sealed class NetworkAbyssSpendingTests
     }
 
     [Theory]
-    [InlineData("reason24")]
-    [InlineData("reason31")]
-    [InlineData("decrease")]
-    [InlineData("update")]
-    [InlineData("lower")]
     [InlineData("negative")]
     [InlineData("add")]
     [InlineData("remove")]
@@ -334,15 +352,13 @@ public sealed class NetworkAbyssSpendingTests
     [InlineData("collision")]
     [InlineData("truncated")]
     [InlineData("trailing-bytes")]
-    public void ObservedRewardDoesNotQualifyOtherReasonsOrConflictingWalletRecords(string variant)
+    public void AnyRewardReasonStillRejectsConflictingOrUnsupportedWalletRecords(string variant)
     {
         using var f = new Fixture(); f.QualifiedBaseline(100);
         var reward = ObservedReward(1_320);
         var message = variant switch
         {
-            "reason24" => Changes(reward with { Increase = 24 }), "reason31" => Changes(reward with { Increase = 31 }),
-            "decrease" => Changes(reward with { Decrease = 15 }), "update" => Changes(reward with { Update = 1 }),
-            "lower" => Changes(reward with { Count = 99 }), "negative" => Changes(reward with { Count = -1 }),
+            "negative" => Changes(reward with { Count = -1 }),
             "add" => Changes(reward with { Modification = 0 }), "remove" => Changes(reward with { Modification = 2 }),
             "changed-wallet" => Changes(reward with { Key = 92 }), "zero-key" => Changes(reward with { Key = 0 }),
             "container" => Changes(reward with { Container = 2 }),

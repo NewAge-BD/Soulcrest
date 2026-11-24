@@ -10,9 +10,7 @@ public sealed class AbyssProgressServiceTests
     [Fact]
     public async Task AnUnwritableProgressCacheKeepsTheConfirmedValuesAndTheTrackerAvailable()
     {
-        await using var f = new Fixture();
-        Directory.CreateDirectory(Path.GetDirectoryName(f.ProgressPath)!);
-        File.WriteAllText(f.ProgressPath, "{ damaged");
+        await using var f = new Fixture(initialProgressJson: "{ damaged");
         await f.Ready();
         f.Source.Absolute(200, 2_000, 1_500);
         f.Clock.Advance(TimeSpan.FromSeconds(30));
@@ -342,12 +340,18 @@ public sealed class AbyssProgressServiceTests
         public bool? InstanceLayer;
         public long BindingOffset;
         public TimeSpan WorldObservationOffset;
-        public Fixture(bool enabled = true, bool qualified = true, bool openWorld = false)
+        public Fixture(bool enabled = true, bool qualified = true, bool openWorld = false, string? initialProgressJson = null)
         {
             if (openWorld) { WorldKind = WorldContextKind.OpenWorld; Category = "field"; }
             Settings.Current.AbyssTrackingEnabled = enabled;
             Settings.Current.LootTrackingEnabled = Settings.Current.MonsterLootTrackingEnabled = true;
             Source.UtcNow = Clock.GetUtcNow; Source.Qualified = qualified; Source.Absolute(100, 1000, 1000);
+            // The service's first queued observation can immediately replace the cache.
+            if (initialProgressJson is not null)
+            {
+                Directory.CreateDirectory(_root);
+                File.WriteAllText(ProgressPath, initialProgressJson);
+            }
             Progress = new(Path.Combine(_root, "absolute.json")); Service = NewService();
         }
         public AbyssProgressService NewService(AbyssProgressStore? progress = null) => new(Settings, Source,

@@ -126,15 +126,13 @@ public static class OverlayEditorLiveDiagnostics
 
     internal static OverlayLivePolicyInputs Inputs(OverlaySettings settings, OverlaySnapshot snapshot, OverlayEditorLiveContext context, bool result)
     {
-        var rules = settings.TriggerRules;
+        var rules = settings.EffectiveTriggerRules;
         var valid = rules is null || OverlayTriggerRules.Valid(rules);
         var session = snapshot.TrackingAvailable ? snapshot.SessionActive : (bool?)null;
         var failed = OverlayLiveFailedGates.None;
         if (!settings.Enabled) failed |= OverlayLiveFailedGates.Disabled;
         if (settings.Widgets.Count == 0) failed |= OverlayLiveFailedGates.Empty;
         if (!context.AllowBackground && !context.GameForeground) failed |= OverlayLiveFailedGates.GlobalForeground;
-        if (settings.Visibility != "always" && !context.GameAvailable) failed |= OverlayLiveFailedGates.GameUnavailable;
-        if (settings.Visibility == "session" && (!snapshot.TrackingAvailable || !snapshot.SessionActive)) failed |= OverlayLiveFailedGates.SessionVisibility;
         if (GenusInsightOverlayContent.Dedicated(settings) && !GenusInsightOverlayContent.Available(snapshot.GenusInsight)) failed |= OverlayLiveFailedGates.GenusUnavailable;
         if (!valid) failed |= OverlayLiveFailedGates.InvalidRules;
         if (rules is not null && valid)

@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace Soulcrest.App.Services;
 
 /// <summary>Provider-only cache: no profiles, character names, game state or credentials.</summary>
-public sealed class ExchangeMarketCache
+public sealed partial class ExchangeMarketCache
 {
     public static readonly TimeSpan MaximumAge = TimeSpan.FromHours(2);
     public static readonly TimeSpan FutureSkew = TimeSpan.FromMinutes(2);
@@ -226,6 +226,7 @@ public sealed class ExchangeMarketCache
                 lock (_gate)
                 {
                     var now = _clock.GetUtcNow();
+                    foreach (var quote in response) RememberQuote(quote, now);
                     var usable = response.Where(quote => IsUsable(quote, now)).ToDictionary(quote => quote.ItemId);
                     foreach (var id in batch)
                     {
@@ -297,7 +298,10 @@ public sealed class ExchangeMarketCache
         {
             var now = _clock.GetUtcNow();
             foreach (var quote in entries)
+            {
+                RememberQuote(quote, now);
                 if (IsUsable(quote, now)) PutQuote(quote);
+            }
             Prune(now);
         }
         Save();
@@ -349,6 +353,7 @@ public sealed class ExchangeMarketCache
 
     private void PutAveragePrice(ExchangeMarketAveragePrice price)
     {
+        RememberAverage(price, _clock.GetUtcNow());
         if (!_averagePrices.TryGetValue((price.ServerId, price.ItemId), out var prior) ||
             price.FetchedAt >= prior.FetchedAt && price.RangeEnd >= prior.RangeEnd)
             _averagePrices[(price.ServerId, price.ItemId)] = price;
@@ -372,6 +377,7 @@ public sealed class ExchangeMarketCache
 
     private void PutQuote(ExchangeMarketQuote quote)
     {
+        RememberQuote(quote, _clock.GetUtcNow());
         if (!_quotes.TryGetValue((quote.ServerId, quote.ItemId), out var prior) ||
             quote.FetchedAt >= prior.FetchedAt && quote.CapturedAt >= prior.CapturedAt)
             _quotes[(quote.ServerId, quote.ItemId)] = quote;
@@ -386,6 +392,7 @@ public sealed class ExchangeMarketCache
 
     private void Prune(DateTimeOffset now)
     {
+        PruneLastPrices();
         foreach (var key in _averagePrices.Where(pair => !AverageIsUsable(pair.Value, now)).Select(pair => pair.Key).ToArray())
         { _averagePrices.Remove(key); _averageLookups.Remove(key); }
         foreach (var key in _averagePrices.OrderByDescending(pair => pair.Value.FetchedAt).ThenBy(pair => pair.Key.Server)
@@ -452,11 +459,17 @@ public sealed class ExchangeMarketCache
             // A current catalogue may leave single rows without a key; only a key-less catalogue counts as old.
             _serversFetchedAt = file.Servers.Length == 0 || file.Servers.Any(server => server.GameServerKey is > 0)
                 ? file.ServersFetchedAt : null;
-            foreach (var quote in file.Quotes) if (IsUsable(quote, now)) _quotes.Add((quote.ServerId, quote.ItemId), quote);
+            foreach (var quote in file.Quotes)
+            {
+                RememberQuote(quote, now);
+                if (IsUsable(quote, now)) _quotes.Add((quote.ServerId, quote.ItemId), quote);
+            }
             if (file.Lookups is { } entries)
                 foreach (var lookup in entries) if (LookupTimestampFresh(lookup.FetchedAt, now)) _lookups.Add((lookup.ServerId, lookup.ItemId), lookup.FetchedAt);
             LoadHistoricalQuotes(file.HistoricalQuotes, now);
             LoadAveragePrices(file.AveragePrices, file.AverageLookups, now);
+            LoadLastPrices(file.LastQuotes, file.LastAveragePrices, now);
+            PruneLastPrices();
         }
         catch (Exception error) when (error is FileNotFoundException or DirectoryNotFoundException) { }
         catch (Exception error) when (StorageError(error)) { _persistenceError = "Exchange market cache could not be read."; }
@@ -492,6 +505,7 @@ public sealed class ExchangeMarketCache
                 || prices.Select(price => (price.ServerId, price.ItemId)).Distinct().Count() != prices.Length
                 || lookups.Any(lookup => lookup is null || lookup.ServerId <= 0 || lookup.ItemId <= 0 || !ValidTimestamp(lookup.FetchedAt, now))
                 || lookups.Select(lookup => (lookup.ServerId, lookup.ItemId)).Distinct().Count() != lookups.Length) return;
+            foreach (var price in prices) RememberAverage(price, now);
             var expired = prices.Where(price => !AverageIsUsable(price, now)).Select(price => (price.ServerId, price.ItemId)).ToHashSet();
             foreach (var price in prices) if (AverageIsUsable(price, now)) PutAveragePrice(price);
             foreach (var lookup in lookups)
@@ -526,7 +540,11 @@ public sealed class ExchangeMarketCache
                         .ThenBy(quote => quote.ServerId).ThenBy(quote => quote.ItemId).ToArray(),
                     _averagePrices.Values.OrderByDescending(price => price.FetchedAt).ThenBy(price => price.ServerId).ThenBy(price => price.ItemId).ToArray(),
                     _averageLookups.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key.Server).ThenBy(pair => pair.Key.Item)
-                        .Select(pair => new QuoteLookup(pair.Key.Server, pair.Key.Item, pair.Value)).ToArray());
+                        .Select(pair => new QuoteLookup(pair.Key.Server, pair.Key.Item, pair.Value)).ToArray(),
+                    _lastQuotes.Values.OrderByDescending(quote => quote.CapturedAt).ThenByDescending(quote => quote.FetchedAt)
+                        .ThenBy(quote => quote.ServerId).ThenBy(quote => quote.ItemId).ToArray(),
+                    _lastAveragePrices.Values.OrderByDescending(price => price.RangeEnd).ThenByDescending(price => price.FetchedAt)
+                        .ThenBy(price => price.ServerId).ThenBy(price => price.ItemId).ToArray());
             var bytes = SerializeBoundedSnapshot(snapshot);
             if (bytes.Length > MaximumBytes) throw new IOException("Exchange cache exceeds its size bound.");
             temporary = Path.Combine(root, ".exchange-" + Guid.NewGuid().ToString("N") + ".tmp");
@@ -549,7 +567,7 @@ public sealed class ExchangeMarketCache
         }
     }
 
-    private static byte[] SerializeBoundedSnapshot(CacheFile snapshot)
+    private static byte[] SerializeLegacyBoundedSnapshot(CacheFile snapshot)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(snapshot);
         if (bytes.Length > MaximumBytes && (snapshot.AveragePrices is { Length: > 0 } || snapshot.AverageLookups is { Length: > 0 }))
@@ -634,9 +652,11 @@ public sealed class ExchangeMarketCache
     private sealed record CacheFile(int SchemaVersion, string Provider, DateTimeOffset? ServersFetchedAt,
         ExchangeMarketServer[] Servers, ExchangeMarketQuote[] Quotes, QuoteLookup[]? Lookups = null,
         ExchangeMarketHistoricalQuote[]? HistoricalQuotes = null, ExchangeMarketAveragePrice[]? AveragePrices = null,
-        QuoteLookup[]? AverageLookups = null);
+        QuoteLookup[]? AverageLookups = null, ExchangeMarketQuote[]? LastQuotes = null,
+        ExchangeMarketAveragePrice[]? LastAveragePrices = null);
     private sealed record CacheLoadFile(int SchemaVersion, string Provider, DateTimeOffset? ServersFetchedAt,
         ExchangeMarketServer[] Servers, ExchangeMarketQuote[] Quotes, QuoteLookup[]? Lookups = null,
-        JsonElement? HistoricalQuotes = null, JsonElement? AveragePrices = null, JsonElement? AverageLookups = null);
+        JsonElement? HistoricalQuotes = null, JsonElement? AveragePrices = null, JsonElement? AverageLookups = null,
+        JsonElement? LastQuotes = null, JsonElement? LastAveragePrices = null);
     private sealed record QuoteLookup(int ServerId, int ItemId, DateTimeOffset FetchedAt);
 }

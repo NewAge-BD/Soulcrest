@@ -27,9 +27,19 @@ public sealed record OverlayWidget
 public sealed record OverlaySettings
 {
     public bool Enabled { get; init; }
+    // User request 2026-11-21: only an explicit lock choice changes this persisted preference.
+    // Older version-2 files retain the native overlay's safe, locked startup state.
+    public bool Locked { get; init; } = true;
     public string Interaction { get; init; } = "move";
     public string Visibility { get; init; } = "game";
     public OverlayTriggerRules? TriggerRules { get; init; }
+
+    // Older layouts used a separate session mode. Surface that requirement in the
+    // same rules used by the editor and runtime until the user edits those rules.
+    internal OverlayTriggerRules? EffectiveTriggerRules =>
+        Visibility == "session" && (TriggerRules?.SessionActive ?? OverlayTriggerRequirement.Any) == OverlayTriggerRequirement.Any
+            ? (TriggerRules ?? new()) with { SessionActive = OverlayTriggerRequirement.Required }
+            : TriggerRules;
     public double Width { get; init; } = 360;
     public double Height { get; init; } = 260;
     // Kit positions are fractions of the available monitor travel, independent
@@ -75,15 +85,16 @@ public static class OverlayCatalog
         new OverlayWidgetDefinition("market-kina", "Market-Kina (netto)", "Netto-Marktwert der Sessionitems; 24h-Durchschnitt nur bei fehlendem aktuellem Preis", "silver", 168, 72),
         new OverlayWidgetDefinition("dropped-kina", "Erbeutete Kina", "Tatsächlich erbeutete ungebundene Kina der Session", "silver", 168, 72),
         new OverlayWidgetDefinition("bound-kina", "Gebundene Kina", "Tatsächlich erbeutete gebundene Kina der Session", "silver", 168, 72),
-        new OverlayWidgetDefinition("abyss-points", "Erhaltene AP", "Bestätigte AP-Gewinne der laufenden Session", "spark", 168, 72),
+        new OverlayWidgetDefinition("abyss-points", "Erhaltene AP", "Bestätigte AP-Gewinne aus allen Quellen in der laufenden Session", "spark", 168, 72),
         new OverlayWidgetDefinition("rank-net", "Rangpunkte netto", "Rangpunkte-Gewinne minus Verluste der Session", "trend", 168, 72),
         new OverlayWidgetDefinition("rank-gained", "Erhaltene Rangpunkte", "Rangpunkte-Gewinne der laufenden Session", "trend", 168, 72),
         new OverlayWidgetDefinition("rank-lost", "Verlorene Rangpunkte", "Rangpunkte-Verluste der laufenden Session", "trend", 168, 72),
+        new OverlayWidgetDefinition("daily-gathering-limit", "Tägliches Sammellimit", "Aktueller Sammelstand bis 1.000", "loot", 280, 104),
         new OverlayWidgetDefinition("daily-kina", "Tages-Kina", "Bestätigter Tagesstand gebundener Monster-Kina bis 1.000.000 Kina", "trend", 280, 104),
         new OverlayWidgetDefinition("market-kina-hour", "Market-Kina pro Stunde", "Netto-Marktwert pro Sessionstunde; 24h-Durchschnitt nur bei fehlendem aktuellem Preis", "trend", 168, 72),
         new OverlayWidgetDefinition("dropped-kina-hour", "Erbeutete Kina pro Stunde", "Ungebundene Kina pro gemeinsamer Sessionstunde", "trend", 168, 72),
         new OverlayWidgetDefinition("bound-kina-hour", "Gebundene Kina pro Stunde", "Gebundene Kina pro gemeinsamer Sessionstunde", "trend", 168, 72),
-        new OverlayWidgetDefinition("abyss-points-hour", "AP pro Stunde", "Bestätigte AP-Gewinne pro Sessionstunde", "trend", 168, 72),
+        new OverlayWidgetDefinition("abyss-points-hour", "AP pro Stunde", "Bestätigte AP-Gewinne aus allen Quellen pro Sessionstunde", "trend", 168, 72),
         new OverlayWidgetDefinition("rank-net-hour", "Netto-Rangpunkte pro Stunde", "Rangpunkte netto pro Sessionstunde", "trend", 168, 72),
         new OverlayWidgetDefinition("rank-gained-hour", "Erhaltene Rangpunkte pro Stunde", "Rangpunkte-Gewinne pro Sessionstunde", "trend", 168, 72),
         new OverlayWidgetDefinition("rank-lost-hour", "Verlorene Rangpunkte pro Stunde", "Rangpunkte-Verluste pro Sessionstunde", "trend", 168, 72),

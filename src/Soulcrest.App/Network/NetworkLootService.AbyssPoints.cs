@@ -48,34 +48,26 @@ public sealed partial class NetworkLootService
             SafeEvent.Raise(Changed, "Abyss-Punkte-Netzwerkstatus");
             return;
         }
-        // User-qualified 2026-11-06: the exact observed reward form requires an already
-        // qualified own modification base on the identical current transport. It does not
-        // identify a kill, assist, group participant or a general reason-code meaning.
-        var observedReward = record is { IncreaseReason: 2, DecreaseReason: 0, UpdateReason: 0 };
-        var acquisition = record is { IncreaseReason: 11, DecreaseReason: 0, UpdateReason: 0 } || observedReward;
-        // User-qualified 2026-10-31: this exact non-increasing own-wallet variant preserves
-        // the comparison base after spending. Its reason byte is not a general expense contract.
-        var observedDecrease = record is { IncreaseReason: 0, DecreaseReason: 15, UpdateReason: 0 };
+        // User request 2026-11-24: count observed positive own-wallet differences for every
+        // source. Reason bytes remain opaque; they do not classify rewards, spending or combat.
         var priorModification = _abyssPointModificationSeen ? _abyssWallet : null;
-        if ((!acquisition && !observedDecrease)
-            || changes.AllChanges.Count(change => change.Item.InstanceKey == record.Item.InstanceKey) != 1
+        if (changes.AllChanges.Count(change => change.Item.InstanceKey == record.Item.InstanceKey) != 1
             || own.ObservedAt is not { } ownAt || ownAt == default || at == default || at < ownAt
             || at > DateTimeOffset.UtcNow || _abyssAt is { } previousAt && at < previousAt
             || _abyssWallet is { } before && (!ReferenceEquals(_abyssCharacter, own)
-                || before.InstanceKey != record.Item.InstanceKey || acquisition && record.Item.Count < before.Count)
-            || (observedDecrease || observedReward) && (priorModification is null || _abyssAt is null
+                || before.InstanceKey != record.Item.InstanceKey)
+            || priorModification is not null && (_abyssAt is null
                 || _abyssPointCaptureGeneration != _generation
                 || !ReferenceEquals(_abyssCharacter, own)
-                || observedReward && !_abyssPointGainsQualified
-                || observedDecrease && record.Item.Count > priorModification.Count
                 || _abyssPointTransport is not { } transport || !ReferenceEquals(transport, AbyssPointTransport(stream))))
         {
             ResetAbyssWallet();
             SafeEvent.Raise(Changed, "Abyss-Punkte-Netzwerkstatus");
             return;
         }
-        // A wallet reduction updates the base without booking negative income or restoring farm budget.
-        var amount = acquisition && priorModification is not null ? record.Item.Count - priorModification.Count : 0;
+        // Non-increasing observations update the base without negative income or new farm budget.
+        // Both absolute counts are nonnegative I64 values, so their signed difference fits I64.
+        var amount = priorModification is not null ? Math.Max(0, record.Item.Count - priorModification.Count) : 0;
         var captureGeneration = _generation;
         var revision = _abyssPointRevision;
         _abyssWallet = record.Item;
@@ -84,7 +76,7 @@ public sealed partial class NetworkLootService
         _abyssPointCaptureGeneration = captureGeneration;
         _abyssPointTransport = AbyssPointTransport(stream);
         _abyssPointCarryStartedAt = null;
-        if (acquisition) _abyssPointGainsQualified = priorModification is not null;
+        _abyssPointGainsQualified = priorModification is not null;
         _abyssPointModificationSeen = true;
         var sequence = ++_abyssSequence;
         // Only a positive difference between two qualified own modifications is income.

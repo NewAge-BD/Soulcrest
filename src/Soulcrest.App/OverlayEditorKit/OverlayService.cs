@@ -106,6 +106,8 @@ public sealed class OverlayService : IOverlayService
             var normalized = OverlayLayout.Normalize(settings with
             {
                 PositionX = current.PositionX, PositionY = current.PositionY, PositionMonitorId = current.PositionMonitorId,
+                // Content/layout saves never own the persistent lock, even when their draft predates this call.
+                Locked = current.Locked,
                 Scale = original is not null && settings.Scale == original.Scale ? current.Scale : settings.Scale,
                 Enabled = original is not null && settings.Enabled == original.Enabled ? current.Enabled : settings.Enabled,
                 Interaction = original is not null && settings.Interaction == original.Interaction ? current.Interaction : settings.Interaction,
@@ -119,6 +121,21 @@ public sealed class OverlayService : IOverlayService
             return ReplaceSettings(collection, id, normalized);
         });
     }
+
+    /// <summary>Commits one explicit user lock choice against the latest collection without replaying a layout draft.</summary>
+    public Task<OverlaySaveResult> SaveLockAsync(string id, bool locked) => ChangeCollection(collection =>
+    {
+        var current = Find(collection, id).Settings;
+        return ReplaceSettings(collection, id, current with { Locked = locked });
+    });
+
+    public Task<OverlaySaveResult> SetAllCaptureExcludedAsync(bool excluded) => ChangeCollection(collection =>
+        collection with
+        {
+            Overlays = Array.AsReadOnly(collection.Overlays.Select(window => window.Settings.CaptureExcluded == excluded
+                ? window
+                : window with { Settings = window.Settings with { CaptureExcluded = excluded } }).ToArray()),
+        });
 
     public Task<OverlaySaveResult> SavePositionAsync(double x, double y, double? width = null, double? height = null) =>
         SavePositionAsync(SelectedOverlayId, x, y, width, height);

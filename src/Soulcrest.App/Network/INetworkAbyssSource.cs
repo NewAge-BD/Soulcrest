@@ -29,7 +29,7 @@ public sealed record NetworkAbyssSnapshot(OwnCharacterContext? Character, long? 
     public DateTimeOffset? KinaGainsObservedAt { get; init; }
     public bool FormatRejected { get; init; }
     public string Status { get; init; } = "Abyss-Punktequelle ist noch nicht qualifiziert.";
-    /// <summary>Explicitly qualified gain semantics, independently of a readable wallet baseline.</summary>
+    /// <summary>Successive own-wallet modifications are comparable on the same transport; positive differences count independently of reason bytes.</summary>
     public bool AbyssPointGainsQualified { get; init; }
     public bool RankPointChangesQualified { get; init; }
     /// <summary>The wallet combat reason must be independently qualified for the Abyss context.</summary>
@@ -40,7 +40,7 @@ public sealed record NetworkAbyssSnapshot(OwnCharacterContext? Character, long? 
     public static NetworkAbyssSnapshot Empty { get; } = new(null, null, null, null, null, 0);
 }
 
-/// <summary>Positive canonical earned AP, already deduplicated and bound to the current own context.</summary>
+/// <summary>A positive observed own-wallet difference, independent of its cause and bound to the current own context.</summary>
 public sealed record NetworkAbyssPointGain(DateTimeOffset At, long Sequence, OwnCharacterContext Character, long Amount);
 
 /// <summary>Signed difference between successive qualified own totals; cause remains unknown. Baselines never emit a change.</summary>

@@ -10,6 +10,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -76,8 +77,8 @@ class PublicCache:
                 self.blocked = True
             raise
 
-    def _store(self, target, path, check=None):
-        if target.exists():
+    def _store(self, target, path, check=None, *, refresh=False):
+        if target.exists() and not refresh:
             return target
         content = self.request(path)
         if check is not None:
@@ -88,12 +89,36 @@ class PublicCache:
         temporary.replace(target)
         return target
 
-    def cdn(self, path):
+    def cdn(self, path, *, refresh=False):
         """A static file (data, tile pack); cached under imports/gamingtools/cdn."""
-        return self._store(CACHE.parent / 'cdn' / static_path(path).lstrip('/'), path)
+        path = static_path(path)
+        check = None
+        if path.endswith('.gtpk'):
+            # Share the offline builder's validation, before replacing a working tile cache.
+            # Keep simple JSON/image fetches independent of the tile decoder's image libraries.
+            from gamingtools_tiles import decode_tile_pack
+            check = decode_tile_pack
+        return self._store(CACHE.parent / 'cdn' / path.lstrip('/'), path, check, refresh=refresh)
 
-    def data(self, kind, entity_id=None, locale='en'):
-        path = '/data/' + locale + '/' + kind + ('/' + str(entity_id) if entity_id else '') + '.d.json'
+    def data(self, kind, entity_id=None, locale='en', refresh=False):
+        path = static_path('/data/' + locale + '/' + kind + ('/' + str(entity_id) if entity_id else '') + '.d.json')
+        if refresh:
+            # Validate both representations before touching either existing cache file.
+            # HTTP, JSON, devalue or encoding failures leave the old pair intact.
+            content = self.request(path)
+            result = decode(json.loads(content.decode('utf-8')))
+            formatted = json.dumps(result, ensure_ascii=False, indent=1).encode('utf-8')
+            raw = CACHE.parent / 'cdn' / path.lstrip('/')
+            decoded_path = raw.with_name(raw.name.replace('.d.json', '.json'))
+            raw.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix='.refresh-', dir=raw.parent) as folder:
+                staged_raw = Path(folder) / raw.name
+                staged_decoded = Path(folder) / decoded_path.name
+                staged_raw.write_bytes(content)
+                staged_decoded.write_bytes(formatted)
+                staged_raw.replace(raw)
+                staged_decoded.replace(decoded_path)
+            return result
         raw = self.cdn(path)
         decoded_path = raw.with_name(raw.name.replace('.d.json', '.json'))
         if decoded_path.exists():
@@ -112,13 +137,18 @@ class PublicCache:
         return self._store(CACHE.parent / 'assets' / path.lstrip('/'), path, is_webp)
 
 
-if __name__ == '__main__':
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('kinds', nargs='+', help='Data files, e.g. pets interactive-map interactive-map/1110')
     parser.add_argument('--locale', default='en')
-    args = parser.parse_args()
+    parser.add_argument('--refresh', action='store_true', help='Refresh only the selected data files and their decoded JSON.')
+    args = parser.parse_args(argv)
     cache = PublicCache()
     for kind in args.kinds:
         name, _, entity = kind.partition('/')
-        data = cache.data(name, entity or None, args.locale)
+        data = cache.data(name, entity or None, args.locale, refresh=args.refresh)
         print(kind, type(data).__name__, len(data), flush=True)
+
+
+if __name__ == '__main__':
+    main()

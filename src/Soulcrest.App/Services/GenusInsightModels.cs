@@ -1,4 +1,6 @@
+using System.Collections.Immutable;
 using Soulcrest.Core.Combat;
+using Soulcrest.Core.GenusInsight;
 
 namespace Soulcrest.App.Services;
 
@@ -13,6 +15,7 @@ public sealed record GenusInsightSlotView
     public byte? Rank { get; init; }
     public decimal? Minimum { get; init; }
     public decimal? Maximum { get; init; }
+    internal ImmutableArray<GenusInsightOption> RarityOptions { get; init; } = [];
     public double? RollFraction { get; init; }
     public bool IsMaxRoll { get; init; }
     public bool IsFavorite { get; init; }
@@ -42,6 +45,8 @@ public sealed record GenusInsightSnapshot
     public byte? ViewedPreset { get; init; }
     public GenusInsightBoardView? ViewedBoard { get; init; }
     public long MenuSourceGeneration { get; init; }
+    internal long OverlaySourceGeneration { get; init; }
+    internal bool OverlaySelectionPending { get; init; }
     public static GenusInsightSnapshot Empty { get; } = new();
 }
 

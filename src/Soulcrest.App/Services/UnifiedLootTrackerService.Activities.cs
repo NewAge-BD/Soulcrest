@@ -142,10 +142,21 @@ public sealed partial class UnifiedLootTrackerService
         if (Volatile.Read(ref _fatal) != 0 || !EventTime(activity.Own, activity.At, activity.Sequence)
             || !ReferenceEquals(_own, activity.Own) || !ReferenceEquals(CurrentOwn, activity.Own) || !CurrentChannel(activity)
             || ValidCharacter(activity.Character) is not { } character
-            || !QualifiedWorld(activity.World, activity.Own, activity.At)
-            || !QualifiedWorld(world, activity.Own, now) || world.Generation != activity.World.Generation
+            || !QualifiedActivityWorld(activity.World, activity.Own, activity.At, activity.Channel)
+            || !QualifiedActivityWorld(world, activity.Own, now, activity.Channel) || world.Generation != activity.World.Generation
             || _observedWorld is null || _observedWorld.Generation > activity.World.Generation
-            || !QualifiedWorld(_observedWorld, activity.Own, now)) return;
+            || !QualifiedActivityWorld(_observedWorld, activity.Own, now, activity.Channel)) return;
+        // A dungeon refinement can update the world before the source's next Changed callback.
+        // Apply its lifecycle boundary before booking the first AP fact in that new context.
+        if (activity.Channel == GainChannel.AbyssPoints && _observedWorld.Generation < world.Generation)
+        {
+            Observe(Capture(), (activity.At, activity.Stamp));
+            world = _world(); now = _time.GetUtcNow();
+            if (!ReferenceEquals(_own, activity.Own) || !ReferenceEquals(CurrentOwn, activity.Own)
+                || !CurrentChannel(activity) || _character?.ProfileId != character.ProfileId
+                || world.Generation != activity.World.Generation || _observedWorld?.Generation != world.Generation
+                || !QualifiedApWorld(world, activity.Own, now)) return;
+        }
         if (_sequences.TryGetValue(activity.Channel, out var previous)
             && previous.Generation == activity.Own.Generation && previous.Sequence >= activity.Sequence) return;
         // Valid but switched-off observations still consume their own watermark; reenabling never replays an echo.
@@ -210,7 +221,8 @@ public sealed partial class UnifiedLootTrackerService
                 break;
         }
         foreach (var reward in rewards) accepted.Add(new(next.Id, character.ProfileId!, activity.At, reward.Id, reward.Name, reward.Quantity));
-        if (!abyss && QualifiedDaily(_daily, activity.Own, activity.At) && _daily.Total is { } total && total >= Overlay.LootOverlaySnapshot.DailyLimit)
+        if (!abyss && QualifiedWorld(world, activity.Own, activity.At)
+            && QualifiedDaily(_daily, activity.Own, activity.At) && _daily.Total is { } total && total >= Overlay.LootOverlaySnapshot.DailyLimit)
             next = next with { Mode = LootTrackerSessionMode.LimitedKina };
         Save(next);
         if (productive) _replayPositions?.Commit(activity.Stamp, elapsed);

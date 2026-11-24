@@ -307,7 +307,7 @@ public sealed class OverlayEditorPresentationTests
     [Fact]
     public void DailyProgressRetainsTheFourArgumentContractWithoutInventingASessionSegment()
     {
-        var progress = new OverlayDailyKinaProgress("650,000 / 1,000,000", "Confirmed daily total", "65%", .65);
+        var progress = new OverlayDailyLimitProgress("650,000 / 1,000,000", "Confirmed daily total", "65%", .65);
         Assert.Null(progress.SessionStartFraction);
         Assert.Null(progress.SessionFraction);
     }
@@ -488,9 +488,11 @@ public sealed class OverlayEditorPresentationTests
             genus: () => throw new InvalidOperationException("No live genus read"),
             acquireGenus: () => throw new InvalidOperationException("No menu capture lease"));
         var example = source.Capture(examples: true, language: "en");
-        Assert.Equal(23, example.Metrics.Count);
-        foreach (var definition in OverlayCatalog.Widgets.Where(definition => definition.Kind is not ("abyss-killfeed" or "abyss-rank-progress")))
-            Assert.Contains(definition.Kind, example.Metrics.Keys);
+        var expectedMetrics = OverlayCatalog.Widgets
+            .Where(definition => definition.Kind is not ("abyss-killfeed" or "abyss-rank-progress"))
+            .Select(definition => definition.Kind).Append("preview-metric").Order(StringComparer.Ordinal);
+        Assert.Equal(expectedMetrics, example.Metrics.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal("420 / 1,000", example.GatheringProgress!.Value);
         Assert.True(example.Abyss.WorldContextVisible);
         Assert.NotEmpty(example.Abyss.KillFeed);
         Assert.Equal(4, example.Drops.Count);

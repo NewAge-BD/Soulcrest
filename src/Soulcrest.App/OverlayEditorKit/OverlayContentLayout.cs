@@ -20,12 +20,12 @@ public sealed record OverlayContentLayout(OverlayWidget LayoutWidget, double Sca
         var metric = snapshot.Metrics.GetValueOrDefault(widget.Kind);
         var minimumHeight = widget.Kind switch
         {
-            "genus-insight" => 20 + (widget.ShowLabel ? 18 * fontScale : 0) + 343 * fontScale,
+            "genus-insight" => 38 + (widget.ShowLabel ? 18 * fontScale : 0) + 512 * fontScale,
             "abyss-killfeed" => 16 + (widget.ShowLabel ? 18 * fontScale : 0) +
                 Math.Max(1, Math.Min(widget.KillFeedRows, Soulcrest.App.Overlay.AbyssRankOverlayRenderer.KillFeedEntries(snapshot.Abyss).Count)) * 27 * fontScale,
             "abyss-rank-progress" => 19 + (widget.ShowLabel ? 18 * fontScale : 0) + (widget.ShowLabel ? 66 : 48) * fontScale +
                 (widget.ShowLabel && !snapshot.Abyss.Confirmed && snapshot.Abyss.RankPoints is >= 0 ? 11 * fontScale + 3 : 0),
-            "daily-kina" => 16 + 24 * fontScale + (widget.ShowLabel ? 36 * fontScale : 0),
+            "daily-kina" or "daily-gathering-limit" => 16 + 24 * fontScale + (widget.ShowLabel ? 36 * fontScale : 0),
             "clock" => 16 + (widget.ShowLabel ? 18 * fontScale : 0) + 26 * fontScale,
             "rare-notice" => 48 + (widget.ShowLabel ? 18 * fontScale : 0) + 24 * fontScale,
             _ when OverlayCatalog.IsLootWidget(widget.Kind) => 48,

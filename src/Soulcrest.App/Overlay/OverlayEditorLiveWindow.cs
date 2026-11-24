@@ -14,30 +14,32 @@ internal interface IOverlayEditorLiveSurface : IDisposable
     void ShowFrame(Bitmap image, Rectangle bounds, bool visibleInRecordings);
     void ConfigureInteraction(OverlayInstance window, Size logicalSize, OverlayMonitor monitor, string themeId, double? displayedScale = null) { }
     void CompletePlacement(string? error) { }
+    void CompleteLock(string? error) { }
+    event Action<bool>? LockRequested { add { } remove { } }
     event Action<OverlayLivePlacement>? PlacementCompleted { add { } remove { } }
 }
 
 internal sealed record OverlayLivePlacement(Rectangle Bounds, double Scale, string? MonitorId, OverlaySettings StartedSettings);
 
-/// <summary>Own layered surface with a separate mandatory lock hotspot and explicit, temporary mouse editing.</summary>
+/// <summary>Own layered surface with a persistent lock choice, mandatory hotspot and separate runtime input gates.</summary>
 internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
 {
     private readonly OverlayCaptureVisibility _captureVisibility = new();
     private readonly OverlayLockButton _lockButton;
-    private readonly System.Windows.Forms.Timer _inputTimer = new() { Interval = 100 };
     private OverlayInstance? _window;
     private OverlayMonitor? _monitor;
     private Size _logicalSize;
     private double _scale = 1;
     private Bitmap? _frame;
     private Rectangle _committedBounds;
-    private bool _presentationAllowed, _locked = true, _manualInteraction, _blockAltUntilRelease;
+    private bool _presentationAllowed, _locked = true, _savingLock;
     private bool _savingPlacement, _blocked, _endingGesture, _recordings;
     private Gesture? _gesture;
     private sealed record Gesture(Point Pointer, Rectangle Bounds, double Scale, OverlaySettings Settings,
         OverlayMonitor Monitor, OverlayPlacementGrip Grip);
     public event Action? GeometryInvalidated;
     public event Action<OverlayLivePlacement>? PlacementCompleted;
+    public event Action<bool>? LockRequested;
 
     internal OverlayEditorLiveWindow()
     {
@@ -50,7 +52,6 @@ internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
         LayeredOverlayPresenter.Configure(this, true, 1);
         _lockButton = new(this, LockBounds);
         _lockButton.Toggled += ToggleManualInteraction;
-        _inputTimer.Tick += (_, _) => RefreshInteraction();
     }
 
     protected override bool ShowWithoutActivation => true;
@@ -72,9 +73,7 @@ internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
     {
         _presentationAllowed = false;
         CancelGesture();
-        _manualInteraction = false;
         SetLocked(true);
-        _inputTimer.Stop();
         if (!IsDisposed) Hide();
     }
 
@@ -86,7 +85,6 @@ internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
         if (changed && _gesture is not null)
         {
             CancelGesture();
-            _manualInteraction = false;
             SetLocked(true);
         }
         if (changed && !_savingPlacement) { _blocked = false; _lockButton.SetError(null); }
@@ -106,6 +104,7 @@ internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
             }
         }
         _lockButton.SetTheme(OverlayThemeDefinition.Resolve(themeId));
+        RefreshInteraction();
         _lockButton.RefreshTarget();
     }
 
@@ -124,7 +123,7 @@ internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
         PresentFrame();
         if (!Visible) Show();
         _lockButton.RefreshTarget();
-        if (!_inputTimer.Enabled) _inputTimer.Start();
+        RefreshInteraction();
     }
 
     private void PresentFrame()
@@ -176,24 +175,35 @@ internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
 
     private void ToggleManualInteraction()
     {
-        if (_blocked || _savingPlacement || !_presentationAllowed || !Visible) return;
-        _manualInteraction = _locked;
-        _blockAltUntilRelease = !_manualInteraction && OverlayInteraction.IsAltHeld;
+        if (_blocked || _savingPlacement || _savingLock || !_presentationAllowed || !Visible || _window is null
+            || LockRequested is not { } request) return;
+        _savingLock = true;
+        RefreshInteraction();
+        request(!_window.Settings.Locked);
+    }
+
+    public void CompleteLock(string? error)
+    {
+        if (IsDisposed || Disposing) return;
+        _savingLock = false;
+        _lockButton.SetError(error);
         RefreshInteraction();
     }
 
     private void RefreshInteraction()
     {
-        var alt = OverlayInteraction.IsAltHeld;
-        if (!alt) _blockAltUntilRelease = false;
-        SetLocked(!_presentationAllowed || !Visible || _blocked || _savingPlacement || !(_manualInteraction || alt && !_blockAltUntilRelease));
+        // User request 2026-11-21: Alt/foreground changes never own the saved lock choice.
+        // Temporary input gates may suspend editing without changing the user's lock icon.
+        var userLocked = _window?.Settings.Locked ?? true;
+        if (_lockButton.Locked != userLocked) _lockButton.SetLocked(userLocked);
+        SetLocked(!_presentationAllowed || !Visible || _blocked || _savingPlacement || _savingLock || userLocked);
     }
 
+    // Effective native click-through only; the persistent choice lives in OverlaySettings.Locked.
     private void SetLocked(bool locked)
     {
         if (_locked == locked) return;
         _locked = locked;
-        _lockButton.SetLocked(locked);
         if (locked) CancelGesture();
         Cursor = locked ? Cursors.Default : Cursors.SizeAll;
         if (IsHandleCreated) NativeMethods.SetClickThrough(Handle, locked);
@@ -289,7 +299,6 @@ internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
         _lockButton.SetError(error);
         if (error is not null)
         {
-            _manualInteraction = false;
             if (!_committedBounds.IsEmpty) Bounds = _committedBounds;
             SetLocked(true);
         }
@@ -301,10 +310,8 @@ internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
     protected override void OnVisibleChanged(EventArgs e)
     {
         base.OnVisibleChanged(e);
-        if (Visible) return;
-        _manualInteraction = false;
-        CancelGesture();
-        SetLocked(true);
+        if (!Visible) CancelGesture();
+        RefreshInteraction();
     }
 
     protected override void OnHandleDestroyed(EventArgs e)
@@ -333,7 +340,6 @@ internal sealed class OverlayEditorLiveWindow : Form, IOverlayEditorLiveSurface
         {
             _presentationAllowed = false;
             CancelGesture();
-            _inputTimer.Stop(); _inputTimer.Dispose();
             _lockButton.Toggled -= ToggleManualInteraction;
             _lockButton.Dispose();
             _frame?.Dispose(); _frame = null;

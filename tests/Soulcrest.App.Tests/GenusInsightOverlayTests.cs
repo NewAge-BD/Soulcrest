@@ -33,6 +33,35 @@ public sealed class GenusInsightOverlayTests : IDisposable
     }
 
     [Fact]
+    public async Task WidgetKeepsTheFiveLanePositionsAndDescribesTheIntervalsWithoutColor()
+    {
+        var example = Example;
+        var board = example.ViewedBoard!;
+        var slot = board.Slots[0] with
+        {
+            Value = 55m, Rank = 3, RollFraction = .5d,
+            RarityOptions = [.. board.Slots[0].RarityOptions.Where(option => option.Rank != 2)]
+        };
+        var html = await Render(example with { ViewedBoard = board with { Slots = [slot] } }, "en");
+
+        var lanes = Regex.Matches(html, "data-genus-lane=\"([1-5])\">(.*?)</span>", RegexOptions.Singleline).Take(5).ToArray();
+        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, lanes.Select(lane => lane.Groups[1].Value));
+        Assert.DoesNotContain("overlay-genus-range-interval", lanes[1].Value);
+        Assert.Contains("--genus-start:22.222222%;--genus-end:55.555556%", lanes[2].Value);
+        Assert.Contains("--genus-start:44.444444%;--genus-end:100%", lanes[4].Value);
+        Assert.Contains("style=\"left:50%\">", html);
+        Assert.Contains("aria-valuetext=\"55 · Epic\"", html);
+        Assert.Contains("Rare: Unavailable", html);
+        Assert.Contains("Heroic: Range 50 to 100", html);
+        Assert.Equal(new[] { "1", "3", "4", "5" }, Regex.Matches(html, "data-genus-label=\"([1-5])\"").Select(match => match.Groups[1].Value));
+        Assert.Contains("left:5.555556%;color:" + GenusInsightPresentation.RankColor(1), html);
+        Assert.Contains("left:72.222222%;color:" + GenusInsightPresentation.RankColor(5), html);
+        Assert.DoesNotContain("overlay-genus-columns-rail", html);
+        Assert.Contains(">10–20</span>", html);
+        Assert.Contains(">50–100</span>", html);
+    }
+
+    [Fact]
     public async Task ViewedPresetUsesItsOwnBoardAndDoesNotBorrowActivePresetValues()
     {
         var example = Example;

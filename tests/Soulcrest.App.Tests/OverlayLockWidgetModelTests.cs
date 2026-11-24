@@ -153,6 +153,7 @@ public sealed class OverlayLockWidgetModelTests
         Assert.True((await editor.SaveAsync(editor.Settings)).Succeeded);
         using var placement = fixture.Create();
         var moved = OverlayLockWidget.WithPosition(editor.Settings, 48, 24);
+        Assert.True((await placement.SaveLockAsync(placement.SelectedOverlayId, false)).Succeeded);
         Assert.True((await placement.SavePlacementAsync(placement.SelectedOverlayId, "new-monitor", .7, .8, 1.6)).Succeeded);
         Assert.True((await editor.SaveAsync(moved)).Succeeded);
         using var restarted = fixture.Create();
@@ -161,7 +162,10 @@ public sealed class OverlayLockWidgetModelTests
             restarted.Settings.PositionX, restarted.Settings.PositionY, restarted.Settings.Scale));
         var json = await File.ReadAllTextAsync(fixture.LayoutPath);
         Assert.DoesNotContain("Unlocked", json);
-        Assert.DoesNotContain("Locked", json);
+        Assert.False(restarted.Settings.Locked);
+        using var document = System.Text.Json.JsonDocument.Parse(json);
+        Assert.False(document.RootElement.GetProperty("Overlays")[0].GetProperty("Settings").GetProperty("Locked").GetBoolean());
+        Assert.DoesNotContain("ManualInteraction", json);
     }
 
     private sealed class Fixture : IDisposable

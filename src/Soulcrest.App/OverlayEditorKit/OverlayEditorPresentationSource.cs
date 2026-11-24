@@ -1,3 +1,4 @@
+using Soulcrest.App.Network;
 using Soulcrest.App.Overlay;
 using Soulcrest.App.Services;
 
@@ -15,6 +16,7 @@ public sealed class OverlayEditorPresentationSource : IOverlayEditorPresentation
     private readonly Func<string>? _nameLanguage;
     private readonly Func<bool>? _itemAnimationsEnabled;
     private readonly Func<AbyssRankOverlaySnapshot>? _abyss;
+    private readonly NetworkLootService? _network;
     private readonly Func<string>? _theme;
     private readonly Func<GenusInsightSnapshot>? _genus;
     private readonly Func<IDisposable>? _acquireGenus;
@@ -27,10 +29,11 @@ public sealed class OverlayEditorPresentationSource : IOverlayEditorPresentation
     private bool _disposed;
 
     public OverlayEditorPresentationSource(UnifiedLootTrackerService sessions, RareDropAlertService notices,
-        OverlayEditorMarketService market, SettingsService settings, IAbyssRankOverlaySource abyss, TimeProvider? time = null,
-        GenusInsightStateService? genus = null, GenusMenuObservationService? menu = null, IOverlayService? layouts = null)
+        OverlayEditorMarketService market, SettingsService settings, IAbyssRankOverlaySource abyss, NetworkLootService network,
+        TimeProvider? time = null, GenusInsightStateService? genus = null, GenusMenuObservationService? menu = null, IOverlayService? layouts = null)
         : this(() => sessions.OverlayState, () => notices.LatestVisualNotice, market.Capture, market.Acquire, abyss, time,
-            () => settings.Current.NameLanguage, () => settings.Current.LootDropAnimationsEnabled, () => settings.Current.OverlayTheme)
+            () => settings.Current.NameLanguage, () => settings.Current.LootDropAnimationsEnabled, () => settings.Current.OverlayTheme,
+            network)
     {
         sessions.Changed += Refresh;
         notices.Changed += Refresh;
@@ -50,18 +53,19 @@ public sealed class OverlayEditorPresentationSource : IOverlayEditorPresentation
     internal OverlayEditorPresentationSource(Func<UnifiedLootOverlayState> state, Func<RareDropNotice?> notice,
         Func<LootTrackerSession, DateTimeOffset, OverlayEditorMarketSnapshot> market, Func<IDisposable> acquireMarket,
         IAbyssRankOverlaySource abyss, TimeProvider? time = null, Func<string>? nameLanguage = null,
-        Func<bool>? itemAnimationsEnabled = null, Func<string>? theme = null)
-        : this(state, notice, market, acquireMarket, time, nameLanguage, itemAnimationsEnabled, () => abyss.Snapshot, theme)
+        Func<bool>? itemAnimationsEnabled = null, Func<string>? theme = null, NetworkLootService? network = null)
+        : this(state, notice, market, acquireMarket, time, nameLanguage, itemAnimationsEnabled, () => abyss.Snapshot, theme, network: network)
     {
         abyss.Changed += Refresh;
-        _detach = () => abyss.Changed -= Refresh;
+        _detach += () => abyss.Changed -= Refresh;
     }
 
     internal OverlayEditorPresentationSource(Func<UnifiedLootOverlayState> state, Func<RareDropNotice?> notice,
         Func<LootTrackerSession, DateTimeOffset, OverlayEditorMarketSnapshot> market, Func<IDisposable> acquireMarket,
         TimeProvider? time = null, Func<string>? nameLanguage = null, Func<bool>? itemAnimationsEnabled = null,
         Func<AbyssRankOverlaySnapshot>? abyss = null, Func<string>? theme = null,
-        Func<GenusInsightSnapshot>? genus = null, Func<IDisposable>? acquireGenus = null, Func<bool>? hasGenusLayout = null)
+        Func<GenusInsightSnapshot>? genus = null, Func<IDisposable>? acquireGenus = null, Func<bool>? hasGenusLayout = null,
+        NetworkLootService? network = null)
     {
         _state = state; _notice = notice; _market = market; _acquireMarket = acquireMarket; _time = time ?? TimeProvider.System;
         _nameLanguage = nameLanguage;
@@ -69,6 +73,13 @@ public sealed class OverlayEditorPresentationSource : IOverlayEditorPresentation
         _abyss = abyss;
         _theme = theme;
         _genus = genus; _acquireGenus = acquireGenus; _hasGenusLayout = hasGenusLayout;
+        _network = network;
+        if (network is not null)
+        {
+            network.DailyGatheringLimitChanged += Refresh;
+            network.OwnCharacterChanged += Refresh;
+            _detach = () => { network.DailyGatheringLimitChanged -= Refresh; network.OwnCharacterChanged -= Refresh; };
+        }
     }
 
     public event Action? Changed;
@@ -88,7 +99,8 @@ public sealed class OverlayEditorPresentationSource : IOverlayEditorPresentation
         var session = OverlayEditorPresentation.CurrentSession(state, now);
         // One market projection, one session and one instant serve every module in this frame.
         var market = session is null ? null : _market(session, now);
-        return OverlayEditorPresentation.Project(state, market, _notice(), now, _time.LocalTimeZone, selectedLanguage, names, _abyss?.Invoke())
+        return OverlayEditorPresentation.Project(state, market, _notice(), now, _time.LocalTimeZone, selectedLanguage, names, _abyss?.Invoke(),
+            _network?.DailyGatheringLimit?.Count)
             with { ItemAnimationsEnabled = itemAnimationsEnabled, ThemeId = themeId, GenusInsight = _genus?.Invoke() ?? GenusInsightSnapshot.Empty };
     }
 

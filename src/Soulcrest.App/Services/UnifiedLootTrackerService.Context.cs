@@ -18,6 +18,17 @@ public sealed partial class UnifiedLootTrackerService
         && world.ObservedAt is { } observed && observed != default && observed <= at
         && (world.Kind == WorldContextKind.OpenWorld && world.InstanceLayer != true || IsAbyss(world));
 
+    // User request 2026-11-24: own AP income is independent of the area classification.
+    // A complete Own can confirm a positive map ID even when its region is not in the catalog.
+    // Other loot channels and positions retain the narrower QualifiedWorld contract above.
+    private static bool QualifiedApWorld(WorldContextSnapshot world, OwnCharacterContext? own, DateTimeOffset at) => own is not null
+        && world.Status == WorldContextStatus.Confirmed && world.MapDataId is > 0
+        && world.BindingGeneration == own.Generation
+        && world.ObservedAt is { } observed && observed != default && observed <= at;
+
+    private static bool QualifiedActivityWorld(WorldContextSnapshot world, OwnCharacterContext own, DateTimeOffset at,
+        GainChannel channel) => channel == GainChannel.AbyssPoints ? QualifiedApWorld(world, own, at) : QualifiedWorld(world, own, at);
+
     private static bool QualifiedFact(long? value, DateTimeOffset? observedAt, DateTimeOffset at) =>
         value is null || value >= 0 && (observedAt ?? at) != default && (observedAt ?? at) <= at;
     private static bool QualifiedAbsolute(NetworkAbyssSnapshot snapshot, OwnCharacterContext? own, DateTimeOffset at) =>
@@ -73,6 +84,7 @@ public sealed partial class UnifiedLootTrackerService
     private void UpdateDailyMode(Observation observation)
     {
         if (_active is not { Kind: LootTrackerSessionKind.Mixed, Mode: LootTrackerSessionMode.Normal } active
+            || !QualifiedWorld(observation.World, observation.Own, observation.At)
             || _durable is not { } durable || durable.Id != active.Id || observation.Own is null
             || !QualifiedDaily(_daily, observation.Own, observation.At)
             || _daily.Total is not { } total || total < Overlay.LootOverlaySnapshot.DailyLimit) return;
@@ -101,7 +113,10 @@ public sealed partial class UnifiedLootTrackerService
         var pointFacts = abyss ? absolute : _abyss.AbyssSnapshot;
         var pointsCurrent = current && (abyss || _settings.Current.MonsterLootTrackingEnabled)
             && _abyss.Running && ReferenceEquals(_abyss.OwnCharacter, own);
-        var ap = pointsCurrent && pointFacts.AbyssPointGainsQualified
+        var apCurrent = own is not null && QualifiedApWorld(_world(), own, _time.GetUtcNow())
+            && (abyss || _settings.Current.MonsterLootTrackingEnabled)
+            && _abyss.Running && ReferenceEquals(_abyss.OwnCharacter, own);
+        var ap = apCurrent && pointFacts.AbyssPointGainsQualified
             && QualifiedGain(pointFacts, own!, at, pointFacts.AbyssPointBalanceObservedAt);
         var rank = pointsCurrent && pointFacts.RankPointChangesQualified
             && QualifiedGain(pointFacts, own!, at, pointFacts.RankPointsObservedAt);

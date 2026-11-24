@@ -3,7 +3,7 @@
 @using Soulcrest.App.Services
 
 <div class="overlay-daily-bar @(Progress.Fraction is null ? "is-unknown" : "") @(Progress.Fraction >= 1 ? "is-complete" : "") @(!Snapshot.ItemAnimationsEnabled ? "is-motion-disabled" : "")"
-     style="@BarStyle" role="progressbar" aria-label="@T("Fortschritt Tages-Kina")"
+     style="@BarStyle" role="progressbar" aria-label="@T(Kind == "daily-kina" ? "Fortschritt Tages-Kina" : "Fortschritt tägliches Sammellimit")"
      aria-valuenow="@(Progress.Fraction is { } fraction ? Css(fraction * 100) : null)" aria-valuemin="0" aria-valuemax="100" aria-valuetext="@Progress.Value">
     @if (Progress.Fraction is not null)
     {
@@ -14,7 +14,11 @@
         }
     }
     <span class="overlay-daily-caption">
-        @if (ShowIcon) { <AssetImage Src="@KinaIcon" Alt="" Class="overlay-daily-icon" /> }
+        @if (ShowIcon)
+        {
+            @if (Kind == "daily-kina") { <AssetImage Src="@KinaIcon" Alt="" Class="overlay-daily-icon" /> }
+            else { <KitIcon Name="loot" Class="overlay-daily-icon" /> }
+        }
         <span class="overlay-daily-number" data-overlay-fit>@Progress.Value</span>
     </span>
 </div>
@@ -22,7 +26,8 @@
 @code {
     [Parameter, EditorRequired] public OverlaySnapshot Snapshot { get; set; } = new();
     [Parameter] public bool ShowIcon { get; set; } = true;
-    private OverlayDailyKinaProgress Progress => Snapshot.DailyProgress;
+    [Parameter, EditorRequired] public OverlayDailyLimitProgress Progress { get; set; } = new("—", "", "—", null);
+    [Parameter, EditorRequired] public string Kind { get; set; } = "";
     private static readonly string? KinaIcon = MonsterLootIconCatalog.Default.ItemAsset(930100001);
     private double? _phase;
     protected override void OnParametersSet() => _phase ??= Math.Max(0, Snapshot.ClockUtcNow.ToUnixTimeMilliseconds() / 1000d);

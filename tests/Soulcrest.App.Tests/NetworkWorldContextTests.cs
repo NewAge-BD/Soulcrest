@@ -1,6 +1,7 @@
 using System.Text;
 using Soulcrest.App.Network;
 using Soulcrest.App.Services;
+using Soulcrest.Core.Instances;
 using Soulcrest.Core.Network;
 using Soulcrest.Core.Pets;
 using Xunit;
@@ -14,10 +15,11 @@ public sealed class NetworkWorldContextTests
     private sealed class Fixture : IDisposable
     {
         private readonly string _root = Path.Combine(Path.GetTempPath(), "soulcrest-world-context-" + Guid.NewGuid().ToString("N"));
-        internal WorldContextService World { get; } = new(WorldContextTestCatalog.Create());
+        internal WorldContextService World { get; }
         internal NetworkLootService Network { get; }
-        internal Fixture()
+        internal Fixture(InstanceCatalog? catalog = null)
         {
+            World = new(catalog ?? WorldContextTestCatalog.Create());
             Directory.CreateDirectory(_root);
             var progress = new ProgressService(Path.Combine(_root, "progress.json"), new PetCatalog([]));
             Network = new(progress, worldContext: World);
@@ -37,6 +39,27 @@ public sealed class NetworkWorldContextTests
         Assert.Equal(100, f.World.Snapshot.MapDataId);
         Assert.Equal(1, f.Network.ProgressDiagnostics.IdentityBindings);
         Assert.True(f.Network.ProgressSources.IdentityIsLive);
+    }
+
+    [RequiresFact(TestRequirement.PrivateInstanceCatalog)]
+    public void OuterReshantaDungeonRefinementKeepsTheCurrentMapNameAndOwnBinding()
+    {
+        using var f = new Fixture(InstanceCatalog.Default);
+        f.Send(Own(23));
+        var own = f.Network.OwnCharacter;
+        var world = f.World.Snapshot;
+        f.Send(State(24), 1);
+        var refined = f.World.Snapshot;
+        Assert.Same(own, f.Network.OwnCharacter);
+        Assert.Equal(world.BindingGeneration, refined.BindingGeneration);
+        Assert.Equal((23, 24, WorldContextStatus.Confirmed, WorldContextKind.Instance, "Abyss"),
+            (refined.MapDataId, refined.DungeonId, refined.Status, refined.Kind, refined.Category));
+        Assert.Equal("Chaotic Outer Reshanta", refined.NameEn);
+        Assert.Equal("Chaotisches Äußeres Reshanta", refined.NameDe);
+        Assert.Equal("chaotic-upper-reshanta", refined.SoulcrestMapId);
+        Assert.Equal(MapTrackingMode.NetworkMap, EffectiveFeaturePolicy.TrackingMode(true, refined));
+        Assert.False(EffectiveFeaturePolicy.ConfirmedInstance(refined));
+        Assert.Equal("Chaotic Upper Reshanta", InstanceCatalog.Default.FindDungeon(24)!.Names.En);
     }
 
     [Theory]

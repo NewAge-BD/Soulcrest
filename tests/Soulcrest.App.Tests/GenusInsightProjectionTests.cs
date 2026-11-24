@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Soulcrest.App.Network;
 using Soulcrest.App.Services;
 using Soulcrest.Core.Combat;
+using Soulcrest.Core.GenusInsight;
 using Soulcrest.Core.Network;
 using Xunit;
 
@@ -31,6 +32,9 @@ public sealed class GenusInsightProjectionTests
         Assert.Equal(5, state.Boards.Count); Assert.All(state.Boards, row => Assert.Equal(9, row.Slots.Count));
         Assert.Equal("FixingDamage", first.StatId); Assert.Equal(12m, first.Value);
         Assert.Equal(2m, first.Minimum); Assert.Equal(16m, first.Maximum);
+        Assert.Equal(GenusInsightCatalog.Default.Options("special", 1).Where(option => option.StatId == first.StatId),
+            first.RarityOptions.AsEnumerable());
+        Assert.Equal(Enumerable.Range(1, 5), first.RarityOptions.Select(option => (int)option.Rank).Order());
         Assert.Equal(10d / 14, first.RollFraction!.Value, 10); Assert.False(first.IsMaxRoll);
         Assert.Equal((byte)5, first.Rank); Assert.True(first.IsCurrent);
         Assert.Equal(12m, Assert.Single(state.AppliedEffects).Value);

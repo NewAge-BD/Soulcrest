@@ -8,8 +8,90 @@ using Xunit;
 
 namespace Soulcrest.App.Tests;
 
+[Collection("Settings file")]
 public sealed class OverlayEditorLiveInteractionTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public Task RepeatedAltTabPreservesTheChosenLockAndActualClickThrough(bool locked) => RunSta(() =>
+    {
+        using var fixture = new WindowFixture();
+        if (!locked) fixture.Unlock();
+        var keyboard = (OverlayKeyboardInput)typeof(OverlayInteraction)
+            .GetField("Keyboard", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+        try
+        {
+            for (var repeat = 0; repeat < 5; repeat++)
+            {
+                keyboard.ProcessKeyboard(1, OverlayKeyboardInput.LeftAltKey, 0x38, 0);
+                Invoke(fixture.Window, "RefreshInteraction");
+                AssertLock(fixture.Window, locked);
+                fixture.Window.HideFrame();
+                Assert.True(Field<bool>(fixture.Window, "_locked")); // Hidden surfaces cannot accept input.
+                fixture.Window.ShowFrame(fixture.Image, fixture.Original, false);
+                Invoke(fixture.Window, "RefreshInteraction");
+                AssertLock(fixture.Window, locked); // Alt may still be held when AION2 becomes foreground.
+                keyboard.ProcessKeyboard(1, OverlayKeyboardInput.LeftAltKey, 0x38, OverlayKeyboardInput.KeyBreak);
+                Invoke(fixture.Window, "RefreshInteraction");
+                AssertLock(fixture.Window, locked);
+            }
+        }
+        finally { keyboard.ProcessKeyboard(1, OverlayKeyboardInput.LeftAltKey, 0x38, OverlayKeyboardInput.KeyBreak); }
+    });
+
+    [Fact]
+    public Task IntentionalLockClicksKeepTheLastCommittedIconWhileSavingAndRejectRepeatedClicks() => RunSta(() =>
+    {
+        using var window = new OverlayEditorLiveWindow();
+        using var image = new Bitmap(360, 260);
+        var monitor = new OverlayMonitor("synthetic", "Synthetic", new(-16000, -16000, 8000, 8000), new(-16000, -16000, 8000, 8000));
+        var instance = new OverlayInstance { Id = "synthetic", Settings = new() };
+        var requests = new List<bool>();
+        window.LockRequested += requests.Add;
+        window.ConfigureInteraction(instance, image.Size, monitor, "aion2-stylized");
+        window.ShowFrame(image, new(-14000, -14000, 360, 260), false);
+        ClickLock(window);
+        Assert.False(Assert.Single(requests));
+        AssertLock(window, true);
+        ClickLock(window);
+        Assert.Single(requests);
+        window.CompleteLock("synthetic write failure");
+        AssertLock(window, true);
+        ClickLock(window);
+        Assert.Equal(2, requests.Count);
+        instance = instance with { Settings = instance.Settings with { Locked = false } };
+        window.ConfigureInteraction(instance, image.Size, monitor, "aion2-stylized");
+        Assert.True(Field<bool>(window, "_locked")); // Acknowledgement still pending.
+        Assert.False(Field<OverlayLockButton>(window, "_lockButton").Locked);
+        window.CompleteLock(null);
+        AssertLock(window, false);
+        ClickLock(window);
+        Assert.True(requests.Last());
+        Assert.False(Field<OverlayLockButton>(window, "_lockButton").Locked);
+        Assert.True(Field<bool>(window, "_locked")); // Saving suspends input, not the persistent icon.
+        instance = instance with { Settings = instance.Settings with { Locked = true } };
+        window.ConfigureInteraction(instance, image.Size, monitor, "aion2-stylized");
+        window.CompleteLock(null);
+        AssertLock(window, true);
+    });
+
+    private static void ClickLock(OverlayEditorLiveWindow window)
+    {
+        var button = Field<OverlayLockButton>(window, "_lockButton");
+        var point = new MouseEventArgs(MouseButtons.Left, 1, 12, 12, 0);
+        Invoke(button, "OnMouseDown", point);
+        Invoke(button, "OnMouseUp", point);
+    }
+
+    private static void AssertLock(OverlayEditorLiveWindow window, bool expected)
+    {
+        Assert.Equal(expected, Field<bool>(window, "_locked"));
+        Assert.Equal(expected, Field<OverlayLockButton>(window, "_lockButton").Locked);
+        Assert.Equal(expected, (NativeMethods.GetWindowLongPtr(window.Handle, NativeMethods.GWL_EXSTYLE)
+            & NativeMethods.WS_EX_TRANSPARENT) != 0);
+    }
+
     [Fact]
     public Task LiveGestureKeepsFreshFramesAtItsPhysicalBoundsAndCommitsOnlyOnce() => RunSta(() =>
     {
@@ -36,7 +118,7 @@ public sealed class OverlayEditorLiveInteractionTests
     });
 
     [Fact]
-    public Task CaptureLossAndSourceHideCancelWithoutSavingAndHideAlwaysRelocks() => RunSta(() =>
+    public Task CaptureLossAndSourceHideCancelWithoutSavingAndSuspendInput() => RunSta(() =>
     {
         using var fixture = new WindowFixture();
         fixture.Unlock();
@@ -200,21 +282,29 @@ public sealed class OverlayEditorLiveInteractionTests
     {
         internal OverlayEditorLiveWindow Window { get; } = new();
         internal Bitmap Image { get; } = new(360, 260);
-        internal OverlaySettings Settings { get; } = new() { Enabled = true, LockWidget = new() { X = 30.25, Y = 24.5 } };
-        internal OverlayInstance Instance { get; }
+        internal OverlaySettings Settings { get; private set; } = new() { Enabled = true, LockWidget = new() { X = 30.25, Y = 24.5 } };
+        internal OverlayInstance Instance { get; private set; }
         internal OverlayMonitor Monitor { get; } = new("synthetic", "Synthetic", new(-16000, -16000, 8000, 8000), new(-16000, -16000, 8000, 8000));
         internal Rectangle Original { get; }
         internal WindowFixture(double scale = 1)
         {
             Instance = new() { Id = "synthetic", Settings = Settings };
             Original = new(-14000, -14000, (int)Math.Ceiling(Image.Width * scale), (int)Math.Ceiling(Image.Height * scale));
+            Window.LockRequested += locked =>
+            {
+                Settings = Settings with { Locked = locked };
+                Instance = Instance with { Settings = Settings };
+                Window.ConfigureInteraction(Instance, Image.Size, Monitor, "aion2-stylized", scale);
+                Window.CompleteLock(null);
+            };
             Window.ConfigureInteraction(Instance, Image.Size, Monitor, "aion2-stylized", scale);
             Window.ShowFrame(Image, Original, false);
         }
         internal void Unlock()
         {
-            typeof(OverlayEditorLiveWindow).GetField("_manualInteraction", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Window, true);
-            Invoke(Window, "SetLocked", false);
+            Invoke(Window, "ToggleManualInteraction");
+            Assert.False(Settings.Locked);
+            AssertLock(Window, false);
         }
         internal void Mouse(string method, MouseButtons buttons, int x, int y) => Invoke(Window, method, new MouseEventArgs(buttons, 1, x, y, 0));
         public void Dispose() { Window.Dispose(); Image.Dispose(); }

@@ -772,6 +772,179 @@ public sealed class OverlayEditorLiveHostTests
         Assert.Equal(2, Assert.Single(fixture.Surfaces).Shows);
     });
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    public Task RepeatedFocusLossAndReturnRecreateSurfacesWithTheSavedLockWithOrWithoutPreview(bool locked, bool previewOpen) => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        Assert.True(fixture.Editor.SaveLockAsync("default", locked).GetAwaiter().GetResult().Succeeded);
+        fixture.Editor.SetPreviewAsync(previewOpen).GetAwaiter().GetResult();
+        fixture.Host.Start();
+        var before = File.ReadAllBytes(fixture.Path);
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var previous = fixture.Surfaces.Last();
+            Assert.Equal(locked, previous.Configured!.Settings.Locked);
+            fixture.Allowed = false;
+            fixture.Host.Invalidate();
+            Assert.True(previous.Disposed);
+            // The combined editor state also counts its intentionally open preview as visible.
+            Assert.Equal(previewOpen, fixture.Editor.GetState("default").IsVisible);
+            Assert.Equal(locked, fixture.Editor.Settings.Locked);
+            Assert.Equal(previewOpen, fixture.Editor.GetState("default").Previewing);
+            fixture.Allowed = true;
+            fixture.Host.Invalidate();
+            var returned = fixture.Surfaces.Last();
+            Assert.NotSame(previous, returned);
+            Assert.True(returned.Visible);
+            Assert.Equal(locked, returned.Configured!.Settings.Locked);
+            Assert.Equal(before, File.ReadAllBytes(fixture.Path));
+        }
+        Assert.True(fixture.Editor.ReloadAsync().GetAwaiter().GetResult().Succeeded);
+        fixture.Host.Invalidate();
+        Assert.Equal(locked, fixture.Editor.Settings.Locked);
+        Assert.Equal(locked, fixture.Surfaces.Last().Configured!.Settings.Locked);
+        Assert.Equal(before, File.ReadAllBytes(fixture.Path));
+    });
+
+    [Fact]
+    public Task SurfaceLockRequestsPersistBothChoicesForTheirOwnWindowRegardlessOfTheSelectedEditorWindow() => RunSta(() =>
+    {
+        using var fixture = new Fixture(marketWindow: true);
+        fixture.Host.Start();
+        var target = fixture.Surfaces.Single(surface => surface.Configured!.Id == "default");
+        var otherId = fixture.Editor.SelectedOverlayId;
+        var other = fixture.Surfaces.Single(surface => surface.Configured!.Id == otherId);
+        target.RequestLock(false);
+        WaitFor(() => target.LockCompletions.Count == 1);
+        Assert.Null(target.LockCompletions[0]);
+        Assert.False(target.Configured!.Settings.Locked);
+        Assert.False(fixture.Editor.Overlays.Single(window => window.Id == "default").Settings.Locked);
+        Assert.True(fixture.Editor.Settings.Locked);
+        Assert.Equal(otherId, fixture.Editor.SelectedOverlayId);
+        target.RequestLock(true);
+        WaitFor(() => target.LockCompletions.Count == 2);
+        Assert.Null(target.LockCompletions[1]);
+        Assert.True(target.Configured.Settings.Locked);
+        other.RequestLock(false);
+        WaitFor(() => other.LockCompletions.Count == 1);
+        Assert.Null(other.LockCompletions[0]);
+        Assert.False(fixture.Editor.Settings.Locked);
+        Assert.True(fixture.Editor.Overlays.Single(window => window.Id == "default").Settings.Locked);
+        Assert.True(fixture.Editor.ReloadAsync().GetAwaiter().GetResult().Succeeded);
+        fixture.Host.Invalidate();
+        Assert.False(other.Configured!.Settings.Locked);
+        Assert.True(target.Configured.Settings.Locked);
+        Assert.All(fixture.Surfaces, surface => Assert.False(surface.Disposed));
+    });
+
+    [Fact]
+    public Task PendingLockIgnoresDuplicateRequestsAndAcknowledgesTheLatestLayoutAtItsFittedScale() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Host.Start();
+        var surface = Assert.Single(fixture.Surfaces);
+        var stale = fixture.Editor.Settings;
+        var gate = (SemaphoreSlim)typeof(OverlayService).GetField("_saveGate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(fixture.Editor)!;
+        gate.Wait();
+        Task<OverlaySaveResult> layout;
+        try
+        {
+            layout = fixture.Editor.SaveAsync(stale with { Width = 1600, Height = 1200, Scale = 2 });
+            surface.RequestLock(false);
+            surface.RequestLock(true); // Host rejects a second choice while the first save is pending.
+            Assert.Empty(surface.LockCompletions);
+            Assert.False(layout.IsCompleted);
+            Assert.True(fixture.Editor.Settings.Locked);
+        }
+        finally { gate.Release(); }
+        WaitFor(() => layout.IsCompleted && surface.LockCompletions.Count == 1);
+        Assert.True(layout.GetAwaiter().GetResult().Succeeded);
+        Assert.Null(surface.LockCompletions[0]);
+        Assert.False(fixture.Editor.Settings.Locked);
+        Assert.Equal(1600, fixture.Editor.Settings.Width);
+        Assert.Equal(1200, fixture.Editor.Settings.Height);
+        Assert.Equal(2, fixture.Editor.Settings.Scale);
+        Assert.Same(fixture.Editor.Settings, surface.Configured!.Settings);
+        Assert.Equal(1040d / 1200, Assert.Single(surface.LockCompletionScales)!.Value, 8);
+    });
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task PendingExplicitLockSurvivesFocusLossOrHostDisposalWithoutCallingTheOldSurface(bool disposeHost) => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Host.Start();
+        var original = Assert.Single(fixture.Surfaces);
+        original.RejectAccessAfterDispose = true;
+        var before = File.ReadAllBytes(fixture.Path);
+        var gate = (SemaphoreSlim)typeof(OverlayService).GetField("_saveGate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(fixture.Editor)!;
+        gate.Wait();
+        try
+        {
+            original.RequestLock(false);
+            Assert.Empty(original.LockCompletions);
+            if (disposeHost) fixture.Host.Dispose();
+            else { fixture.Allowed = false; fixture.Host.Invalidate(); }
+            Assert.True(original.Disposed);
+            Assert.Equal(before, File.ReadAllBytes(fixture.Path));
+        }
+        finally { gate.Release(); }
+        WaitFor(() => !fixture.Editor.Settings.Locked);
+        Application.DoEvents();
+        Assert.Empty(original.LockCompletions);
+        Assert.Equal(0, original.AccessesAfterDispose);
+        var committed = File.ReadAllBytes(fixture.Path);
+        original.RequestLock(true); // Disposed slots have unsubscribed from the old event.
+        Application.DoEvents();
+        Assert.Equal(committed, File.ReadAllBytes(fixture.Path));
+        Assert.False(fixture.Editor.Settings.Locked);
+        if (!disposeHost)
+        {
+            fixture.Allowed = true;
+            fixture.Host.Invalidate();
+            var returned = fixture.Surfaces.Last();
+            Assert.NotSame(original, returned);
+            Assert.True(returned.Visible);
+            Assert.False(returned.Configured!.Settings.Locked);
+        }
+        Assert.True(fixture.Editor.ReloadAsync().GetAwaiter().GetResult().Succeeded);
+        Assert.False(fixture.Editor.Settings.Locked);
+    });
+
+    [Fact]
+    public Task FailedNativeLockSavePreservesTheFileAndCanRecoverOnlyThroughTheExistingReloadPath() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        fixture.Host.Start();
+        var original = Assert.Single(fixture.Surfaces);
+        original.RejectAccessAfterDispose = true;
+        var before = File.ReadAllBytes(fixture.Path);
+        using (var held = new FileStream(fixture.Path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            original.RequestLock(false);
+            WaitFor(() => fixture.Editor.LoadError is not null && original.Disposed);
+            Assert.True(fixture.Editor.Settings.Locked);
+            Assert.Equal(before, File.ReadAllBytes(fixture.Path));
+            Assert.Equal(0, original.AccessesAfterDispose);
+            Assert.Empty(original.LockCompletions);
+        }
+        Assert.True(fixture.Editor.ReloadAsync().GetAwaiter().GetResult().Succeeded);
+        fixture.Host.Invalidate();
+        var returned = fixture.Surfaces.Last();
+        Assert.NotSame(original, returned);
+        Assert.True(returned.Visible);
+        Assert.True(returned.Configured!.Settings.Locked);
+        returned.RequestLock(false);
+        WaitFor(() => returned.LockCompletions.Count == 1);
+        Assert.Null(returned.LockCompletions[0]);
+        Assert.False(fixture.Editor.Settings.Locked);
+    });
+
     private static void WaitFor(Func<bool> condition)
     {
         var deadline = Environment.TickCount64 + 5000;
@@ -895,8 +1068,15 @@ public sealed class OverlayEditorLiveHostTests
         internal int AccessesAfterDispose { get; private set; }
         internal OverlayInstance? Configured { get; private set; }
         internal List<string?> PlacementCompletions { get; } = [];
+        internal List<string?> LockCompletions { get; } = [];
+        internal List<double?> LockCompletionScales { get; } = [];
+        internal double? DisplayedScale { get; private set; }
         public event Action<OverlayLivePlacement>? PlacementCompleted;
-        public void ConfigureInteraction(OverlayInstance window, Size logicalSize, OverlayMonitor monitor, string themeId, double? displayedScale = null) => Configured = window;
+        public event Action<bool>? LockRequested;
+        internal void RequestLock(bool locked) => LockRequested?.Invoke(locked);
+        public void ConfigureInteraction(OverlayInstance window, Size logicalSize, OverlayMonitor monitor, string themeId, double? displayedScale = null)
+        { CheckAccess(); Configured = window; DisplayedScale = displayedScale; }
+        public void CompleteLock(string? error) { CheckAccess(); LockCompletions.Add(error); LockCompletionScales.Add(DisplayedScale); }
         public void CompletePlacement(string? error) { CheckAccess(); PlacementCompletions.Add(error); }
         internal void Place(Rectangle bounds, double scale, OverlaySettings settings) => PlacementCompleted?.Invoke(new(bounds, scale, "fixture", settings));
         public event Action? GeometryInvalidated;

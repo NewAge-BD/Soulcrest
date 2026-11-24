@@ -17,7 +17,7 @@
                 @if (Model.DrawLockWidget)
                 {
                     var control = OverlayLockWidget.Layout(Settings);
-                    <div class="oe-lock-widget" data-required-widget="true" style="@WidgetStyle(control)"><OverlayLockWidgetPreview ThemeId="@Snapshot.ThemeId" /></div>
+                    <div class="oe-lock-widget" data-required-widget="true" style="@WidgetStyle(control)"><OverlayLockWidgetPreview ThemeId="@Snapshot.ThemeId" Locked="@Settings.Locked" /></div>
                 }
             </div>
         </div>

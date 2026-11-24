@@ -259,6 +259,37 @@ public sealed class OverlayKitWidgetRenderingTests : IDisposable
         Assert.DoesNotContain("is-unknown", html);
     }
 
+    [Theory]
+    [InlineData("de", 76, "76 / 1.000", "7.6", false)]
+    [InlineData("en", 0, "0 / 1,000", "0", false)]
+    [InlineData("en", 1_000, "1,000 / 1,000", "100", true)]
+    [InlineData("en", null, "— / 1,000", null, false)]
+    public async Task GatheringLimitShowsTheIndependentLiveCount(string language, int? count, string value,
+        string? percentage, bool complete)
+    {
+        UiText.Language = language;
+        var now = DateTimeOffset.UtcNow;
+        var state = new UnifiedLootOverlayState(null, false, new(null, null, null, 0), null, false, now);
+        var snapshot = OverlayEditorPresentation.Project(state, null, null, now, TimeZoneInfo.Utc, language,
+            dailyGathering: count);
+        var widget = OverlayCatalog.CreateWidget("daily-gathering-limit");
+        var html = WebUtility.HtmlDecode(await Render(widget, snapshot));
+        Assert.Contains(value, html);
+        Assert.Contains(language == "de" ? "Tägliches Sammellimit" : "Daily Gathering Limit", html);
+        Assert.Equal(complete, html.Contains("is-complete", StringComparison.Ordinal));
+        Assert.DoesNotContain("overlay-daily-session", html);
+        if (percentage is null)
+        {
+            Assert.Contains("is-unknown", html);
+            Assert.DoesNotContain("aria-valuenow", html);
+        }
+        else
+        {
+            Assert.Contains($"aria-valuenow=\"{percentage}\"", html);
+            Assert.Contains($"--daily-fill:{percentage}%", html);
+        }
+    }
+
     [Fact]
     public async Task DailyKinaLabelAndIconOptionsKeepTheValueButHideCaptionsAndGraphic()
     {

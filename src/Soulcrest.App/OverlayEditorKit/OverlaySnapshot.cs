@@ -22,7 +22,8 @@ public sealed record OverlaySnapshot
     public long? DailyKina { get; init; }
     public bool DailyConfirmed { get; init; }
     public long DailyLimit { get; init; } = 1_000_000;
-    public OverlayDailyKinaProgress DailyProgress { get; init; } = new("—", "", "—", null);
+    public OverlayDailyLimitProgress DailyProgress { get; init; } = new("—", "", "—", null);
+    public OverlayDailyLimitProgress? GatheringProgress { get; init; }
     public OverlayRareNotice? RareNotice { get; init; }
     public GenusInsightSnapshot GenusInsight { get; init; } = GenusInsightSnapshot.Empty;
     public AbyssRankOverlaySnapshot Abyss { get; init; } = AbyssRankOverlaySnapshot.Empty;
@@ -51,7 +52,7 @@ public sealed record OverlayLootItem(string Key, string Name, string QuantityTex
     bool IsRare = false, long Quantity = 0, string? Tooltip = null, LootItemRarity Rarity = LootItemRarity.Unknown,
     bool IsEquipmentGroup = false);
 
-public sealed record OverlayDailyKinaProgress(string Value, string Detail, string Percentage, double? Fraction,
+public sealed record OverlayDailyLimitProgress(string Value, string Detail, string Percentage, double? Fraction,
     double? SessionStartFraction = null, double? SessionFraction = null);
 
 /// <summary>Read-only visual receipt. Reading or rendering it cannot trigger audio.</summary>

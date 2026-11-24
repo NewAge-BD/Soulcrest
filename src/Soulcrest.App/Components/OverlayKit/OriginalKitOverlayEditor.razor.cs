@@ -32,6 +32,7 @@ public partial class OriginalKitOverlayEditor
     private void NavigateToSection(string section)
     {
         Section = section;
+        _parameterSection = SelectedSection;
         _previewModule = null;
         RefreshPresentationLease();
         _ = SectionChanged.InvokeAsync(section);
@@ -40,6 +41,9 @@ public partial class OriginalKitOverlayEditor
     private OverlaySettings _settings = new();
     private string? _selectedId, _error;
     private bool _saving, _disposed;
+    private OverlayEditorRefreshPump? _refreshPump;
+    private int _overlayRefreshPending;
+    private string? _parameterSection;
     private SettingsService? _themeSettings;
     private bool _savingTheme;
     private string? _themeError;
@@ -77,7 +81,7 @@ public partial class OriginalKitOverlayEditor
     private static readonly ModuleCategory[] ModuleCategories =
     [
         new("all", "Alle"), new("drops", "Drops"), new("kina", "Kina"), new("ap", "AP"),
-        new("rank", "Rangpunkte"), new("time", "Zeit"), new("notices", "Hinweise"), new("pets", "Pets"),
+        new("rank", "Rangpunkte"), new("time", "Zeit"), new("gathering", "Lifeskill"), new("notices", "Hinweise"), new("pets", "Pets"),
     ];
     private string _moduleCategory = "all", _moduleSearch = "";
     private static string CategoryForModule(string kind) => kind switch
@@ -86,6 +90,7 @@ public partial class OriginalKitOverlayEditor
         "market-kina" or "dropped-kina" or "bound-kina" or "daily-kina" or "market-kina-hour" or "dropped-kina-hour" or "bound-kina-hour" => "kina",
         "abyss-points" or "abyss-points-hour" => "ap",
         "duration" or "clock" => "time",
+        "daily-gathering-limit" => "gathering",
         "rare-notice" => "notices",
         "genus-insight" => "pets",
         _ => "rank",
@@ -146,12 +151,25 @@ public partial class OriginalKitOverlayEditor
         // Optional resolution keeps pure Razor renderers independent of the native host.
         _placement = EditorServices.GetService(typeof(OverlayPlacementService)) as OverlayPlacementService;
         if (_placement is not null) _placement.Changed += PlacementChanged;
+        _refreshPump = new(action => InvokeAsync(action), RefreshFromSources, exception =>
+        {
+            LogFile.Error("Overlay editor UI refresh", exception);
+            return _disposed ? Task.CompletedTask : DispatchExceptionAsync(exception);
+        }, EditorServices.GetService(typeof(TimeProvider)) as TimeProvider);
         Presentation.Changed += PresentationChanged;
         LoadSelectedOverlay();
         Overlay.Changed += OverlayChanged;
     }
 
-    protected override void OnParametersSet() => RefreshPresentationLease();
+    protected override void OnParametersSet()
+    {
+        if (_parameterSection != SelectedSection)
+        {
+            _parameterSection = SelectedSection;
+            RefreshPresentationLease();
+        }
+        else _refreshPump?.Request();
+    }
 
     private void RefreshSnapshots()
     {
@@ -178,13 +196,14 @@ public partial class OriginalKitOverlayEditor
         }
         RefreshSnapshots();
     }
-    private void PresentationChanged()
+    private void PresentationChanged() => _refreshPump?.Request();
+    private void PlacementChanged() => _refreshPump?.Request();
+    private void RefreshFromSources()
     {
-        if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) { RefreshSnapshots(); StateHasChanged(); } });
-    }
-    private void PlacementChanged()
-    {
-        if (!_disposed) _ = InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
+        if (_disposed) return;
+        if (Interlocked.Exchange(ref _overlayRefreshPending, 0) != 0) RefreshOverlay();
+        else RefreshSnapshots();
+        StateHasChanged();
     }
     protected override void OnUiLanguageChanged() => RefreshSnapshots();
     protected override void OnUiThemeChanged() => RefreshSnapshots();
@@ -215,24 +234,26 @@ public partial class OriginalKitOverlayEditor
 
     private void OverlayChanged()
     {
-        if (!_disposed) _ = InvokeAsync(() =>
+        Interlocked.Exchange(ref _overlayRefreshPending, 1);
+        _refreshPump?.Request();
+    }
+
+    private void RefreshOverlay()
+    {
+        // Native resize or a global interaction shortcut may update the
+        // same settings while the editor is visible.
+        if (!_saving)
         {
-            if (_disposed) return;
-            // Native resize or a global interaction shortcut may update the
-            // same settings while the editor is visible.
-            if (!_saving)
+            if (_editingOverlayId != Overlay.SelectedOverlayId) { LoadSelectedOverlay(); return; }
+            if (_error is null) _settings = OverlayLayout.Normalize(Overlay.Settings);
+            else _settings = _settings with
             {
-                if (_editingOverlayId != Overlay.SelectedOverlayId) LoadSelectedOverlay();
-                else if (_error is null) _settings = OverlayLayout.Normalize(Overlay.Settings);
-                else _settings = _settings with
-                {
-                    Enabled = Overlay.Settings.Enabled,
-                    Interaction = Overlay.Settings.Interaction,
-                };
-            }
-            RefreshPresentationLease();
-            StateHasChanged();
-        });
+                Enabled = Overlay.Settings.Enabled,
+                Locked = Overlay.Settings.Locked,
+                Interaction = Overlay.Settings.Interaction,
+            };
+        }
+        RefreshPresentationLease();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -286,6 +307,7 @@ public partial class OriginalKitOverlayEditor
                 // Global hotkeys can fire while a layout save is queued. Keep
                 // their result unless this edit explicitly changed that field.
                 Enabled = draft.Enabled == original.Enabled ? current.Enabled : draft.Enabled,
+                Locked = current.Locked,
                 Interaction = draft.Interaction == original.Interaction ? current.Interaction : draft.Interaction,
                 Visibility = draft.Visibility == original.Visibility ? current.Visibility : draft.Visibility,
                 CaptureExcluded = draft.CaptureExcluded == original.CaptureExcluded ? current.CaptureExcluded : draft.CaptureExcluded,
@@ -336,12 +358,18 @@ public partial class OriginalKitOverlayEditor
         if (_error is null && _editingOverlayId == id) NavigateToSection("layout");
     }
 
-    private Task ChangeWindowVisibility(ChangeEventArgs e)
-    {
-        var value = Text(e);
-        return value is "game" or "session" or "always"
-            ? Change(settings => settings with { Visibility = value }) : Task.CompletedTask;
-    }
+    private Task ChangeVisibilityRules(OverlayTriggerRules? rules) =>
+        Change(settings => settings with
+        {
+            TriggerRules = rules,
+            Visibility = settings.Visibility == "session" ? "game" : settings.Visibility,
+        });
+
+    private bool AllOverlaysInRecordings => Overlay.Overlays.All(window => !window.Settings.CaptureExcluded);
+
+    private Task SetAllOverlaysInRecordings(bool enabled) => Overlay.LoadError is not null
+        ? Task.CompletedTask
+        : ChangeWindow(() => Overlay.SetAllCaptureExcludedAsync(!enabled));
 
     private bool TryNumber(ChangeEventArgs e, double minimum, double maximum, out double value)
     {
@@ -675,6 +703,7 @@ public partial class OriginalKitOverlayEditor
         Presentation.Changed -= PresentationChanged;
         _presentationLease?.Dispose();
         Overlay.Changed -= OverlayChanged;
+        if (_refreshPump is not null) await _refreshPump.DisposeAsync();
         try { await JS.InvokeVoidAsync("soulcrestOverlayEditor.unmount", "overlay-editor"); }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or TaskCanceledException or InvalidOperationException) { }
         _reference?.Dispose();

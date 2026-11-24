@@ -165,5 +165,12 @@ public sealed partial class NetworkLootService
     { _gatheringCompletions.Clear(); _gatheringWitnesses.Clear(); _ambiguousGatherings.Clear(); }
 
     private void ResetGatheringContext()
-    { _gatheringObjects.Clear(); ClearGatheringPairs(); _gatheringDispatch.Clear(); _gatheringWarning = null; }
+    {
+        _gatheringObjects.Clear();
+        ClearGatheringPairs();
+        _gatheringDispatch.Clear();
+        _gatheringWarning = null;
+        _dailyGatheringLimit = null;
+        _unprefixedGatheringEntry = null;
+    }
 }

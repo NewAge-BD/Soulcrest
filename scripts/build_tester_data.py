@@ -10,12 +10,11 @@ import math
 from pathlib import Path
 import re
 import shutil
-import struct
 import time
 
 import cv2
-import numpy as np
 from fetch_gamingtools import decode
+from gamingtools_tiles import read_tile_pack
 from pet_source_markers import add_pet_source_markers, source_groups
 from dungeon_pet_maps import prepare_dungeon_pet_maps, write_dungeon_pet_maps
 from exploration_network_ids import point_network_ids
@@ -29,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GAMINGTOOLS = ROOT / 'imports/gamingtools'
 MAPS = {'1000': 'poeta', '1010': 'verteron', '1011': 'elthen', '1100': 'ishalgen',
         '1110': 'altgard', '1111': 'morheim', '20': 'abyss-reshanta-a',
+        # Map 23 is now Outer Reshanta. Keep its stored key for routes, filters and viewports.
         '22': 'chaotic-middle-reshanta', '23': 'chaotic-upper-reshanta'}
 GENUS = {'intellect': 'cogni', 'feral': 'fera', 'nature': 'natura', 'trans': 'varian', 'special': 'special'}
 GROUPS = {'regions': 'Regions', 'exploration': 'Locations', 'collectables': 'Collectibles',
@@ -78,30 +78,6 @@ class IconStore:
 
     def get_file(self, name):
         return self.get('/images/ui/resource/texture/portrait/portrait_vehicle/' + name) if name else None
-
-
-def read_tile_pack(path):
-    blob = Path(path).read_bytes()
-    if len(blob) < 48:
-        raise ValueError('Truncated GTPK header')
-    magic, version, count, tile_size, minimum, maximum, width, height, entry_size, offset, _, _ = struct.unpack_from('<12I', blob)
-    if magic != 0x4b505447 or version != 2 or entry_size != 24 or tile_size != 512:
-        raise ValueError('Unsupported GTPK header')
-    if offset < 48 or offset + count * entry_size > len(blob):
-        raise ValueError('Invalid GTPK index')
-    entries = []
-    keys = set()
-    for index in range(count):
-        z, x, y, start, length = struct.unpack_from('<B3xIIQI', blob, offset + index * entry_size)
-        if (z > maximum or start < offset + count * entry_size or start + length > len(blob)
-                or (z, x, y) in keys or x >= 2**z or y >= 2**z):
-            raise ValueError('Invalid GTPK tile entry')
-        keys.add((z, x, y))
-        image = cv2.imdecode(np.frombuffer(blob[start:start+length], dtype=np.uint8), cv2.IMREAD_COLOR)
-        if image is None or image.shape[:2] != (512, 512):
-            raise ValueError('Invalid GTPK image')
-        entries.append((z, x, y, blob[start:start+length]))
-    return {'width': width, 'height': height, 'maxZoom': maximum, 'minZoom': minimum}, entries
 
 
 def write_tiles(path, directory):

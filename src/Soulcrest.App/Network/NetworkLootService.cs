@@ -136,6 +136,8 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         public DateTimeOffset? DailyKinaAt { get; set; }
         public bool DailyKinaSeen { get; set; }
         public bool DailyKinaRejected { get; set; }
+        public NetworkDailyGatheringLimitSnapshot? GatheringLimit { get; set; }
+        public bool GatheringLimitRejected { get; set; }
         public OwnSkillList? Skills { get; set; }
         public DateTimeOffset? SkillsAt { get; set; }
         public bool SkillsSeen { get; set; }
@@ -1073,6 +1075,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
         {
             if (stream == "*" || _abyssPointContinuity?.Stream == stream) RevokeAbyssPointContinuity();
             var titleOwnershipAffected = InvalidateTitleOwnershipForGap(stream);
+            InvalidateUnprefixedGatheringEntry(stream);
             var characterAffected = stream == "*" || _identityStream == stream || _entryCandidate?.Stream == stream;
             var characterGeneration = _progressGeneration;
             var ownCharacterChanged = characterAffected && _ownCharacter is not null;
@@ -1143,6 +1146,11 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 // may still carry global pet data, but cannot gain authority over the new profile.
                 if (!ReferenceEquals(ownBeforeExpiry, _ownCharacter)
                     && opcode is not (0x9000 or 0x900D or 0x900E or 0x9014)) return;
+            }
+            if (opcode is DailyGatheringLimitMessage.InitialOpcode or DailyGatheringLimitMessage.UpdateOpcode)
+            {
+                ProcessDailyGatheringLimitMessage(stream, opcode, message, at);
+                return;
             }
             if (opcode is 0xFFA5 or 0xFFA6)
             {
@@ -1252,6 +1260,8 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 var preparedGeneration = _progressGeneration + 1;
                 var kinaRevision = _kinaMessageRevision;
                 var dailyKinaRevision = _dailyKinaMessageRevision;
+                var dailyGatheringRevision = _dailyGatheringMessageRevision;
+                var unprefixedGathering = PrepareUnprefixedGatheringEntry(stream, at);
                 var continuity = PrepareAbyssPointContinuity(stream, at);
                 ResetProgressContextCore("world-entry-preparation", at, continuity,
                     candidate is not null ? new(stream, candidate.CharacterId, null)
@@ -1271,10 +1281,14 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                         candidate.DailyKinaRejected = true;
                         candidate.DailyKina = null;
                     }
+                    if (_dailyGatheringMessageRevision != dailyGatheringRevision)
+                        candidate.GatheringLimitRejected = true;
                     candidate.Prepared = true;
                     candidate.PreparedAt = at;
                     _entryCandidate = candidate;
                 }
+                else if (_dailyGatheringMessageRevision == dailyGatheringRevision)
+                    _unprefixedGatheringEntry = unprefixedGathering;
                 BossSessionReset?.Invoke();
                 SafeEvent.Raise(Changed, "Netzwerk-Fortschritt");
                 return;
@@ -1287,6 +1301,7 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             }
             if (opcode is 0x3633 or 0x3621)
             {
+                InvalidateUnprefixedGatheringEntry(stream);
                 if (_identityStream == stream || _entryCandidate?.Stream == stream || _abyssPointContinuity?.Stream == stream)
                 {
                     RecordProgressRejection(opcode, at);
@@ -1676,6 +1691,10 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
             var ownGeneration = _progressGeneration + 1;
             var kinaRevision = _kinaMessageRevision;
             var dailyKinaRevision = _dailyKinaMessageRevision;
+            var dailyGatheringRevision = _dailyGatheringMessageRevision;
+            var gatheringLimit = transaction is { GatheringLimitRejected: false } ? transaction.GatheringLimit : null;
+            if (transaction is null && combatObservation is not null)
+                gatheringLimit = ReadUnprefixedGatheringBaseline(stream, identity, at);
             var skillRevision = _skillMessageRevision;
             var continuity = BeginAbyssPointRebind(stream, identity, at);
             ResetProgressContextCore("world-entry", at, continuity, new(stream, identity.CharacterId, identity.ServerId));
@@ -1710,6 +1729,9 @@ public sealed partial class NetworkLootService(ProgressService progress, Explora
                 transaction.DailyKina = null;
             }
             BindDailyKinaBaseline(transaction);
+            if (_dailyGatheringMessageRevision == dailyGatheringRevision
+                && gatheringLimit is not null && gatheringLimit.At <= at)
+                _dailyGatheringLimit = gatheringLimit;
             Character = identity.Name;
             _questFormatRejected = rejectedSources.Contains((ushort)0x8D09);
             _teleportFormatRejected = rejectedSources.Contains((ushort)0x9232);

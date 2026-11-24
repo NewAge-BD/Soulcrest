@@ -41,31 +41,37 @@ public sealed class GenusInsightStateService : IDisposable
                 : NetworkCombatDomain<PetProgressSnapshot>.Unknown
         };
     }
-    public GenusInsightSnapshot Snapshot
+    public GenusInsightSnapshot Snapshot => ReadSnapshot(forNativeOverlay: false);
+    internal GenusInsightSnapshot NativeOverlaySnapshot => ReadSnapshot(forNativeOverlay: true);
+
+    private GenusInsightSnapshot ReadSnapshot(bool forNativeOverlay, bool retryOnChange = true)
     {
-        get
-        {
-            if (_disposed) return GenusInsightSnapshot.Empty;
-            var character = _character.Snapshot;
-            var shared = _shared?.GenusInsightSnapshot;
-            var favorites = _favorites.Snapshot.Favorites;
-            var menu = _menu.Snapshot;
-            var source = ForGenusSource(character, shared);
-            var live = ReadLive(source, favorites, menu, out _);
-            var current = _character.Snapshot;
-            var currentMenu = _menu.Snapshot;
-            if (!SameOwn(character, current) || !SameShared(shared)
-                || currentMenu.MenuVisible != menu.MenuVisible || currentMenu.Genus != menu.Genus
-                || currentMenu.ViewedPreset != menu.ViewedPreset || currentMenu.SourceGeneration != menu.SourceGeneration)
-                return ReadSaved(favorites);
-            // Capture/menu expiry revokes live selection authority, never the saved rolls.
-            // Partial or malformed source payloads must also leave the complete shared display intact.
-            var usable = live.IsCurrent && live.Preset is not null && source.Pets.Status == NetworkCombatSourceStatus.Complete
-                && source.Pets.Value is { } value && source.Pets.ObservedAt is { } at
-                && ExplorationService.ValidGenusHistory(new(value.GenusBoards, at, source.Pets.Source));
-            if (!usable && ReadSaved(favorites) is { IsHistorical: true } saved) return saved;
-            return live;
-        }
+        if (_disposed) return GenusInsightSnapshot.Empty;
+        var character = _character.Snapshot;
+        var shared = _shared?.GenusInsightSnapshot;
+        var favorites = _favorites.Snapshot.Favorites;
+        var menu = _menu.Snapshot;
+        var source = ForGenusSource(character, shared);
+        var live = ReadLive(source, favorites, menu, out _);
+        var current = _character.Snapshot;
+        var currentMenu = _menu.Snapshot;
+        if (!SameOwn(character, current) || !SameShared(shared)
+            || currentMenu.MenuVisible != menu.MenuVisible || currentMenu.Genus != menu.Genus
+            || currentMenu.ViewedPreset != menu.ViewedPreset || currentMenu.SourceGeneration != menu.SourceGeneration)
+            return forNativeOverlay && retryOnChange
+                ? ReadSnapshot(forNativeOverlay: true, retryOnChange: false) : ReadSaved(favorites);
+
+        var complete = live.IsCurrent && source.Pets.Status == NetworkCombatSourceStatus.Complete
+            && source.Pets.Value is { } value && source.Pets.ObservedAt is { } at
+            && ExplorationService.ValidGenusHistory(new(value.GenusBoards, at, source.Pets.Source));
+        // A roll can revoke preset confirmation while the same native menu is still open.
+        // Let the HUD keep its frame without presenting any unconfirmed slot values.
+        if (forNativeOverlay && complete && live.MenuVisible == true)
+            return live with { OverlaySelectionPending = live.ViewedBoard is null, OverlaySourceGeneration = shared?.Generation ?? 0 };
+        // Capture/menu expiry revokes live selection authority, never the saved rolls.
+        // Partial or malformed source payloads must also leave the complete shared display intact.
+        if ((!complete || live.Preset is null) && ReadSaved(favorites) is { IsHistorical: true } saved) return saved;
+        return live;
     }
     private static bool SameOwn(CharacterCombatSnapshot expected, CharacterCombatSnapshot current) =>
         current.ProfileId == expected.ProfileId && current.Generation == expected.Generation
@@ -214,21 +220,23 @@ public static class GenusInsightProjection
                     var notAnalyzed = effect.Grade == 0 && effect.StatType == 0 && effect.Value == 0;
                     var rank = effect.Grade is >= 1 and <= 5 ? effect.Grade : (byte?)null;
                     var stat = bindings.TryGetValue(effect.StatType, out var id) ? catalog.FindStat(id) : null;
-                    var rankRange = stat is not null && rank is not null ? catalog.Range(genus, slot, stat.StatId, rank) : null;
-                    var range = stat is not null ? catalog.Range(genus, slot, stat.StatId) : null;
+                    var options = stat is not null ? catalog.Options(genus, slot, stat.StatId) : [];
+                    var rankRange = rank is { } quality ? options.FirstOrDefault(option => option.Rank == quality) : null;
+                    var minimum = options.IsEmpty ? (decimal?)null : options.Min(option => option.Minimum);
+                    var maximum = options.IsEmpty ? (decimal?)null : options.Max(option => option.Maximum);
                     var value = stat is not null ? effect.Value / stat.RawDivisor : (decimal?)null;
                     // Unknown mappings, future slots and out-of-range values must never look like a confirmed perfect roll.
                     var qualified = value is { } v && rankRange is not null && v >= rankRange.Minimum && v <= rankRange.Maximum;
-                    var fraction = qualified && range is not null && value is { } number
-                        ? range.Minimum == range.Maximum ? 1d : (double)((number - range.Minimum) / (range.Maximum - range.Minimum))
+                    var fraction = qualified && minimum is { } min && maximum is { } max && value is { } number
+                        ? min == max ? 1d : (double)((number - min) / (max - min))
                         : (double?)null;
                     view = view with
                     {
                         StatId = stat?.StatId,
                         LabelDe = stat?.LabelDe ?? (notAnalyzed ? "Nicht analysiert" : "Unbekannter Stat"),
                         LabelEn = stat?.LabelEn ?? (notAnalyzed ? "Not analyzed" : "Unknown stat"),
-                        Unit = stat?.Unit, Value = value, Rank = rank, Minimum = range?.Minimum, Maximum = range?.Maximum,
-                        RollFraction = fraction, IsMaxRoll = qualified && value == range?.Maximum,
+                        Unit = stat?.Unit, Value = value, Rank = rank, Minimum = minimum, Maximum = maximum, RarityOptions = options,
+                        RollFraction = fraction, IsMaxRoll = qualified && value == maximum,
                         IsFavorite = stat is not null && favorites?.Contains(new(genus, slot, stat.StatId)) == true,
                         IsLocked = effect.IsLocked, IsActivated = effect.IsActivated, IsCurrent = current && qualified
                     };

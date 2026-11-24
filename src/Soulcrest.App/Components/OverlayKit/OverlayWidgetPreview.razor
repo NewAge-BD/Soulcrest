@@ -10,7 +10,7 @@
     @if (Widget.ShowLabel)
     {
         <div class="overlay-widget-label" data-overlay-fit>
-            @if (Widget.ShowIcon && Widget.Kind is not ("daily-kina" or "genus-insight")) { <OverlayModuleIcon Kind="@Widget.Kind" /> }
+            @if (Widget.ShowIcon && Widget.Kind is not ("daily-kina" or "daily-gathering-limit" or "genus-insight")) { <OverlayModuleIcon Kind="@Widget.Kind" /> }
             <span>@T(IsLoot ? Loot.Label : Widget.Kind == "clock" ? "Lokale Uhrzeit" : Metric.Label)</span>
         </div>
     }
@@ -55,7 +55,7 @@
     }
     else if (Widget.Kind == "genus-insight")
     {
-        <OverlayGenusInsight Snapshot="Snapshot.GenusInsight" Widget="Widget" />
+        <OverlayGenusInsight Snapshot="Snapshot.GenusInsight" Widget="Content.LayoutWidget" />
     }
     else if (Widget.Kind == "clock")
     {
@@ -67,10 +67,11 @@
             </div>
         </div>
     }
-    else if (Widget.Kind == "daily-kina")
+    else if (Widget.Kind is "daily-kina" or "daily-gathering-limit")
     {
-        <OverlayDailyKinaBar Snapshot="Snapshot" ShowIcon="Widget.ShowIcon" />
-        @if (Widget.ShowLabel) { <span class="overlay-widget-detail" data-overlay-fit>@Snapshot.DailyProgress.Detail</span> }
+        var progress = Widget.Kind == "daily-kina" ? Snapshot.DailyProgress : Snapshot.GatheringProgress ?? UnknownGatheringProgress;
+        <OverlayDailyLimitBar Snapshot="Snapshot" Progress="progress" Kind="@Widget.Kind" ShowIcon="Widget.ShowIcon" />
+        @if (Widget.ShowLabel) { <span class="overlay-widget-detail" data-overlay-fit>@progress.Detail</span> }
     }
     else if (Widget.Kind == "rare-notice")
     {
@@ -111,6 +112,8 @@
 @code {
     [Parameter, EditorRequired] public OverlayWidget Widget { get; set; } = new();
     [Parameter, EditorRequired] public OverlaySnapshot Snapshot { get; set; } = new();
+    private OverlayDailyLimitProgress UnknownGatheringProgress =>
+        new("— / " + Soulcrest.Core.Network.DailyGatheringLimitMessage.Limit.ToString("N0", UiCulture), T("Tagesstand unbekannt"), "—", null);
     private bool IsLoot => OverlayCatalog.IsLootWidget(Widget.Kind);
     private OverlayMetric Metric => Snapshot.Metrics.GetValueOrDefault(Widget.Kind) ?? new(T(OverlayCatalog.Find(Widget.Kind)?.Label ?? "Modul"), "—");
     private OverlayContentLayout? _content;

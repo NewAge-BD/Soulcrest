@@ -94,9 +94,14 @@ public sealed class WorldContextService
                     && (current.Kind != WorldContextKind.Instance || current.DungeonId != dungeon.Id)) return;
                 // End/Complete never imply exit. Open-world layers require the native positive layer flag.
                 var categoryNames = dungeon.Category is not null ? dungeon.CategoryNames : map?.CategoryNames;
+                // A base-Abyss refinement retains the current map name; its separate dungeon
+                // title can be historical. Positive or unqualified layers keep their own title.
+                var useMapName = map is { Category: "Abyss" } && (dungeon.Category is null or "Abyss")
+                    && dungeon.InstanceLayer == false;
                 var next = current with { Kind = WorldContextKind.Instance, DungeonId = dungeon.Id, InstanceLayer = dungeon.InstanceLayer,
                     Category = dungeon.Category ?? map?.Category, Mode = dungeon.Mode,
-                    NameDe = dungeon.Names.De ?? map?.Names.De, NameEn = dungeon.Names.En ?? map?.Names.En,
+                    NameDe = useMapName ? map!.Names.De ?? dungeon.Names.De : dungeon.Names.De ?? map?.Names.De,
+                    NameEn = useMapName ? map!.Names.En ?? dungeon.Names.En : dungeon.Names.En ?? map?.Names.En,
                     CategoryNameDe = categoryNames?.De, CategoryNameEn = categoryNames?.En,
                     ModeNameDe = dungeon.Mode is not null ? dungeon.ModeNames?.De : null,
                     ModeNameEn = dungeon.Mode is not null ? dungeon.ModeNames?.En : null };

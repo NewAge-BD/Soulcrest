@@ -225,6 +225,100 @@ public sealed class DaevanionStateTests
         Assert.False(f.Service.CanPresent(frame with { }));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PresentationUsesFreshWindowValidationWithoutRediscoveringTheProcess(bool missing)
+    {
+        using var f = new Fixture();
+        var frame = f.Frame();
+        var discoveryReads = 0;
+        var validationReads = 0;
+        Rectangle? fresh = frame.GameBounds;
+        using var service = new DaevanionService(f.Network, f.Settings, f.Capture,
+            () => { discoveryReads++; throw new InvalidOperationException("Discovery is not a presentation operation."); },
+            () => { validationReads++; return fresh; });
+        Assert.True(service.TryPublishObservation(frame, service.ObservationRevision));
+        for (var check = 0; check < 20; check++) Assert.True(service.CanPresent(frame));
+        fresh = missing ? null : new Rectangle(frame.GameBounds.X + 1, frame.GameBounds.Y, frame.GameBounds.Width, frame.GameBounds.Height);
+        Assert.False(service.CanPresent(frame));
+        Assert.False(service.TryPublishObservation(frame, service.ObservationRevision));
+        Assert.Equal(0, discoveryReads);
+        Assert.True(validationReads >= 23);
+        Assert.Equal(0, f.Capture.Diagnostics.Grabs);
+    }
+
+    [Fact]
+    public void DefaultPresentationCannotBorrowBoundsOrStartAMissingCaptureSession()
+    {
+        using var f = new Fixture();
+        using var service = new DaevanionService(f.Network, f.Settings, f.Capture);
+        Assert.False(service.TryPublishObservation(f.Frame(), service.ObservationRevision));
+        Assert.Null(service.Snapshot);
+        Assert.Equal(0, f.Capture.Diagnostics.Grabs);
+    }
+
+    [Fact]
+    public async Task PresentationAndClassReadsDoNotWaitBehindTheNetworkTransportGate()
+    {
+        using var f = new Fixture();
+        var frame = f.Frame();
+        Assert.True(f.Service.TryPublishObservation(frame, f.Service.ObservationRevision));
+        var transportGate = typeof(NetworkLootService).GetField("_gate",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(f.Network)!;
+        using var release = new ManualResetEventSlim();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var holding = Task.Factory.StartNew(() =>
+        {
+            lock (transportGate) { entered.SetResult(); release.Wait(); }
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        Task<(bool Current, string? Class)>? read = null;
+        var completed = false;
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            read = Task.Factory.StartNew(() => (f.Service.CanPresent(frame), f.Service.ClassId),
+                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            completed = ReferenceEquals(await Task.WhenAny(read, Task.Delay(700)), read);
+        }
+        finally { release.Set(); await holding; }
+        var result = await read!;
+        Assert.True(completed);
+        Assert.True(result.Current);
+        Assert.Equal("Cleric", result.Class);
+    }
+
+    [Fact]
+    public void DiagnosticGuardRetriesAConcurrentlyReplacedSourceWithoutStartingCapture()
+    {
+        using var f = new Fixture();
+        var previous = f.Frame();
+        var replacement = previous with { FrameAt = Stopwatch.GetTimestamp() };
+        var replace = false;
+        DaevanionService? subject = null;
+        using var service = subject = new DaevanionService(f.Network, f.Settings, f.Capture, () => f.Bounds,
+            () =>
+            {
+                if (replace)
+                {
+                    replace = false;
+                    Assert.True(subject!.TryPublishObservation(replacement, subject.ObservationRevision));
+                }
+                return f.Bounds;
+            });
+        Assert.True(service.TryPublishObservation(previous, service.ObservationRevision));
+        var runtime = new DiagnosticOverlayRuntime();
+        runtime.Observe("daevanion", true, true, false);
+        var registry = new DiagnosticServiceRegistry(f.Settings, runtime, f.Capture, service);
+        var contributor = Assert.Single(DiagnosticContributors.Create(registry), item => item.FeatureIds.Contains("overlay-daevanion"));
+        replace = true;
+        var result = contributor.Collect("overlay-daevanion");
+        Assert.Equal(DiagnosticStatus.Healthy, result.Status);
+        Assert.Equal(true, result.Facts["boardSourceCurrent"]);
+        Assert.Same(replacement, service.Snapshot);
+        Assert.Equal(0, f.Capture.Diagnostics.Grabs);
+    }
+
     [Fact]
     public void RepeatedBusyCaptureDoesNotClearOrRefreshThePublishedSourcePicture()
     {

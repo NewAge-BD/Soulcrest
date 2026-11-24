@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -21,6 +22,7 @@ public sealed class GenusInsightCatalog
     private static readonly IReadOnlyList<GenusInsightOption> EmptyOptions = Array.AsReadOnly(Array.Empty<GenusInsightOption>());
     private readonly FrozenDictionary<string, GenusInsightStatDefinition> _stats;
     private readonly FrozenDictionary<(string Genus, int Slot), IReadOnlyList<GenusInsightOption>> _options;
+    private readonly FrozenDictionary<(string Genus, int Slot, string StatId), ImmutableArray<GenusInsightOption>> _statOptions;
 
     public static GenusInsightCatalog Default => Embedded.Value;
     public int MetadataBuild { get; }
@@ -39,6 +41,7 @@ public sealed class GenusInsightCatalog
                 throw new InvalidDataException("Invalid or duplicate Genus Insight stat.");
         }
         var options = new Dictionary<(string Genus, int Slot), IReadOnlyList<GenusInsightOption>>();
+        var statOptions = new Dictionary<(string Genus, int Slot, string StatId), ImmutableArray<GenusInsightOption>>();
         var frozenSlots = new List<GenusInsightSlotDefinition>();
         foreach (var slot in slots)
         {
@@ -52,11 +55,14 @@ public sealed class GenusInsightCatalog
             var copy = slot with { Options = Array.AsReadOnly(slot.Options.ToArray()) };
             if (!options.TryAdd((copy.Genus, copy.Slot), copy.Options))
                 throw new InvalidDataException("Duplicate Genus Insight slot.");
+            foreach (var group in copy.Options.GroupBy(option => option.StatId))
+                statOptions.Add((copy.Genus, copy.Slot, group.Key), group.ToImmutableArray());
             frozenSlots.Add(copy);
         }
         MetadataBuild = metadataBuild;
         _stats = definitions.ToFrozenDictionary(StringComparer.Ordinal);
         _options = options.ToFrozenDictionary();
+        _statOptions = statOptions.ToFrozenDictionary();
         Slots = Array.AsReadOnly(frozenSlots.ToArray());
     }
 
@@ -65,9 +71,17 @@ public sealed class GenusInsightCatalog
     public IReadOnlyList<GenusInsightOption> Options(string genus, int slot) => genus is null ? EmptyOptions
         : _options.GetValueOrDefault((genus, slot)) ?? EmptyOptions;
 
+    public ImmutableArray<GenusInsightOption> Options(string genus, int slot, string statId) =>
+        _statOptions.GetValueOrDefault((genus, slot, statId), []);
+
     public GenusInsightRange? Range(string genus, int slot, string statId, byte? rank = null)
     {
-        var options = Options(genus, slot).Where(option => option.StatId == statId && (rank is null || option.Rank == rank)).ToArray();
+        var options = Options(genus, slot, statId);
+        if (rank is { } quality)
+        {
+            var option = options.FirstOrDefault(candidate => candidate.Rank == quality);
+            return option is null ? null : new(option.Minimum, option.Maximum);
+        }
         return options.Length == 0 ? null : new(options.Min(option => option.Minimum), options.Max(option => option.Maximum));
     }
 

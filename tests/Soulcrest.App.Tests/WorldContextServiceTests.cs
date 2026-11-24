@@ -41,6 +41,29 @@ public sealed class WorldContextServiceTests
         Assert.Same(snapshot, service.Snapshot); // No periodic Own or timer/TTL is required.
     }
 
+    [Theory]
+    [InlineData(false, "Current map")]
+    [InlineData(true, "Separate dungeon")]
+    [InlineData(null, "Separate dungeon")]
+    public void OnlyExplicitBaseAbyssRefinementPrefersTheCurrentMapName(bool? layer, string expectedName)
+    {
+        var json = """
+            {"schemaVersion":1,"maps":[
+             {"id":400,"names":{"de":null,"en":"Current map"},"kind":"instance","category":"Abyss","sourceRefs":[]}],
+             "dungeons":[
+              {"id":4000,"mapIds":[400],"names":{"de":null,"en":"Separate dungeon"},"category":"Abyss",
+               "instanceLayer":LAYER,"sourceRefs":[]}]}
+            """.Replace("LAYER", layer is null ? "null" : layer.Value ? "true" : "false", StringComparison.Ordinal);
+        var service = new WorldContextService(InstanceCatalog.FromJson(json));
+        service.ObserveOwn(400, 1, At);
+        service.ObserveDungeon(new(4000, DungeonRunState.Process, 0, 0), 1, At.AddSeconds(1));
+        Assert.Equal(expectedName, service.Snapshot.NameEn);
+        Assert.Equal(4000, service.Snapshot.DungeonId);
+        Assert.Equal(layer, service.Snapshot.InstanceLayer);
+        Assert.Equal("Abyss", service.Snapshot.Category);
+        Assert.Equal(WorldContextKind.Instance, service.Snapshot.Kind);
+    }
+
     [Fact]
     public void UnknownDefinitionStillRetainsTheConfirmedRawMapButNeverInventsATypeOrName()
     {

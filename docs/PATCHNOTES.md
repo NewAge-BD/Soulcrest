@@ -2,6 +2,27 @@
 
 Kurz und für Spieler geschrieben.
 
+## 0.18.5 – 2026-11-24
+
+- **Neu:** Overlay-Widget „Tägliches Sammellimit“ unter Lifeskill mit Fortschrittsbalken bis 1.000.
+  Es zeigt den Tagesstand vom Server, auch ohne laufende Session.
+- **Neu:** Genus Insight zeigt fünf Seltenheitsbahnen von Common bis Heroic auf einer gemeinsamen
+  Skala. Die farbigen Grenzwerte stehen jeweils unter der Mitte ihres Bereichs.
+- **Geändert:** Die AP-Widgets zählen jetzt alle dazugewonnenen AP, unabhängig von der Herkunft und
+  auch in normalen Instanzen.
+- **Geändert:** Karte 23 heißt wie im Spiel „Chaotisches Äußeres Reshanta“ und ist mit allen
+  Markern aufbereitet.
+- **Geändert:** Im Overlay-Editor stehen Sichtbarkeitsbedingungen, Fensterstatus und Aktivierung
+  zusammen. Darstellung und Aufnahmen haben eigene Bereiche.
+- **Geändert:** Die zuletzt abgerufenen Exchange-Preise bleiben lokal gespeichert, falls
+  aion2.exchange vorübergehend nicht erreichbar ist.
+- **Behoben:** Gesperrte Overlay-Editor-Fenster entsperren sich nicht mehr bei Alt+Tab. Die Sperre
+  bleibt auch nach einem Neustart erhalten.
+- **Behoben:** Die Overlay-Vorschau konnte Soulcrest im Abyss vorübergehend blockieren.
+- **Behoben:** Das Genus-Insight-Overlay bleibt bei neuen Rolls sichtbar.
+- **Verbessert:** Auf dem Daevanion-Brett läuft die Lichtspur gleichmäßiger, und der Tooltip-Abgleich
+  braucht weniger Leistung.
+
 ## 0.18.4 – 2026-11-18
 
 - **Geändert:** Die tägliche Monster-Kina bis 1.000.000 wird jetzt als gebundene Kina geführt. Der

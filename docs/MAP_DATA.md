@@ -347,3 +347,55 @@ Die App bindet Bilder per SHA-256 an ihre eingebetteten Positionen. Fehlende ode
 veraltete Bilder werden ausdrücklich gemeldet. Kein Download, Clientzugriff,
 Spielertracking oder Speichern von Weltkartenansichten wird durch den Dialog ausgelöst.
 Private Herkunft und Werkzeuge bleiben vom öffentlichen Produktvertrag getrennt.
+
+
+## Chaotic Outer Reshanta und gezieltes Cache-Update (24.11.2026)
+
+Die aktuellen DE-/EN-Quelldaten führen Karte23 als „Chaotisches Äußeres Reshanta“ /
+„Chaotic Outer Reshanta“. Die bestehende interne Kennung `chaotic-upper-reshanta`
+bleibt erhalten, damit gespeicherte Auswahlen und Routen weiter passen. Der aktuelle
+Aufbereitungsstand übernimmt den neuen Namen und die geänderten Marker; Geometrie
+und Kachelbytes sind unverändert. Eine zusätzliche vierte Abyss-Karte wird nicht
+allein aus einem neuen Namen abgeleitet.
+
+Der normale Cache ruft vorhandene Dateien nicht erneut ab. Ein gezieltes Update
+bestehender Daten nutzt `--refresh` ausschließlich für die genannten öffentlichen
+CDN-Datensätze und die gewählte Sprache:
+
+```powershell
+python scripts/fetch_gamingtools.py --refresh --locale en interactive-map interactive-map/23 maps/23
+python scripts/fetch_gamingtools.py --refresh --locale de interactive-map interactive-map/23 maps/23
+python scripts/fetch_gamingtools_dataset.py
+python scripts/build_tester_data.py
+```
+
+Raw- und dekodierte JSON-Dateien werden gemeinsam aktualisiert, nachdem beide
+neuen Darstellungen geprüft sind. Bei Abruf- oder JSON-Fehlern bleiben die bisherigen
+Dateien erhalten. Drosselung, CDN-Pfadprüfung und Abbruch bei403/429 gelten unverändert.
+Der reguläre Datasetabruf ergänzt referenzierte fehlende Bilder; er erhält ansonsten
+seinen bisherigen Cache. Die App selbst startet weiterhin keinen Kartenabruf.
+
+### Vollständiger Markerabgleich für Outer Reshanta
+
+Ein einzelnes Kartenupdate einschließlich DE/EN, Kachelpaket und referenzierter
+Markerbilder ist ohne erneuten Abruf der Pet-/Materialkataloge möglich:
+
+```powershell
+python scripts/fetch_gamingtools_dataset.py --maps 23 --refresh
+python scripts/build_tester_data.py
+```
+
+Der am 24.11.2026 geprüfte Stand enthält 1.576 Monsterpositionen, 72 Positionen
+funktionaler NPCs, 32 Flugringe, acht Aufwinde, zwei Kibelisken, zwei Händler,
+zwei Lagerverwalter, zwei Festungslabels und fünf Jagdgebietslabels. Das ergibt
+1.701 ursprüngliche Marker und zusätzlich 91 Pet-Farmgruppen für vier belegte
+Pets. Jagdgebiete verwenden wie auf den anderen Karten dauerhaft beschriftete
+Mittelpunkte; Gebietsgrenzen werden daraus nicht abgeleitet. Monsterkategorien
+bleiben wie bisher über die Legende einschaltbar.
+
+Die Quelle enthält für diese Karte keine Ressourcen, Hidden Cubes oder
+Named-Spawns für Boss Rush. Ihre Kalibrierung ist weiterhin als unbestätigt
+mit 61,9 nativen Pixeln Restfehler gekennzeichnet. Die 21 Original-WebP-Kacheln
+bleiben bytegleich. Die Netzwerkstatusanzeige bevorzugt bei exakt passender
+Welt-/Abyss-Karte den lokalisierten Paketnamen; konkrete Dungeonlayer und Modi
+behalten ihren unabhängig erkannten Namen.

@@ -12,6 +12,7 @@ public sealed class DaevanionOverlayForm : Form
     private readonly DaevanionToggleForm _toggle;
     private readonly DaevanionStatRailForm _statRail;
     private readonly DaevanionHighlightForm _highlights;
+    private readonly IDisposable _animationObservation;
     private readonly DaevanionPlanService? _plans;
     private readonly DaevanionBoardEditService? _edits;
     private readonly DaevanionRouteForm _route;
@@ -34,6 +35,7 @@ public sealed class DaevanionOverlayForm : Form
         _statRail.StatToggled += ToggleHighlightedStat;
         _statRail.ClearRequested += ClearHighlightedStats;
         _highlights = new DaevanionHighlightForm(CurrentHighlightSource, SelectedStats);
+        _animationObservation = _service.RegisterAnimationDiagnostics(() => _highlights.Diagnostics);
         _route = new DaevanionRouteForm(CurrentHighlightSource, classId => _plans?.GetActiveRoute(classId),
             edit: edits is null ? null : snapshot => edits.ForOverlay(snapshot.Context, snapshot.Board));
         FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
@@ -200,7 +202,7 @@ public sealed class DaevanionOverlayForm : Form
                 }
                 // A tooltip can also disappear during rendering. Paint only newly visible or
                 // changed nodes; matching nodes already have the exact required cached artwork.
-                var additions = current.Detection.Nodes.Where(node => !artwork.Detection.Nodes.Any(drawn => SameNode(drawn, node))).ToArray();
+                var additions = MissingCurrentNodes(artwork, current);
                 if (additions.Length > 0)
                 {
                     using var graphics = Graphics.FromImage(image);
@@ -262,26 +264,92 @@ public sealed class DaevanionOverlayForm : Form
         DaevanionSnapshot current, Point origin, bool includeStatEnvelope = false)
     {
         if (!HasSameBoard(rendered, current)) return null;
-        var retained = rendered.Detection.Nodes.Where(drawn => current.Detection.Nodes.Any(node => SameNode(drawn, node))).ToArray();
-        using var graphics = Graphics.FromImage(image);
-        graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
-        using var transparent = new SolidBrush(Color.Transparent);
-        foreach (var removed in rendered.Detection.Nodes.Where(node => !retained.Any(drawn => SameNode(drawn, node))))
+        if (ReferenceEquals(rendered, current) || HasSameContent(rendered, current)) return current;
+        Span<int> index = stackalloc int[225];
+        if (!IndexNodes(current.Detection.Nodes, index)) return null;
+        Span<bool> statCells = stackalloc bool[225];
+        IndexStatCells(current, statCells);
+        Span<bool> seen = stackalloc bool[225];
+        seen.Clear();
+        var retained = new List<Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor>(rendered.Detection.Nodes.Count);
+        List<Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor>? removedNodes = null;
+        foreach (var drawn in rendered.Detection.Nodes)
         {
-            var frame = new Rectangle(removed.Bounds.X - origin.X, removed.Bounds.Y - origin.Y, removed.Bounds.Width, removed.Bounds.Height);
-            var node = rendered.Board.Nodes.FirstOrDefault(n => n.Row == removed.Row && n.Column == removed.Column);
-            var area = node?.Kind == Soulcrest.Core.Daevanion.DaevanionNodeKind.Stat
-                && (includeStatEnvelope || DaevanionNodeFitting.CanExtend(frame, rendered.Detection.Spacing))
-                ? RectangleF.Union(frame, DaevanionNodeFitting.Bounds(frame, rendered.Detection.Spacing)) : frame;
-            graphics.FillRectangle(transparent, Rectangle.FromLTRB((int)Math.Floor(area.Left), (int)Math.Floor(area.Top),
-                (int)Math.Ceiling(area.Right), (int)Math.Ceiling(area.Bottom)));
+            var key = CellKey(drawn);
+            if (key < 0 || seen[key]) return null;
+            seen[key] = true;
+            if (index[key] >= 0 && SameNode(drawn, current.Detection.Nodes[index[key]], statCells[key]))
+                // Retain the pixels, but always carry the newest anchor evidence and source time.
+                retained.Add(current.Detection.Nodes[index[key]]);
+            else (removedNodes ??= []).Add(drawn);
         }
-        return current with { Detection = current.Detection with { Nodes = Array.AsReadOnly(retained) } };
+        if (removedNodes is not null)
+        {
+            using var graphics = Graphics.FromImage(image);
+            graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+            using var transparent = new SolidBrush(Color.Transparent);
+            foreach (var removed in removedNodes)
+            {
+                var frame = new Rectangle(removed.Bounds.X - origin.X, removed.Bounds.Y - origin.Y, removed.Bounds.Width, removed.Bounds.Height);
+                var area = statCells[CellKey(removed)]
+                    && (includeStatEnvelope || DaevanionNodeFitting.CanExtend(frame, rendered.Detection.Spacing))
+                    ? RectangleF.Union(frame, DaevanionNodeFitting.Bounds(frame, rendered.Detection.Spacing)) : frame;
+                graphics.FillRectangle(transparent, Rectangle.FromLTRB((int)Math.Floor(area.Left), (int)Math.Floor(area.Top),
+                    (int)Math.Ceiling(area.Right), (int)Math.Ceiling(area.Bottom)));
+            }
+        }
+        return current with { Detection = current.Detection with { Nodes = Array.AsReadOnly(retained.ToArray()) } };
     }
 
-    private static bool SameNode(Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor previous, Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor current) =>
+    private static bool SameNode(Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor previous,
+        Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor current, bool isStat) =>
         previous.Row == current.Row && previous.Column == current.Column && previous.Bounds == current.Bounds
-        && previous.Appearance == current.Appearance;
+        // The renderer deliberately gives Unknown and Inactive the identical dark material.
+        // Native skill pictures never depend on this stat-only lighting signal.
+        && (!isStat || (previous.Appearance == Soulcrest.Ocr.Daevanion.DaevanionNodeAppearance.Active)
+            == (current.Appearance == Soulcrest.Ocr.Daevanion.DaevanionNodeAppearance.Active));
+
+    private static int CellKey(Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor node) =>
+        node.Row is >= 1 and <= 15 && node.Column is >= 1 and <= 15 ? (node.Row - 1) * 15 + node.Column - 1 : -1;
+
+    private static bool IndexNodes(IReadOnlyList<Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor> nodes, Span<int> index)
+    {
+        index.Fill(-1);
+        for (var position = 0; position < nodes.Count; position++)
+        {
+            var node = nodes[position];
+            var key = CellKey(node);
+            if (key < 0 || index[key] >= 0 || node.Bounds.Width <= 0 || node.Bounds.Height <= 0) return false;
+            index[key] = position;
+        }
+        return true;
+    }
+
+    private static void IndexStatCells(DaevanionSnapshot snapshot, Span<bool> cells)
+    {
+        cells.Clear();
+        foreach (var node in snapshot.Board.Nodes)
+            if (node.Kind == Soulcrest.Core.Daevanion.DaevanionNodeKind.Stat
+                && node.Row is >= 1 and <= 15 && node.Column is >= 1 and <= 15)
+                cells[(node.Row - 1) * 15 + node.Column - 1] = true;
+    }
+
+    // ReconcileRendered has already proved every retained anchor against current. Additions
+    // therefore need only a bounded cell-membership check, not a second quadratic node search.
+    internal static Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor[] MissingCurrentNodes(DaevanionSnapshot artwork,
+        DaevanionSnapshot current)
+    {
+        if (!HasSameBoard(artwork, current)) return [];
+        Span<int> index = stackalloc int[225];
+        if (!IndexNodes(artwork.Detection.Nodes, index)) return [];
+        List<Soulcrest.Ocr.Daevanion.DaevanionNodeAnchor>? additions = null;
+        foreach (var node in current.Detection.Nodes)
+        {
+            var key = CellKey(node);
+            if (key >= 0 && index[key] < 0) (additions ??= []).Add(node);
+        }
+        return additions?.ToArray() ?? [];
+    }
 
     internal static bool HasSameBoard(DaevanionSnapshot previous, DaevanionSnapshot current) =>
         ReferenceEquals(previous.Context, current.Context) && ReferenceEquals(previous.Board, current.Board)
@@ -289,11 +357,22 @@ public sealed class DaevanionOverlayForm : Form
         && previous.Detection.Origin == current.Detection.Origin
         && previous.Detection.Spacing == current.Detection.Spacing && previous.Detection.NodeSize == current.Detection.NodeSize;
 
-    internal static bool HasSameContent(DaevanionSnapshot previous, DaevanionSnapshot current) =>
-        HasSameBoard(previous, current) && previous.Detection.Nodes.Count == current.Detection.Nodes.Count
-        && previous.Detection.Nodes.OrderBy(n => n.Row).ThenBy(n => n.Column)
-            .Zip(current.Detection.Nodes.OrderBy(n => n.Row).ThenBy(n => n.Column))
-            .All(pair => SameNode(pair.First, pair.Second));
+    internal static bool HasSameContent(DaevanionSnapshot previous, DaevanionSnapshot current)
+    {
+        if (!HasSameBoard(previous, current) || previous.Detection.Nodes.Count != current.Detection.Nodes.Count) return false;
+        if (ReferenceEquals(previous, current) || ReferenceEquals(previous.Detection.Nodes, current.Detection.Nodes)) return true;
+        Span<int> index = stackalloc int[225];
+        if (!IndexNodes(current.Detection.Nodes, index)) return false;
+        Span<bool> statCells = stackalloc bool[225];
+        IndexStatCells(current, statCells);
+        foreach (var previousNode in previous.Detection.Nodes)
+        {
+            var key = CellKey(previousNode);
+            if (key < 0 || index[key] < 0 || !SameNode(previousNode, current.Detection.Nodes[index[key]], statCells[key])) return false;
+            index[key] = -1;
+        }
+        return true;
+    }
 
     internal static Rectangle SurfaceBounds(DaevanionSnapshot snapshot)
     {
@@ -318,6 +397,7 @@ public sealed class DaevanionOverlayForm : Form
         if (disposing && !_closed)
         {
             _closed = true; _service.Changed -= SchedulePresentation; _visibility.Dispose();
+            _animationObservation.Dispose();
             if (_plans is not null) _plans.Changed -= SchedulePresentation;
             if (_edits is not null) _edits.Changed -= SchedulePresentation;
             _toggle.Toggled -= ToggleNodeContent; _controlSource = null; _toggle.Dispose();

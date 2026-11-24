@@ -23,6 +23,7 @@ internal static class GenusInsightOverlayExamples
                 {
                     Slot = (byte)number, StatId = stat.StatId, LabelDe = stat.LabelDe, LabelEn = stat.LabelEn,
                     Unit = stat.Unit, Value = value, Rank = option.Rank, Minimum = range.Minimum, Maximum = range.Maximum,
+                    RarityOptions = catalog.Options(genus, number, stat.StatId),
                     RollFraction = range.Minimum == range.Maximum ? 1 : (double)((value - range.Minimum) / (range.Maximum - range.Minimum)),
                     IsMaxRoll = value == range.Maximum, IsFavorite = number is 2 or 4, IsLocked = number is 2 or 4,
                     IsActivated = true, IsCurrent = true

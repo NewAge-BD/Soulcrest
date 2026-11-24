@@ -154,7 +154,7 @@ test('original editor declarations and breakpoints remain unchanged apart from a
         assert.doesNotMatch(rule.declarations, /\b(?:height|overflow(?:-[xy])?)\s*:/);
 });
 
-for (const name of ['base.css', 'overlay-editor.css', 'overlay-widgets.css', 'browser-preview.css']) {
+for (const name of ['base.css', 'overlay-editor.css', 'overlay-widgets.css', 'browser-preview.css', 'overlay-display.css']) {
     test(`${name} cannot select application content outside its editor boundary`, () => {
         const css = read(name);
         const rules = groupedRules(css);

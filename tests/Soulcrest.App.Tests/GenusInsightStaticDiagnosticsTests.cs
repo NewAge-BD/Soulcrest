@@ -116,6 +116,8 @@ public sealed class GenusInsightStaticDiagnosticsTests
         Assert.Equal(DiagnosticStatus.Healthy, result.Status);
         Assert.Equal(9, result.Facts["slots"]);
         Assert.Equal(9, result.Facts["confirmedSlots"]);
+        Assert.Equal(4, result.Facts["spectrumCommonSlots"]);
+        Assert.Equal(9, result.Facts["spectrumHeroicSlots"]);
         Assert.Equal(true, result.Facts["sourceCurrent"]);
         Assert.Equal(true, result.Facts["liveDisplayAllowed"]);
     }
@@ -136,6 +138,8 @@ public sealed class GenusInsightStaticDiagnosticsTests
         Assert.Equal(DiagnosticStatus.Warning, result.Status);
         Assert.Equal(9, result.Facts["slots"]);
         Assert.Equal(8, result.Facts["confirmedSlots"]);
+        Assert.Equal(7, result.Facts["spectrumEpicSlots"]);
+        Assert.Equal(8, result.Facts["spectrumHeroicSlots"]);
     }
 
     [Fact]

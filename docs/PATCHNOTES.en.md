@@ -2,6 +2,27 @@
 
 Short and written for players. English edition of `PATCHNOTES.md`, from 0.1.28 on.
 
+## 0.18.5 – 2026-11-24
+
+- **New:** "Daily Gathering Limit" overlay widget under Lifeskill, with a progress bar up to 1,000. It
+  shows the daily total from the server, even without a running session.
+- **New:** Genus Insight shows five rarity lanes from Common to Heroic on a shared scale. The colored
+  limits sit under the middle of each range.
+- **Changed:** The AP widgets now count all AP gained, whatever the source and also in normal
+  instances.
+- **Changed:** Map 23 is now named "Chaotic Outer Reshanta" as in the game and comes with all its
+  markers.
+- **Changed:** In the Overlay Editor, visibility conditions, window status and activation sit
+  together. Appearance and recordings have their own sections.
+- **Changed:** The last fetched Exchange prices stay stored locally in case aion2.exchange is briefly
+  unavailable.
+- **Fixed:** Locked Overlay Editor windows no longer unlock on Alt+Tab. The lock also survives a
+  restart.
+- **Fixed:** The overlay preview could briefly block Soulcrest in the Abyss.
+- **Fixed:** The Genus Insight overlay stays visible on new rolls.
+- **Improved:** On the Daevanion board, the light trail runs more evenly and tooltip matching uses
+  less processing power.
+
 ## 0.18.4 – 2026-11-18
 
 - **Changed:** The daily monster Kina up to 1,000,000 is now tracked as bound Kina. The daily bar and

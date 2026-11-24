@@ -77,6 +77,73 @@ public sealed class WorldLocationStatusTests
         finally { UiText.Language = previous; }
     }
 
+    [Theory]
+    [InlineData("de", "Chaotisches Äußeres Reshanta")]
+    [InlineData("en", "Chaotic Outer Reshanta")]
+    public void CurrentExactAbyssMapLabelSupersedesHistoricalName(string language, string currentName)
+    {
+        var previous = UiText.Language;
+        try
+        {
+            UiText.Language = language;
+            var snapshot = Confirmed with
+            {
+                MapDataId = 23, DungeonId = 24, Category = "Abyss", Mode = null,
+                SoulcrestMapId = "chaotic-upper-reshanta", InstanceLayer = false,
+                NameDe = "Chaotisches Oberes Reshanta", NameEn = "Chaotic Upper Reshanta"
+            };
+            var display = WorldLocationPresentation.Build(snapshot, true,
+                id => id == "chaotic-upper-reshanta" ? currentName : null);
+            Assert.Equal(currentName, display.Name);
+            Assert.Equal("confirmed", display.State);
+            Assert.Equal("Chaotic Upper Reshanta", snapshot.NameEn);
+        }
+        finally { UiText.Language = previous; }
+    }
+
+    [Fact]
+    public void CurrentOpenWorldMapLabelUsesOnlyTheExactMappedIdentity()
+    {
+        var snapshot = Confirmed with
+        {
+            Kind = WorldContextKind.OpenWorld, DungeonId = null, Category = null, Mode = null,
+            SoulcrestMapId = "synthetic-world", NameDe = "Historical world", NameEn = "Historical world"
+        };
+        Assert.Equal("Current world", WorldLocationPresentation.Build(snapshot, true,
+            id => id == "synthetic-world" ? "Current world" : null).Name);
+        Assert.Equal("Historical world", WorldLocationPresentation.Build(snapshot with { SoulcrestMapId = "other-world" }, true,
+            id => id == "synthetic-world" ? "Current world" : null).Name);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void MissingCurrentMapLabelPreservesHistoricalAbyssName(string? packageName)
+    {
+        var snapshot = Confirmed with
+        {
+            Category = "Abyss", Mode = null, SoulcrestMapId = "synthetic-abyss",
+            NameDe = "Historical Abyss", NameEn = "Historical Abyss"
+        };
+        Assert.Equal("Historical Abyss", WorldLocationPresentation.Build(snapshot, true, _ => packageName).Name);
+    }
+
+    [Theory]
+    [InlineData("Party", false, null)]
+    [InlineData("Abyss", true, null)]
+    [InlineData("Abyss", null, null)]
+    [InlineData("Abyss", false, "Normal")]
+    public void CurrentBaseMapLabelCannotReplaceConcreteDungeonLayerOrMode(string category, bool? layer, string? mode)
+    {
+        var snapshot = Confirmed with
+        {
+            Category = category, Mode = mode, InstanceLayer = layer, SoulcrestMapId = "synthetic-world",
+            NameDe = "Concrete dungeon", NameEn = "Concrete dungeon"
+        };
+        Assert.Equal("Concrete dungeon", WorldLocationPresentation.Build(snapshot, true, _ => "Base map").Name);
+    }
+
     [Fact]
     public async Task NativeTextIsHtmlEncoded()
     {

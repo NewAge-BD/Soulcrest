@@ -12,9 +12,11 @@ namespace Soulcrest.App.Tests;
 public sealed class OverlayLockWidgetRenderSurfaceTests
 {
     [Theory]
-    [InlineData(true, true, 1)]
-    [InlineData(false, false, 0)]
-    public async Task PreviewDrawsOneLogicalControlWhileLiveLeavesItToTheNativeHost(bool pauseAnimations, bool drawLockWidget, int expectedControls)
+    [InlineData(true, true, 1, true)]
+    [InlineData(true, true, 1, false)]
+    [InlineData(false, false, 0, true)]
+    [InlineData(false, false, 0, false)]
+    public async Task PreviewDrawsOneLogicalControlWhileLiveLeavesItToTheNativeHost(bool pauseAnimations, bool drawLockWidget, int expectedControls, bool locked)
     {
         var source = new ForbiddenPresentationSource();
         using var services = new ServiceCollection().AddLogging()
@@ -23,7 +25,7 @@ public sealed class OverlayLockWidgetRenderSurfaceTests
         var content = OverlayCatalog.CreateWidget("duration", 8, 8);
         var window = new OverlayInstance
         {
-            Settings = new() { Scale = 1.65, LockWidget = new() { X = 19.5, Y = 31.25 }, Widgets = [content] },
+            Settings = new() { Locked = locked, Scale = 1.65, LockWidget = new() { X = 19.5, Y = 31.25 }, Widgets = [content] },
         };
         var model = new OverlayPlacementRenderState(pauseAnimations, drawLockWidget);
         var snapshot = OverlaySnapshot.DemoFor("en");
@@ -42,7 +44,7 @@ public sealed class OverlayLockWidgetRenderSurfaceTests
             Assert.Contains("style=\"left:19.5px;top:31.25px;width:28px;height:28px\"", html);
             Assert.True(html.IndexOf("data-required-widget=\"true\"", StringComparison.Ordinal)
                 > html.IndexOf($"data-widget-id=\"{content.Id}\"", StringComparison.Ordinal));
-            Assert.Contains("data:image/png;base64,", html);
+            Assert.Contains(Soulcrest.App.Overlay.OverlayLockGlyph.GetDataUri(snapshot.ThemeId, locked), html);
         }
         Assert.Contains($"data-widget-id=\"{content.Id}\"", html);
         Assert.Same(window, model.Window);

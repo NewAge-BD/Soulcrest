@@ -24,6 +24,7 @@ public sealed class DaevanionService : IDisposable
     private readonly SettingsService _settings;
     private readonly GameCaptureService _capture;
     private readonly Func<Rectangle?> _gameBounds;
+    private readonly Func<Rectangle?> _presentationGameBounds;
     private readonly object _publicationGate = new();
     private readonly CancellationTokenSource _stop = new();
     private readonly DaevanionLayoutStability _stability = new();
@@ -35,6 +36,7 @@ public sealed class DaevanionService : IDisposable
     private string _status = "Warte auf Klassenerkennung.";
     private string? _highlightPlacementStatus;
     private long _revision;
+    private readonly DaevanionAnimationObservation _animationObservation = new();
     private DaevanionRecognitionHealth _recognitionDiagnostics = new(0, 0, 0, 0, 0, null, 0);
     private int _disposed;
 
@@ -42,12 +44,16 @@ public sealed class DaevanionService : IDisposable
         : this(network, settings, capture, null) { }
 
     internal DaevanionService(NetworkLootService network, SettingsService settings, GameCaptureService capture,
-        Func<Rectangle?>? gameBounds)
+        Func<Rectangle?>? gameBounds, Func<Rectangle?>? presentationGameBounds = null)
     {
         _network = network; _settings = settings; _capture = capture;
         _preferences = ReadPreferences();
         _gameBounds = gameBounds ?? (() => _settings.Current.OverlayShowMode == "always"
             ? MonitorCapture.GameWindowBounds() : MonitorCapture.ForegroundGameWindowBounds());
+        // Discovery belongs to the observation worker. UI commit guards validate the existing
+        // WGC window against fresh native metadata, never enumerate processes or read pixels.
+        _presentationGameBounds = presentationGameBounds ?? gameBounds
+            ?? (() => _capture.TryGetCurrentGameWindowBounds(_settings.Current.OverlayShowMode != "always"));
         _patterns = DaevanionCatalog.Default.Boards.GroupBy(b => b.FamilyId).Select(g =>
             new DaevanionBoardPattern(g.Key, g.First().Nodes.Select(n =>
                 new DaevanionPatternCell(n.Row, n.Column, n.Kind == DaevanionNodeKind.Start)).ToArray())).ToArray();
@@ -57,9 +63,11 @@ public sealed class DaevanionService : IDisposable
 
     public DaevanionSnapshot? Snapshot => Volatile.Read(ref _snapshot);
     public DaevanionRecognitionHealth RecognitionDiagnostics => Volatile.Read(ref _recognitionDiagnostics);
+    internal DaevanionAnimationHealth? AnimationDiagnostics => _animationObservation.Snapshot;
+    internal IDisposable RegisterAnimationDiagnostics(Func<DaevanionAnimationHealth> read) => _animationObservation.Register(read);
     public string Status => Volatile.Read(ref _status);
     public string? HighlightPlacementStatus => Volatile.Read(ref _highlightPlacementStatus);
-    public string? ClassId => _network.OwnCharacter?.Identity.ClassId;
+    public string? ClassId => _network.OwnCharacterSnapshot?.Identity.ClassId;
     internal long ObservationRevision => Interlocked.Read(ref _revision);
     public event Action? Changed;
 
@@ -80,14 +88,14 @@ public sealed class DaevanionService : IDisposable
     private bool SourceIsCurrent(DaevanionSnapshot snapshot) => Volatile.Read(ref _disposed) == 0
         && _settings.Current.DaevanionOverlayEnabled && snapshot.Context.Identity.ClassId is { } classId
         && snapshot.Board.ClassId == classId && snapshot.Detection.Family == snapshot.Board.FamilyId
-        && ReferenceEquals(snapshot.Context, _network.OwnCharacter)
+        && ReferenceEquals(snapshot.Context, _network.OwnCharacterSnapshot)
         && snapshot.Language == _settings.Current.LootNameLanguage
-        && DaevanionLayoutStability.Fresh(snapshot.FrameAt) && _gameBounds() == snapshot.GameBounds;
+        && DaevanionLayoutStability.Fresh(snapshot.FrameAt) && _presentationGameBounds() == snapshot.GameBounds;
 
     public bool CanPresent(DaevanionSnapshot snapshot) => ReferenceEquals(snapshot, Snapshot)
         && SourceIsCurrent(snapshot) && ReferenceEquals(snapshot, Snapshot);
 
-    private void ContextChanged() => Invalidate(_network.OwnCharacter?.Identity.ClassId is null
+    private void ContextChanged() => Invalidate(_network.OwnCharacterSnapshot?.Identity.ClassId is null
         ? "Warte auf Klassenerkennung." : "Daevanion-Board wird erkannt …");
     private PresentationPreferences ReadPreferences() => new(_settings.Current.DaevanionOverlayEnabled,
         _settings.Current.LootNameLanguage, _settings.Current.OverlayShowMode);
@@ -131,7 +139,7 @@ public sealed class DaevanionService : IDisposable
 
     private void Observe(long revision)
     {
-        var context = _network.OwnCharacter;
+        var context = _network.OwnCharacterSnapshot;
         var bounds = _gameBounds();
         var language = _settings.Current.LootNameLanguage;
         if (!_settings.Current.DaevanionOverlayEnabled || context?.Identity.ClassId is null || bounds is null)
@@ -247,6 +255,7 @@ public sealed class DaevanionService : IDisposable
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _animationObservation.Dispose();
         _network.OwnCharacterChanged -= ContextChanged; _settings.Changed -= SettingsChanged;
         _stop.Cancel();
         lock (_publicationGate) Interlocked.Exchange(ref _snapshot, null);

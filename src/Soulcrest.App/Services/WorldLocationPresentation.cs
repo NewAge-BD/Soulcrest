@@ -5,7 +5,7 @@ public sealed record WorldLocationDisplay(string Name, string Detail, string Sta
 
 public static class WorldLocationPresentation
 {
-    /// <param name="mapLabel">Map-package label for a nameless public world classification; never a guessed area.</param>
+    /// <param name="mapLabel">Localized label from the exact map-package identity; never a guessed area.</param>
     public static WorldLocationDisplay Build(WorldContextSnapshot snapshot, bool enabled, Func<string, string?>? mapLabel = null)
     {
         if (!enabled)
@@ -17,8 +17,15 @@ public static class WorldLocationPresentation
             return new(UiText.T("Aufenthalt noch nicht bestätigt"), UiText.T("Neue Gebietsdaten stehen noch aus."),
                 UiText.T("Nicht bestätigt"), snapshot.Status == WorldContextStatus.Stale ? "stale" : "unknown");
 
-        var name = (UiText.Language == "de" ? snapshot.NameDe ?? snapshot.NameEn : snapshot.NameEn ?? snapshot.NameDe)
-            ?? (snapshot.SoulcrestMapId is { Length: > 0 } mapId ? mapLabel?.Invoke(mapId) : null);
+        var packageName = snapshot.SoulcrestMapId is { Length: > 0 } mapId ? mapLabel?.Invoke(mapId) : null;
+        if (string.IsNullOrWhiteSpace(packageName)) packageName = null;
+        // Current map-package names may supersede historical client names for the same world/Abyss
+        // map. A concrete dungeon layer or mode must keep its independently observed context name.
+        var preferPackageName = snapshot.Kind == WorldContextKind.OpenWorld
+            || snapshot is { Kind: WorldContextKind.Instance, Category: "Abyss", InstanceLayer: false, Mode: null };
+        var name = (preferPackageName ? packageName : null)
+            ?? (UiText.Language == "de" ? snapshot.NameDe ?? snapshot.NameEn : snapshot.NameEn ?? snapshot.NameDe)
+            ?? packageName;
         var categoryName = UiText.Language == "de" ? snapshot.CategoryNameDe ?? snapshot.CategoryNameEn
             : snapshot.CategoryNameEn ?? snapshot.CategoryNameDe;
         var category = categoryName ?? (snapshot.Kind switch

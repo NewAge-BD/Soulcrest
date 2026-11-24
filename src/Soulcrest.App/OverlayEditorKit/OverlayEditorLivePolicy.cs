@@ -18,13 +18,11 @@ public static class OverlayEditorLivePolicy
     private static bool IsVisibleCore(OverlaySettings settings, OverlaySnapshot snapshot, OverlayEditorLiveContext context)
     {
         if (!settings.Enabled || (!context.AllowBackground && !context.GameForeground)) return false;
-        if (settings.Visibility != "always" && !context.GameAvailable) return false;
         if (GenusInsightOverlayContent.Dedicated(settings) && !GenusInsightOverlayContent.Available(snapshot.GenusInsight)) return false;
-        if (settings.Visibility == "session" && (!snapshot.TrackingAvailable || !snapshot.SessionActive)) return false;
         var observations = new OverlayTriggerContextSnapshot(context.Area, context.GameForeground,
             snapshot.TrackingAvailable ? snapshot.SessionActive : null,
             context.Visual.WorldMap, context.Visual.EscMenu, context.Visual.MinimapMissing);
-        return OverlayTriggerPolicy.Matches(settings.TriggerRules, observations);
+        return OverlayTriggerPolicy.Matches(settings.EffectiveTriggerRules, observations);
     }
 
     public static OverlayTriggerArea? Area(bool networkEnabled, WorldContextSnapshot world) =>

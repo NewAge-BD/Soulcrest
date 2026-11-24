@@ -33,7 +33,7 @@ public sealed class GenusInsightOverlayForm : Form
     private bool Eligible => _started && !_disposed && _settings.Current.GenusInsightOverlayEnabled && !PresentationHidden;
 
     public GenusInsightOverlayForm(GenusInsightStateService state, SettingsService settings)
-        : this(() => state.Snapshot, state.ObserveMenu, settings)
+        : this(() => state.NativeOverlaySnapshot, state.ObserveMenu, settings)
     {
         _state = state;
         state.Changed += QueueRefresh;
@@ -133,9 +133,11 @@ public sealed class GenusInsightOverlayForm : Form
 
     protected override void SetVisibleCore(bool value)
     {
-        var allowed = value && Eligible && _presentationAllowed
-            && _presentedRevision == Volatile.Read(ref _sourceRevision) && SameFrame(_snapshot, _read());
-        base.SetVisibleCore(allowed);
+        if (!value || !Eligible || !_presentationAllowed) { base.SetVisibleCore(false); return; }
+        var current = _read();
+        base.SetVisibleCore(Visible ? CanKeepVisible(current)
+            : GenusInsightOverlayContent.Available(current)
+                && _presentedRevision == Volatile.Read(ref _sourceRevision) && SameFrame(_snapshot, current));
     }
     protected override void OnVisibleChanged(EventArgs e)
     {
@@ -241,27 +243,41 @@ public sealed class GenusInsightOverlayForm : Form
             if (!Eligible) { HideFrame(); return; }
             var revision = Volatile.Read(ref _sourceRevision);
             var snapshot = _read();
-            if (!GenusInsightOverlayContent.Available(snapshot)) { HideFrame(); return; }
+            if (!GenusInsightOverlayContent.Available(snapshot)
+                && !(snapshot.OverlaySelectionPending && CanKeepVisible(snapshot))) { HideFrame(); return; }
             using var image = GenusInsightOverlayRenderer.Render(snapshot, _theme, _scale, _settings.Current.LootNameLanguage, _icons);
-            if (!StillCurrent(snapshot, revision)) { HideFrame(); return; }
+            if (!CheckFrame(snapshot, revision)) return;
             if (!LayeredOverlayPresenter.Present(this, image)) { HideFrame(); return; }
-            if (!StillCurrent(snapshot, revision)) { HideFrame(); return; }
+            if (!CheckFrame(snapshot, revision)) return;
             _snapshot = snapshot; _presentedRevision = revision; _presentationAllowed = true;
             if (!Visible) Show();
-            if (!StillCurrent(snapshot, revision)) { HideFrame(); return; }
+            if (!CheckFrame(snapshot, revision)) return;
             _lockButton.RefreshTarget();
         }
         finally { _rendering = false; }
     }
-    private bool StillCurrent(GenusInsightSnapshot snapshot, long revision) => Eligible
-        && revision == Volatile.Read(ref _sourceRevision) && SameFrame(snapshot, _read());
+    private bool CheckFrame(GenusInsightSnapshot snapshot, long revision)
+    {
+        var current = _read();
+        if (Eligible && revision == Volatile.Read(ref _sourceRevision) && SameFrame(snapshot, current)) return true;
+        // A newer value may supersede this bitmap without revoking the visible window.
+        if (!Eligible || !CanKeepVisible(current)) HideFrame();
+        return false;
+    }
+
+    private bool CanKeepVisible(GenusInsightSnapshot current) => Visible && SameBinding(_snapshot, current)
+        && (current.OverlaySelectionPending || GenusInsightOverlayContent.Available(current));
+
+    private static bool SameBinding(GenusInsightSnapshot first, GenusInsightSnapshot second) =>
+        first.ProfileId == second.ProfileId && first.Generation == second.Generation
+        && first.MenuSourceGeneration == second.MenuSourceGeneration && first.OverlaySourceGeneration == second.OverlaySourceGeneration;
+
     private static bool SameFrame(GenusInsightSnapshot expected, GenusInsightSnapshot current) =>
-        GenusInsightOverlayContent.Available(current) && expected.ProfileId == current.ProfileId
-        && expected.Generation == current.Generation && expected.Sequence == current.Sequence
-        && expected.MenuSourceGeneration == current.MenuSourceGeneration && expected.SelectedGenus == current.SelectedGenus
+        SameBinding(expected, current) && expected.Sequence == current.Sequence && expected.SelectedGenus == current.SelectedGenus
         && expected.ViewedPreset == current.ViewedPreset && expected.ObservedAt == current.ObservedAt
-        && expected.ViewedBoard?.Genus == current.ViewedBoard?.Genus && expected.ViewedBoard?.Level == current.ViewedBoard?.Level
-        && expected.ViewedBoard is { } first && current.ViewedBoard is { } second && first.Slots.SequenceEqual(second.Slots);
+        && (expected.OverlaySelectionPending ? current.OverlaySelectionPending
+            : GenusInsightOverlayContent.Available(current) && expected.ViewedBoard is { } first && current.ViewedBoard is { } second
+                && first.Genus == second.Genus && first.Level == second.Level && first.Slots.SequenceEqual(second.Slots));
     protected override void OnPaintBackground(PaintEventArgs e) { }
 
     private Corner CornerAt(Point point)

@@ -24,7 +24,7 @@ internal static class OverlayEditorPresentation
 
     internal static OverlaySnapshot Project(UnifiedLootOverlayState state, OverlayEditorMarketSnapshot? market,
         RareDropNotice? notice, DateTimeOffset now, TimeZoneInfo localZone, string language, string? nameLanguage = null,
-        AbyssRankOverlaySnapshot? abyss = null)
+        AbyssRankOverlaySnapshot? abyss = null, int? dailyGathering = null)
     {
         var german = language == "de";
         var culture = CultureInfo.GetCultureInfo(german ? "de-DE" : "en-US");
@@ -118,10 +118,19 @@ internal static class OverlayEditorPresentation
         }
         var dailyDetail = T(daily is null ? "Tagesstand unbekannt" : !dailyConfirmed ? "Gespeicherter Tagesstand"
             : daily >= limit ? "Tageslimit erreicht" : "Bestätigter Tagesstand");
-        var dailyProgress = new OverlayDailyKinaProgress(daily is { } dailyValue
+        var dailyProgress = new OverlayDailyLimitProgress(daily is { } dailyValue
             ? dailyValue.ToString("N0", culture) + " / " + limit.ToString("N0", culture) : "— / " + limit.ToString("N0", culture),
             dailyDetail, fraction?.ToString("P0", culture) ?? "—", fraction, sessionStartFraction, sessionFraction);
         metrics["daily-kina"] = new(T("Tages-Kina"), dailyProgress.Value, dailyDetail);
+        const int gatheringLimit = DailyGatheringLimitMessage.Limit;
+        var gathering = dailyGathering is >= 0 and <= gatheringLimit ? dailyGathering : null;
+        var gatheringFraction = gathering / (double)gatheringLimit;
+        var gatheringDetail = T(gathering is null ? "Tagesstand unbekannt"
+            : gathering == gatheringLimit ? "Tageslimit erreicht" : "Bestätigter Tagesstand");
+        var gatheringProgress = new OverlayDailyLimitProgress(
+            (gathering?.ToString("N0", culture) ?? "—") + " / " + gatheringLimit.ToString("N0", culture),
+            gatheringDetail, gatheringFraction?.ToString("P0", culture) ?? "—", gatheringFraction);
+        metrics["daily-gathering-limit"] = new(T("Tägliches Sammellimit"), gatheringProgress.Value, gatheringDetail);
         foreach (var (kind, label) in new[] { ("drop-grid", "Drop-Raster"), ("drop-strip", "Drop-Leiste"), ("drop-list", "Drop-Liste") })
             metrics[kind] = new(T(label), drops.Count.ToString("N0", culture), T("Aktuelle Sessionbeute"));
         OverlayRareNotice? visual = session is not null
@@ -138,7 +147,7 @@ internal static class OverlayEditorPresentation
             SessionActive = session is not null, TrackingAvailable = state.TrackingAvailable,
             WaitingForWorldContext = state.WaitingForWorldContext && !state.TrackingAvailable && state.At != default && state.At <= now,
             SessionElapsed = elapsed, Drops = drops, ItemCatalog = choices, DailyKina = daily,
-            DailyConfirmed = dailyConfirmed, DailyLimit = limit, DailyProgress = dailyProgress, RareNotice = visual,
+            DailyConfirmed = dailyConfirmed, DailyLimit = limit, DailyProgress = dailyProgress, GatheringProgress = gatheringProgress, RareNotice = visual,
             Abyss = ProjectAbyss(abyss),
             Metrics = new ReadOnlyDictionary<string, OverlayMetric>(metrics),
         };
@@ -176,7 +185,7 @@ internal static class OverlayEditorPresentation
         var notice = new RareDropNotice("example-notice", item.Name(210230006, nameLanguage ?? language), 1,
             item.Rarity(210230006), MonsterLootIconCatalog.Default.ItemAsset(210230006), now)
             { ElapsedSeconds = 1, SessionId = session.Id, ProfileId = profile, LootKey = "Item:210230006" };
-        return Project(state, market, notice, now, localZone, language, nameLanguage, ExampleAbyss(now, profile))
+        return Project(state, market, notice, now, localZone, language, nameLanguage, ExampleAbyss(now, profile), dailyGathering: 420)
             with { GenusInsight = GenusInsightOverlayExamples.Create(now, profile) };
     }
 

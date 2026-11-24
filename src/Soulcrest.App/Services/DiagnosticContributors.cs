@@ -125,6 +125,11 @@ public static class DiagnosticContributors
         facts["liveDisplayAllowed"] = allowed;
         facts["slots"] = board?.Slots.Count;
         facts["confirmedSlots"] = confirmed;
+        for (byte rank = 1; rank <= GenusInsightOverlaySpectrum.RankCount; rank++)
+        {
+            facts[$"spectrum{GenusInsightPresentation.RankName(rank)}Slots"] =
+                board?.Slots.Count(slot => slot.IsCurrent && new GenusInsightOverlaySpectrum(slot).Interval(rank) is not null);
+        }
         return new("overlay-genus-insight", status, now.ToUniversalTime(), status switch
         {
             DiagnosticStatus.Healthy => "Zustand verfügbar, keine Auffälligkeit erkannt.",
@@ -732,6 +737,8 @@ public static class DiagnosticContributors
                 ("balanceConfirmed", snapshot.AbyssPointBalanceConfirmed), ("farmConfirmed", snapshot.FarmedAbyssPointsConfirmed),
                 ("rankConfirmed", snapshot.RankPointsConfirmed), ("rankTrackingActive", snapshot.RankTrackingActive),
                 ("capKnown", snapshot.Cap is not null), ("remainingBudgetKnown", snapshot.Remaining is not null),
+                ("apSourceRunning", source?.Running), ("apGainsQualified", currency?.AbyssPointGainsQualified),
+                ("apBalanceObservedAtUtc", currency?.AbyssPointBalanceObservedAt?.ToUniversalTime()),
                 ("boundKinaSourceRunning", source?.Running), ("boundKinaGainsQualified", currency?.BoundKinaGainsQualified),
                 ("boundKinaGainsObservedAtUtc", currency?.BoundKinaGainsObservedAt?.ToUniversalTime()),
                 ("observedAtUtc", snapshot.ObservedAt?.ToUniversalTime()), ("rankObservedAtUtc", snapshot.RankPointsObservedAt?.ToUniversalTime()));
@@ -751,11 +758,14 @@ public static class DiagnosticContributors
         {
             var snapshot = Existing<ExchangeLootValuationService>()?.Snapshot;
             var automatic = Existing<ExchangeMarketAutoSelectionService>()?.Snapshot;
-            var servers = Existing<ExchangeMarketCache>()?.GetServers();
+            var cache = Existing<ExchangeMarketCache>();
+            var servers = cache?.GetServers();
+            var archive = cache?.LastPriceArchive;
             var liveMarket = Existing<OverlayEditorMarketService>()?.Snapshot;
-            if (snapshot is null && automatic is null && liveMarket is null) return Missing();
+            if (snapshot is null && automatic is null && liveMarket is null && cache is null) return Missing();
             var online = snapshot?.OnlineEnabled ?? liveMarket?.OnlineEnabled ?? Settings?.OnlineMarketPricesEnabled;
-            return Result(online == false ? DiagnosticStatus.Disabled : snapshot?.StatusIsError == true || automatic?.IsError == true || liveMarket?.StatusIsError == true ? DiagnosticStatus.Error
+            return Result(online == false ? DiagnosticStatus.Disabled : snapshot?.StatusIsError == true || automatic?.IsError == true || liveMarket?.StatusIsError == true
+                || cache?.PersistenceError is not null ? DiagnosticStatus.Error
                 : automatic is not null && (!automatic.OwnCharacterKnown || automatic.Automatic && (!automatic.MappingKnown || automatic.Loading))
                     || snapshot is null && liveMarket is null || snapshot?.PendingCount > 0 || liveMarket is { Available: true } && (liveMarket.Loading || liveMarket.UnknownRows > 0)
                     ? DiagnosticStatus.Waiting : liveMarket is { Available: true, Stale: true } ? DiagnosticStatus.Warning : DiagnosticStatus.Healthy,
@@ -767,6 +777,9 @@ public static class DiagnosticContributors
                 ("automaticServerSelection", automatic?.Automatic), ("automaticServerMapped", automatic?.MappingKnown),
                 ("automaticServerLoading", automatic?.Loading), ("automaticServerError", automatic?.IsError),
                 ("catalogueServers", servers?.Length), ("nativeServerKeys", servers?.Count(server => server.GameServerKey is > 0)),
+                ("priceArchivePersistent", archive?.Persistent), ("lastQuoteCount", archive?.Quotes),
+                ("lastAverageCount", archive?.Averages), ("lastQuoteObservedAtUtc", archive?.NewestQuoteObservedAt),
+                ("lastAverageWindowEndUtc", archive?.NewestAverageWindowEnd), ("cacheStorageError", cache?.PersistenceError is not null),
                 ("ambiguousNativeServerKeys", servers?.Where(server => server.GameServerKey is > 0)
                     .GroupBy(server => server.GameServerKey).Count(group => group.Count() > 1)),
                 ("liveMarketAverage24Hours", liveMarket?.Uses24HourAverage), ("liveMarketAvailable", liveMarket?.Available),
@@ -932,6 +945,8 @@ public static class DiagnosticContributors
                 : overlays.Any(overlay => editor.GetState(overlay.Id).IsVisible || editor.GetState(overlay.Id).Previewing)
                     ? DiagnosticStatus.Healthy : DiagnosticStatus.Waiting, ("overlays", overlays.Count),
                 ("enabledOverlays", overlays.Count(overlay => overlay.Settings.Enabled)),
+                ("lockedWindows", overlays.Count(overlay => overlay.Settings.Locked)),
+                ("unlockedWindows", overlays.Count(overlay => !overlay.Settings.Locked)),
                 ("visibleOverlays", overlays.Count(overlay => editor.GetState(overlay.Id).IsVisible)),
                 ("previewingOverlays", overlays.Count(overlay => editor.GetState(overlay.Id).Previewing)),
                 ("recordingRequestedOverlays", overlays.Count(overlay => !overlay.Settings.CaptureExcluded)),
@@ -968,6 +983,38 @@ public static class DiagnosticContributors
                 ("instances", mandatory ? applicable.Length : applicable.Sum(overlay => overlay.Settings.Widgets.Count(widget => widget.Kind == kind))),
                 ("mandatoryControl", mandatory), ("invalidTriggerRules", applicable.Count(overlay => overlay.Settings.TriggerRules is { } rules && !OverlayTriggerRules.Valid(rules))),
             };
+            if (kind is "abyss-points" or "abyss-points-hour")
+            {
+                var tracker = Existing<UnifiedLootTrackerService>();
+                var source = Existing<INetworkAbyssSource>() ?? Existing<NetworkLootService>();
+                var now = DateTimeOffset.UtcNow;
+                var state = tracker?.OverlayState;
+                var session = state is null ? null : OverlayEditorPresentation.CurrentSession(state, now);
+                var snapshot = source?.AbyssSnapshot;
+                var own = source?.OwnCharacter;
+                var available = tracker?.SourceAvailable == true && state?.TrackingAvailable == true
+                    && source?.Running == true && own is not null;
+                var pointsKnown = session is { AbyssPoints: >= 0 };
+                var qualified = available && snapshot is { AbyssPointGainsQualified: true, FormatRejected: false, Sequence: > 0 }
+                    && ReferenceEquals(snapshot.Character, own)
+                    && snapshot.At is { } latest && latest != default && latest <= now
+                    && (snapshot.AbyssPointBalanceObservedAt ?? snapshot.At) is { } observed
+                    && observed != default && observed <= latest
+                    && session?.TimelineEvents.LastOrDefault(row => row.Kind == LootTrackerTimelineEventKind.Availability
+                        && row.Metric == LootTrackerTimelineMetric.AbyssPoints)?.Available == true;
+                var rateAvailable = pointsKnown && session!.Elapsed > TimeSpan.Zero;
+                facts.AddRange([("sourceAvailable", available), ("qualified", qualified), ("pointsKnown", pointsKnown),
+                    ("hourlyRateAvailable", rateAvailable), ("trackingEnabled", Settings?.LootTrackingEnabled),
+                    ("apBalanceObservedAtUtc", snapshot?.AbyssPointBalanceObservedAt?.ToUniversalTime())]);
+                var channelDisabled = session is null
+                    ? Settings?.AbyssTrackingEnabled == false && Settings?.MonsterLootTrackingEnabled == false
+                    : (session.Kind == LootTrackerSessionKind.Abyss ? Settings?.AbyssTrackingEnabled : Settings?.MonsterLootTrackingEnabled) == false;
+                status = Settings?.LootTrackingEnabled == false || channelDisabled || status == DiagnosticStatus.Disabled
+                    ? DiagnosticStatus.Disabled : status == DiagnosticStatus.Error || tracker?.StatusIsError == true ? DiagnosticStatus.Error
+                    : tracker is null || source is null ? DiagnosticStatus.Unavailable
+                    : status != DiagnosticStatus.Healthy || !qualified || !pointsKnown
+                        || kind == "abyss-points-hour" && !rateAvailable ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy;
+            }
             if (kind is "bound-kina" or "bound-kina-hour")
             {
                 // A rendered example or an unknown live value does not qualify the income source.
@@ -1011,6 +1058,20 @@ public static class DiagnosticContributors
                     : tracker is null || (abyss ? (object?)source : farm) is null ? DiagnosticStatus.Unavailable
                     : status != DiagnosticStatus.Healthy || !sourceAvailable || !qualified || !boundKnown
                         || kind == "bound-kina-hour" && !rateAvailable ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy;
+            }
+            if (kind == "daily-gathering-limit")
+            {
+                var network = Existing<NetworkLootService>();
+                var snapshot = network?.DailyGatheringLimit;
+                facts.AddRange([("dailyLimit", DailyGatheringLimitMessage.Limit), ("dailyCount", snapshot?.Count),
+                    ("observedAtUtc", snapshot?.At.ToUniversalTime()), ("sourceRunning", network?.Running),
+                    ("formatRejected", snapshot is { Count: null }),
+                    ("ownCharacterBound", network is null ? null : network.OwnCharacter is not null)]);
+                status = status == DiagnosticStatus.Disabled || Settings?.LootTrackingEnabled == false ? DiagnosticStatus.Disabled
+                    : status == DiagnosticStatus.Error || network?.StatusIsError == true ? DiagnosticStatus.Error
+                    : network is null ? DiagnosticStatus.Unavailable
+                    : snapshot is { Count: null } ? DiagnosticStatus.Warning
+                    : status != DiagnosticStatus.Healthy || snapshot is null ? DiagnosticStatus.Waiting : DiagnosticStatus.Healthy;
             }
             if (kind == "daily-kina")
             {
@@ -1084,6 +1145,7 @@ public static class DiagnosticContributors
             }
             facts.Add(("playerTrackingRunning", Existing<MapTrackingService>()?.Running));
             MerchantOverlayHealthSnapshot? merchantHealth = null;
+            bool? daevanionSourceCurrent = null;
             switch (overlayId)
             {
                 case "loot":
@@ -1151,15 +1213,34 @@ public static class DiagnosticContributors
                     merchantHealth = (Existing<MerchantOverlayHealth>() ?? MerchantOverlayForm.Health).Snapshot();
                     break;
                 case "daevanion":
-                    facts.Add(("boardObservationAvailable", Existing<DaevanionService>()?.Snapshot is not null));
-                    DaevanionRecognitionDiagnosticFacts.Append(facts, Existing<DaevanionService>()?.RecognitionDiagnostics);
+                    var daevanion = Existing<DaevanionService>();
+                    var boardObservation = daevanion?.Snapshot;
+                    daevanionSourceCurrent = daevanion is null ? null
+                        : boardObservation is not null && daevanion.CanPresent(boardObservation);
+                    // A publication can replace the reference during its guard. As in the UI,
+                    // retry current evidence once rather than report a stale local reference.
+                    if (daevanionSourceCurrent == false && daevanion?.Snapshot is { } replacement
+                        && !ReferenceEquals(boardObservation, replacement))
+                    {
+                        boardObservation = replacement;
+                        daevanionSourceCurrent = daevanion.CanPresent(replacement);
+                    }
+                    facts.Add(("boardObservationAvailable", boardObservation is not null));
+                    facts.Add(("boardSourceCurrent", daevanionSourceCurrent));
+                    facts.Add(("boardRecognitionStatus", daevanion?.Status));
+                    DaevanionRecognitionDiagnosticFacts.Append(facts, daevanion?.RecognitionDiagnostics);
+                    DaevanionPresentationDiagnosticFacts.Append(facts, daevanion?.AnimationDiagnostics);
                     facts.Add(("boardSourceStatus", Existing<CharacterCombatStateService>() is { } character ? EnumValue(character.Snapshot.ActivatedBoards.Status) : null));
                     break;
             }
             if (merchantHealth is not null)
                 return MerchantOverlaySnapshot(enabled, runtime, merchantHealth, DateTimeOffset.UtcNow, facts);
-            return Result(!enabled ? DiagnosticStatus.Disabled : runtime is null ? DiagnosticStatus.Waiting
-                : runtime.Disposed ? DiagnosticStatus.Error : age > 5000 ? DiagnosticStatus.Warning : DiagnosticStatus.Healthy, facts.ToArray());
+            var status = !enabled ? DiagnosticStatus.Disabled : runtime is null ? DiagnosticStatus.Waiting
+                : runtime.Disposed ? DiagnosticStatus.Error : age > 5000 ? DiagnosticStatus.Warning : DiagnosticStatus.Healthy;
+            if (overlayId == "daevanion" && status == DiagnosticStatus.Healthy
+                && (daevanionSourceCurrent != true || settings.DaevanionNodeContentVisible && runtime?.Visible != true))
+                status = DiagnosticStatus.Waiting;
+            return Result(status, facts.ToArray());
         }
     }
 }

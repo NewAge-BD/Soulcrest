@@ -11,8 +11,8 @@ public sealed class OverlayKitServiceTests
     [InlineData("en", "Example value", "1,234", "Sample data")]
     public void CatalogContainsApprovedModulesAndKeepsNeutralExampleLayoutsCompatible(string language, string label, string value, string detail)
     {
-        Assert.Equal(24, OverlayCatalog.Widgets.Count);
-        Assert.Equal(24, OverlayCatalog.Widgets.Select(module => module.Kind).Distinct().Count());
+        Assert.Equal(25, OverlayCatalog.Widgets.Count);
+        Assert.Equal(OverlayCatalog.Widgets.Count, OverlayCatalog.Widgets.Select(module => module.Kind).Distinct().Count());
         Assert.DoesNotContain(OverlayCatalog.Widgets, module => module.Kind == "preview-metric");
         Assert.DoesNotContain(OverlayCatalog.Widgets, module => module.Kind is "silver" or "trash" or "experience" or "spot" or "controls");
         var legacy = OverlayCatalog.Find("preview-metric");
@@ -26,6 +26,7 @@ public sealed class OverlayKitServiceTests
         Assert.Equal(value, metric.Value);
         Assert.Equal(detail, metric.Detail);
         Assert.Empty(new OverlaySettings().Widgets);
+        Assert.True(new OverlaySettings().Locked);
         Assert.Single(OverlayCatalog.Preset("demo").Widgets);
         Assert.Empty(OverlayCatalog.Preset("empty").Widgets);
         Assert.Throws<ArgumentException>(() => OverlayCatalog.CreateWidget("silver"));
@@ -230,7 +231,7 @@ public sealed class OverlayKitServiceTests
         };
         Assert.True((await service.SaveTemplateAsync("  Meine Vorlage  ", layout)).Succeeded);
         var template = Assert.Single(service.Templates);
-        var current = new OverlaySettings { Enabled = true, PositionX = .1, PositionY = .2, Interaction = "passthrough", Visibility = "session", CaptureExcluded = false };
+        var current = new OverlaySettings { Enabled = true, Locked = false, PositionX = .1, PositionY = .2, Interaction = "passthrough", Visibility = "session", CaptureExcluded = false };
         var applied = template.ApplyTo(current);
         Assert.Equal(600, applied.Width);
         Assert.Equal(1.5, applied.Scale);
@@ -242,6 +243,7 @@ public sealed class OverlayKitServiceTests
         Assert.Equal(current.PositionY, applied.PositionY);
         Assert.Equal(current.Enabled, applied.Enabled);
         Assert.Equal(current.Interaction, applied.Interaction);
+        Assert.Equal(current.Locked, applied.Locked);
         Assert.Equal(current.Visibility, applied.Visibility);
         Assert.Equal(current.CaptureExcluded, applied.CaptureExcluded);
         using var document = JsonDocument.Parse(File.ReadAllBytes(fixture.TemplatePath));
@@ -250,6 +252,7 @@ public sealed class OverlayKitServiceTests
         Assert.False(storedLayout.TryGetProperty("Enabled", out _));
         Assert.False(storedLayout.TryGetProperty("PositionX", out _));
         Assert.False(storedLayout.TryGetProperty("Interaction", out _));
+        Assert.False(storedLayout.TryGetProperty("Locked", out _));
         Assert.False(storedLayout.TryGetProperty("CaptureExcluded", out _));
         using var reopened = fixture.Create();
         Assert.Equal(JsonSerializer.Serialize(template), JsonSerializer.Serialize(Assert.Single(reopened.Templates)));
@@ -437,6 +440,144 @@ public sealed class OverlayKitServiceTests
         Assert.DoesNotContain("RankPoints", json);
         Assert.DoesNotContain("Generation", json);
         Assert.Equal(5, new OverlayWidget().KillFeedRows);
+    }
+
+    [Fact]
+    public void OlderLayoutsWithoutALockPreferenceStayReadOnlyAndStartLocked()
+    {
+        using var fixture = new Fixture();
+        var document = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(new OverlayCollectionSettings()))!;
+        Assert.True(document["Overlays"]![0]!["Settings"]!.AsObject().Remove("Locked"));
+        Directory.CreateDirectory(fixture.Directory);
+        File.WriteAllText(fixture.LayoutPath, document.ToJsonString());
+        var before = File.ReadAllBytes(fixture.LayoutPath);
+        using var service = fixture.Create();
+        Assert.Null(service.LoadError);
+        Assert.True(service.Settings.Locked);
+        Assert.Equal(before, File.ReadAllBytes(fixture.LayoutPath));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ExplicitLockChoiceSurvivesRuntimeUpdatesPlacementContentReloadAndRestart(bool locked)
+    {
+        using var fixture = new Fixture();
+        using var service = fixture.Create();
+        Assert.True((await service.SaveLockAsync("default", locked)).Succeeded);
+        service.SetRuntimeState("default", false);
+        service.SetRuntimeState("default", true);
+        await service.SetPreviewAsync(true);
+        await service.SetPreviewAsync(false);
+        Assert.True((await service.SavePositionAsync("default", .3, .4)).Succeeded);
+        Assert.True((await service.SavePlacementAsync("default", "synthetic", .5, .6, 1.25)).Succeeded);
+        // A layout draft cannot claim ownership of the explicit native lock preference.
+        Assert.True((await service.SaveAsync(service.Settings with { Width = 512, Locked = !locked })).Succeeded);
+        Assert.Equal(locked, service.Settings.Locked);
+        Assert.True((await service.ReloadAsync()).Succeeded);
+        Assert.Equal(locked, service.Settings.Locked);
+        using var restarted = fixture.Create();
+        Assert.Null(restarted.LoadError);
+        Assert.Equal(locked, restarted.Settings.Locked);
+        Assert.Equal(512, restarted.Settings.Width);
+        Assert.Equal("synthetic", restarted.Settings.PositionMonitorId);
+        Assert.Equal((.5, .6, 1.25), (restarted.Settings.PositionX, restarted.Settings.PositionY, restarted.Settings.Scale));
+        using var document = JsonDocument.Parse(File.ReadAllBytes(fixture.LayoutPath));
+        Assert.Equal(locked, document.RootElement.GetProperty("Overlays")[0].GetProperty("Settings").GetProperty("Locked").GetBoolean());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task QueuedStaleContentSavesCannotUndoAnExplicitLockChoice(bool locked)
+    {
+        using var fixture = new Fixture();
+        using var service = fixture.Create();
+        Assert.True((await service.SaveLockAsync("default", !locked)).Succeeded);
+        var stale = service.Settings;
+        var gate = (SemaphoreSlim)typeof(OverlayService).GetField("_saveGate",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(service)!;
+        await gate.WaitAsync();
+        Task<OverlaySaveResult> choice, content;
+        try
+        {
+            choice = service.SaveLockAsync("default", locked);
+            content = service.SaveAsync(stale with { Width = 512 });
+            Assert.False(choice.IsCompleted);
+            Assert.False(content.IsCompleted);
+        }
+        finally { gate.Release(); }
+        var results = await Task.WhenAll(choice, content).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.All(results, result => Assert.True(result.Succeeded, result.Error));
+        Assert.Equal(locked, service.Settings.Locked);
+        // The stale draft now also predates SaveAsync itself, rather than only its gate wait.
+        Assert.True((await service.SaveAsync(stale with { Width = 600 })).Succeeded);
+        Assert.Equal(locked, service.Settings.Locked);
+        using var restarted = fixture.Create();
+        Assert.Equal(locked, restarted.Settings.Locked);
+        Assert.Equal(600, restarted.Settings.Width);
+    }
+
+    [Fact]
+    public async Task ExplicitLockSaveUsesTheLatestWindowAndLeavesOtherWindowsAndMetadataUntouched()
+    {
+        using var fixture = new Fixture();
+        using var first = fixture.Create();
+        using var second = fixture.Create();
+        Assert.True((await second.SaveAsync(second.Settings with { Width = 512, Visibility = "always" })).Succeeded);
+        Assert.True((await second.CreateOverlayAsync("Other")).Succeeded);
+        var otherId = second.SelectedOverlayId;
+        Assert.True((await first.SaveLockAsync("default", false)).Succeeded);
+        Assert.Equal(otherId, first.SelectedOverlayId);
+        var target = first.Overlays.Single(window => window.Id == "default").Settings;
+        Assert.False(target.Locked);
+        Assert.Equal(512, target.Width);
+        Assert.Equal("always", target.Visibility);
+        Assert.True(first.Settings.Locked);
+        Assert.False((await first.SaveLockAsync("missing", false)).Succeeded);
+        Assert.Null(first.LoadError);
+        Assert.True((await second.ReloadAsync()).Succeeded);
+        Assert.False(second.Overlays.Single(window => window.Id == "default").Settings.Locked);
+        Assert.True(second.Settings.Locked);
+    }
+
+    [Fact]
+    public async Task FailedLockSaveRetainsTheCommittedChoiceUntilAnExplicitRetryAfterReload()
+    {
+        using var fixture = new Fixture();
+        using var service = fixture.Create();
+        Assert.True((await service.SaveLockAsync("default", true)).Succeeded);
+        var before = File.ReadAllBytes(fixture.LayoutPath);
+        using (var held = new FileStream(fixture.LayoutPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            Assert.False((await service.SaveLockAsync("default", false)).Succeeded);
+            Assert.True(service.Settings.Locked);
+            Assert.NotNull(service.LoadError);
+            Assert.Equal(before, File.ReadAllBytes(fixture.LayoutPath));
+            Assert.Empty(Directory.GetFiles(fixture.Directory, "*.tmp"));
+        }
+        Assert.False((await service.SaveLockAsync("default", false)).Succeeded);
+        Assert.True(service.Settings.Locked);
+        Assert.True((await service.ReloadAsync()).Succeeded);
+        Assert.True(service.Settings.Locked);
+        Assert.True((await service.SaveLockAsync("default", false)).Succeeded);
+        using var restarted = fixture.Create();
+        Assert.False(restarted.Settings.Locked);
+    }
+
+    [Fact]
+    public async Task DuplicatedWindowsKeepTheirLockChoiceWhileNewWindowsStartLocked()
+    {
+        using var fixture = new Fixture();
+        using var service = fixture.Create();
+        Assert.True((await service.SaveLockAsync("default", false)).Succeeded);
+        Assert.True((await service.CreateOverlayAsync("Copy", "default")).Succeeded);
+        Assert.False(service.Settings.Locked);
+        Assert.True((await service.CreateOverlayAsync("New")).Succeeded);
+        Assert.True(service.Settings.Locked);
+        using var restarted = fixture.Create();
+        Assert.False(restarted.Overlays.Single(window => window.Name == "Copy").Settings.Locked);
+        Assert.True(restarted.Settings.Locked);
     }
 
     private sealed class Fixture : IDisposable

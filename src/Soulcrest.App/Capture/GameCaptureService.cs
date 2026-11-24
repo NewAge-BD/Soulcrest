@@ -26,6 +26,16 @@ public sealed class GameCaptureService : IDisposable
     private CaptureDiagnostics _snapshot = new("GDI", null, 0, null, 0, 0, null);
     private string? _lastFailure;
     private int _disposed;
+    private readonly CurrentGameWindowBounds _currentWindowBounds;
+
+    public GameCaptureService() => _currentWindowBounds = new(() => Volatile.Read(ref _capture),
+        () => Volatile.Read(ref _disposed) != 0);
+
+    /// <summary>
+    /// Fresh native metadata of the existing WGC game-window session, or null. Never discovers a
+    /// process, starts capture, reads pixels or waits behind readback; no cached bounds are returned.
+    /// </summary>
+    internal Rectangle? TryGetCurrentGameWindowBounds(bool requireForeground) => _currentWindowBounds.Read(requireForeground);
 
     private void Stage(string stage) => Volatile.Write(ref _operation, new Operation(stage, DateTime.UtcNow));
 

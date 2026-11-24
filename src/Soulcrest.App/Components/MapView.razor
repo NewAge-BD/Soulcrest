@@ -230,7 +230,7 @@
             </div>
             @if (_locationSource is { WorldContext.HasLocationFacts: true })
             {
-                <WorldLocationStatus Snapshot="_locationSource.WorldContext.Snapshot" Enabled="Settings.Current.LootTrackingEnabled" MapLabel="@(id => _maps.FirstOrDefault(m => m.Id == id)?.Label)" />
+                <WorldLocationStatus Snapshot="_locationSource.WorldContext.Snapshot" Enabled="Settings.Current.LootTrackingEnabled" MapLabel="@(id => _maps.FirstOrDefault(m => m.Id == id)?.Label is { } label ? UiText.T(label) : null)" />
             }
             @{ var recent = Progress.Recent().Take(3).ToList(); }
             @if (recent.Count > 0)

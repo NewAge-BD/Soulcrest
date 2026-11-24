@@ -1,4 +1,4 @@
-/* Overlay Presets and compact display settings. All rules remain inside the editor. */
+/* Overlay window and template management. */
 .overlay-editor [data-overlay-section="presets"]{display:grid;gap:20px}
 .overlay-editor [data-overlay-section="presets"][hidden]{display:none}
 .overlay-editor .oe-preset-description{font-size:12px;line-height:1.55;color:var(--muted);margin:8px 0 0;max-width:70ch}
@@ -32,20 +32,3 @@
 .overlay-editor .oe-preset-manage-actions .button,.overlay-editor .oe-preset-manage-actions .text-button{font-size:12px;min-height:36px}
 .overlay-editor .oe-preset-manage-actions .text-button{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
 .overlay-editor .oe-preset-manage-actions .icon{width:13px;height:13px}
-.overlay-editor .oe-display-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;padding:18px 0}
-.overlay-editor .oe-display-group h3{font-size:13px;font-weight:600;margin:0 0 4px}
-.overlay-editor .oe-display-compact .oe-setting-row{grid-template-columns:minmax(90px,1fr) minmax(0,1.25fr);gap:12px;padding:11px 0;font-size:12px}
-.overlay-editor .oe-display-compact .oe-setting-toggle{padding:11px 0;gap:12px;font-size:12px}
-.overlay-editor .oe-display-compact .oe-setting-row>span{display:flex;justify-content:space-between;gap:10px;align-items:center}
-.overlay-editor .oe-display-compact output{color:var(--muted);font-variant-numeric:tabular-nums;font-size:11px}
-.overlay-editor .oe-display-compact select{width:100%;min-width:0}
-.overlay-editor .oe-display-compact .oe-empty{font-size:11px;line-height:1.55;color:var(--muted);margin:10px 0 0}
-.overlay-editor .oe-visibility-advanced{border-top:1px solid var(--line)}
-.overlay-editor .oe-visibility-advanced>summary{cursor:pointer;font-size:13px;padding:15px 0 0;line-height:1.5}
-.overlay-editor .oe-visibility-advanced>summary>span{color:var(--muted);font-size:11px;margin-left:12px}
-.overlay-editor .oe-visibility-advanced .oe-window-triggers{margin-top:12px}
-.overlay-editor .oe-visibility-advanced .oe-window-triggers>h3{display:none}
-@container overlay-menu (max-width:700px){
- .overlay-editor .oe-display-grid{grid-template-columns:1fr;gap:22px}
- .overlay-editor .oe-visibility-advanced>summary>span{display:block;margin-left:0}
-}

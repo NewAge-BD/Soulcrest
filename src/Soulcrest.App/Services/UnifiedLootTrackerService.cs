@@ -219,7 +219,7 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         _gatheringWarning = warning;
     }
 
-    private void Observe(Observation observation)
+    private void Observe(Observation observation, (DateTimeOffset At, long Stamp)? startReceipt = null)
     {
         // Qualification precedes even lifecycle side effects: a delayed old capture must not
         // close the current session as if its superseded own/world binding were a fresh port.
@@ -236,7 +236,8 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
             || _observedWorld is { Status: WorldContextStatus.Confirmed } priorWorld
                 && observation.World.Status == WorldContextStatus.Confirmed
                 && (priorWorld.MapDataId is { } previousMap && observation.World.MapDataId is { } nextMap && previousMap != nextMap
-                    || priorWorld.SoulcrestMapId is { } previousId && observation.World.SoulcrestMapId is { } nextId && previousId != nextId)))
+                    || priorWorld.SoulcrestMapId is { } previousId && observation.World.SoulcrestMapId is { } nextId && previousId != nextId
+                    || QualifiedWorld(priorWorld, _own, observation.At) != QualifiedWorld(observation.World, observation.Own, observation.At))))
             Finish(LootTrackerSessionStatus.Completed);
         if (!ReferenceEquals(_own, observation.Own)) BreakRoute();
         ObserveGatheringWarning();
@@ -263,7 +264,8 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         }
         if (character is null)
         { Finish(LootTrackerSessionStatus.Interrupted); return; }
-        if (!QualifiedWorld(observation.World, observation.Own, observation.At))
+        if (!QualifiedWorld(observation.World, observation.Own, observation.At)
+            && !QualifiedApWorld(observation.World, observation.Own, observation.At))
         {
             var confirmedExit = observation.Own is not null && observation.World.Status == WorldContextStatus.Confirmed
                 && observation.World.BindingGeneration == observation.Own.Generation && observation.World.ObservedAt <= observation.At;
@@ -281,7 +283,14 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
             if (!_settings.Current.AbyssTrackingEnabled) { Finish(LootTrackerSessionStatus.Interrupted); return; }
             if (_character is not null && _suppressedAbyssProfile != _character.ProfileId)
             {
-                if (_active is null) { Start(_character, observation.Own!, observation.World, observation.At, observation.Stamp); Save(_active!); }
+                if (_active is null)
+                {
+                    // A queued AP receipt may precede this fresh lifecycle observation. Only the
+                    // new residence start uses its original times; later facts keep their own times.
+                    var start = startReceipt ?? (observation.At, observation.Stamp);
+                    Start(_character, observation.Own!, observation.World, start.At, start.Stamp);
+                    Save(_active!);
+                }
                 Presence(observation.At, observation.Stamp);
                 UpdateAbyssObservation(observation.At, observation.Stamp);
                 RecordPosition(_position(), observation.World, observation.Own!, observation.At, observation.Stamp, false);
@@ -351,8 +360,9 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         _durable = durable;
         if (_announcedSession != next.Id)
         {
-            _replayPositions?.Start(next.Id, _startStamp, _own?.Generation, _observedWorld?.Generation,
-                productiveClock: next.Kind == LootTrackerSessionKind.Mixed);
+            if (QualifiedWorld(_world(), _own, _time.GetUtcNow()))
+                _replayPositions?.Start(next.Id, _startStamp, _own?.Generation, _observedWorld?.Generation,
+                    productiveClock: next.Kind == LootTrackerSessionKind.Mixed);
             _announcedSession = next.Id;
             // Session callbacks may enable the HUD and accept the first receipt before
             // the regular command publication. They must already see this committed session.
@@ -402,10 +412,12 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
         var now = _time.GetUtcNow(); var world = _world(); var own = CurrentOwn;
         var boundSource = Volatile.Read(ref _fatal) == 0 && _settings.Current.LootTrackingEnabled && Running
             && ValidCharacter(own is null ? null : _bind(own)) is not null;
-        _available = boundSource && QualifiedWorld(world, own, now)
+        _available = boundSource && (QualifiedWorld(world, own, now)
             && (IsAbyss(world) ? _settings.Current.AbyssTrackingEnabled && _abyss.Running
                 : _settings.Current.MonsterLootTrackingEnabled && _farm.Running
-                    || _settings.Current.LifeskillTrackingEnabled && _gathering.Running && _gathering.GatheringVerified);
+                    || _settings.Current.LifeskillTrackingEnabled && _gathering.Running && _gathering.GatheringVerified)
+            || !IsAbyss(world) && QualifiedApWorld(world, own, now)
+                && _settings.Current.MonsterLootTrackingEnabled && _abyss.Running);
         // User request 2026-11-10: distinguish missing map evidence from an idle/paused session or unsupported area.
         // Reuse this publication's existing observations; never acquire another source for the editor hint.
         var confirmedOwnWorld = own is not null && world.Status == WorldContextStatus.Confirmed
@@ -416,7 +428,8 @@ public sealed partial class UnifiedLootTrackerService : IDisposable, IAsyncDispo
                 || _settings.Current.AbyssTrackingEnabled && _abyss.Running);
         _overlayCandidate = _available && _active is not null && ReferenceEquals(own, _own)
             && (_active.Kind == LootTrackerSessionKind.Abyss) == IsAbyss(world);
-        if (_available) _lease ??= _acquire?.Invoke(); else { _lease?.Dispose(); _lease = null; }
+        if (_available && QualifiedWorld(world, own, now)) _lease ??= _acquire?.Invoke();
+        else { _lease?.Dispose(); _lease = null; }
         var sessions = _history.ToImmutableArray();
         if (_active is { } active) sessions = sessions.Insert(0, active with { Elapsed = Elapsed(_time.GetTimestamp()) });
         Volatile.Write(ref _snapshot, new(sessions, now));

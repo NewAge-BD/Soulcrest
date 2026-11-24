@@ -20,7 +20,7 @@ namespace Soulcrest.App.Capture;
 /// symbols lagged and wandered on the world map, user report 2026-10-03).
 /// Not thread-safe: callers serialise (one D3D11 context).
 /// </summary>
-public sealed unsafe class MonitorCapture : IDisposable
+public sealed unsafe class MonitorCapture : IDisposable, IGameWindowBoundsSource
 {
     private static long _nextSessionId;
     private readonly long _sessionId = Interlocked.Increment(ref _nextSessionId);
@@ -71,6 +71,7 @@ public sealed unsafe class MonitorCapture : IDisposable
     private bool _disposed;
 
     private readonly nint _window;
+    private readonly uint _windowProcessId;
     private readonly Rectangle _monitorBounds;
     // HDR (user request 2026-10-07): frames come as FP16 scRGB and are converted with the monitor's SDR white.
     private readonly DirectXPixelFormat _format;
@@ -81,6 +82,7 @@ public sealed unsafe class MonitorCapture : IDisposable
     {
         _monitorBounds = bounds;
         _window = window;
+        _windowProcessId = window == 0 ? 0 : NativeGameWindowMetadata.Instance.ProcessId(window);
         nint device = 0, context = 0, dxgi = 0, inspectable = 0;
         try
         {
@@ -133,6 +135,13 @@ public sealed unsafe class MonitorCapture : IDisposable
     }
 
     public bool IsWindow => _window != 0;
+
+    Rectangle? IGameWindowBoundsSource.TryGetCurrentGameWindowBounds(bool requireForeground)
+    {
+        if (Volatile.Read(ref _disposed)) return null;
+        var bounds = CapturedGameWindowMetadata.Read(_window, _windowProcessId, requireForeground, NativeGameWindowMetadata.Instance);
+        return !Volatile.Read(ref _disposed) ? bounds : null;
+    }
 
     /// <summary>The monitor runs in HDR: frames are FP16 and converted (a change needs a new capture).</summary>
     public bool IsHdr { get; }

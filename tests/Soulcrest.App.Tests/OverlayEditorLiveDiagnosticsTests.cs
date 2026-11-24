@@ -166,7 +166,7 @@ public sealed class OverlayEditorLiveDiagnosticsTests
         Assert.Equal(false, inputs.EscMenu);
         Assert.Null(inputs.MinimapMissing);
         Assert.Equal(OverlayLiveFailedGates.Disabled | OverlayLiveFailedGates.Empty | OverlayLiveFailedGates.GlobalForeground
-            | OverlayLiveFailedGates.GameUnavailable | OverlayLiveFailedGates.SessionVisibility | OverlayLiveFailedGates.Area
+            | OverlayLiveFailedGates.Area
             | OverlayLiveFailedGates.SessionRule | OverlayLiveFailedGates.WorldMapRule | OverlayLiveFailedGates.MinimapRule, inputs.FailedGates);
     }
 

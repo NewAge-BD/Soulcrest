@@ -155,6 +155,7 @@ public sealed class NetworkAbyssContinuityTests
             case "capture-generation": f.AdvanceCaptureGeneration(); break;
             case "removed-transport": f.RemoveTransport(); break;
         }
+        if (boundary is "stopped" or "removed-transport" or "capture-generation") f.ReplaceTransport();
         f.Own(5); f.Send(Changes(new Change(112)), 6); Assert.Empty(f.Gains);
         Assert.Equal(112, f.Network.AbyssSnapshot.AbyssPointBalance);
         f.Send(Changes(new Change(113)), 7); Assert.Equal(1, Assert.Single(f.Gains).Amount);
@@ -269,7 +270,7 @@ public sealed class NetworkAbyssContinuityTests
     [Fact]
     public void APreviouslyRejectedWalletCannotBeCarriedByAValidSoftTransition()
     {
-        using var f = new Fixture(); f.Baseline(); f.Send(Changes(new Change(99, Increase: 0, Decrease: 16)), 2);
+        using var f = new Fixture(); f.Baseline(); f.Send(Changes(new Change(99, Container: 2)), 2);
         f.Transition("prepare"); f.Send(Changes(new Change(112)), 6);
         Assert.Empty(f.Gains); Assert.Equal(112, f.Network.AbyssSnapshot.AbyssPointBalance);
     }

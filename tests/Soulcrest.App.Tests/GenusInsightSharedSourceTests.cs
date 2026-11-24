@@ -181,7 +181,7 @@ public sealed class GenusInsightSharedSourceTests
         using var panel = new GenusInsightOverlayForm(() =>
         {
             if (revoke && ++reads == 2) fixture.Shared.Revoke(NetworkCombatDomain<PetProgressSnapshot>.Unknown);
-            return fixture.State.Snapshot;
+            return fixture.State.NativeOverlaySnapshot;
         }, fixture.State.ObserveMenu, fixture.Settings);
         panel.Start(); panel.Show();
         Assert.True(panel.Visible);
@@ -190,6 +190,76 @@ public sealed class GenusInsightSharedSourceTests
         Assert.False(panel.Visible);
         Assert.False(panel.RuntimeAvailable);
         Assert.True(panel.Locked);
+    });
+
+    [Fact]
+    public Task SuccessiveSharedRollsKeepTheOpenSidebarVisibleWhileNewValuesAwaitMenuConfirmation() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        var pets = FullPets();
+        fixture.Shared.Publish(pets);
+        fixture.Login(101, 7);
+        using var panel = new GenusInsightOverlayForm(fixture.State, fixture.Settings);
+        panel.Start();
+        fixture.Frame(new("cogni", .99, 2));
+        panel.ApplySettings();
+        Assert.False(panel.Visible);
+        fixture.SelectGamePreset(2);
+        panel.ApplySettings();
+        Assert.True(panel.Visible);
+        var handle = panel.Handle;
+        var visibilityChanges = new List<bool>();
+        panel.VisibleChanged += (_, _) => visibilityChanges.Add(panel.Visible);
+        var cogni = pets.GenusBoards[2];
+        var slots = cogni.Panels[2];
+        var previousValue = fixture.State.NativeOverlaySnapshot.ViewedBoard!.Slots[0].Value;
+
+        foreach (byte preset in new byte[] { 1, 3, 1 })
+        {
+            var newValue = cogni.Panels[preset][0].Value;
+            Assert.NotEqual(previousValue, newValue);
+            var changedBoard = cogni with { Panels = cogni.Panels.SetItem(2, slots.SetItem(0, slots[0] with { Value = newValue })) };
+            var changedPets = pets with { GenusBoards = pets.GenusBoards.SetItem(2, changedBoard) };
+            void PublishRoll() => fixture.Shared.Publish(changedPets, source: "own-pet-genus-roll-update");
+            // Publish one roll during projection so the native reader must retry.
+            if (preset == 3) fixture.Shared.BeforeNextRead = PublishRoll;
+            else PublishRoll();
+
+            var pending = fixture.State.NativeOverlaySnapshot;
+            Assert.True(pending.OverlaySelectionPending);
+            Assert.Null(pending.ViewedBoard);
+            Assert.False(GenusInsightOverlayContent.Available(fixture.State.Snapshot));
+            panel.ApplySettings();
+            Assert.True(panel.Visible);
+            Assert.False(panel.RuntimeAvailable);
+            Assert.Equal(handle, panel.Handle);
+
+            fixture.SelectGamePreset(2);
+            var confirmed = fixture.State.NativeOverlaySnapshot;
+            Assert.False(confirmed.OverlaySelectionPending);
+            Assert.Equal((decimal)newValue, confirmed.ViewedBoard!.Slots[0].Value);
+            panel.ApplySettings();
+            Assert.True(panel.Visible);
+            Assert.True(panel.RuntimeAvailable);
+            Assert.Equal(handle, panel.Handle);
+            previousValue = confirmed.ViewedBoard.Slots[0].Value;
+        }
+        Assert.Empty(visibilityChanges);
+
+        fixture.Frame(null);
+        panel.ApplySettings();
+        Assert.False(panel.Visible);
+        fixture.SelectGamePreset(2);
+        panel.ApplySettings();
+        Assert.True(panel.Visible);
+        Assert.Equal(new[] { false, true }, visibilityChanges);
+
+        if (Environment.GetEnvironmentVariable("SOULCREST_SHARED_GENUS_EXPORT") is { Length: > 0 } output)
+        {
+            Directory.CreateDirectory(output);
+            using var image = GenusInsightOverlayRenderer.Render(fixture.State.NativeOverlaySnapshot, language: "de");
+            image.Save(Path.Combine(output, "genus-insight.png"), System.Drawing.Imaging.ImageFormat.Png);
+        }
     });
 
     private static IEnumerable<(byte Board, byte Preset, byte Slot, ushort Stat, long Value)> RawValues(
@@ -342,12 +412,12 @@ public sealed class GenusInsightSharedSourceTests
             }
         }
         public event Action? GenusInsightChanged;
-        internal void Publish(PetProgressSnapshot pets, bool newGeneration = false)
+        internal void Publish(PetProgressSnapshot pets, bool newGeneration = false, string source = "own-pet-genus-list")
         {
             var generation = _snapshot.Generation == 0 ? 1 : _snapshot.Generation + (newGeneration ? 1 : 0);
             var sequence = _snapshot.Sequence + 1;
             _snapshot = new(generation, sequence, new(pets, NetworkCombatSourceStatus.Complete, true,
-                At.AddSeconds(sequence), sequence, "own-pet-genus-list"));
+                At.AddSeconds(sequence), sequence, source));
             GenusInsightChanged?.Invoke();
         }
         internal void Revoke(NetworkCombatDomain<PetProgressSnapshot> domain)

@@ -1,0 +1,169 @@
+/* Display & Behavior, scoped to the overlay editor. */
+.overlay-editor .oe-display-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 18px;
+}
+.overlay-editor .oe-display-side { display: grid; gap: 18px; min-width: 0; }
+
+.overlay-editor .oe-display-heading {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px 18px;
+    margin-bottom: 15px;
+}
+.overlay-editor .oe-display-heading h2 { margin: 0; font-size: 16px; font-weight: 650; }
+.overlay-editor .oe-visibility-heading { align-items: center; }
+.overlay-editor .oe-display-window-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+}
+.overlay-editor .oe-display-window-controls .oe-status-row { margin: 0; }
+.overlay-editor .oe-area-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.overlay-editor .oe-area-fieldset > legend {
+    padding: 0;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--text);
+}
+.overlay-editor .oe-display-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+.overlay-editor .oe-display-choice {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 38px;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+    background: var(--panel-raised);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.overlay-editor .oe-display-choice > input { flex: 0 0 auto; margin: 0; accent-color: var(--gold); }
+.overlay-editor .oe-display-choice > span { min-width: 0; overflow-wrap: anywhere; }
+.overlay-editor .oe-display-choice:hover { color: var(--text); border-color: var(--muted); }
+.overlay-editor .oe-display-choice:has(input:checked) {
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--gold) 75%, var(--line));
+    background: color-mix(in srgb, var(--gold) 12%, var(--panel-raised));
+}
+.overlay-editor .oe-display-choice:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+.overlay-editor .oe-display-choice:has(input:disabled) { cursor: default; opacity: .65; }
+.overlay-editor .oe-display-hint { margin: 9px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+.overlay-editor .oe-condition-list { margin-top: 15px; border-top: 1px solid var(--line); }
+.overlay-editor .oe-condition {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(0, 2.2fr);
+    align-items: center;
+    gap: 8px 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+}
+.overlay-editor .oe-condition-label { font-size: 13px; line-height: 1.4; }
+.overlay-editor .oe-condition-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+    min-width: 0;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel-raised);
+}
+.overlay-editor .oe-condition-options > .oe-display-choice {
+    min-height: 30px;
+    padding: 4px 3px;
+    justify-content: center;
+    text-align: center;
+    background: transparent;
+    border-color: transparent;
+    border-radius: 4px;
+}
+.overlay-editor .oe-condition-options > .oe-display-choice:has(input:checked) {
+    border-color: color-mix(in srgb, var(--gold) 70%, var(--line));
+    background: color-mix(in srgb, var(--gold) 16%, var(--panel-raised));
+}
+.overlay-editor .oe-condition-options input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.overlay-editor .oe-display-setting {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    font-size: 13px;
+}
+.overlay-editor .oe-display-setting select {
+    flex: 1;
+    max-width: 17em;
+    min-width: min(100%, 10em);
+    min-height: 36px;
+    background: var(--panel-raised);
+    color: var(--text);
+    border: 1px solid var(--line);
+}
+.overlay-editor .oe-display-slider {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px 10px;
+    margin-top: 15px;
+    padding-top: 13px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+}
+.overlay-editor .oe-display-slider output {
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.overlay-editor .oe-display-slider > input {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    accent-color: var(--gold);
+}
+.overlay-editor .oe-display-slider + .oe-display-toggle {
+    margin-top: 15px;
+    padding-top: 13px;
+    border-top: 1px solid var(--line);
+}
+.overlay-editor .oe-display-toggle { flex-wrap: nowrap; }
+.overlay-editor .oe-recordings-all {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+.overlay-editor .oe-recordings-all input {
+    flex: 0 0 auto;
+    margin: 0;
+    accent-color: var(--gold);
+}
+
+@container overlay-menu (max-width: 880px) {
+    .overlay-editor .oe-display-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@container overlay-menu (max-width: 530px) {
+    .overlay-editor .oe-condition { grid-template-columns: minmax(0, 1fr); }
+}

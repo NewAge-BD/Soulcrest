@@ -10,12 +10,16 @@ internal sealed class DaevanionHighlightForm : Form
     private readonly Func<IReadOnlySet<string>> _selectedStats;
     private readonly DaevanionHighlightRenderer _renderer = new();
     private readonly System.Windows.Forms.Timer _animation = new() { Interval = 33 };
+    private readonly LayeredOverlaySurface _nativeSurface = new();
+    private readonly DaevanionAnimationPacing _pacing = new();
+    private readonly DaevanionAnimationTelemetry _telemetry = new();
     private DaevanionSnapshot? _shown;
     private string _selection = "";
     private bool _recordings;
     private bool _disposing;
     private bool? _appliedRecordings;
     private Bitmap? _surface;
+    internal DaevanionAnimationHealth Diagnostics => _telemetry.Snapshot;
 
     internal DaevanionHighlightForm(Func<DaevanionSnapshot?> currentSource, Func<IReadOnlySet<string>> selectedStats)
     {
@@ -28,6 +32,7 @@ internal sealed class DaevanionHighlightForm : Form
     internal void Present(DaevanionSnapshot snapshot, IReadOnlySet<string> selected, bool visibleInRecordings, bool animationFrame = false)
     {
         if (_disposing || IsDisposed) return;
+        var presentationStarted = System.Diagnostics.Stopwatch.GetTimestamp();
         if (!snapshot.Board.Nodes.Any(node => node.Kind == Soulcrest.Core.Daevanion.DaevanionNodeKind.Stat
             && node.Effects.Any(effect => effect.StatId is { } id && selected.Contains(id))))
         { Suppress(); return; }
@@ -46,7 +51,9 @@ internal sealed class DaevanionHighlightForm : Form
             var area = DaevanionOverlayForm.SurfaceBounds(snapshot);
             if (area.Width <= 0 || area.Height <= 0) { Suppress(); return; }
             var phase = StopwatchPhase();
+            var rasterStarted = System.Diagnostics.Stopwatch.GetTimestamp();
             var image = Raster(snapshot, selected, area, phase);
+            var rasterMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(rasterStarted).TotalMilliseconds;
             var current = _currentSource();
             if (current is null) { Suppress(); return; }
             var artwork = ReconcileHighlight(image, snapshot, current, area.Location);
@@ -73,7 +80,13 @@ internal sealed class DaevanionHighlightForm : Form
             if (final is null) { Suppress(); return; }
             artwork = ReconcileHighlight(image, artwork, final, area.Location);
             if (artwork is null) { Suppress(); return; }
-            if (!LayeredOverlayPresenter.Present(this, image)) { Suppress(); return; }
+            var transferStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (!_nativeSurface.Present(this, image)) { Suppress(); return; }
+            var presentedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+            _telemetry.Presented(presentedAt, rasterMilliseconds,
+                System.Diagnostics.Stopwatch.GetElapsedTime(transferStarted, presentedAt).TotalMilliseconds,
+                System.Diagnostics.Stopwatch.GetElapsedTime(presentationStarted, presentedAt).TotalMilliseconds,
+                _nativeSurface.AllocationCount);
             _selection = key; _shown = artwork;
             if (!Visible) Show();
             if (artwork.Detection.Nodes.Any(anchor => artwork.Board.Nodes.Any(node => node.Row == anchor.Row
@@ -168,24 +181,40 @@ internal sealed class DaevanionHighlightForm : Form
     private void Animate()
     {
         if (_disposing || IsDisposed) return;
-        if (!Visible) { _animation.Stop(); return; }
-        // Animation consumes current evidence; its ticks can never extend the frame deadline.
-        var current = _currentSource();
-        if (current is null) { Suppress(); return; }
-        var started = System.Diagnostics.Stopwatch.GetTimestamp();
-        Present(current, _selectedStats(), _recordings, animationFrame: true);
-        if (_disposing || IsDisposed || !_animation.Enabled) return;
-        var elapsed = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-        // Leave the UI time for input on very large boards; wall-clock phase keeps the same rotation speed.
-        _animation.Interval = elapsed > 40 ? 66
-            : elapsed > 22 || (_animation.Interval > 33 && elapsed > 18) ? 50 : 33;
+        var tickStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+        var initialSourceMilliseconds = 0d;
+        try
+        {
+            if (!Visible) { _animation.Stop(); return; }
+            // Animation consumes current evidence; its ticks can never extend the frame deadline.
+            var sourceStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+            DaevanionSnapshot? current;
+            try { current = _currentSource(); }
+            finally { initialSourceMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(sourceStarted).TotalMilliseconds; }
+            if (current is null) { Suppress(); return; }
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            Present(current, _selectedStats(), _recordings, animationFrame: true);
+            if (_disposing || IsDisposed || !_animation.Enabled) return;
+            // A fixed delay after rendering adds that work to every frame and drifts below 30Hz.
+            // Instead wait only for the next monotonic slot, dropping missed slots under UI load.
+            _animation.Interval = _pacing.AfterFrame(started, System.Diagnostics.Stopwatch.GetTimestamp());
+            _telemetry.NextDelay(_animation.Interval);
+        }
+        finally
+        {
+            // Includes the first authority read, Show/BringForward and unsuccessful source reads.
+            // It measures only this callback's work, not time waiting in the UI message queue.
+            _telemetry.TickCompleted(System.Diagnostics.Stopwatch.GetElapsedTime(tickStarted).TotalMilliseconds, initialSourceMilliseconds);
+        }
     }
 
     internal void Suppress()
     {
         if (_disposing || IsDisposed) return;
+        if (_shown is not null || Visible || _surface is not null) _telemetry.Suppressed();
         _animation.Stop(); _shown = null; _selection = "";
-        Hide(); _surface?.Dispose(); _surface = null;
+        _pacing.Reset(); _animation.Interval = 33;
+        Hide(); _surface?.Dispose(); _surface = null; _nativeSurface.Reset();
     }
 
     private void ApplyRecordingVisibility(bool value)
@@ -218,7 +247,7 @@ internal sealed class DaevanionHighlightForm : Form
         NativeMethods.SetCaptureVisibility(Handle, _recordings); _appliedRecordings = _recordings;
     }
     protected override void OnHandleDestroyed(EventArgs e)
-    { _animation.Stop(); _shown = null; _appliedRecordings = null; base.OnHandleDestroyed(e); }
+    { _animation.Stop(); _pacing.Reset(); _nativeSurface.Reset(); _shown = null; _appliedRecordings = null; base.OnHandleDestroyed(e); }
     protected override void OnDpiChanged(DpiChangedEventArgs e) { e.Cancel = true; base.OnDpiChanged(e); }
     protected override void OnPaintBackground(PaintEventArgs e) { }
     protected override void WndProc(ref Message message)
@@ -230,7 +259,7 @@ internal sealed class DaevanionHighlightForm : Form
     protected override void Dispose(bool disposing)
     {
         if (disposing && !_disposing)
-        { _disposing = true; _animation.Stop(); _animation.Dispose(); _shown = null; _surface?.Dispose(); _surface = null; }
+        { _disposing = true; _animation.Stop(); _animation.Dispose(); _shown = null; _surface?.Dispose(); _surface = null; _nativeSurface.Dispose(); }
         base.Dispose(disposing);
     }
 

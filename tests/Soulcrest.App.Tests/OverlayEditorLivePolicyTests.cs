@@ -11,15 +11,14 @@ public sealed class OverlayEditorLivePolicyTests
     private static readonly OverlayEditorLiveContext Context = new(true, true, false, OverlayTriggerArea.Abyss, new());
 
     [Fact]
-    public void ActivationGameAndGlobalForegroundRemainIndependentGatesForMandatoryControls()
+    public void ActivationAndGlobalForegroundRemainIndependentGatesForMandatoryControls()
     {
         Assert.True(OverlayEditorLivePolicy.IsVisible(Enabled, new(), Context));
         Assert.False(OverlayEditorLivePolicy.IsVisible(Enabled with { Enabled = false }, new(), Context));
         Assert.True(OverlayEditorLivePolicy.IsVisible(Enabled with { Widgets = [] }, new(), Context));
-        Assert.False(OverlayEditorLivePolicy.IsVisible(Enabled, new(), Context with { GameAvailable = false }));
-        var always = Enabled with { Visibility = "always" };
-        Assert.False(OverlayEditorLivePolicy.IsVisible(always, new(), Context with { GameAvailable = false, GameForeground = false }));
-        Assert.True(OverlayEditorLivePolicy.IsVisible(always, new(), Context with { GameAvailable = false, GameForeground = false, AllowBackground = true }));
+        var withoutGame = Context with { GameAvailable = false, GameForeground = false };
+        Assert.False(OverlayEditorLivePolicy.IsVisible(Enabled, new(), withoutGame));
+        Assert.True(OverlayEditorLivePolicy.IsVisible(Enabled, new(), withoutGame with { AllowBackground = true }));
     }
 
     [Fact]
@@ -28,7 +27,7 @@ public sealed class OverlayEditorLivePolicyTests
         var settings = Enabled with { Visibility = "session" };
         Assert.False(OverlayEditorLivePolicy.IsVisible(settings, new() { SessionActive = true }, Context));
         Assert.True(OverlayEditorLivePolicy.IsVisible(settings, new() { SessionActive = true, TrackingAvailable = true }, Context));
-        settings = Enabled with { TriggerRules = new() { SessionActive = OverlayTriggerRequirement.Excluded } };
+        settings = settings with { TriggerRules = new() { SessionActive = OverlayTriggerRequirement.Excluded } };
         Assert.False(OverlayEditorLivePolicy.IsVisible(settings, new(), Context));
         Assert.True(OverlayEditorLivePolicy.IsVisible(settings, new() { TrackingAvailable = true }, Context));
     }

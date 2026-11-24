@@ -42,6 +42,41 @@ public sealed class DiagnosticContributorCoverageTests
         finally { OverlayEditorRenderDiagnostics.Current.Success(); }
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task EditorDiagnosisCountsSavedLockChoicesWithoutChangingSettingsOrStartingOverlays(bool firstLocked)
+    {
+        var path = Path.Combine(AppPaths.DataDirectory, "editor-lock-diagnosis-" + Guid.NewGuid().ToString("N"));
+        using var editor = new OverlayService(path);
+        Assert.True(editor.Overlays.Count > 1);
+        foreach (var (window, index) in editor.Overlays.Select((window, index) => (window, index)).ToArray())
+        {
+            Assert.True((await editor.SaveAsync(window.Id, window.Settings with { Enabled = index != 0 })).Succeeded);
+            Assert.True((await editor.SaveLockAsync(window.Id, index == 0 ? firstLocked : !firstLocked)).Succeeded);
+        }
+        var before = editor.Overlays.ToArray();
+        var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories).ToDictionary(file => file, File.ReadAllBytes);
+        var changes = 0;
+        editor.Changed += () => changes++;
+        var contributor = DiagnosticContributors.Create(new ExistingOnlyProvider(editor))
+            .Single(item => item.FeatureIds.Contains("overlay-editor"));
+
+        var result = contributor.Collect("overlay-editor");
+
+        Assert.Equal(firstLocked ? 1 : before.Length - 1, result.Facts["lockedWindows"]);
+        Assert.Equal(firstLocked ? before.Length - 1 : 1, result.Facts["unlockedWindows"]);
+        Assert.Equal(before, editor.Overlays);
+        Assert.Equal(0, changes);
+        Assert.All(editor.Overlays, window =>
+        {
+            Assert.False(editor.GetState(window.Id).IsVisible);
+            Assert.False(editor.GetState(window.Id).Previewing);
+        });
+        Assert.All(files, pair => Assert.Equal(pair.Value, File.ReadAllBytes(pair.Key)));
+        Assert.Equal(files.Count, Directory.GetFiles(path, "*", SearchOption.AllDirectories).Length);
+    }
+
     [Fact]
     public void ProductRegistriesHaveExplicitSelectableDiagnosticCoverage()
     {

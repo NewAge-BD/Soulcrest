@@ -31,12 +31,17 @@ public sealed class PublicWorldContextTests
         Assert.Equal(UiText.T("Gebiet noch nicht zugeordnet"), WorldLocationPresentation.Build(snapshot, true).Name);
     }
 
-    [Fact]
-    public void AbyssAndOtherInstancesStaySeparateFromOpenWorld()
+    [Theory]
+    [InlineData(20, "abyss-reshanta-a")]
+    [InlineData(22, "chaotic-middle-reshanta")]
+    [InlineData(23, "chaotic-upper-reshanta")]
+    public void AbyssAndOtherInstancesStaySeparateFromOpenWorld(int mapId, string supportedMapId)
     {
         var world = Service();
-        world.ObserveOwn(20, 1, At);
+        world.ObserveOwn(mapId, 1, At);
         Assert.Equal((WorldContextKind.Instance, "Abyss"), (world.Snapshot.Kind, world.Snapshot.Category));
+        Assert.Equal(supportedMapId, world.Snapshot.SoulcrestMapId);
+        Assert.Equal(MapTrackingMode.NetworkMap, EffectiveFeaturePolicy.TrackingMode(true, world.Snapshot));
         world.ObserveOwn(60, 2, At.AddMinutes(1));
         Assert.Equal((WorldContextKind.Instance, "Matching"), (world.Snapshot.Kind, world.Snapshot.Category));
         world.ObserveOwn(999_999_999, 3, At.AddMinutes(2));

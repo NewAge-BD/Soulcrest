@@ -182,7 +182,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
     [InlineData("source-stopped")] [InlineData("source-rejected")] [InlineData("source-unqualified")]
     [InlineData("source-foreign")] [InlineData("source-future")] [InlineData("fact-future")]
     [InlineData("world-stale")] [InlineData("world-future")] [InlineData("binding")]
-    [InlineData("other-instance")] [InlineData("unbound")] [InlineData("gain-future")]
+    [InlineData("world-unknown")] [InlineData("unbound")] [InlineData("gain-future")]
     [InlineData("gain-default")] [InlineData("gain-before-own")] [InlineData("gain-foreign")]
     [InlineData("zero-sequence")]
     public async Task OutsidePointGainsStillRequireTheCurrentQualifiedOwnWorldAndPointSource(string invalid)
@@ -201,7 +201,7 @@ public sealed partial class UnifiedLootTrackerServiceTests
             case "world-stale": f.WorldStatus = WorldContextStatus.Stale; break;
             case "world-future": f.WorldOffset = TimeSpan.FromSeconds(1); break;
             case "binding": f.BindingOffset = 1; break;
-            case "other-instance": f.WorldKind = WorldContextKind.Instance; f.Category = "Party"; break;
+            case "world-unknown": f.WorldStatus = WorldContextStatus.Unknown; break;
             case "unbound": f.Bound = false; break;
             case "gain-future": at = at.AddSeconds(1); break;
             case "gain-default": at = default; break;

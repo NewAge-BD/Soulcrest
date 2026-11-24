@@ -36,6 +36,8 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
         internal OverlaySettings Settings { get; set; } = settings;
         internal Action<OverlayLivePlacement>? PlacementHandler { get; set; }
         internal bool SavingPlacement { get; set; }
+        internal Action<bool>? LockHandler { get; set; }
+        internal bool SavingLock { get; set; }
         internal string? PlacementError { get; set; }
     }
 
@@ -214,6 +216,8 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
                             var created = slot;
                             slot.PlacementHandler = placement => SavePlacement(window.Id, created, placement);
                             surface.PlacementCompleted += slot.PlacementHandler;
+                            slot.LockHandler = locked => SaveLock(window.Id, created, locked);
+                            surface.LockRequested += slot.LockHandler;
                             _slots.Add(window.Id, slot);
                         }
                         if (slot.Failed) continue;
@@ -428,6 +432,50 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
             if (!_disposed) Invalidate();
         }
     }
+    private async void SaveLock(string id, Slot slot, bool locked)
+    {
+        if (_disposed || _paused || slot.SavingLock || slot.SavingPlacement
+            || !_slots.TryGetValue(id, out var active) || !ReferenceEquals(active, slot)) return;
+        slot.SavingLock = true;
+        string? error = null;
+        try
+        {
+            // Only this explicit user request writes the choice. Focus loss may dispose the
+            // originating surface while the atomic save is pending; the choice still persists.
+            var result = await _layouts.SaveLockAsync(id, locked);
+            error = result.Error;
+            for (var attempt = 0; attempt < 2 && !_disposed && !_paused; attempt++)
+            {
+                var latest = Volatile.Read(ref _epoch);
+                if (latest == Volatile.Read(ref _appliedEpoch)) break;
+                InvalidateCore(latest);
+            }
+            if (_disposed || !_slots.TryGetValue(id, out active) || !ReferenceEquals(active, slot)) return;
+            var committed = _layouts.Overlays.FirstOrDefault(window => window.Id == id);
+            var monitor = _monitors().FirstOrDefault(value => value.Id == committed?.Settings.PositionMonitorId)
+                ?? _preferred() ?? _monitors().FirstOrDefault();
+            if (committed is not null && monitor is not null)
+            {
+                var size = new Size((int)Math.Ceiling(committed.Settings.Width), (int)Math.Ceiling(committed.Settings.Height));
+                var layout = OverlayEditorPlacementGeometry.Read(committed.Settings, size, monitor);
+                layout = OverlayPlacementForm.FitLayout(layout, size, monitor.WorkingArea, .5);
+                slot.Settings = committed.Settings;
+                slot.Window.ConfigureInteraction(committed, size, monitor, _snapshot?.ThemeId ?? "aion2-stylized", layout.Scale);
+            }
+        }
+        catch (Exception exception) { error = exception.Message; }
+        finally
+        {
+            slot.SavingLock = false;
+            if (!_disposed && _slots.TryGetValue(id, out active) && ReferenceEquals(active, slot))
+            {
+                slot.Window.CompleteLock(error);
+                Report(id, slot.Window.Visible, error);
+                Invalidate();
+            }
+        }
+    }
+
     private void CancelUncommittedPlacement(string id, Slot slot)
     {
         slot.Window.HideFrame();
@@ -446,6 +494,7 @@ public sealed class OverlayEditorLiveHostCoordinator : IDisposable
         OverlayEditorLiveDiagnostics.Lifecycle(slot.Settings, "remove", reason, phase, Volatile.Read(ref _epoch));
         slot.Window.GeometryInvalidated -= Invalidate;
         if (slot.PlacementHandler is not null) slot.Window.PlacementCompleted -= slot.PlacementHandler;
+        if (slot.LockHandler is not null) slot.Window.LockRequested -= slot.LockHandler;
         slot.Window.HideFrame();
         slot.Window.Dispose();
         slot.Session.Dispose();

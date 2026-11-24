@@ -200,6 +200,51 @@ public sealed class GenusInsightStaticOverlayTests
     });
 
     [Fact]
+    public Task SupersededRollFramesDoNotHideOrRelockTheVisibleSidebar() => RunSta(() =>
+    {
+        using var fixture = new Fixture();
+        var supersede = false;
+        using var panel = fixture.Panel(() =>
+        {
+            var snapshot = fixture.Snapshot;
+            if (supersede)
+            {
+                supersede = false;
+                fixture.Snapshot = NextRoll(snapshot);
+            }
+            return snapshot;
+        });
+        panel.Start();
+        Assert.True(panel.Visible);
+        var handle = panel.Handle;
+        panel.ToggleManualInteractionFromHotkey();
+        var visibilityChanges = new List<bool>();
+        panel.VisibleChanged += (_, _) => visibilityChanges.Add(panel.Visible);
+
+        for (var update = 0; update < 4; update++)
+        {
+            fixture.Snapshot = NextRoll(fixture.Snapshot);
+            supersede = true;
+            panel.ApplySettings();
+            Assert.True(panel.Visible);
+            panel.ApplySettings();
+            Assert.Equal(handle, panel.Handle);
+            Assert.True(panel.ManualInteractionEnabled);
+        }
+        Assert.Empty(visibilityChanges);
+    });
+
+    private static GenusInsightSnapshot NextRoll(GenusInsightSnapshot snapshot) => snapshot with
+    {
+        Sequence = snapshot.Sequence + 1,
+        ObservedAt = snapshot.ObservedAt?.AddSeconds(1),
+        ViewedBoard = snapshot.ViewedBoard! with
+        {
+            Slots = snapshot.ViewedBoard.Slots.Select(slot => slot with { IsLocked = slot.IsLocked != true }).ToArray()
+        }
+    };
+
+    [Fact]
     public Task ConstructorAndHandleCreationRemainPassiveUntilExplicitStart() => RunSta(() =>
     {
         using var fixture = new Fixture();
@@ -307,7 +352,7 @@ public sealed class GenusInsightStaticOverlayTests
             Settings.Current.GenusInsightOverlayX = Settings.Current.GenusInsightOverlayY = -30000;
             Settings.Current.GenusInsightOverlayScale = 1;
         }
-        public GenusInsightOverlayForm Panel() => new(() => Snapshot, () =>
+        public GenusInsightOverlayForm Panel(Func<GenusInsightSnapshot>? read = null) => new(read ?? (() => Snapshot), () =>
         {
             Acquired++;
             return new Lease(() => Released++);

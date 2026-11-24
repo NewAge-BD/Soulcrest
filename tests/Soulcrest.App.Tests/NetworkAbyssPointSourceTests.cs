@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using Soulcrest.App.Network;
 using Soulcrest.App.Services;
@@ -11,7 +12,9 @@ namespace Soulcrest.App.Tests;
 public sealed class NetworkAbyssPointSourceTests
 {
     private static readonly DateTimeOffset At = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
-    private const string OwnStream = "synthetic-ap-own", Foreign = "synthetic-ap-foreign";
+    private static readonly CaptureConnection Connection = new(123, "192.0.2.10", 50001, "203.0.113.10", 443);
+    private static readonly string OwnStream = Connection.StreamKey;
+    private const string Foreign = "synthetic-ap-foreign";
     private static readonly OwnCharacterIdentity Identity = new(101, 501, 300, "SyntheticAbyssPoints");
     private sealed record Change(long Count, long Key = 91, int Item = 930100003, byte Container = 1,
         byte Modification = 1, byte Increase = 11, byte Decrease = 0, byte Update = 0, bool Equipment = false);
@@ -43,6 +46,35 @@ public sealed class NetworkAbyssPointSourceTests
         Assert.Equal(12, Assert.Single(f.Gains).Amount);
         Assert.True(f.Network.AbyssSnapshot.AbyssPointGainsQualified);
         AssertNoFarmInference(f);
+    }
+
+    [Theory]
+    [InlineData(0, 0, 0)]
+    [InlineData(2, 0, 0)]
+    [InlineData(5, 0, 0)]
+    [InlineData(12, 0, 0)]
+    [InlineData(24, 0, 0)]
+    [InlineData(31, 0, 0)]
+    [InlineData(63, 0, 0)]
+    [InlineData(0, 16, 0)]
+    [InlineData(0, 0, 1)]
+    [InlineData(255, 254, 253)]
+    public void AnyOpaqueReasonCombinationCountsPositiveOwnWalletDifferences(int increase, int decrease, int update)
+    {
+        using var f = new Fixture(); f.Own();
+        Change Observation(long count) => new(count, Increase: (byte)increase, Decrease: (byte)decrease, Update: (byte)update);
+        f.Send(Changes(Observation(100)), At.AddSeconds(1));
+        Assert.Equal(100, f.Network.AbyssSnapshot.AbyssPointBalance); AssertNoApIncome(f);
+        f.Send(Changes(Observation(109)), At.AddSeconds(2));
+        Assert.Equal(9, Assert.Single(f.Gains).Amount);
+        f.Send(Changes(Observation(109)), At.AddSeconds(2));
+        Assert.Single(f.Gains);
+        f.Send(Changes(Observation(70)), At.AddSeconds(3));
+        Assert.Equal(70, f.Network.AbyssSnapshot.AbyssPointBalance); Assert.Single(f.Gains);
+        Assert.True(f.Network.AbyssSnapshot.AbyssPointGainsQualified);
+        f.Send(Changes(Observation(74)), At.AddSeconds(4));
+        Assert.Equal(new long[] { 9, 4 }, f.Gains.Select(gain => gain.Amount));
+        Assert.Equal(74, f.Network.AbyssSnapshot.AbyssPointBalance); AssertNoFarmInference(f);
     }
 
     [Theory]
@@ -94,16 +126,10 @@ public sealed class NetworkAbyssPointSourceTests
     [Theory]
     [InlineData("add")]
     [InlineData("remove")]
-    [InlineData("reward12")]
-    [InlineData("reward63")]
-    [InlineData("itemdrop5")]
-    [InlineData("decrease")]
-    [InlineData("update")]
     [InlineData("container")]
     [InlineData("zero-key")]
     [InlineData("changed-key")]
     [InlineData("equipment")]
-    [InlineData("lower")]
     [InlineData("negative")]
     [InlineData("truncated")]
     [InlineData("duplicate")]
@@ -118,11 +144,9 @@ public sealed class NetworkAbyssPointSourceTests
         byte[] invalid = variant switch
         {
             "add" => Changes(new Change(47_714, Modification: 0)), "remove" => Changes(new Change(0, Modification: 2)),
-            "reward12" => Changes(new Change(47_714, Increase: 12)), "reward63" => Changes(new Change(47_714, Increase: 63)),
-            "itemdrop5" => Changes(new Change(47_714, Increase: 5)), "decrease" => Changes(new Change(47_714, Decrease: 1)),
-            "update" => Changes(new Change(47_714, Update: 1)), "container" => Changes(new Change(47_714, Container: 2)),
+            "container" => Changes(new Change(47_714, Container: 2)),
             "zero-key" => Changes(new Change(47_714, Key: 0)), "changed-key" => Changes(new Change(47_714, Key: 92)),
-            "equipment" => Changes(new Change(47_714, Equipment: true)), "lower" => Changes(new Change(47_701)),
+            "equipment" => Changes(new Change(47_714, Equipment: true)),
             "negative" => Changes(new Change(-1)), "truncated" => Changes(new Change(47_714))[..^1],
             "duplicate" => Changes(new Change(47_714), new Change(47_714)), "two-wallets" => Changes(new Change(47_714), new Change(47_714, Key: 92)),
             "collision" => Changes(new Change(47_714), new Change(1, Item: 610660025)), "replaced-id" => Changes(new Change(1, Item: 610660025)),
@@ -268,10 +292,6 @@ public sealed class NetworkAbyssPointSourceTests
     }
 
     [Theory]
-    [InlineData("reason12")]
-    [InlineData("reason63")]
-    [InlineData("spending")]
-    [InlineData("lower")]
     [InlineData("malformed")]
     [InlineData("gap")]
     public void RevokedQualifiedPairCannotCatchUpFromAnUnsupportedInterval(string boundary)
@@ -279,16 +299,7 @@ public sealed class NetworkAbyssPointSourceTests
         using var f = new Fixture(); f.Own();
         f.Send(Changes(new Change(100)), At.AddSeconds(1)); f.Send(Changes(new Change(105)), At.AddSeconds(2));
         if (boundary == "gap") f.Network.ProcessProgressGap(OwnStream, capturedAtUtc: At.AddSeconds(3));
-        else
-        {
-            byte[] invalid = boundary switch
-            {
-                "reason12" => Changes(new Change(110, Increase: 12)), "reason63" => Changes(new Change(110, Increase: 63)),
-                "spending" => Changes(new Change(99, Increase: 0, Decrease: 15)), "lower" => Changes(new Change(99)),
-                "malformed" => [0x1B, 0x56], _ => throw new InvalidOperationException(),
-            };
-            f.Send(invalid, At.AddSeconds(3));
-        }
+        else f.Send([0x1B, 0x56], At.AddSeconds(3));
         Assert.False(f.Network.AbyssSnapshot.AbyssPointGainsQualified);
         f.Send(Changes(new Change(150)), At.AddSeconds(4)); Assert.Equal(5, Assert.Single(f.Gains).Amount);
         f.Own(seconds: 5); f.Send(Changes(new Change(200)), At.AddSeconds(6));
@@ -371,9 +382,12 @@ public sealed class NetworkAbyssPointSourceTests
         {
             Directory.CreateDirectory(_root); Network = new(new ProgressService(Path.Combine(_root, "progress.json"), new PetCatalog([])));
             typeof(NetworkLootService).GetProperty(nameof(NetworkLootService.Running))!.SetValue(Network, true);
+            var streams = (Dictionary<CaptureConnection, (TcpReassembler Tcp, GameMessageStream Messages)>)typeof(NetworkLootService)
+                .GetField("_streams", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Network)!;
+            streams[Connection] = (new TcpReassembler(), new GameMessageStream(requireVerifiedSync: true));
             Network.AbyssPointsGained += gain => { ApGains++; Gains.Add(gain); };
         }
-        internal void Send(byte[] message, DateTimeOffset? at = null, string stream = OwnStream) => Network.ProcessProgressMessage(stream, message, at ?? At);
+        internal void Send(byte[] message, DateTimeOffset? at = null, string? stream = null) => Network.ProcessProgressMessage(stream ?? OwnStream, message, at ?? At);
         internal void Own(long? rank = 1_000, int seconds = 0) => Send(OwnPacket(rank), At.AddSeconds(seconds));
         internal void Rank(long total, int seconds) => Send(Packet(0xE273, w => { w.U8(0); w.I64(total); }), At.AddSeconds(seconds));
         public void Dispose() { Network.Dispose(); Directory.Delete(_root, recursive: true); }

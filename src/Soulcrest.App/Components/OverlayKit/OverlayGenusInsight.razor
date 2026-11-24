@@ -17,15 +17,51 @@
             {
                 var slot = Board!.Slots.FirstOrDefault(candidate => candidate.Slot == number) ?? new GenusInsightSlotView { Slot = number };
                 var label = UiLanguage == "de" ? slot.LabelDe : slot.LabelEn;
-                var fraction = slot.IsCurrent && slot.RollFraction is { } supplied && double.IsFinite(supplied) && supplied is >= 0 and <= 1 ? supplied : (double?)null;
+                var spectrum = new GenusInsightOverlaySpectrum(slot);
+                var labels = spectrum.Labels(UiCulture, TrackWidth, MeasureRangeLabel);
+                var fraction = spectrum.Current;
+                var details = RangeDescription(spectrum, slot.Unit);
                 <div class="overlay-genus-slot @(slot.IsFavorite ? "is-favorite" : "")" data-genus-slot="@number" data-genus-rank="@slot.Rank" data-genus-favorite="@slot.IsFavorite.ToString().ToLowerInvariant()" data-genus-max-roll="@((slot.IsCurrent && slot.IsMaxRoll).ToString().ToLowerInvariant())" style="--genus-rank:@GenusInsightPresentation.RankColor(slot.Rank)">
-                    <div class="overlay-genus-range @(fraction is null ? "is-unknown" : "")" role="meter" aria-label="@F("Rollbereich: {0}", label)" aria-valuemin="@Machine(slot.Minimum)" aria-valuemax="@Machine(slot.Maximum)" aria-valuenow="@(fraction is null ? null : Machine(slot.Value))" data-genus-roll-fraction="@Css(fraction)">
-                        <div class="overlay-genus-range-track">@if (fraction is { } roll) { <span class="overlay-genus-range-fill" style="width:@Css(roll * 100)%"></span><i class="overlay-genus-range-marker" style="left:@Css(roll * 100)%"></i> }</div>
-                        <div class="overlay-genus-range-labels"><span>@ExactRangeValue(slot.Minimum, slot.Unit)</span><span>@ExactRangeValue(slot.Maximum, slot.Unit)</span></div>
-                    </div>
                     <span class="overlay-genus-stat" title="@label">@label</span>
                     <div class="overlay-genus-value"><strong data-genus-value="@Machine(slot.Value)">@Value(slot.Value, slot.Unit)</strong>@if (slot.IsCurrent && slot.IsMaxRoll) { <small>MAX ROLL!</small> }</div>
                     <span class="overlay-genus-favorite" aria-label="@(slot.IsFavorite ? T("Favorit") : null)">@(slot.IsFavorite ? "★" : "")</span>
+                    <div class="overlay-genus-range @(fraction is null ? "is-unknown" : "")" role="@(fraction is null ? "img" : "meter")"
+                         aria-label="@F("Rollbereich: {0}", label)" aria-description="@details" title="@details"
+                         aria-valuemin="@(fraction is null ? null : Machine(slot.Minimum))" aria-valuemax="@(fraction is null ? null : Machine(slot.Maximum))"
+                         aria-valuenow="@(fraction is null ? null : Machine(slot.Value))"
+                         aria-valuetext="@(fraction is null ? null : $"{ExactRangeValue(slot.Value, slot.Unit)} · {GenusInsightPresentation.RankName(slot.Rank)}")"
+                         data-genus-roll-fraction="@Css(fraction)">
+                        <div class="overlay-genus-range-track" aria-hidden="true">
+                            @for (byte rank = 1; rank <= GenusInsightOverlaySpectrum.RankCount; rank++)
+                            {
+                                <span class="overlay-genus-range-lane" data-genus-lane="@rank">
+                                    @if (spectrum.Interval(rank) is { } interval)
+                                    {
+                                        <i class="overlay-genus-range-interval" style="--genus-start:@Css(interval.Start * 100)%;--genus-end:@Css(interval.End * 100)%;--genus-color:@GenusInsightPresentation.RankColor(rank)"></i>
+                                    }
+                                </span>
+                            }
+                            @if (fraction is { } roll)
+                            {
+                                <i class="overlay-genus-range-marker" style="left:@Css(roll * 100)%"></i>
+                            }
+                        </div>
+                        @if (labels.Count == 0)
+                        {
+                            <div class="overlay-genus-range-labels"><span>@ExactRangeValue(slot.Minimum, slot.Unit)</span><span>@ExactRangeValue(slot.Maximum, slot.Unit)</span></div>
+                        }
+                        else
+                        {
+                            <div class="overlay-genus-interval-labels" aria-hidden="true" style="--genus-label-rows:@GenusInsightOverlaySpectrum.LabelRows(labels)">
+                                @if (slot.Unit == "Percent") { <span class="overlay-genus-interval-unit">%</span> }
+                                @foreach (var intervalLabel in labels)
+                                {
+                                    <span class="overlay-genus-interval-label" data-genus-label="@intervalLabel.Rank"
+                                          style="--genus-label-row:@intervalLabel.Row;left:@Css(intervalLabel.Center * 100)%;color:@GenusInsightPresentation.RankColor(intervalLabel.Rank)">@intervalLabel.Text</span>
+                                }
+                            </div>
+                        }
+                    </div>
                 </div>
             }
         </div>
@@ -38,10 +74,21 @@
     [Parameter] public OverlayWidget Widget { get; set; } = new();
     private GenusInsightBoardView? Board => Snapshot.ViewedBoard;
     private bool Available => GenusInsightOverlayContent.Available(Snapshot);
+    private double TrackWidth => Math.Max(1, Widget.Width - 25 - 18 * Widget.FontScale);
+    private double MeasureRangeLabel(string text) => text.Sum(character => character is ',' or '.' ? 2.8 : 5.6) * Widget.FontScale;
     private static string? Machine(decimal? value) => value?.ToString(CultureInfo.InvariantCulture);
     private static string? Css(double? value) => value?.ToString("0.######", CultureInfo.InvariantCulture);
+    private string RangeDescription(GenusInsightOverlaySpectrum spectrum, string? unit) =>
+        string.Join('\n', Enumerable.Range(1, GenusInsightOverlaySpectrum.RankCount).Select(rank =>
+        {
+            var interval = spectrum.Interval((byte)rank);
+            var range = interval is { } lane
+                ? F("Wertebereich {0} bis {1}", ExactRangeValue(lane.Option.Minimum, unit), ExactRangeValue(lane.Option.Maximum, unit))
+                : T("Nicht verfügbar");
+            return $"{GenusInsightPresentation.RankName((byte)rank)}: {range}";
+        }));
     private string ExactRangeValue(decimal? value, string? unit) => value is { } number && unit is "Points" or "Percent"
-        ? number.ToString("0.############################", UiCulture) + (unit == "Percent" ? " %" : "") : "—";
+        ? GenusInsightOverlaySpectrum.BoundaryText(number, UiCulture) + (unit == "Percent" ? " %" : "") : "—";
     private string Value(decimal? value, string? unit) => value is { } number && unit is "Points" or "Percent"
         ? (unit == "Percent" ? decimal.Round(number, 1, MidpointRounding.ToEven).ToString("0.#", UiCulture) : number.ToString("0.##", UiCulture)) + (unit == "Percent" ? " %" : "") : "—";
 }

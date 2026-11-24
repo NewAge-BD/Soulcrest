@@ -26,8 +26,19 @@ def fetch_monster_materials(cache):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--materials-only', action='store_true')
+    parser.add_argument('--maps', nargs='+', choices=MAP_IDS,
+                        help='Fetch only these maps and their referenced marker images')
+    parser.add_argument('--refresh', action='store_true',
+                        help='Refresh selected map indexes and map data; cached images remain reusable')
     args = parser.parse_args()
+    if args.refresh and not args.maps:
+        parser.error('--refresh requires --maps')
+    if args.maps and args.materials_only:
+        parser.error('--maps and --materials-only are separate fetch modes')
     cache = PublicCache()
+    if args.maps:
+        fetch_maps(cache, args.maps, refresh=args.refresh)
+        return
     if args.materials_only:
         paths = fetch_monster_materials(cache)
         for index, path in enumerate(sorted(paths)):
@@ -81,5 +92,34 @@ def main():
     for i,path in enumerate(sorted(icon_paths)):
         cache.image(path)
         print('icon',i+1,len(icon_paths),flush=True)
+
+def fetch_maps(cache, map_ids, *, refresh=False):
+    """Targeted patch update, without fetching unrelated pets, NPCs or materials."""
+    icon_paths = set()
+    for locale in ['en', 'de']:
+        index = cache.data('interactive-map', locale=locale, refresh=refresh)
+        definitions = {str(row['id']): row for row in index['maps']}
+        missing = set(map_ids) - definitions.keys()
+        if missing:
+            raise ValueError('Selected maps are absent from the published index: ' + ', '.join(sorted(missing)))
+        for category in index['categories']:
+            icon_paths.update(t['iconPath'] for t in category.get('types', []) if t.get('iconPath'))
+        for mid in dict.fromkeys(map_ids):
+            markers = cache.data('interactive-map', mid, locale, refresh=refresh)
+            details = cache.data('maps', mid, locale, refresh=refresh)
+            if str(markers.get('id')) != mid or str(details.get('id')) != mid:
+                raise ValueError('Map detail identity mismatch: ' + mid)
+            if locale == 'en':
+                cache.cdn(definitions[mid]['map']['tilePackPath'], refresh=refresh)
+            icon_paths.update(point['iconPath'] for point in markers['points'] if point.get('iconPath'))
+            icon_paths.update(point['entity']['iconPath'] for point in markers['points']
+                              if 'boss' in point.get('types', []) and point.get('entity', {}).get('iconPath'))
+            icon_paths.update(group['iconPath'] for group in markers['groups']
+                              if group.get('entity', {}).get('mainCategoryId') == 'gatherables' and group.get('iconPath'))
+            print(locale, 'map', mid, definitions[mid]['name'], flush=True)
+    for path in sorted(icon_paths):
+        cache.image(path)
+    print('marker images', len(icon_paths), flush=True)
+
 
 if __name__=='__main__': main()
